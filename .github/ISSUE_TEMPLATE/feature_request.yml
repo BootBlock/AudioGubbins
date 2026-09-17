@@ -1,0 +1,66 @@
+name: Feature request
+description: Suggest an idea or an improvement.
+labels: ['type: enhancement', 'status: triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Redact your paths.** This repository is public and permanent, so replace anything like
+        `C:\Users\yourname\...` with `C:\Users\<user>\...` before you paste it. Do not attach
+        audio or a project you cannot publish.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the need or the pain point, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed idea
+      description: What you would like to see happen.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of the app does this touch?
+      multiple: true
+      options:
+        - Import, export or a codec
+        - Playback and the audio engine
+        - The waveform or timeline display
+        - Editing, or undo and redo
+        - Effects and processing
+        - Recording
+        - Spectral editing
+        - Projects and storage
+        - Game-audio tooling
+        - The Godot integration
+        - User interface, accessibility or input
+        - Offline use and installation
+        - Not sure
+    validations:
+      required: false
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Is this for game audio, music, speech, or something else?
+      multiple: true
+      options:
+        - Game audio
+        - Music production
+        - Speech or podcasting
+        - Sound design
+        - Restoration or repair
+        - Something else
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about, and why they fall short.
+    validations:
+      required: false

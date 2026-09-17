@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/BootBlock/AudioGubbins/security/advisories/new
+    about: Report privately here, not as a public issue. AudioGubbins losing or corrupting your work with no attacker involved is an ordinary bug, so use the bug report template for that.
+  - name: Why this project takes no pull requests
+    url: https://github.com/BootBlock/AudioGubbins/blob/main/CONTRIBUTING.md
+    about: Read this before opening a pull request. One from outside the project is closed unread, and an issue is the form the project can act on.
