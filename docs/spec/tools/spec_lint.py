@@ -26,8 +26,8 @@ for p in sorted((ROOT/"requirements").glob("*.md")):
     text=p.read_text(encoding="utf-8")
     for rid in re.findall(r'^##\s+(REQ-[A-Z]+-\d{3})\s+—', text, flags=re.M):
         if rid in seen:
-            ERRORS.append(f"duplicate requirement ID {rid}: {seen[rid]} and {p.relative_to(ROOT)}")
-        seen[rid]=str(p.relative_to(ROOT))
+            ERRORS.append(f"duplicate requirement ID {rid}: {seen[rid]} and {p.relative_to(ROOT).as_posix()}")
+        seen[rid]=p.relative_to(ROOT).as_posix()
 
 reg_ids=[r["id"] for r in reg]
 if len(reg_ids)!=len(set(reg_ids)):
@@ -91,7 +91,7 @@ for folder in ["requirements","contracts","phases","adr","traceability"]:
         if "template" in p.name: continue
         text=p.read_text(encoding="utf-8")
         if "Hardening status:" in text or "NOT HARDENED" in text:
-            ERRORS.append(f"stale pre-hardening marker in {p.relative_to(ROOT)}")
+            ERRORS.append(f"stale pre-hardening marker in {p.relative_to(ROOT).as_posix()}")
 
 # Authority safety
 for p in (ROOT/"requirements").glob("*.md"):

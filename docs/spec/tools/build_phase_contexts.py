@@ -57,7 +57,7 @@ def build_phase(phase):
     if relevant_adrs:
         pieces += ["# Relevant Accepted ADRs",""]
         for p,text in relevant_adrs:
-            pieces += [f"<!-- {p.relative_to(ROOT)} -->","",text,""]
+            pieces += [f"<!-- {p.relative_to(ROOT).as_posix()} -->","",text,""]
     handoffs=[]
     for d in entry["hard_dependencies"]:
         hp=ROOT/f"traceability/handoffs/phase-{d:02d}.md"
@@ -66,7 +66,7 @@ def build_phase(phase):
     if handoffs:
         pieces += ["# Passed Dependency Handoffs",""]
         for hp in handoffs:
-            pieces += [f"<!-- {hp.relative_to(ROOT)} -->","",hp.read_text(encoding="utf-8").strip(),""]
+            pieces += [f"<!-- {hp.relative_to(ROOT).as_posix()} -->","",hp.read_text(encoding="utf-8").strip(),""]
     pieces += ["# Current Ledger Entry","",
                "```json",json.dumps(entry,indent=2),"```",""]
     return "\n".join(pieces).rstrip()+"\n"
@@ -84,7 +84,7 @@ def main():
         out=OUTDIR/f"phase-{p:02d}-context.md"
         if args.check:
             if not out.exists() or out.read_text(encoding="utf-8")!=built:
-                errors.append(str(out.relative_to(ROOT)))
+                errors.append(out.relative_to(ROOT).as_posix())
         else:
             out.write_text(built,encoding="utf-8")
             print(f"Wrote {out}")
