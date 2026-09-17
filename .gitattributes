@@ -1,0 +1,28 @@
+# AudioGubbins keeps LF in the working tree on every platform.
+# Generated specification artefacts and deterministic golden files are compared
+# byte-for-byte, so an autocrlf checkout must not rewrite their line endings.
+* text=auto eol=lf
+
+# Binary assets: never normalise, never diff as text.
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.webp   binary
+*.gif    binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.wav    binary
+*.flac   binary
+*.ogg    binary
+*.opus   binary
+*.mp3    binary
+*.m4a    binary
+*.aiff   binary
+*.wasm   binary
+*.mp4    binary
+*.webm   binary
+
+# Lockfiles are generated; keep them out of diff noise but still merge-conflict aware.
+pnpm-lock.yaml  -diff
+Cargo.lock      -diff
