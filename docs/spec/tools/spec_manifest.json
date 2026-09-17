@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "title": "AudioGubbins Implementation Specification",
+  "canonical_files": {
+    "requirements": [
+      "requirements/product.md",
+      "requirements/architecture.md",
+      "requirements/editing.md",
+      "requirements/audio.md",
+      "requirements/recording.md",
+      "requirements/storage.md",
+      "requirements/game.md",
+      "requirements/godot.md",
+      "requirements/pwa.md",
+      "requirements/ux.md",
+      "requirements/privacy.md",
+      "requirements/repository.md",
+      "requirements/execution.md"
+    ],
+    "contracts": [
+      "contracts/decision-rules.md",
+      "contracts/agent-execution.md",
+      "contracts/architecture-invariants.md",
+      "contracts/review-gates.md",
+      "contracts/specification-execution.md",
+      "contracts/requirement-writing-standard.md"
+    ],
+    "adrs": [
+      "adr/ADR-0001-web-stack.md",
+      "adr/ADR-0002-project-persistence.md",
+      "adr/ADR-0003-audio-engine-wasm.md",
+      "adr/ADR-0004-renderer.md",
+      "adr/ADR-0005-godot-integration.md",
+      "adr/ADR-0006-history-model.md",
+      "adr/ADR-0007-runtime-capability-tiers.md",
+      "adr/ADR-0008-monorepo.md"
+    ],
+    "phases": [
+      "phases/phase-00-requirements-and-architectural-baseline.md",
+      "phases/phase-01-application-foundation.md",
+      "phases/phase-02-project-and-storage-system.md",
+      "phases/phase-03-audio-engine-foundation.md",
+      "phases/phase-04-waveform-and-timeline-foundation.md",
+      "phases/phase-05-core-non-destructive-editing.md",
+      "phases/phase-06-effect-rack-and-core-dsp.md",
+      "phases/phase-07-recording.md",
+      "phases/phase-08-spectral-editing.md",
+      "phases/phase-09-import-export-and-codec-system.md",
+      "phases/phase-10-game-audio-tooling.md",
+      "phases/phase-11-godot-integration.md",
+      "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
+      "phases/phase-15-release-readiness.md"
+    ],
+    "traceability": [
+      "traceability/phase-dependency-graph.md",
+      "traceability/requirements-register.md",
+      "traceability/verification-catalogue.md",
+      "traceability/implementation-ledger.md",
+      "traceability/handoffs/phase-00.md"
+    ]
+  },
+  "generated_output": "generated/AudioGubbins_Implementation_Specification.md",
+  "legacy_reference": "generated/LEGACY_Requirements_Baseline.md"
+}

@@ -1,0 +1,498 @@
+{
+  "schema_version": 1,
+  "phases": {
+    "00": {
+      "phase": 0,
+      "name": "Requirements and Architectural Baseline",
+      "status": "PASS",
+      "hard_dependencies": [],
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "requirements": [
+        "REQ-EXEC-002",
+        "REQ-EXEC-040",
+        "REQ-EXEC-041",
+        "REQ-EXEC-044",
+        "REQ-EXEC-136",
+        "REQ-EXEC-137",
+        "REQ-PROD-158",
+        "REQ-PRIV-163",
+        "REQ-EXEC-167",
+        "REQ-EXEC-168",
+        "REQ-EXEC-169",
+        "REQ-EXEC-170",
+        "REQ-EXEC-171",
+        "REQ-EXEC-172",
+        "REQ-EXEC-173",
+        "REQ-EXEC-174",
+        "REQ-EXEC-175",
+        "REQ-EXEC-176",
+        "REQ-EXEC-177",
+        "REQ-EXEC-178",
+        "REQ-EXEC-179",
+        "REQ-EXEC-180",
+        "REQ-EXEC-181",
+        "REQ-REPO-182",
+        "REQ-EXEC-183",
+        "REQ-EXEC-184",
+        "REQ-REPO-188",
+        "REQ-REPO-192",
+        "REQ-EXEC-201",
+        "REQ-EXEC-202",
+        "REQ-EXEC-203",
+        "REQ-EXEC-204",
+        "REQ-EXEC-205",
+        "REQ-EXEC-206",
+        "REQ-EXEC-207",
+        "REQ-EXEC-208",
+        "REQ-EXEC-209",
+        "REQ-EXEC-210",
+        "REQ-EXEC-211",
+        "REQ-EXEC-212",
+        "REQ-EXEC-213",
+        "REQ-EXEC-214",
+        "REQ-EXEC-215",
+        "REQ-EXEC-216",
+        "REQ-EXEC-217",
+        "REQ-EXEC-218",
+        "REQ-EXEC-219"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [
+        "reviews/hardening-review.md",
+        "reviews/verification-report.md"
+      ],
+      "handoff": "traceability/handoffs/phase-00.md"
+    },
+    "01": {
+      "phase": 1,
+      "name": "Application Foundation",
+      "status": "READY",
+      "hard_dependencies": [
+        0
+      ],
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "requirements": [
+        "REQ-ARCH-004",
+        "REQ-UX-005",
+        "REQ-PROD-006",
+        "REQ-PWA-031",
+        "REQ-REPO-033",
+        "REQ-ARCH-034",
+        "REQ-PROD-056",
+        "REQ-UX-057",
+        "REQ-UX-058",
+        "REQ-UX-059",
+        "REQ-UX-060",
+        "REQ-UX-066",
+        "REQ-UX-067",
+        "REQ-UX-068",
+        "REQ-UX-069",
+        "REQ-UX-070",
+        "REQ-UX-071",
+        "REQ-EDIT-072",
+        "REQ-EDIT-073",
+        "REQ-REPO-142",
+        "REQ-ARCH-151",
+        "REQ-ARCH-153",
+        "REQ-REPO-154",
+        "REQ-UX-155",
+        "REQ-PRIV-161",
+        "REQ-PRIV-162",
+        "REQ-PRIV-164",
+        "REQ-PRIV-165",
+        "REQ-REPO-185",
+        "REQ-REPO-186",
+        "REQ-REPO-187",
+        "REQ-REPO-191"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "02": {
+      "phase": 2,
+      "name": "Project and Storage System",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        1
+      ],
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "requirements": [
+        "REQ-STOR-021",
+        "REQ-STOR-025",
+        "REQ-STOR-026",
+        "REQ-STOR-027",
+        "REQ-PROD-038",
+        "REQ-STOR-052",
+        "REQ-STOR-053",
+        "REQ-STOR-055",
+        "REQ-STOR-098",
+        "REQ-STOR-099",
+        "REQ-STOR-100",
+        "REQ-STOR-101",
+        "REQ-STOR-102",
+        "REQ-STOR-103",
+        "REQ-STOR-104",
+        "REQ-STOR-105",
+        "REQ-STOR-106",
+        "REQ-STOR-166",
+        "REQ-STOR-193",
+        "REQ-STOR-194",
+        "REQ-STOR-195",
+        "REQ-STOR-196",
+        "REQ-STOR-197",
+        "REQ-STOR-198",
+        "REQ-STOR-199",
+        "REQ-STOR-200"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "03": {
+      "phase": 3,
+      "name": "Audio Engine Foundation",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        1
+      ],
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "requirements": [
+        "REQ-PROD-009",
+        "REQ-ARCH-011",
+        "REQ-ARCH-036",
+        "REQ-ARCH-049",
+        "REQ-ARCH-079",
+        "REQ-ARCH-081",
+        "REQ-ARCH-083",
+        "REQ-ARCH-084",
+        "REQ-ARCH-085",
+        "REQ-ARCH-087",
+        "REQ-ARCH-088",
+        "REQ-ARCH-140",
+        "REQ-ARCH-141",
+        "REQ-ARCH-144",
+        "REQ-ARCH-157"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "04": {
+      "phase": 4,
+      "name": "Waveform and Timeline Foundation",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        1,
+        3
+      ],
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "requirements": [
+        "REQ-EDIT-012",
+        "REQ-EDIT-013",
+        "REQ-ARCH-037",
+        "REQ-EDIT-061",
+        "REQ-EDIT-062",
+        "REQ-EDIT-063",
+        "REQ-EDIT-064",
+        "REQ-EDIT-065",
+        "REQ-AUDIO-082",
+        "REQ-AUDIO-152",
+        "REQ-AUDIO-156",
+        "REQ-PROD-160"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "05": {
+      "phase": 5,
+      "name": "Core Non-Destructive Editing",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        2,
+        3,
+        4
+      ],
+      "phase_file": "phases/phase-05-core-non-destructive-editing.md",
+      "requirements": [
+        "REQ-EDIT-008",
+        "REQ-EDIT-014",
+        "REQ-EDIT-015"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "06": {
+      "phase": 6,
+      "name": "Effect Rack and Core DSP",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        3,
+        5
+      ],
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "requirements": [
+        "REQ-AUDIO-017",
+        "REQ-AUDIO-018",
+        "REQ-AUDIO-019",
+        "REQ-PROD-039",
+        "REQ-AUDIO-080",
+        "REQ-AUDIO-086",
+        "REQ-AUDIO-138",
+        "REQ-AUDIO-139",
+        "REQ-AUDIO-143",
+        "REQ-AUDIO-145",
+        "REQ-AUDIO-146"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "07": {
+      "phase": 7,
+      "name": "Recording",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        2,
+        3,
+        5,
+        6
+      ],
+      "phase_file": "phases/phase-07-recording.md",
+      "requirements": [
+        "REQ-REC-020",
+        "REQ-REC-089",
+        "REQ-REC-090",
+        "REQ-REC-091",
+        "REQ-REC-092",
+        "REQ-REC-093",
+        "REQ-REC-094",
+        "REQ-REC-095",
+        "REQ-REC-096",
+        "REQ-REC-097"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "08": {
+      "phase": 8,
+      "name": "Spectral Editing",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "phase_file": "phases/phase-08-spectral-editing.md",
+      "requirements": [
+        "REQ-AUDIO-016"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "09": {
+      "phase": 9,
+      "name": "Import, Export, and Codec System",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        2,
+        3,
+        5,
+        6
+      ],
+      "phase_file": "phases/phase-09-import-export-and-codec-system.md",
+      "requirements": [
+        "REQ-AUDIO-010",
+        "REQ-AUDIO-050",
+        "REQ-ARCH-054"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "10": {
+      "phase": 10,
+      "name": "Game-Audio Tooling",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        5,
+        6,
+        9
+      ],
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "requirements": [
+        "REQ-GAME-023",
+        "REQ-GAME-075",
+        "REQ-GAME-120",
+        "REQ-GAME-121",
+        "REQ-GAME-122"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "11": {
+      "phase": 11,
+      "name": "Godot Integration",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        2,
+        3,
+        6,
+        9,
+        10
+      ],
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "requirements": [
+        "REQ-GODOT-024",
+        "REQ-GODOT-046",
+        "REQ-GODOT-047",
+        "REQ-GODOT-048",
+        "REQ-GODOT-107",
+        "REQ-GODOT-108",
+        "REQ-GODOT-109",
+        "REQ-GODOT-110",
+        "REQ-GODOT-111",
+        "REQ-GODOT-114",
+        "REQ-GODOT-115",
+        "REQ-GODOT-116",
+        "REQ-GODOT-117",
+        "REQ-GODOT-118",
+        "REQ-GODOT-119",
+        "REQ-GODOT-123",
+        "REQ-GODOT-124",
+        "REQ-GODOT-125",
+        "REQ-GODOT-126",
+        "REQ-GODOT-127",
+        "REQ-GODOT-128",
+        "REQ-GODOT-129",
+        "REQ-GODOT-130",
+        "REQ-GODOT-131",
+        "REQ-GODOT-132",
+        "REQ-GODOT-133",
+        "REQ-GODOT-134",
+        "REQ-GODOT-135",
+        "REQ-REPO-190"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "12": {
+      "phase": 12,
+      "name": "PWA, Offline, and Installation Hardening",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        1,
+        2,
+        9
+      ],
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "requirements": [
+        "REQ-PWA-028",
+        "REQ-PWA-030",
+        "REQ-PWA-032",
+        "REQ-PWA-051",
+        "REQ-PWA-076",
+        "REQ-PWA-077",
+        "REQ-PWA-078",
+        "REQ-PWA-159"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "13": {
+      "phase": 13,
+      "name": "Advanced Batch and Variation Workflows",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        5,
+        6,
+        9,
+        10,
+        11
+      ],
+      "phase_file": "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "requirements": [
+        "REQ-GAME-022",
+        "REQ-GAME-074",
+        "REQ-GAME-112",
+        "REQ-GAME-113"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "14": {
+      "phase": 14,
+      "name": "Performance, Compatibility, and Accessibility Hardening",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "phase_file": "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
+      "requirements": [
+        "REQ-UX-029",
+        "REQ-REPO-189"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    },
+    "15": {
+      "phase": 15,
+      "name": "Release Readiness",
+      "status": "NOT_READY",
+      "hard_dependencies": [
+        14
+      ],
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "requirements": [
+        "REQ-PROD-001",
+        "REQ-PROD-003",
+        "REQ-PROD-007",
+        "REQ-PROD-147",
+        "REQ-PROD-148",
+        "REQ-PROD-149",
+        "REQ-PROD-150"
+      ],
+      "open_verified_findings": [],
+      "commits": [],
+      "evidence": [],
+      "handoff": null
+    }
+  }
+}

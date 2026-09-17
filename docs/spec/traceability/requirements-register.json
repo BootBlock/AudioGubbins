@@ -1,0 +1,3934 @@
+{
+  "schema_version": 1,
+  "requirements": [
+    {
+      "id": "REQ-PROD-001",
+      "title": "Purpose",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 1,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-002",
+      "title": "Implementation Philosophy",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 2,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-003",
+      "title": "Product Positioning",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 3,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-004",
+      "title": "Core Architectural Principles",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 4,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-005",
+      "title": "User Experience Goals",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 5,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-006",
+      "title": "Primary Users",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 6,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-007",
+      "title": "Primary Workflow Example",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 7,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-008",
+      "title": "Editing Modes",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 5,
+      "owner_phase_name": "Core Non-Destructive Editing",
+      "phase_file": "phases/phase-05-core-non-destructive-editing.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "EDIT-UNIT",
+        "EDIT-PROPERTY",
+        "EDIT-E2E",
+        "DATA-ROUNDTRIP"
+      ],
+      "legacy_source_section": 8,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-009",
+      "title": "Audio Duration and Scale",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 9,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-010",
+      "title": "Format Support",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 9,
+      "owner_phase_name": "Import, Export, and Codec System",
+      "phase_file": "phases/phase-09-import-export-and-codec-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "CODEC-UNIT",
+        "CODEC-FIXTURES",
+        "CODEC-ROUNDTRIP",
+        "CODEC-MALFORMED",
+        "DSP-RUST"
+      ],
+      "legacy_source_section": 10,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-011",
+      "title": "Audio Precision",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 11,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-012",
+      "title": "Timeline and Editing Requirements",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 12,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-013",
+      "title": "Snapping",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 13,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-014",
+      "title": "Regions",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 5,
+      "owner_phase_name": "Core Non-Destructive Editing",
+      "phase_file": "phases/phase-05-core-non-destructive-editing.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "EDIT-UNIT",
+        "EDIT-PROPERTY",
+        "EDIT-E2E",
+        "DATA-ROUNDTRIP"
+      ],
+      "legacy_source_section": 14,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-015",
+      "title": "Channel Editing",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 5,
+      "owner_phase_name": "Core Non-Destructive Editing",
+      "phase_file": "phases/phase-05-core-non-destructive-editing.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "EDIT-UNIT",
+        "EDIT-PROPERTY",
+        "EDIT-E2E",
+        "DATA-ROUNDTRIP"
+      ],
+      "legacy_source_section": 15,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-016",
+      "title": "Spectral Editing",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 8,
+      "owner_phase_name": "Spectral Editing",
+      "phase_file": "phases/phase-08-spectral-editing.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "SPEC-UNIT",
+        "SPEC-GOLDEN",
+        "SPEC-E2E",
+        "DSP-RUST"
+      ],
+      "legacy_source_section": 16,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-017",
+      "title": "Effect Rack",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 17,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-018",
+      "title": "DSP Scope",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 18,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-019",
+      "title": "Preview and Comparison",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 19,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-020",
+      "title": "Recording",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 20,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-021",
+      "title": "Undo, Redo, Autosave, and Recovery",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 21,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-022",
+      "title": "Variation Generation",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 13,
+      "owner_phase_name": "Advanced Batch and Variation Workflows",
+      "phase_file": "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "VAR-UNIT",
+        "VAR-DETERMINISM",
+        "BATCH-RECOVERY",
+        "VAR-E2E"
+      ],
+      "legacy_source_section": 22,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-023",
+      "title": "Game-Audio Features",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 10,
+      "owner_phase_name": "Game-Audio Tooling",
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GAME-UNIT",
+        "LOOP-GOLDEN",
+        "GAME-E2E"
+      ],
+      "legacy_source_section": 23,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-024",
+      "title": "Godot Integration",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 24,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-025",
+      "title": "Storage Model",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 25,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-026",
+      "title": "Project Format",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 26,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-027",
+      "title": "Cache Model",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 27,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-028",
+      "title": "Platform Support",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 28,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-029",
+      "title": "Mobile and Touch",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 14,
+      "owner_phase_name": "Performance, Compatibility, and Accessibility Hardening",
+      "phase_file": "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "MATRIX-BROWSER",
+        "MATRIX-A11Y",
+        "MATRIX-PERF",
+        "MATRIX-STRESS",
+        "MATRIX-RECOVERY",
+        "GODOT-GUT"
+      ],
+      "legacy_source_section": 29,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-030",
+      "title": "PWA Requirements",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 30,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-031",
+      "title": "Local Development",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 31,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-032",
+      "title": "Deployment",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 32,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-033",
+      "title": "Source Control and Licensing",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 33,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-034",
+      "title": "Dependency Philosophy",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 34,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-036",
+      "title": "Processing Architecture Direction",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 36,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-037",
+      "title": "Waveform Rendering Direction",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 37,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-038",
+      "title": "Cloud Extensibility",
+      "category": "product",
+      "scope": "DEFERRED",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "DEFERRED",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 38,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-039",
+      "title": "Third-Party Plugins",
+      "category": "product",
+      "scope": "DEFERRED",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "DEFERRED",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 39,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-040",
+      "title": "Multi-Lens Review Model",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 40,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-041",
+      "title": "Gate Rule",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 41,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-044",
+      "title": "Standing Decision Rules",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 44,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-046",
+      "title": "Godot Integration Capability Strategy",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 46,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-047",
+      "title": "Godot Synchronisation Direction",
+      "category": "godot",
+      "scope": "DEFERRED",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "DEFERRED",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 47,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-048",
+      "title": "Godot Project Modification Safety",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 48,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-049",
+      "title": "Deterministic Rendering",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 49,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-050",
+      "title": "Presets and Advanced Codec Controls",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 9,
+      "owner_phase_name": "Import, Export, and Codec System",
+      "phase_file": "phases/phase-09-import-export-and-codec-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "CODEC-UNIT",
+        "CODEC-FIXTURES",
+        "CODEC-ROUNDTRIP",
+        "CODEC-MALFORMED",
+        "DSP-RUST"
+      ],
+      "legacy_source_section": 50,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-051",
+      "title": "Mobile Orientation Policy",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 51,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-052",
+      "title": "Project Schema Compatibility Policy",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 52,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-053",
+      "title": "External Source Change Policy",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 53,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-054",
+      "title": "Export Collision Policy",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 9,
+      "owner_phase_name": "Import, Export, and Codec System",
+      "phase_file": "phases/phase-09-import-export-and-codec-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "CODEC-UNIT",
+        "CODEC-FIXTURES",
+        "CODEC-ROUNDTRIP",
+        "CODEC-MALFORMED",
+        "DSP-RUST"
+      ],
+      "legacy_source_section": 54,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-055",
+      "title": "Undo/Redo Retention Policy",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 55,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-056",
+      "title": "Product Name",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 56,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-057",
+      "title": "Dockable Workspace System",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 57,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-058",
+      "title": "Workspace Presets",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 58,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-059",
+      "title": "Workspace State Persistence",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 59,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-060",
+      "title": "Asset Browser and Editor Tabs",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 60,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-061",
+      "title": "Multiple Views of the Same Asset",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 61,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-062",
+      "title": "Waveform and Spectral Presentation Modes",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 62,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-063",
+      "title": "Explicit Selection Model",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 63,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-064",
+      "title": "Selection Persistence",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 64,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-065",
+      "title": "Hybrid Tool System",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 65,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-066",
+      "title": "Shortcut System",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 66,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-067",
+      "title": "Touch and Gesture Model",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 67,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-068",
+      "title": "Stylus and Pressure Input",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 68,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-069",
+      "title": "Motion and Animation",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 69,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-070",
+      "title": "Theme System",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 70,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-071",
+      "title": "Information Density and UI Customisation",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 71,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-072",
+      "title": "Contextual Inspector",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 72,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EDIT-073",
+      "title": "Unified Typed Command Architecture",
+      "category": "editing",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 73,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-074",
+      "title": "Macros and Action Sequences",
+      "category": "game",
+      "scope": "PLANNED",
+      "owner_phase": 13,
+      "owner_phase_name": "Advanced Batch and Variation Workflows",
+      "phase_file": "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "VAR-UNIT",
+        "VAR-DETERMINISM",
+        "BATCH-RECOVERY",
+        "VAR-E2E"
+      ],
+      "legacy_source_section": 74,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-075",
+      "title": "Guided Task Workflows",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 10,
+      "owner_phase_name": "Game-Audio Tooling",
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GAME-UNIT",
+        "LOOP-GOLDEN",
+        "GAME-E2E"
+      ],
+      "legacy_source_section": 75,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-076",
+      "title": "Runtime Capability Tiers",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 76,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-077",
+      "title": "Capability Degradation Transparency",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 77,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-078",
+      "title": "Graceful Performance Degradation",
+      "category": "pwa",
+      "scope": "CURRENT",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 78,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-079",
+      "title": "Adaptive Processing Modes",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 79,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-080",
+      "title": "Preview Quality and Final Render Quality",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 80,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-081",
+      "title": "Canonical Deterministic Processing",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 81,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-082",
+      "title": "GPU Acceleration Strategy",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 82,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-083",
+      "title": "Audio Performance Profiles",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 83,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-084",
+      "title": "Foreground and Background Processing Priority",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 84,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-085",
+      "title": "Native Asset Sample Rates and Future Session Rate",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 85,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-086",
+      "title": "Quality Presets and Expert Controls",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 86,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-087",
+      "title": "Resource-Aware Operation Without Artificial Limits",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 87,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-088",
+      "title": "Fully Local Core Processing",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 88,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-089",
+      "title": "Recording Take Management",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 89,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-090",
+      "title": "Retrospective Recording",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 90,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-091",
+      "title": "Input Monitoring Safety",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 91,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-092",
+      "title": "Capture Processing Profiles",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 92,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-093",
+      "title": "Non-Destructive Punch Recording",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 93,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-094",
+      "title": "Device Latency, Bluetooth, and Recording Diagnostics",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 94,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-095",
+      "title": "Recording Latency Calibration",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 95,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-096",
+      "title": "Recording Resilience",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 96,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REC-097",
+      "title": "Recording Capability Transparency",
+      "category": "recording",
+      "scope": "CURRENT",
+      "owner_phase": 7,
+      "owner_phase_name": "Recording",
+      "phase_file": "phases/phase-07-recording.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "REC-UNIT",
+        "REC-STATE",
+        "REC-RECOVERY",
+        "REC-E2E"
+      ],
+      "legacy_source_section": 97,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-098",
+      "title": "Concurrent Project Access and Single-Writer Ownership",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 98,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-099",
+      "title": "Content-Addressed Media Storage and Deduplication",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 99,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-100",
+      "title": "Project Encryption Scope",
+      "category": "storage",
+      "scope": "EXCLUDED",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "ACTIVE_EXCLUSION",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 100,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-101",
+      "title": "Command Journal and Immutable Snapshot Persistence",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 101,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-102",
+      "title": "Deleted Media Retention and Explicit Purge",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 102,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-103",
+      "title": "Git-Friendly Unpacked Project Format",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 103,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-104",
+      "title": "External Source Identity and Integrity Tracking",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 104,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-105",
+      "title": "Automatic Backup Generations",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 105,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-106",
+      "title": "Storage Cleanup Priority",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 106,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-107",
+      "title": "Godot Integration Architecture",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 107,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-108",
+      "title": "AudioGubbins Godot Editor Addon",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 108,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-109",
+      "title": "Godot Runtime Addon",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 109,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-110",
+      "title": "Godot-Native Resource Model",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 110,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-111",
+      "title": "AudioGubbins Event Model for Godot",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 111,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-112",
+      "title": "Variation Sets as a First-Class Domain Concept",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 13,
+      "owner_phase_name": "Advanced Batch and Variation Workflows",
+      "phase_file": "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "VAR-UNIT",
+        "VAR-DETERMINISM",
+        "BATCH-RECOVERY",
+        "VAR-E2E"
+      ],
+      "legacy_source_section": 112,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-113",
+      "title": "Runtime Variation Selection",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 13,
+      "owner_phase_name": "Advanced Batch and Variation Workflows",
+      "phase_file": "phases/phase-13-advanced-batch-and-variation-workflows.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "VAR-UNIT",
+        "VAR-DETERMINISM",
+        "BATCH-RECOVERY",
+        "VAR-E2E"
+      ],
+      "legacy_source_section": 113,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-114",
+      "title": "Runtime Parameterisation",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 114,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-115",
+      "title": "Godot Playback Components and API",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 115,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-116",
+      "title": "Editor-to-Runtime Data Pipeline",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 116,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-117",
+      "title": "Live Godot Export and Synchronisation",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 117,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-118",
+      "title": "Source and Generated Asset Placement",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 118,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-119",
+      "title": "Persistent Export Recipes",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 119,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-120",
+      "title": "Asset Groups and Inherited Game-Audio Policy",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 10,
+      "owner_phase_name": "Game-Audio Tooling",
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GAME-UNIT",
+        "LOOP-GOLDEN",
+        "GAME-E2E"
+      ],
+      "legacy_source_section": 120,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-121",
+      "title": "Seamless Loop Analysis and Validation",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 10,
+      "owner_phase_name": "Game-Audio Tooling",
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GAME-UNIT",
+        "LOOP-GOLDEN",
+        "GAME-E2E"
+      ],
+      "legacy_source_section": 121,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GAME-122",
+      "title": "Game-Context Preview Simulator",
+      "category": "game",
+      "scope": "CURRENT",
+      "owner_phase": 10,
+      "owner_phase_name": "Game-Audio Tooling",
+      "phase_file": "phases/phase-10-game-audio-tooling.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GAME-UNIT",
+        "LOOP-GOLDEN",
+        "GAME-E2E"
+      ],
+      "legacy_source_section": 122,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-123",
+      "title": "Godot-Side Generated Descriptors",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 123,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-124",
+      "title": "Multiple Godot Targets",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 124,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-125",
+      "title": "Godot Addon Packaging and Independence",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 125,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-126",
+      "title": "Godot Integration Safety and Review Requirements",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 126,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-127",
+      "title": "Godot Runtime Integration Direction",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 127,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-128",
+      "title": "Parameter-Driven Runtime Audio Model",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 128,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-129",
+      "title": "Layered and Composite Events",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 129,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-130",
+      "title": "Advanced Event Authoring Direction",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 130,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-131",
+      "title": "Godot Generated Data Location",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 131,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-132",
+      "title": "Git and Source-Control Behaviour for Godot Integration",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 132,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-133",
+      "title": "Runtime Independence and Open Asset Principle",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 133,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-134",
+      "title": "Live Synchronisation Architecture",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 134,
+      "evidence": []
+    },
+    {
+      "id": "REQ-GODOT-135",
+      "title": "Godot Runtime Diagnostics and Debugging",
+      "category": "godot",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 135,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-136",
+      "title": "AudioGubbins Agent Implementation Guardrails",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 136,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-137",
+      "title": "Specification Clarity Requirements for Agent Execution",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 137,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-138",
+      "title": "Local Machine-Learning Processing",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 138,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-139",
+      "title": "ML Model Packs and Storage",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 139,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-140",
+      "title": "Typed Directed Processing Graph",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 140,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-141",
+      "title": "DSP Implementation Languages",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 141,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-142",
+      "title": "Open-Source Licence",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 142,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-143",
+      "title": "Render Quality Policy",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 143,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-144",
+      "title": "Processor Latency and Automatic Delay Compensation",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 144,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-145",
+      "title": "Processor Versioning and Reproducibility",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 145,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-146",
+      "title": "DSP Architecture Review Requirements",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 6,
+      "owner_phase_name": "Effect Rack and Core DSP",
+      "phase_file": "phases/phase-06-effect-rack-and-core-dsp.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DSP-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "DSP-PROPERTY",
+        "ML-LOCALITY"
+      ],
+      "legacy_source_section": 146,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-147",
+      "title": "Release-Version Philosophy",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 147,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-148",
+      "title": "Continuous Feature-Delivery Policy",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 148,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-149",
+      "title": "Release Channel and Maturity Labels",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 149,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-150",
+      "title": "Real-World Validation Before Stable Releases",
+      "category": "product",
+      "scope": "CURRENT",
+      "owner_phase": 15,
+      "owner_phase_name": "Release Readiness",
+      "phase_file": "phases/phase-15-release-readiness.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "RELEASE-VERIFY",
+        "FULL-SUITE",
+        "REALWORLD-VALIDATION",
+        "SPEC-LINT"
+      ],
+      "legacy_source_section": 150,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-151",
+      "title": "Initial Front-End and Workspace Technology Selection",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 151,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-152",
+      "title": "High-Performance Editor Rendering Layer",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 152,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-153",
+      "title": "State Ownership and Workflow State",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 153,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-154",
+      "title": "Repository and Package Topology",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 154,
+      "evidence": []
+    },
+    {
+      "id": "REQ-UX-155",
+      "title": "Styling and Design-System Architecture",
+      "category": "ux",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 155,
+      "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-156",
+      "title": "Video Reference and Sound-to-Picture Workflows",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 156,
+      "evidence": []
+    },
+    {
+      "id": "REQ-ARCH-157",
+      "title": "Multichannel, Surround, and Ambisonic Audio",
+      "category": "architecture",
+      "scope": "CURRENT",
+      "owner_phase": 3,
+      "owner_phase_name": "Audio Engine Foundation",
+      "phase_file": "phases/phase-03-audio-engine-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "AUDIO-UNIT",
+        "DSP-RUST",
+        "AUDIO-GOLDEN",
+        "AUDIO-LATENCY",
+        "AUDIO-RESPONSIVENESS"
+      ],
+      "legacy_source_section": 157,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-158",
+      "title": "MIDI Scope Exclusion",
+      "category": "product",
+      "scope": "EXCLUDED",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "ACTIVE_EXCLUSION",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 158,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PWA-159",
+      "title": "Future Native Host or Local Bridge",
+      "category": "pwa",
+      "scope": "DEFERRED",
+      "owner_phase": 12,
+      "owner_phase_name": "PWA, Offline, and Installation Hardening",
+      "phase_file": "phases/phase-12-pwa-offline-and-installation-hardening.md",
+      "status": "DEFERRED",
+      "verification_plan": [
+        "PWA-BUILD",
+        "PWA-OFFLINE",
+        "PWA-UPDATE",
+        "PWA-GHPAGES",
+        "PWA-BROWSER"
+      ],
+      "legacy_source_section": 159,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PROD-160",
+      "title": "Musical Timeline and Tempo Features \u2014 Deferred Possibility",
+      "category": "product",
+      "scope": "DEFERRED",
+      "owner_phase": 4,
+      "owner_phase_name": "Waveform and Timeline Foundation",
+      "phase_file": "phases/phase-04-waveform-and-timeline-foundation.md",
+      "status": "DEFERRED",
+      "verification_plan": [
+        "TIMELINE-UNIT",
+        "WAVEFORM-UNIT",
+        "RENDERER-E2E",
+        "INPUT-E2E",
+        "VIDEO-REF"
+      ],
+      "legacy_source_section": 160,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PRIV-161",
+      "title": "Diagnostic Submission and Consent Policy",
+      "category": "privacy",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 161,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PRIV-162",
+      "title": "Usage Analytics Policy",
+      "category": "privacy",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 162,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PRIV-163",
+      "title": "Collaboration Scope Exclusion",
+      "category": "privacy",
+      "scope": "EXCLUDED",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "ACTIVE_EXCLUSION",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 163,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PRIV-164",
+      "title": "Language and Localisation Policy",
+      "category": "privacy",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 164,
+      "evidence": []
+    },
+    {
+      "id": "REQ-PRIV-165",
+      "title": "Structured Diagnostic Logging",
+      "category": "privacy",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 165,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-166",
+      "title": "Asset Provenance and Traceability",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 166,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-167",
+      "title": "Agent Execution Contract",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 167,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-168",
+      "title": "Requirement Conflict and Deviation Protocol",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 168,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-169",
+      "title": "Architectural Autonomy and ADR Policy",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 169,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-170",
+      "title": "Independent Multi-Lens and Adversarial Review",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 170,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-171",
+      "title": "Review Finding Verification and Remediation",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 171,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-172",
+      "title": "Review Severity and Gate Semantics",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 172,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-173",
+      "title": "No Autonomous Scope Reduction",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 173,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-174",
+      "title": "TODO and Acceptance-Criteria Integrity",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 174,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-175",
+      "title": "Dependency Introduction Policy",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 175,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-176",
+      "title": "Cohesion and Complexity Guardrails",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 176,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-177",
+      "title": "Anti-God-Object and Module-Ownership Rules",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 177,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-178",
+      "title": "Design-Principle Anti-Cargo-Cult Rule",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 178,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-179",
+      "title": "Refactoring Expectations During Phase Work",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 179,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-180",
+      "title": "Test Integrity and Anti-Cheating Rules",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 180,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-181",
+      "title": "Placeholder, Stub, and Temporary-Code Gate Rule",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 181,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-182",
+      "title": "Source-Control Execution Model",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 182,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-183",
+      "title": "Phase Evidence Package",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 183,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-184",
+      "title": "Architecture Enforcement Tests",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 184,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-185",
+      "title": "Repository and Monorepo Structure",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 185,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-186",
+      "title": "Package and Workspace Management",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 186,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-187",
+      "title": "Product Versioning",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 187,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-188",
+      "title": "Tiered Verification and CI Requirements",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 188,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-189",
+      "title": "Performance Regression Philosophy",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 14,
+      "owner_phase_name": "Performance, Compatibility, and Accessibility Hardening",
+      "phase_file": "phases/phase-14-performance-compatibility-and-accessibility-hardening.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "MATRIX-BROWSER",
+        "MATRIX-A11Y",
+        "MATRIX-PERF",
+        "MATRIX-STRESS",
+        "MATRIX-RECOVERY",
+        "GODOT-GUT"
+      ],
+      "legacy_source_section": 189,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-190",
+      "title": "Godot Automated Testing with GUT",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 11,
+      "owner_phase_name": "Godot Integration",
+      "phase_file": "phases/phase-11-godot-integration.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "GODOT-SCHEMA",
+        "GODOT-GUT",
+        "GODOT-GENERATION",
+        "GODOT-LIVE"
+      ],
+      "legacy_source_section": 190,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-191",
+      "title": "Reference Assets, Fixtures, and Example Projects",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 1,
+      "owner_phase_name": "Application Foundation",
+      "phase_file": "phases/phase-01-application-foundation.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "APP-LINT",
+        "APP-TYPE",
+        "APP-UNIT",
+        "APP-ARCH",
+        "APP-E2E-SMOKE"
+      ],
+      "legacy_source_section": 191,
+      "evidence": []
+    },
+    {
+      "id": "REQ-REPO-192",
+      "title": "CI/Repository Setup Handoff Requirement",
+      "category": "repository",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 192,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-193",
+      "title": "Branching Project History",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 193,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-194",
+      "title": "Named Project Snapshots",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 194,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-195",
+      "title": "Whole-Project A/B State Comparison",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 195,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-196",
+      "title": "History Workspace Panel",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 196,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-197",
+      "title": "Export Provenance in Project History",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 197,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-198",
+      "title": "External Side Effects and Undo Semantics",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 198,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-199",
+      "title": "Project Forks from Historical State",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 199,
+      "evidence": []
+    },
+    {
+      "id": "REQ-STOR-200",
+      "title": "History Storage Inspection and Compaction",
+      "category": "storage",
+      "scope": "CURRENT",
+      "owner_phase": 2,
+      "owner_phase_name": "Project and Storage System",
+      "phase_file": "phases/phase-02-project-and-storage-system.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "DATA-UNIT",
+        "DATA-RECOVERY",
+        "DATA-ROUNDTRIP",
+        "DATA-QUOTA",
+        "APP-ARCH"
+      ],
+      "legacy_source_section": 200,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-201",
+      "title": "Specification Execution Architecture",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 201,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-202",
+      "title": "Normative Requirement Identifiers",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 202,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-203",
+      "title": "Phase Packet Contract",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 203,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-204",
+      "title": "Phase Context Loading Protocol",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 204,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-205",
+      "title": "Requirement Traceability Matrix",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 205,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-206",
+      "title": "Phase Dependency Graph and Readiness Gate",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 206,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-207",
+      "title": "Phase Size and Internal Work Breakdown",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 207,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-208",
+      "title": "Parallel-Agent and Worktree Coordination",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 208,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-209",
+      "title": "Implementation Ledger",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 209,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-210",
+      "title": "Phase Handoff Capsule",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 210,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-211",
+      "title": "Decision Authority and Conflict Resolution",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 211,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-212",
+      "title": "Specification Change Control During Implementation",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 212,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-213",
+      "title": "Specification Static Validation",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 213,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-214",
+      "title": "Context-Overload Guardrail",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 214,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-215",
+      "title": "Requirements-to-Tests Rule",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 215,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-216",
+      "title": "No Hidden Implementation Assumptions",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 216,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-217",
+      "title": "Specification Hardening Milestone Before Production Implementation",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 217,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-218",
+      "title": "Adversarial Specification Review",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 218,
+      "evidence": []
+    },
+    {
+      "id": "REQ-EXEC-219",
+      "title": "Compiled Specification Generation",
+      "category": "execution",
+      "scope": "CURRENT",
+      "owner_phase": 0,
+      "owner_phase_name": "Requirements and Architectural Baseline",
+      "phase_file": "phases/phase-00-requirements-and-architectural-baseline.md",
+      "status": "SATISFIED_BASELINE",
+      "verification_plan": [
+        "SPEC-LINT",
+        "SPEC-BUILD",
+        "SPEC-ADVERSARIAL"
+      ],
+      "legacy_source_section": 219,
+      "evidence": []
+    }
+  ]
+}
