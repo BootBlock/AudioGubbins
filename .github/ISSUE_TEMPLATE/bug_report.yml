@@ -1,0 +1,108 @@
+name: Bug report
+description: Report something that is not working correctly.
+labels: ['type: bug', 'status: triage']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please fill in enough detail for someone to
+        reproduce it.
+
+        **Redact your paths before you paste anything.** This repository is public and permanent,
+        so replace anything like `C:\Users\yourname\...` with `C:\Users\<user>\...`, and check any
+        screenshot for the same before you attach it.
+
+        **Do not attach audio or a project you cannot publish.** Reproduce the problem with a
+        short synthetic file where you can, and describe the original instead of uploading it.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What the app did, and what you expected instead.
+      placeholder: When I..., I expected..., but instead...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The exact steps that trigger the problem.
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. See...
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen?
+      multiple: true
+      options:
+        - Opening or importing a file
+        - Playback or the audio engine
+        - The waveform or timeline display
+        - Editing, or undo and redo
+        - Effects and processing
+        - Recording
+        - Spectral editing
+        - Export or rendering
+        - Saving, opening or recovering a project
+        - Installing or using it offline
+        - The Godot integration
+        - Somewhere else
+    validations:
+      required: false
+  - type: textarea
+    id: work-lost
+    attributes:
+      label: Did you lose any work?
+      description: >-
+        Say so plainly if a project, a take or an edit was lost, corrupted or silently changed.
+        A confirmed report of that kind takes precedence over other work. If you have not yet
+        reopened or re-saved the project, leave it alone and report first.
+    validations:
+      required: false
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and operating system
+      placeholder: e.g. Chrome 141 on Windows 11, Safari 26 on macOS 26
+    validations:
+      required: true
+  - type: dropdown
+    id: installed
+    attributes:
+      label: How were you running it?
+      options:
+        - In a browser tab
+        - Installed as an app
+        - Not sure
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: AudioGubbins version
+      placeholder: e.g. 0.1.0
+    validations:
+      required: false
+  - type: textarea
+    id: audio
+    attributes:
+      label: What audio was involved?
+      description: >-
+        Only relevant when the problem depends on the file. The format, sample rate, bit depth,
+        channel count and rough length all help, because each codec and layout takes its own path.
+      placeholder: e.g. 24-bit 96 kHz FLAC, 5.1, about 3 minutes
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: >-
+        A screenshot or a console error helps. Redact every path first, and crop out your user
+        name and machine name.
+    validations:
+      required: false
