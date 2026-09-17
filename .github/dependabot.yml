@@ -1,0 +1,61 @@
+# Dependabot watches three ecosystems here: the pnpm workspace, the Cargo workspace, and the
+# actions used by the workflows. Updates are grouped so that a week's worth of patches arrives as
+# a few pull requests rather than dozens, and each group carries the labels the triage taxonomy
+# expects.
+#
+# Dependabot's own pull requests come from a branch in this repository, not a fork, so the
+# close-external-pull-requests workflow leaves them alone.
+#
+# Actions must be pinned to a commit SHA in this repository. Dependabot updates a pinned SHA and
+# the version comment beside it, so that requirement and these updates do not conflict.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directories:
+      - '/'
+      - '/apps/*'
+      - '/packages/*'
+      - '/tools'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - 'type: chore'
+      - 'area: build'
+    groups:
+      npm-production:
+        dependency-type: production
+        update-types: ['minor', 'patch']
+      npm-development:
+        dependency-type: development
+        update-types: ['minor', 'patch']
+
+  - package-ecosystem: cargo
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - 'type: chore'
+      - 'area: build'
+    groups:
+      cargo:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - 'type: chore'
+      - 'area: ci'
+    groups:
+      actions:
+        patterns: ['*']
