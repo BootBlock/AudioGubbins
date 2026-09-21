@@ -15,3 +15,52 @@ export_credentials.cfg
 .mono/
 data_*/
 mono_crash.*.json
+
+# ---------------------------------------------------------------------------
+# AudioGubbins (Node/TypeScript/Rust monorepo)
+# ---------------------------------------------------------------------------
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+target/
+*.tsbuildinfo
+
+# The service worker the development server builds, beside the bundle's own.
+dev-dist/
+
+# Test and coverage output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Tooling caches
+.eslintcache
+.vite/
+.turbo/
+
+# Python bytecode from the specification tooling
+__pycache__/
+*.py[cod]
+
+# Editor and OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local environment overrides
+.env
+.env.local
+.env.*.local
+
+# The sub-path build the browser suite serves as a GitHub Pages project site.
+dist-pages/
