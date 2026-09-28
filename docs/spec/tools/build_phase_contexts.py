@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import argparse, json, re, hashlib, sys
+import argparse, io, json, re, hashlib, sys
 
 ROOT=Path(__file__).resolve().parents[1]
 OUTDIR=ROOT/"generated/context"
@@ -86,7 +86,9 @@ def main():
             if not out.exists() or out.read_text(encoding="utf-8")!=built:
                 errors.append(out.relative_to(ROOT).as_posix())
         else:
-            out.write_text(built,encoding="utf-8")
+            # Newlines written verbatim; see tools/build_spec.py.
+            with io.open(out,"w",encoding="utf-8",newline="\n") as handle:
+                handle.write(built)
             print(f"Wrote {out}")
     if errors:
         print("ERROR: stale/missing phase context packs:")

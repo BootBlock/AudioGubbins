@@ -1,0 +1,561 @@
+/*
+ * The application shell: menu bar, workspace, status bar.
+ *
+ * Every value reads a design token, so the theme, the density and the contrast
+ * settings reach the shell without a component holding a number (REQ-UX-155).
+ */
+
+/*
+ * The one column is allowed to be narrower than what is in it.
+ *
+ * An `auto` track's base size is its items' min-content contribution, so an
+ * `auto` column could be no narrower than the menu bar's unbreakable row: at a
+ * 320-pixel page it would be 409 wide, and `overflow: hidden` would cut the
+ * difference off with no scroll position that brings it back. What would be cut
+ * is the only thing drawn at that width — the right of every line of the
+ * notice, and the Commands button with it, which is the chrome's one pointer
+ * route to the palette. `minmax(0, 1fr)` lets the track shrink, and what is in
+ * it wraps or is cut with an ellipsis by a rule of its own.
+ */
+.ag-app {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  block-size: 100dvh;
+  overflow: hidden;
+}
+
+/*
+ * The display's unsafe edges.
+ *
+ * The page asks to be drawn edge to edge (`viewport-fit=cover`), so on a phone
+ * or tablet with a notch, rounded corners or a home indicator the browser draws
+ * under them, and it is the page's job to keep its controls out. Without the
+ * insets below, the menu bar would sit under the notch in landscape and the
+ * status bar under the home indicator. The bars keep drawing to the edges,
+ * which is why the request is worth making, and their contents, and the
+ * workspace, keep clear of them. Every inset is zero on a display without them.
+ */
+.ag-menu-bar {
+  grid-row: 1;
+  display: flex;
+  /* Onto a second line rather than off the page. Five unbreakable items need
+     more than a phone's width, and every one of them is a way into the
+     application. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  padding: var(--ag-space-tiny);
+  padding-block-start: calc(var(--ag-space-tiny) + env(safe-area-inset-top, 0px));
+  padding-inline: calc(var(--ag-space-tiny) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-tiny) + env(safe-area-inset-right, 0px));
+  background-color: var(--ag-chrome-surface-raised);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+/*
+ * The bars inside the header share the header's surface.
+ *
+ * Each would otherwise draw its own background and its own bottom border, so a
+ * header holding two of them would show two edges where the design has one.
+ */
+.ag-menu-bar .ag-toolbar {
+  padding: 0;
+  background: none;
+  border-block-end: none;
+}
+
+/* The document's one `h1`, drawn as the name in the bar rather than as a
+   heading: the browser's own `h1` is twice the body size with a margin of its
+   own, which would push the menu bar open. */
+.ag-product-name {
+  margin: 0;
+  padding-inline: var(--ag-space-small);
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  /* The last thing to give, and it gives rather than pushing a control off the
+     page: a flex item's minimum is its content unless it is told otherwise. */
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The workspace is a stacking context of its own.
+ *
+ * The docking engine layers its splitters, drop targets and floating groups
+ * with stacking orders up to the thousands. Uncontained, once the groups took
+ * the sizes their layout asks for, a splitter would lie under the View menu and
+ * take the click aimed at an entry. Isolated here, every one of those layers
+ * stays inside the workspace, and a menu, a dialogue or a notice portalled into
+ * the document is always above all of them.
+ */
+.ag-workspace {
+  isolation: isolate;
+  grid-row: 2;
+  min-block-size: 0;
+  padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
+  background-color: var(--ag-chrome-surface-base);
+}
+
+/*
+ * Below the width a docking layout needs (REQ-UX-057.1), the workspace says so
+ * rather than drawing one.
+ *
+ * Why, once, in `apps/web/src/shell/too-narrow.tsx`, which is where the number
+ * the application draws is declared. The number is written three times — there,
+ * here, and in the message's own browser test — because a media query cannot
+ * read a custom property, so the rule and the message cannot share a token; an
+ * architecture rule holds the three equal.
+ *
+ * `display: none` rather than hiding it visually: the dock is left mounted so
+ * that widening the window brings the arrangement back untouched, and nothing
+ * inside it should be in the tab order or read out while it cannot be seen.
+ */
+.ag-too-narrow {
+  display: none;
+}
+
+/* Narrower than the width `too-narrow.tsx` names, written as a range rather
+   than as that width minus one, for the reason given there. */
+@media (width < 640px) {
+  .ag-workspace > .ag-dock-host,
+  .ag-workspace > :not(.ag-too-narrow) {
+    display: none;
+  }
+
+  .ag-too-narrow {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ag-space-small);
+    /* `safe`, so the head of the notice stays reachable. A centred flex
+       container whose content is taller than it puts the overflow at the start
+       edge, where no scroll position brings it back: without `safe`, at a short
+       viewport the heading would go out of reach on every engine. */
+    justify-content: safe center;
+    /* Its padding counted in. Content-box with `block-size: 100%`, its border
+       box would be a padding taller than the workspace, and the shell is
+       `overflow: hidden`, so the foot of the notice would be cut off. */
+    box-sizing: border-box;
+    block-size: 100%;
+    padding: var(--ag-space-large);
+    overflow-y: auto;
+    color: var(--ag-chrome-text-primary);
+  }
+
+  .ag-too-narrow-heading {
+    margin: 0;
+    font-size: var(--ag-text-large);
+    font-weight: 600;
+  }
+
+  .ag-too-narrow p {
+    margin: 0;
+    color: var(--ag-chrome-text-secondary);
+  }
+}
+
+.ag-status-bar {
+  grid-row: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small) var(--ag-space-medium);
+
+  min-block-size: var(--ag-control-compact-height);
+  /* At most a third of the screen, and scrolled past that: unbounded, wrapped
+     notices would grow the bar until the workspace above it had no height at
+     all, at a narrow width or a large zoom. Its padding and border are counted
+     in. */
+  box-sizing: border-box;
+  max-block-size: 33dvh;
+  overflow-y: auto;
+  padding-inline: calc(var(--ag-space-small) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-small) + env(safe-area-inset-right, 0px));
+  /* Room for the focus ring above and below each button. Scrolled, the bar
+     clips what reaches past its padding, and its buttons fill its height, so
+     without this room the ring would lose its top and bottom edges. */
+  padding-block-start: var(--ag-focus-ring-reach);
+  padding-block-end: calc(var(--ag-focus-ring-reach) + env(safe-area-inset-bottom, 0px));
+
+  border-block-start: 1px solid var(--ag-chrome-border-subtle);
+  background-color: var(--ag-chrome-surface-raised);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+/* Its ring is drawn inside it. Reached by Tab while it scrolls, the bar sits at
+   the foot of a page that clips whatever reaches past it, so a ring drawn
+   outside would lose its bottom edge. The rule names the theme, so it outranks
+   the theme's ring, in forced colours as well. */
+[data-ag-theme] .ag-status-bar:focus-visible {
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+}
+
+/* A word too long for the bar breaks where it must, rather than reaching past
+   the bar's end: a workspace name may be 120 characters with no space, wider
+   than the bar at the narrowest width a page reflows to. The breaks count
+   towards the item's smallest width as well, so it shrinks with the bar. */
+.ag-status-item {
+  overflow-wrap: anywhere;
+}
+
+.ag-status-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+  min-inline-size: 0;
+}
+
+.ag-status-spacer {
+  flex: 1 1 auto;
+}
+
+/* Panels. */
+
+/*
+ * A panel fills its group and grows past it; the group's own content element,
+ * which the keyboard can reach, is what scrolls. A panel that scrolled itself
+ * would be a scrolling region with no way in from the keyboard.
+ */
+.ag-panel {
+  box-sizing: border-box;
+  min-block-size: 100%;
+  padding: var(--ag-space-medium);
+  background-color: var(--ag-chrome-surface-raised);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-panel-title {
+  margin: 0 0 var(--ag-space-small);
+  font-size: var(--ag-text-large);
+  font-weight: 600;
+}
+
+.ag-panel-note {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-panel-pending {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: var(--ag-space-small);
+}
+
+/* The capability surface. */
+
+.ag-capability-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-medium);
+}
+
+.ag-capability {
+  padding: var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+.ag-capability-name {
+  font-weight: 600;
+}
+
+.ag-capability-status {
+  margin-inline-start: var(--ag-space-small);
+  padding-inline: var(--ag-space-tiny);
+  border-radius: var(--ag-radius-small);
+  font-size: var(--ag-text-tiny);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ag-capability-explanation,
+.ag-capability-remedy {
+  margin-block: var(--ag-space-tiny) 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+/* The diagnostic log. */
+
+.ag-log {
+  margin: var(--ag-space-small) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ag-text-small);
+}
+
+.ag-log-record {
+  display: grid;
+  grid-template-columns: auto auto auto 1fr;
+  gap: var(--ag-space-small);
+  padding-block: 2px;
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-log-time,
+.ag-log-category {
+  color: var(--ag-chrome-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-log-severity {
+  text-transform: uppercase;
+  font-size: var(--ag-text-tiny);
+  letter-spacing: 0.04em;
+}
+
+.ag-log-severity[data-ag-severity='error'] {
+  color: var(--ag-chrome-status-error);
+}
+
+.ag-log-severity[data-ag-severity='warning'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+/* The command palette. */
+
+.ag-palette {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  min-block-size: 20rem;
+}
+
+.ag-palette-field {
+  /* The padding and the border counted in. Left as a content box, the field
+     would be its column's width plus both, and would run eighteen pixels past
+     the part of the dialogue that scrolls, which would cut its right edge and
+     its ring. */
+  box-sizing: border-box;
+  inline-size: 100%;
+
+  /* The least it may be, raised to the touch target on a coarse pointer by
+     `.ag-touch-sized`, which the field carries. */
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-small);
+
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-sunken);
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  font-size: var(--ag-text-large);
+}
+
+/* Never under 16 pixels where a finger is among the inputs, for the reason the
+   design system's text field gives. */
+@media (any-pointer: coarse) {
+  .ag-palette-field {
+    font-size: max(16px, var(--ag-text-large));
+  }
+}
+
+.ag-palette-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-block-size: 24rem;
+  overflow: auto;
+}
+
+.ag-palette-result {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--ag-space-small);
+
+  min-block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-small);
+  border-radius: var(--ag-radius-small);
+  cursor: pointer;
+}
+
+.ag-palette-result[aria-disabled='true'] {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-palette-shortcut {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-palette-reason {
+  grid-column: 1 / -1;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-palette-empty {
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* Settings. */
+
+.ag-settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-medium);
+  min-block-size: 16rem;
+}
+
+.ag-settings-note {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-shortcut-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--ag-text-small);
+}
+
+.ag-shortcut-table th,
+.ag-shortcut-table td {
+  text-align: start;
+  padding-block: var(--ag-space-tiny);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-shortcut-keys {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The shortcut editor. */
+
+.ag-shortcut-recorder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-shortcut-recorder-field {
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  border: 1px dashed var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+.ag-shortcut-recorder-field[data-ag-listening] {
+  border-style: solid;
+  border-color: var(--ag-chrome-accent);
+}
+
+.ag-shortcut-none {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-shortcut-notes ul {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+}
+
+/* A file chooser that looks like the buttons beside it. The input itself is
+   visually hidden and stays in the label, so the label is what is pressed and
+   what a screen reader names. */
+.ag-file-button {
+  cursor: pointer;
+}
+
+/* The same ring as every other control, drawn on the label because the input
+   that holds focus is visually hidden. Longhands, for the reason the shared
+   focus rule gives. */
+.ag-file-button:focus-within {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: var(--ag-focus-ring-offset);
+}
+
+/*
+ * The notice shown when the application itself has failed.
+ *
+ * It reads a token where one is set and falls back to the browser's own system
+ * colours, which are not literal colours but the ones the user's platform
+ * chose. It is shown because something outside every panel failed, which may
+ * have been the theme, so it cannot rely on the theme having been applied.
+ */
+.ag-application-failure {
+  box-sizing: border-box;
+  max-inline-size: 40rem;
+  min-block-size: 100dvh;
+  margin-inline: auto;
+  padding: var(--ag-space-large, 2rem);
+  color: var(--ag-chrome-text-primary, CanvasText);
+  background-color: var(--ag-chrome-surface-base, Canvas);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.ag-application-failure code {
+  overflow-wrap: anywhere;
+}
+
+.ag-failure-action {
+  min-block-size: var(--ag-control-minimum-touch-target, 44px);
+  padding-inline: var(--ag-space-medium, 1rem);
+  color: ButtonText;
+  background-color: ButtonFace;
+  border: 1px solid ButtonBorder;
+  border-radius: var(--ag-radius-small, 4px);
+  font: inherit;
+}
+
+/*
+ * The ring's width and offset are the theme's, with the values it would give
+ * where it did not load; its colour is the platform's, like the rest of this
+ * screen.
+ */
+.ag-failure-action:focus-visible {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width, 3px);
+  outline-color: Highlight;
+  outline-offset: var(--ag-focus-ring-offset, 2px);
+}
+
+/*
+ * A scroll that reaches the end of the command palette's list stays in it
+ * rather than moving what is behind the dialogue. The viewport's own gestures,
+ * pull-to-refresh and the rubber band, are stopped on the document in
+ * `tokens.css`: set here, on the shell's element, it would never reach them.
+ */
+.ag-palette-results {
+  overscroll-behavior: contain;
+}
+
+/*
+ * A state, wherever it is written.
+ *
+ * Scoped to the status bar and the Capabilities panel, the attribute would draw
+ * nothing on a settings note or a panel note in any ordinary theme, while the
+ * forced-colours rule in the token layer matches them all. Written once here,
+ * on the attribute, the two layers agree about what carries a state. Every
+ * element that carries one also says it in words, so colour is never the only
+ * means (WCAG 1.4.1).
+ *
+ * Last in the file, because a class and an attribute weigh the same and source
+ * order decides between them: written above `.ag-settings-note`, the state
+ * would lose to the note's own colour and draw nothing.
+ */
+[data-ag-status='reduced'] {
+  color: var(--ag-chrome-status-warning);
+}
+
+[data-ag-status='unavailable'] {
+  color: var(--ag-chrome-status-error);
+}

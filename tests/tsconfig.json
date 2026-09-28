@@ -1,0 +1,28 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "outDir": "./dist/types",
+    "rootDir": "..",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "allowJs": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["**/*.ts", "../tools/check-build-output.mjs", "../tools/check-record-titles.mjs"],
+  "exclude": ["dist"],
+  "references": [
+    {
+      "path": "../packages/capabilities"
+    },
+    {
+      "path": "../packages/commands"
+    },
+    {
+      "path": "../packages/input"
+    },
+    {
+      "path": "../apps/web"
+    }
+  ]
+}

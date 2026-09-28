@@ -1,0 +1,13 @@
+{
+  "name": "AudioGubbins",
+  "short_name": "AudioGubbins",
+  "description": "A local-first, non-destructive audio editor that runs in your browser.",
+  "lang": "en-GB",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1318",
+  "theme_color": "#0f1318",
+  "categories": ["music", "productivity", "utilities"]
+}

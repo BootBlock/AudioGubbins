@@ -1,0 +1,105 @@
+{
+  "$comment": "Generated from the PACKAGES declaration in tools/sync-workspace-graph.mjs. One project per workspace package, in the environment its `dom` and `jsx` flags ask for. Run `pnpm graph:sync` after changing a package.",
+  "projects": [
+    {
+      "name": "domain",
+      "root": "packages/domain",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "version",
+      "root": "packages/version",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "text",
+      "root": "packages/text",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "input",
+      "root": "packages/input",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "diagnostics",
+      "root": "packages/diagnostics",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "commands",
+      "root": "packages/commands",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "capabilities",
+      "root": "packages/capabilities",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
+      "name": "design-system",
+      "root": "packages/design-system",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.{ts,tsx}"
+      ],
+      "setupFiles": [
+        "../../tests/setup/react-testing.ts"
+      ]
+    },
+    {
+      "name": "workspace",
+      "root": "packages/workspace",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.{ts,tsx}"
+      ],
+      "setupFiles": [
+        "../../tests/setup/react-testing.ts"
+      ]
+    },
+    {
+      "name": "test-fixtures",
+      "root": "packages/test-fixtures",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "web",
+      "root": "apps/web",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.{ts,tsx}"
+      ],
+      "setupFiles": [
+        "../../tests/setup/react-testing.ts"
+      ]
+    }
+  ]
+}

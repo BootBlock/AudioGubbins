@@ -2,7 +2,7 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01 reaching `PASS`.
+`READY` — Phase 01, its one hard dependency, has reached `PASS`; see `traceability/handoffs/phase-01.md`.
 
 ## Objective
 
@@ -95,7 +95,6 @@ Users can create/open/save/backup/fork portable and unpacked AudioGubbins projec
 - `packages/storage`
 - `packages/history`
 - `packages/media-store`
-- `packages/domain/project`
 - `packages/commands/project`
 
 ## Cross-Package Dependency Rules

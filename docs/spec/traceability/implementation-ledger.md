@@ -5,9 +5,9 @@
 | Phase | Status | Hard dependencies | Requirement groups | Handoff |
 |---:|---|---|---:|---|
 | 00 — Requirements and Architectural Baseline | `PASS` | — | 47 | traceability/handoffs/phase-00.md |
-| 01 — Application Foundation | `READY` | 00 | 32 | — |
-| 02 — Project and Storage System | `NOT_READY` | 01 | 26 | — |
-| 03 — Audio Engine Foundation | `NOT_READY` | 01 | 15 | — |
+| 01 — Application Foundation | `PASS` | 00 | 32 | traceability/handoffs/phase-01.md |
+| 02 — Project and Storage System | `READY` | 01 | 26 | — |
+| 03 — Audio Engine Foundation | `READY` | 01 | 15 | — |
 | 04 — Waveform and Timeline Foundation | `NOT_READY` | 01, 03 | 12 | — |
 | 05 — Core Non-Destructive Editing | `NOT_READY` | 02, 03, 04 | 3 | — |
 | 06 — Effect Rack and Core DSP | `NOT_READY` | 03, 05 | 11 | — |

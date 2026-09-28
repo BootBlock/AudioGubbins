@@ -1,0 +1,12 @@
+{
+  "$comment": "Single source of truth for AudioGubbins version identifiers (REQ-REPO-187). The product version is the one users see. Internal schema versions are independent and must never be conflated with it.",
+  "product": "0.1.0",
+  "schemas": {
+    "userPreferences": 1,
+    "workspaceLayout": 1,
+    "shortcutProfile": 1,
+    "logVerbosity": 1,
+    "keyboardLayout": 1,
+    "diagnosticBundle": 1
+  }
+}

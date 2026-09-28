@@ -33,7 +33,18 @@
       "adr/ADR-0005-godot-integration.md",
       "adr/ADR-0006-history-model.md",
       "adr/ADR-0007-runtime-capability-tiers.md",
-      "adr/ADR-0008-monorepo.md"
+      "adr/ADR-0008-monorepo.md",
+      "adr/ADR-0009-design-system-boundary.md",
+      "adr/ADR-0010-workspace-layout-ownership.md",
+      "adr/ADR-0011-partitioned-stores.md",
+      "adr/ADR-0012-perceptual-colour-tokens.md",
+      "adr/ADR-0013-command-first-shell.md",
+      "adr/ADR-0014-shell-animation-deferred.md",
+      "adr/ADR-0015-phase-01-owns-domain-value-model.md",
+      "adr/ADR-0016-version-registry-package.md",
+      "adr/ADR-0017-input-model-package.md",
+      "adr/ADR-0018-reader-facing-text-package.md",
+      "adr/ADR-0019-tests-take-the-fixtures-package.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",

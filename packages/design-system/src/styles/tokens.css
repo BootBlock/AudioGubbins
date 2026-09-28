@@ -1,0 +1,354 @@
+/*
+ * The AudioGubbins base stylesheet.
+ *
+ * Every value here reads a custom property that the theme writes at runtime
+ * (REQ-UX-155). No colour is a literal, so changing the theme changes the
+ * appearance without any stylesheet being rebuilt, and an architecture rule
+ * refuses a colour written anywhere but the token modules.
+ *
+ * No colour needs a fallback either. The theme is written before the first
+ * paint, so there is no frame in which a token is unset; the page's own
+ * pre-paint colours, which a test holds equal to the tokens, cover the instant
+ * before the application exists at all. A fallback here would be a second,
+ * literal palette.
+ */
+
+.ag-theme-root {
+  /* The theme writes its custom properties and its state attributes onto this
+     element, so everything inside inherits the properties and every rule below
+     can select on the state.
+
+     The rules that branch on state therefore descend from here rather than
+     naming the shell's element, `.ag-app`, which is inside this one and carries
+     none of the attributes, so a rule selecting it on the state matches
+     nothing. A browser test reads the rendered `color-scheme` rather than the
+     attribute, so such a rule fails it.
+
+     The text colour is set here as well as on the document, because the page's
+     own pre-paint colour on the mount element, `#audiogubbins`, stands between
+     the two. What the text is written in is set on the document's body (below),
+     because a floating surface is portalled out of this element. */
+  display: contents;
+
+  color: var(--ag-chrome-text-primary);
+}
+
+/*
+ * Which scrollbar, form-control and canvas palette the browser draws.
+ *
+ * Selected on the theme attribute, which the provider writes onto the document
+ * element as well as its own root, so it reaches the canvas, the scrollbars and
+ * the overscroll area, which read it from the root. Set on the provider's root
+ * alone, which is `display: contents` and paints none of them, it would reach
+ * none of them.
+ */
+[data-ag-theme] {
+  color-scheme: dark;
+}
+
+[data-ag-theme='light'] {
+  color-scheme: light;
+}
+
+/*
+ * The document follows the theme.
+ *
+ * The page's pre-paint colours are written with no specificity, so these
+ * replace them as soon as the theme is applied. Left in force, they would pin
+ * the document to the dark theme, so in the light theme the page behind the
+ * shell, and anything portalled into it that inherits its colour, would stay
+ * dark.
+ */
+html[data-ag-theme],
+html[data-ag-theme] body {
+  background-color: var(--ag-chrome-surface-base);
+  color: var(--ag-chrome-text-primary);
+}
+
+/*
+ * The text the application is written in, on the document's body.
+ *
+ * A dialogue, a menu, a tooltip, a select and the notice are portalled into the
+ * body, outside the provider's root, so a text property set on that root alone
+ * would not reach them: they would draw in the browser's default face, at its
+ * default size and line height, and the density would not reach their text. The
+ * body rather than the document element, whose font size every `rem` in the
+ * stylesheets is measured by. The custom properties the theme writes onto the
+ * document element are inherited here.
+ */
+html[data-ag-theme] body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: var(--ag-text-body, 14px);
+  line-height: var(--ag-text-line-height, 1.5);
+
+  /* A text editor's selection colour is wrong over a waveform, and the browser
+     default is wrong over the chrome. The accent is right for both. */
+  accent-color: var(--ag-chrome-accent);
+}
+
+/*
+ * Pull-to-refresh and the document's rubber band are the viewport's, so only
+ * the root element's overscroll setting reaches them. Set on the shell's own
+ * element, it would stop a scroll chaining out of a panel and leave a drag
+ * begun on the menu bar, a tab strip or a splitter free to refresh the page on
+ * Android.
+ */
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/*
+ * Text is drawn at the size the stylesheets give it. Safari on a phone turned
+ * on its side enlarges text it judges too small, which would draw every line
+ * and control taller than the rules that size them from the density allow for.
+ * At 100% rather than none, so the reader's own text size and zoom still
+ * apply, and on the document whatever its theme, so it holds before the theme
+ * is applied.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.ag-app {
+  block-size: 100%;
+  inline-size: 100%;
+  margin: 0;
+
+  background-color: var(--ag-chrome-surface-base);
+}
+
+/*
+ * The focus ring.
+ *
+ * Applied through :focus-visible, so a pointer user does not see a ring they
+ * did not ask for while a keyboard user always does. REQ-UX-005 makes keyboard
+ * operation first-class, and an invisible focus position makes it impossible.
+ */
+[data-ag-theme] {
+  /* How far the ring reaches past an element's edge: its width and its offset.
+     A container that scrolls clips whatever reaches past its padding, so one
+     that holds a control pads by the reach, or the ring loses its edges.
+
+     Three pixels wide, so that it is drawn at least two wide, which is what a
+     reader needs, at every scale. An engine that draws a ring in whole device
+     pixels rounds its width down, as Firefox does: at a scale of s device
+     pixels to a CSS pixel, a ring declared w wide is floor(w * s) / s CSS
+     pixels, which for three is two or more at every scale from one up. Firefox
+     lays a page out in sixtieths of a CSS pixel, a whole number of them to a
+     device pixel, so its s is 60 over that number: 55 at a text size of 110 per
+     cent, where s is 60/55 rather than 1.1, and a ring declared two wide is
+     floor(2 * 60/55) * 55/60 = 1.83 wide; 48 at 125 per cent, where s is 1.25
+     and it is floor(2 * 1.25) / 1.25 = 1.6 wide. */
+  --ag-focus-ring-width: 3px;
+  --ag-focus-ring-offset: 2px;
+  --ag-focus-ring-reach: calc(var(--ag-focus-ring-width) + var(--ag-focus-ring-offset));
+}
+
+[data-ag-theme] :focus-visible {
+  /* Longhands rather than the `outline` shorthand. The build's CSS pass
+     rewrites a shorthand carrying a custom property into a second copy inside
+     an `@supports` block, and the copy it emits drops the width and the colour,
+     so a ring written as a shorthand would render at the browser's own width in
+     the text colour, as measured in Chromium against the production build. */
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: var(--ag-focus-ring-offset);
+  border-radius: var(--ag-radius-small, 3px);
+}
+
+/*
+ * Motion.
+ *
+ * The duration is a token, so the motion level the user chose reaches every
+ * transition without any component knowing which level is in force. At Minimal
+ * the token is 0ms, which is what stops the movement (REQ-UX-069).
+ *
+ * Each component that animates names what it animates and takes its duration
+ * from the token, beside the property. There is no rule setting a duration for
+ * everything: `transition-duration` alone leaves `transition-property` at its
+ * initial `all`, so an element that did not ask to animate would animate every
+ * change. On the floating surfaces that would move a menu into position while a
+ * pen tap landed where an entry had been a frame earlier. Inside the
+ * application it would animate every size and position the docking engine sets,
+ * so a splitter being dragged would trail the pointer and every measurement of
+ * the workspace would be taken mid-animation. Direct manipulation has to be
+ * immediate (REQ-UX-069).
+ */
+
+/*
+ * A last-resort guard for anything that sets its own duration.
+ *
+ * The tokens are the mechanism; this catches a third-party component, such as
+ * the docking engine, that animates with durations of its own.
+ */
+[data-ag-motion='minimal'] *,
+[data-ag-motion='minimal'] *::before,
+[data-ag-motion='minimal'] *::after {
+  animation-duration: 1ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 1ms !important;
+  scroll-behavior: auto !important;
+}
+
+/*
+ * The minimum touch target.
+ *
+ * A visually small control still has to be reachable with a finger. The
+ * pseudo-element widens the hit area without changing the layout, so a dense
+ * toolbar stays dense and stays usable on a tablet (REQ-UX-067, REQ-UX-071).
+ */
+.ag-touch-target {
+  position: relative;
+}
+
+.ag-touch-target::after {
+  content: '';
+  position: absolute;
+  inset-block: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
+  inset-inline: calc((var(--ag-control-minimum-touch-target, 44px) - 100%) / -2);
+  min-block-size: var(--ag-control-minimum-touch-target, 44px);
+  min-inline-size: var(--ag-control-minimum-touch-target, 44px);
+}
+
+/*
+ * Controls that grow for a finger rather than widen for one.
+ *
+ * A row in a list, and a control in a bar beside another region, cannot widen
+ * its hit area the way a lone control does: the widened area would lie over
+ * the row beside it, or the region below it, and a tap aimed at one would land
+ * on the other. So these are drawn at the touch target whenever any input the
+ * device has is a finger. A mouse user on the same machine gets the same size,
+ * which is the price of a target that cannot be missed; with a mouse alone
+ * they keep the density's size, which is never under 24 pixels (WCAG 2.5.8).
+ *
+ * Selected through the theme attribute, because each of these also has a rule
+ * of its own, later in the cascade, that sets its drawn size.
+ */
+@media (any-pointer: coarse) {
+  [data-ag-theme] .ag-touch-sized {
+    min-block-size: var(--ag-control-minimum-touch-target, 44px);
+  }
+}
+
+/* Present for a screen reader, absent for everyone else. */
+.ag-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Windows High Contrast, which the browser exposes as forced colours.
+ *
+ * In that mode the browser replaces every colour with the user's own, so every
+ * surface token collapses to one colour: the menu bar, the status bar, a raised
+ * panel and the sunken palette field become one flat area with no boundary
+ * between them, and the three places that carry meaning in colour alone say
+ * nothing at all. Nothing here fights the user's colours; it restores the
+ * boundaries they need and pairs each state with a word.
+ */
+@media (forced-colors: active) {
+  [data-ag-theme] .ag-menu,
+  [data-ag-theme] .ag-popover,
+  [data-ag-theme] .ag-select-content,
+  [data-ag-theme] .ag-dialog,
+  [data-ag-theme] .ag-notice,
+  [data-ag-theme] .ag-panel,
+  [data-ag-theme] .ag-menu-bar,
+  [data-ag-theme] .ag-status-bar,
+  [data-ag-theme] .ag-palette-field,
+  [data-ag-theme] .ag-text-field-input {
+    border: 1px solid CanvasText;
+  }
+
+  /* The focus ring is drawn by the browser in its own colour, and a ring drawn
+     in a token colour is invisible against forced colours. */
+  [data-ag-theme] :focus-visible {
+    outline-style: solid;
+    outline-width: var(--ag-focus-ring-width);
+    outline-color: Highlight;
+    outline-offset: var(--ag-focus-ring-offset);
+  }
+
+  /* The entry the keyboard is on. A menu, a list and the command palette mark
+     it with a background alone, and the browser replaces every background with
+     the canvas, so without this, arrowing through one would show nothing moving
+     and Enter would run an entry the user could not see. The palette's options
+     never take focus, so the focus ring above cannot mark them either.
+     `forced-color-adjust: none` keeps the pair the platform uses for a
+     selection, which is what the user's palette defines for exactly this; the
+     entry's own parts take its colour. */
+  [data-ag-theme] .ag-menu-item[data-highlighted],
+  [data-ag-theme] .ag-select-item[data-highlighted],
+  [data-ag-theme] .ag-palette-result[data-ag-highlighted] {
+    forced-color-adjust: none;
+    background-color: Highlight;
+    color: HighlightText;
+    /* The ring the themes draw here is in the theme's accent, which
+       `forced-color-adjust: none` would keep, on a background the platform
+       chose. Drawn in the platform's own text colour it stays a pair the
+       user's palette designed. */
+    outline-color: HighlightText;
+  }
+
+  [data-ag-theme] .ag-menu-item[data-highlighted] *,
+  [data-ag-theme] .ag-select-item[data-highlighted] *,
+  [data-ag-theme] .ag-palette-result[data-ag-highlighted] * {
+    color: inherit;
+  }
+
+  /* An entry that cannot be chosen is drawn in the colour the platform keeps
+     for that. Dimmed with a theme colour, which the browser replaces, it would
+     look like every other entry, with only its reason to say it. Not while it
+     is the entry the keyboard is on: coming later at the same weight, this rule
+     would draw GrayText on Highlight, a pair no palette designs to be read, on
+     the entry the user had moved to so as to read it. Its reason, in its text,
+     still says it cannot be chosen. */
+  [data-ag-theme] .ag-menu-item[data-ag-unavailable]:not([data-highlighted]),
+  [data-ag-theme] .ag-palette-result[aria-disabled='true']:not([data-ag-highlighted]),
+  [data-ag-theme] .ag-button[aria-disabled='true'],
+  [data-ag-theme] .ag-button[data-ag-unavailable] {
+    color: GrayText;
+  }
+
+  /* A state told by colour alone is told by its own text as well: the status
+     items and the capability rows carry a word beside the colour. The browser
+     forces these like everything else, and keeps a system colour an author
+     names, so the error state is marked in the user's link colour.
+
+     On the document element, which the theme is also written to: the shell's
+     own colour rules for these states have the same specificity as a rule under
+     the theme attribute alone, load after this file, and would win. Were this
+     rule to lose that race with the elements opted out of forcing as well, the
+     dark theme's amber and red would be painted on the user's canvas. */
+  html[data-ag-theme] [data-ag-status],
+  html[data-ag-theme] [data-ag-severity] {
+    color: CanvasText;
+    background-color: Canvas;
+  }
+
+  /* The system's own marked text, not `LinkText`. `LinkText` is the colour a
+     high-contrast reader identifies a hyperlink by, and here it would paint a
+     status word in the bar and a whole paragraph of a settings note, neither of
+     which is a link. `Mark` and `MarkText` are the pair the system defines for
+     text that wants attention, and they are legible together by definition. */
+  html[data-ag-theme] [data-ag-status='unavailable'],
+  html[data-ag-theme] [data-ag-severity='error'] {
+    color: MarkText;
+    background-color: Mark;
+  }
+}

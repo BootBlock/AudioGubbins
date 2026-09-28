@@ -3,6 +3,10 @@
 # byte-for-byte, so an autocrlf checkout must not rewrite their line endings.
 * text=auto eol=lf
 
+# Except Windows batch files, which cmd.exe misparses with bare LF line endings: a label or
+# a line near a 512-byte boundary can be skipped or read twice.
+*.bat    text eol=crlf
+
 # Binary assets: never normalise, never diff as text.
 *.png    binary
 *.jpg    binary

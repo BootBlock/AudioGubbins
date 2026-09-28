@@ -1,0 +1,30 @@
+{
+  "name": "@audiogubbins/diagnostics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Structured local diagnostic logging, redaction and bundle assembly. No network path exists.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@audiogubbins/text": "workspace:*",
+    "@audiogubbins/version": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

@@ -116,6 +116,20 @@ Touch layouts may impose adaptive constraints where unrestricted docking would h
 
 The docking system must be treated as core application infrastructure rather than implemented independently by individual panels.
 
+#### 57.1 The Width a Docking Layout Needs
+
+"Sufficiently large" shall be a stated number rather than a judgement.
+
+AudioGubbins shall declare the smallest viewport width at which it draws a docking workspace, and that width shall be `640` CSS pixels. Three docked columns at the declared minimum of a panel, with the splitters between them, do not fit in less.
+
+Below that width AudioGubbins shall show, in place of the workspace, a message that names the width it needs and what the reader can do about it. It shall not draw a docking layout that clips its panels or scrolls in two directions.
+
+The menus, the command palette, the settings and the status bar shall keep working below that width, so a reader who arrives there can still reach every command.
+
+A workspace that adapts to a narrow viewport, rather than declining to draw one, is `REQ-UX-029`'s responsive workspace layout and is owned with it. Until that exists, AudioGubbins does not meet WCAG 2.2 success criterion 1.4.10 Reflow below the declared width, and its conformance claim shall say so.
+
+Declaring a width rather than reflowing is the product owner's decision, taken during Phase 01 and recorded here so that a reader of the review record can see whose it was. It is not a review remediation's to take: the alternative is `REQ-UX-029`, which is a phase of work rather than a clause.
+
 ---
 
 ## REQ-UX-058 — Workspace Presets

@@ -1,0 +1,1116 @@
+Published paths
+  @audiogubbins/capabilities
+  @audiogubbins/commands
+  @audiogubbins/design-system
+  @audiogubbins/design-system/styles/*.css
+  @audiogubbins/diagnostics
+  @audiogubbins/domain
+  @audiogubbins/domain/testing
+  @audiogubbins/input
+  @audiogubbins/input/testing
+  @audiogubbins/test-fixtures
+  @audiogubbins/text
+  @audiogubbins/version
+  @audiogubbins/workspace
+  @audiogubbins/workspace/styles/*.css
+
+@audiogubbins/capabilities
+  const ACCELERATED_RENDERING: FeatureRequirement
+  const ALL_FEATURES: readonly FeatureRequirement[]
+  const AUDIO_PLAYBACK: FeatureRequirement
+  interface AppearanceSettings
+  readonly AppearanceSettings.prefersDark: boolean
+  readonly AppearanceSettings.prefersReducedMotion: boolean
+  readonly AppearanceSettings.prefersMoreContrast: boolean
+  interface AppearanceSettingsWatch
+  readonly AppearanceSettingsWatch.read: () => AppearanceSettings
+  readonly AppearanceSettingsWatch.subscribe: (listener: () => void) => () => void
+  interface CapabilityAbsent
+  readonly CapabilityAbsent.key: CapabilityKey
+  readonly CapabilityAbsent.available: false
+  readonly CapabilityAbsent.reason: string
+  readonly CapabilityAbsent.remedy?: string
+  readonly CapabilityAbsent.checking?: true
+  interface CapabilityEnvironment
+  readonly CapabilityEnvironment.hasOriginPrivateFileSystem: boolean
+  readonly CapabilityEnvironment.hasFileSystemAccess: boolean
+  readonly CapabilityEnvironment.hasSharedArrayBuffer: boolean
+  readonly CapabilityEnvironment.isCrossOriginIsolated: boolean
+  readonly CapabilityEnvironment.hasAudioWorklet: boolean
+  readonly CapabilityEnvironment.hasWebWorkers: boolean
+  readonly CapabilityEnvironment.hasWebGpu: boolean
+  readonly CapabilityEnvironment.hasWebGl2: boolean
+  readonly CapabilityEnvironment.hasOffscreenCanvas: boolean
+  readonly CapabilityEnvironment.hasWebCodecs: boolean
+  readonly CapabilityEnvironment.hasMediaDevices: boolean
+  readonly CapabilityEnvironment.hasServiceWorker: boolean
+  readonly CapabilityEnvironment.hasStorageEstimate: boolean
+  readonly CapabilityEnvironment.hasPersistentStorage: boolean
+  readonly CapabilityEnvironment.hasPointerEvents: boolean
+  readonly CapabilityEnvironment.reportsPointerPressure: boolean
+  readonly CapabilityEnvironment.hasLocalStorage: boolean
+  readonly CapabilityEnvironment.hasMediaQueries: boolean
+  readonly CapabilityEnvironment.hasKeyboardLayoutMap: boolean
+  readonly CapabilityEnvironment.comparesNames: boolean
+  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; }
+  type CapabilityKey = "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "web-codecs" | "web-workers" | "webgl2" | "webgpu"
+  interface CapabilityPresent
+  readonly CapabilityPresent.key: CapabilityKey
+  readonly CapabilityPresent.available: true
+  interface CapabilityRegistry
+  readonly CapabilityRegistry.state: (key: CapabilityKey) => CapabilityState
+  readonly CapabilityRegistry.has: (key: CapabilityKey) => boolean
+  readonly CapabilityRegistry.all: () => readonly CapabilityState[]
+  readonly CapabilityRegistry.missing: () => readonly CapabilityAbsent[]
+  readonly CapabilityRegistry.subscribe: (listener: () => void) => () => void
+  readonly CapabilityRegistry.featureAvailability: (requirement: FeatureRequirement) => FeatureAvailability
+  readonly CapabilityRegistry.degradedFeatures: (requirements: readonly FeatureRequirement[]) => readonly FeatureAvailability[]
+  type CapabilityState = CapabilityAbsent | CapabilityPresent
+  const DIRECT_FILE_ACCESS: FeatureRequirement
+  interface FeatureAvailability
+  readonly FeatureAvailability.featureKey: string
+  readonly FeatureAvailability.label: string
+  readonly FeatureAvailability.status: FeatureStatus
+  readonly FeatureAvailability.missingRequired: readonly CapabilityAbsent[]
+  readonly FeatureAvailability.missingPreferred: readonly CapabilityAbsent[]
+  readonly FeatureAvailability.explanation: string
+  interface FeatureRequirement
+  readonly FeatureRequirement.featureKey: string
+  readonly FeatureRequirement.label: string
+  readonly FeatureRequirement.required: readonly CapabilityKey[]
+  readonly FeatureRequirement.preferred?: readonly CapabilityKey[]
+  readonly FeatureRequirement.fallback: string
+  const FeatureStatus: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Unavailable: "unavailable"; }
+  type FeatureStatus = "full" | "reduced" | "unavailable"
+  const HARDWARE_CODECS: FeatureRequirement
+  type LateAnswers = { readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; }
+  type LayoutMapPairs = readonly (readonly [string, string])[]
+  const MULTI_THREADED_DSP: FeatureRequirement
+  const NAMING: FeatureRequirement
+  const OFFLINE_USE: FeatureRequirement
+  const OperatingSystem: { readonly Windows: "Windows"; readonly MacOs: "macOS"; readonly Ios: "iOS"; readonly IpadOs: "iPadOS"; readonly Android: "Android"; readonly ChromeOs: "ChromeOS"; readonly Linux: "Linux"; readonly Unknown: "Unknown operating system"; }
+  type OperatingSystem = "Android" | "ChromeOS" | "Linux" | "Unknown operating system" | "Windows" | "iOS" | "iPadOS" | "macOS"
+  const PRESSURE_SENSITIVE_TOOLS: FeatureRequirement
+  const PROJECT_STORAGE: FeatureRequirement
+  interface PlatformSignals
+  readonly PlatformSignals.userAgent: string
+  readonly PlatformSignals.platformHint?: string
+  readonly PlatformSignals.maxTouchPoints: number
+  const RECORDING: FeatureRequirement
+  const SETTINGS_STORAGE: FeatureRequirement
+  const SYSTEM_APPEARANCE: FeatureRequirement
+  function absent(key: CapabilityKey, reason: string, remedy?: string | undefined): CapabilityAbsent
+  function askLateQuestions(layoutMap: Promise<LayoutMapPairs>): Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>
+  function createCapabilityRegistry(environment: CapabilityEnvironment, logger: Logger, late?: Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>): CapabilityRegistry
+  function describeEnvironment(signals: PlatformSignals): EnvironmentSummary
+  function detectBrowserEnvironment(): CapabilityEnvironment
+  function operatingSystemOf(signals: PlatformSignals): OperatingSystem
+  function present(key: CapabilityKey): CapabilityPresent
+  function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
+  function readPlatformSignals(): PlatformSignals
+  function usesAppleModifiers(system: OperatingSystem): boolean
+  function watchAppearanceSettings(): AppearanceSettingsWatch
+  function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
+
+@audiogubbins/commands
+  const AVAILABLE: CommandAvailability
+  interface AppliedExecution<TContext>
+  readonly AppliedExecution.kind: "applied"
+  readonly AppliedExecution.next: TContext
+  readonly AppliedExecution.entry?: HistoryEntry
+  interface AppliedOutcome<TContext>
+  readonly AppliedOutcome.kind: "applied"
+  readonly AppliedOutcome.next: TContext
+  readonly AppliedOutcome.inverse?: CommandInvocation
+  readonly AppliedOutcome.description?: string
+  interface ChordAbandoned
+  readonly ChordAbandoned.kind: "abandoned"
+  readonly ChordAbandoned.presses: readonly [KeyPress, ...KeyPress[]]
+  type ChordOutcome = ChordAbandoned | ChordPassThrough | ChordRunCommand | ChordWaiting
+  interface ChordPassThrough
+  readonly ChordPassThrough.kind: "pass-through"
+  interface ChordRunCommand
+  readonly ChordRunCommand.kind: "run"
+  readonly ChordRunCommand.commandId: CommandId
+  readonly ChordRunCommand.presses: readonly [KeyPress, ...KeyPress[]]
+  interface ChordTracker
+  ChordTracker.press: (key: KeyPress) => ChordOutcome
+  ChordTracker.reset: () => void
+  ChordTracker.pending: () => readonly KeyPress[]
+  interface ChordWaiting
+  readonly ChordWaiting.kind: "waiting"
+  readonly ChordWaiting.presses: readonly [KeyPress, ...KeyPress[]]
+  interface Command<TContext>
+  readonly Command.id: CommandId
+  readonly Command.label: string
+  readonly Command.category: CommandCategory
+  readonly Command.keywords?: readonly string[]
+  readonly Command.description?: string
+  readonly Command.discoverable?: boolean
+  readonly Command.undoable: boolean
+  Command.availability: (context: TContext) => CommandAvailability
+  Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
+  type CommandAvailability = { readonly available: false; readonly reason: string; } | { readonly available: true; }
+  interface CommandBus<TContext>
+  CommandBus.availability: (context: TContext, id: CommandId) => CommandAvailability
+  CommandBus.execute: (context: TContext, invocation: CommandInvocation) => ExecutionResult<TContext>
+  CommandBus.executeGroup: (context: TContext, description: string, invocations: readonly [CommandInvocation, ...CommandInvocation[]]) => ExecutionResult<TContext>
+  const CommandCategory: { readonly File: "file"; readonly Edit: "edit"; readonly Selection: "selection"; readonly View: "view"; readonly Workspace: "workspace"; readonly Transport: "transport"; readonly Tools: "tools"; readonly Settings: "settings"; readonly Help: "help"; }
+  type CommandCategory = "edit" | "file" | "help" | "selection" | "settings" | "tools" | "transport" | "view" | "workspace"
+  type CommandId = string & { readonly [CommandIdTag]: "CommandId"; }
+  interface CommandInvocation
+  readonly CommandInvocation.commandId: CommandId
+  readonly CommandInvocation.arguments?: Readonly<Record<string, boolean | null | number | string>>
+  type CommandOutcome<TContext> = AppliedOutcome<TContext> | RefusedOutcome | UnchangedOutcome
+  interface CommandRegistry<TContext>
+  CommandRegistry.register: (command: Command<TContext>) => void
+  CommandRegistry.get: (id: CommandId) => Command<TContext> | undefined
+  CommandRegistry.all: () => readonly Command<TContext>[]
+  CommandRegistry.inCategory: (category: CommandCategory) => readonly Command<TContext>[]
+  type ExecutionResult<TContext> = AppliedExecution<TContext> | RefusedOutcome | UnchangedOutcome
+  interface HistoryEntry
+  readonly HistoryEntry.description: string
+  readonly HistoryEntry.forward: readonly [CommandInvocation, ...CommandInvocation[]]
+  readonly HistoryEntry.inverse: readonly [CommandInvocation, ...CommandInvocation[]]
+  interface ImportedProfile
+  readonly ImportedProfile.profile: ShortcutProfile
+  readonly ImportedProfile.namesake: ShortcutProfile | undefined
+  const KeyboardConvention: { readonly Windows: "windows"; readonly Apple: "apple"; readonly Linux: "linux"; }
+  type KeyboardConvention = "apple" | "linux" | "windows"
+  const NAMES_CANNOT_BE_COMPARED: "shortcut-profile.names-cannot-be-compared"
+  interface PaletteOptions<TContext>
+  readonly PaletteOptions.context: TContext
+  readonly PaletteOptions.profile: ShortcutProfile
+  readonly PaletteOptions.convention: KeyboardConvention
+  readonly PaletteOptions.layout: KeyboardLayout
+  readonly PaletteOptions.includeUnavailable?: boolean
+  readonly PaletteOptions.limit?: number
+  interface PaletteResult<TContext>
+  readonly PaletteResult.command: Command<TContext>
+  readonly PaletteResult.score: number
+  readonly PaletteResult.matchedLabelIndices: readonly number[]
+  readonly PaletteResult.shortcutText?: string
+  readonly PaletteResult.unavailableReason?: string
+  interface PlatformReservation
+  readonly PlatformReservation.press: KeyPress
+  readonly PlatformReservation.reason: string
+  const PrimaryModifier: { readonly Control: "control"; readonly Meta: "meta"; }
+  type PrimaryModifier = "control" | "meta"
+  interface RefusedOutcome
+  readonly RefusedOutcome.kind: "refused"
+  readonly RefusedOutcome.failures: readonly [DomainFailure, ...DomainFailure[]]
+  interface RestoredEntry<Entry extends StoredProfileEntry>
+  readonly RestoredEntry.stored: Entry
+  readonly RestoredEntry.restored: DomainResult<ShortcutProfile>
+  interface Shortcut
+  readonly Shortcut.presses: readonly [KeyPress, ...KeyPress[]]
+  interface ShortcutBinding
+  readonly ShortcutBinding.commandId: CommandId
+  readonly ShortcutBinding.shortcut: Shortcut
+  interface ShortcutConflict
+  readonly ShortcutConflict.shortcut: Shortcut
+  readonly ShortcutConflict.commandIds: readonly [CommandId, CommandId, ...CommandId[]]
+  interface ShortcutProfile
+  readonly ShortcutProfile.id: string
+  readonly ShortcutProfile.displayName: string
+  readonly ShortcutProfile.builtIn: boolean
+  readonly ShortcutProfile.bindings: readonly ShortcutBinding[]
+  interface StoredProfileEntry
+  readonly StoredProfileEntry.id: string
+  readonly StoredProfileEntry.text: string
+  const UNAVAILABLE_FAILURE_CODE: "command.unavailable"
+  interface UnchangedOutcome
+  readonly UnchangedOutcome.kind: "unchanged"
+  readonly UnchangedOutcome.code: string
+  readonly UnchangedOutcome.reason: string
+  function bindingsFor(profile: ShortcutProfile, id: CommandId): readonly Shortcut[]
+  function commandForShortcut(profile: ShortcutProfile, value: Shortcut): CommandId | undefined
+  function commandId(value: string): CommandId
+  function commandLayerKeyAsked(layout: KeyboardLayout, convention: KeyboardConvention): TypedKey | undefined
+  function commandPressMayBeTaken(code: string, layout: KeyboardLayout, convention: KeyboardConvention): boolean
+  function createChordTracker(profileOf: () => ShortcutProfile): ChordTracker
+  function createCommandBus<TContext>(registry: CommandRegistry<TContext>, logger: Logger): CommandBus<TContext>
+  function createCommandRegistry<TContext>(): CommandRegistry<TContext>
+  function describePresses(presses: readonly KeyPress[], convention: KeyboardConvention, layout: KeyboardLayout): string | undefined
+  function describeReservation(reservation: PlatformReservation, convention: KeyboardConvention, layout: KeyboardLayout): string
+  function describeShortcut(value: Shortcut, convention: KeyboardConvention, layout: KeyboardLayout): string
+  function duplicateProfile(profile: ShortcutProfile, held: readonly ShortcutProfile[], displayName?: string | undefined): DomainResult<ShortcutProfile>
+  function exportFileName(profile: ShortcutProfile): string
+  function exportProfile(profile: ShortcutProfile): string
+  function findShortcutConflicts(profile: ShortcutProfile): readonly ShortcutConflict[]
+  function importProfile(text: string, held: readonly ShortcutProfile[]): DomainResult<ImportedProfile>
+  function isCommandId(value: string): boolean
+  function isReservedByPlatform(value: Shortcut, convention: KeyboardConvention, layout: KeyboardLayout): boolean
+  function keyboardPlatformFor(convention: KeyboardConvention): KeyboardPlatform
+  function parseShortcut(text: string): DomainResult<Shortcut>
+  function platformReservation(value: Shortcut, convention: KeyboardConvention, layout: KeyboardLayout): PlatformReservation | undefined
+  function primaryModifierFor(convention: KeyboardConvention): PrimaryModifier
+  function primaryPress(key: string, primary: PrimaryModifier, modifiers?: Partial<Pick<KeyPress, "alt" | "shift">>): KeyPress
+  function rebind(profile: ShortcutProfile, id: CommandId, value: Shortcut, convention: KeyboardConvention, layout: KeyboardLayout): DomainResult<ShortcutProfile>
+  function refusal(code: string, summary: string, ...more: string[]): RefusedOutcome
+  function restoreProfiles<Entry extends StoredProfileEntry>(entries: readonly Entry[], shipped: ShortcutProfile): readonly RestoredEntry<Entry>[]
+  function resultCommandIds<TContext>(results: readonly PaletteResult<TContext>[]): readonly CommandId[]
+  function searchCommands<TContext>(commands: readonly Command<TContext>[], query: string, options: PaletteOptions<TContext>): readonly PaletteResult<TContext>[]
+  function shortcut(first: KeyPress, ...rest: readonly KeyPress[]): Shortcut
+  function shortcutKey(value: Shortcut): string
+  function shortcutOffered(profile: ShortcutProfile, id: CommandId, convention: KeyboardConvention, layout: KeyboardLayout): string | undefined
+  function unavailable(reason: string): CommandAvailability
+  function unbind(profile: ShortcutProfile, id: CommandId): DomainResult<ShortcutProfile>
+  function unchanged(code: string, reason: string): UnchangedOutcome
+
+@audiogubbins/design-system
+  const ACCENT_HUES: { readonly blue: 250; readonly teal: 195; readonly green: 145; readonly amber: 75; readonly orange: 50; readonly red: 25; readonly magenta: 340; readonly violet: 295; }
+  const ACCENT_NAMES: readonly ("amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet")[]
+  type AccentName = "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"
+  const BRIGHTNESS_RANGE: { readonly minimum: -1; readonly maximum: 1; }
+  const Button: import("@types/react").ForwardRefExoticComponent<(ButtonProps & IconOnlyRequiresLabel) & import("@types/react").RefAttributes<HTMLButtonElement>>
+  interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className">
+  readonly ButtonProps.tone?: ButtonTone
+  readonly ButtonProps.compact?: boolean
+  readonly ButtonProps.iconOnly?: boolean
+  readonly ButtonProps.label?: string
+  readonly ButtonProps.children?: ReactNode
+  const ButtonTone: { readonly Primary: "primary"; readonly Neutral: "neutral"; readonly Quiet: "quiet"; readonly Destructive: "destructive"; }
+  type ButtonTone = "destructive" | "neutral" | "primary" | "quiet"
+  type CategoryPalette = { readonly [x: string]: Oklch; }
+  type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
+  function ContextActions(props: ContextMenuProps): ReactNode
+  interface ContextMenuProps
+  readonly ContextMenuProps.children: ReactNode
+  readonly ContextMenuProps.groups: readonly MenuGroup[]
+  readonly ContextMenuProps.label: string
+  const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
+  type ContrastLevel = "high" | "standard"
+  interface ContrastShortfall
+  readonly ContrastShortfall.token: string
+  readonly ContrastShortfall.ratio: number
+  readonly ContrastShortfall.required: number
+  function ControlBar(props: ControlBarProps): ReactNode
+  function ControlBarButton(props: ControlBarButtonProps): ReactNode
+  interface ControlBarButtonProps
+  readonly ControlBarButtonProps.label: string
+  readonly ControlBarButtonProps.hint?: string
+  readonly ControlBarButtonProps.shortcut?: string
+  readonly ControlBarButtonProps.onPress: () => void
+  function ControlBarItem(props: { readonly children: ReactNode; }): ReactNode
+  type ControlScale = { readonly height: number; readonly compactHeight: number; readonly iconSize: number; readonly minimumTouchTarget: number; }
+  const DEFAULT_THEME_PREFERENCES: ThemePreferences
+  const Density: { readonly Comfortable: "comfortable"; readonly Compact: "compact"; }
+  type Density = "comfortable" | "compact"
+  function HintProvider(props: { readonly children: ReactNode; }): ReactNode
+  function InfoPopover(props: InfoPopoverProps): ReactNode
+  interface InfoPopoverProps
+  readonly InfoPopoverProps.trigger: ReactNode
+  readonly InfoPopoverProps.label: string
+  readonly InfoPopoverProps.children: ReactNode
+  readonly InfoPopoverProps.open?: boolean
+  readonly InfoPopoverProps.onOpenChange?: (open: boolean) => void
+  interface LiveAnnouncement
+  readonly LiveAnnouncement.text: string
+  readonly LiveAnnouncement.urgent: boolean
+  readonly LiveAnnouncement.sequence: number
+  readonly LiveAnnouncement.shown?: boolean
+  readonly LiveAnnouncement.refusal?: boolean
+  function Menu(props: DropdownMenuProps): ReactNode
+  function MenuBar(props: MenuBarProps): ReactNode
+  function MenuBarMenu(props: MenuBarMenuProps): ReactNode
+  interface MenuBarMenuProps
+  readonly MenuBarMenuProps.label: string
+  readonly MenuBarMenuProps.groups: readonly MenuGroup[]
+  interface MenuBarProps
+  readonly MenuBarProps.label: string
+  readonly MenuBarProps.children: ReactNode
+  interface MenuGroup
+  readonly MenuGroup.key: string
+  readonly MenuGroup.label?: string
+  readonly MenuGroup.items: readonly MenuItemDescriptor[]
+  interface MenuItemDescriptor
+  readonly MenuItemDescriptor.key: string
+  readonly MenuItemDescriptor.label: string
+  readonly MenuItemDescriptor.shortcut?: string
+  readonly MenuItemDescriptor.unavailableReason?: string
+  readonly MenuItemDescriptor.onSelect: () => void
+  type MeterPalette = { readonly background: Oklch; readonly low: Oklch; readonly mid: Oklch; readonly high: Oklch; readonly clip: Oklch; }
+  interface Metrics
+  readonly Metrics.space: SpacingScale
+  readonly Metrics.radius: RadiusScale
+  readonly Metrics.text: TypographyScale
+  readonly Metrics.control: ControlScale
+  function ModalDialog(props: ModalDialogProps): ReactNode
+  interface ModalDialogProps
+  readonly ModalDialogProps.open: boolean
+  readonly ModalDialogProps.onOpenChange: (open: boolean) => void
+  readonly ModalDialogProps.title: string
+  readonly ModalDialogProps.description: string
+  readonly ModalDialogProps.children: ReactNode
+  readonly ModalDialogProps.actions?: ReactNode
+  const MotionLevel: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Minimal: "minimal"; }
+  type MotionLevel = "full" | "minimal" | "reduced"
+  type MotionScale = { readonly instant: number; readonly quick: number; readonly moderate: number; readonly deliberate: number; readonly easeOut: string; readonly easeIn: string; readonly easeInOut: string; }
+  function NoticeProvider(props: NoticeProviderProps): ReactNode
+  interface NoticeProviderProps
+  readonly NoticeProviderProps.notice: LiveAnnouncement | undefined
+  readonly NoticeProviderProps.children: ReactNode
+  function NoticeSurface(props: NoticeSurfaceProps): ReactNode
+  interface NoticeSurfaceProps
+  readonly NoticeSurfaceProps.durationMs?: number
+  interface Oklch
+  readonly Oklch.lightness: number
+  readonly Oklch.chroma: number
+  readonly Oklch.hue: number
+  readonly Oklch.alpha?: number
+  function OptionSelect(props: OptionSelectProps): ReactNode
+  interface OptionSelectProps
+  readonly OptionSelectProps.label: string
+  readonly OptionSelectProps.value: string
+  readonly OptionSelectProps.options: readonly SelectOption[]
+  readonly OptionSelectProps.onValueChange: (value: string) => void
+  readonly OptionSelectProps.disabled?: boolean
+  interface Palette
+  readonly Palette.chrome: ChromePalette
+  readonly Palette.waveform: WaveformPalette
+  readonly Palette.selection: SelectionPalette
+  readonly Palette.meter: MeterPalette
+  readonly Palette.spectrogram: SpectrogramRamp
+  readonly Palette.category: Readonly<Record<string, Oklch>>
+  readonly Palette.analysisGrid: Oklch
+  readonly Palette.contrastShortfalls: readonly ContrastShortfall[]
+  type RadiusScale = { readonly none: number; readonly small: number; readonly medium: number; readonly large: number; readonly full: number; }
+  interface SelectOption
+  readonly SelectOption.value: string
+  readonly SelectOption.label: string
+  type SelectionPalette = { readonly fill: Oklch; readonly border: Oklch; readonly handle: Oklch; }
+  type SpacingScale = { readonly none: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; }
+  type SpectrogramRamp = readonly [Oklch, ...Oklch[]]
+  interface SystemAppearance
+  readonly SystemAppearance.prefersDark: boolean
+  readonly SystemAppearance.prefersReducedMotion: boolean
+  readonly SystemAppearance.prefersMoreContrast: boolean
+  interface SystemAppearanceSource
+  readonly SystemAppearanceSource.read: () => SystemAppearance
+  readonly SystemAppearanceSource.subscribe: (listener: () => void) => () => void
+  interface TabDescriptor
+  readonly TabDescriptor.value: string
+  readonly TabDescriptor.label: string
+  readonly TabDescriptor.content: ReactNode
+  function TabSet(props: TabSetProps): ReactNode
+  interface TabSetProps
+  readonly TabSetProps.label: string
+  readonly TabSetProps.tabs: readonly TabDescriptor[]
+  readonly TabSetProps.value: string
+  readonly TabSetProps.onValueChange: (value: string) => void
+  function TextField(props: TextFieldProps): ReactNode
+  interface TextFieldProps
+  readonly TextFieldProps.label: string
+  readonly TextFieldProps.value: string
+  readonly TextFieldProps.onValueChange: (value: string) => void
+  readonly TextFieldProps.description?: string
+  readonly TextFieldProps.placeholder?: string
+  readonly TextFieldProps.describedBy?: string
+  readonly TextFieldProps.maxLength?: number
+  readonly TextFieldProps.disabled?: boolean
+  readonly TextFieldProps.onSubmit?: () => void
+  interface Theme
+  readonly Theme.dark: boolean
+  readonly Theme.density: Density
+  readonly Theme.motionLevel: MotionLevel
+  readonly Theme.contrast: ContrastLevel
+  readonly Theme.palette: Palette
+  readonly Theme.metrics: Metrics
+  readonly Theme.motion: MotionScale
+  const ThemeMode: { readonly Dark: "dark"; readonly Light: "light"; readonly System: "system"; }
+  type ThemeMode = "dark" | "light" | "system"
+  interface ThemePreferences
+  readonly ThemePreferences.schemaVersion: number
+  readonly ThemePreferences.mode: ThemeMode
+  readonly ThemePreferences.accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"
+  readonly ThemePreferences.brightness: number
+  readonly ThemePreferences.density: Density
+  readonly ThemePreferences.contrast?: ContrastLevel
+  readonly ThemePreferences.motion?: MotionLevel
+  function ThemeProvider(props: ThemeProviderProps): ReactNode
+  interface ThemeProviderProps
+  readonly ThemeProviderProps.preferences: ThemePreferences
+  readonly ThemeProviderProps.children: ReactNode
+  readonly ThemeProviderProps.system: SystemAppearanceSource
+  function ToggleSwitch(props: ToggleSwitchProps): ReactNode
+  interface ToggleSwitchProps
+  readonly ToggleSwitchProps.label: string
+  readonly ToggleSwitchProps.checked: boolean
+  readonly ToggleSwitchProps.onCheckedChange: (checked: boolean) => void
+  readonly ToggleSwitchProps.description?: string
+  readonly ToggleSwitchProps.disabled?: boolean
+  type TypographyScale = { readonly tiny: number; readonly small: number; readonly body: number; readonly large: number; readonly heading: number; readonly lineHeight: number; readonly monospaceBody: number; }
+  const UNKNOWN_SYSTEM_APPEARANCE: SystemAppearance
+  function ValueSlider(props: ValueSliderProps): ReactNode
+  interface ValueSliderProps
+  readonly ValueSliderProps.label: string
+  readonly ValueSliderProps.value: number
+  readonly ValueSliderProps.minimum: number
+  readonly ValueSliderProps.maximum: number
+  readonly ValueSliderProps.step: number
+  readonly ValueSliderProps.onValueChange: (value: number) => void
+  readonly ValueSliderProps.describeValue: (value: number) => string
+  readonly ValueSliderProps.displayValue?: string
+  readonly ValueSliderProps.disabled?: boolean
+  function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
+  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; }
+  function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
+  function clampBrightness(value: number): number
+  function fixedSystemAppearance(appearance: SystemAppearance): SystemAppearanceSource
+  function isAccentName(value: unknown): boolean
+  function oklchToHex(colour: Oklch): string
+  function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
+  function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
+  function useTheme(): Theme
+
+@audiogubbins/diagnostics
+  interface BundleContentDescription
+  readonly BundleContentDescription.key: BundleContentKey
+  readonly BundleContentDescription.label: string
+  readonly BundleContentDescription.itemCount?: number
+  const BundleContentKey: { readonly ProductVersion: "product-version"; readonly Environment: "environment"; readonly Capabilities: "capabilities"; readonly DegradedFeatures: "degraded-features"; readonly Logs: "logs"; readonly PerformanceMeasurements: "performance-measurements"; readonly SchemaVersions: "schema-versions"; readonly ProcessorVersions: "processor-versions"; readonly ReproductionNotes: "reproduction-notes"; }
+  type BundleContentKey = "capabilities" | "degraded-features" | "environment" | "logs" | "performance-measurements" | "processor-versions" | "product-version" | "reproduction-notes" | "schema-versions"
+  interface BundleSelection
+  readonly BundleSelection.include: ReadonlySet<BundleContentKey>
+  readonly BundleSelection.redaction?: RedactionOptions
+  interface BundleSources
+  readonly BundleSources.environment: EnvironmentSummary
+  readonly BundleSources.capabilities: readonly CapabilitySummary[]
+  readonly BundleSources.degradedFeatures: readonly DegradedFeatureSummary[]
+  readonly BundleSources.logs: readonly LogRecord[]
+  readonly BundleSources.performance: readonly PerformanceRecord[]
+  readonly BundleSources.processorVersions: Readonly<Record<string, number>>
+  readonly BundleSources.reproductionNotes?: string
+  interface CapabilitySummary
+  readonly CapabilitySummary.key: string
+  readonly CapabilitySummary.available: boolean
+  readonly CapabilitySummary.reason?: string
+  readonly CapabilitySummary.checking?: boolean
+  interface Clock
+  Clock.now: () => number
+  type CorrelationId = string
+  const DEFAULT_BUNDLE_CONTENTS: ReadonlySet<BundleContentKey>
+  const DEFAULT_VERBOSITY: VerbosityConfiguration
+  interface DegradedFeatureSummary
+  readonly DegradedFeatureSummary.featureKey: string
+  readonly DegradedFeatureSummary.explanation: string
+  interface DiagnosticBundle
+  readonly DiagnosticBundle.schemaVersion: number
+  readonly DiagnosticBundle.productVersion: string
+  readonly DiagnosticBundle.createdAt: number
+  readonly DiagnosticBundle.contents: readonly BundleContentDescription[]
+  readonly DiagnosticBundle.redactionSummary: RedactionSummary
+  readonly DiagnosticBundle.environment?: EnvironmentSummary
+  readonly DiagnosticBundle.capabilities?: readonly CapabilitySummary[]
+  readonly DiagnosticBundle.degradedFeatures?: readonly DegradedFeatureSummary[]
+  readonly DiagnosticBundle.logs?: readonly LogRecord[]
+  readonly DiagnosticBundle.performance?: readonly PerformanceRecord[]
+  readonly DiagnosticBundle.schemaVersions?: Readonly<Record<string, number>>
+  readonly DiagnosticBundle.processorVersions?: Readonly<Record<string, number>>
+  readonly DiagnosticBundle.reproductionNotes?: string
+  interface DiagnosticCentre
+  DiagnosticCentre.loggerFor: (category: string) => Logger
+  DiagnosticCentre.verbosity: () => VerbosityConfiguration
+  DiagnosticCentre.setVerbosity: (verbosity: VerbosityConfiguration) => void
+  DiagnosticCentre.isDiagnosticModeActive: () => boolean
+  DiagnosticCentre.diagnosticModeEndsAt: () => number | undefined
+  DiagnosticCentre.startDiagnosticMode: (durationMs?: number) => void
+  DiagnosticCentre.stopDiagnosticMode: () => void
+  interface EnvironmentSummary
+  readonly EnvironmentSummary.browser: string
+  readonly EnvironmentSummary.operatingSystem: string
+  readonly EnvironmentSummary.installed: boolean
+  const LONGEST_NOTE: 4000
+  type LogFieldValue = boolean | null | number | string
+  type LogFields = { readonly [x: string]: LogFieldValue; }
+  interface LogRecord
+  readonly LogRecord.timestamp: number
+  readonly LogRecord.severity: LogSeverity
+  readonly LogRecord.category: string
+  readonly LogRecord.message: string
+  readonly LogRecord.fields: Readonly<Record<string, LogFieldValue>>
+  readonly LogRecord.correlationId?: string
+  readonly LogRecord.stack?: SanitisedStackTrace
+  const LogSeverity: { readonly Error: "error"; readonly Warning: "warning"; readonly Info: "info"; readonly Debug: "debug"; readonly Trace: "trace"; }
+  type LogSeverity = "debug" | "error" | "info" | "trace" | "warning"
+  interface LogSink
+  LogSink.write: (record: LogRecord) => void
+  LogSink.writePerformance: (record: PerformanceRecord) => void
+  interface LogStorageUsage
+  readonly LogStorageUsage.recordCount: number
+  readonly LogStorageUsage.performanceCount: number
+  readonly LogStorageUsage.approximateBytes: number
+  readonly LogStorageUsage.droppedRecordCount: number
+  interface LogStore extends LogSink
+  LogStore.snapshot: () => readonly LogRecord[]
+  LogStore.performanceSnapshot: () => readonly PerformanceRecord[]
+  LogStore.usage: () => LogStorageUsage
+  LogStore.clear: () => void
+  LogStore.write: (record: LogRecord) => void
+  LogStore.writePerformance: (record: PerformanceRecord) => void
+  interface LogStoreLimits
+  readonly LogStoreLimits.maximumRecords: number
+  readonly LogStoreLimits.maximumPerformanceRecords: number
+  interface Logger
+  readonly Logger.category: string
+  Logger.error: (message: string, fields?: LogFields, stack?: SanitisedStackTrace) => void
+  Logger.warning: (message: string, fields?: LogFields) => void
+  Logger.info: (message: string, fields?: LogFields) => void
+  Logger.debug: (message: string, fields?: LogFields) => void
+  Logger.trace: (message: string, fields?: LogFields) => void
+  Logger.measured: (operation: string, durationMs: number, fields?: LogFields) => void
+  Logger.forOperation: (correlationId: CorrelationId) => Logger
+  interface PerformanceRecord
+  readonly PerformanceRecord.timestamp: number
+  readonly PerformanceRecord.category: string
+  readonly PerformanceRecord.operation: string
+  readonly PerformanceRecord.durationMs: number
+  readonly PerformanceRecord.fields: Readonly<Record<string, LogFieldValue>>
+  readonly PerformanceRecord.correlationId?: string
+  interface RedactionOptions
+  readonly RedactionOptions.keepFileNames?: boolean
+  const RedactionReason: { readonly AbsolutePath: "absolute-path"; readonly FileName: "file-name"; readonly Credential: "credential"; readonly Url: "url"; readonly EmbeddedData: "embedded-data"; readonly EmailAddress: "email-address"; readonly NetworkAddress: "network-address"; }
+  type RedactionReason = "absolute-path" | "credential" | "email-address" | "embedded-data" | "file-name" | "network-address" | "url"
+  interface RedactionSummary
+  readonly RedactionSummary.counts: Readonly<Record<RedactionReason, number>>
+  interface SanitisedStackTrace
+  readonly SanitisedStackTrace.frames: readonly string[]
+  interface VerbosityConfiguration
+  readonly VerbosityConfiguration.defaultSeverity: LogSeverity
+  readonly VerbosityConfiguration.categoryOverrides: Readonly<Record<string, LogSeverity>>
+  function allSeverities(): readonly LogSeverity[]
+  function assembleBundle(sources: BundleSources, selection: BundleSelection, createdAt: number): DiagnosticBundle
+  function createDiagnosticCentre(sink: LogSink, clock: Clock, initialVerbosity?: VerbosityConfiguration): DiagnosticCentre
+  function createLogStore(limits?: LogStoreLimits): LogStore
+  function describeBundleContents(sources: BundleSources, selection: BundleSelection): readonly BundleContentDescription[]
+  function isLogCategory(value: string): boolean
+  function isLogSeverity(value: unknown): boolean
+  function previewRedaction(text: string, options?: RedactionOptions): { readonly text: string; readonly removed: number; }
+  function redactFields(fields: Readonly<Record<string, LogFieldValue>>, counts: Record<RedactionReason, number>, options?: RedactionOptions): Readonly<Record<string, LogFieldValue>>
+  function redactRecords(records: readonly LogRecord[], options?: RedactionOptions): { readonly records: readonly LogRecord[]; readonly summary: RedactionSummary; }
+  function redactStack(stack: SanitisedStackTrace, counts: Record<RedactionReason, number>, options?: RedactionOptions): SanitisedStackTrace
+  function redactText(text: string, counts: Record<RedactionReason, number>, options?: RedactionOptions): string
+  function renderBundle(bundle: DiagnosticBundle): string
+  function sanitiseStack(stack: string | undefined): SanitisedStackTrace | undefined
+  function severityPasses(severity: LogSeverity, minimum: LogSeverity): boolean
+
+@audiogubbins/domain
+  interface Asset
+  readonly Asset.id: AssetId
+  readonly Asset.displayName: string
+  readonly Asset.origin: AssetOrigin
+  readonly Asset.sampleRate: SampleRate
+  readonly Asset.channelLayout: ChannelLayout
+  readonly Asset.length: SampleCount
+  readonly Asset.storageKey: string
+  type AssetId = string & { readonly [BrandTag]: "AssetId"; }
+  const AssetOrigin: { readonly Imported: "imported"; readonly Recorded: "recorded"; readonly Generated: "generated"; }
+  type AssetOrigin = "generated" | "imported" | "recorded"
+  interface AssetRange
+  readonly AssetRange.assetId: AssetId
+  readonly AssetRange.start: SampleCount
+  readonly AssetRange.length: SampleCount
+  type Branded<TBrand extends string> = string & { readonly [BrandTag]: TBrand; }
+  interface Bus
+  readonly Bus.id: BusId
+  readonly Bus.displayName: string
+  readonly Bus.channelLayout: ChannelLayout
+  readonly Bus.gain: number
+  readonly Bus.muted: boolean
+  readonly Bus.output?: RoutingTarget
+  readonly Bus.effectChainId?: EffectChainId
+  type BusId = string & { readonly [BrandTag]: "BusId"; }
+  interface ChannelLayout
+  readonly ChannelLayout.roles: readonly [ChannelRole, ...ChannelRole[]]
+  const ChannelRole: { readonly Mono: "mono"; readonly Left: "left"; readonly Right: "right"; readonly Centre: "centre"; readonly LowFrequency: "low-frequency"; readonly SurroundLeft: "surround-left"; readonly SurroundRight: "surround-right"; readonly RearLeft: "rear-left"; readonly RearRight: "rear-right"; readonly TopFrontLeft: "top-front-left"; readonly TopFrontRight: "top-front-right"; readonly TopRearLeft: "top-rear-left"; readonly TopRearRight: "top-rear-right"; readonly Discrete: "discrete"; }
+  type ChannelRole = "centre" | "discrete" | "left" | "low-frequency" | "mono" | "rear-left" | "rear-right" | "right" | "surround-left" | "surround-right" | "top-front-left" | "top-front-right" | "top-rear-left" | "top-rear-right"
+  interface ChoiceOption
+  readonly ChoiceOption.key: string
+  readonly ChoiceOption.label: string
+  interface ChoiceParameterDescriptor
+  readonly ChoiceParameterDescriptor.kind: "choice"
+  readonly ChoiceParameterDescriptor.id: ParameterId
+  readonly ChoiceParameterDescriptor.key: string
+  readonly ChoiceParameterDescriptor.label: string
+  readonly ChoiceParameterDescriptor.options: readonly [ChoiceOption, ...ChoiceOption[]]
+  readonly ChoiceParameterDescriptor.defaultKey: string
+  interface Clip
+  readonly Clip.id: ClipId
+  readonly Clip.trackId: TrackId
+  readonly Clip.displayName: string
+  readonly Clip.source: AssetRange
+  readonly Clip.timelineStart: SampleCount
+  readonly Clip.timelineLength: SampleCount
+  readonly Clip.gain: number
+  readonly Clip.fadeInLength: SampleCount
+  readonly Clip.fadeOutLength: SampleCount
+  readonly Clip.muted: boolean
+  type ClipId = string & { readonly [BrandTag]: "ClipId"; }
+  interface DomainFailure
+  readonly DomainFailure.code: string
+  readonly DomainFailure.kind: FailureKind
+  readonly DomainFailure.summary: string
+  readonly DomainFailure.details?: Readonly<Record<string, boolean | number | string>>
+  readonly DomainFailure.cause?: DomainFailure
+  interface DomainFailureResult
+  readonly DomainFailureResult.ok: false
+  readonly DomainFailureResult.failures: readonly [DomainFailure, ...DomainFailure[]]
+  type DomainResult<TValue> = DomainFailureResult | DomainSuccess<TValue>
+  interface DomainSuccess<TValue>
+  readonly DomainSuccess.ok: true
+  readonly DomainSuccess.value: TValue
+  interface EffectChain
+  readonly EffectChain.id: EffectChainId
+  readonly EffectChain.processors: readonly ProcessorInstance[]
+  type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
+  interface EmptySelection
+  readonly EmptySelection.kind: "none"
+  type EntityId = AssetId | BusId | ClipId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
+  type EntitySelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
+  const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
+  type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
+  interface IdGenerator
+  IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
+  interface LoopDefinition
+  readonly LoopDefinition.loopStart: SampleCount
+  readonly LoopDefinition.loopEnd: SampleCount
+  readonly LoopDefinition.crossfadeLength: SampleCount
+  const MAIN_OUTPUT: RoutingTarget
+  const MAXIMUM_CHANNEL_COUNT: 256
+  interface Marker
+  readonly Marker.id: MarkerId
+  readonly Marker.displayName: string
+  readonly Marker.position: SampleCount
+  readonly Marker.paletteKey?: string
+  type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
+  const NO_SELECTION: EmptySelection
+  interface NumericParameterDescriptor
+  readonly NumericParameterDescriptor.kind: "numeric"
+  readonly NumericParameterDescriptor.id: ParameterId
+  readonly NumericParameterDescriptor.key: string
+  readonly NumericParameterDescriptor.label: string
+  readonly NumericParameterDescriptor.minimum: number
+  readonly NumericParameterDescriptor.maximum: number
+  readonly NumericParameterDescriptor.defaultValue: number
+  readonly NumericParameterDescriptor.taper: ParameterTaper
+  readonly NumericParameterDescriptor.unit?: string
+  readonly NumericParameterDescriptor.step?: number
+  type ParameterDescriptor = ChoiceParameterDescriptor | NumericParameterDescriptor | ToggleParameterDescriptor
+  type ParameterId = string & { readonly [BrandTag]: "ParameterId"; }
+  const ParameterTaper: { readonly Linear: "linear"; readonly Logarithmic: "logarithmic"; readonly Decibel: "decibel"; }
+  type ParameterTaper = "decibel" | "linear" | "logarithmic"
+  type ParameterValue = boolean | number | string
+  interface ProcessorDescriptor
+  readonly ProcessorDescriptor.typeKey: string
+  readonly ProcessorDescriptor.label: string
+  readonly ProcessorDescriptor.implementationVersion: number
+  readonly ProcessorDescriptor.parameters: readonly ParameterDescriptor[]
+  readonly ProcessorDescriptor.latency: SampleCount
+  type ProcessorId = string & { readonly [BrandTag]: "ProcessorId"; }
+  interface ProcessorInstance
+  readonly ProcessorInstance.id: ProcessorId
+  readonly ProcessorInstance.typeKey: string
+  readonly ProcessorInstance.enabled: boolean
+  readonly ProcessorInstance.soloed: boolean
+  readonly ProcessorInstance.values: ReadonlyMap<ParameterId, ParameterValue>
+  interface Project
+  readonly Project.id: ProjectId
+  readonly Project.displayName: string
+  readonly Project.settings: ProjectSettings
+  readonly Project.assets: ReadonlyMap<AssetId, Asset>
+  readonly Project.tracks: ReadonlyMap<TrackId, Track>
+  readonly Project.buses: ReadonlyMap<BusId, Bus>
+  readonly Project.clips: ReadonlyMap<ClipId, Clip>
+  readonly Project.regions: ReadonlyMap<RegionId, Region>
+  readonly Project.markers: ReadonlyMap<MarkerId, Marker>
+  readonly Project.effectChains: ReadonlyMap<EffectChainId, EffectChain>
+  readonly Project.trackOrder: readonly TrackId[]
+  type ProjectId = string & { readonly [BrandTag]: "ProjectId"; }
+  interface ProjectSettings
+  readonly ProjectSettings.sampleRate: SampleRate
+  readonly ProjectSettings.channelLayout: ChannelLayout
+  interface Region
+  readonly Region.id: RegionId
+  readonly Region.displayName: string
+  readonly Region.start: SampleCount
+  readonly Region.length: SampleCount
+  readonly Region.loop?: LoopDefinition
+  readonly Region.tags: readonly string[]
+  type RegionId = string & { readonly [BrandTag]: "RegionId"; }
+  type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
+  type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
+  type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
+  type Selection = EmptySelection | EntitySelection | TimeRangeSelection
+  const SelectionFocus: { readonly Nothing: "nothing"; readonly TimeRange: "time-range"; readonly Clips: "clips"; readonly Regions: "regions"; readonly Markers: "markers"; readonly Tracks: "tracks"; readonly Assets: "assets"; readonly Processors: "processors"; }
+  type SelectionFocus = "assets" | "clips" | "markers" | "nothing" | "processors" | "regions" | "time-range" | "tracks"
+  const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; }
+  interface TimeRangeSelection
+  readonly TimeRangeSelection.kind: "time-range"
+  readonly TimeRangeSelection.start: SampleCount
+  readonly TimeRangeSelection.length: SampleCount
+  readonly TimeRangeSelection.trackIds: readonly TrackId[]
+  type TimelineEntity = Clip | Marker | Region
+  interface ToggleParameterDescriptor
+  readonly ToggleParameterDescriptor.kind: "toggle"
+  readonly ToggleParameterDescriptor.id: ParameterId
+  readonly ToggleParameterDescriptor.key: string
+  readonly ToggleParameterDescriptor.label: string
+  readonly ToggleParameterDescriptor.defaultValue: boolean
+  interface Track
+  readonly Track.id: TrackId
+  readonly Track.displayName: string
+  readonly Track.channelLayout: ChannelLayout
+  readonly Track.gain: number
+  readonly Track.pan: number
+  readonly Track.muted: boolean
+  readonly Track.soloed: boolean
+  readonly Track.output: RoutingTarget
+  readonly Track.effectChainId?: EffectChainId
+  readonly Track.paletteKey?: string
+  type TrackId = string & { readonly [BrandTag]: "TrackId"; }
+  const ZERO_SAMPLES: SampleCount
+  function addSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
+  function assetRangeEnd(range: AssetRange): number
+  function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
+  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<SampleCount>
+  function channelCount(layout: ChannelLayout): number
+  function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
+  function channelLayout(roles: readonly ChannelRole[]): DomainResult<ChannelLayout>
+  function clipAssetId(clip: Clip): AssetId
+  function clipEnd(clip: Clip): number
+  function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[]
+  function clipsOverlap(left: Clip, right: Clip): boolean
+  function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
+  function containsSample(start: SampleCount, length: SampleCount, inner: SampleCount): boolean
+  function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
+  function createDeterministicIdGenerator(seed: number): IdGenerator
+  function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
+  function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project
+  function defaultParameterValue(descriptor: ParameterDescriptor): ParameterValue
+  function discreteLayout(count: number): DomainResult<ChannelLayout>
+  function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
+  function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
+  function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
+  function hasSelection(selection: Selection): boolean
+  function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
+  function isAssetInUse(project: Project, assetId: AssetId): boolean
+  function isFailure<TValue>(result: DomainResult<TValue>): boolean
+  function isRetryable(result: DomainFailureResult): boolean
+  function isSuccess<TValue>(result: DomainResult<TValue>): boolean
+  function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
+  function isWellFormedId(candidate: string): boolean
+  function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
+  function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
+  function processorsInSignalOrder(chain: EffectChain): readonly ProcessorInstance[]
+  function projectLength(project: Project): number
+  function regionEnd(region: Region): number
+  function routeToBus(busId: BusId): RoutingTarget
+  function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
+  function sampleCount(value: number): DomainResult<SampleCount>
+  function sampleRate(value: number): DomainResult<SampleRate>
+  function samplesToSeconds(count: SampleCount, rate: SampleRate): number
+  function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
+  function selectionFocus(selection: Selection): SelectionFocus
+  function selectionSize(selection: Selection): number
+  function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
+  function succeed<TValue>(value: TValue): DomainSuccess<TValue>
+  function tracksInOrder(project: Project): readonly Track[]
+  function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
+  function validateParameterValue(descriptor: ParameterDescriptor, value: ParameterValue): DomainResult<ParameterValue>
+  function validateProcessorInstance(processor: ProcessorInstance, descriptor: ProcessorDescriptor): DomainResult<readonly ParameterValue[]>
+
+@audiogubbins/domain/testing
+  function expectFailureCode<TValue>(result: DomainResult<TValue>): string
+  function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
+
+@audiogubbins/input
+  const DEFAULT_GESTURE_SETTINGS: GestureSettings
+  type Gesture = { readonly kind: "context"; readonly at: PointerSample; } | { readonly kind: "idle"; } | { readonly kind: "pan"; readonly dx: number; readonly dy: number; } | { readonly kind: "tool"; readonly at: PointerSample; } | { readonly kind: "zoom"; readonly scale: number; readonly centreX: number; readonly centreY: number; }
+  interface GestureSettings
+  readonly GestureSettings.longPressMs: number
+  readonly GestureSettings.longPressTolerancePx: number
+  readonly GestureSettings.usePenPressure: boolean
+  readonly GestureSettings.fixedStrength: number
+  interface KeyEventReading
+  readonly KeyEventReading.code: string
+  readonly KeyEventReading.ctrlKey: boolean
+  readonly KeyEventReading.shiftKey: boolean
+  readonly KeyEventReading.altKey: boolean
+  readonly KeyEventReading.metaKey: boolean
+  readonly KeyEventReading.key: string
+  readonly KeyEventReading.altGraph: boolean
+  readonly KeyEventReading.composing: boolean
+  readonly KeyEventReading.capsLock: boolean
+  interface KeyEventSource
+  readonly KeyEventSource.code: string
+  readonly KeyEventSource.key: string
+  readonly KeyEventSource.ctrlKey: boolean
+  readonly KeyEventSource.shiftKey: boolean
+  readonly KeyEventSource.altKey: boolean
+  readonly KeyEventSource.metaKey: boolean
+  readonly KeyEventSource.isComposing: boolean
+  KeyEventSource.getModifierState: (key: string) => boolean
+  interface KeyPress
+  readonly KeyPress.key: string
+  readonly KeyPress.control: boolean
+  readonly KeyPress.shift: boolean
+  readonly KeyPress.alt: boolean
+  readonly KeyPress.meta: boolean
+  interface KeyboardLayout
+  readonly KeyboardLayout.characterAt: (code: string) => string | undefined
+  readonly KeyboardLayout.keyTyping: (character: string) => string | undefined
+  readonly KeyboardLayout.latin: boolean
+  readonly KeyboardLayout.commandByPosition: boolean | undefined
+  interface KeyboardPlatform
+  readonly KeyboardPlatform.altGraphIsTyping: boolean
+  readonly KeyboardPlatform.optionTypesInAField: boolean
+  const NO_GESTURE: Gesture
+  type Placement = { readonly key: string; readonly waitsFor?: undefined; } | { readonly key?: undefined; readonly waitsFor: "a key" | "the Command layer"; }
+  const PointerKind: { readonly Mouse: "mouse"; readonly Touch: "touch"; readonly Pen: "pen"; }
+  type PointerKind = "mouse" | "pen" | "touch"
+  interface PointerReading
+  readonly PointerReading.pointerId: number
+  readonly PointerReading.pointerType: string
+  readonly PointerReading.clientX: number
+  readonly PointerReading.clientY: number
+  readonly PointerReading.pressure: number
+  readonly PointerReading.timeStamp: number
+  interface PointerSample
+  readonly PointerSample.pointerId: number
+  readonly PointerSample.kind: PointerKind
+  readonly PointerSample.x: number
+  readonly PointerSample.y: number
+  readonly PointerSample.pressure?: number
+  readonly PointerSample.timestamp: number
+  type PressedWith = "a modifier" | "command" | "nothing"
+  type TypedKey = readonly [string, string]
+  const UNKNOWN_LAYOUT: KeyboardLayout
+  function browserPressOf(press: KeyPress, layout: KeyboardLayout): KeyPress
+  function characterName(character: string): string
+  function commandLayerKeys(layout: KeyboardLayout): readonly TypedKey[]
+  function commandLayerOf(reading: KeyEventReading, layout: KeyboardLayout): "another layout" | "the same" | undefined
+  function couldBeTyped(code: string, character: string): boolean
+  function isShortcutPress(reading: KeyEventReading): boolean
+  function isTypingPress(reading: KeyEventReading, platform: KeyboardPlatform): boolean
+  function keyNameOn(press: Pick<KeyPress, "key" | "meta">, layout: KeyboardLayout): string | undefined
+  function keyPress(key: string, modifiers?: Partial<Omit<KeyPress, "key">>): KeyPress
+  function keyPressFromEvent(event: KeyEventReading): KeyPress
+  function keyPressesMatch(left: KeyPress, right: KeyPress): boolean
+  function keyboardLayout(pairs: Iterable<TypedKey>, readings?: Partial<Pick<KeyboardLayout, "commandByPosition">>): KeyboardLayout
+  function placeFor(character: string, layout: KeyboardLayout, pressedWith: PressedWith): Placement
+  function readingOf(event: KeyEventSource, platform: KeyboardPlatform): KeyEventReading
+  function recogniseGesture(started: readonly PointerSample[], current: readonly PointerSample[], settings?: GestureSettings): Gesture
+  function sampleFromPointerEvent(event: PointerReading, origin: { readonly left: number; readonly top: number; }): PointerSample
+  function toolStrength(sample: PointerSample, settings: GestureSettings): number
+  function typedCharacterOf(reading: KeyEventReading): TypedKey | undefined
+  function withLearned(pairs: readonly TypedKey[], code: string, typed: string): readonly TypedKey[]
+
+@audiogubbins/input/testing
+  function keyEventOf(code: string, key: string, held?: Partial<KeyEventReading>): KeyEventReading
+
+@audiogubbins/test-fixtures
+  const FIXTURE_LENGTH: 48000
+  const FIXTURE_SAMPLE_RATE: 48000
+  const LONGEST_COST_TEST_MS: number
+  const N_LOG_N_FOURFOLD: 5.5
+  interface ProjectFixture
+  readonly ProjectFixture.project: Project
+  readonly ProjectFixture.ids: IdGenerator
+  readonly ProjectFixture.assets: { readonly footstep: Asset; readonly ambience: Asset; }
+  readonly ProjectFixture.tracks: { readonly foley: Track; readonly background: Track; }
+  readonly ProjectFixture.clips: { readonly firstStep: Clip; readonly secondStep: Clip; }
+  readonly ProjectFixture.regions: { readonly loop: Region; }
+  readonly ProjectFixture.markers: { readonly start: Marker; }
+  interface SignalFixture
+  readonly SignalFixture.name: string
+  readonly SignalFixture.sampleRate: SampleRate
+  readonly SignalFixture.channelLayout: ChannelLayout
+  readonly SignalFixture.channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly SignalFixture.length: SampleCount
+  interface SignalOptions
+  readonly SignalOptions.sampleRate?: number
+  readonly SignalOptions.length?: number
+  readonly SignalOptions.amplitude?: number
+  function chirp(fromHz?: number, toHz?: number, options?: SignalOptions): SignalFixture
+  function clickInSine(frequency?: number, atFrame?: number, options?: SignalOptions): SignalFixture
+  function comparisonsIn(work: () => void, ceiling?: number): number
+  function directCurrent(offset?: number, options?: SignalOptions): SignalFixture
+  function emptyProject(seed?: number): Project
+  function impulse(atFrame?: number, options?: SignalOptions): SignalFixture
+  function loopableSine(frequency: number, options?: SignalOptions): SignalFixture
+  function noise(seed?: number, options?: SignalOptions): SignalFixture
+  function noisySine(frequency?: number, signalToNoise?: number, options?: SignalOptions): SignalFixture
+  function peakOf(signal: SignalFixture): number
+  function relativeCost(workload: () => unknown, baseline: () => unknown): number
+  function rmsOf(signal: SignalFixture): number
+  function sampleProject(seed?: number): ProjectFixture
+  function silence(options?: SignalOptions): SignalFixture
+  function sine(frequency: number, options?: SignalOptions): SignalFixture
+  function stereo(left: SignalFixture, right: SignalFixture, name?: string): SignalFixture
+  function surround5_1(options?: SignalOptions): SignalFixture
+  function transient(atFrame?: number, options?: SignalOptions): SignalFixture
+
+@audiogubbins/text
+  interface IdentifierRule
+  IdentifierRule.isIdentifier: (text: string) => boolean
+  IdentifierRule.identifiersHeldBy: (entries: Iterable<{ readonly id: string; }>, fallback: string) => Identifiers
+  interface Identifiers
+  Identifiers.forName: (name: string) => string
+  Identifiers.forStored: (id: string) => string | undefined
+  interface NameProblem
+  readonly NameProblem.kind: "blank" | "too-long"
+  interface Named
+  readonly Named.id: string
+  readonly Named.displayName: string
+  interface NamesHeld<T extends Named>
+  readonly NamesHeld.holderOf: (name: string) => T | undefined
+  readonly NamesHeld.taken: (name: string) => boolean
+  interface SentencesTaken
+  readonly SentencesTaken.said: string
+  readonly SentencesTaken.whole: boolean
+  function asName(value: unknown, characters: number): NameProblem | string
+  function asQuoted(value: unknown): string
+  function asWrittenName(value: unknown, characters: number): NameProblem | string
+  function cutAtAWord(text: string, bound: number): string
+  function firstFreeCopyName(name: string, word: string, characters: number, taken: (name: string) => boolean): string
+  function firstFreeName(name: string, characters: number, taken: (name: string) => boolean): string
+  function holderOf<T extends Named>(entries: Iterable<T>, name: string, self?: string | undefined): T | undefined
+  function identifierRule(longestBytes: number): IdentifierRule
+  function namesCanBeCompared(): boolean
+  function namesHeldBy<T extends Named>(entries: Iterable<T>, self?: string | undefined): NamesHeld<T>
+  function oneCharacter(text: string): boolean
+  function sentencesWithin(text: string, words: number): SentencesTaken
+  function utf8Bytes(text: string): number
+  function wholeCharactersWithin(text: string, bound: number): string
+
+@audiogubbins/version
+  const PRODUCT_VERSION: "0.1.0"
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly diagnosticBundle: 1; }
+  type SchemaName = "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+
+@audiogubbins/workspace
+  const BUILT_IN_IS_NOT_DELETABLE: "A built-in workspace cannot be deleted."
+  const DEFAULT_PRESET_ID: "editing"
+  function DockHost(props: DockHostProps): ReactNode
+  interface DockHostProps
+  readonly DockHostProps.layout: WorkspaceLayout
+  readonly DockHostProps.descriptors: ReadonlyMap<string, PanelDescriptor>
+  readonly DockHostProps.renderPanel: PanelRenderer
+  readonly DockHostProps.onArrangementChange: (arrangement: WorkspaceArrangement) => void
+  readonly DockHostProps.dark: boolean
+  const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
+  type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
+  const LONGEST_WORKSPACE_NAME: 120
+  interface LayoutProblem
+  readonly LayoutProblem.kind: "invalid" | "nothing-docked"
+  readonly LayoutProblem.text: string
+  type LayoutReading = { readonly layout: WorkspaceLayout; readonly problem?: undefined; } | { readonly layout?: undefined; readonly problem: LayoutProblem; }
+  interface LayoutRemoval
+  readonly LayoutRemoval.layout: WorkspaceLayout
+  readonly LayoutRemoval.make: () => WorkspaceLayout
+  const LayoutSource: { readonly Stored: "stored"; readonly Default: "default"; readonly Recovered: "recovered"; }
+  type LayoutSource = "default" | "recovered" | "stored"
+  interface LayoutStore
+  LayoutStore.all: () => readonly WorkspaceLayout[]
+  LayoutStore.get: (id: string) => WorkspaceLayout | undefined
+  LayoutStore.save: (id: string, arrangement: WorkspaceArrangement) => SavingProblem | undefined
+  LayoutStore.saveAs: (layout: WorkspaceLayout, displayName?: string) => WorkspaceLayout | string
+  LayoutStore.duplicate: (id: string, displayName?: string) => WorkspaceLayout | string
+  LayoutStore.rename: (id: string, displayName: string) => string | { readonly before: WorkspaceLayout; readonly after: WorkspaceLayout; }
+  LayoutStore.renamable: (id: string) => WorkspaceLayout | string
+  LayoutStore.removable: (id: string) => LayoutRemoval | string
+  LayoutStore.resettable: (id: string) => WorkspaceLayout | string
+  interface OpenPanel
+  readonly OpenPanel.id: string
+  readonly OpenPanel.kind: string
+  readonly OpenPanel.title?: string
+  readonly OpenPanel.parameters?: Readonly<Record<string, boolean | number | string>>
+  interface PanelDescriptor
+  readonly PanelDescriptor.kind: string
+  readonly PanelDescriptor.title: string
+  readonly PanelDescriptor.defaultRegion: DockRegion
+  readonly PanelDescriptor.allowsMultiple: boolean
+  readonly PanelDescriptor.closable: boolean
+  readonly PanelDescriptor.minimumSize?: { readonly width: number; readonly height: number; }
+  interface PanelGroup
+  readonly PanelGroup.region: DockRegion
+  readonly PanelGroup.placement?: FloatingPlacement
+  readonly PanelGroup.panels: readonly OpenPanel[]
+  readonly PanelGroup.activePanelId: string
+  readonly PanelGroup.proportion: number
+  type PanelId = string
+  type PanelKind = string
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; }
+  type PanelRenderer = (panel: OpenPanel) => ReactNode
+  interface PlacedLayouts
+  readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]
+  readonly PlacedLayouts.onScreen: WorkspaceLayout
+  type ResolvedLayout = (RecoveredLayout & { readonly text: string; }) | { readonly layout: WorkspaceLayout; readonly source: typeof LayoutSource.Default | typeof LayoutSource.Stored; }
+  interface SavingProblem
+  readonly SavingProblem.kind: "built-in" | "refused"
+  readonly SavingProblem.text: string
+  interface WorkspaceArrangement
+  readonly WorkspaceArrangement.groups: readonly PanelGroup[]
+  readonly WorkspaceArrangement.activePanelId?: string
+  interface WorkspaceLayout extends WorkspaceArrangement
+  readonly WorkspaceLayout.schemaVersion: number
+  readonly WorkspaceLayout.id: string
+  readonly WorkspaceLayout.displayName: string
+  readonly WorkspaceLayout.builtIn: boolean
+  readonly WorkspaceLayout.groups: readonly PanelGroup[]
+  readonly WorkspaceLayout.activePanelId?: string
+  function activePanelOf(layout: WorkspaceLayout): OpenPanel | undefined
+  function buildPresets(available: ReadonlySet<string>): readonly WorkspaceLayout[]
+  function closureProblem(layout: WorkspaceLayout, id: string): string | undefined
+  function createLayoutStore(builtIn: readonly WorkspaceLayout[], userLayouts?: readonly WorkspaceLayout[]): LayoutStore
+  function listedName(layout: WorkspaceLayout): string
+  function movingProblem(layout: WorkspaceLayout, id: string, region: DockRegion): string | undefined
+  function noWorkspaceWith(id: string): string
+  function nudgingProblem(layout: WorkspaceLayout, id: string, x: number, y: number): string | undefined
+  function openingProblem(layout: WorkspaceLayout, descriptor: PanelDescriptor): string | undefined
+  function panelsIn(layout: WorkspaceLayout): readonly OpenPanel[]
+  function placedLayouts(builtIn: readonly WorkspaceLayout[], stored: readonly WorkspaceLayout[], onScreen: WorkspaceLayout): PlacedLayouts
+  function readLayout(value: unknown, descriptors: ReadonlyMap<string, PanelDescriptor>): LayoutReading
+  function regionPhrase(region: DockRegion): string
+  function reorderingProblem(layout: WorkspaceLayout, id: string, places: number): string | undefined
+  function resizingProblem(layout: WorkspaceLayout, id: string, steps: number): string | undefined
+  function resolveStoredLayout(text: null | string, fallback: WorkspaceLayout, descriptors: ReadonlyMap<string, PanelDescriptor>, logger: Logger): ResolvedLayout
+  function sameArrangement(one: WorkspaceArrangement, other: WorkspaceArrangement): boolean
+  function sameLayout(one: WorkspaceLayout, other: WorkspaceLayout): boolean
+  function titleOf(panel: OpenPanel, descriptors: ReadonlyMap<string, PanelDescriptor>): string
+  function withGroupNudged(layout: WorkspaceLayout, id: string, x: number, y: number): WorkspaceLayout | string
+  function withGroupResized(layout: WorkspaceLayout, id: string, steps: number): WorkspaceLayout | string
+  function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor): WorkspaceLayout
+  function withPanelMoved(layout: WorkspaceLayout, id: string, region: DockRegion): WorkspaceLayout | string
+  function withPanelReordered(layout: WorkspaceLayout, id: string, places: number): WorkspaceLayout | string
+  function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
+
+Named by a published contract, and published by no entry point
+
+packages/design-system/src/primitives/button.tsx
+  type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }
+
+packages/design-system/src/primitives/controls.tsx
+  interface ControlBarProps
+  readonly ControlBarProps.label: string
+  readonly ControlBarProps.children: ReactNode
+
+packages/design-system/src/primitives/overlays.tsx
+  interface DropdownMenuProps
+  readonly DropdownMenuProps.trigger: ReactNode
+  readonly DropdownMenuProps.groups: readonly MenuGroup[]
+  readonly DropdownMenuProps.label: string
+
+packages/workspace/src/layout-reading.ts
+  interface RecoveredLayout
+  readonly RecoveredLayout.layout: WorkspaceLayout
+  readonly RecoveredLayout.source: "recovered"
+  readonly RecoveredLayout.reason: string
+
+packages/workspace/src/panel.ts
+  interface FloatingPlacement
+  readonly FloatingPlacement.x: number
+  readonly FloatingPlacement.y: number
+  readonly FloatingPlacement.width: number
+  readonly FloatingPlacement.height: number

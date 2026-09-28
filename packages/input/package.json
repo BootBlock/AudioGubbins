@@ -1,0 +1,32 @@
+{
+  "name": "@audiogubbins/input",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mouse, touch, pen and keyboard input as values: pointer samples, gestures and key presses. Nothing of the browser.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@audiogubbins/text": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

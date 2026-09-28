@@ -1,0 +1,42 @@
+{
+  "$comment": "Solution file for `pnpm typecheck`. Project references give tsc the package dependency order, which is the same order the architecture rules enforce.",
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/domain"
+    },
+    {
+      "path": "./packages/version"
+    },
+    {
+      "path": "./packages/text"
+    },
+    {
+      "path": "./packages/input"
+    },
+    {
+      "path": "./packages/diagnostics"
+    },
+    {
+      "path": "./packages/commands"
+    },
+    {
+      "path": "./packages/capabilities"
+    },
+    {
+      "path": "./packages/design-system"
+    },
+    {
+      "path": "./packages/workspace"
+    },
+    {
+      "path": "./packages/test-fixtures"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./tests"
+    }
+  ]
+}

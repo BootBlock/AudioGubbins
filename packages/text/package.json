@@ -1,0 +1,26 @@
+{
+  "name": "@audiogubbins/text",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The rules for text a reader is shown, from how its characters are counted to the identifier a name is held under.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@audiogubbins/commands",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed command contracts, registry, validation and execution. The only sanctioned route to a project mutation.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/diagnostics": "workspace:*",
+    "@audiogubbins/input": "workspace:*",
+    "@audiogubbins/text": "workspace:*",
+    "@audiogubbins/version": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

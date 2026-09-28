@@ -1,0 +1,687 @@
+/*
+ * Component styles.
+ *
+ * Every value reads a token. A literal colour or size here would be invisible
+ * to the theme, the density and the contrast settings, which is the failure
+ * REQ-UX-155 describes.
+ */
+
+.ag-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ag-space-small);
+
+  block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-medium);
+
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-raised);
+  color: var(--ag-chrome-text-primary);
+
+  font: inherit;
+  font-size: var(--ag-text-body);
+  cursor: pointer;
+
+  transition-property: background-color, border-color, color;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-button[data-ag-compact] {
+  block-size: var(--ag-control-compact-height);
+  padding-inline: var(--ag-space-small);
+}
+
+.ag-button[data-ag-icon-only] {
+  inline-size: var(--ag-control-height);
+  padding-inline: 0;
+}
+
+.ag-button:hover:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  background-color: var(--ag-chrome-surface-hover);
+}
+
+.ag-button:active:not(:disabled, [aria-disabled='true'], [data-ag-unavailable]) {
+  background-color: var(--ag-chrome-surface-active);
+}
+
+.ag-button[data-ag-tone='primary'] {
+  background-color: var(--ag-chrome-accent);
+  border-color: var(--ag-chrome-accent);
+  color: var(--ag-chrome-text-on-accent);
+}
+
+.ag-button[data-ag-tone='primary']:hover:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ) {
+  background-color: var(--ag-chrome-accent-hover);
+}
+
+.ag-button[data-ag-tone='primary']:active:not(
+    :disabled,
+    [aria-disabled='true'],
+    [data-ag-unavailable]
+  ) {
+  background-color: var(--ag-chrome-accent-active);
+}
+
+.ag-button[data-ag-tone='quiet'] {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.ag-button[data-ag-tone='destructive'] {
+  color: var(--ag-chrome-status-error);
+  border-color: var(--ag-chrome-status-error);
+}
+
+/* Unavailable and still reachable, as a button whose reason is given beside it
+   is, looks as a disabled one does, whatever its tone. After the tones and at
+   least as heavy, or a Delete that could not be used would stay red, and a
+   primary one would keep the accent, each from its tone's rule of the same
+   weight. A quiet button keeps no surface either way.
+
+   A label drawn as a button, around the control that carries the state, is
+   marked `data-ag-unavailable` while that control is unavailable, and looks
+   the same. The mark is on the label because the Firefox of the support floor
+   has no `:has()` to find the control from it with, and it is not ARIA state,
+   which a label does not take. */
+.ag-button:disabled,
+.ag-button[aria-disabled='true'],
+.ag-button[data-ag-unavailable] {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+.ag-button:is(:disabled, [aria-disabled='true'], [data-ag-unavailable]):not(
+    [data-ag-tone='quiet']
+  ) {
+  background-color: var(--ag-chrome-surface-raised);
+  border-color: var(--ag-chrome-border-default);
+}
+
+/* Overlay surfaces. */
+
+.ag-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--ag-chrome-scrim);
+}
+
+.ag-dialog {
+  position: fixed;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  transform: translate(-50%, -50%);
+
+  /* The padding and the border counted in. Left as a content box, the declared
+     90vw would become 90vw plus two paddings and two borders, so at a 320-pixel
+     page the dialogue would hang five pixels off each edge — and a fixed,
+     centred box has no scroll position that brings its edges back. */
+  box-sizing: border-box;
+  inline-size: min(90vw, 32rem);
+
+  /* A column: the title, what the dialogue holds, which scrolls, and a footer,
+     which does not. A refusal raised while it is open is in the footer
+     (`.ag-dialog-notice` below), above the actions, and scrolled as a whole it
+     would be out of sight whenever the reader pressed a control near the top.
+
+     The dialogue itself scrolls only when the title, the least room the part
+     that scrolls keeps and the footer are together taller than the cap, on a
+     short page or at a large zoom. Hidden, that overflow would cut the actions
+     off with nothing to scroll them back with. */
+  display: flex;
+  flex-direction: column;
+  max-block-size: 85dvh;
+  overflow: auto;
+
+  padding: var(--ag-space-large);
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-large);
+  background-color: var(--ag-chrome-surface-overlay);
+  color: var(--ag-chrome-text-primary);
+}
+
+.ag-dialog-title {
+  flex: none;
+  margin: 0 0 var(--ag-space-small);
+  font-size: var(--ag-text-heading);
+  font-weight: 600;
+}
+
+.ag-dialog-description {
+  margin: 0 0 var(--ag-space-medium);
+  color: var(--ag-chrome-text-secondary);
+}
+
+/* The part that scrolls. Its own scroll container, so a control in it is
+   scrolled into view inside it and can never be scrolled under the footer. */
+.ag-dialog-scroll {
+  flex: 1 1 auto;
+
+  /* Room for the tallest control of one line and its focus ring, however
+     tall the footer is: a control of the density's height here, and one
+     drawn at the touch target where a finger is among the inputs (below).
+
+     With no floor, a refusal in the footer of a dialogue on a short page would
+     leave this part a few pixels, and the control the reader is on would be cut
+     to a sliver. */
+  min-block-size: calc(var(--ag-control-height) + 2 * var(--ag-focus-ring-reach));
+  overflow: auto;
+
+  /* Padded by the ring's reach, with the same amount taken back by the
+     margin so nothing moves, and scrolled to with the same room, so the
+     ring of a control at an edge keeps its edges. */
+  padding: var(--ag-focus-ring-reach);
+  margin: calc(-1 * var(--ag-focus-ring-reach));
+  scroll-padding: var(--ag-focus-ring-reach);
+}
+
+/* A finger among the inputs draws a field, a list and a compact button at the
+   touch target (`.ag-touch-sized`), which is taller than the density's
+   control in either density. */
+@media (any-pointer: coarse) {
+  .ag-dialog-scroll {
+    min-block-size: calc(
+      max(var(--ag-control-height), var(--ag-control-minimum-touch-target, 44px)) + 2 *
+        var(--ag-focus-ring-reach)
+    );
+  }
+}
+
+/* The refusal and the actions, below the part that scrolls. The footer never
+   scrolls and has no cap, so it never cuts a refusal, and a control in it can
+   never scroll the refusal away. What does not fit is the dialogue's to
+   scroll (`.ag-dialog` above), and a reader scrolls it to the part of a
+   refusal the control they are on leaves out of sight. */
+.ag-dialog-footer {
+  flex: none;
+}
+
+.ag-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ag-space-small);
+  margin-block-start: var(--ag-space-large);
+}
+
+/* A short page, such as a phone on its side or a large zoom: the space around
+   the dialogue's parts is what gives way first, before what they say. */
+@media (height < 30rem) {
+  .ag-dialog {
+    padding: var(--ag-space-medium);
+  }
+
+  .ag-dialog-title {
+    margin-block-end: var(--ag-space-tiny);
+  }
+
+  .ag-dialog-notice,
+  .ag-dialog-actions {
+    margin-block-start: var(--ag-space-small);
+  }
+}
+
+.ag-menu,
+.ag-popover,
+.ag-select-content {
+  min-inline-size: 12rem;
+  padding: var(--ag-space-tiny);
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-overlay);
+  color: var(--ag-chrome-text-primary);
+
+  /*
+   * A menu taller than the window scrolls rather than running off it. The
+   * variable is the room the primitive measured between the trigger and the
+   * edge of the window, so the last entry of a long menu is reachable on a
+   * short window and on a touch screen, where every row is drawn at the touch
+   * target and a menu is half as long again.
+   */
+  max-block-size: var(--radix-popper-available-height, 100dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ag-menu-item,
+.ag-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-large);
+
+  min-block-size: var(--ag-control-compact-height);
+  padding-inline: var(--ag-space-small);
+  border-radius: var(--ag-radius-small);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Where the keyboard is, in a menu, a select list and the palette.
+
+   With the background alone to carry it, the two surfaces would be a fifteenth
+   of a step apart in lightness: about 1.05 to 1 in the dark theme, far under
+   the 3 to 1 WCAG 1.4.11 asks of a state that is drawn rather than written. A
+   palette row never takes focus at all, so on that surface no focus ring would
+   draw it either. A menu entry and a select option do take focus, so the ring a
+   focused control draws can stand in for this block and hide its loss: the
+   offset tells them apart, this one drawn inside the entry and that one outside
+   it, and the browser suite reads it. Longhands, and the ring drawn inside the
+   entry: an `outline` shorthand holding a custom property loses its width in
+   the build's CSS pass, and an outline outside a row is clipped by the list
+   that scrolls it. */
+.ag-menu-item[data-highlighted],
+.ag-select-item[data-highlighted],
+.ag-palette-result[data-ag-highlighted] {
+  background-color: var(--ag-chrome-surface-hover);
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width, 3px);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: calc(var(--ag-focus-ring-width, 3px) * -1);
+}
+
+.ag-menu-item[data-ag-unavailable] {
+  color: var(--ag-chrome-text-disabled);
+  cursor: default;
+}
+
+/*
+ * Why an entry cannot be chosen.
+ *
+ * On its own line and in the secondary colour, so the entry still reads as one
+ * action. Text rather than an attribute, because an attribute that could carry
+ * this is not implemented outside Chromium and sits on an element a keyboard
+ * user cannot reach.
+ */
+.ag-menu-item-reason {
+  display: block;
+  inline-size: 100%;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-menu-item-shortcut,
+.ag-tooltip-shortcut {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A group's name, at its head. Not an entry: it takes no focus and no press. */
+.ag-menu-label {
+  padding-inline: var(--ag-space-small);
+  padding-block: var(--ag-space-tiny);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-menu-separator {
+  block-size: 1px;
+  margin-block: var(--ag-space-tiny);
+  background-color: var(--ag-chrome-border-subtle);
+}
+
+.ag-tooltip {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-small);
+
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-surface-overlay);
+  border: 1px solid var(--ag-chrome-border-default);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-tooltip-arrow,
+.ag-popover-arrow {
+  fill: var(--ag-chrome-surface-overlay);
+}
+
+/* Value controls. */
+
+.ag-slider-field,
+.ag-switch-field,
+.ag-select-field {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-medium);
+  min-block-size: var(--ag-control-height);
+}
+
+.ag-slider-label,
+.ag-switch-label,
+.ag-select-label {
+  flex: 0 0 auto;
+  min-inline-size: 8rem;
+}
+
+.ag-switch-description {
+  display: block;
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-slider {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  block-size: var(--ag-control-height);
+
+  /* The browser must not scroll the page while a thumb is being dragged with a
+     finger, or a slider on a tablet becomes impossible to set (REQ-UX-067). */
+  touch-action: none;
+  user-select: none;
+}
+
+.ag-slider-track {
+  position: relative;
+  flex-grow: 1;
+  block-size: 4px;
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+.ag-slider-range {
+  position: absolute;
+  block-size: 100%;
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-accent);
+}
+
+.ag-slider-thumb {
+  display: block;
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-accent);
+  border: 2px solid var(--ag-chrome-surface-raised);
+}
+
+.ag-slider-value {
+  flex: 0 0 auto;
+  min-inline-size: 4rem;
+  text-align: end;
+
+  /* Tabular figures, so the value does not shift sideways as it changes. */
+  font-variant-numeric: tabular-nums;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-switch {
+  flex: 0 0 auto;
+  inline-size: 36px;
+  block-size: 20px;
+  border-radius: var(--ag-radius-full);
+  border: 1px solid var(--ag-chrome-border-default);
+  background-color: var(--ag-chrome-surface-sunken);
+  cursor: pointer;
+}
+
+.ag-switch[data-state='checked'] {
+  background-color: var(--ag-chrome-accent);
+  border-color: var(--ag-chrome-accent);
+}
+
+.ag-switch-thumb {
+  display: block;
+  inline-size: 14px;
+  block-size: 14px;
+  margin-inline-start: 2px;
+  border-radius: var(--ag-radius-full);
+  background-color: var(--ag-chrome-text-primary);
+  transition-property: transform;
+  transition-duration: var(--ag-motion-quick);
+  transition-timing-function: var(--ag-motion-ease-out);
+}
+
+.ag-switch[data-state='checked'] .ag-switch-thumb {
+  transform: translateX(16px);
+  background-color: var(--ag-chrome-text-on-accent);
+}
+
+.ag-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ag-space-small);
+
+  flex: 1 1 auto;
+  /* Able to shrink below what it holds. A flex item's minimum is its content by
+     default, so a profile with a long name would make the trigger wider than
+     the dialogue around it at a 320-pixel page, and a fixed, centred dialogue
+     has no scroll position that brings its edge back. The name is cut with an
+     ellipsis instead, and the open list shows it in full. */
+  min-inline-size: 0;
+  block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-small);
+
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-raised);
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* The chosen value, cut rather than pushing the trigger wider than its room. */
+.ag-select-trigger > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tabs and toolbars. */
+
+/* Wrapped, because a dialogue is as wide as the window lets it be. Five
+   triggers padded on both sides are wider than the content box of a dialogue at
+   a 320-pixel viewport, and a flex row with no wrap and no scroller would
+   overflow it in both directions at once: the tab a reader wanted would be off
+   the side, and the only thing that could scroll to it would be the dialogue,
+   which is what WCAG 1.4.10 is about. Wrapping needs no scroller and leaves the
+   keyboard order alone. */
+.ag-tab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-tab {
+  block-size: var(--ag-control-height);
+  padding-inline: var(--ag-space-medium);
+  border: none;
+  border-block-end: 2px solid transparent;
+  background: none;
+  color: var(--ag-chrome-text-secondary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ag-tab[data-state='active'] {
+  color: var(--ag-chrome-text-primary);
+  border-block-end-color: var(--ag-chrome-accent);
+}
+
+.ag-tab-panel {
+  padding-block: var(--ag-space-medium);
+}
+
+.ag-menu-bar-root {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  padding: var(--ag-space-tiny);
+  background-color: var(--ag-chrome-surface-raised);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+/*
+ * The visible half of an announcement, over the page.
+ *
+ * Portalled into the document body and given a stacking order, so it is drawn
+ * above the workspace and clear of the status bar. A notice raised while a
+ * dialogue is open is the dialogue's, and is shown in its footer
+ * (`.ag-dialog-notice` below). It is `aria-hidden`: the live region holds the
+ * same sentence, where a screen-reader user can find it again, and would
+ * otherwise meet it twice. The dialogue's line is not hidden, because the live
+ * region lies outside the dialogue and is reached only by browsing out of it,
+ * while the line sits beside the control pressed.
+ */
+.ag-notice {
+  position: fixed;
+
+  /* Clear of the home indicator, and of the status bar. The bars around the
+     workspace reserve the safe area, and the notice is drawn over the workspace
+     rather than in them. Bottom-centred over the whole page with no room kept
+     for the bar, it would cover the status bar and the Dismiss buttons in it
+     for as long as it stayed, which is WCAG 2.4.11 for anything focused there.
+     The bar's own height is written to `--ag-status-bar-block-size` as it
+     changes, because the bar wraps and can grow to a third of the screen. */
+  inset-block-end: calc(
+    var(--ag-status-bar-block-size, 0px) + var(--ag-space-large) + env(safe-area-inset-bottom, 0px)
+  );
+  inset-inline: 0;
+  margin-inline: auto;
+  inline-size: fit-content;
+  max-inline-size: min(90vw, 34rem);
+
+  /* Above the workspace. The workspace keeps the docking engine's own
+     stacking orders inside it (`.ag-workspace` in the shell's stylesheet),
+     so a floating panel, which the engine stacks at 999, is drawn under the
+     notice. A notice raised while a dialogue is open is shown in the
+     dialogue, so this one is never over a dialogue. */
+  z-index: 100;
+
+  padding: var(--ag-space-small) var(--ag-space-medium);
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+  background-color: var(--ag-chrome-surface-overlay);
+  color: var(--ag-chrome-text-primary);
+  box-shadow: 0 0.5rem 1.5rem var(--ag-chrome-shadow);
+
+  /* The pointer goes through it. A notice that swallowed a click would take
+     the one the user aimed at whatever it happens to be covering. */
+  pointer-events: none;
+}
+
+/* A notice raised while a dialogue is open, in the dialogue's own flow above
+   its actions rather than over the page. Over the page it would lie over part
+   of the dialogue wherever it was put, and every place covers something: the
+   actions at the foot, the title or a control at the top, and, measured beside
+   the reader's focus, it would be squeezed to a sliver once the dialogue itself
+   held focus. In the flow it covers nothing and it is as tall as what it says,
+   and in the footer it stays put while the part above it scrolls. */
+.ag-dialog-notice {
+  margin: var(--ag-space-large) 0 0;
+  padding: var(--ag-space-small) var(--ag-space-medium);
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-medium);
+
+  /* A name the reader typed can be one long word, and a word that does not
+     break widens the dialogue past the page. */
+  overflow-wrap: anywhere;
+}
+
+.ag-dialog-notice[data-ag-notice='urgent'] {
+  border-color: var(--ag-chrome-status-error);
+}
+
+.ag-notice[data-ag-notice='urgent'] {
+  border-color: var(--ag-chrome-status-error);
+}
+
+/* A line of text the user types. */
+
+.ag-text-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-text-field-label {
+  font-weight: 600;
+}
+
+.ag-text-field-description {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-text-field-input {
+  /*
+   * Sized rather than widened. `.ag-touch-target` draws its hit area with a
+   * pseudo-element, and a browser renders no generated content on a replaced
+   * control, so that class would give the field no widened area at all, and in
+   * compact density it would draw at about 20 pixels, under the 24 the scale's
+   * own comment says is the least a target may be.
+   *
+   * Its padding and border inside that height, as a button's are, so a field
+   * is drawn at the height of every other control of one line and the room a
+   * dialogue keeps for one control holds it.
+   */
+  box-sizing: border-box;
+  min-block-size: var(--ag-control-height);
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-border-default);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-chrome-surface-sunken);
+  color: var(--ag-chrome-text-primary);
+  font: inherit;
+}
+
+/*
+ * The placeholder in the theme's supporting text, which is solved for body-text
+ * contrast on the sunken surface in every theme, brightness and contrast mode.
+ * Left to the browser, it would be drawn in a grey of the browser's own, with
+ * no contrast the theme answered for, and WCAG 1.4.3 applies to it. Firefox
+ * draws a placeholder at half opacity unless told otherwise.
+ */
+.ag-text-field-input::placeholder {
+  color: var(--ag-chrome-text-secondary);
+  opacity: 1;
+}
+
+/*
+ * Never under 16 pixels where a finger is among the inputs. Safari on an iPhone
+ * zooms the page into a field drawn smaller as it takes focus, and leaves it
+ * zoomed, so the dialogue that holds the field is left partly off the screen.
+ * The page keeps zoom for the reader, so the field is what grows: it is drawn
+ * at 16 pixels at least, at its own size where that is larger, and at the
+ * density's with a mouse alone.
+ */
+@media (any-pointer: coarse) {
+  .ag-text-field-input {
+    font-size: max(16px, 1em);
+  }
+}
+
+.ag-text-field-input:disabled {
+  color: var(--ag-chrome-text-disabled);
+}
+
+/* A row of controls acting on one thing, such as a workspace. */
+
+.ag-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-small);
+}
+
+.ag-settings-row > .ag-text-field {
+  flex: 1 1 12rem;
+}

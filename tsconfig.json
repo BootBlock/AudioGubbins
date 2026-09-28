@@ -1,0 +1,16 @@
+{
+  "$comment": "The configuration files at the root and directly in each application's folder, what they import, and every tool a test imports, whose types are its own JSDoc, checked here. `pnpm typecheck` checks this project after building tsconfig.build.json, the solution file for the workspace, and the type-aware linter reads these files through it. Rules in tests/architecture/dependency-rules.test.ts hold the file list to every such file.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true,
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "files": ["tools/check-build-output.mjs", "tools/check-record-titles.mjs"],
+  "include": ["*.ts", "apps/*/*.ts"]
+}

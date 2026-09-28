@@ -1,0 +1,36 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "emitDeclarationOnly": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../../packages/diagnostics"
+    },
+    {
+      "path": "../../packages/text"
+    },
+    {
+      "path": "../../packages/version"
+    },
+    {
+      "path": "../../packages/test-fixtures"
+    }
+  ]
+}

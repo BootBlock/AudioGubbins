@@ -1,0 +1,7 @@
+# Agent instructions
+
+Read [CLAUDE.md](CLAUDE.md) in full before your first action. It is the only statement of this
+repository's rules, and every rule in it applies to every agent. Its first rules gate your first
+edit: work in a new git worktree, never in the primary checkout.
+
+The specification pack under `docs/spec/` decides what to build. CLAUDE.md decides how.

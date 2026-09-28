@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
-import argparse, json, hashlib, sys
+import argparse, io, json, hashlib, sys
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = json.loads((ROOT/"tools/spec_manifest.json").read_text(encoding="utf-8"))
@@ -54,7 +54,12 @@ def main():
         print("PASS: compiled specification is reproducible and current.")
         return 0
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-    OUTPUT.write_text(built, encoding="utf-8")
+    # Newlines written verbatim. The default translates them to the platform's
+    # own, so a Windows run produced a file that differed byte for byte from a
+    # Linux run of the same input, and the recorded checksum then held on one
+    # machine only.
+    with io.open(OUTPUT, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(built)
     print(f"Wrote {OUTPUT}")
     return 0
 

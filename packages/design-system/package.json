@@ -1,0 +1,38 @@
+{
+  "name": "@audiogubbins/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AudioGubbins semantic design tokens, theme engine and accessible React primitives. Knows nothing of the domain.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./styles/*.css": "./src/styles/*.css"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build"
+  },
+  "dependencies": {
+    "@audiogubbins/version": "workspace:*",
+    "radix-ui": "1.6.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "jsdom": "30.1.0",
+    "vitest": "5.0.1"
+  }
+}

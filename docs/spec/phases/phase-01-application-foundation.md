@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — Phase 00 specification gate has passed; implementation may begin when the repository/worktree is prepared.
+`PASS` — completed on 2026-09-28; see `reviews/phase-01-evidence.md`, `reviews/phase-01-review.md` and `traceability/handoffs/phase-01.md`.
 
 ## Objective
 
@@ -99,6 +99,9 @@ AudioGubbins launches locally as a polished responsive shell with docking, theme
 - `packages/capabilities`
 - `packages/diagnostics`
 - `packages/test-fixtures`
+- `packages/version` (`ADR-0016`)
+- `packages/input` (`ADR-0017`)
+- `packages/text` (`ADR-0018`)
 - `crates/ (workspace skeleton only)`
 
 ## Cross-Package Dependency Rules
@@ -120,6 +123,7 @@ AudioGubbins launches locally as a polished responsive shell with docking, theme
 
 - Persisted user-preference/workspace-layout/shortcut-profile formats may be introduced; version them independently from project data.
 - No authoritative audio-project schema is owned by this phase.
+- The non-authoritative domain value model in `packages/domain` is owned by this phase (`ADR-0015`): in-memory value types with no schema version, serialisation or storage path, which the deterministic fixtures (`REQ-REPO-191`) are built from.
 
 ## Browser / Platform Considerations
 

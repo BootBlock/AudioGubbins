@@ -1,0 +1,273 @@
+/**
+ * The composition root: everything the application is built from.
+ *
+ * Every dependency in AudioGubbins is injected, so this is the one place that
+ * knows what the real ones are: the browser's storage, the browser's clock, the
+ * real capability probes. Every other module takes them as parameters, which is
+ * what makes every other module testable without a browser (REQ-EXEC-136.4).
+ *
+ * It is also the one place that holds the stores. REQ-ARCH-153 partitions state
+ * by ownership, and the partitions meet here rather than in a global store:
+ * each is created once, passed to what needs it, and never reached through a
+ * module import. Nothing here renders; the shell that draws the application is
+ * `app.tsx`, which builds this when it mounts.
+ */
+
+import {
+  createChordTracker,
+  createCommandBus,
+  createCommandRegistry,
+  type CommandId,
+  type CommandInvocation,
+  type ExecutionResult,
+} from '@audiogubbins/commands';
+import {
+  askLateQuestions,
+  createCapabilityRegistry,
+  describeEnvironment,
+  detectBrowserEnvironment,
+  operatingSystemOf,
+  readLayoutMap,
+  readPlatformSignals,
+  watchAppearanceSettings,
+  type LayoutMapPairs,
+} from '@audiogubbins/capabilities';
+import { createDiagnosticCentre, createLogStore, type Logger } from '@audiogubbins/diagnostics';
+import type { KeyboardConvention } from '@audiogubbins/commands';
+import {
+  DockRegion,
+  PanelKinds,
+  panelsIn,
+  type PanelDescriptor,
+  type PanelKind,
+} from '@audiogubbins/workspace';
+
+import { shellCommands } from './commands/shell-commands.js';
+import type { ShellContext } from './commands/shell-context.js';
+import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
+import { dockRearrangement } from './dock-rearrangement.js';
+import { browserTextFiles } from './io/text-files.js';
+import { createInteractionStore } from './state/interaction-store.js';
+import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
+import { createLogViewStore } from './state/log-view-store.js';
+import {
+  createKeyboardLayoutStore,
+  type KeyboardLayoutStore,
+} from './state/keyboard-layout-store.js';
+import { createPreferencesStore } from './state/preferences-store.js';
+import { createShortcutStore } from './state/shortcut-store.js';
+import { browserStorage, createStateStorage, type StateStorage } from './state/state-storage.js';
+import { createVerbosityStore, readStoredVerbosity } from './state/verbosity-store.js';
+import { keyboardConventionFor } from './state/keyboard-convention.js';
+import { createWorkspaceStore } from './state/workspace-store.js';
+
+/**
+ * What the user's keyboard layout types: known whole where the browser gives a
+ * layout map, learned from the keys the user presses everywhere else, and kept
+ * between visits (see `keyboard-layout-store.ts`). `layoutMap` is the map as it
+ * was read, once, for the capability registry as well.
+ *
+ * Read again when the user comes back to the tab. A user can change layout
+ * while AudioGubbins is running, and no browser offers an event for it, so the
+ * moment the page is looked at again is the one occasion to ask. Read once, the
+ * map would stand, and the layout would become a mixture of the old map and the
+ * keys the user had typed since, so a binding could move under them.
+ */
+function startKeyboardLayout(
+  storage: StateStorage,
+  logger: Logger,
+  layoutMap: Promise<LayoutMapPairs>,
+  convention: KeyboardConvention,
+  readAgain: () => Promise<LayoutMapPairs>,
+): { readonly store: KeyboardLayoutStore; readonly stopWatching: () => void } {
+  const keyboardLayout = createKeyboardLayoutStore(storage, logger, convention);
+
+  const couldNotRead = (error: unknown): void => {
+    logger.warning('The keyboard layout map could not be read.', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
+  };
+
+  layoutMap.then(keyboardLayout.adopt, couldNotRead);
+
+  // The watch is given back rather than dropped: it holds a listener on the
+  // document and one on the window, and each holds this store and its storage.
+  // The application lives as long as the page, so were the watch dropped,
+  // nothing would leak in a browser, but every test that mounts one would leave
+  // a pair behind for the next.
+  const stopWatching = adoptLayoutMapOnReturn(
+    keyboardLayout,
+    readAgain,
+    couldNotRead,
+    browserVisibility(),
+  );
+
+  return { store: keyboardLayout, stopWatching };
+}
+
+/**
+ * Which panels this build has.
+ *
+ * The workspace validates a stored layout against this, so a layout naming a
+ * panel from a later version falls back to a preset rather than failing to
+ * mount (REQ-UX-059).
+ */
+const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
+  (
+    [
+      [PanelKinds.AssetBrowser, 'Assets', DockRegion.Left],
+      [PanelKinds.Editor, 'Editor', DockRegion.Centre],
+      [PanelKinds.Inspector, 'Inspector', DockRegion.Right],
+      [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
+      [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
+      [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
+    ] as const
+  ).map(([kind, title, defaultRegion]) => [
+    kind,
+    {
+      kind,
+      title,
+      defaultRegion,
+      allowsMultiple: kind === PanelKinds.Editor,
+      closable: true,
+      minimumSize: { width: 200, height: 120 },
+    },
+  ]),
+);
+
+/**
+ * Everything the application needs, built once, when it is mounted.
+ *
+ * Built by `mount` rather than when this module is evaluated. Built at
+ * evaluation, importing the module would read storage, probe the browser and
+ * write a log record, which the comment above and ADR-0011 both say does not
+ * happen: the composition root would be a module-level singleton reached by
+ * import, which is exactly what ADR-0011 rules out.
+ */
+export function createApplication() {
+  const clock = { now: () => Date.now() };
+  const localValues = browserStorage();
+
+  // The stored verbosity is read before the centre that uses it exists, so the
+  // first record written is already at the level the user chose. A problem
+  // reading it is logged through a centre at the default level, into the same
+  // store.
+  const logs = createLogStore();
+  const verbosity = readStoredVerbosity(
+    localValues,
+    createDiagnosticCentre(logs, clock).loggerFor('shell'),
+  );
+  const diagnostics = createDiagnosticCentre(logs, clock, verbosity);
+  const logger = diagnostics.loggerFor('shell');
+
+  // Read once, for the registry and for the keyboard layout alike: the registry
+  // answers by whether the browser offered a map, and with a read of its own, a
+  // browser that refused this one could be reported as giving one.
+  const layoutMap = readLayoutMap(navigator);
+  const capabilities = createCapabilityRegistry(
+    detectBrowserEnvironment(),
+    logger,
+    askLateQuestions(layoutMap),
+  );
+  const platform = readPlatformSignals();
+  const convention = keyboardConventionFor(operatingSystemOf(platform));
+
+  // Every write goes through one object, which tells the user when their
+  // changes are not being kept, in the same words spoken and shown.
+  const interaction = createInteractionStore();
+  const storage = createStateStorage(localValues, logger, (text) => {
+    interaction.announce(text, true);
+  });
+
+  const { store: keyboardLayout, stopWatching } = startKeyboardLayout(
+    storage,
+    logger,
+    layoutMap,
+    convention,
+    () => readLayoutMap(navigator),
+  );
+
+  const workspace = createWorkspaceStore(PANEL_DESCRIPTORS, storage, logger);
+  const logViews = createLogViewStore();
+
+  // A log panel's filter lasts as long as the panel. A closed panel's
+  // identifier is handed back to the next panel of its kind, so without this a
+  // Diagnostics panel closed and opened again would come back filtered to what
+  // the panel the user closed had been showing.
+  workspace.subscribe(() => {
+    logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
+  });
+
+  const context: ShellContext = {
+    preferences: createPreferencesStore(storage, logger),
+    workspace,
+    logViews,
+    interaction,
+    capabilities,
+    diagnostics,
+    logs,
+    shortcuts: createShortcutStore(convention, keyboardLayout, storage, logger),
+    convention,
+    keyboardLayout,
+    files: browserTextFiles(),
+    verbosity: createVerbosityStore(verbosity, diagnostics, storage),
+    environment: describeEnvironment(platform),
+    clock,
+  };
+
+  const registry = createCommandRegistry<ShellContext>();
+  for (const command of shellCommands(PANEL_DESCRIPTORS)) registry.register(command);
+
+  const bus = createCommandBus(registry, diagnostics.loggerFor('commands'));
+  // How every surface runs a command: through the bus, saying why when it
+  // refuses. One, so the dock's reports and the shell's controls are spoken
+  // of alike.
+  const run = (
+    id: CommandId,
+    args?: CommandInvocation['arguments'],
+    options?: VoicedOptions,
+  ): ExecutionResult<ShellContext> =>
+    executeVoiced(
+      bus,
+      context,
+      { commandId: id, ...(args === undefined ? {} : { arguments: args }) },
+      context.interaction.announce,
+      options,
+    );
+  const rearrange = dockRearrangement(run, context.workspace.remount);
+  // Read on every press rather than captured, so a binding the user just
+  // changed is the one the next key press is matched against, and never a
+  // binding the platform takes on the layout as it is known.
+  const tracker = createChordTracker(() => context.shortcuts.get().usable);
+
+  logger.info('AudioGubbins started.', {
+    browser: context.environment.browser,
+    operatingSystem: context.environment.operatingSystem,
+  });
+
+  return {
+    context,
+    registry,
+    bus,
+    tracker,
+    logger,
+    convention,
+    storage,
+    run,
+    rearrange,
+    descriptors: PANEL_DESCRIPTORS,
+    appearance: watchAppearanceSettings(),
+
+    /**
+     * Stops everything the application put on the page.
+     *
+     * Its own function rather than React's unmounting, because what is
+     * registered here is outside React: `root.unmount()` removes no
+     * `visibilitychange` listener and no `focus` listener.
+     */
+    dispose: stopWatching,
+  };
+}
+
+/** Everything the application needs. */
+export type Application = ReturnType<typeof createApplication>;

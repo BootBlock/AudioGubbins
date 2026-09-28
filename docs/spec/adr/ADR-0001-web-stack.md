@@ -5,3 +5,4 @@
 - **Drivers:** rich professional UI, accessibility, mature ecosystem, dockable workspaces, strong animation, static/PWA deployment.
 - **Constraints:** React must not own high-frequency audio/render state or authoritative project state. Domain packages remain framework-agnostic.
 - **Related requirements:** `REQ-ARCH-151`, `REQ-ARCH-153`, `REQ-UX-057`, `REQ-EDIT-073`.
+- **Superseded in part:** the animation clause, by `ADR-0014`. Motion for React is not installed until a component imports it.

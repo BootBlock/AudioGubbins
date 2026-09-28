@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>AudioGubbins</title>
+    <meta
+      name="description"
+      content="A local-first, non-destructive audio editor that runs in your browser."
+    />
+
+    <!--
+      No referrer, ever. A static host sends no `Referrer-Policy` header, and
+      the default policy tells any origin a link leads to which page of
+      AudioGubbins the reader came from. Nothing here needs a referrer: every
+      request the application makes is to its own origin, and the one link it
+      draws is the way out of a hostile frame.
+    -->
+    <meta name="referrer" content="no-referrer" />
+
+    <!--
+      The web application manifest is a static file rather than one a plugin
+      writes, because the production build ships no service worker: offline
+      caching, update prompts and stale-cache recovery belong to the phase that
+      hardens them, and a precaching worker without them strands users on an
+      old release.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!--
+      The theme writes its own colours at run time. This is what the page looks
+      like in the instant before that happens: the default dark theme's base
+      surface and body text, which a test holds equal to the token system's
+      own answer, so the instant is not a flash of white.
+
+      Written with no specificity, so the theme's own rules for the document
+      replace them as soon as they apply. Pinned more firmly, they would hold
+      the document in the dark theme for good, and a portalled surface would
+      inherit it in the light theme.
+    -->
+    <meta name="theme-color" content="#0f1318" />
+    <style>
+      :where(html, body, #audiogubbins) {
+        height: 100%;
+        margin: 0;
+        color-scheme: dark;
+        background-color: #0f1318;
+        color: #eff2f6;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="audiogubbins"></div>
+    <noscript>
+      AudioGubbins edits audio in your browser and needs JavaScript to do it. Nothing you open is
+      sent anywhere; the editing happens on this machine.
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

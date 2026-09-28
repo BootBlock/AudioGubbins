@@ -1,0 +1,234 @@
+/*
+ * The workspace stylesheet.
+ *
+ * Re-exports the docking engine's own stylesheet so that the application never
+ * names the engine. REQ-ARCH-151 keeps Dockview behind AudioGubbins-owned
+ * contracts, and an application that imported the engine's CSS by name would
+ * have to be edited to replace it, which is exactly what the containment is
+ * for.
+ *
+ * The overrides below map the engine's appearance onto the AudioGubbins tokens,
+ * so the dock follows the theme, the density and the contrast settings like
+ * everything else (REQ-UX-155).
+ */
+
+@import 'dockview/dist/styles/dockview.css';
+
+.dockview-theme-dark,
+.dockview-theme-light {
+  --dv-background-color: var(--ag-chrome-surface-base);
+  --dv-paneview-active-outline-color: var(--ag-chrome-border-focus);
+
+  --dv-tabs-and-actions-container-background-color: var(--ag-chrome-surface-raised);
+  --dv-tabs-and-actions-container-height: var(--ag-control-compact-height);
+  --dv-tabs-container-scrollbar-color: var(--ag-chrome-border-default);
+
+  --dv-activegroup-visiblepanel-tab-background-color: var(--ag-chrome-surface-raised);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--ag-chrome-surface-sunken);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--ag-chrome-surface-raised);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--ag-chrome-surface-sunken);
+
+  --dv-activegroup-visiblepanel-tab-color: var(--ag-chrome-text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--ag-chrome-text-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--ag-chrome-text-disabled);
+
+  --dv-separator-border: var(--ag-chrome-border-subtle);
+  --dv-paneview-header-border-color: var(--ag-chrome-border-subtle);
+  --dv-tab-divider-color: var(--ag-chrome-border-subtle);
+
+  --dv-drag-over-background-color: var(--ag-chrome-accent-subtle);
+  --dv-drag-over-border-color: var(--ag-chrome-accent);
+
+  --dv-group-view-background-color: var(--ag-chrome-surface-raised);
+  --dv-active-sash-color: var(--ag-chrome-accent);
+
+  --dv-font-family: inherit;
+  --dv-font-size: var(--ag-text-small);
+}
+
+/*
+ * A dock tab must be reachable with a finger as well as a pointer. The engine
+ * sizes its tabs from its own variable, which the density already drives, so
+ * this only widens the hit area (REQ-UX-067).
+ */
+.dockview-theme-dark .dv-tab,
+.dockview-theme-light .dv-tab {
+  min-inline-size: var(--ag-control-minimum-touch-target);
+}
+
+/*
+ * The AudioGubbins tab.
+ *
+ * The engine's default tab nests a close control inside the element carrying
+ * `role="tab"`, which axe reports as a serious violation and which is rendered
+ * unreachable by keyboard anyway. This one is the title alone; closing a panel
+ * is a command, so it reaches everyone.
+ */
+.ag-dock-tab {
+  display: inline-flex;
+  align-items: center;
+  block-size: 100%;
+  padding-inline: var(--ag-space-small);
+  white-space: nowrap;
+}
+
+/*
+ * A group's contents scroll inside the group, in the element the keyboard can
+ * reach, which the adapter puts in the tab order.
+ */
+.dv-content-container {
+  overscroll-behavior: contain;
+  overflow: auto;
+}
+
+/*
+ * Which tab each group is showing, and which group the user is working in.
+ *
+ * The engine tells both apart by colour alone. Its two groups' tab
+ * backgrounds resolve to the same token here, so the only difference between
+ * the group in use and the one beside it is primary text against secondary,
+ * and the only difference between a shown tab and a hidden one is its
+ * background. WCAG 1.4.1 does not allow colour, lightness included, to be the
+ * only visual means, and five menu entries act on "this panel": which group
+ * is in use is something the user has to be able to see. The Workspace menu
+ * names the panel in its heading, which the user sees only after opening it.
+ *
+ * So the shown tab is underlined and the group in use is outlined, in every
+ * theme. In forced colours the same two marks take the platform's selection
+ * colour, which the browser keeps: with the engine's own backgrounds and text
+ * replaced by the user's, every tab would otherwise look alike there and
+ * nothing on screen would say which panel "this panel" is.
+ *
+ * The first rule is the reserve: an ordinary tab keeps the same two pixels in a
+ * transparent border. The shown tab's underline comes out of the tab's content
+ * box, because the engine draws a tab as a stretched flex item with no height
+ * of its own, so without the reserve a label would move up two pixels the
+ * moment its tab became the shown one. The reserve applies in every session, as
+ * the underline does, not only in forced colours.
+ */
+.dockview-theme-dark .dv-tab,
+.dockview-theme-light .dv-tab {
+  border-block-end: 2px solid transparent;
+}
+
+.dockview-theme-dark .dv-tab.dv-active-tab,
+.dockview-theme-light .dv-tab.dv-active-tab {
+  border-block-end: 2px solid var(--ag-chrome-accent);
+}
+
+/* A border drawn over the group rather than an outline on it: an outline on
+   the group is clipped by what encloses it, or painted over by its own tabs.
+   The engine's rule taking the outline away on focus does not outrank this
+   one. Its width is a property of the group, because the ring of the group's
+   contents is drawn inside it. */
+[data-ag-theme] .dv-groupview {
+  --ag-group-in-use-border-width: 2px;
+}
+
+[data-ag-theme] .dv-groupview.dv-active-group {
+  position: relative;
+}
+
+[data-ag-theme] .dv-groupview.dv-active-group::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: var(--ag-group-in-use-border-width) solid var(--ag-chrome-border-strong);
+  pointer-events: none;
+}
+
+/*
+ * Where the keyboard is in the dock: on a tab, or in a group's contents, which
+ * the adapter puts in the tab order.
+ *
+ * Each ring is drawn inside its element. A tab fills the height of a strip that
+ * clips whatever reaches past it, and a group's contents fill a group that
+ * does, so a ring drawn outside either would lose its edges. The contents' ring
+ * is drawn inside the border over the group in use as well, so neither covers
+ * the other. Longhands, as the theme's ring is written.
+ *
+ * The engine takes the outline away from a group's contents in a rule that
+ * ties with the theme's ring and comes after it, so the contents' rule names
+ * them to outrank it. And it marks a focused tab with a line of its own, over
+ * the tab's edge, where the ring's outer pixel is drawn: the ring is the mark
+ * here, so the line is not drawn.
+ */
+[data-ag-theme] .dv-tab:focus-visible {
+  outline-offset: calc(-1 * var(--ag-focus-ring-width));
+}
+
+[data-ag-theme] .dv-tab:focus-visible::after {
+  content: none;
+}
+
+/* The shown tab's second mark, while it holds focus. Its ring is drawn over
+   the underline then, and a focused tab not shown would look the same, so the
+   shown tab is filled with the accent, its label and ring in the text drawn on
+   the accent. A fill needs no room inside the ring, which a compact tab has
+   none of for a line under its label. The engine colours a tab from its own
+   properties, so they are set on the tab itself, for a group in use and for
+   one not. */
+.dockview-theme-dark .dv-tab.dv-active-tab:focus-visible,
+.dockview-theme-light .dv-tab.dv-active-tab:focus-visible {
+  --dv-activegroup-visiblepanel-tab-background-color: var(--ag-chrome-accent);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--ag-chrome-accent);
+  --dv-activegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--ag-chrome-text-on-accent);
+
+  outline-color: var(--ag-chrome-text-on-accent);
+}
+
+[data-ag-theme] .dv-groupview > .dv-content-container:focus-visible {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: calc(-1 * (var(--ag-focus-ring-width) + var(--ag-group-in-use-border-width)));
+}
+
+@media (forced-colors: active) {
+  .dockview-theme-dark .dv-tab.dv-active-tab,
+  .dockview-theme-light .dv-tab.dv-active-tab {
+    border-block-end-color: Highlight;
+  }
+
+  /* The same fill in the pair the platform keeps for a selection, which the
+     browser would otherwise replace with the canvas. */
+  .dockview-theme-dark .dv-tab.dv-active-tab:focus-visible,
+  .dockview-theme-light .dv-tab.dv-active-tab:focus-visible {
+    forced-color-adjust: none;
+    --dv-activegroup-visiblepanel-tab-background-color: Highlight;
+    --dv-inactivegroup-visiblepanel-tab-background-color: Highlight;
+    --dv-activegroup-visiblepanel-tab-color: HighlightText;
+    --dv-inactivegroup-visiblepanel-tab-color: HighlightText;
+
+    outline-color: HighlightText;
+  }
+
+  [data-ag-theme] .dv-groupview.dv-active-group::after {
+    border-color: Highlight;
+  }
+
+  /* The ring and the border over the group are both the platform's selection
+     colour here, so a pixel of the canvas is left between them: touching, the
+     two would read as one band. */
+  [data-ag-theme] .dv-groupview > .dv-content-container:focus-visible {
+    outline-color: Highlight;
+    outline-offset: calc(
+      -1 * (var(--ag-focus-ring-width) + var(--ag-group-in-use-border-width) + 1px)
+    );
+  }
+}
+
+/*
+ * A tab is how a finger changes panel, so it is drawn at the touch target on a
+ * device with a coarse pointer. Widened and never heightened, the tab would
+ * stay at the compact control height, and the one affordance a touch user needs
+ * most would be the size the rest of the interface raises for them.
+ */
+@media (any-pointer: coarse) {
+  .ag-theme-root .dv-tabs-and-actions-container,
+  [data-ag-theme] .dv-tabs-and-actions-container {
+    --dv-tabs-and-actions-container-height: var(--ag-control-minimum-touch-target, 44px);
+  }
+}
