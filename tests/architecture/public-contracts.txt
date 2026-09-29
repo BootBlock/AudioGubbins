@@ -843,6 +843,7 @@ Published paths
   readonly Command.keywords?: readonly string[]
   readonly Command.description?: string
   readonly Command.discoverable?: boolean
+  readonly Command.changesAppearance?: boolean
   readonly Command.undoable: boolean
   Command.availability: (context: TContext) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>

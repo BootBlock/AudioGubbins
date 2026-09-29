@@ -9,14 +9,17 @@
 
 import { useCallback, useMemo } from 'react';
 
-import { describePresses, keyboardPlatformFor } from '@audiogubbins/commands';
+import { describePresses, keyboardPlatformFor, type CommandId } from '@audiogubbins/commands';
 import { commandLayerOf, type KeyEventReading } from '@audiogubbins/input';
 
 import type { Application } from '../application.js';
 import { useShortcuts } from './use-shortcuts.js';
 
 /** What the shortcuts are read and run with. */
-type ShortcutParts = Pick<Application, 'context' | 'run' | 'tracker' | 'logger' | 'convention'>;
+type ShortcutParts = Pick<
+  Application,
+  'context' | 'run' | 'tracker' | 'logger' | 'convention' | 'registry'
+>;
 
 /** Listens for the shell's shortcuts, and says where a chord has got to. */
 export function useShellShortcuts({
@@ -25,6 +28,7 @@ export function useShellShortcuts({
   tracker,
   logger,
   convention,
+  registry,
 }: ShortcutParts): void {
   useShortcuts({
     tracker,
@@ -53,6 +57,10 @@ export function useShellShortcuts({
     onChordCancelled: useCallback(() => {
       context.interaction.announce('The shortcut is cancelled.', false, { shown: false });
     }, [context]),
+    runsInADialogue: useCallback(
+      (id: CommandId) => registry.get(id)?.changesAppearance === true,
+      [registry],
+    ),
     platform: useMemo(() => keyboardPlatformFor(convention), [convention]),
     reader: useMemo(
       () => ({

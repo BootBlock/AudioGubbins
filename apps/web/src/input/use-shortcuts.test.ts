@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   AVAILABLE,
   CommandCategory,
+  type CommandId,
   KeyboardConvention,
   commandId,
   createChordTracker,
@@ -16,8 +17,9 @@ import {
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { keyPress } from '@audiogubbins/input';
 
+import { shellCommands } from '../commands/shell-commands.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
-import { buildShellContext } from '../testing/shell-context.js';
+import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { isTextField, ownsItsKeys, useShortcuts } from './use-shortcuts.js';
 
 /**
@@ -125,6 +127,7 @@ describe('useShortcuts', () => {
         onChordCancelled: () => {
           cancelled.push('cancelled');
         },
+        runsInADialogue: () => false,
         platform: keyboardPlatformFor(convention),
         reader: {
           read: (reading) => {
@@ -282,6 +285,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onPendingChange: pending,
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
+        runsInADialogue: () => false,
         platform: keyboardPlatformFor(KeyboardConvention.Apple),
         reader: {
           read: layout.learn,
@@ -309,6 +313,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onPendingChange: vi.fn(),
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
+        runsInADialogue: () => false,
         platform: keyboardPlatformFor(KeyboardConvention.Apple),
         reader: {
           read: vi.fn(),
@@ -343,6 +348,7 @@ describe('useShortcuts over the stores it is wired to', () => {
         onPendingChange: vi.fn(),
         onAnnounce: vi.fn(),
         onChordCancelled: vi.fn(),
+        runsInADialogue: () => false,
         platform: keyboardPlatformFor(KeyboardConvention.Windows),
         reader: {
           read: vi.fn(),
@@ -375,6 +381,13 @@ describe('useShortcuts over the stores it is wired to', () => {
 });
 
 describe('useShortcuts over the default profile', () => {
+  /** The commands that change only how the interface is drawn, which run behind nothing. */
+  const APPEARANCE: ReadonlySet<CommandId> = new Set(
+    shellCommands(DESCRIPTORS)
+      .filter((command) => command.changesAppearance === true)
+      .map((command) => command.id),
+  );
+
   /** A listener over the default profile on `convention`, answering what ran and what was said. */
   function listeningToDefaults(convention: KeyboardConvention) {
     const { context } = buildShellContext(undefined, convention);
@@ -392,6 +405,7 @@ describe('useShortcuts over the default profile', () => {
           said.push(text);
         },
         onChordCancelled: vi.fn(),
+        runsInADialogue: (id) => APPEARANCE.has(id),
         platform: keyboardPlatformFor(convention),
         reader: { read: vi.fn(), asked: () => false },
         logger,
@@ -468,9 +482,15 @@ describe('useShortcuts over the default profile', () => {
     expect(all.defaultPrevented).toBe(true);
     expect(said).toEqual(['Close the dialogue to use that shortcut.']);
 
+    // Brightening is seen in the dialogue as much as behind it, and is what a
+    // reader reaches for to read the dialogue.
+    press(tab, { code: 'KeyK', key: 'k', ctrlKey: true });
+    press(tab, { code: 'ArrowUp', key: 'ArrowUp', ctrlKey: true });
+    expect(ran).toEqual(['view.brighten']);
+
     dialogue.remove();
     press(document.body, { code: 'KeyM', key: 'm' });
-    expect(ran).toEqual(['editor.add-marker']);
+    expect(ran).toEqual(['view.brighten', 'editor.add-marker']);
   });
 
   it('runs shortcuts beside a dialogue that is not modal', () => {

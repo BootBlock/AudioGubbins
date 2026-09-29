@@ -73,6 +73,19 @@ describe('the shell command set', () => {
     ]);
   });
 
+  it('says only of the appearance commands that they change how the interface is drawn', () => {
+    // Their shortcuts are the only ones that run while a modal dialogue is
+    // open, so a command that acts on the page behind must never say so.
+    const appearance = commands
+      .filter((command) => command.changesAppearance === true)
+      .map((command) => command.id);
+
+    expect(appearance).toContain('view.brighten');
+    expect(appearance).toContain('view.theme-dark');
+    expect(appearance.filter((id) => !id.startsWith('view.'))).toEqual([]);
+    expect(appearance).not.toContain('view.command-palette');
+  });
+
   it('offers an accent command for every accent', () => {
     const accentCommands = commands.filter((command) => command.id.startsWith('view.accent-'));
     expect(accentCommands).toHaveLength(Object.keys(ACCENT_HUES).length);

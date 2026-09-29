@@ -160,11 +160,13 @@ type PressOwner = (typeof PressOwner)[keyof typeof PressOwner];
  * cut. A key a focused control uses itself is its, unless a chord is waiting
  * for it.
  *
- * A modal dialogue has the keyboard, and the page behind it is inert. Every
- * shortcut acts on that page or opens something over it, the palette and the
- * settings among them, so none runs while one is open: a key pressed alone is
- * the dialogue's, and a chord is still read, so the browser does not act on it
- * either, and is answered with how to use it.
+ * A modal dialogue has the keyboard, and the page behind it is inert. A key
+ * pressed alone is the dialogue's. A chord is still read, so the browser does
+ * not act on it either, and runs only where its command changes how the whole
+ * interface is drawn, which the dialogue shows too, as a reader brightening the
+ * page to read the dialogue expects; every other shortcut acts on the page
+ * behind, or opens something over it, the palette and the settings among them,
+ * and is answered with how to use it.
  */
 function ownerOf(
   target: EventTarget | null,
@@ -218,6 +220,12 @@ export interface ShortcutBindingOptions {
    */
   readonly onChordCancelled: () => void;
 
+  /**
+   * Whether a command's shortcut runs while a modal dialogue is open: one that
+   * changes only how the whole interface is drawn (see `ownerOf`).
+   */
+  readonly runsInADialogue: (id: CommandId) => boolean;
+
   /** How this platform's keyboard uses AltGr, and whether Option types in a field. */
   readonly platform: KeyboardPlatform;
 
@@ -235,7 +243,7 @@ export interface ShortcutBindingOptions {
 function answer(
   outcome: ChordOutcome,
   event: KeyboardEvent,
-  to: Pick<ShortcutBindingOptions, 'run' | 'onPendingChange' | 'onAnnounce'> & {
+  to: Pick<ShortcutBindingOptions, 'run' | 'onPendingChange' | 'onAnnounce' | 'runsInADialogue'> & {
     readonly modal: boolean;
   },
 ): void {
@@ -253,9 +261,9 @@ function answer(
 
     case 'run':
       to.onPendingChange([]);
-      // A modal dialogue's page is inert, so its chord is answered with how to
-      // use it rather than run (see `ownerOf`).
-      if (to.modal) {
+      // A modal dialogue's page is inert, so a chord that acts on it is
+      // answered with how to use it rather than run (see `ownerOf`).
+      if (to.modal && !to.runsInADialogue(outcome.commandId)) {
         to.onAnnounce('Close the dialogue to use that shortcut.', false, { refusal: true });
         return;
       }
@@ -267,81 +275,108 @@ function answer(
   }
 }
 
+/**
+ * Listens to the document for shortcuts, and to the window for losing focus,
+ * with what `options` gives, until the function it answers is called.
+ */
+function listen(options: ShortcutBindingOptions): () => void {
+  const { tracker, onPendingChange, onChordCancelled, platform, reader, logger } = options;
+
+  /**
+   * Gives up the chord in progress.
+   *
+   * The one place a chord is given up, so a caller that says so and one that
+   * does not forget the same two things: the tracker's presses, and the
+   * presses the shell shows.
+   */
+  const forgetChord = (): void => {
+    tracker.reset();
+    onPendingChange([]);
+  };
+
+  /** Gives up the chord in progress, and says so. */
+  const cancelChord = (): void => {
+    forgetChord();
+    onChordCancelled();
+  };
+
+  const onKeyDown = (event: KeyboardEvent): void => {
+    // Every key read teaches the layout, typing included.
+    const reading = readingOf(event, platform);
+    if (reader.asked(reading)) event.preventDefault();
+    reader.read(reading);
+
+    // A modifier, a dead key, a key an input method is composing with, and
+    // anything typed with the layout's third-level modifier are the user
+    // typing rather than a shortcut, and must not abandon a chord in
+    // progress either.
+    if (!isShortcutPress(reading)) return;
+
+    if (event.key === 'Escape' && tracker.pending().length > 0) {
+      cancelChord();
+      event.preventDefault();
+      return;
+    }
+
+    const waiting = tracker.pending().length > 0;
+    const modal = document.querySelector(MODAL_DIALOGUE) !== null;
+    const owner = ownerOf(event.target, reading, platform, { waiting, modal });
+    if (owner === PressOwner.Typing && waiting) cancelChord();
+    if (owner !== PressOwner.Shortcuts) return;
+
+    answer(tracker.press(keyPressFromEvent(reading)), event, { ...options, modal });
+  };
+
+  /**
+   * Abandons a chord when the window loses focus.
+   *
+   * Without this, a user who pressed Ctrl+K and then switched away would
+   * return to a tracker still waiting, and their next keystroke would
+   * complete a shortcut they had long forgotten starting.
+   */
+  const onBlur = (): void => {
+    if (tracker.pending().length === 0) return;
+    forgetChord();
+    logger.debug('A chord was abandoned because the window lost focus.');
+  };
+
+  document.addEventListener('keydown', onKeyDown);
+  window.addEventListener('blur', onBlur);
+
+  return () => {
+    document.removeEventListener('keydown', onKeyDown);
+    window.removeEventListener('blur', onBlur);
+  };
+}
+
 /** Listens for shortcuts while the component is mounted. */
 export function useShortcuts(options: ShortcutBindingOptions): void {
-  const { tracker, run, onPendingChange, onAnnounce, onChordCancelled, platform, reader, logger } =
-    options;
+  const { tracker, run, onPendingChange, onAnnounce, onChordCancelled } = options;
+  const { runsInADialogue, platform, reader, logger } = options;
 
-  useEffect(() => {
-    /**
-     * Gives up the chord in progress.
-     *
-     * The one place a chord is given up, so a caller that says so and one that
-     * does not forget the same two things: the tracker's presses, and the
-     * presses the shell shows.
-     */
-    const forgetChord = (): void => {
-      tracker.reset();
-      onPendingChange([]);
-    };
-
-    /** Gives up the chord in progress, and says so. */
-    const cancelChord = (): void => {
-      forgetChord();
-      onChordCancelled();
-    };
-
-    const onKeyDown = (event: KeyboardEvent): void => {
-      // Every key read teaches the layout, typing included.
-      const reading = readingOf(event, platform);
-      if (reader.asked(reading)) event.preventDefault();
-      reader.read(reading);
-
-      // A modifier, a dead key, a key an input method is composing with, and
-      // anything typed with the layout's third-level modifier are the user
-      // typing rather than a shortcut, and must not abandon a chord in
-      // progress either.
-      if (!isShortcutPress(reading)) return;
-
-      if (event.key === 'Escape' && tracker.pending().length > 0) {
-        cancelChord();
-        event.preventDefault();
-        return;
-      }
-
-      const waiting = tracker.pending().length > 0;
-      const modal = document.querySelector(MODAL_DIALOGUE) !== null;
-      const owner = ownerOf(event.target, reading, platform, { waiting, modal });
-      if (owner === PressOwner.Typing && waiting) cancelChord();
-      if (owner !== PressOwner.Shortcuts) return;
-
-      answer(tracker.press(keyPressFromEvent(reading)), event, {
+  useEffect(
+    () =>
+      listen({
+        tracker,
         run,
         onPendingChange,
         onAnnounce,
-        modal,
-      });
-    };
-
-    /**
-     * Abandons a chord when the window loses focus.
-     *
-     * Without this, a user who pressed Ctrl+K and then switched away would
-     * return to a tracker still waiting, and their next keystroke would
-     * complete a shortcut they had long forgotten starting.
-     */
-    const onBlur = (): void => {
-      if (tracker.pending().length === 0) return;
-      forgetChord();
-      logger.debug('A chord was abandoned because the window lost focus.');
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    window.addEventListener('blur', onBlur);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('blur', onBlur);
-    };
-  }, [tracker, run, onPendingChange, onAnnounce, onChordCancelled, platform, reader, logger]);
+        onChordCancelled,
+        runsInADialogue,
+        platform,
+        reader,
+        logger,
+      }),
+    [
+      tracker,
+      run,
+      onPendingChange,
+      onAnnounce,
+      onChordCancelled,
+      runsInADialogue,
+      platform,
+      reader,
+      logger,
+    ],
+  );
 }
