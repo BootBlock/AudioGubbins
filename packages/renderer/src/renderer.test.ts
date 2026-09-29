@@ -1,8 +1,10 @@
 /**
  * The renderer's choice of backend and its recovery, against backends that
  * record what they are asked, so a lost device, a context that comes back and
- * one that does not are each driven on demand. The backends themselves are
- * driven in a real browser by `tests/e2e/renderer-loss.spec.ts`.
+ * one that does not are each driven on demand. Each GPU backend's own loss and
+ * recovery is tested beside this against a recording context, and what every
+ * backend draws is read from the page's pixels, before a loss and after the
+ * recovery, by the renderer suites under `tests/e2e`.
  */
 
 import { describe, expect, it } from 'vitest';
