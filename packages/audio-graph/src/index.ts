@@ -36,12 +36,7 @@ export {
   type GraphRefusal,
 } from './diagnostic.js';
 
-export {
-  type NodeCatalogue,
-  type NodeContract,
-  NodeRole,
-  type ProcessorLatency,
-} from './node-contract.js';
+export { type NodeCatalogue, type NodeContract, NodeRole } from './node-contract.js';
 
 export { type FlatGraph, type GraphFlattening, flattenGraph } from './flattening.js';
 

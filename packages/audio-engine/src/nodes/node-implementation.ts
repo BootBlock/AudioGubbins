@@ -56,6 +56,11 @@ export interface MeterReading {
   readonly peak: readonly number[];
   /** The root mean square of each channel. */
   readonly rms: readonly number[];
+  /**
+   * The phase correlation of each pair the meter's `correlate` setting
+   * names, in its order, from -1 to 1; empty when it names none.
+   */
+  readonly correlation: readonly number[];
 }
 
 /** Where a meter reports what it measured. */

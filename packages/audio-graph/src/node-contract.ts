@@ -9,7 +9,7 @@
  * settings are well formed, and how late its output is.
  */
 
-import type { SampleCount, SampleRate } from '@audiogubbins/domain';
+import type { ProcessorLatency, SampleRate } from '@audiogubbins/domain';
 
 import type { ProcessingNodeDescriptor } from './descriptor.js';
 import type { GraphDiagnostic } from './diagnostic.js';
@@ -32,18 +32,6 @@ export const NodeRole = {
 /** Where a node sits in the flow of audio. */
 export type NodeRole = (typeof NodeRole)[keyof typeof NodeRole];
 
-/**
- * How many frames later a node's output is than its input.
- *
- * REQ-ARCH-144 requires a processor to report its latency accurately or to say
- * that it cannot. An unknown latency carries the reason, because the graph
- * refuses to align parallel paths around a number nobody knows, and the person
- * reading that refusal needs to know which processor to change.
- */
-export type ProcessorLatency =
-  | { readonly kind: 'known'; readonly frames: SampleCount }
-  | { readonly kind: 'unknown'; readonly reason: string };
-
 /** One node type's contract with the graph. */
 export interface NodeContract {
   /** The type a node descriptor names to be processed by this contract. */
@@ -53,7 +41,11 @@ export interface NodeContract {
   /** Problems with this node's ports, settings or supported layouts; empty when it is well formed. */
   check(node: ProcessingNodeDescriptor): readonly GraphDiagnostic[];
 
-  /** Frames of delay at the graph's rate, or unknown with a reason. */
+  /**
+   * Frames of delay at the graph's rate, or unknown with a reason, in the
+   * domain's one {@link ProcessorLatency}, which a processor's descriptor and a
+   * chain's latency also use.
+   */
   latency(node: ProcessingNodeDescriptor, sampleRate: SampleRate): ProcessorLatency;
 }
 

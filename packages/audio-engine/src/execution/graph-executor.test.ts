@@ -114,7 +114,7 @@ const TYPES: NodeImplementations = new Map(
       );
     }),
     nodeType('late', NodeRole.Processor, (_context, _node, frames) => {
-      const line = new DelayLine(LAYOUT.roles.length, frames);
+      const line = new DelayLine(LAYOUT.roles.map(() => frames));
       return succeed(
         simpleKernel(([input], [output], count) => {
           if (input !== undefined && output !== undefined) line.process(input, output, count);

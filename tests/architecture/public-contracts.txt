@@ -96,6 +96,7 @@ Published paths
   readonly MeterReading.frames: number
   readonly MeterReading.peak: readonly number[]
   readonly MeterReading.rms: readonly number[]
+  readonly MeterReading.correlation: readonly number[]
   interface MeterTarget
   MeterTarget.receive: (reading: MeterReading) => void
   interface NodeImplementation extends NodeContract
@@ -103,7 +104,7 @@ Published paths
   readonly NodeImplementation.type: string
   readonly NodeImplementation.role: import("packages/audio-graph/src/node-contract").NodeRole
   NodeImplementation.check: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor) => readonly import("packages/audio-graph/src/diagnostic").GraphDiagnostic[]
-  NodeImplementation.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/audio-graph/src/node-contract").ProcessorLatency
+  NodeImplementation.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
   type NodeImplementations = ReadonlyMap<string, NodeImplementation>
   interface NodeKernel
   NodeKernel.process: (inputs: readonly AudioFrameBlock[], outputs: readonly AudioFrameBlock[], frames: number) => void
@@ -364,7 +365,6 @@ Published paths
   readonly ProcessingNodeDescriptor.inputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.outputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.settings: Readonly<Record<string, SettingValue>>
-  type ProcessorLatency = { readonly kind: "known"; readonly frames: SampleCount; } | { readonly kind: "unknown"; readonly reason: string; }
   type SettingValue = boolean | number | readonly number[] | string
   interface SubgraphInput
   readonly SubgraphInput.name: string
@@ -1276,7 +1276,7 @@ Published paths
   readonly ProcessorDescriptor.label: string
   readonly ProcessorDescriptor.implementationVersion: number
   readonly ProcessorDescriptor.parameters: readonly ParameterDescriptor[]
-  readonly ProcessorDescriptor.latency: SampleCount
+  readonly ProcessorDescriptor.latency: ProcessorLatency
   type ProcessorId = string & { readonly [BrandTag]: "ProcessorId"; }
   interface ProcessorInstance
   readonly ProcessorInstance.id: ProcessorId
@@ -1284,6 +1284,7 @@ Published paths
   readonly ProcessorInstance.enabled: boolean
   readonly ProcessorInstance.soloed: boolean
   readonly ProcessorInstance.values: ReadonlyMap<ParameterId, ParameterValue>
+  type ProcessorLatency = { readonly kind: "known"; readonly frames: SampleCount; } | { readonly kind: "unknown"; readonly reason: string; }
   interface Project
   readonly Project.id: ProjectId
   readonly Project.displayName: string
@@ -1346,7 +1347,7 @@ Published paths
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
-  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<SampleCount>
+  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
   function channelLabelOf(layout: ChannelLayout, index: number): string | undefined
