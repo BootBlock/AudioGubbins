@@ -19,6 +19,7 @@ import type { ChannelLayout, DomainResult, SampleRate } from '@audiogubbins/doma
 import type { NodeContract, NodeId, PlanStep } from '@audiogubbins/audio-graph';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
+import type { Accelerator } from './accelerator.js';
 import type { AudioFrameBlock } from '../pcm/frame-block.js';
 
 /**
@@ -113,6 +114,13 @@ export interface NodeKernel {
 
 /** A node type: its contract with the graph, and the kernel that runs it. */
 export interface NodeImplementation extends NodeContract {
+  /**
+   * The accelerators this type has a path for beside its canonical kernel, in
+   * the order it prefers them; none where the kernel is its only path, as for
+   * every built-in type. Which path runs is `selectNodePaths`'s choice.
+   */
+  readonly accelerators?: readonly Accelerator[];
+
   /**
    * The kernel for one step of a plan, or why it cannot run in this context,
    * such as a graph input with no feed bound to it.

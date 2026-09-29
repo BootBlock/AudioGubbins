@@ -18,6 +18,7 @@ import type { GraphDescriptor } from '@audiogubbins/audio-graph';
 
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import { sendToDevice } from '../context/device-channels.js';
+import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import type { Schedule } from '../schedule.js';
 import { ENGINE_PROCESSOR_NAME } from '../processor/engine-processor-name.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
@@ -29,7 +30,6 @@ import {
 } from '../protocol/processor-messages.js';
 import { EngineLink } from './engine-link.js';
 import type { FeederLink } from './feeder-link.js';
-import { PlaybackDspKind, type PlaybackDsp } from './playback-dsp.js';
 import type { PreparedPlayback } from './playback-preparation.js';
 import type { DspStatus } from './playback-status.js';
 import { ProcessorRuns } from './processor-runs.js';
@@ -74,7 +74,7 @@ export interface LoadedProcessorOptions {
   readonly port: AudioContextPort;
   readonly graph: GraphDescriptor;
   readonly prepared: PreparedPlayback;
-  readonly dsp: PlaybackDsp;
+  readonly dsp: DspDelivery<CompiledDspModule>;
   /** The feeder, where the graph has graph inputs to feed. */
   readonly feeder: GraphFeeder | undefined;
   readonly schedule: Schedule;
@@ -143,10 +143,7 @@ export class LoadedProcessor {
       {
         kind: ToProcessorKind.Load,
         graph: options.graph,
-        dspModuleBytes:
-          options.dsp.kind === PlaybackDspKind.Compiled ? options.dsp.bytes : undefined,
-        dspUnavailable:
-          options.dsp.kind === PlaybackDspKind.Unavailable ? options.dsp.reason : undefined,
+        dsp: deliveredAs(options.dsp, (module) => module.bytes),
         feeds: prepared.feeds.processor,
         reportEveryBlocks: Math.max(
           1,

@@ -144,16 +144,19 @@ function describeChunk(frames: number, rate: SampleRate): string {
 /**
  * The frames in one chunk: the profile's chunk length at this rate, at least
  * one frame, no more than the workload has, and no more than fits in the
- * memory available.
+ * memory the conversions' tables leave.
  */
-function chunkFramesFor(request: ChunkPlanRequest): number {
+function chunkFramesFor(request: ChunkPlanRequest, tableBytes: number): number {
   const byProfile = Math.floor(
     (request.settings.renderChunkMilliseconds * request.sampleRate) / 1_000,
   );
   const fitting =
     request.availableMemoryBytes === undefined
       ? byProfile
-      : Math.floor(request.availableMemoryBytes / (request.channels * BYTES_PER_SAMPLE));
+      : Math.floor(
+          Math.max(0, request.availableMemoryBytes - tableBytes) /
+            (request.channels * BYTES_PER_SAMPLE),
+        );
   return Math.max(1, Math.min(byProfile, fitting, request.frames));
 }
 
@@ -225,6 +228,22 @@ function validMemory(available: number | undefined): DomainResult<number | undef
 }
 
 /**
+ * The bytes a render's conversions of rate may give their tables of
+ * coefficients together: the memory the host measured, less the chunk the plan
+ * holds at once, or `undefined` where the host could not measure, which leaves
+ * every table to be built. A conversion whose table does not fit computes its
+ * taps as it goes, slower and with the same bits (REQ-ARCH-087).
+ */
+export function conversionTableBudget(
+  shape: { readonly channels: number; readonly availableMemoryBytes: number | undefined },
+  plan: ChunkPlan,
+): number | undefined {
+  if (shape.availableMemoryBytes === undefined) return undefined;
+  const chunkBytes = plan.chunkFrames * shape.channels * BYTES_PER_SAMPLE;
+  return Math.max(0, shape.availableMemoryBytes - chunkBytes);
+}
+
+/**
  * Splits a workload into chunks. It never refuses a workload for its size:
  * when holding it whole would exceed the memory available, the plan carries a
  * warning and still proceeds in chunks, and when the processor was measured
@@ -240,9 +259,12 @@ export function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan> {
   const cost = validCostRatio(request.measuredCostRatio);
   if (!cost.ok) return cost;
 
-  const chunkFrames = chunkFramesFor(request);
+  // The tables are held for the whole render, however it is chunked, so they
+  // count in what holding it whole needs and come out of what a chunk may use.
+  const tableBytes = estimate.value.coefficientTableBytes;
+  const chunkFrames = chunkFramesFor(request, tableBytes);
   const chunks = Math.ceil(request.frames / chunkFrames);
-  const needed = estimate.value.bytesHeldWhole;
+  const needed = estimate.value.bytesHeldWhole + tableBytes;
   const warnings = [
     available.value !== undefined && needed > available.value
       ? memoryWarning(request, needed, available.value, chunkFrames, chunks)

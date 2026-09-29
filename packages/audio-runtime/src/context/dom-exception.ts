@@ -9,7 +9,7 @@
  */
 
 /** A `DOMException`'s name, for the refusals the runtime expects. */
-export type DomExceptionName = 'AbortError' | 'InvalidStateError';
+export type DomExceptionName = 'AbortError' | 'InvalidStateError' | 'NotSupportedError';
 
 /** Whether `error` is a `DOMException`, from any realm, named `name`. */
 export function isDomException(error: unknown, name: DomExceptionName): error is DOMException {

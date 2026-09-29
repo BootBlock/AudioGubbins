@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { DspImplementation, wasmDsp } from '@audiogubbins/audio-engine';
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
+import { DspDeliveryKind } from './dsp-delivery.js';
 import { scopeDsp } from './dsp-instance.js';
 
 // This project runs in jsdom, whose global `ArrayBuffer` is not the realm the
@@ -49,14 +50,17 @@ describe('scopeDsp', () => {
   it('runs the WebAssembly module it was sent, with no fallback reason', async () => {
     const module = await WebAssembly.compile(dspModuleBytes());
 
-    const scoped = scopeDsp(module, undefined);
+    const scoped = scopeDsp({ kind: DspDeliveryKind.Available, module });
 
     expect(scoped.dsp.implementation).toBe(DspImplementation.WebAssembly);
     expect(scoped.fallbackReason).toBeUndefined();
   });
 
   it('runs the reference path with the main thread’s reason when no module was sent', () => {
-    const scoped = scopeDsp(undefined, 'This page cannot compile WebAssembly.');
+    const scoped = scopeDsp({
+      kind: DspDeliveryKind.Unavailable,
+      reason: 'This page cannot compile WebAssembly.',
+    });
 
     expect(scoped.dsp.implementation).toBe(DspImplementation.Reference);
     expect(scoped.fallbackReason).toBe('This page cannot compile WebAssembly.');
@@ -67,7 +71,7 @@ describe('scopeDsp', () => {
     const checked = wasmDsp(new WebAssembly.Instance(module, {}).exports);
     const enginesReason = checked.ok ? undefined : checked.failures[0].summary;
 
-    const scoped = scopeDsp(module, 'unused, since a module was sent');
+    const scoped = scopeDsp({ kind: DspDeliveryKind.Available, module });
 
     expect(enginesReason).toBeDefined();
     expect(scoped.dsp.implementation).toBe(DspImplementation.Reference);
@@ -86,7 +90,7 @@ describe('scopeDsp', () => {
   it('runs the reference path with the reason when the module traps as it starts', async () => {
     const module = await WebAssembly.compile(TRAPPING_MODULE);
 
-    const scoped = scopeDsp(module, undefined);
+    const scoped = scopeDsp({ kind: DspDeliveryKind.Available, module });
 
     expect(scoped.dsp.implementation).toBe(DspImplementation.Reference);
     expect(scoped.fallbackReason).toMatch(/^The DSP module could not start: ./u);
@@ -95,14 +99,17 @@ describe('scopeDsp', () => {
   it('lets a TypeError from instantiating surface as itself, a fault not a refusal', async () => {
     const module = await WebAssembly.compile(IMPORTING_MODULE);
 
-    expect(() => scopeDsp(module, undefined)).toThrow(TypeError);
+    expect(() => scopeDsp({ kind: DspDeliveryKind.Available, module })).toThrow(TypeError);
   });
 
   it('gives the same bits on both paths', async () => {
     const module = await WebAssembly.compile(dspModuleBytes());
 
-    const compiled = scopeDsp(module, undefined).dsp;
-    const reference = scopeDsp(undefined, 'the reference path, for comparison').dsp;
+    const compiled = scopeDsp({ kind: DspDeliveryKind.Available, module }).dsp;
+    const reference = scopeDsp({
+      kind: DspDeliveryKind.Unavailable,
+      reason: 'the reference path, for comparison',
+    }).dsp;
 
     expect(compiled.implementation).not.toBe(reference.implementation);
     expect(bitsOf(compiled.sineOfTurns(0.1))).toBe(bitsOf(reference.sineOfTurns(0.1)));

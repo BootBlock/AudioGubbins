@@ -127,6 +127,20 @@ describe('rendering the test signal offline', () => {
     ]);
   });
 
+  it('gives the conversions’ tables the memory measured beside a chunk, and no bound unmeasured', async () => {
+    const measured = rig({ memory: 1e6 });
+    const unmeasured = rig();
+
+    measured.control.render();
+    unmeasured.control.render();
+    await everythingQueued();
+
+    const chunkFrames = measured.host.requests[0]?.chunkFrames ?? 0;
+    expect(chunkFrames).toBeGreaterThan(0);
+    expect(measured.host.requests[0]?.coefficientBudgetBytes).toBe(1e6 - chunkFrames * 2 * 4);
+    expect(unmeasured.host.requests[0]).not.toHaveProperty('coefficientBudgetBytes');
+  });
+
   it('shows what the render produced: its frames, time, DSP path and the fingerprint of what was written', async () => {
     const { control, view, host, announce } = rig();
     host.chunks = CHUNKS;

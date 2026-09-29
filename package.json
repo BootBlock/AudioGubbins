@@ -41,6 +41,7 @@
     "version:sync": "node tools/sync-version.mjs"
   },
   "devDependencies": {
+    "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/input": "workspace:*",

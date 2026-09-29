@@ -25,7 +25,7 @@ import {
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
-  Cancelled,
+  cancellationReason,
   frameBlock,
   type CancellationSignal,
   type RenderSink,
@@ -38,6 +38,7 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
+import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { RenderRequest, RenderRunOptions, WorkerRenderSummary } from './render-request.js';
 import type { Schedule } from '../schedule.js';
@@ -86,18 +87,13 @@ export interface WorkerRenderJob {
   /** The scheduler's cancellation of the job. */
   readonly signal: CancellationSignal;
   readonly schedule: Schedule;
-  readonly dsp: { readonly module?: WebAssembly.Module; readonly unavailable?: string };
+  readonly dsp: DspDelivery<CompiledDspModule>;
 }
 
 type Reply<TKind extends FromRenderWorker['kind']> = Extract<
   FromRenderWorker,
   { readonly kind: TKind }
 >;
-
-/** The signal's reason, or `Cancelled` where it gave none, as the engine rejects with. */
-function cancellationReason(signal: CancellationSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new Cancelled();
-}
 
 /**
  * A fault in the conversation with the worker rather than in the render: the
@@ -153,8 +149,8 @@ class WorkerRender {
         chunkFrames: request.chunkFrames,
         resamplingQuality: request.quality.resampling,
         sources: request.sources,
-        dspModule: dsp.module,
-        dspUnavailable: dsp.unavailable,
+        coefficientBudgetBytes: request.coefficientBudgetBytes,
+        dsp: deliveredAs(dsp, (module) => module.module),
       },
       sourceTransferables(request.sources),
     );

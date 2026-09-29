@@ -19,22 +19,28 @@
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
-import { readGraphDescriptor, type GraphDescriptor, type NodeId } from '@audiogubbins/audio-graph';
+import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 
+import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
-  MalformedMessage,
   countAt,
-  fieldsOf,
+  dspDeliveryAt,
+  failureSummaryFrom,
+  flagAt,
+  graphAt,
+  listAt,
+  moduleAt,
   nodeAt,
+  nonEmptyListAt,
   numberAt,
   oneOf,
-  optionalModuleAt,
-  optionalPortAt,
   optionalTextAt,
+  portAt,
   readMessage,
   sharedMemoryAt,
   textAt,
+  type FailureSummary,
   type Fields,
 } from './message-reading.js';
 import { FeedTransport } from './processor-messages.js';
@@ -49,12 +55,6 @@ export type FeederBinding =
       readonly ring: SharedArrayBuffer;
     }
   | { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted };
-
-/** A failure's code and summary, which are all of one that crosses a thread. */
-export interface FailureSummary {
-  readonly code: string;
-  readonly summary: string;
-}
 
 /** The kinds of message the feeder is sent. */
 export const ToFeederKind = {
@@ -75,10 +75,8 @@ export type ToFeeder =
       /** The graph the sources feed, whose graph inputs give each source its layout. */
       readonly graph: GraphDescriptor;
       readonly sources: readonly SourceDescription[];
-      /** The canonical DSP compiled on the main thread, or none where it could not be. */
-      readonly dspModule: WebAssembly.Module | undefined;
-      /** Why there is no module, when there is none, for the feeder to report. */
-      readonly dspUnavailable: string | undefined;
+      /** The canonical DSP compiled on the main thread, or why it could not be. */
+      readonly dsp: DspDelivery<WebAssembly.Module>;
     }
   | {
       /** Joins request `request`'s sources to a loaded processor, replacing any binding. */
@@ -159,38 +157,11 @@ export type FromFeeder =
       readonly message: string;
     };
 
-function graphAt(fields: Fields): GraphDescriptor {
-  const graph = readGraphDescriptor(fields['graph']);
-  if (!graph.ok) throw new MalformedMessage('graph', 'a graph descriptor');
-  return graph.value;
-}
-
-/** The objects of a list, each read by `read`, named by its place when one is wrong. */
-function listAt<TItem>(
-  fields: Fields,
-  field: string,
-  read: (item: Fields) => TItem,
-): readonly TItem[] {
-  const value: unknown = fields[field];
-  if (!Array.isArray(value)) throw new MalformedMessage(field, 'a list');
-  return value.map((item: unknown, index) => read(fieldsOf(item, `${field}[${String(index)}]`)));
-}
-
 function bindingFrom(fields: Fields): FeederBinding {
   const node = nodeAt(fields, 'node');
   const transport = oneOf(fields, 'transport', FeedTransport);
   if (transport === FeedTransport.Posted) return { node, transport };
   return { node, transport, ring: sharedMemoryAt(fields, 'ring') };
-}
-
-function summaryFrom(fields: Fields): FailureSummary {
-  return { code: textAt(fields, 'code'), summary: textAt(fields, 'summary') };
-}
-
-function flagAt(fields: Fields, field: string): boolean {
-  const value = fields[field];
-  if (typeof value !== 'boolean') throw new MalformedMessage(field, 'true or false');
-  return value;
 }
 
 function toFeederFrom(fields: Fields): ToFeeder {
@@ -200,16 +171,11 @@ function toFeederFrom(fields: Fields): ToFeeder {
       return {
         kind,
         request: countAt(fields, 'request'),
-        graph: graphAt(fields),
+        graph: graphAt(fields, 'graph'),
         sources: listAt(fields, 'sources', sourceFrom),
-        dspModule: optionalModuleAt(fields, 'dspModule'),
-        dspUnavailable: optionalTextAt(fields, 'dspUnavailable'),
+        dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
-    case ToFeederKind.Bind: {
-      const processor = optionalPortAt(fields, 'processor');
-      if (processor === undefined) {
-        throw new MalformedMessage('processor', 'the end of a message channel');
-      }
+    case ToFeederKind.Bind:
       return {
         kind,
         request: countAt(fields, 'request'),
@@ -217,9 +183,8 @@ function toFeederFrom(fields: Fields): ToFeeder {
         feedAheadMilliseconds: numberAt(fields, 'feedAheadMilliseconds'),
         chunkFrames: countAt(fields, 'chunkFrames'),
         wakeMilliseconds: numberAt(fields, 'wakeMilliseconds'),
-        processor,
+        processor: portAt(fields, 'processor'),
       };
-    }
     case ToFeederKind.Start:
       return { kind, run: countAt(fields, 'run'), from: countAt(fields, 'from') };
     case ToFeederKind.Stop:
@@ -241,13 +206,12 @@ function fromFeederFrom(fields: Fields): FromFeeder {
         dspFallbackReason: optionalTextAt(fields, 'dspFallbackReason'),
         dspInUse: flagAt(fields, 'dspInUse'),
       };
-    case FromFeederKind.SourcesRefused: {
-      const [first, ...rest] = listAt(fields, 'failures', summaryFrom);
-      if (first === undefined) {
-        throw new MalformedMessage('failures', 'a list of at least one failure');
-      }
-      return { kind, request: countAt(fields, 'request'), failures: [first, ...rest] };
-    }
+    case FromFeederKind.SourcesRefused:
+      return {
+        kind,
+        request: countAt(fields, 'request'),
+        failures: nonEmptyListAt(fields, 'failures', failureSummaryFrom),
+      };
     case FromFeederKind.Primed:
       return { kind, run: countAt(fields, 'run') };
     case FromFeederKind.FeedFailed:

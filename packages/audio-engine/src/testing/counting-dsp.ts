@@ -15,13 +15,17 @@ import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 export interface CountingDsp {
   readonly dsp: CanonicalDsp;
   readonly held: () => number;
+  /** How many objects it has made in all, released or not. */
+  readonly made: () => number;
 }
 
 export function countingDsp(): CountingDsp {
   let held = 0;
-  const counted = <T extends { release(): void }>(made: DomainResult<T>): DomainResult<T> =>
-    mapResult(made, (object) => {
+  let made = 0;
+  const counted = <T extends { release(): void }>(result: DomainResult<T>): DomainResult<T> =>
+    mapResult(result, (object) => {
       held += 1;
+      made += 1;
       const release = object.release.bind(object);
       return Object.assign(object, {
         release: () => {
@@ -37,5 +41,6 @@ export function countingDsp(): CountingDsp {
       createResampler: (settings) => counted(REFERENCE_DSP.createResampler(settings)),
     },
     held: () => held,
+    made: () => made,
   };
 }

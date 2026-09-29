@@ -145,6 +145,7 @@ function fakeAudio(
         open: fakes.playback.open,
         profile: () => audioSettings.get().chosen,
         announce,
+        logger,
       }),
       rendering: new RenderControl({
         view: audio,

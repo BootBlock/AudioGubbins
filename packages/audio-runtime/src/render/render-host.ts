@@ -22,6 +22,7 @@ import {
 import type { NodeId } from '@audiogubbins/audio-graph';
 import type { PriorityScheduler, RenderSink } from '@audiogubbins/audio-engine';
 
+import type { CompiledDspModule, DspDelivery } from '../dsp/dsp-delivery.js';
 import { renderEndpoints } from './render-endpoints.js';
 import type { RenderRequest, RenderRunOptions, WorkerRenderSummary } from './render-request.js';
 import { renderOnWorker, type BoundSink, type RenderWorkerPort } from './worker-render.js';
@@ -32,7 +33,7 @@ export interface RenderHostOptions {
   readonly createWorker: () => RenderWorkerPort;
   readonly scheduler: PriorityScheduler;
   /** The canonical DSP compiled once on the main thread, or why there is none. */
-  readonly dsp: { readonly module?: WebAssembly.Module; readonly unavailable?: string };
+  readonly dsp: DspDelivery<CompiledDspModule>;
   readonly schedule: Schedule;
 }
 

@@ -26,7 +26,10 @@ import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { ShellContext } from '../commands/shell-context.js';
-import type { AudioViewStore } from '../state/audio-view-store.js';
+import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { AudioView } from '../state/audio-view-store.js';
+import type { Observable } from '../state/observable.js';
+import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import { TransportPanel } from './transport-panel.js';
@@ -104,12 +107,16 @@ export interface PanelContext {
   readonly diagnosticModeActive: boolean;
   readonly announcement?: { readonly text: string; readonly urgent: boolean };
 
-  /** What the audio engine is doing, which the Transport panel shows. */
-  readonly audio: AudioViewStore;
+  /**
+   * What the audio engine is doing, which the Transport panel shows. Read
+   * alone, as the next two are: a panel changes them only through the commands
+   * it runs, never by writing a store (`CLAUDE.md` G2).
+   */
+  readonly audio: Observable<AudioView>;
 
   /** The person's audio settings, and how the latest render was planned, which it shows too. */
-  readonly audioSettings: ShellContext['audioSettings'];
-  readonly renderStrategy: ShellContext['renderStrategy'];
+  readonly audioSettings: Observable<AudioSettings>;
+  readonly renderStrategy: Observable<RenderStrategyView>;
 
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;

@@ -12,7 +12,7 @@
  * devices rather than to the test.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import { watchAudioDevices, type AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { PerformanceSettings } from '@audiogubbins/audio-engine';
@@ -25,8 +25,9 @@ import type { RenderParts } from './render-control.js';
 
 /**
  * The engine, loaded and its DSP compiled on first use and shared by every
- * session and render after it: compiling is the expensive half of
- * WebAssembly, and a compiled module is posted to each thread unchanged.
+ * session and render after it: compiling is the expensive half of WebAssembly,
+ * and the compiled module is posted unchanged to the feeder worker and each
+ * render worker. The AudioWorklet alone compiles its own, from the bytes.
  */
 export function browserEngineLoader(
   capabilities: AudioRuntimeCapabilities,
@@ -67,12 +68,19 @@ export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
     });
     return {
       // The session's Play asks the context to run again, and says why where
-      // it would not, so this first request, made inside the gesture, has
-      // nothing of its own to report.
+      // it would not, so this first request, made inside the gesture, has no
+      // refusal of its own to report. A fault is another matter: nothing
+      // awaits this request, so it is recorded here.
       startContext: () => {
-        void lifecycle.ensureRunning();
+        void lifecycle.ensureRunning().catch((error: unknown) => {
+          logger.error('The audio context could not be started.', {
+            reason: error instanceof Error ? error.message : String(error),
+          });
+        });
       },
-      contextRate: () => lifecycle.context().sampleRate,
+      // The lifecycle remembers a context the browser would not make, so the
+      // Play that reads the rate hears that reason rather than a second try.
+      contextRate: () => mapResult(lifecycle.context(), (context) => context.sampleRate),
       session: engine().then((loaded) => loaded.openSession({ lifecycle, profile, logger })),
       close: () => lifecycle.close(),
     };

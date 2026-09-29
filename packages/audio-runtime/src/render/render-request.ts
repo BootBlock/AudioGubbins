@@ -35,6 +35,13 @@ export interface RenderRequest {
    * by the worker. A caller that still needs the audio passes a copy.
    */
   readonly sources: readonly SourceDescription[];
+  /**
+   * The bytes the render's conversions of rate may give their tables of
+   * coefficients together, from the memory the page measured
+   * (`conversionTableBudget`), or `undefined` where it could not measure. The
+   * worker shares it among the sources it converts.
+   */
+  readonly coefficientBudgetBytes?: number;
 }
 
 /** How a render is run and where its audio goes. */

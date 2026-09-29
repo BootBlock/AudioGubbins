@@ -4,9 +4,10 @@ import { StandardLayouts } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import { BuiltInNodeType, DspImplementation } from '@audiogubbins/audio-engine';
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { FakeMessagePort, cloneAcross } from '../testing/fake-message-channel.js';
 import {
   FeedTransport,
@@ -45,14 +46,16 @@ const GRAPH: GraphDescriptor = {
   edges: [{ from: { node: IN, port: 'out' }, to: { node: OUT, port: 'in' } }],
 };
 
+/** A load's word that it carries no module, for the refusals of its other fields. */
+const NO_DSP = { kind: DspDeliveryKind.Unavailable, reason: 'None, in this test.' };
+
 /** One message of every kind the processor is sent. */
 function everyToProcessor(): readonly ToProcessor[] {
   return [
     {
       kind: ToProcessorKind.Load,
       graph: GRAPH,
-      dspModuleBytes: dspModuleBytes(),
-      dspUnavailable: undefined,
+      dsp: { kind: DspDeliveryKind.Available, module: dspModuleBytes() },
       feeds: [
         { node: IN, transport: FeedTransport.Posted, channels: 2 },
         {
@@ -68,8 +71,7 @@ function everyToProcessor(): readonly ToProcessor[] {
     {
       kind: ToProcessorKind.Load,
       graph: GRAPH,
-      dspModuleBytes: undefined,
-      dspUnavailable: 'WebAssembly is switched off.',
+      dsp: { kind: DspDeliveryKind.Unavailable, reason: 'WebAssembly is switched off.' },
       feeds: [],
       reportEveryBlocks: 0,
       feeder: undefined,
@@ -127,8 +129,10 @@ function comparable(message: ToProcessor): unknown {
   return message.kind === ToProcessorKind.Load
     ? {
         ...message,
-        dspModuleBytes:
-          message.dspModuleBytes === undefined ? undefined : Array.from(message.dspModuleBytes),
+        dsp:
+          message.dsp.kind === DspDeliveryKind.Available
+            ? { ...message.dsp, module: Array.from(message.dsp.module) }
+            : message.dsp,
       }
     : message;
 }
@@ -186,7 +190,8 @@ describe('the processor protocol', () => {
     expect(ring?.transport === FeedTransport.SharedRing && ring.ring).toBeInstanceOf(
       SharedArrayBuffer,
     );
-    expect(Array.from(read.dspModuleBytes ?? [])).toEqual(Array.from(dspModuleBytes()));
+    const bytes = read.dsp.kind === DspDeliveryKind.Available ? read.dsp.module : [];
+    expect(Array.from(bytes)).toEqual(Array.from(dspModuleBytes()));
   });
 
   it.each([
@@ -208,6 +213,7 @@ describe('the processor protocol', () => {
       {
         kind: 'load',
         graph: GRAPH,
+        dsp: NO_DSP,
         feeds: [{ node: 'in', transport: 'shared-ring', channels: 2, ring: new ArrayBuffer(8) }],
         reportEveryBlocks: 1,
       },
@@ -218,25 +224,48 @@ describe('the processor protocol', () => {
       {
         kind: 'load',
         graph: GRAPH,
+        dsp: NO_DSP,
         feeds: [{ node: 'in', transport: 'carrier-pigeon', channels: 2 }],
         reportEveryBlocks: 1,
       },
       'transport',
     ],
+    ['no word on the DSP module', { kind: 'load', graph: GRAPH, feeds: [] }, 'dsp'],
+    [
+      'bytes and no word that they are available',
+      { kind: 'load', graph: GRAPH, dsp: { module: new Uint8Array(8) }, feeds: [] },
+      'dsp.kind',
+    ],
+    [
+      'module bytes over shared memory, which WebAssembly does not compile from',
+      {
+        kind: 'load',
+        graph: GRAPH,
+        dsp: { kind: 'available', module: new Uint8Array(new SharedArrayBuffer(8)) },
+        feeds: [],
+      },
+      'dsp.module',
+    ],
     [
       'module bytes that are not bytes',
-      { kind: 'load', graph: GRAPH, dspModuleBytes: [0, 97], feeds: [], reportEveryBlocks: 1 },
-      'dspModuleBytes',
+      {
+        kind: 'load',
+        graph: GRAPH,
+        dsp: { kind: 'available', module: [0, 97] },
+        feeds: [],
+        reportEveryBlocks: 1,
+      },
+      'dsp.module',
     ],
-    ['no graph', { kind: 'load', feeds: [], reportEveryBlocks: 1 }, 'graph'],
+    ['no graph', { kind: 'load', dsp: NO_DSP, feeds: [], reportEveryBlocks: 1 }, 'graph'],
     [
       'a fractional report rate',
-      { kind: 'load', graph: GRAPH, feeds: [], reportEveryBlocks: 1.5 },
+      { kind: 'load', graph: GRAPH, dsp: NO_DSP, feeds: [], reportEveryBlocks: 1.5 },
       'reportEveryBlocks',
     ],
     [
       'a feeder that is not the end of a channel',
-      { kind: 'load', graph: GRAPH, feeds: [], reportEveryBlocks: 1, feeder: {} },
+      { kind: 'load', graph: GRAPH, dsp: NO_DSP, feeds: [], reportEveryBlocks: 1, feeder: {} },
       'feeder',
     ],
     ['not an object', 'start', 'body'],

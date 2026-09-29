@@ -17,7 +17,8 @@ function rig() {
   const view = createAudioViewStore();
   const parts = new FakePlayback();
   const announce = vi.fn<(text: string) => void>();
-  const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
+  const store = createLogStore();
+  const logger = createDiagnosticCentre(store, { now: () => 0 }).loggerFor('audio');
   const settings = createAudioSettingsStore(
     createStateStorage(ephemeralStorage(), logger, () => undefined),
     logger,
@@ -27,14 +28,17 @@ function rig() {
     open: parts.open,
     profile: () => settings.get().chosen,
     announce,
+    logger,
   });
+  /** What the control recorded in the diagnostic log. */
+  const logged = (): readonly string[] => store.snapshot().map((record) => record.message);
   const settled = () => playbackSettled(view);
   /** Chooses a profile as its command does: in the settings, and then for playback. */
   const choose = (profile: PerformanceProfile) => {
     settings.chooseProfile(profile);
     control.useProfile(settings.get().chosen);
   };
-  return { view, parts, announce, control, settled, settings, choose };
+  return { view, parts, announce, control, settled, settings, choose, logged };
 }
 
 describe('playing the test signal', () => {
@@ -140,6 +144,49 @@ describe('playing the test signal', () => {
     await settled();
     expect(parts.opened).toHaveLength(2);
     expect(view.get().playback?.transport.mode).toBe(TransportMode.Playing);
+  });
+
+  it('reports a context the browser would not make as the Play’s refusal', async () => {
+    const { control, parts, view, announce, settled } = rig();
+    const reason = 'The browser would not start audio: The sample rate is not supported.';
+    parts.contextRefusal = fail(
+      failure('audio.context-unavailable', FailureKind.Unrecoverable, reason),
+    );
+
+    control.play();
+    await settled();
+
+    expect(view.get()).toMatchObject({ starting: false, problems: [reason] });
+    expect(announce).toHaveBeenCalledWith(reason);
+    expect(parts.latest().loads).toEqual([]);
+  });
+
+  it('ends a Play that met a fault with the reason, and records it', async () => {
+    const { control, parts, view, settled, logged } = rig();
+    control.play();
+    const fault = new TypeError('Cannot read properties of undefined.');
+    vi.spyOn(parts.latest(), 'load').mockRejectedValueOnce(fault);
+    await settled();
+
+    expect(view.get()).toMatchObject({
+      starting: false,
+      problems: ['Playback stopped on a fault: Cannot read properties of undefined.'],
+    });
+    expect(logged()).toContain('Playback stopped on a fault.');
+    expect(parts.opened[0]?.closed).toBe(true);
+  });
+
+  it('records a context that could not be closed', async () => {
+    const { control, parts, settled, logged } = rig();
+    control.play();
+    await settled();
+    parts.closeFails = new TypeError('Illegal invocation.');
+
+    control.dispose();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(logged()).toContain('The audio context could not be closed.');
   });
 
   it('reads the audible position from the session, and none before there is one', async () => {

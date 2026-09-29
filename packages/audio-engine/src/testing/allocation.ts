@@ -26,9 +26,12 @@
  * awaiting it allocates a little: so warming and measuring repeat, up to
  * {@link ROUNDS} times, until a round finds nothing. An allocation in the
  * code itself is in every round, and still fails.
+ *
+ * Node's `v8` module is reached through `process.getBuiltinModule` and read
+ * for the calls made of it, as `dsp-module.ts` reaches WebAssembly: this
+ * module is published to other packages' tests, and every published entry
+ * point is compiled without Node's type definitions.
  */
-
-import { GCProfiler, getHeapSpaceStatistics } from 'node:v8';
 
 /** Quanta in one measured trial: a kernel allocating even 8 bytes a quantum shows 8 KiB. */
 export const QUANTA = 1024;
@@ -45,12 +48,68 @@ const ROUNDS = 16;
 /** The spaces of V8's young generation, where every small new object is placed. */
 const YOUNG_SPACES: ReadonlySet<string> = new Set(['new_space', 'new_large_object_space']);
 
-function youngBytes(): number {
+/** Node's `v8` module, which only a Node test host has. */
+function nodeV8(): object {
+  const host: unknown = Reflect.get(globalThis, 'process');
+  const getBuiltinModule: unknown =
+    typeof host === 'object' && host !== null ? Reflect.get(host, 'getBuiltinModule') : undefined;
+  const v8: unknown =
+    typeof getBuiltinModule === 'function'
+      ? Reflect.apply(getBuiltinModule, host, ['node:v8'])
+      : undefined;
+  if (typeof v8 !== 'object' || v8 === null) {
+    throw new Error('Allocation is measured on Node, whose heap this test host does not have.');
+  }
+  return v8;
+}
+
+/** Calls `name` on `target` with no arguments, which must be a method of it. */
+function call(target: object, name: string): unknown {
+  const method: unknown = Reflect.get(target, name);
+  if (typeof method !== 'function') throw new Error(`Node's v8 module has no ${name}.`);
+  return Reflect.apply(method, target, []);
+}
+
+/** A number `field` of `value`, which must have it. */
+function numberOf(value: unknown, field: string): number {
+  const read: unknown =
+    typeof value === 'object' && value !== null ? Reflect.get(value, field) : undefined;
+  if (typeof read !== 'number') throw new Error(`A heap space has no number ${field}.`);
+  return read;
+}
+
+function youngBytes(v8: object): number {
+  const spaces = call(v8, 'getHeapSpaceStatistics');
+  if (!Array.isArray(spaces)) throw new Error('Node gave no heap spaces.');
   let bytes = 0;
-  for (const space of getHeapSpaceStatistics()) {
-    if (YOUNG_SPACES.has(space.space_name)) bytes += space.space_used_size;
+  for (const space of spaces) {
+    const name: unknown =
+      typeof space === 'object' && space !== null ? Reflect.get(space, 'space_name') : undefined;
+    if (typeof name === 'string' && YOUNG_SPACES.has(name)) {
+      bytes += numberOf(space, 'space_used_size');
+    }
   }
   return bytes;
+}
+
+/** Starts a profile of collections, and answers how to stop it and count them. */
+function profileCollections(v8: object): () => number {
+  const Profiler: unknown = Reflect.get(v8, 'GCProfiler');
+  if (typeof Profiler !== 'function') throw new Error("Node's v8 module has no GCProfiler.");
+  const profiler: unknown = Reflect.construct(Profiler, []);
+  if (typeof profiler !== 'object' || profiler === null) {
+    throw new Error('Node made no collection profiler.');
+  }
+  call(profiler, 'start');
+  return () => {
+    const profile = call(profiler, 'stop');
+    const statistics: unknown =
+      typeof profile === 'object' && profile !== null
+        ? Reflect.get(profile, 'statistics')
+        : undefined;
+    if (!Array.isArray(statistics)) throw new Error('A collection profile has no statistics.');
+    return statistics.length;
+  };
 }
 
 /** What one measured run does: `prepare` outside the measurement, then `quanta` calls of `quantum`. */
@@ -66,15 +125,15 @@ export interface Run {
  * one, which only allocating can cause.
  */
 function leastAllocated({ prepare, quantum, quanta = QUANTA }: Run): number | undefined {
+  const v8 = nodeV8();
   let least: number | undefined;
   for (let trial = 0; trial < TRIALS; trial += 1) {
     prepare?.();
-    const profiler = new GCProfiler();
-    profiler.start();
-    const before = youngBytes();
+    const stopProfiling = profileCollections(v8);
+    const before = youngBytes(v8);
     for (let count = 0; count < quanta; count += 1) quantum();
-    const after = youngBytes();
-    const collections = profiler.stop().statistics.length;
+    const after = youngBytes(v8);
+    const collections = stopProfiling();
     if (collections === 0 && (least === undefined || after - before < least)) {
       least = after - before;
     }

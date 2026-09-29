@@ -29,18 +29,19 @@ import {
   renderModeCommandId,
   renderModeSetting,
 } from '../commands/audio-settings-commands.js';
-import type { AudioSettings, AudioSettingsStore } from '../state/audio-settings-store.js';
+import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { Observable } from '../state/observable.js';
 import {
   PlanningStage,
   type RenderPlanning,
-  type RenderStrategyStore,
+  type RenderStrategyView,
 } from '../state/render-strategy-store.js';
 import { ReasonedButton } from './settings/reasoned-button.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface ProcessingModesProps {
-  readonly settings: AudioSettingsStore;
-  readonly strategy: RenderStrategyStore;
+  readonly settings: Observable<AudioSettings>;
+  readonly strategy: Observable<RenderStrategyView>;
   readonly run: (id: string) => void;
   readonly unavailableReason: (id: string) => string | undefined;
 }

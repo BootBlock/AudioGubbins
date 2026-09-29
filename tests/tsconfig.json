@@ -18,6 +18,9 @@
   "exclude": ["dist"],
   "references": [
     {
+      "path": "../packages/audio-engine"
+    },
+    {
       "path": "../packages/capabilities"
     },
     {

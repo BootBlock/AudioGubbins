@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FailureKind,
   StandardLayouts,
+  mapResult,
   sampleCount,
   sampleRate,
   type ChannelLayout,
@@ -25,8 +26,18 @@ import {
   type PcmSource,
   type RenderSink,
 } from '@audiogubbins/audio-engine';
+import {
+  countingDsp,
+  distinctChannels,
+  dspModuleBytes,
+  graphOf,
+  named,
+  nodeOf,
+  wire,
+} from '@audiogubbins/audio-engine/testing';
 
-import { scopeDsp } from '../dsp/dsp-instance.js';
+import { DspDeliveryKind, type DspDelivery } from '../dsp/dsp-delivery.js';
+import { scopeDsp, type DspChooser } from '../dsp/dsp-instance.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,
@@ -34,10 +45,7 @@ import {
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
 import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
-import { countingDsp } from '../testing/counting-dsp.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
-import { distinctChannels, graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
-import { RenderWorkerCore, type DspChooser } from './render-worker-core.js';
+import { RenderWorkerCore } from './render-worker-core.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 const CD_RATE = expectSuccess(sampleRate(44_100));
@@ -72,6 +80,7 @@ function renderOf(
     readonly length?: number;
     readonly chunkFrames?: number;
     readonly module?: WebAssembly.Module | undefined;
+    readonly coefficientBudgetBytes?: number;
   } = {},
 ): ToRenderWorker {
   return {
@@ -86,9 +95,16 @@ function renderOf(
     chunkFrames: options.chunkFrames ?? 700,
     resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
     sources,
-    dspModule: options.module,
-    dspUnavailable: options.module === undefined ? 'No module, for this test.' : undefined,
+    coefficientBudgetBytes: options.coefficientBudgetBytes,
+    dsp: deliveryOf(options.module),
   };
+}
+
+/** The module a test's worker is sent, or, where it has none, a reason to report. */
+function deliveryOf(module: WebAssembly.Module | undefined): DspDelivery<WebAssembly.Module> {
+  return module === undefined
+    ? { kind: DspDeliveryKind.Unavailable, reason: 'No module, for this test.' }
+    : { kind: DspDeliveryKind.Available, module };
 }
 
 const ENDINGS: ReadonlySet<FromRenderWorker['kind']> = new Set([
@@ -111,6 +127,8 @@ function idle(): Promise<void> {
 class WorkerUnderTest {
   readonly posted: FromRenderWorker[] = [];
   readonly transfers: Transferable[][] = [];
+  /** What the core raised as a fault of the worker's scope. */
+  readonly faults: unknown[] = [];
   readonly #yields: (() => void)[] = [];
   #acked = 0;
   #mostInFlight = 0;
@@ -129,6 +147,9 @@ class WorkerUnderTest {
           new Promise((resolve) => {
             this.#yields.push(resolve);
           }),
+        reportFault: (error) => {
+          this.faults.push(error);
+        },
       },
       chooseDsp,
     );
@@ -279,14 +300,12 @@ const PATHS = [
 describe('a render worker', () => {
   describe.each(PATHS)('on %s', (_path, compile, implementation) => {
     it('runs on that path', async () => {
-      expect(scopeDsp(await compile(), 'the reference path').dsp.implementation).toBe(
-        implementation,
-      );
+      expect(scopeDsp(deliveryOf(await compile())).dsp.implementation).toBe(implementation);
     });
 
     it('posts chunks that are, joined, the engine’s own render to the bit', async () => {
       const module = await compile();
-      const dsp = scopeDsp(module, 'the reference path').dsp;
+      const dsp = scopeDsp(deliveryOf(module)).dsp;
       const worker = new WorkerUnderTest();
 
       worker.core.receive(
@@ -320,7 +339,7 @@ describe('a render worker', () => {
 
     it('renders a tone it makes itself as the engine does', async () => {
       const module = await compile();
-      const dsp = scopeDsp(module, 'the reference path').dsp;
+      const dsp = scopeDsp(deliveryOf(module)).dsp;
       const tone = { sampleRate: RATE, frequency: 997, amplitude: 0.5 } as const;
       const worker = new WorkerUnderTest();
 
@@ -363,7 +382,7 @@ describe('a render worker', () => {
 
     it('converts recorded audio at another rate as the engine does, and says so', async () => {
       const module = await compile();
-      const dsp = scopeDsp(module, 'the reference path').dsp;
+      const dsp = scopeDsp(deliveryOf(module)).dsp;
       const worker = new WorkerUnderTest();
 
       worker.core.receive(
@@ -751,5 +770,122 @@ describe('a render worker', () => {
       expect(ended.kind).toBe(FromRenderWorkerKind.Cancelled);
       expect(counting.held()).toBe(0);
     });
+  });
+});
+
+describe('a render worker whose render throws', () => {
+  /** A tone at the render's rate, so its oscillator is the one DSP object the render calls. */
+  const tone: SourceDescription = {
+    node: named('in'),
+    kind: SourceKind.Tone,
+    sampleRate: RATE,
+    frequency: 440,
+    amplitude: 0.5,
+    frames: expectSuccess(sampleCount(3_000)),
+  };
+
+  /** A worker whose oscillators throw `error` as they render. */
+  function throwingWorker(error: Error): WorkerUnderTest {
+    const dsp: CanonicalDsp = {
+      ...REFERENCE_DSP,
+      createOscillator: (settings) =>
+        mapResult(REFERENCE_DSP.createOscillator(settings), (oscillator) =>
+          Object.assign(oscillator, {
+            render: (): never => {
+              throw error;
+            },
+          }),
+        ),
+    };
+    return new WorkerUnderTest(() => ({ dsp, fallbackReason: 'throwing' }));
+  }
+
+  it.each([
+    ['the engine’s own refusal', new Error('The DSP module refused a call.')],
+    ['an engine out of memory', new RangeError('Array buffer allocation failed.')],
+  ])('fails the job with %s', async (_case, error) => {
+    const worker = throwingWorker(error);
+
+    worker.core.receive(renderOf(lookaheadGraph(STEREO), [tone]));
+    const ended = await worker.runToEnd();
+
+    expect(ended).toMatchObject({
+      kind: FromRenderWorkerKind.Failed,
+      failures: [{ code: 'render.worker-fault', summary: `The render stopped: ${error.message}` }],
+    });
+    expect(worker.faults).toEqual([]);
+  });
+
+  it('raises a fault in the code as itself, not as a failed render', async () => {
+    const fault = new TypeError('Cannot read properties of undefined.');
+    const worker = throwingWorker(fault);
+
+    worker.core.receive(renderOf(lookaheadGraph(STEREO), [tone]));
+    for (let turn = 0; turn < 100 && worker.faults.length === 0; turn += 1) {
+      await idle();
+      worker.resume();
+    }
+
+    expect(worker.faults).toEqual([fault]);
+    expect(worker.faults[0]).toBe(fault);
+    expect(worker.ending).toBeUndefined();
+  });
+});
+
+describe('the memory a render worker gives its conversions’ tables', () => {
+  /** Two graph inputs, each straight to an output of its own. */
+  const twoInputs = graphOf(
+    [
+      nodeOf('a', BuiltInNodeType.GraphInput, STEREO, { outputs: ['out'] }),
+      nodeOf('b', BuiltInNodeType.GraphInput, STEREO, { outputs: ['out'] }),
+      nodeOf('a-out', BuiltInNodeType.Output, STEREO, { inputs: ['in'] }),
+      nodeOf('b-out', BuiltInNodeType.Output, STEREO, { inputs: ['in'] }),
+    ],
+    [wire('a.out', 'a-out.in'), wire('b.out', 'b-out.in')],
+  );
+  const recorded = (node: string, rate: SampleRate): SourceDescription => ({
+    ...pcmAt(rate, distinctChannels(STEREO, 3_000)),
+    node: named(node),
+  });
+
+  /** The budget each resampler the worker makes is given, rendering `sources` within `budget`. */
+  async function budgetsGiven(
+    sources: readonly SourceDescription[],
+    budget: number | undefined,
+  ): Promise<readonly (number | undefined)[]> {
+    const given: (number | undefined)[] = [];
+    const dsp: CanonicalDsp = {
+      ...REFERENCE_DSP,
+      createResampler: (settings) => {
+        given.push(settings.coefficientBudgetBytes);
+        return REFERENCE_DSP.createResampler(settings);
+      },
+    };
+    const worker = new WorkerUnderTest(() => ({ dsp, fallbackReason: 'recording' }));
+    worker.core.receive(
+      renderOf(twoInputs, sources, {
+        ...(budget === undefined ? {} : { coefficientBudgetBytes: budget }),
+      }),
+    );
+    expect((await worker.runToEnd()).kind).toBe(FromRenderWorkerKind.Done);
+    return given;
+  }
+
+  it('shares what the page measured among the sources it converts', async () => {
+    const sources = [recorded('a', CD_RATE), recorded('b', CD_RATE)];
+
+    expect(await budgetsGiven(sources, 90_001)).toEqual([45_000, 45_000]);
+  });
+
+  it('gives a source at the render’s rate no share, since it converts nothing', async () => {
+    const sources = [recorded('a', CD_RATE), recorded('b', RATE)];
+
+    expect(await budgetsGiven(sources, 90_000)).toEqual([90_000]);
+  });
+
+  it('bounds no table where the page could not measure', async () => {
+    const sources = [recorded('a', CD_RATE), recorded('b', CD_RATE)];
+
+    expect(await budgetsGiven(sources, undefined)).toEqual([undefined, undefined]);
   });
 });

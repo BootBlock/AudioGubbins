@@ -42,7 +42,9 @@ const COMPLETE: GraphDescriptor = graph(
 
 /** A copy of the complete graph as untyped data, to be broken by a test. */
 function data(): Record<string, unknown> {
-  return structuredClone(COMPLETE) as unknown as Record<string, unknown>;
+  const copy: unknown = structuredClone(COMPLETE);
+  if (typeof copy !== 'object' || copy === null) throw new Error('A graph clones to an object.');
+  return { ...copy };
 }
 
 /** The failures of reading a value, as `code at path`. */

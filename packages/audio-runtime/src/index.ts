@@ -27,19 +27,15 @@ export {
 
 export { type DeviceReport } from './context/device-report.js';
 
-export {
-  type DspModuleAvailability,
-  DspModuleAvailabilityKind,
-  compileDspModule,
-} from './dsp/dsp-module.js';
+export { type CompiledDspModule, type DspDelivery, DspDeliveryKind } from './dsp/dsp-delivery.js';
+
+export { compileDspModule } from './dsp/dsp-module.js';
 
 export { type PlaybackThreads } from './playback/graph-loader.js';
 
 export { type FeederWorkerEvents, type FeederWorkerPort } from './playback/feeder-link.js';
 
 export { type ChannelEnds } from './playback/loaded-processor.js';
-
-export { type PlaybackDsp, PlaybackDspKind } from './playback/playback-dsp.js';
 
 export {
   type PlaybackListener,
@@ -56,6 +52,8 @@ export {
   PlaybackPhase,
   type PlaybackStatus,
 } from './playback/playback-status.js';
+
+export { type GpuUse, GpuUseKind } from './playback/gpu-use.js';
 
 export { type SourceDescription, SourceKind } from './protocol/source-descriptions.js';
 

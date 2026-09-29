@@ -27,15 +27,22 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PerformanceProfile, PerformanceSettings } from '@audiogubbins/audio-engine';
+import {
+  BUILT_IN_NODES,
+  ProcessingPurpose,
+  selectNodePaths,
+  type PerformanceProfile,
+  type PerformanceSettings,
+} from '@audiogubbins/audio-engine';
 
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import type { ContextLifecycle } from '../context/context-lifecycle.js';
+import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import type { FromFeeder } from '../protocol/feeder-messages.js';
 import type { Schedule } from '../schedule.js';
 import { FeederLink, type FeederWorkerPort } from './feeder-link.js';
+import { gpuUseOf } from './gpu-use.js';
 import { LoadedProcessor, type ChannelEnds, type LoadOutcome } from './loaded-processor.js';
-import { PlaybackDspKind, type PlaybackDsp } from './playback-dsp.js';
 import {
   preparePlayback,
   type PlaybackRequest,
@@ -82,7 +89,7 @@ export interface PlaybackThreads {
 export interface GraphLoaderOptions {
   readonly lifecycle: ContextLifecycle;
   readonly capabilities: AudioRuntimeCapabilities;
-  readonly dsp: PlaybackDsp;
+  readonly dsp: DspDelivery<CompiledDspModule>;
   readonly profile: PerformanceProfile;
   readonly settings: PerformanceSettings;
   readonly workletModuleUrl: string;
@@ -103,7 +110,7 @@ export function summaries(failures: readonly DomainFailure[]): readonly string[]
 export class GraphLoader {
   readonly #options: GraphLoaderOptions;
   readonly #module: WorkletModule;
-  readonly #dsp: PlaybackDsp;
+  readonly #dsp: DspDelivery<CompiledDspModule>;
   #loaded: LoadedProcessor | undefined;
   #replies: ProcessorReplies | undefined;
   /** The graph loaded or loading, kept to be loaded again on a new context after a loss. */
@@ -120,7 +127,7 @@ export class GraphLoader {
     this.#module = new WorkletModule(options.workletModuleUrl, options.logger);
     this.#dsp = options.capabilities.webAssembly
       ? options.dsp
-      : { kind: PlaybackDspKind.Unavailable, reason: NO_WEBASSEMBLY };
+      : { kind: DspDeliveryKind.Unavailable, reason: NO_WEBASSEMBLY };
   }
 
   /** The graph in the processor, or on its way there. */
@@ -143,7 +150,12 @@ export class GraphLoader {
     const generation = this.#generation;
     this.#request = request;
     this.#lostRequest = undefined;
-    const { port, clock } = state.timing();
+    const timing = state.timing();
+    if (!timing.ok) {
+      state.update(refusedStatus(state.status, summaries(timing.failures)));
+      return timing;
+    }
+    const { port, clock } = timing.value;
     const prepared = preparePlayback(request, clock.contextRate, port.destination, this.#options);
     if (!prepared.ok) {
       state.update(refusedStatus(state.status, summaries(prepared.failures)));
@@ -151,7 +163,16 @@ export class GraphLoader {
     }
     const stability = new StabilityWatch(clock.contextRate, this.#options);
     const loading = { ...state.status, device: lifecycle.report };
-    state.update(loadingStatus(loading, stability.assess(state.frame())));
+    const { capabilities } = this.#options;
+    const paths = selectNodePaths(
+      prepared.value.plan,
+      BUILT_IN_NODES,
+      capabilities,
+      ProcessingPurpose.Monitor,
+    );
+    state.update(
+      loadingStatus(loading, stability.assess(state.frame()), gpuUseOf(paths, capabilities.gpu)),
+    );
     const sources = this.#sourcesFor(request, prepared.value);
     const [module, made] = await Promise.all([this.#module.addTo(port), sources?.made]);
     if (generation !== this.#generation) {

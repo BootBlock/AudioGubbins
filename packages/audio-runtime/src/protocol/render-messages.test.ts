@@ -10,9 +10,9 @@ import {
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import { BuiltInNodeType, DspImplementation, ResamplingQuality } from '@audiogubbins/audio-engine';
+import { dspModuleBytes, graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
-import { graphOf, nodeOf, wire } from '../testing/render-graphs.js';
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,
@@ -45,6 +45,7 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
     range: { start: expectSuccess(sampleCount(10)), length: expectSuccess(sampleCount(4_800)) },
     chunkFrames: 1_024,
     resamplingQuality: ResamplingQuality.High,
+    coefficientBudgetBytes: module === undefined ? undefined : 250_000,
     sources: [
       {
         node: INPUT,
@@ -61,8 +62,10 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
         frames: expectSuccess(sampleCount(48_000)),
       },
     ],
-    dspModule: module,
-    dspUnavailable: module === undefined ? 'This page cannot compile WebAssembly.' : undefined,
+    dsp:
+      module === undefined
+        ? { kind: DspDeliveryKind.Unavailable, reason: 'This page cannot compile WebAssembly.' }
+        : { kind: DspDeliveryKind.Available, module },
   };
 }
 
@@ -158,9 +161,11 @@ describe('the messages a render worker is sent', () => {
     const read = expectSuccess(readToRenderWorker(structuredClone(sent)));
 
     expect(comparable(read)).toEqual(comparable(sent));
-    expect(read.kind === ToRenderWorkerKind.Render && read.dspModule).toBeInstanceOf(
-      WebAssembly.Module,
-    );
+    expect(
+      read.kind === ToRenderWorkerKind.Render &&
+        read.dsp.kind === DspDeliveryKind.Available &&
+        read.dsp.module,
+    ).toBeInstanceOf(WebAssembly.Module);
   });
 
   it('reads a render without a module, with the reason there is none', () => {
@@ -200,8 +205,14 @@ describe('the messages a render worker is sent', () => {
       'amplitude',
       { sources: [{ node: 'in', kind: 'tone', sampleRate: 48_000, frequency: 1, frames: 1 }] },
     ],
-    ['dspModule', { dspModule: new Uint8Array(8) }],
-    ['dspUnavailable', { dspModule: undefined, dspUnavailable: 3 }],
+    ['coefficientBudgetBytes', { coefficientBudgetBytes: -1 }],
+    ['coefficientBudgetBytes', { coefficientBudgetBytes: 'plenty' }],
+    ['dsp', { dsp: undefined }],
+    ['dsp.kind', { dsp: { kind: 'maybe', reason: 'Either.' } }],
+    ['dsp.module', { dsp: { kind: 'available', module: new Uint8Array(8) } }],
+    ['dsp.module', { dsp: { kind: 'available', reason: 'A reason, and no module.' } }],
+    ['dsp.reason', { dsp: { kind: 'unavailable', reason: 3 } }],
+    ['dsp.reason', { dsp: { kind: 'unavailable' } }],
   ])('refuses a render whose %s is wrong, naming it', (field, change) => {
     const read = readToRenderWorker({ ...renderMessage(undefined), ...change });
 

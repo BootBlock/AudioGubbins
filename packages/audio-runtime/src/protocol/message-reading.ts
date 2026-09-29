@@ -25,7 +25,14 @@ import {
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
-import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
+import {
+  nodeId,
+  readGraphDescriptor,
+  type GraphDescriptor,
+  type NodeId,
+} from '@audiogubbins/audio-graph';
+
+import { DspDeliveryKind, type DspDelivery } from '../dsp/dsp-delivery.js';
 
 /** A field of a received message that is not what the protocol says. */
 export class MalformedMessage extends Error {
@@ -60,6 +67,19 @@ export function nodeAt(fields: Fields, field: string): NodeId {
   const read = nodeId(textAt(fields, field));
   if (!read.ok) throw new MalformedMessage(field, 'a node identifier');
   return read.value;
+}
+
+/** A graph's descriptor, read by the graph's own reader, which trusts nothing. */
+export function graphAt(fields: Fields, field: string): GraphDescriptor {
+  const graph = readGraphDescriptor(fields[field]);
+  if (!graph.ok) throw new MalformedMessage(field, 'a graph descriptor');
+  return graph.value;
+}
+
+export function flagAt(fields: Fields, field: string): boolean {
+  const value = fields[field];
+  if (typeof value !== 'boolean') throw new MalformedMessage(field, 'true or false');
+  return value;
 }
 
 /** Text, or `undefined` where the field is absent. */
@@ -98,8 +118,13 @@ export function countAt(fields: Fields, field: string): number {
   return value;
 }
 
-/** One of the values of a const object, such as a message's `kind`. */
-export function oneOf<TValue extends string>(
+/** A whole number, zero or more, or `undefined` where the field is absent. */
+export function optionalCountAt(fields: Fields, field: string): number | undefined {
+  return fields[field] === undefined ? undefined : countAt(fields, field);
+}
+
+/** One of the values of a const object, such as a message's `kind` or a numbered quality. */
+export function oneOf<TValue extends string | number>(
   fields: Fields,
   field: string,
   values: Readonly<Record<string, TValue>>,
@@ -131,25 +156,68 @@ function taggedAs(value: unknown, tag: string): boolean {
   return Object.prototype.toString.call(value) === `[object ${tag}]`;
 }
 
-/** A compiled WebAssembly module, or `undefined` where the field is absent. */
-export function optionalModuleAt(fields: Fields, field: string): WebAssembly.Module | undefined {
+/** A compiled WebAssembly module. */
+export function moduleAt(fields: Fields, field: string): WebAssembly.Module {
   const value: unknown = fields[field];
-  if (value === undefined) return undefined;
   const isModule = (one: unknown): one is WebAssembly.Module => taggedAs(one, 'WebAssembly.Module');
   if (!isModule(value)) throw new MalformedMessage(field, 'a compiled WebAssembly module');
   return value;
 }
 
 /**
- * The end of a message channel, transferred with the message, or `undefined`
- * where the field is absent.
+ * Bytes in memory of their own, never over shared memory, which WebAssembly
+ * does not compile from.
  */
-export function optionalPortAt(fields: Fields, field: string): MessagePort | undefined {
+export function bytesAt(fields: Fields, field: string): Uint8Array<ArrayBuffer> {
   const value: unknown = fields[field];
-  if (value === undefined) return undefined;
+  const isBytes = (one: unknown): one is Uint8Array<ArrayBuffer> =>
+    taggedAs(one, 'Uint8Array') &&
+    typeof one === 'object' &&
+    one !== null &&
+    'buffer' in one &&
+    taggedAs(one.buffer, 'ArrayBuffer');
+  if (!isBytes(value)) throw new MalformedMessage(field, 'bytes');
+  return value;
+}
+
+/**
+ * The DSP module as a thread is given it, its module read by `readModule`, or
+ * the reason there is none. Its own fields are read under their full names,
+ * `dsp.module` and the like, so a refusal says which `kind` was wrong.
+ */
+export function dspDeliveryAt<TModule>(
+  fields: Fields,
+  field: string,
+  readModule: (delivery: Fields, field: string) => TModule,
+): DspDelivery<TModule> {
+  const delivery = fieldsOf(fields[field], field);
+  const [kindField, moduleField, reasonField] = [
+    `${field}.kind`,
+    `${field}.module`,
+    `${field}.reason`,
+  ];
+  const named: Fields = {
+    [kindField]: delivery['kind'],
+    [moduleField]: delivery['module'],
+    [reasonField]: delivery['reason'],
+  };
+  const kind = oneOf(named, kindField, DspDeliveryKind);
+  return kind === DspDeliveryKind.Available
+    ? { kind, module: readModule(named, moduleField) }
+    : { kind, reason: textAt(named, reasonField) };
+}
+
+/** The end of a message channel, transferred with the message. */
+export function portAt(fields: Fields, field: string): MessagePort {
+  const value: unknown = fields[field];
   const isPort = (one: unknown): one is MessagePort => taggedAs(one, 'MessagePort');
   if (!isPort(value)) throw new MalformedMessage(field, 'the end of a message channel');
   return value;
+}
+
+/** The end of a message channel, or `undefined` where the field is absent. */
+export function optionalPortAt(fields: Fields, field: string): MessagePort | undefined {
+  return fields[field] === undefined ? undefined : portAt(fields, field);
 }
 
 /** Memory shared between threads. */
@@ -168,6 +236,60 @@ export function numbersAt(fields: Fields, field: string): readonly number[] {
     throw new MalformedMessage(field, 'a list of finite numbers');
   }
   return value;
+}
+
+/** An array of text. */
+export function textsAt(fields: Fields, field: string): readonly string[] {
+  const value: unknown = fields[field];
+  const isText = (one: unknown): one is string => typeof one === 'string';
+  if (!Array.isArray(value) || !value.every(isText)) {
+    throw new MalformedMessage(field, 'a list of text');
+  }
+  return value;
+}
+
+/** The elements of a list, each read by `read` with the name of its place. */
+export function itemsAt<TItem>(
+  fields: Fields,
+  field: string,
+  read: (item: unknown, name: string) => TItem,
+): readonly TItem[] {
+  const value: unknown = fields[field];
+  if (!Array.isArray(value)) throw new MalformedMessage(field, 'a list');
+  return value.map((item: unknown, index) => read(item, `${field}[${String(index)}]`));
+}
+
+/** The elements of a list, each read as an object named by its place. */
+export function listAt<TItem>(
+  fields: Fields,
+  field: string,
+  read: (item: Fields) => TItem,
+): readonly TItem[] {
+  return itemsAt(fields, field, (item, name) => read(fieldsOf(item, name)));
+}
+
+/** The elements of a list that holds at least one, each read as {@link listAt} reads them. */
+export function nonEmptyListAt<TItem>(
+  fields: Fields,
+  field: string,
+  read: (item: Fields) => TItem,
+): readonly [TItem, ...TItem[]] {
+  const [first, ...rest] = listAt(fields, field, read);
+  if (first === undefined) throw new MalformedMessage(field, 'a list of at least one');
+  return [first, ...rest];
+}
+
+/**
+ * A failure as a message carries it where the receiver shows it and acts on
+ * nothing else: its code and summary.
+ */
+export interface FailureSummary {
+  readonly code: string;
+  readonly summary: string;
+}
+
+export function failureSummaryFrom(fields: Fields): FailureSummary {
+  return { code: textAt(fields, 'code'), summary: textAt(fields, 'summary') };
 }
 
 /**

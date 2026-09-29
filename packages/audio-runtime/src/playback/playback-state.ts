@@ -129,10 +129,15 @@ export class PlaybackState {
     this.#listeners.clear();
   }
 
-  /** The lifecycle's context, made where there is none, as the transport's clock. */
-  timing(): Timing {
-    const port = this.#lifecycle.context();
-    if (this.#timing?.port === port) return this.#timing;
+  /**
+   * The lifecycle's context, made where there is none, as the transport's
+   * clock, or why the browser would not make one.
+   */
+  timing(): DomainResult<Timing> {
+    const made = this.#lifecycle.context();
+    if (!made.ok) return made;
+    const port = made.value;
+    if (this.#timing?.port === port) return succeed(this.#timing);
     const rate = sampleRate(port.sampleRate);
     if (!rate.ok) {
       // A context's rate is a positive whole number of hertz by the Web Audio
@@ -141,7 +146,7 @@ export class PlaybackState {
       throw new Error(`The audio context runs at ${String(port.sampleRate)} Hz, which is no rate.`);
     }
     this.#timing = { port, clock: { timelineRate: rate.value, contextRate: rate.value } };
-    return this.#timing;
+    return succeed(this.#timing);
   }
 
   /** The context frame now, or zero before any context, when no frame matters yet. */
@@ -157,8 +162,9 @@ export class PlaybackState {
 
   /** Moves the transport by `event`, or says why it cannot move. */
   apply(event: TransportEvent): DomainResult<void> {
-    const clock = (this.#timing ?? this.timing()).clock;
-    const next = nextTransportState(this.#status.transport, event, clock);
+    const timing = this.#timing === undefined ? this.timing() : succeed(this.#timing);
+    if (!timing.ok) return timing;
+    const next = nextTransportState(this.#status.transport, event, timing.value.clock);
     if (!next.ok) return next;
     this.update({ ...this.#status, transport: next.value });
     return succeed(undefined);
@@ -170,12 +176,12 @@ export class PlaybackState {
    * a reader shows are as they were, and the position is read, not pushed.
    */
   reanchor(contextFrame: number, position: SampleCount): void {
-    if (this.#status.transport.mode !== TransportMode.Playing) return;
-    const clock = (this.#timing ?? this.timing()).clock;
+    // Playing has a clock: the load that made it playable set the timing.
+    if (this.#status.transport.mode !== TransportMode.Playing || this.#timing === undefined) return;
     const next = nextTransportState(
       this.#status.transport,
       { kind: 'clock', contextFrame, position },
-      clock,
+      this.#timing.clock,
     );
     if (next.ok) this.#status = { ...this.#status, transport: next.value };
   }

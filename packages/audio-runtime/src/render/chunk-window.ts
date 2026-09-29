@@ -11,14 +11,10 @@
  * last: one would leave either side idle while the other works.
  */
 
-import { Cancelled, type CancellationSignal } from '@audiogubbins/audio-engine';
+import { cancellationReason, type CancellationSignal } from '@audiogubbins/audio-engine';
 
 /** The most chunks sent and not yet taken. */
 const CHUNKS_IN_FLIGHT = 2;
-
-function reasonOf(signal: CancellationSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new Cancelled();
-}
 
 /** A count of chunks in flight, and the one write waiting for a slot. */
 export class ChunkWindow {
@@ -50,12 +46,12 @@ export class ChunkWindow {
   #slotFreed(signal: CancellationSignal): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (signal.aborted) {
-        reject(reasonOf(signal));
+        reject(cancellationReason(signal));
         return;
       }
       const abandon = (): void => {
         this.#waiting = undefined;
-        reject(reasonOf(signal));
+        reject(cancellationReason(signal));
       };
       signal.addEventListener('abort', abandon, { once: true });
       this.#waiting = () => {

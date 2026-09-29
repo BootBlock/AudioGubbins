@@ -24,7 +24,9 @@ import {
   type RenderProgress,
   type RenderSink,
 } from '@audiogubbins/audio-engine';
+import { graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,
@@ -34,7 +36,6 @@ import { SourceKind } from '../protocol/source-descriptions.js';
 import { createRenderHost, type RenderHost } from './render-host.js';
 import type { RenderRequest, WorkerRenderSummary } from './render-request.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';
-import { graphOf, nodeOf, wire } from '../testing/render-graphs.js';
 import type { RenderWorkerPort } from './worker-render.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
@@ -152,7 +153,7 @@ function hostUnderTest(concurrency = 2) {
       return worker;
     },
     scheduler: jobs,
-    dsp: { unavailable: 'None was compiled.' },
+    dsp: { kind: DspDeliveryKind.Unavailable, reason: 'None was compiled.' },
     schedule: timers.schedule,
   });
   return { host, workers, timers, scheduler: jobs };
@@ -202,8 +203,7 @@ describe('the render host', () => {
       jobId: 'render-1',
       chunkFrames: 2,
       resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
-      dspModule: undefined,
-      dspUnavailable: 'None was compiled.',
+      dsp: { kind: DspDeliveryKind.Unavailable, reason: 'None was compiled.' },
     });
     expect(posted?.transfer).toEqual([shared]);
   });

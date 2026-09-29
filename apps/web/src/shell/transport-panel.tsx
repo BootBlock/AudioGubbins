@@ -18,14 +18,10 @@ import { TransportMode } from '@audiogubbins/audio-engine';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import { TEST_SIGNAL } from '../audio/test-signal.js';
-import type { AudioSettingsStore } from '../state/audio-settings-store.js';
-import {
-  RenderStage,
-  type AudioView,
-  type AudioViewStore,
-  type RenderResult,
-} from '../state/audio-view-store.js';
-import type { RenderStrategyStore } from '../state/render-strategy-store.js';
+import type { AudioSettings } from '../state/audio-settings-store.js';
+import { RenderStage, type AudioView, type RenderResult } from '../state/audio-view-store.js';
+import type { Observable } from '../state/observable.js';
+import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import {
   durationText,
   dspText,
@@ -46,11 +42,11 @@ import { useDisplayFrame } from './use-display-frame.js';
 /** What the panel reads, and how it runs a command. */
 export interface TransportPanelProps {
   readonly title: string;
-  readonly audio: AudioViewStore;
+  readonly audio: Observable<AudioView>;
   /** The person's audio settings: the profile, and the render mode. */
-  readonly audioSettings: AudioSettingsStore;
+  readonly audioSettings: Observable<AudioSettings>;
   /** How the latest render was planned. */
-  readonly renderStrategy: RenderStrategyStore;
+  readonly renderStrategy: Observable<RenderStrategyView>;
   readonly capabilities: CapabilityRegistry;
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;

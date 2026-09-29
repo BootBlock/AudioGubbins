@@ -4,9 +4,10 @@ import { StandardLayouts, sampleCount, sampleRate } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import { BuiltInNodeType, DspImplementation } from '@audiogubbins/audio-engine';
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { FakeMessagePort, cloneAcross } from '../testing/fake-message-channel.js';
 import {
   FromFeederKind,
@@ -64,8 +65,7 @@ function everyToFeeder(): readonly ToFeeder[] {
           frames: expectSuccess(sampleCount(48_000)),
         },
       ],
-      dspModule: new WebAssembly.Module(dspModuleBytes()),
-      dspUnavailable: undefined,
+      dsp: { kind: DspDeliveryKind.Available, module: new WebAssembly.Module(dspModuleBytes()) },
     },
     {
       kind: ToFeederKind.Sources,
@@ -74,8 +74,7 @@ function everyToFeeder(): readonly ToFeeder[] {
       sources: [
         { node: IN, kind: SourceKind.Pcm, sampleRate: RATE, channels: [Float32Array.of(0.5)] },
       ],
-      dspModule: undefined,
-      dspUnavailable: 'WebAssembly is switched off.',
+      dsp: { kind: DspDeliveryKind.Unavailable, reason: 'WebAssembly is switched off.' },
     },
     {
       kind: ToFeederKind.Bind,
@@ -175,8 +174,14 @@ describe('the feeder protocol', () => {
     ],
     [
       'a module that is not compiled',
-      { kind: 'sources', request: 1, graph: GRAPH, sources: [], dspModule: [0, 97] },
-      'dspModule',
+      {
+        kind: 'sources',
+        request: 1,
+        graph: GRAPH,
+        sources: [],
+        dsp: { kind: 'available', module: [0, 97] },
+      },
+      'dsp.module',
     ],
     [
       'a binding without the end of a channel',

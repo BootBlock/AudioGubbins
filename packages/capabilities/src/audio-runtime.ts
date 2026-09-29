@@ -3,10 +3,11 @@
  *
  * The audio runtime and the engine never probe the browser (REQ-EXEC-136.4):
  * they are given this, derived from the registry's probes, and choose their
- * paths from it. Each accelerator here is optional (ADR-0003): shared memory
- * and WebAssembly change how fast the engine runs and how deep its buffers
- * are, never what it can do, and a GPU is reported for the processors that
- * can use one without any of them depending on it.
+ * paths from it. Each accelerator here is optional (ADR-0003): shared memory,
+ * WebAssembly and a GPU change how fast the engine runs and how deep its
+ * buffers are, never what it can do. The engine runs a node on the GPU only
+ * where the node's type declares a path for one and the output need not be
+ * canonical (`selectNodePaths`), and the runtime reports what it chose.
  *
  * Which path the engine takes with these is the engine's decision, so this
  * states facts and names no path.
@@ -42,7 +43,10 @@ export interface AudioRuntimeCapabilities {
   /** Whether playback can be sent to a device the user chooses. */
   readonly outputSelection: boolean;
 
-  /** Whether a GPU is offered to a processor that can use one. */
+  /**
+   * Whether the browser offers a GPU through WebGPU, which a processor whose
+   * type declares a GPU path may run on outside a final render.
+   */
   readonly gpu: boolean;
 }
 

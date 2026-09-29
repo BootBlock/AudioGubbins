@@ -10,8 +10,17 @@ import {
   allocateBlock,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
+import {
+  countingDsp,
+  dspModuleBytes,
+  graphOf,
+  named,
+  nodeOf,
+  wire,
+} from '@audiogubbins/audio-engine/testing';
 
-import { scopeDsp } from '../dsp/dsp-instance.js';
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
+import { scopeDsp, type DspChooser } from '../dsp/dsp-instance.js';
 import { RingReader, createSampleRing } from '../feed/sample-ring.js';
 import {
   FromFeederKind,
@@ -27,13 +36,9 @@ import {
 } from '../protocol/feed-messages.js';
 import { FeedTransport } from '../protocol/processor-messages.js';
 import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
-import { countingDsp } from '../testing/counting-dsp.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import { FakeSchedule, settle } from '../testing/playback-rig.js';
-import { graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
 import { FeederCore } from './feeder-core.js';
-import type { DspChooser } from './feeder-sources.js';
 
 const STEREO = StandardLayouts.stereo;
 const RATE = expectSuccess(sampleRate(48_000));
@@ -77,8 +82,10 @@ function sources(
     request,
     graph: GRAPH,
     sources: [described],
-    dspModule: module,
-    dspUnavailable: module === undefined ? 'No module in this test.' : undefined,
+    dsp:
+      module === undefined
+        ? { kind: DspDeliveryKind.Unavailable, reason: 'No module in this test.' }
+        : { kind: DspDeliveryKind.Available, module },
   };
 }
 

@@ -22,7 +22,7 @@ import {
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
-import { readGraphDescriptor, type GraphDescriptor, type NodeId } from '@audiogubbins/audio-graph';
+import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import {
   DspImplementation,
   ResamplingQuality,
@@ -30,14 +30,21 @@ import {
   type RenderRange,
 } from '@audiogubbins/audio-engine';
 
+import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
   MalformedMessage,
   channelsAt,
   countAt,
+  dspDeliveryAt,
   fieldsOf,
+  graphAt,
+  itemsAt,
+  listAt,
+  moduleAt,
   nodeAt,
+  nonEmptyListAt,
   oneOf,
-  optionalModuleAt,
+  optionalCountAt,
   optionalTextAt,
   rateAt,
   readMessage,
@@ -66,10 +73,10 @@ export type ToRenderWorker =
       readonly chunkFrames: number;
       readonly resamplingQuality: ResamplingQuality;
       readonly sources: readonly SourceDescription[];
-      /** The canonical DSP compiled on the main thread, or none where it could not be. */
-      readonly dspModule: WebAssembly.Module | undefined;
-      /** Why there is no module, when there is none, for the worker to report. */
-      readonly dspUnavailable: string | undefined;
+      /** What the conversions' tables may hold together, or `undefined` where unmeasured. */
+      readonly coefficientBudgetBytes: number | undefined;
+      /** The canonical DSP compiled on the main thread, or why it could not be. */
+      readonly dsp: DspDelivery<WebAssembly.Module>;
     }
   | {
       /** The main thread has written one chunk, so the worker may send another. */
@@ -143,22 +150,6 @@ export type FromRenderWorker =
       readonly failures: RenderFailures;
     };
 
-function graphAt(fields: Fields): GraphDescriptor {
-  const graph = readGraphDescriptor(fields['graph']);
-  if (!graph.ok) throw new MalformedMessage('graph', 'a graph descriptor');
-  return graph.value;
-}
-
-/** One of the resampler's qualities, which are numbers and so not `oneOf`'s text. */
-function qualityAt(fields: Fields, field: string): ResamplingQuality {
-  const value = fields[field];
-  const found = Object.values(ResamplingQuality).find((one) => one === value);
-  if (found === undefined) {
-    throw new MalformedMessage(field, `one of ${Object.values(ResamplingQuality).join(', ')}`);
-  }
-  return found;
-}
-
 /** A failure's details: named text, numbers and flags. */
 function detailsAt(fields: Fields): DomainFailure['details'] {
   if (fields['details'] === undefined) return undefined;
@@ -190,20 +181,7 @@ function failureFrom(fields: Fields): DomainFailure {
 }
 
 function failuresAt(fields: Fields): RenderFailures {
-  const [first, ...rest] = listAt(fields, 'failures', failureFrom);
-  if (first === undefined) throw new MalformedMessage('failures', 'a list of at least one failure');
-  return [first, ...rest];
-}
-
-/** The elements of a list, each read as an object named by its place. */
-function listAt<TItem>(
-  fields: Fields,
-  field: string,
-  read: (item: Fields) => TItem,
-): readonly TItem[] {
-  const value: unknown = fields[field];
-  if (!Array.isArray(value)) throw new MalformedMessage(field, 'a list');
-  return value.map((item: unknown, index) => read(fieldsOf(item, `${field}[${String(index)}]`)));
+  return nonEmptyListAt(fields, 'failures', failureFrom);
 }
 
 function rangeAt(fields: Fields): RenderRange {
@@ -211,8 +189,7 @@ function rangeAt(fields: Fields): RenderRange {
   return { start: samplesAt(range, 'start'), length: samplesAt(range, 'length') };
 }
 
-function trimFrom(value: unknown, index: number): readonly [NodeId, SampleCount] {
-  const name = `latencyTrimmed[${String(index)}]`;
+function trimFrom(value: unknown, name: string): readonly [NodeId, SampleCount] {
   if (!Array.isArray(value) || value.length !== 2) {
     throw new MalformedMessage(name, 'a node and a count of frames');
   }
@@ -220,18 +197,12 @@ function trimFrom(value: unknown, index: number): readonly [NodeId, SampleCount]
   return [nodeAt(pair, 'node'), samplesAt(pair, 'frames')];
 }
 
-function trimsAt(fields: Fields): readonly (readonly [NodeId, SampleCount])[] {
-  const value: unknown = fields['latencyTrimmed'];
-  if (!Array.isArray(value)) throw new MalformedMessage('latencyTrimmed', 'a list');
-  return value.map(trimFrom);
-}
-
 function conversionFrom(fields: Fields): RenderConversion {
   return {
     node: nodeAt(fields, 'node'),
     from: rateAt(fields, 'from'),
     to: rateAt(fields, 'to'),
-    quality: qualityAt(fields, 'quality'),
+    quality: oneOf(fields, 'quality', ResamplingQuality),
   };
 }
 
@@ -243,14 +214,14 @@ function toRenderWorkerFrom(fields: Fields): ToRenderWorker {
       return {
         kind,
         jobId,
-        graph: graphAt(fields),
+        graph: graphAt(fields, 'graph'),
         sampleRate: rateAt(fields, 'sampleRate'),
         range: rangeAt(fields),
         chunkFrames: countAt(fields, 'chunkFrames'),
-        resamplingQuality: qualityAt(fields, 'resamplingQuality'),
+        resamplingQuality: oneOf(fields, 'resamplingQuality', ResamplingQuality),
         sources: listAt(fields, 'sources', sourceFrom),
-        dspModule: optionalModuleAt(fields, 'dspModule'),
-        dspUnavailable: optionalTextAt(fields, 'dspUnavailable'),
+        coefficientBudgetBytes: optionalCountAt(fields, 'coefficientBudgetBytes'),
+        dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
     case ToRenderWorkerKind.ChunkTaken:
     case ToRenderWorkerKind.Cancel:
@@ -282,7 +253,7 @@ function fromRenderWorkerFrom(fields: Fields): FromRenderWorker {
         kind,
         jobId,
         frames: samplesAt(fields, 'frames'),
-        latencyTrimmed: trimsAt(fields),
+        latencyTrimmed: itemsAt(fields, 'latencyTrimmed', trimFrom),
         conversions: listAt(fields, 'conversions', conversionFrom),
         dsp: oneOf(fields, 'dsp', DspImplementation),
         dspFallbackReason: optionalTextAt(fields, 'dspFallbackReason'),

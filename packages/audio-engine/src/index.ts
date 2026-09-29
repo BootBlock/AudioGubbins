@@ -19,7 +19,7 @@ export {
   type CancellationSignal,
   type CancellationSource,
   Cancelled,
-  childCancellation,
+  cancellationReason,
   createCancellationSource,
   throwIfCancelled,
 } from './cancellation.js';
@@ -69,6 +69,15 @@ export {
   type NodeKernel,
   type SinkTarget,
 } from './nodes/node-implementation.js';
+
+export { Accelerator } from './nodes/accelerator.js';
+
+export {
+  type AvailableAccelerators,
+  type NodePath,
+  PathReason,
+  selectNodePaths,
+} from './nodes/accelerated-paths.js';
 
 export { BuiltInNodeType } from './nodes/built-in-node-type.js';
 export { BUILT_IN_NODES } from './nodes/built-in-nodes.js';
@@ -151,6 +160,7 @@ export {
   type ResourceWarning,
   type WorkloadEstimate,
   type WorkloadShape,
+  conversionTableBudget,
   estimateWorkload,
   planChunks,
 } from './scheduling/workload.js';

@@ -24,6 +24,7 @@ import { channelCount, type DomainResult } from '@audiogubbins/domain';
 import {
   TransportMode,
   assessRender,
+  conversionTableBudget,
   type PerformanceSettings,
   type PriorityScheduler,
   type RenderStrategy,
@@ -198,7 +199,20 @@ export class RenderControl {
 
   #start(render: TestSignalRender, strategy: RenderStrategy): void {
     this.#strategy.decide(strategy);
-    const request = { ...render.request, chunkFrames: strategy.plan.chunkFrames };
+    // Measured again as it starts, which may be after the person decided: the
+    // tables of its conversions get what the page has left beside a chunk.
+    const budget = conversionTableBudget(
+      {
+        channels: channelCount(STEREO),
+        availableMemoryBytes: this.#resources().availableMemoryBytes,
+      },
+      strategy.plan,
+    );
+    const request = {
+      ...render.request,
+      chunkFrames: strategy.plan.chunkFrames,
+      ...(budget === undefined ? {} : { coefficientBudgetBytes: budget }),
+    };
     this.#framesRendered = 0;
     this.#view.renderStarted(request.range.length);
     // The one place a render's promise ends: whatever escapes the render's

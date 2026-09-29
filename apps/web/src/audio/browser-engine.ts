@@ -9,8 +9,9 @@
  * bundle rather than a request, since the page makes none (REQ-PRIV-161), and
  * the bundler builds each thread module on its own, as the worklet and the
  * workers load it (ADR-0030). The DSP module is compiled here once, on the
- * main thread, and posted to the feeder worker and each render worker; the
- * worklet is given its bytes.
+ * main thread, and the session and the render host are each given the result,
+ * which they post to the feeder worker and each render worker compiled and to
+ * the worklet as bytes.
  */
 
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
@@ -18,14 +19,10 @@ import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createPriorityScheduler, type PerformanceSettings } from '@audiogubbins/audio-engine';
 import {
-  DspModuleAvailabilityKind,
-  PlaybackDspKind,
   PlaybackSession,
   compileDspModule,
   createRenderHost,
   type ContextLifecycle,
-  type DspModuleAvailability,
-  type PlaybackDsp,
   type PlaybackThreads,
 } from '@audiogubbins/audio-runtime';
 import engineProcessorUrl from '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&url';
@@ -45,28 +42,6 @@ import type { RenderParts } from './render-control.js';
  * a queue of them (REQ-ARCH-087).
  */
 const RENDER_CONCURRENCY = 2;
-
-/** The DSP as the render host is given it: the module, or why there is none. */
-function renderDsp(
-  availability: DspModuleAvailability,
-): { readonly module: WebAssembly.Module } | { readonly unavailable: string } {
-  return availability.kind === DspModuleAvailabilityKind.Compiled
-    ? { module: availability.module }
-    : { unavailable: availability.reason };
-}
-
-/**
- * The DSP as playback is given it: the module's bytes for the worklet, which
- * compiles them in its own scope, since a browser may refuse a compiled module
- * posted to a worklet, and the compiled module for the feeder worker; or,
- * where this page could not compile it, why not, so both threads report the
- * same reason rather than failing on their own.
- */
-function playbackDsp(availability: DspModuleAvailability): PlaybackDsp {
-  return availability.kind === DspModuleAvailabilityKind.Compiled
-    ? { kind: PlaybackDspKind.Compiled, bytes: DSP_MODULE_BYTES, module: availability.module }
-    : { kind: PlaybackDspKind.Unavailable, reason: availability.reason };
-}
 
 /**
  * The feeder worker, a module worker as the render worker is, and the
@@ -100,7 +75,7 @@ export async function browserEngine(
       new PlaybackSession({
         lifecycle,
         capabilities,
-        dsp: playbackDsp(dspModule),
+        dsp: dspModule,
         profile: profile.profile,
         settings: profile.settings,
         workletModuleUrl: engineProcessorUrl,
@@ -121,7 +96,7 @@ export async function browserEngine(
             // with imports, and the build's single file runs as one as well.
             createWorker: () => new Worker(renderWorkerUrl, { type: 'module' }),
             scheduler,
-            dsp: renderDsp(dspModule),
+            dsp: dspModule,
             schedule: browserSchedule,
           }),
         }),

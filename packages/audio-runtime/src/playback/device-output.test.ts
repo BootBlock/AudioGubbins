@@ -11,10 +11,10 @@ import {
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { GraphDescriptor } from '@audiogubbins/audio-graph';
 import { BuiltInNodeType } from '@audiogubbins/audio-engine';
+import { distinctChannels, graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
 import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
 import { PlaybackRig } from '../testing/playback-rig.js';
-import { distinctChannels, graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
 import { PlaybackPhase } from './playback-status.js';
 
 const RATE = expectSuccess(sampleRate(48_000));

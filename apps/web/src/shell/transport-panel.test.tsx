@@ -16,6 +16,7 @@ import {
   assessRender,
 } from '@audiogubbins/audio-engine';
 import {
+  GpuUseKind,
   LifecycleState,
   PlaybackPhase,
   type MeterLevels,
@@ -116,6 +117,7 @@ function playingStatus(): PlaybackStatus {
       inUse: true,
     },
     latencyFrames: 128,
+    gpu: { kind: GpuUseKind.Unused },
     device: FAKE_DEVICE,
     stability: {
       stable: true,
@@ -259,6 +261,7 @@ describe('the Transport panel while the test signal plays', () => {
     expect(reading('Graph on the audio thread')).toBe(
       'WebAssembly moduleLoaded; no node of this graph calls it.',
     );
+    expect(reading('GPU')).toBe('Available; no processor in this graph uses it.');
     expect(reading('Device rate')).toBe('48000 Hz');
     expect(reading('Base latency')).toBe('10.0 ms (480 frames)');
     expect(reading('Output latency')).toBe('20.0 ms (960 frames)');
@@ -489,5 +492,27 @@ describe('the Transport panel’s offline render', () => {
     for (const text of ['The render worker stopped.', 'Try again.']) {
       expect(screen.getByText(text)).toHaveAttribute('data-ag-status', 'unavailable');
     }
+  });
+});
+
+describe('the Transport panel’s word on the GPU', () => {
+  it.each([
+    [{ kind: GpuUseKind.Unavailable }, 'Not available: this browser offers no GPU through WebGPU.'],
+    [{ kind: GpuUseKind.Unused }, 'Available; no processor in this graph uses it.'],
+    [{ kind: GpuUseKind.Used, nodes: [expectSuccess(nodeId('reverb'))] }, 'Used by reverb.'],
+  ] as const)('says what the engine chose: %o', (gpu, said) => {
+    const audio = createAudioViewStore();
+    audio.showPlayback({ ...playingStatus(), gpu });
+    draw(audio);
+
+    expect(reading('GPU')).toBe(said);
+  });
+
+  it('says nothing of the GPU before a graph is loaded', () => {
+    const audio = createAudioViewStore();
+    audio.showPlayback({ ...playingStatus(), gpu: undefined });
+    draw(audio);
+
+    expect(screen.queryByText('GPU')).toBeNull();
   });
 });

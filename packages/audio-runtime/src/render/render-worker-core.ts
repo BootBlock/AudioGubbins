@@ -29,7 +29,7 @@ import {
   type RenderSummary,
 } from '@audiogubbins/audio-engine';
 
-import { scopeDsp, type ScopeDsp } from '../dsp/dsp-instance.js';
+import { scopeDsp, type DspChooser, type ScopeDsp } from '../dsp/dsp-instance.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,
@@ -48,17 +48,30 @@ export interface RenderWorkerHost {
   readonly post: PostToHost;
   /** Resolves once the scope has read the messages that arrived while it rendered. */
   readonly yieldToHost: () => Promise<void>;
+  /**
+   * Raises a fault the worker did not expect as an uncaught error of its
+   * scope, which the main thread hears as the worker's `error` event and fails
+   * the job with. `reportError` in the worker: a rejected promise nobody
+   * awaits would reach no one, and the main thread would wait on the job.
+   */
+  readonly reportFault: (error: unknown) => void;
 }
 
 /**
- * Chooses a job's DSP from the module the main thread sent, or the reason it
- * sent none. `scopeDsp` in the worker; a test gives one that counts what its
- * DSP makes, which is how a test sees every source released.
+ * Whether a render threw what the engine and the DSP throw on purpose: a
+ * plain `Error`, as the engine throws for a source that cannot be read or a
+ * call the DSP module refuses; a `RangeError`, an engine out of memory; or a
+ * trap in the DSP module. Anything else, a `TypeError` above all, is a fault
+ * in the code, which is raised as itself rather than dressed as a failed
+ * render.
  */
-export type DspChooser = (
-  module: WebAssembly.Module | undefined,
-  unavailable: string | undefined,
-) => ScopeDsp;
+function isRenderFault(error: unknown): error is Error {
+  return (
+    error instanceof RangeError ||
+    error instanceof WebAssembly.RuntimeError ||
+    (error instanceof Error && Object.getPrototypeOf(error) === Error.prototype)
+  );
+}
 
 type RenderMessage = Extract<ToRenderWorker, { readonly kind: typeof ToRenderWorkerKind.Render }>;
 
@@ -68,12 +81,25 @@ interface RunningJob {
   readonly window: ChunkWindow;
 }
 
+/**
+ * Each conversion's share of what the conversions' tables may hold together:
+ * an equal part for each source at another rate than the render's, since the
+ * engine gives each conversion the budget it is handed.
+ */
+function budgetPerConversion(message: RenderMessage): number | undefined {
+  const total = message.coefficientBudgetBytes;
+  if (total === undefined) return undefined;
+  const converted = message.sources.filter((one) => one.sampleRate !== message.sampleRate).length;
+  return converted === 0 ? total : Math.floor(total / converted);
+}
+
 /** The engine's job for a render message, with the sources and sinks made for it. */
 function renderJobOf(
   message: RenderMessage,
   sources: ReadonlyMap<NodeId, PcmSource>,
   sinks: ReadonlyMap<NodeId, RenderSink>,
 ): RenderJob {
+  const budget = budgetPerConversion(message);
   return {
     graph: message.graph,
     sampleRate: message.sampleRate,
@@ -82,6 +108,7 @@ function renderJobOf(
     range: message.range,
     quality: { resampling: message.resamplingQuality },
     chunkFrames: message.chunkFrames,
+    ...(budget === undefined ? {} : { coefficientBudgetBytes: budget }),
   };
 }
 
@@ -183,13 +210,15 @@ export class RenderWorkerCore {
       window: new ChunkWindow(),
     };
     this.#running = job;
-    void this.#render(message, job).finally(() => {
-      this.#running = undefined;
-    });
+    void this.#render(message, job)
+      .finally(() => {
+        this.#running = undefined;
+      })
+      .catch(this.#host.reportFault);
   }
 
   async #render(message: RenderMessage, job: RunningJob): Promise<void> {
-    const scoped = this.#chooseDsp(message.dspModule, message.dspUnavailable);
+    const scoped = this.#chooseDsp(message.dsp);
     const endpoints = renderEndpoints(message.graph);
     if (!endpoints.ok) {
       this.#fail(job.jobId, endpoints.failures);
@@ -236,11 +265,10 @@ export class RenderWorkerCore {
         this.#host.post({ kind: FromRenderWorkerKind.Cancelled, jobId: job.jobId }, []);
         return;
       }
-      // A fault in the render itself, such as a source that cannot be read or
-      // a DSP out of memory. The main thread is waiting on this job and hears
-      // of it only through a message, so it is reported rather than left to
-      // surface as an unhandled rejection the main thread never sees.
-      if (!(error instanceof Error)) throw error;
+      // A render that stopped, such as on a source that cannot be read or a
+      // DSP out of memory, is the job's failure, which the main thread is
+      // waiting to hear as a message.
+      if (!isRenderFault(error)) throw error;
       this.#fail(job.jobId, [
         failure(
           'render.worker-fault',

@@ -13,16 +13,8 @@ import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { BUILT_IN_NODES } from '../nodes/built-in-nodes.js';
 import { BuiltInNodeType } from '../nodes/built-in-node-type.js';
 import type { NodeImplementation } from '../nodes/node-implementation.js';
-import {
-  collectingSink,
-  distinctAudio,
-  graphOf,
-  jobOf,
-  named,
-  nodeOf,
-  sourceOf,
-  wire,
-} from '../testing/render-harness.js';
+import { graphOf, named, nodeOf, wire } from '../testing/graph-builders.js';
+import { collectingSink, distinctAudio, jobOf, sourceOf } from '../testing/render-harness.js';
 import { renderOffline } from './offline-renderer.js';
 
 const STEREO: ChannelLayout = StandardLayouts.stereo;

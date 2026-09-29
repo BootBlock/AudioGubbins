@@ -20,22 +20,31 @@
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
-import { readGraphDescriptor, type GraphDescriptor, type NodeId } from '@audiogubbins/audio-graph';
+import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 
+import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
-  MalformedMessage,
+  bytesAt,
   countAt,
-  fieldsOf,
+  dspDeliveryAt,
+  failureSummaryFrom,
+  flagAt,
+  graphAt,
+  listAt,
   nodeAt,
+  nonEmptyListAt,
   numberAt,
   numbersAt,
   oneOf,
+  optionalCountAt,
   optionalPortAt,
   optionalTextAt,
   readMessage,
   sharedMemoryAt,
   textAt,
+  textsAt,
+  type FailureSummary,
   type Fields,
 } from './message-reading.js';
 
@@ -64,16 +73,6 @@ export type FeedBinding =
       readonly channels: number;
     };
 
-/**
- * Why a node refused a parameter, as the executor said: its failure's code
- * and summary, which are all of a failure that means anything off the audio
- * thread.
- */
-export interface ParameterRefusal {
-  readonly code: string;
-  readonly summary: string;
-}
-
 /** The kinds of message the processor is sent. */
 export const ToProcessorKind = {
   Load: 'load',
@@ -89,15 +88,13 @@ export type ToProcessor =
       readonly kind: typeof ToProcessorKind.Load;
       readonly graph: GraphDescriptor;
       /**
-       * The canonical DSP module's bytes, which the processor compiles, or none
-       * where the main thread has none to send. Bytes rather than a compiled
-       * module: Chromium silently drops a message to an AudioWorklet that
-       * carries a module, and delivers one that carries bytes. Copied, not
-       * transferred, since the main thread keeps them for the next load.
+       * The canonical DSP module's bytes, which the processor compiles, or why
+       * the main thread has none to send. Bytes rather than a compiled module:
+       * Chromium silently drops a message to an AudioWorklet that carries a
+       * module, and delivers one that carries bytes. Copied, not transferred,
+       * since the main thread keeps them for the next load.
        */
-      readonly dspModuleBytes: Uint8Array<ArrayBuffer> | undefined;
-      /** Why there are no bytes, when there are none, for the processor to report. */
-      readonly dspUnavailable: string | undefined;
+      readonly dsp: DspDelivery<Uint8Array<ArrayBuffer>>;
       readonly feeds: readonly FeedBinding[];
       /** Quanta between two reports: the rate the main thread hears the count and the meters at. */
       readonly reportEveryBlocks: number;
@@ -220,8 +217,12 @@ export type FromProcessor =
       readonly kind: typeof FromProcessorKind.ParameterRefused;
       readonly node: NodeId;
       readonly name: string;
-      /** Every reason, the first of them the one to show. */
-      readonly failures: readonly [ParameterRefusal, ...ParameterRefusal[]];
+      /**
+       * Every reason, the first of them the one to show: each failure's code
+       * and summary, which are all of a failure that means anything off the
+       * audio thread.
+       */
+      readonly failures: readonly [FailureSummary, ...FailureSummary[]];
     }
   | {
       /** Processing threw, and the processor now outputs silence. */
@@ -229,8 +230,7 @@ export type FromProcessor =
       readonly message: string;
     };
 
-function feedAt(value: unknown, index: number): FeedBinding {
-  const fields = fieldsOf(value, `feeds[${String(index)}]`);
+function feedFrom(fields: Fields): FeedBinding {
   const node = nodeAt(fields, 'node');
   const channels = countAt(fields, 'channels');
   const transport = oneOf(fields, 'transport', FeedTransport);
@@ -238,53 +238,7 @@ function feedAt(value: unknown, index: number): FeedBinding {
   return { node, transport, channels, ring: sharedMemoryAt(fields, 'ring') };
 }
 
-function feedsAt(fields: Fields): readonly FeedBinding[] {
-  const value = fields['feeds'];
-  if (!Array.isArray(value)) throw new MalformedMessage('feeds', 'a list');
-  return value.map(feedAt);
-}
-
-function graphAt(fields: Fields): GraphDescriptor {
-  const graph = readGraphDescriptor(fields['graph']);
-  if (!graph.ok) throw new MalformedMessage('graph', 'a graph descriptor');
-  return graph.value;
-}
-
-/**
- * Bytes in memory of their own, or `undefined` where the field is absent.
- * Recognised by their tags, not `instanceof`, because a structured clone is
- * made in the receiving realm; and never over shared memory, which WebAssembly
- * does not compile from.
- */
-function optionalBytesAt(fields: Fields, field: string): Uint8Array<ArrayBuffer> | undefined {
-  const value: unknown = fields[field];
-  if (value === undefined) return undefined;
-  const tag = (one: unknown): string => Object.prototype.toString.call(one);
-  const isBytes = (one: unknown): one is Uint8Array<ArrayBuffer> =>
-    tag(one) === '[object Uint8Array]' &&
-    typeof one === 'object' &&
-    one !== null &&
-    'buffer' in one &&
-    tag(one.buffer) === '[object ArrayBuffer]';
-  if (!isBytes(value)) throw new MalformedMessage(field, 'bytes');
-  return value;
-}
-
-function refusalAt(value: unknown, index: number): ParameterRefusal {
-  const failure = fieldsOf(value, `failures[${String(index)}]`);
-  return { code: textAt(failure, 'code'), summary: textAt(failure, 'summary') };
-}
-
-function refusalsAt(fields: Fields): readonly [ParameterRefusal, ...ParameterRefusal[]] {
-  const value: unknown = fields['failures'];
-  if (!Array.isArray(value)) throw new MalformedMessage('failures', 'a list of failures');
-  const [first, ...rest] = value.map(refusalAt);
-  if (first === undefined) throw new MalformedMessage('failures', 'a list of at least one failure');
-  return [first, ...rest];
-}
-
-function meterAt(value: unknown, index: number): MeterReport {
-  const fields = fieldsOf(value, `meters[${String(index)}]`);
+function meterFrom(fields: Fields): MeterReport {
   return {
     node: nodeAt(fields, 'node'),
     peak: numbersAt(fields, 'peak'),
@@ -293,20 +247,8 @@ function meterAt(value: unknown, index: number): MeterReport {
   };
 }
 
-function metersAt(fields: Fields): readonly MeterReport[] {
-  const value: unknown = fields['meters'];
-  if (!Array.isArray(value)) throw new MalformedMessage('meters', 'a list');
-  return value.map(meterAt);
-}
-
 function countedAt(fields: Fields): CountedPosition {
   return { contextFrame: countAt(fields, 'contextFrame'), position: countAt(fields, 'position') };
-}
-
-function flagAt(fields: Fields, field: string): boolean {
-  const value = fields[field];
-  if (typeof value !== 'boolean') throw new MalformedMessage(field, 'true or false');
-  return value;
 }
 
 function toProcessorFrom(fields: Fields): ToProcessor {
@@ -315,10 +257,9 @@ function toProcessorFrom(fields: Fields): ToProcessor {
     case ToProcessorKind.Load:
       return {
         kind,
-        graph: graphAt(fields),
-        dspModuleBytes: optionalBytesAt(fields, 'dspModuleBytes'),
-        dspUnavailable: optionalTextAt(fields, 'dspUnavailable'),
-        feeds: feedsAt(fields),
+        graph: graphAt(fields, 'graph'),
+        dsp: dspDeliveryAt(fields, 'dsp', bytesAt),
+        feeds: listAt(fields, 'feeds', feedFrom),
         reportEveryBlocks: countAt(fields, 'reportEveryBlocks'),
         feeder: optionalPortAt(fields, 'feeder'),
       };
@@ -350,17 +291,10 @@ function fromProcessorFrom(fields: Fields): FromProcessor {
         dsp: oneOf(fields, 'dsp', DspImplementation),
         dspFallbackReason: optionalTextAt(fields, 'dspFallbackReason'),
         dspInUse: flagAt(fields, 'dspInUse'),
-        latencyFrames:
-          fields['latencyFrames'] === undefined ? undefined : countAt(fields, 'latencyFrames'),
+        latencyFrames: optionalCountAt(fields, 'latencyFrames'),
       };
-    case FromProcessorKind.Refused: {
-      const reasons = fields['reasons'];
-      const isText = (one: unknown): one is string => typeof one === 'string';
-      if (!Array.isArray(reasons) || !reasons.every(isText)) {
-        throw new MalformedMessage('reasons', 'a list of text');
-      }
-      return { kind, reasons };
-    }
+    case FromProcessorKind.Refused:
+      return { kind, reasons: textsAt(fields, 'reasons') };
     case FromProcessorKind.Started:
     case FromProcessorKind.Halted:
     case FromProcessorKind.FeedsEnded:
@@ -372,14 +306,14 @@ function fromProcessorFrom(fields: Fields): FromProcessor {
         ...countedAt(fields),
         underrunFrames: countAt(fields, 'underrunFrames'),
         underruns: countAt(fields, 'underruns'),
-        meters: metersAt(fields),
+        meters: listAt(fields, 'meters', meterFrom),
       };
     case FromProcessorKind.ParameterRefused:
       return {
         kind,
         node: nodeAt(fields, 'node'),
         name: textAt(fields, 'name'),
-        failures: refusalsAt(fields),
+        failures: nonEmptyListAt(fields, 'failures', failureSummaryFrom),
       };
     case FromProcessorKind.Fault:
       return { kind, message: textAt(fields, 'message') };

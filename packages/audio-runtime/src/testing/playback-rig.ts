@@ -31,9 +31,9 @@ import {
 
 import { AudioContextState, type WorkletNodeShape } from '../context/audio-context-port.js';
 import { ContextLifecycle } from '../context/context-lifecycle.js';
+import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import type { Schedule } from '../schedule.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
-import { PlaybackDspKind, type PlaybackDsp } from '../playback/playback-dsp.js';
 import { PlaybackSession } from '../playback/playback-session.js';
 import { FakeAudioContext, type FakeAudioContextSettings } from './fake-audio-context.js';
 import { FakeFeederWorker } from './fake-feeder-worker.js';
@@ -166,10 +166,12 @@ export interface PlaybackRigOptions {
   readonly sharedMemory?: boolean;
   /** Whether the page can compile WebAssembly; it can, by default. */
   readonly webAssembly?: boolean;
+  /** Whether the browser offers a GPU; none where absent. */
+  readonly gpu?: boolean;
   readonly profile?: PresetProfile;
   readonly context?: FakeAudioContextSettings;
   /** The DSP module for the worklet and the feeder; none, by default. */
-  readonly dsp?: PlaybackDsp;
+  readonly dsp?: DspDelivery<CompiledDspModule>;
   /** Which of the main thread's messages to the processor never arrive. */
   readonly lost?: (message: unknown) => boolean;
   /** Puts a test's reads in front of each source the feeder makes, a read that stalls or fails. */
@@ -212,13 +214,13 @@ export class PlaybackRig {
       webAssembly: options.webAssembly ?? true,
       sharedMemory: options.sharedMemory ?? false,
       outputSelection: false,
-      gpu: false,
+      gpu: options.gpu ?? false,
     };
     this.session = new PlaybackSession({
       lifecycle: this.lifecycle,
       capabilities,
       dsp: options.dsp ?? {
-        kind: PlaybackDspKind.Unavailable,
+        kind: DspDeliveryKind.Unavailable,
         reason: 'This test compiles no DSP module.',
       },
       profile,

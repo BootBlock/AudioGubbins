@@ -296,7 +296,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'STABILITY_WINDOW_SECONDS',
         'WorkloadEstimate',
         'assertReadableInto',
-        'childCancellation',
         'contextFrameFor',
         'estimateWorkload',
         'framesAvailable',

@@ -149,6 +149,7 @@ function startAudio(
     open: browserPlayback({ capabilities: runtime, engine, logger }),
     profile: () => audioSettings.get().chosen,
     announce,
+    logger,
   });
   const rendering = new RenderControl({
     view: audio,

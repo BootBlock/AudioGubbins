@@ -11,6 +11,14 @@ import {
   TransportMode,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
+import {
+  distinctChannels,
+  dspModuleBytes,
+  graphOf,
+  named,
+  nodeOf,
+  wire,
+} from '@audiogubbins/audio-engine/testing';
 
 import { AudioContextState } from '../context/audio-context-port.js';
 import { LifecycleState } from '../context/context-lifecycle.js';
@@ -24,12 +32,11 @@ import {
   ToProcessorKind,
   type ToProcessor,
 } from '../protocol/processor-messages.js';
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
 import type { FakeWorkletNode } from '../testing/fake-worklet-node.js';
 import { PlaybackRig, WORKLET_MODULE_URL, settle } from '../testing/playback-rig.js';
-import { distinctChannels, graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
-import { PlaybackDspKind } from './playback-dsp.js';
+import { GpuUseKind } from './gpu-use.js';
 import { PlaybackPhase, type PlaybackStatus } from './playback-status.js';
 
 const STEREO = StandardLayouts.stereo;
@@ -353,15 +360,20 @@ describe('PlaybackSession', () => {
     it('makes the tone in the feeder on the WebAssembly module, which the worklet has too', async () => {
       const bytes = dspModuleBytes();
       const module = new WebAssembly.Module(bytes);
-      const rig = new PlaybackRig({ dsp: { kind: PlaybackDspKind.Compiled, bytes, module } });
+      const rig = new PlaybackRig({
+        dsp: { kind: DspDeliveryKind.Available, module: { bytes, module } },
+      });
 
       expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
 
       const sent = loadSent(rig.node);
-      expect(sent.dspModuleBytes).toBe(bytes);
-      expect(sent.dspUnavailable).toBeUndefined();
+      expect(sent.dsp.kind === DspDeliveryKind.Available && sent.dsp.module).toBe(bytes);
       const sources = rig.feeder.received.find((message) => message.kind === ToFeederKind.Sources);
-      expect(sources?.kind === ToFeederKind.Sources && sources.dspModule).toBe(module);
+      expect(
+        sources?.kind === ToFeederKind.Sources &&
+          sources.dsp.kind === DspDeliveryKind.Available &&
+          sources.dsp.module,
+      ).toBe(module);
       expect(rig.session.status.feederDsp).toEqual({
         implementation: DspImplementation.WebAssembly,
         fallbackReason: undefined,
@@ -380,7 +392,7 @@ describe('PlaybackSession', () => {
       const module = new WebAssembly.Module(bytes);
       const [wasm, reference] = await Promise.all(
         [
-          new PlaybackRig({ dsp: { kind: PlaybackDspKind.Compiled, bytes, module } }),
+          new PlaybackRig({ dsp: { kind: DspDeliveryKind.Available, module: { bytes, module } } }),
           new PlaybackRig(),
         ].map(async (rig) => {
           await playing(rig, tone(4_800));
@@ -396,12 +408,15 @@ describe('PlaybackSession', () => {
       const bytes = dspModuleBytes();
       const rig = new PlaybackRig({
         webAssembly: false,
-        dsp: { kind: PlaybackDspKind.Compiled, bytes, module: new WebAssembly.Module(bytes) },
+        dsp: {
+          kind: DspDeliveryKind.Available,
+          module: { bytes, module: new WebAssembly.Module(bytes) },
+        },
       });
 
       expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(100)] }));
 
-      expect(loadSent(rig.node).dspModuleBytes).toBeUndefined();
+      expect(loadSent(rig.node).dsp.kind).toBe(DspDeliveryKind.Unavailable);
       expect(rig.session.status.processorDsp?.implementation).toBe(DspImplementation.Reference);
       expect(rig.session.status.processorDsp?.fallbackReason).toMatch(
         /cannot compile WebAssembly/u,
@@ -1346,5 +1361,23 @@ describe('PlaybackSession', () => {
     rig.current.context.becomes(AudioContextState.Suspended);
     expect(heard).toEqual([]);
     await expect(rig.session.play()).rejects.toThrow('disposed');
+  });
+});
+
+describe('what a loaded graph runs on the GPU', () => {
+  it('says the browser offers none', async () => {
+    const rig = new PlaybackRig();
+
+    expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
+
+    expect(rig.session.status.gpu).toEqual({ kind: GpuUseKind.Unavailable });
+  });
+
+  it('says one is offered and no processor of the graph uses it', async () => {
+    const rig = new PlaybackRig({ gpu: true });
+
+    expectSuccess(await rig.session.load({ graph: halving(), sources: [tone(4_800)] }));
+
+    expect(rig.session.status.gpu).toEqual({ kind: GpuUseKind.Unused });
   });
 });

@@ -25,11 +25,19 @@ export class Cancelled extends Error {
   }
 }
 
+/**
+ * What a cancelled signal's work fails with: its reason where that is an
+ * error, so a caller's own reason reaches whoever awaited the work, and
+ * `Cancelled` where the signal was aborted with none or with a value that is
+ * not one.
+ */
+export function cancellationReason(signal: CancellationSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Cancelled();
+}
+
 /** Throws the signal's reason if it has been cancelled. */
 export function throwIfCancelled(signal: CancellationSignal | undefined): void {
-  if (signal?.aborted === true) {
-    throw signal.reason instanceof Error ? signal.reason : new Cancelled();
-  }
+  if (signal?.aborted === true) throw cancellationReason(signal);
 }
 
 /** A signal the engine can cancel itself, and the means to cancel it. */
@@ -66,25 +74,4 @@ export function createCancellationSource(): CancellationSource {
       listeners.clear();
     },
   };
-}
-
-/**
- * A source cancelled when `parent` is, as well as by its own `cancel`, for a
- * job whose own cancellation must not reach the caller's signal.
- */
-export function childCancellation(parent: CancellationSignal | undefined): CancellationSource {
-  const child = createCancellationSource();
-  if (parent === undefined) return child;
-  if (parent.aborted) {
-    child.cancel(parent.reason);
-    return child;
-  }
-  const follow = (): void => {
-    child.cancel(parent.reason);
-  };
-  parent.addEventListener('abort', follow, { once: true });
-  child.signal.addEventListener('abort', () => {
-    parent.removeEventListener('abort', follow);
-  });
-  return child;
 }

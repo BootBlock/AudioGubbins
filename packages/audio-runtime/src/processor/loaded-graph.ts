@@ -193,7 +193,7 @@ function makeExecutor(
   bound: BoundFeeds,
   implementations: NodeImplementations,
 ): GraphLoading {
-  const dsp = workletDsp(message.dspModuleBytes, message.dspUnavailable);
+  const dsp = workletDsp(message.dsp);
   const watched = watchDspUse(dsp.dsp);
   const output = new QuantumOutput();
   const meters = watchMeters(plan, message.reportEveryBlocks);

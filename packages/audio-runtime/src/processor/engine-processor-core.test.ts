@@ -26,7 +26,9 @@ import {
   type NodeImplementation,
   type NodeImplementations,
 } from '@audiogubbins/audio-engine';
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { POSTED_FEED_BLOCKS } from '../feed/posted-feed.js';
 import { RingWriter, createSampleRing } from '../feed/sample-ring.js';
 import {
@@ -43,7 +45,6 @@ import {
   type FromProcessor,
   type ToProcessor,
 } from '../protocol/processor-messages.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { EngineProcessorCore } from './engine-processor-core.js';
 
 const STEREO = StandardLayouts.stereo;
@@ -129,8 +130,10 @@ function load(
   return {
     kind: ToProcessorKind.Load,
     graph,
-    dspModuleBytes: options.dspModuleBytes,
-    dspUnavailable: undefined,
+    dsp:
+      options.dspModuleBytes === undefined
+        ? { kind: DspDeliveryKind.Unavailable, reason: 'This test sends no DSP module.' }
+        : { kind: DspDeliveryKind.Available, module: options.dspModuleBytes },
     feeds,
     reportEveryBlocks: options.reportEveryBlocks ?? 0,
     feeder: undefined,
@@ -227,7 +230,7 @@ describe('the engine processor', () => {
       {
         kind: FromProcessorKind.Loaded,
         dsp: DspImplementation.Reference,
-        dspFallbackReason: 'No compiled DSP module was provided.',
+        dspFallbackReason: 'This test sends no DSP module.',
         dspInUse: false,
         latencyFrames: 0,
       },

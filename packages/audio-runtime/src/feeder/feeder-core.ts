@@ -26,14 +26,15 @@ import {
   FromFeederKind,
   ToFeederKind,
   readToFeeder,
-  type FailureSummary,
   type FromFeeder,
   type ToFeeder,
 } from '../protocol/feeder-messages.js';
 import { readFromProcessorFeed } from '../protocol/feed-messages.js';
+import type { FailureSummary } from '../protocol/message-reading.js';
 import type { Schedule } from '../schedule.js';
+import type { DspChooser } from '../dsp/dsp-instance.js';
 import { BoundFeeds } from './feeder-binding.js';
-import { sourcesFor, type DspChooser, type RequestSources } from './feeder-sources.js';
+import { sourcesFor, type RequestSources } from './feeder-sources.js';
 
 /** The worker's global scope and its channel to the processor, as the core uses them. */
 export interface FeederHost {

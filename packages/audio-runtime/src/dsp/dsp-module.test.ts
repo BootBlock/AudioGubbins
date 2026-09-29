@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
-import { compileDspModule, DspModuleAvailabilityKind } from './dsp-module.js';
+import { DspDeliveryKind } from './dsp-delivery.js';
+import { compileDspModule } from './dsp-module.js';
 
 const EVERYTHING: AudioRuntimeCapabilities = {
   playback: true,
@@ -18,10 +19,12 @@ describe('compileDspModule', () => {
   it('compiles the canonical module where WebAssembly can be compiled', async () => {
     const availability = await compileDspModule(dspModuleBytes(), EVERYTHING);
 
-    expect(availability.kind).toBe(DspModuleAvailabilityKind.Compiled);
-    expect(
-      availability.kind === DspModuleAvailabilityKind.Compiled && availability.module,
-    ).toBeInstanceOf(WebAssembly.Module);
+    expect(availability.kind).toBe(DspDeliveryKind.Available);
+    const compiled =
+      availability.kind === DspDeliveryKind.Available ? availability.module : undefined;
+    expect(compiled?.module).toBeInstanceOf(WebAssembly.Module);
+    // The bytes are kept beside the module, for the worklet to compile its own.
+    expect(compiled?.bytes).toEqual(dspModuleBytes());
   });
 
   it('does not try where the page cannot compile WebAssembly, and says what that costs', async () => {
@@ -32,7 +35,7 @@ describe('compileDspModule', () => {
     });
 
     expect(availability).toEqual({
-      kind: DspModuleAvailabilityKind.Unavailable,
+      kind: DspDeliveryKind.Unavailable,
       reason:
         'This page cannot compile WebAssembly. ' +
         'Processing runs on the reference path, which gives the same result more slowly.',
@@ -47,9 +50,8 @@ describe('compileDspModule', () => {
 
     const availability = await compileDspModule(bytes, EVERYTHING);
 
-    expect(availability.kind).toBe(DspModuleAvailabilityKind.Unavailable);
-    const reason =
-      availability.kind === DspModuleAvailabilityKind.Unavailable ? availability.reason : '';
+    expect(availability.kind).toBe(DspDeliveryKind.Unavailable);
+    const reason = availability.kind === DspDeliveryKind.Unavailable ? availability.reason : '';
     expect(reason).toMatch(
       /^The DSP module could not be compiled: .+ Processing runs on the reference path/,
     );
@@ -69,7 +71,7 @@ describe('compileDspModule, when compiling fails', () => {
     const availability = await compileDspModule(dspModuleBytes(), EVERYTHING);
 
     expect(availability).toEqual({
-      kind: DspModuleAvailabilityKind.Unavailable,
+      kind: DspDeliveryKind.Unavailable,
       reason:
         'The DSP module could not be compiled: Out of memory: Cannot allocate Wasm memory. ' +
         'Processing runs on the reference path, which gives the same result more slowly.',

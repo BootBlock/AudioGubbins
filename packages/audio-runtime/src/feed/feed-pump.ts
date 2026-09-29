@@ -34,8 +34,8 @@ import {
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
-  Cancelled,
   allocateBlock,
+  cancellationReason,
   blockView,
   type AudioFrameBlock,
   type CancellationSignal,
@@ -316,8 +316,7 @@ class RunningPump implements FeedPump {
   }
 
   readonly #abandon = (): void => {
-    const { reason } = this.#options.signal;
-    this.#settle(reason instanceof Error ? reason : new Cancelled());
+    this.#settle(cancellationReason(this.#options.signal));
   };
 
   /** Stops for good: resolved at the end, rejected with `error` otherwise. */

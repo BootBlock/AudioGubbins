@@ -27,8 +27,10 @@ import {
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
 import {
+  GpuUseKind,
   LifecycleState,
   type DspStatus,
+  type GpuUse,
   type MeterLevels,
   type PlaybackStatus,
 } from '@audiogubbins/audio-runtime';
@@ -121,7 +123,22 @@ function DspReading({
   );
 }
 
-/** The context, the transport, each thread's DSP path, the device and the stability of the feed. */
+/** What the loaded graph runs on the GPU, as the engine chose it. */
+function gpuText(gpu: GpuUse): string {
+  switch (gpu.kind) {
+    case GpuUseKind.Unavailable:
+      return 'Not available: this browser offers no GPU through WebGPU.';
+    case GpuUseKind.Unused:
+      return 'Available; no processor in this graph uses it.';
+    case GpuUseKind.Used:
+      return `Used by ${gpu.nodes.join(', ')}.`;
+  }
+}
+
+/**
+ * The context, the transport, each thread's DSP path, the GPU, the device and
+ * the stability of the feed.
+ */
 export function EngineState({
   status,
 }: {
@@ -155,6 +172,7 @@ export function EngineState({
           unused="Loaded; the sources are recorded audio, which calls none of it."
         />
       )}
+      {status.gpu !== undefined && <Reading term="GPU">{gpuText(status.gpu)}</Reading>}
       {device !== undefined && (
         <Reading term="Device rate">{`${String(device.sampleRate)} Hz`}</Reading>
       )}

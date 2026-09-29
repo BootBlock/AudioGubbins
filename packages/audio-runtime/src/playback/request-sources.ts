@@ -11,16 +11,12 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 
-import {
-  FromFeederKind,
-  ToFeederKind,
-  type FailureSummary,
-  type FromFeeder,
-} from '../protocol/feeder-messages.js';
+import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
+import { FromFeederKind, ToFeederKind, type FromFeeder } from '../protocol/feeder-messages.js';
+import type { FailureSummary } from '../protocol/message-reading.js';
 import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { Schedule } from '../schedule.js';
 import type { FeederLink } from './feeder-link.js';
-import { PlaybackDspKind, type PlaybackDsp } from './playback-dsp.js';
 import type { PlaybackRequest } from './playback-preparation.js';
 import type { DspStatus } from './playback-status.js';
 
@@ -41,7 +37,7 @@ export interface RequestSourcesOptions {
   readonly request: PlaybackRequest;
   /** The request's name in the feeder, a whole number raised with each request. */
   readonly id: number;
-  readonly dsp: PlaybackDsp;
+  readonly dsp: DspDelivery<CompiledDspModule>;
   readonly schedule: Schedule;
   readonly logger: Logger;
 }
@@ -79,8 +75,7 @@ export class RequestSources {
         request: id,
         graph: request.graph,
         sources: request.sources,
-        dspModule: dsp.kind === PlaybackDspKind.Compiled ? dsp.module : undefined,
-        dspUnavailable: dsp.kind === PlaybackDspKind.Unavailable ? dsp.reason : undefined,
+        dsp: deliveredAs(dsp, (module) => module.module),
       },
       sourceTransferables(request.sources),
     );

@@ -28,7 +28,14 @@
  * lost context or a new device is its listeners' to decide.
  */
 
-import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  fail,
+  failure,
+  FailureKind,
+  succeed,
+  type DomainFailureResult,
+  type DomainResult,
+} from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { LatencyHint } from '@audiogubbins/audio-engine';
 
@@ -128,6 +135,13 @@ export class ContextLifecycle {
   /** Whether the last context ended, by loss or by `close`, with none made since. */
   #ended = false;
   #closedForGood = false;
+  /**
+   * Why the browser would not make a context, kept so that every later ask
+   * hears the same reason rather than trying again unseen, and the person is
+   * told once. A lifecycle is made again for another profile, which tries
+   * afresh.
+   */
+  #refused: DomainFailureResult | undefined;
   /** The state the last `statechange` left, to tell a suspension of a running context. */
   #lastState: AudioContextState = AudioContextState.Suspended;
   #suspendedByUs = false;
@@ -158,16 +172,18 @@ export class ContextLifecycle {
   }
 
   /**
-   * The context, made now if there is none or the last was lost. It may be
-   * suspended until `ensureRunning` is called from a gesture.
+   * The context, made now if there is none or the last was lost, or why the
+   * browser would not make one. It may be suspended until `ensureRunning` is
+   * called from a gesture.
    */
-  context(): AudioContextPort {
+  context(): DomainResult<AudioContextPort> {
     if (this.#closedForGood) {
       // A wiring mistake, not something the person did: a closed lifecycle
       // is never handed out again.
       throw new Error('This audio context lifecycle was closed; create another.');
     }
-    return (this.#attached ?? this.#open()).port;
+    if (this.#attached !== undefined) return succeed(this.#attached.port);
+    return this.#refused ?? this.#open();
   }
 
   /**
@@ -175,7 +191,9 @@ export class ContextLifecycle {
    * resume a context only from a click or a key press.
    */
   async ensureRunning(): Promise<DomainResult<AudioContextPort>> {
-    const port = this.context();
+    const made = this.context();
+    if (!made.ok) return made;
+    const port = made.value;
     if (port.state === AudioContextState.Running) return succeed(port);
     this.#suspendedByUs = false;
     const resumed = await this.#resume(port);
@@ -248,12 +266,30 @@ export class ContextLifecycle {
     }
   }
 
-  #open(): Attached {
+  #open(): DomainResult<AudioContextPort> {
     const { createContext, latencyHint, sampleRate, watchDevices, logger } = this.#options;
-    const port = createContext({
-      latencyHint,
-      ...(sampleRate === undefined ? {} : { sampleRate }),
-    });
+    let port: AudioContextPort;
+    try {
+      port = createContext({
+        latencyHint,
+        ...(sampleRate === undefined ? {} : { sampleRate }),
+      });
+    } catch (error) {
+      // The constructor refuses with NotSupportedError where the browser
+      // cannot make a context: options it cannot meet, no output device, or
+      // more contexts than it allows. Anything else is a fault.
+      if (!isDomException(error, 'NotSupportedError')) throw error;
+      logger.error('The browser would not create an audio context.', { reason: error.message });
+      this.#refused = fail(
+        failure(
+          'audio.context-unavailable',
+          FailureKind.Unrecoverable,
+          `The browser would not start audio: ${error.message}`,
+          { details: { reason: error.message } },
+        ),
+      );
+      return this.#refused;
+    }
     this.#lastState = port.state;
     this.#suspendedByUs = false;
     this.#suspendedBySystem = false;
@@ -281,7 +317,7 @@ export class ContextLifecycle {
       latencyHint,
     });
     this.#noteState();
-    return attached;
+    return succeed(port);
   }
 
   #stateChanged(port: AudioContextPort): void {

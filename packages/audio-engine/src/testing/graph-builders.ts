@@ -1,9 +1,9 @@
 /**
- * Graphs and audio for the render tests.
+ * Graphs and audio stated by name, for the tests of every package that runs
+ * one.
  *
- * A render test states a graph as built-in nodes and `node.port` wires, by
- * name, so each test is about what it renders rather than how a descriptor is
- * written out.
+ * A test states a graph as built-in nodes and `node.port` wires, so it is about
+ * what the graph does rather than how a descriptor is written out.
  */
 
 import type { ChannelLayout } from '@audiogubbins/domain';

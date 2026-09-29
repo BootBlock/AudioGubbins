@@ -3,28 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { frameBlock } from '@audiogubbins/audio-engine';
+import { fingerprint } from '@audiogubbins/audio-engine/testing';
 
 import { fingerprintSink } from './fingerprint-sink.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
-
-/**
- * FNV-1a-64 over every byte of `samples` written little-endian, one `bigint`
- * step per byte: the definition, written the slow way the golden tests write
- * it, over the whole buffer at once.
- */
-function wholeBufferFingerprint(samples: readonly number[]): bigint {
-  const bytes = new DataView(new ArrayBuffer(samples.length * 4));
-  samples.forEach((sample, index) => {
-    bytes.setFloat32(index * 4, sample, true);
-  });
-  let hash = 0xcbf29ce484222325n;
-  for (let index = 0; index < bytes.byteLength; index += 1) {
-    hash ^= BigInt(bytes.getUint8(index));
-    hash = (hash * 0x100000001b3n) & 0xffffffffffffffffn;
-  }
-  return hash;
-}
 
 /** A stereo tone-like signal whose channels differ, with values that exercise every byte. */
 function channels(frames: number): readonly [Float32Array, Float32Array] {
@@ -61,12 +44,14 @@ describe('the fingerprinting render sink', () => {
 
   it('equals FNV-1a-64 of the whole render, its frames in order with the channels interleaved', async () => {
     const [left, right] = channels(10_007);
-    const interleaved = [...left].flatMap((sample, frame) => [sample, right[frame] ?? 0]);
+    const interleaved = Float32Array.from(
+      [...left].flatMap((sample, frame) => [sample, right[frame] ?? 0]),
+    );
 
     const written = await fingerprintInChunks(left, right, 4_096);
 
     expect(written.frames).toBe(10_007);
-    expect(written.fingerprint).toBe(wholeBufferFingerprint(interleaved));
+    expect(written.fingerprint).toBe(fingerprint(interleaved));
   });
 
   it('gives the same fingerprint whatever chunks the render arrives in', async () => {

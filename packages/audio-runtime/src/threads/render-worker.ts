@@ -16,6 +16,7 @@ import { RenderWorkerCore } from '../render/render-worker-core.js';
 interface RenderWorkerScope {
   postMessage(message: FromRenderWorker, options: { transfer: Transferable[] }): void;
   addEventListener(type: 'message' | 'messageerror', listener: (event: MessageEvent) => void): void;
+  reportError(error: unknown): void;
 }
 
 const scope: RenderWorkerScope = self;
@@ -48,6 +49,9 @@ const core = new RenderWorkerCore({
     scope.postMessage(message, { transfer });
   },
   yieldToHost,
+  reportFault: (error) => {
+    scope.reportError(error);
+  },
 });
 
 scope.addEventListener('message', (event) => {

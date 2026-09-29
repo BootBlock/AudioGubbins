@@ -22,7 +22,8 @@ import { BuiltInNodeType } from '../nodes/built-in-node-type.js';
 import { toneSource } from '../pcm/tone-source.js';
 import { dspModuleExports } from '../testing/dsp-module.js';
 import { fingerprint } from '../testing/pcm-fingerprint.js';
-import { collectingSink, graphOf, jobOf, named, nodeOf, wire } from '../testing/render-harness.js';
+import { graphOf, named, nodeOf, wire } from '../testing/graph-builders.js';
+import { collectingSink, jobOf } from '../testing/render-harness.js';
 import { renderOffline } from './offline-renderer.js';
 
 const SURROUND = StandardLayouts.surround5_1;

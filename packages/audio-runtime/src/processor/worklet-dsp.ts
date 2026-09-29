@@ -15,21 +15,18 @@
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 
+import { DspDeliveryKind, type DspDelivery } from '../dsp/dsp-delivery.js';
 import { scopeDsp, type ScopeDsp } from '../dsp/dsp-instance.js';
 
 /**
- * The DSP from the module's bytes, or the reference path with the reason:
- * `unavailable` where the main thread sent no bytes, or why they would not
- * compile.
+ * The DSP from the module's bytes, or the reference path with the reason: the
+ * main thread's, where it sent no bytes, or why they would not compile.
  */
-export function workletDsp(
-  bytes: Uint8Array<ArrayBuffer> | undefined,
-  unavailable: string | undefined,
-): ScopeDsp {
-  if (bytes === undefined) return scopeDsp(undefined, unavailable);
+export function workletDsp(delivery: DspDelivery<Uint8Array<ArrayBuffer>>): ScopeDsp {
+  if (delivery.kind === DspDeliveryKind.Unavailable) return scopeDsp(delivery);
   let module: WebAssembly.Module;
   try {
-    module = new WebAssembly.Module(bytes);
+    module = new WebAssembly.Module(delivery.module);
   } catch (error) {
     // A CompileError is bytes this engine refuses, damaged or truncated on
     // their way; a RangeError is an engine out of memory. Either leaves the
@@ -41,5 +38,5 @@ export function workletDsp(
       fallbackReason: `The DSP module could not be compiled in the audio thread: ${error.message}`,
     };
   }
-  return scopeDsp(module, undefined);
+  return scopeDsp({ kind: DspDeliveryKind.Available, module });
 }

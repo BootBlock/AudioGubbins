@@ -28,7 +28,9 @@ import {
   createPriorityScheduler,
   type AudioFrameBlock,
 } from '@audiogubbins/audio-engine';
+import { dspModuleBytes, graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
+import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import {
   FromRenderWorkerKind,
   ToRenderWorkerKind,
@@ -36,9 +38,7 @@ import {
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
 import { SourceKind } from '../protocol/source-descriptions.js';
-import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';
-import { graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
 import { createRenderHost } from './render-host.js';
 import { RenderWorkerCore } from './render-worker-core.js';
 
@@ -94,8 +94,11 @@ function representativeRender(module: WebAssembly.Module | undefined): ToRenderW
     chunkFrames: CHUNK_FRAMES,
     resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
     sources: [{ node: IN, kind: SourceKind.Pcm, sampleRate: RECORDED_RATE, channels: recording() }],
-    dspModule: module,
-    dspUnavailable: module === undefined ? 'The reference path, for this test.' : undefined,
+    coefficientBudgetBytes: undefined,
+    dsp:
+      module === undefined
+        ? { kind: DspDeliveryKind.Unavailable, reason: 'The reference path, for this test.' }
+        : { kind: DspDeliveryKind.Available, module },
   };
 }
 
@@ -118,6 +121,10 @@ function workerUnderTest() {
       new Promise((resolve) => {
         yields.push(resolve);
       }),
+    // A fault fails the run, as an unhandled rejection, rather than a job.
+    reportFault: (error) => {
+      throw error;
+    },
   });
   const count = (kind: FromRenderWorker['kind']): number =>
     posted.filter((message) => message.kind === kind).length;
@@ -201,6 +208,7 @@ describe('a representative offline render leaves the interface responsive', () =
     const scheduler = expectSuccess(
       createPriorityScheduler({ concurrency: 1, backgroundConcurrencyWhileInteractive: 1 }),
     );
+    const bytes = dspModuleBytes();
     const worker = new FakeRenderWorker();
     const toWorker = worker.received;
     const written: AudioFrameBlock[] = [];
@@ -208,7 +216,10 @@ describe('a representative offline render leaves the interface responsive', () =
       createWorker: () => worker,
       scheduler,
       // The host is given a compiled module to pass on, and no DSP to run.
-      dsp: { module: await WebAssembly.compile(dspModuleBytes()) },
+      dsp: {
+        kind: DspDeliveryKind.Available,
+        module: { bytes, module: await WebAssembly.compile(bytes) },
+      },
       schedule: () => () => undefined,
     });
     const reply = (message: FromRenderWorker): void => {

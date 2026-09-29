@@ -17,6 +17,7 @@ import {
   FailureKind,
   sampleRate,
   succeed,
+  type DomainFailureResult,
   type DomainResult,
   type SampleCount,
 } from '@audiogubbins/domain';
@@ -34,6 +35,7 @@ import {
 } from '@audiogubbins/audio-engine';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
+  GpuUseKind,
   LifecycleState,
   PlaybackPhase,
   type DeviceReport,
@@ -80,6 +82,7 @@ export const UNLOADED: PlaybackStatus = {
   processorDsp: undefined,
   feederDsp: undefined,
   latencyFrames: undefined,
+  gpu: undefined,
   device: undefined,
   contextState: LifecycleState.Idle,
   stability: undefined,
@@ -120,6 +123,7 @@ export class FakeSession implements PlaybackSessionPort {
       processorDsp: onTheModule(false),
       feederDsp: onTheModule(true),
       latencyFrames: 0,
+      gpu: { kind: GpuUseKind.Unused },
       device: FAKE_DEVICE,
       contextState: LifecycleState.Suspended,
     });
@@ -198,6 +202,10 @@ export class FakePlayback {
   loadingFails: Error | undefined;
   /** What each new session's Play answers, where a test wants the context refused. */
   playRefusal: DomainResult<void> | undefined;
+  /** Why the browser would not make each new context, where a test wants that. */
+  contextRefusal: DomainFailureResult | undefined;
+  /** What closing each context throws, where a test wants it to fail. */
+  closeFails: Error | undefined;
 
   readonly open = (profile: ChosenProfile): PlaybackParts => {
     const made: FakeOpened = {
@@ -209,15 +217,16 @@ export class FakePlayback {
     if (this.playRefusal !== undefined) made.session.playResult = this.playRefusal;
     this.opened.push(made);
     const failing = this.loadingFails;
+    const refusal = this.contextRefusal;
     return {
       startContext: () => {
         made.contextStarts += 1;
       },
-      contextRate: () => FAKE_CONTEXT_RATE,
+      contextRate: () => refusal ?? succeed(FAKE_CONTEXT_RATE),
       session: failing === undefined ? Promise.resolve(made.session) : Promise.reject(failing),
       close: () => {
         made.closed = true;
-        return Promise.resolve();
+        return this.closeFails === undefined ? Promise.resolve() : Promise.reject(this.closeFails);
       },
     };
   };

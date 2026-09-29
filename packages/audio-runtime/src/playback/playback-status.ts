@@ -21,6 +21,7 @@ import {
 
 import type { LifecycleState } from '../context/context-lifecycle.js';
 import type { DeviceReport } from '../context/device-report.js';
+import type { GpuUse } from './gpu-use.js';
 
 /** Where the loaded graph stands. */
 export const PlaybackPhase = {
@@ -71,6 +72,8 @@ export interface PlaybackStatus {
   readonly feederDsp: DspStatus | undefined;
   /** The loaded graph's latency in context frames, where every node on the way can say it. */
   readonly latencyFrames: number | undefined;
+  /** Whether the graph runs anything on the GPU, from its load on. */
+  readonly gpu: GpuUse | undefined;
   readonly device: DeviceReport | undefined;
   readonly contextState: LifecycleState;
   /** Whether the device is being kept fed, once a graph has loaded on a context. */
@@ -87,6 +90,7 @@ export function initialStatus(contextState: LifecycleState): PlaybackStatus {
     processorDsp: undefined,
     feederDsp: undefined,
     latencyFrames: undefined,
+    gpu: undefined,
     device: undefined,
     contextState,
     stability: undefined,
@@ -98,6 +102,7 @@ export function initialStatus(contextState: LifecycleState): PlaybackStatus {
 export function loadingStatus(
   status: PlaybackStatus,
   stability: StabilityAssessment,
+  gpu: GpuUse,
 ): PlaybackStatus {
   return {
     ...status,
@@ -105,6 +110,7 @@ export function loadingStatus(
     processorDsp: undefined,
     feederDsp: undefined,
     latencyFrames: undefined,
+    gpu,
     stability,
     problems: [],
   };

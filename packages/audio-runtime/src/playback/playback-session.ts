@@ -44,11 +44,11 @@ import {
 } from '../context/context-lifecycle.js';
 import { deviceChannelsFor } from '../context/device-channels.js';
 import type { DeviceReport } from '../context/device-report.js';
+import type { CompiledDspModule, DspDelivery } from '../dsp/dsp-delivery.js';
 import { ToProcessorKind } from '../protocol/processor-messages.js';
 import type { Schedule } from '../schedule.js';
 import { GraphLoader, summaries, type PlaybackThreads } from './graph-loader.js';
 import type { LoadedProcessor } from './loaded-processor.js';
-import type { PlaybackDsp } from './playback-dsp.js';
 import type { PlaybackRequest } from './playback-preparation.js';
 import { PlaybackState, type PlaybackListener } from './playback-state.js';
 import {
@@ -73,7 +73,7 @@ export interface PlaybackSessionOptions {
   readonly lifecycle: ContextLifecycle;
   readonly capabilities: AudioRuntimeCapabilities;
   /** The canonical DSP module, for the worklet and the feeder, or why there is none. */
-  readonly dsp: PlaybackDsp;
+  readonly dsp: DspDelivery<CompiledDspModule>;
   /** The profile the person chose, which the stability verdict recommends from. */
   readonly profile: PerformanceProfile;
   /** The profile's settings, which set how far ahead the feeds keep. */

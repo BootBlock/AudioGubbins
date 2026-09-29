@@ -1,4 +1,6 @@
-import { describe, expect, inject, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
+import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { read } from './source-reading.js';
 
@@ -102,7 +104,7 @@ function featuresUsed(section: ArrayBuffer): string[] {
 }
 
 describe('the canonical DSP module', () => {
-  const module = new WebAssembly.Module(new Uint8Array(inject('dspModuleBytes')));
+  const module = new WebAssembly.Module(dspModuleBytes());
   const sections = WebAssembly.Module.customSections(module, 'target_features');
 
   it('says which WebAssembly features it uses', () => {

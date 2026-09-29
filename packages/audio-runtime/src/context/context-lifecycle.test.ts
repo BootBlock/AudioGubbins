@@ -132,12 +132,43 @@ describe('ContextLifecycle', () => {
     it('makes the context with the profile’s latency hint, suspended until a gesture', () => {
       const started = harness();
 
-      const context = started.lifecycle.context();
+      const context = expectSuccess(started.lifecycle.context());
 
       expect(started.made.map(({ options }) => options)).toEqual([{ latencyHint: 'balanced' }]);
       expect(context.state).toBe(AudioContextState.Suspended);
       expect(started.lifecycle.state).toBe(LifecycleState.Suspended);
-      expect(started.lifecycle.context()).toBe(context);
+      expect(expectSuccess(started.lifecycle.context())).toBe(context);
+    });
+
+    it('reports a context the browser will not make, once, and never tries again unseen', async () => {
+      const refusal = new DOMException('The sample rate is not supported.', 'NotSupportedError');
+      const started = harness(() => {
+        throw refusal;
+      });
+
+      const first = started.lifecycle.context();
+      const running = await started.lifecycle.ensureRunning();
+
+      expect(expectFailureCode(first)).toBe('audio.context-unavailable');
+      expect(first.ok ? '' : first.failures[0].summary).toBe(
+        'The browser would not start audio: The sample rate is not supported.',
+      );
+      expect(running).toBe(first);
+      expect(started.made).toHaveLength(0);
+      expect(
+        started.store
+          .snapshot()
+          .filter((record) => record.message === 'The browser would not create an audio context.'),
+      ).toHaveLength(1);
+    });
+
+    it('lets a fault in making the context surface as itself', () => {
+      const fault = new TypeError('AudioContext is not a constructor.');
+      const started = harness(() => {
+        throw fault;
+      });
+
+      expect(() => started.lifecycle.context()).toThrow(fault);
     });
 
     it('resumes the suspended context from the person’s Play', async () => {
@@ -194,7 +225,7 @@ describe('ContextLifecycle', () => {
 
     it('succeeds once the context runs, though the browser has not yet settled the resume', async () => {
       const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
-      const context = started.lifecycle.context();
+      const context = expectSuccess(started.lifecycle.context());
       // A resume whose promise never settles, so only the state change can end the wait.
       vi.spyOn(context, 'resume').mockReturnValueOnce(new Promise(() => undefined));
       const result = started.lifecycle.ensureRunning();
@@ -233,7 +264,7 @@ describe('ContextLifecycle', () => {
 
     it('lets a fault in a resume surface as itself', async () => {
       const started = harness();
-      const context = started.lifecycle.context();
+      const context = expectSuccess(started.lifecycle.context());
       const fault = new TypeError('Illegal invocation.');
       vi.spyOn(context, 'resume').mockRejectedValueOnce(fault);
 
@@ -471,7 +502,7 @@ describe('ContextLifecycle', () => {
       expect(started.devices.watcherCount).toBe(0);
       expect(lost.stateListenerCount).toBe(0);
 
-      const next = started.lifecycle.context();
+      const next = expectSuccess(started.lifecycle.context());
       expect(next).not.toBe(lost);
       expect(started.made).toHaveLength(2);
       expect(started.devices.watcherCount).toBe(1);

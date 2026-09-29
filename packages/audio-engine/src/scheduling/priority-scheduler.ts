@@ -16,7 +16,11 @@
 
 import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
 
-import { Cancelled, createCancellationSource, type CancellationSignal } from '../cancellation.js';
+import {
+  cancellationReason,
+  createCancellationSource,
+  type CancellationSignal,
+} from '../cancellation.js';
 
 /** Whether a job is interactive work or background work. */
 export const JobPriority = {
@@ -152,10 +156,6 @@ function fillSlots(state: SchedulerState): void {
   }
 }
 
-function reasonOf(signal: CancellationSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new Cancelled();
-}
-
 /**
  * Runs a job whose slot is already counted, and frees the slot as it settles.
  * Resolving through a new promise turns a `run` that throws before returning
@@ -184,7 +184,7 @@ function submitTo<T>(
 ): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (signal?.aborted === true) {
-      reject(reasonOf(signal));
+      reject(cancellationReason(signal));
       return;
     }
     const queue = state.queued[job.priority];
@@ -201,7 +201,7 @@ function submitTo<T>(
       // Withdrawing starts nothing else: a foreground job waits only while
       // every slot is taken, and a waiting background job holds no slot or
       // share.
-      reject(reasonOf(signal));
+      reject(cancellationReason(signal));
     }
     signal?.addEventListener('abort', withdraw, { once: true });
     queue.add(pending);

@@ -16,6 +16,9 @@ import { readFileSync } from 'node:fs';
 
 import type { TestProject } from 'vitest/node';
 
+// The provided value's type is declared once, beside the helpers that read it.
+import type {} from '@audiogubbins/audio-engine/testing';
+
 import { buildDspModule } from '../../tools/build-wasm.mjs';
 
 export default function setup(project: TestProject): void {
@@ -24,11 +27,4 @@ export default function setup(project: TestProject): void {
   };
   provideBuilt();
   project.onTestsRerun(provideBuilt);
-}
-
-declare module 'vitest' {
-  export interface ProvidedContext {
-    /** The canonical DSP module, as bytes, for the engine's tests to instantiate. */
-    dspModuleBytes: number[];
-  }
 }
