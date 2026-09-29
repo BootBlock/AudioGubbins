@@ -14,8 +14,9 @@
  * panel hands `follow` the audible position, and the binding's policy says
  * whether to seek. Playing, the element plays muted beside the transport and
  * is corrected when it drifts by more than a frame; parked, it shows exactly
- * the frame that holds the position. A file the browser cannot decode is
- * reported with the reason, and nothing about the audio changes.
+ * the frame that holds the position. A file the browser cannot decode, picture
+ * track included, is reported with the reason, and nothing about the audio
+ * changes.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -95,6 +96,14 @@ const MEDIA_ERRORS: Readonly<Record<number, string>> = {
   4: 'This browser cannot play this kind of video.',
 };
 
+/**
+ * Why a file that loaded shows nothing: a browser that can read a container but
+ * not its video codec, ProRes or MPEG-4 Part 2 in Chromium, plays the sound and
+ * reports a picture of no size rather than an error, as it does for a file with
+ * no picture at all.
+ */
+const NO_PICTURE = 'The browser cannot decode a picture in this file.';
+
 /** The reference picture. */
 export class ReferencePicture implements Observable<PictureState> {
   readonly #platform: PicturePlatform;
@@ -122,7 +131,9 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#video.muted = true;
     this.#video.preload = 'auto';
     this.#video.playsInline = true;
-    this.#video.addEventListener('loadedmetadata', this.#loaded);
+    // Loaded data rather than metadata, because only with a frame to show has
+    // the browser found whether it can decode the picture.
+    this.#video.addEventListener('loadeddata', this.#loaded);
     this.#video.addEventListener('error', this.#failed);
   }
 
@@ -296,37 +307,39 @@ export class ReferencePicture implements Observable<PictureState> {
   }
 
   readonly #loaded = (): void => {
-    this.#state.update((current) =>
-      current.media.kind === 'loading'
-        ? {
-            ...current,
-            media: {
-              kind: 'ready',
-              name: current.media.name,
-              duration: this.#video.duration,
-              width: this.#video.videoWidth,
-              height: this.#video.videoHeight,
-            },
-          }
-        : current,
-    );
+    const { media } = this.#state.get();
+    if (media.kind !== 'loading') return;
+    const { duration, videoWidth: width, videoHeight: height } = this.#video;
+    if (width === 0 || height === 0) {
+      this.#undecodable(media.name, NO_PICTURE);
+      return;
+    }
+    this.#state.update((current) => ({
+      ...current,
+      media: { kind: 'ready', name: media.name, duration, width, height },
+    }));
   };
 
   readonly #failed = (): void => {
     const { media } = this.#state.get();
     if (media.kind !== 'loading' && media.kind !== 'ready') return;
     const code = this.#video.error?.code;
-    const reason =
+    this.#undecodable(
+      media.name,
       (code === undefined ? undefined : MEDIA_ERRORS[code]) ??
-      'The browser could not open this video.';
+        'The browser could not open this video.',
+    );
+  };
+
+  #undecodable(name: string, reason: string): void {
     this.#logger.warning('A reference picture could not be decoded.', { reason });
     this.#release();
     this.#state.update((current) => ({
       ...current,
-      media: { kind: 'undecodable', name: media.name, reason },
+      media: { kind: 'undecodable', name, reason },
       binding: undefined,
     }));
-  };
+  }
 
   #release(): void {
     this.#filmstrip?.close();

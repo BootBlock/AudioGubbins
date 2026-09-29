@@ -22,7 +22,7 @@ function openPicture() {
     logger,
   );
   picture.open(new File([], 'reference.webm'), TONES);
-  picture.element.dispatchEvent(new Event('loadedmetadata'));
+  picture.element.dispatchEvent(new Event('loadeddata'));
   return picture;
 }
 
@@ -35,7 +35,7 @@ function announcingPicture() {
   const platform = fakePicturePlatform(true);
   const picture = new ReferencePicture({ platform, logger });
   picture.open(new File([], 'reference.webm'), TONES);
-  picture.element.dispatchEvent(new Event('loadedmetadata'));
+  picture.element.dispatchEvent(new Event('loadeddata'));
   picture.interpretAt(StandardFrameRates.thirty);
   return { picture, platform };
 }
@@ -128,6 +128,23 @@ describe('the reference picture (ADR-0046)', () => {
     expect(platform.frames.waiting).toBe(1);
     picture.close();
     expect(platform.frames.waiting).toBe(0);
+  });
+
+  it('says a file with no picture the browser can decode, and lets go of it', () => {
+    const platform = fakePicturePlatform();
+    const picture = new ReferencePicture({ platform, logger });
+    picture.open(new File([], 'prores.mov'), TONES);
+    Object.defineProperty(picture.element, 'videoWidth', { get: () => 0 });
+    Object.defineProperty(picture.element, 'videoHeight', { get: () => 0 });
+
+    picture.element.dispatchEvent(new Event('loadeddata'));
+
+    expect(picture.get().media).toEqual({
+      kind: 'undecodable',
+      name: 'prores.mov',
+      reason: 'The browser cannot decode a picture in this file.',
+    });
+    expect(picture.get().binding).toBeUndefined();
   });
 
   it('says a file the browser cannot decode, and lets go of it', () => {

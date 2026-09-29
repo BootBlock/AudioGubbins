@@ -70,7 +70,8 @@ class FakeFrames {
 
 /**
  * A video element that loads nothing, and plays, seeks and presents frames only
- * by what it is told. Each time it is sent is recorded in `seeks`.
+ * by what it is told. Each time it is sent is recorded in `seeks`. Its size may
+ * be redefined, as a file with no picture the browser can decode has none.
  */
 function fakeVideo(frames: FakeFrames, seeks: number[]): HTMLVideoElement {
   const element = document.createElement('video');
@@ -92,8 +93,8 @@ function fakeVideo(frames: FakeFrames, seeks: number[]): HTMLVideoElement {
     paused: { get: () => paused },
     // Ten seconds of 320 by 180, as a test's picture has once it has loaded.
     duration: { get: () => 10 },
-    videoWidth: { get: () => 320 },
-    videoHeight: { get: () => 180 },
+    videoWidth: { get: () => 320, configurable: true },
+    videoHeight: { get: () => 180, configurable: true },
     currentTime: {
       get: () => currentTime,
       set: (value: number) => {

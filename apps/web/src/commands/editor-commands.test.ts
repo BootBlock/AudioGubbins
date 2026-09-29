@@ -268,7 +268,7 @@ describe('the reference picture', () => {
   it('marks the frame the playhead is in, named by its timecode', () => {
     openView('editor', 'test:loop');
     run('picture.open', { file: context.chosenFiles.offer(new File([], 'reference.webm')) });
-    context.picture.element.dispatchEvent(new Event('loadedmetadata'));
+    context.picture.element.dispatchEvent(new Event('loadeddata'));
     run('editor.set-playhead', { position: 48_000 + 100 });
 
     run('picture.mark-frame');

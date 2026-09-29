@@ -8,7 +8,8 @@ import { test } from './test.js';
  * REQ-AUDIO-156, ADR-0046): a video the page makes itself, bound to the
  * transport, kept within a frame of the audio while it plays and on exactly the
  * frame of the playhead while parked, judged by the frame on screen; and a file
- * the browser cannot decode said as such, with the audio untouched.
+ * whose picture the browser cannot decode said as such, with the audio
+ * untouched.
  */
 
 /** How long the audio context may take to start and report its first frames. */
@@ -142,6 +143,33 @@ async function framedVideo(page: Page): Promise<Buffer> {
     },
     { fps: FRAMES_PER_SECOND, count: FRAME_COUNT },
   );
+  return Buffer.from(bytes);
+}
+
+/**
+ * A WebM of sound alone, recorded in the page: a file a browser opens and
+ * plays, with no picture to decode, as it treats a video codec it lacks.
+ */
+async function soundOnly(page: Page): Promise<Buffer> {
+  const bytes = await page.evaluate(async () => {
+    const audio = new AudioContext();
+    const tone = new OscillatorNode(audio);
+    const out = new MediaStreamAudioDestinationNode(audio);
+    tone.connect(out);
+    tone.start();
+    const recorder = new MediaRecorder(out.stream, { mimeType: 'audio/webm' });
+    const chunks: Blob[] = [];
+    recorder.addEventListener('dataavailable', (event) => chunks.push(event.data));
+    const stopped = new Promise((resolve) => {
+      recorder.addEventListener('stop', resolve);
+    });
+    recorder.start();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    recorder.stop();
+    await stopped;
+    await audio.close();
+    return [...new Uint8Array(await new Blob(chunks).arrayBuffer())];
+  });
   return Buffer.from(bytes);
 }
 
@@ -297,5 +325,25 @@ test.describe('reference picture', () => {
     await expect(panel.getByRole('alert')).toContainText('broken.webm cannot be shown');
     await expect(panel.getByRole('alert')).toContainText('The audio is not affected.');
     await expect(readingOf(editor, 'Playhead')).toHaveText(playhead);
+  });
+
+  test('says a file with no picture it can decode, and leaves the audio as it was', async ({
+    page,
+  }) => {
+    const editor = await openAsset(page, 'Tone bursts');
+    const sound = await soundOnly(page);
+    const panel = await openPicturePanel(page);
+    const playhead = await readingOf(editor, 'Playhead').innerText();
+
+    await panel
+      .locator('input[type="file"]')
+      .setInputFiles({ name: 'sound.webm', mimeType: 'video/webm', buffer: sound });
+
+    await expect(panel.getByRole('alert')).toContainText(
+      'sound.webm cannot be shown: The browser cannot decode a picture in this file.',
+    );
+    await expect(panel.getByRole('alert')).toContainText('The audio is not affected.');
+    await expect(readingOf(editor, 'Playhead')).toHaveText(playhead);
+    await expect(panel.getByRole('timer')).toHaveCount(0);
   });
 });
