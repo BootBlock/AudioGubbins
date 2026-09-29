@@ -957,6 +957,12 @@ describe('finding the shell commands in the palette', () => {
     'editor.amplitude-down': inEditor({ before: (run) => run('editor.amplitude-up') }),
     'editor.time-format-clock': inEditor({ before: (run) => run('editor.time-format-samples') }),
     'editor.follow-page': inEditor({ before: (run) => run('editor.follow-off') }),
+    'editor.spectral-scale-logarithmic': inEditor({
+      before: (run) => run('editor.spectral-scale-linear'),
+    }),
+    'editor.spectral-band-audible': inEditor({
+      before: (run) => run('editor.spectral-band-whole'),
+    }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
     'editor.select-marker': inEditor(
       { arguments: (context) => ({ marker: firstMarker(context) }) },

@@ -78,6 +78,25 @@ describe('two views of one asset (REQ-EDIT-061)', () => {
   });
 });
 
+describe("a view's spectral settings (REQ-EDIT-061, REQ-EDIT-062)", () => {
+  it('are its own, its band reaching half the asset rate, never below 20 Hz spaced by octave', () => {
+    openView('one', 'test:tone-bursts');
+    openView('two', 'test:tone-bursts');
+
+    run('editor.spectral-scale-linear', { view: 'one' });
+    run('editor.spectral-band-whole', { view: 'one' });
+    run('editor.spectral-band-whole', { view: 'two' });
+
+    expect(view('one').spectral).toEqual({ frequencyScale: 'linear', lowest: 0, highest: 24_000 });
+    expect(view('two').spectral).toEqual({
+      frequencyScale: 'logarithmic',
+      lowest: 20,
+      highest: 24_000,
+    });
+    expect(run('editor.spectral-band-whole', { view: 'two' }).kind).toBe('unchanged');
+  });
+});
+
 describe('a selection (REQ-EDIT-063, REQ-EDIT-064)', () => {
   beforeEach(() => {
     openView('editor', 'test:tone-bursts');

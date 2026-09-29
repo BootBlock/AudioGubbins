@@ -6,7 +6,12 @@
  */
 
 import { CommandCategory, type Command } from '@audiogubbins/commands';
-import { FollowMode, type Overlays } from '@audiogubbins/editor-view';
+import {
+  FollowMode,
+  type EditorViewState,
+  type Overlays,
+  type SpectralSettings,
+} from '@audiogubbins/editor-view';
 import {
   SnapKind,
   StandardFrameRates,
@@ -157,6 +162,85 @@ function followCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** The lowest frequency a logarithmic scale reaches, which cannot start at nothing. */
+const LOWEST_LOGARITHMIC = 20;
+
+/** The top of hearing, where the audible band ends. */
+const HIGHEST_AUDIBLE = 20_000;
+
+function hertz(value: number): string {
+  return value >= 1000 ? `${String(value / 1000)} kHz` : `${String(value)} Hz`;
+}
+
+/** `settings` with its band, and its lowest frequency kept above nothing on a logarithmic scale. */
+function withBand(settings: SpectralSettings, lowest: number, highest: number): SpectralSettings {
+  const floor = settings.frequencyScale === 'logarithmic' ? LOWEST_LOGARITHMIC : 0;
+  return { ...settings, lowest: Math.max(floor, lowest), highest };
+}
+
+function sameSpectral(one: SpectralSettings, other: SpectralSettings): boolean {
+  return (
+    one.frequencyScale === other.frequencyScale &&
+    one.lowest === other.lowest &&
+    one.highest === other.highest
+  );
+}
+
+/**
+ * A view's spectral settings (REQ-EDIT-061, REQ-EDIT-062): the frequency
+ * scale of its spectrogram lanes and the band they show, from all the asset
+ * holds up to half its rate, or the audible part of it.
+ */
+function spectralCommands(): readonly Command<ShellContext>[] {
+  const changed = (state: EditorViewState, spectral: SpectralSettings): EditorViewState =>
+    sameSpectral(spectral, state.spectral) ? state : { ...state, spectral };
+  const said = (state: EditorViewState): string =>
+    `The spectrogram shows ${hertz(state.spectral.lowest)} to ${hertz(state.spectral.highest)}, ${state.spectral.frequencyScale}.`;
+  return [
+    ...(['linear', 'logarithmic'] as const).map((scale) =>
+      presentationCommand(
+        `editor.spectral-scale-${scale}`,
+        `Space the spectrogram's frequencies ${scale === 'linear' ? 'evenly' : 'by octave'}`,
+        CommandCategory.View,
+        (state) => {
+          const spectral = withBand(
+            { ...state.spectral, frequencyScale: scale },
+            state.spectral.lowest,
+            state.spectral.highest,
+          );
+          return changed(state, spectral);
+        },
+        said,
+        { keywords: ['spectrogram', 'frequency', 'scale', scale, 'octave'] },
+      ),
+    ),
+    presentationCommand(
+      'editor.spectral-band-whole',
+      'Show every frequency in the spectrogram',
+      CommandCategory.View,
+      (state, { asset }) => changed(state, withBand(state.spectral, 0, asset.sampleRate / 2)),
+      said,
+      { keywords: ['spectrogram', 'frequency', 'band', 'range', 'nyquist', 'whole'] },
+    ),
+    presentationCommand(
+      'editor.spectral-band-audible',
+      'Show the audible frequencies in the spectrogram',
+      CommandCategory.View,
+      (state, { asset }) =>
+        changed(
+          state,
+          withBand(
+            state.spectral,
+            LOWEST_LOGARITHMIC,
+            Math.min(HIGHEST_AUDIBLE, asset.sampleRate / 2),
+          ),
+        ),
+      said,
+      { keywords: ['spectrogram', 'frequency', 'band', 'range', 'audible', 'hearing'] },
+    ),
+  ];
+}
+
 /** The commands that change a view's options. */
 export function editorOptionCommands(): readonly Command<ShellContext>[] {
   return [
@@ -164,5 +248,6 @@ export function editorOptionCommands(): readonly Command<ShellContext>[] {
     ...overlayCommands(),
     ...timeFormatCommands(),
     ...followCommands(),
+    ...spectralCommands(),
   ];
 }
