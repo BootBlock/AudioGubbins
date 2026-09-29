@@ -177,20 +177,52 @@ every agent), `-storage-brief.md`, `-safety-brief.md` (done), and
 
 ### Left to do, in order
 
-1. The interface and wiring (`../AudioGubbins-phase-02-interface-brief.md`).
-   Wiring notes from the adapters: the worker entry lives in `apps/web`
-   (`serveOriginPrivateTree(self, readOriginPrivateRoot(navigator))`), made
-   with `new Worker(new URL(...), { type: 'module' })`, and Vite's
-   `worker: { format: 'es' }`; the lease coordinator is
-   `createLeaseCoordinator({ locks, openChannel, instance, patience, logger })`
-   with a random instance token and a timer-based patience; consolidation
-   takes `setAssetMediaInvocation` from the app as its `setMedia` port
-   (storage must not depend on project-commands); `ReadOnlyProject.close()`
-   must be called; a `ReadOnlyServices` value is needed for watching.
-2. Shared files: `OFFERED` in `tests/architecture/package-exports.test.ts`
-   for every export still without a production consumer, `FOR_TESTS` for
-   `packages/browser-storage/src/serve-tree.ts: serveTree` if still unused,
-   `pnpm contracts:update`, storage log categories as separate entries.
+1. Done: the interface and wiring (`f98d326`). Its report left these to
+   fix, each a gap against a requirement:
+   - External backup directory not offered in the interface (REQ-STOR-105:
+     where the platform permits, the user may choose one).
+   - Exporting a bundle records no export record (decide against
+     REQ-STOR-197/198 whether a bundle export is an export event; record the
+     decision either way).
+   - No default Undo and Redo shortcuts, only menu entries (check the
+     shortcut defaults in `apps/web/src/state/default-shortcuts.ts`).
+   - The Assets panel still says it arrives with the project and storage
+     system; reword it to say audio import arrives with the codec phase, and
+     update the smoke test's expected text.
+   - Main chunk is 1287 kB (365 kB gzipped); consider splitting the storage
+     and project surfaces into a lazily loaded chunk.
+   - WebKit on Windows refuses Playwright's origin-private storage before any
+     application code runs; the spec runs in Chromium and Firefox.
+   - `tests/e2e/accessibility.spec.ts` "keeps a long refusal clear… focus at
+     the foot, 320 by 256" fails since the Phase 01 debt commit's notice
+     wording (`f563730`); fix the wording or the layout, not the test.
+2. Shared files, from the interface report:
+   - `tests/architecture/browser-suite.test.ts`: add `projects.spec.ts` to
+     `SPECS` and `SPECS_OF_EACH_PROJECT`; `playwright.config.ts`: give it a
+     project in Chromium and Firefox.
+   - `dependency-rules.test.ts` reviewed functions: `app.tsx: AudioGubbins`
+     200 → 221, `application.ts: createApplication` 86 → 98.
+   - `module-exports.test.ts` `FOR_TESTS`:
+     `packages/browser-storage/src/serve-tree.ts: serveTree`.
+   - `package-exports.test.ts` `OFFERED`: remove `SchemaName` from version
+     and the 48 domain names the app now uses; add reasons for storage
+     (`BackupPruning`, `CommandJournal`, `DEFAULT_CADENCE`, `SnapshotStore`,
+     `packUnpacked`, `planBackupPruning`, `retainedMedia`, `unpackBundle`),
+     project-format (`FormatHeader`, `PROJECT_DOCUMENT_FORMAT`, `asBoolean`,
+     `asContentId`, `entitiesOf`, `isStateFingerprint`, `listOf`,
+     `numberConverter`, `prettyCanonicalJson`, `readCompatibleHeader`,
+     `readExternalIdentity`, `readFormatHeader`, `serialiseProjectDocument`,
+     `stripAssetProvenance`, `stripExportRecords`), project-commands
+     (`addAssetInvocation`), media-store (`CompletionServices`,
+     `ImportChoice`, `ImportRequest`, `ImportServices`, `ImportedMedia`,
+     `completeIdentity`, `importMedia` — audio import is a later phase),
+     history (`AlternativeBranch`, `ContentRetention`, `alternativeBranches`,
+     `contentRetention`, `diffStates`, `promotion`), browser-storage
+     (`WritableDirectory`, `filesInDirectory`, `openFileSinkIn`,
+     `requestKeptFileAccess`). Prefer wiring a real consumer over a reason
+     where a requirement wants the feature (for example the external backup
+     directory uses `openFileSinkIn`).
+   - `pnpm contracts:update`.
 3. `pnpm run verify:commit` green; `pnpm build`; drive the built app in a
    real browser (create, change, reload; two tabs with transfer and take
    over, checking the loss names the taker; bundle export and import; the
