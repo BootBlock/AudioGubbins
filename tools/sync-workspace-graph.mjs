@@ -146,6 +146,37 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The processing graph as a value, and what can be decided from it
+    // without running it (ADR-0030). No thread, browser or buffer, so the
+    // engine can check and plan a graph wherever it runs.
+    dir: 'packages/audio-graph',
+    name: '@audiogubbins/audio-graph',
+    description:
+      'The typed directed audio processing graph as a value, and every decision made from it without running it.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The audio core that runs on any thread: blocks and sources, the canonical
+    // DSP port, graph execution, transport, offline render, profiles and
+    // scheduling (ADR-0030). No browser, so it runs in an AudioWorklet, a
+    // worker and a test alike.
+    dir: 'packages/audio-engine',
+    name: '@audiogubbins/audio-engine',
+    description:
+      'The audio engine core that runs on any thread: it moves, processes and renders audio through the processing graph.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

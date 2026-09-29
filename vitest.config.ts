@@ -33,6 +33,10 @@ function environmentOf(name: string): 'node' | 'jsdom' {
 
 export default defineConfig({
   test: {
+    // Builds the canonical DSP module from the crates before any test runs,
+    // so no test reads a module older than its source (ADR-0031).
+    globalSetup: ['./tests/setup/dsp-module.ts'],
+
     projects: [
       ...generated.projects.map((project) => ({
         test: { ...project, environment: environmentOf(project.environment) },

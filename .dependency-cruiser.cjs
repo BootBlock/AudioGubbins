@@ -15,6 +15,11 @@
  *   input           mouse, touch, pen and keyboard as values; depends on text
  *   diagnostics     structured local logging, redaction and bundles; depends on
  *                   text + version
+ *   audio-graph     the processing graph as a value, its validation, latency
+ *                   and plan; depends on domain alone, knows no thread, browser
+ *                   or buffer (ADR-0030)
+ *   audio-engine    the audio core that runs on any thread; depends on domain
+ *                   and audio-graph, knows no browser (ADR-0030)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -104,7 +109,7 @@ module.exports = {
       comment:
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
-      from: { path: '^packages/(domain|commands|input|text|version)/' },
+      from: { path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|version)/' },
       to: {
         dependencyTypes: THIRD_PARTY,
         path: thirdParty(
@@ -120,6 +125,27 @@ module.exports = {
         'AudioGubbins package, the concept belongs in the domain or the dependency is inverted.',
       from: { path: '^packages/domain/' },
       to: { path: '^packages/(?!domain/)' },
+    },
+    {
+      name: 'audio-graph-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The processing graph is a value and the decisions made from it, below the engine that ' +
+        'runs it and the browser runtime that hosts it (ADR-0030). It depends on the domain alone, ' +
+        'whose channel layouts and sample counts it is written in, so it can be checked and ' +
+        'planned on any thread.',
+      from: { path: '^packages/audio-graph/' },
+      to: { path: '^packages/(?!(audio-graph|domain)/)' },
+    },
+    {
+      name: 'audio-engine-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
+        'the browser, the interface or storage: it depends on the domain and the graph alone, ' +
+        'and the runtime that hosts it sits above it (ADR-0030).',
+      from: { path: '^packages/audio-engine/' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|domain)/)' },
     },
     {
       name: 'input-owns-nothing-else',

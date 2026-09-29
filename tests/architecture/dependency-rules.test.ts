@@ -197,6 +197,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/input': ['@audiogubbins/text'],
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
+  '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
@@ -651,7 +653,15 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
    * import in it would reach every package that reads it. The cruise's
    * framework rule names the same set.
    */
-  const FRAMEWORK_FREE_PACKAGES = ['commands', 'domain', 'input', 'text', 'version'] as const;
+  const FRAMEWORK_FREE_PACKAGES = [
+    'audio-engine',
+    'audio-graph',
+    'commands',
+    'domain',
+    'input',
+    'text',
+    'version',
+  ] as const;
   const FRAMEWORK_FREE = productionSources(
     `packages/{${FRAMEWORK_FREE_PACKAGES.join(',')}}/src/**/*.ts`,
   );

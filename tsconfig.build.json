@@ -18,6 +18,12 @@
       "path": "./packages/diagnostics"
     },
     {
+      "path": "./packages/audio-graph"
+    },
+    {
+      "path": "./packages/audio-engine"
+    },
+    {
       "path": "./packages/commands"
     },
     {

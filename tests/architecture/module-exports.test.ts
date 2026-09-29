@@ -230,6 +230,11 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/workspace/src/layout-reading.ts: resolveLayout'],
   'Keeping a changed layout in the collection, asked of layout store doubles by the workspace tests, since no stored text brings about the refusal it throws at; the store reaches it through `commit` and `rearranged`.':
     ['apps/web/src/state/workspace-store.ts: keptInCollection'],
+  "The named matrices and the mid/side layout, which the matrix tests name; a graph names a matrix by its setting's text, which the matrix node reads through `namedCoefficients`.":
+    [
+      'packages/audio-engine/src/nodes/named-matrices.ts: MID_SIDE',
+      'packages/audio-engine/src/nodes/named-matrices.ts: NamedMatrix',
+    ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
 };
@@ -242,12 +247,13 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
  * reaches. This is about support code: a module a test runs and no user
  * receives, whose exports a test is expected to take.
  *
- * Empty, and expected to stay empty: every export of every support module is
- * taken by a test today. The rule that reads it is asleep until something is
- * listed, so its passing is not evidence of anything, and it is here so that
- * the first entry cannot be added without a reason beside it.
+ * An entry is an export the runner reaches by a path written in its
+ * configuration rather than by an import, which the rule cannot follow.
  */
-const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {};
+const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {
+  'The global setup that builds the canonical DSP module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
+    ['tests/setup/dsp-module.ts: setup'],
+};
 
 describe('module exports (REQ-EXEC-184)', () => {
   it('finds an export no other module takes, and not one another module imports', () => {

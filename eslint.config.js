@@ -173,7 +173,7 @@ export default tseslint.config(
 
   // Domain and command packages: framework-agnostic, platform-agnostic.
   {
-    files: ['packages/{domain,commands,input,version}/**/*.ts'],
+    files: ['packages/{audio-engine,audio-graph,domain,commands,input,version}/**/*.ts'],
     languageOptions: { globals: {} },
     rules: {
       'no-restricted-globals': [
