@@ -8,6 +8,10 @@
  * place (REQ-STOR-104). The aggregate's own invariants are checked here too:
  * one source for every asset, one asset for every source, and each asset's
  * storage key derived from its source.
+ *
+ * The readers of one source entry, one media source and one identity are
+ * offered alone as well, so a value a command carries is read by the rules
+ * that read it in a document, never by a copy of them.
  */
 
 import type { Asset, AssetId } from '@audiogubbins/domain';
@@ -42,7 +46,8 @@ import {
   type ManagedMedia,
   type MediaSource,
 } from './project-state.js';
-import { MAXIMUM_ENTITIES, NAME_RULE, asMediaType, asWholeQuantity } from './value-reading.js';
+import { asFileName, asHandleKey, asRelativePath } from './source-rules.js';
+import { MAXIMUM_ENTITIES, asMediaType, asWholeQuantity } from './value-reading.js';
 
 const SOURCE_MEMBERS: ReadonlySet<string> = new Set(['assetId', 'media', 'provenance']);
 const MANAGED_MEMBERS: ReadonlySet<string> = new Set([
@@ -87,20 +92,6 @@ const asDigestHex = textConverter({
   shape: '64 lower-case hexadecimal digits',
 });
 
-/** A kept handle's token: never a path, so no separator of any kind. */
-const asHandleKey = textConverter({
-  maximumLength: 128,
-  pattern: /^[A-Za-z0-9._:-]+$/u,
-  shape: 'a token of letters, digits and . _ : -',
-});
-
-/** A file's own name, with no separator: a name is never a path. */
-const asFileName = textConverter({
-  ...NAME_RULE,
-  pattern: /^[^/\\\p{Cc}]+$/u,
-  shape: 'a file name without a path',
-});
-
 /** The first bytes of a file, up to 16, as lower-case hexadecimal. */
 const asSignature = textConverter({
   maximumLength: 32,
@@ -110,30 +101,6 @@ const asSignature = textConverter({
 
 /** Bits per sample, as a container states them. */
 const asBitDepth = integerConverter(1, 64);
-
-/**
- * A path inside a directory the user granted: segments joined by `/`, none
- * empty, none `.` or `..`, and no backslash, colon or control character, so it
- * can never climb out of the directory or name a drive.
- */
-const RELATIVE_PATH = /^(?:[^/\\:\p{Cc}]+\/)*[^/\\:\p{Cc}]+$/u;
-const DOT_SEGMENT = /(?:^|\/)\.{1,2}(?:\/|$)/u;
-
-const asPathText = textConverter({ maximumLength: 4_096 });
-
-const asRelativePath: Converter<string> = (reading, value, parent, key) => {
-  const text = asPathText(reading, value, parent, key);
-  if (text === undefined) return undefined;
-  if (!RELATIVE_PATH.test(text) || DOT_SEGMENT.test(text)) {
-    reading.refuse(
-      'schema.text-malformed',
-      'The text is not a relative path inside the granted directory.',
-      pathOf(parent, key),
-    );
-    return undefined;
-  }
-  return text;
-};
 
 /**
  * A converter reading the sources, checked against the project's assets where
@@ -150,7 +117,7 @@ export function sourcesConverter(
     const sources = new Map<AssetId, AssetSource>();
     let whole = true;
     for (const [index, item] of list.entries()) {
-      const read = readSource(reading, item, at, index);
+      const read = readSourceEntry(reading, item, at, index);
       if (read === undefined) {
         whole = false;
         continue;
@@ -180,15 +147,20 @@ export function sourcesConverter(
   };
 }
 
-/** Checks a source against the asset it belongs to. */
-function checkAgainstAsset(
+/**
+ * Checks a source at `at` against the asset it belongs to, among `assets`: the
+ * asset must be there, and its storage key must be the one the source gives.
+ * True where the source passed; false where it was refused, or where `assets`
+ * could not be read and nothing was checked.
+ */
+export function checkAgainstAsset(
   reading: Reading,
   assetId: AssetId,
   source: AssetSource,
   assets: ReadonlyMap<AssetId, Asset> | undefined,
   at: string,
-): void {
-  if (assets === undefined) return;
+): boolean {
+  if (assets === undefined) return false;
   const asset = assets.get(assetId);
   if (asset === undefined) {
     reading.refuse(
@@ -196,7 +168,9 @@ function checkAgainstAsset(
       'The source belongs to an asset the project does not have.',
       pathOf(at, 'assetId'),
     );
-  } else if (asset.storageKey !== storageKeyOf(assetId, source.media)) {
+    return false;
+  }
+  if (asset.storageKey !== storageKeyOf(assetId, source.media)) {
     reading.refuse(
       'source.storage-key-mismatch',
       "The asset's storage key is not the one its source gives.",
@@ -205,28 +179,31 @@ function checkAgainstAsset(
         assetId,
       },
     );
+    return false;
   }
+  return true;
 }
 
-/** Reads one source and the asset it belongs to. */
-function readSource(
+/** Reads one source entry: an asset's source and the asset it belongs to. */
+export function readSourceEntry(
   reading: Reading,
   value: JsonValue,
   parent: string,
-  key: number,
+  key: string | number,
 ): readonly [AssetId, AssetSource] | undefined {
   const object = objectOf(reading, value, parent, key, SOURCE_MEMBERS);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
 
   const assetId = required(reading, object, at, 'assetId', asId<'AssetId'>);
-  const media = required(reading, object, at, 'media', asMedia);
+  const media = required(reading, object, at, 'media', readMediaSource);
   const provenance = optional(reading, object, at, 'provenance', asProvenance);
   if (assetId === undefined || media === undefined) return undefined;
   return [assetId, { media, ...(provenance === undefined ? {} : { provenance }) }];
 }
 
-const asMedia: Converter<MediaSource> = (reading, value, parent, key) => {
+/** Reads where an asset's bytes are kept. */
+export const readMediaSource: Converter<MediaSource> = (reading, value, parent, key) => {
   const object = anyObjectOf(reading, value, parent, key);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
@@ -253,7 +230,7 @@ function readManaged(reading: Reading, object: JsonObject, at: string): ManagedM
 }
 
 function readExternal(reading: Reading, object: JsonObject, at: string): ExternalMedia | undefined {
-  const identity = required(reading, object, at, 'identity', asIdentity);
+  const identity = required(reading, object, at, 'identity', readExternalIdentity);
   const policy = required(reading, object, at, 'policy', asPolicy);
   const retainedCopy = optional(reading, object, at, 'retainedCopy', asContentId);
 
@@ -273,7 +250,13 @@ function readExternal(reading: Reading, object: JsonObject, at: string): Externa
   };
 }
 
-const asIdentity: Converter<ExternalSourceIdentity> = (reading, value, parent, key) => {
+/** Reads what an external file was known by when it was last seen. */
+export const readExternalIdentity: Converter<ExternalSourceIdentity> = (
+  reading,
+  value,
+  parent,
+  key,
+) => {
   const object = objectOf(reading, value, parent, key, IDENTITY_MEMBERS);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);

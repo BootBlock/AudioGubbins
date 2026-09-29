@@ -19,10 +19,20 @@ import {
   type CommandOutcome,
 } from '@audiogubbins/commands';
 import type { AssetId } from '@audiogubbins/domain';
-import type { ProjectState } from '@audiogubbins/project-format';
+import {
+  canonicalJson,
+  readAssetRecord,
+  writeAssetRecord,
+  type ProjectState,
+} from '@audiogubbins/project-format';
 
-import { encodeAssetRecord, parseArgument, readAssetRecord } from './format-fragments.js';
-import { refusedBy, targetAsset, textArgument } from './invocation-arguments.js';
+import {
+  jsonArgument,
+  readNested,
+  refusedBy,
+  targetAsset,
+  textArgument,
+} from './invocation-arguments.js';
 import { heldName, typedName, type NameRule } from './names.js';
 import {
   ProjectCommandId,
@@ -77,11 +87,9 @@ function addAsset(
   state: ProjectState,
   invocation: CommandInvocation,
 ): CommandOutcome<ProjectState> {
-  const text = textArgument(invocation, 'asset');
-  if (!text.ok) return refusedBy(text);
-  const value = parseArgument(text.value);
+  const value = jsonArgument(invocation, 'asset');
   if (!value.ok) return refusedBy(value);
-  const record = readAssetRecord(state.project.settings, value.value);
+  const record = readNested(readAssetRecord, value.value, '');
   if (!record.ok) return refusedBy(record);
 
   const { asset, source } = record.value;
@@ -119,7 +127,7 @@ function removeAsset(
     withoutAsset(state, asset.id),
     {
       commandId: ProjectCommandId.AddAsset,
-      arguments: { asset: encodeAssetRecord(asset, source) },
+      arguments: { asset: canonicalJson(writeAssetRecord({ asset, source })) },
     },
     `Remove asset ${quoted(asset.displayName)}`,
   );
@@ -134,7 +142,7 @@ function renameAsset(
   if (!target.ok) return refusedBy(target);
   const text = textArgument(invocation, 'name');
   if (!text.ok) return refusedBy(text);
-  const name = rule(state.project.settings, 'asset', text.value);
+  const name = rule('asset', text.value);
   if (!name.ok) return refusedBy(name);
 
   const { asset } = target.value;

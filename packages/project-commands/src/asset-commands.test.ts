@@ -11,6 +11,7 @@ import {
   type JsonObject,
   type JsonValue,
 } from '@audiogubbins/project-format';
+import { randomAssetRecord, seededRandom } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { ProjectCommandId } from './project-command.js';
@@ -23,7 +24,6 @@ import {
   refusalCodeOf,
   unchangedCodeOf,
 } from './testing/bus-runs.js';
-import { randomAssetRecord, seededRandom } from './testing/random-states.js';
 import { referenceState } from './testing/reference-state.js';
 
 const bus = projectBus();
@@ -105,15 +105,28 @@ describe('project.add-asset', () => {
 
   it('refuses text that is not JSON, a record of another shape, and a malformed asset', () => {
     expect(refusalCodeOf(bus.execute(state, addAsset('{"asset":')))).toMatch(/^json\./u);
-    expect(refusalCodeOf(bus.execute(state, addAsset('[]')))).toBe('asset.record-malformed');
+    expect(refusalCodeOf(bus.execute(state, addAsset('[]')))).toBe('schema.not-an-object');
     expect(
       refusalCodeOf(
         bus.execute(state, addAsset(editedRecord((record) => ({ ...record, extra: 1 })))),
       ),
-    ).toBe('asset.record-malformed');
+    ).toBe('schema.unknown-member');
     const unsourced = editedRecord(({ asset }) => ({ asset: asset ?? null }));
-    expect(refusalCodeOf(bus.execute(state, addAsset(unsourced)))).toBe('asset.record-malformed');
+    expect(refusalCodeOf(bus.execute(state, addAsset(unsourced)))).toBe('schema.missing-member');
     expect(refusalCodeOf(bus.execute(state, addAsset(7)))).toBe('argument.not-text');
+  });
+
+  it('refuses a source that belongs to another asset, by the format’s own rule', () => {
+    const other = newRecord(6).asset.id;
+    const orphaned = editedRecord((record) => {
+      const entry = record['source'];
+      return {
+        ...record,
+        source: entry !== undefined && isJsonObject(entry) ? { ...entry, assetId: other } : null,
+      };
+    });
+
+    expect(refusalCodeOf(bus.execute(state, addAsset(orphaned)))).toBe('source.unknown-asset');
   });
 
   it('names where in the record a problem lies', () => {

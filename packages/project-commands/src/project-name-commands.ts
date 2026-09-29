@@ -49,7 +49,7 @@ function rename(
 ): CommandOutcome<ProjectState> {
   const text = textArgument(invocation, 'name');
   if (!text.ok) return refusedBy(text);
-  const name = rule(state.project.settings, 'project', text.value);
+  const name = rule('project', text.value);
   if (!name.ok) return refusedBy(name);
 
   const before = state.project.displayName;

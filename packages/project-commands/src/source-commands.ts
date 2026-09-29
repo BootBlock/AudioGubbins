@@ -29,10 +29,11 @@ import {
   type CommandOutcome,
   type RefusedOutcome,
 } from '@audiogubbins/commands';
-import type { Asset } from '@audiogubbins/domain';
 import {
   SourceChangePolicy,
   canonicalJson,
+  readMediaSource,
+  writeMediaSource,
   type ExternalSourceIdentity,
   type JsonObject,
   type ManagedMedia,
@@ -40,9 +41,10 @@ import {
   type ProjectState,
 } from '@audiogubbins/project-format';
 
-import { parseArgument, readMedia, writtenMedia } from './format-fragments.js';
 import {
+  jsonArgument,
   optionalTextArgument,
+  readNested,
   refusedBy,
   targetAsset,
   textArgument,
@@ -162,14 +164,12 @@ function setMedia(
 ): CommandOutcome<ProjectState> {
   const target = targetAsset(state, invocation);
   if (!target.ok) return refusedBy(target);
-  const text = textArgument(invocation, 'media');
-  if (!text.ok) return refusedBy(text);
-  const value = parseArgument(text.value);
+  const value = jsonArgument(invocation, 'media');
   if (!value.ok) return refusedBy(value);
   const { asset, source } = target.value;
-  const media = readMedia(state.project.settings, asset, value.value);
+  const media = readNested(readMediaSource, value.value, 'media');
   if (!media.ok) return refusedBy(media);
-  if (sameMedia(asset, source.media, media.value)) {
+  if (sameMedia(source.media, media.value)) {
     return unchanged(
       'source.media-unchanged',
       `${quoted(asset.displayName)} is already kept that way.`,
@@ -190,8 +190,8 @@ function changeIdentity(
 ): CommandOutcome<ProjectState> {
   const target = targetAsset(state, invocation);
   if (!target.ok) return refusedBy(target);
-  const text = textArgument(invocation, 'identity');
-  if (!text.ok) return refusedBy(text);
+  const identity = jsonArgument(invocation, 'identity');
+  if (!identity.ok) return refusedBy(identity);
   const retainedCopy = optionalTextArgument(invocation, 'retainedCopy');
   if (!retainedCopy.ok) return refusedBy(retainedCopy);
   const { asset, source } = target.value;
@@ -201,23 +201,23 @@ function changeIdentity(
   if (current.kind !== 'external') {
     return refusal('source.not-external', `${name} is kept in the project, not linked to a file.`);
   }
-  const identity = parseArgument(text.value);
-  if (!identity.ok) return refusedBy(identity);
 
   // The new identity is read as the media it makes, so the format's reader
   // checks it and the retained copy together with the policy they must meet.
-  const { retainedCopy: _replaced, ...kept } = writtenMedia(asset, current);
+  // The media is read as a whole, so a problem is placed at the argument's
+  // own name: `identity` and within it, or `retainedCopy`.
+  const { retainedCopy: _replaced, ...kept } = writeMediaSource(current);
   const candidate: JsonObject = {
     ...kept,
     identity: identity.value,
     ...(retainedCopy.value === undefined ? {} : { retainedCopy: retainedCopy.value }),
   };
-  const media = readMedia(state.project.settings, asset, candidate);
+  const media = readNested(readMediaSource, candidate, '');
   if (!media.ok) return refusedBy(media);
   if (media.value.kind !== 'external') {
     throw new Error('A linked source was read back as one kept in the project.');
   }
-  if (sameMedia(asset, current, media.value)) {
+  if (sameMedia(current, media.value)) {
     return unchanged('source.identity-unchanged', `${name} is already linked that way.`);
   }
 
@@ -314,13 +314,13 @@ function changedMedia(
     withMedia(state, asset, source, media),
     {
       commandId: ProjectCommandId.SetAssetMedia,
-      arguments: { assetId: asset.id, media: canonicalJson(writtenMedia(asset, source.media)) },
+      arguments: { assetId: asset.id, media: canonicalJson(writeMediaSource(source.media)) },
     },
     description,
   );
 }
 
 /** Whether two media are the same value, by the one text each is written as. */
-function sameMedia(asset: Asset, left: MediaSource, right: MediaSource): boolean {
-  return canonicalJson(writtenMedia(asset, left)) === canonicalJson(writtenMedia(asset, right));
+function sameMedia(left: MediaSource, right: MediaSource): boolean {
+  return canonicalJson(writeMediaSource(left)) === canonicalJson(writeMediaSource(right));
 }

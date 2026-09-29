@@ -1,14 +1,12 @@
 /**
- * Project states for this package's tests, built so they satisfy the
- * aggregate's invariants: every asset has a source and the storage key its
- * source gives.
+ * Project states for tests, built so they satisfy the aggregate's invariants:
+ * every asset has a source and the storage key its source gives.
  *
  * The fixtures package's sample project holds assets keyed `fixture:...`, which
- * no source gives, so a state is built from it here by attaching a source to
- * each asset and deriving the key, never by writing a key by hand.
+ * no source gives, so a state is built from it by attaching a source to each
+ * asset and deriving the key, never by writing a key by hand. The test passes
+ * the sample project in, because only a test may take the fixtures package.
  */
-
-import { webcrypto } from 'node:crypto';
 
 import {
   MAIN_OUTPUT,
@@ -18,14 +16,14 @@ import {
   type AssetId,
   type Bus,
   type EffectChain,
+  type IdGenerator,
   type ParameterId,
   type ParameterValue,
   type Project,
+  type Track,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { sampleProject } from '@audiogubbins/test-fixtures';
 
-import type { Digest } from '../byte-ports.js';
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import {
   SourceChangePolicy,
@@ -33,10 +31,6 @@ import {
   type AssetSource,
   type ProjectState,
 } from '../project-state.js';
-
-/** SHA-256 through Node's Web Crypto, as the browser's would be injected. */
-export const nodeDigest: Digest = async (bytes) =>
-  new Uint8Array(await webcrypto.subtle.digest('SHA-256', bytes));
 
 /** A content identifier made of one hexadecimal digit repeated. */
 export function contentIdOfDigit(digit: string): ContentId {
@@ -59,12 +53,22 @@ export function withSources(
 }
 
 /**
+ * What a reference state is built from: the fixtures package's sample project,
+ * its identifier generator, and the assets and tracks it names.
+ */
+export interface SampleProject {
+  readonly project: Project;
+  readonly ids: IdGenerator;
+  readonly assets: { readonly footstep: Asset; readonly ambience: Asset };
+  readonly tracks: { readonly foley: Track; readonly background: Track };
+}
+
+/**
  * The sample project with one of every kind of thing a state holds: a bus with
  * an effect chain, a track routed through it, a managed source and an external
  * one frozen on a retained copy, each with its provenance.
  */
-export function referenceState(): ProjectState {
-  const fixture = sampleProject();
+export function referenceState(fixture: SampleProject): ProjectState {
   const { ids, project } = fixture;
 
   const chain: EffectChain = {

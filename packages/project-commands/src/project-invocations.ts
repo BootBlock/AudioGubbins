@@ -12,19 +12,20 @@ import type { CommandInvocation } from '@audiogubbins/commands';
 import type { Asset } from '@audiogubbins/domain';
 import {
   canonicalJson,
+  writeAssetRecord,
+  writeExternalIdentity,
   type AssetSource,
   type ContentId,
   type ExternalSourceIdentity,
 } from '@audiogubbins/project-format';
 
-import { encodeAssetRecord, writtenIdentity } from './format-fragments.js';
 import { ProjectCommandId } from './project-command.js';
 
 /** Adds an asset with its source. */
 export function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation {
   return {
     commandId: ProjectCommandId.AddAsset,
-    arguments: { asset: encodeAssetRecord(asset, source) },
+    arguments: { asset: canonicalJson(writeAssetRecord({ asset, source })) },
   };
 }
 
@@ -62,7 +63,7 @@ function identityInvocation(
     commandId,
     arguments: {
       assetId: asset.id,
-      identity: canonicalJson(writtenIdentity(asset, identity)),
+      identity: canonicalJson(writeExternalIdentity(identity)),
       ...(retainedCopy === undefined ? {} : { retainedCopy }),
     },
   };

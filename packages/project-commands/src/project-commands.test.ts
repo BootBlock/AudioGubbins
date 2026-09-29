@@ -14,11 +14,21 @@ import {
   isJsonObject,
   memberOf,
   parseJson,
+  writeMediaSource,
   type JsonValue,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import {
+  randomAssetRecord,
+  randomContentId,
+  randomIdentity,
+  randomMedia,
+  randomName,
+  randomState,
+  seededRandom,
+  type Random,
+} from '@audiogubbins/project-format/testing';
 
-import { writtenMedia } from './format-fragments.js';
 import { ProjectCommandId } from './project-command.js';
 import { projectCommands } from './project-commands.js';
 import {
@@ -34,17 +44,6 @@ import {
   projectBus,
   runAll,
 } from './testing/bus-runs.js';
-import {
-  randomAssetRecord,
-  randomContentId,
-  randomExternal,
-  randomIdentity,
-  randomManaged,
-  randomName,
-  randomState,
-  seededRandom,
-  type Random,
-} from './testing/random-states.js';
 
 const SEEDS = 80;
 const STEPS = 30;
@@ -91,13 +90,11 @@ function randomInvocation(
         commandId: ProjectCommandId.SetSourcePolicy,
         arguments: { assetId, policy: random.pick(Object.values(SourceChangePolicy)) },
       };
-    case 7: {
-      const media = random.chance(0.5) ? randomManaged(random) : randomExternal(random);
+    case 7:
       return {
         commandId: ProjectCommandId.SetAssetMedia,
-        arguments: { assetId, media: canonicalJson(writtenMedia(asset, media)) },
+        arguments: { assetId, media: canonicalJson(writeMediaSource(randomMedia(random))) },
       };
-    }
     case 8:
       return relinkSourceInvocation(asset, randomIdentity(random), retained);
     case 9: {

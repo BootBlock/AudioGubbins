@@ -69,21 +69,4 @@ describe('what a file says about itself', () => {
       'media.relative-path-malformed',
     ]);
   });
-
-  it('refuses each shape of name and path the project reader refuses', () => {
-    for (const fileName of ['', 'a/b.wav', 'tab\there.wav', 'x'.repeat(1_025)]) {
-      expect(codesOf(fileOf({ fileName })), fileName).toEqual(['media.file-name-malformed']);
-    }
-    for (const lastModified of [1.5, Number.NaN, 2 ** 53]) {
-      expect(codesOf(fileOf({ lastModified }))).toEqual(['media.last-modified-malformed']);
-    }
-    for (const handleKey of ['', 'a b', 'x'.repeat(129)]) {
-      expect(codesOf(fileOf({ handleKey })), handleKey).toEqual(['media.handle-key-malformed']);
-    }
-    for (const relativePath of ['/a.wav', 'a//b.wav', 'a/./b.wav', 'a/..', 'C:/a.wav', 'a\\b']) {
-      expect(codesOf(fileOf({ relativePath })), relativePath).toEqual([
-        'media.relative-path-malformed',
-      ]);
-    }
-  });
 });

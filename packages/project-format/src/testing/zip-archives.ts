@@ -12,7 +12,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { ByteSink, ByteSource } from '../byte-ports.js';
 import { openZip, type ZipArchive, type ZipEntry, readVerified } from '../zip-reading.js';
 import { writeZip, type ZipEntryInput, type ZipWritingOptions } from '../zip-writing.js';
-import { seededRandom } from './random-states.js';
+import { seededRandom } from './random-values.js';
 
 /** One read a source was asked for. */
 export interface RecordedRead {

@@ -6,7 +6,9 @@
  * Each converter builds its value with the domain's own constructor where the
  * domain has one, so a document is held to exactly the rules an edit is held to
  * (REQ-EXEC-136.11), and each is bounded so a hostile document cannot make the
- * reader hold more than the bounds allow (REQ-EXEC-136.12).
+ * reader hold more than the bounds allow (REQ-EXEC-136.12). Where a value is
+ * recorded before any document holds it, the same rule is offered as a check,
+ * so what is recorded is never what the reader refuses.
  */
 
 import {
@@ -21,6 +23,8 @@ import {
 import { listConverter, pathOf, type Converter } from './document-reading.js';
 import {
   domainNumberConverter,
+  fitsTextRule,
+  fitsWholeRange,
   integerConverter,
   numberConverter,
   oneOfConverter,
@@ -41,8 +45,14 @@ export const MAXIMUM_ENTITIES = 1_000_000;
  */
 export const MAXIMUM_NESTED_ITEMS = 10_000;
 
+/**
+ * The longest name a person gives or sees, such as a track's or a file's, in
+ * UTF-16 code units. A name is any text up to it.
+ */
+export const LONGEST_NAME = 1_024;
+
 /** A name a person gives or sees, such as a track's or a file's. */
-export const NAME_RULE = { maximumLength: 1_024 } as const;
+export const NAME_RULE = { maximumLength: LONGEST_NAME } as const;
 
 /**
  * A machine-readable key, such as a processor type or a palette entry: a letter
@@ -65,8 +75,24 @@ export const asName = textConverter(NAME_RULE);
 export const asKey = textConverter(KEY_RULE);
 export const asMediaType = textConverter(MEDIA_TYPE_RULE);
 
+/** Whether text is a media type the document holds, by the rule it reads one by. */
+export function isMediaType(text: string): boolean {
+  return fitsTextRule(MEDIA_TYPE_RULE, text);
+}
+
+/** The range of a count of bytes, or of a time in milliseconds since the epoch. */
+const QUANTITY = { minimum: 0, maximum: Number.MAX_SAFE_INTEGER } as const;
+
 /** A count of bytes, or a time in milliseconds since the epoch. */
-export const asWholeQuantity = integerConverter(0, Number.MAX_SAFE_INTEGER);
+export const asWholeQuantity = integerConverter(QUANTITY.minimum, QUANTITY.maximum);
+
+/**
+ * Whether a number is a count of bytes or a time the document holds, by the
+ * rule it reads one by.
+ */
+export function isWholeQuantity(value: number): boolean {
+  return fitsWholeRange(value, QUANTITY.minimum, QUANTITY.maximum);
+}
 
 export const asSampleRate = domainNumberConverter(sampleRate);
 export const asSampleCount = domainNumberConverter(sampleCount);

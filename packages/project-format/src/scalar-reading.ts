@@ -48,7 +48,8 @@ export function textConverter(rule: TextRule): Converter<string> {
       reading.refuse('schema.not-a-string', 'Text is expected here.', pathOf(parent, key));
       return undefined;
     }
-    if (value.length > rule.maximumLength) {
+    const problem = textProblem(rule, value);
+    if (problem === 'too-long') {
       reading.refuse(
         'schema.text-too-long',
         'The text is longer than this member may be.',
@@ -60,7 +61,7 @@ export function textConverter(rule: TextRule): Converter<string> {
       );
       return undefined;
     }
-    if (rule.pattern !== undefined && !rule.pattern.test(value)) {
+    if (problem === 'malformed') {
       reading.refuse(
         'schema.text-malformed',
         `The text is not ${rule.shape ?? 'of the shape this member takes'}.`,
@@ -70,6 +71,20 @@ export function textConverter(rule: TextRule): Converter<string> {
     }
     return value;
   };
+}
+
+/**
+ * Whether text meets `rule`, asked by what records a value before any document
+ * holds it, so the value is never one the reader refuses.
+ */
+export function fitsTextRule(rule: TextRule, text: string): boolean {
+  return textProblem(rule, text) === undefined;
+}
+
+/** What is wrong with text under `rule`, which the reader and the check share. */
+function textProblem(rule: TextRule, text: string): 'too-long' | 'malformed' | undefined {
+  if (text.length > rule.maximumLength) return 'too-long';
+  return rule.pattern === undefined || rule.pattern.test(text) ? undefined : 'malformed';
 }
 
 /** A converter reading a finite number from `minimum` to `maximum`. */
@@ -97,7 +112,8 @@ function readNumber(
     reading.refuse('schema.not-a-number', 'A number is expected here.', pathOf(parent, key));
     return undefined;
   }
-  if (whole && !Number.isInteger(value)) {
+  const problem = numberProblem(value, minimum, maximum, whole);
+  if (problem === 'fractional') {
     reading.refuse(
       'schema.not-an-integer',
       'A whole number is expected here.',
@@ -105,7 +121,7 @@ function readNumber(
     );
     return undefined;
   }
-  if (value < minimum || value > maximum) {
+  if (problem === 'out-of-range') {
     reading.refuse(
       'schema.number-out-of-range',
       'The number is outside the range this member takes.',
@@ -119,6 +135,28 @@ function readNumber(
     return undefined;
   }
   return value;
+}
+
+/**
+ * Whether a number is whole and from `minimum` to `maximum`, asked by what
+ * records a value before any document holds it.
+ */
+export function fitsWholeRange(value: number, minimum: number, maximum: number): boolean {
+  return numberProblem(value, minimum, maximum, true) === undefined;
+}
+
+/**
+ * What is wrong with a number, which the reader and the check share. The range
+ * is asked as "inside", so `NaN`, which fails every comparison, is outside it.
+ */
+function numberProblem(
+  value: number,
+  minimum: number,
+  maximum: number,
+  whole: boolean,
+): 'fractional' | 'out-of-range' | undefined {
+  if (whole && !Number.isInteger(value)) return 'fractional';
+  return value >= minimum && value <= maximum ? undefined : 'out-of-range';
 }
 
 /** A converter reading one of a fixed set of strings. */

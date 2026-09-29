@@ -4,12 +4,12 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import {
   contentIdOf,
   readProjectDocument,
-  storageKeyOf,
   writeProjectDocument,
   type AssetSource,
   type ByteSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { withSources } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import type { ExternalFile } from './external-file.js';
@@ -55,17 +55,8 @@ function requestFor(choice: ImportChoice, extra: Partial<ExternalFile> = {}): Im
 
 /** The sample project with the imported source on every asset, read back as a document. */
 function throughTheDocument(source: AssetSource): ProjectState {
-  const { project } = sampleProject();
-  const assets = new Map(
-    [...project.assets].map(([id, asset]) => [
-      id,
-      { ...asset, storageKey: storageKeyOf(id, source.media) },
-    ]),
-  );
-  const sources = new Map([...project.assets.keys()].map((id) => [id, source]));
-  return expectSuccess(
-    readProjectDocument(writeProjectDocument({ project: { ...project, assets }, sources })),
-  );
+  const state = withSources(sampleProject().project, () => source);
+  return expectSuccess(readProjectDocument(writeProjectDocument(state)));
 }
 
 describe('importing by copy', () => {

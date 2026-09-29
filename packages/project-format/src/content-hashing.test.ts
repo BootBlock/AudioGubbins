@@ -12,8 +12,8 @@ import {
   createContentHasher,
   fingerprintOf,
 } from './content-hashing.js';
-import { nodeDigest } from './testing/project-states.js';
-import { seededRandom } from './testing/random-states.js';
+import { nodeDigest } from './testing/node-digest.js';
+import { seededRandom } from './testing/random-values.js';
 
 const MIB = 1_048_576;
 

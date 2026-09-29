@@ -10,6 +10,7 @@ import {
   type MediaSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { contentIdOfDigit } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { ProjectCommandId } from './project-command.js';
@@ -22,7 +23,7 @@ import {
   refusalCodeOf,
   unchangedCodeOf,
 } from './testing/bus-runs.js';
-import { contentIdOfDigit, referenceState } from './testing/reference-state.js';
+import { referenceState } from './testing/reference-state.js';
 
 const bus = projectBus();
 const { state, assets } = referenceState(sampleProject());

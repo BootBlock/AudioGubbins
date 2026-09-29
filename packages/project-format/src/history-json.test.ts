@@ -23,7 +23,7 @@ import { parseJson } from './json-parsing.js';
 import { readRetentionPolicy, writeRetentionPolicy } from './retention-json.js';
 import { readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
 import { edited, withValue, without } from './testing/json-editing.js';
-import { seededRandom, type Random } from './testing/random-states.js';
+import { seededRandom, type Random } from './testing/random-values.js';
 
 const EPOCH = 1_790_000_000_000;
 

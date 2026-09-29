@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
-import { seededRandom } from './testing/random-states.js';
+import { seededRandom } from './testing/random-values.js';
 import { decodeUtf8, encodeUtf8 } from './utf8.js';
 
 /** Node's own encoder, as an independent reference. */

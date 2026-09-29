@@ -8,22 +8,12 @@ import {
   type ContentId,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { seededRandom } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { collect, contentReferencedBy, planCollection } from './collection.js';
 import { MediaObjectStore } from './object-store.js';
 import { MemoryStorageTree, countingTokens, generatedSource, nodeDigest } from './testing/index.js';
-
-/** A seeded source of numbers in [0, 1) (mulberry32), so a failing case is found again. */
-function seeded(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
-    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
-    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4_294_967_296;
-  };
-}
 
 function storeOver(tree = new MemoryStorageTree()): MediaObjectStore {
   return new MediaObjectStore({
@@ -137,18 +127,18 @@ describe('collecting', () => {
 
   it('never removes a rooted or held object, and removes exactly the rest of the plan (property)', async () => {
     for (let seed = 1; seed <= 40; seed += 1) {
-      const random = seeded(seed);
+      const random = seededRandom(seed);
       const store = storeOver();
-      const count = 1 + Math.floor(random() * 12);
+      const count = 1 + random.below(12);
       const ids = await holding(
         store,
         Array.from({ length: count }, (_, index) => seed * 100 + index),
       );
-      const roots = ids.filter(() => random() < 0.4);
+      const roots = ids.filter(() => random.chance(0.4));
       const plan = expectSuccess(await planCollection(store, roots));
       const planned = plan.unreachable.map(({ contentId }) => contentId);
-      const fresh = [...roots, ...planned.filter(() => random() < 0.3)];
-      const held = planned.filter(() => random() < 0.2);
+      const fresh = [...roots, ...planned.filter(() => random.chance(0.3))];
+      const held = planned.filter(() => random.chance(0.2));
       for (const id of held) {
         const index = ids.indexOf(id);
         expectSuccess(

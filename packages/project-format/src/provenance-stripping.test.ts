@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { contentIdOfDigit, referenceState } from './testing/project-states.js';
 import { randomState } from './testing/random-states.js';
@@ -19,7 +20,7 @@ import type { ProjectState } from './project-state.js';
 import { stateFingerprintFrom } from './content-identity.js';
 import { unsafeBrandId } from '@audiogubbins/domain';
 
-const REFERENCE = referenceState();
+const REFERENCE = referenceState(sampleProject());
 
 /** The state as a document reads it back, which must succeed. */
 function roundTrip(state: ProjectState): ProjectState {

@@ -145,6 +145,12 @@ export {
   writeProjectDocument,
 } from './project-json.js';
 
+export { type AssetRecord, readAssetRecord, writeAssetRecord } from './asset-record-json.js';
+export { readExternalIdentity, readMediaSource } from './source-reading.js';
+export { writeExternalIdentity, writeMediaSource } from './project-writing.js';
+export { isFileName, isHandleKey, isRelativePath } from './source-rules.js';
+export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
+
 export { readExportRecord, writeExportRecord } from './export-record-json.js';
 
 export {

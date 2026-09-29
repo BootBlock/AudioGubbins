@@ -12,7 +12,7 @@ import {
   type JsonValue,
 } from './canonical-json.js';
 import { parseJson } from './json-parsing.js';
-import { seededRandom, type Random } from './testing/random-states.js';
+import { seededRandom, type Random } from './testing/random-values.js';
 
 const LIMITS = { maximumLength: 1_000_000, maximumDepth: 64 };
 

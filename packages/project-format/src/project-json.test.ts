@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import {
   canonicalJson,
@@ -24,13 +25,15 @@ import {
 } from './project-json.js';
 import type { ProjectState } from './project-state.js';
 import { edited, valueAt, withValue, without, type Step } from './testing/json-editing.js';
-import { nodeDigest, referenceState } from './testing/project-states.js';
-import { randomState, seededRandom } from './testing/random-states.js';
+import { nodeDigest } from './testing/node-digest.js';
+import { referenceState } from './testing/project-states.js';
+import { randomState } from './testing/random-states.js';
+import { seededRandom } from './testing/random-values.js';
 
 const LIMITS = { maximumLength: 2 ** 28, maximumDepth: 32 };
 
 /** The written reference state, the document every refusal edits. */
-const REFERENCE = referenceState();
+const REFERENCE = referenceState(sampleProject());
 const DOCUMENT = writeProjectDocument(REFERENCE);
 
 /** A well-formed identifier that names nothing in the reference state. */
@@ -204,7 +207,7 @@ describe('stateFingerprintOf', () => {
 
   it('is stable across rebuilding the state and different for any change', async () => {
     const first = await stateFingerprintOf(REFERENCE, nodeDigest);
-    expect(await stateFingerprintOf(referenceState(), nodeDigest)).toBe(first);
+    expect(await stateFingerprintOf(referenceState(sampleProject()), nodeDigest)).toBe(first);
 
     const renamed: ProjectState = {
       ...REFERENCE,

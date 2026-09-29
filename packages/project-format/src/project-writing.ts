@@ -5,7 +5,9 @@
  * sorted by its key, so the same state always gives the same value and so the
  * same canonical text, whatever order its maps were built in. An optional
  * member that is absent is left out rather than written as `null`, so the
- * written form of a value has one shape.
+ * written form of a value has one shape. The writers of one asset, one source
+ * entry, one media source and one identity are offered alone as well, so a
+ * value a command carries is written exactly as the document writes it.
  */
 
 import type {
@@ -57,7 +59,8 @@ function writeLayout(layout: ChannelLayout): JsonArray {
   return [...layout.roles];
 }
 
-function writeAsset(asset: Asset): JsonObject {
+/** Writes one asset, as the project's list of assets holds it. */
+export function writeAsset(asset: Asset): JsonObject {
   return {
     id: asset.id,
     displayName: asset.displayName,
@@ -165,17 +168,21 @@ export function writeSources(sources: ReadonlyMap<AssetId, AssetSource>): JsonAr
   return sortedBy(
     sources,
     ([assetId]) => assetId,
-    ([assetId, source]) =>
-      presentMembers({
-        assetId,
-        media: writeMedia(source.media),
-        provenance:
-          source.provenance === undefined ? undefined : writeProvenance(source.provenance),
-      }),
+    ([assetId, source]) => writeSourceEntry(assetId, source),
   );
 }
 
-function writeMedia(media: MediaSource): JsonObject {
+/** Writes one asset's source, as the list of sources holds it. */
+export function writeSourceEntry(assetId: AssetId, source: AssetSource): JsonObject {
+  return presentMembers({
+    assetId,
+    media: writeMediaSource(source.media),
+    provenance: source.provenance === undefined ? undefined : writeProvenance(source.provenance),
+  });
+}
+
+/** Writes where an asset's bytes are kept. */
+export function writeMediaSource(media: MediaSource): JsonObject {
   if (media.kind === 'managed') {
     return {
       kind: 'managed',
@@ -186,13 +193,14 @@ function writeMedia(media: MediaSource): JsonObject {
   }
   return presentMembers({
     kind: 'external',
-    identity: writeIdentity(media.identity),
+    identity: writeExternalIdentity(media.identity),
     policy: media.policy,
     retainedCopy: media.retainedCopy,
   });
 }
 
-function writeIdentity(identity: ExternalSourceIdentity): JsonObject {
+/** Writes what an external file was known by when it was last seen. */
+export function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject {
   return presentMembers({
     handleKey: identity.handleKey,
     fileName: identity.fileName,

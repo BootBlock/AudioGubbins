@@ -5,6 +5,12 @@
  * A replayed journal, an imported one or a macro can hold anything, so nothing
  * an invocation carries is trusted because the interface would never have sent
  * it (REQ-EDIT-073, REQ-STOR-101).
+ *
+ * An argument is a primitive, so a nested value travels as one string of
+ * compact canonical JSON in the project document's own shape, and is read by
+ * the project format's reader for that shape, never by a second one here: a
+ * value a command accepts is exactly one the document accepts
+ * (REQ-EXEC-136.12). A refusal names the place of the problem in the argument.
  */
 
 import {
@@ -19,7 +25,22 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import { refusal, type CommandInvocation, type RefusedOutcome } from '@audiogubbins/commands';
-import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
+import {
+  parseJson,
+  startReading,
+  type AssetSource,
+  type Converter,
+  type JsonLimits,
+  type JsonValue,
+  type ProjectState,
+} from '@audiogubbins/project-format';
+
+/**
+ * The bounds a nested argument's text is read within: far past the longest
+ * asset record, whose names are bounded at a kibibyte and whose path at four,
+ * and as deep as a record nests with room to spare.
+ */
+const NESTED_LIMITS: JsonLimits = { maximumLength: 65_536, maximumDepth: 8 };
 
 /** An asset of the project with its source, as a command finds it. */
 export interface TargetAsset {
@@ -52,6 +73,25 @@ export function optionalTextArgument(
   return typeof value === 'string'
     ? succeed(value)
     : rejected('argument.not-text', `The argument “${name}” must be text.`);
+}
+
+/** The JSON value the text argument `name` holds, or why it holds none. */
+export function jsonArgument(invocation: CommandInvocation, name: string): DomainResult<JsonValue> {
+  const text = textArgument(invocation, name);
+  return text.ok ? parseJson(text.value, NESTED_LIMITS) : text;
+}
+
+/**
+ * A nested value read by the project format's reader for its shape, each
+ * problem placed at `at` in the argument, where the empty place is the whole.
+ */
+export function readNested<TValue>(
+  read: Converter<TValue>,
+  value: JsonValue,
+  at: string,
+): DomainResult<TValue> {
+  const reading = startReading();
+  return reading.outcome(read(reading, value, '', at));
 }
 
 /** The asset the argument `assetId` names, with its source. */
