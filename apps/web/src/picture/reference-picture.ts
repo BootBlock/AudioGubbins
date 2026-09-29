@@ -103,10 +103,17 @@ export class ReferencePicture implements Observable<PictureState> {
   readonly #video: HTMLVideoElement;
   #url: string | undefined;
   #filmstrip: Filmstrip | undefined;
-  /** The media time of the frame the browser last said it presented. */
+  /** The timestamp of the frame the browser last said it presented. */
   #presented: number | undefined;
-  /** Where the element was last sent, so a seek on its way is not asked for again. */
-  #seekingTo: number | undefined;
+  /** The browser's handle on the frame callback waiting, cancelled with the file. */
+  #frameRequest: number | undefined;
+  /**
+   * Where the element was last sent. A parked picture is not sent there again:
+   * whatever frame the file has for that time is the one it can show, so asking
+   * again would only seek for ever. Forgotten once the element plays, which
+   * moves it.
+   */
+  #sought: number | undefined;
 
   constructor(options: { readonly platform: PicturePlatform; readonly logger: Logger }) {
     this.#platform = options.platform;
@@ -117,9 +124,6 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#video.playsInline = true;
     this.#video.addEventListener('loadedmetadata', this.#loaded);
     this.#video.addEventListener('error', this.#failed);
-    this.#video.addEventListener('seeked', () => {
-      this.#seekingTo = undefined;
-    });
   }
 
   readonly get = (): PictureState => this.#state.get();
@@ -141,7 +145,7 @@ export class ReferencePicture implements Observable<PictureState> {
     const url = this.#platform.createUrl(file);
     this.#url = url;
     this.#presented = undefined;
-    this.#seekingTo = undefined;
+    this.#sought = undefined;
     this.#state.set({
       media: { kind: 'loading', name: file.name },
       sound: { kind: 'none' },
@@ -203,11 +207,16 @@ export class ReferencePicture implements Observable<PictureState> {
     );
   }
 
-  /** What the element presents now: its frame's media time, and the file's length. */
+  /**
+   * What the element presents now: its frame's timestamp, or its current time
+   * until the browser says which frame a seek presented, and the file's length.
+   */
   presented(): PresentedPicture | undefined {
     const { media } = this.#state.get();
     if (media.kind !== 'ready') return undefined;
-    return { mediaTime: this.#presented ?? this.#video.currentTime, duration: media.duration };
+    return this.#presented === undefined
+      ? { mediaTime: this.#video.currentTime, stamped: false, duration: media.duration }
+      : { mediaTime: this.#presented, stamped: true, duration: media.duration };
   }
 
   /**
@@ -221,10 +230,13 @@ export class ReferencePicture implements Observable<PictureState> {
     if (binding === undefined || presented === undefined) return;
     const correction = pictureCorrection(binding, position, presented, motion);
     const shouldPlay = motion === 'playing' && correction.kind !== 'no-picture';
-    if (shouldPlay && this.#video.paused) void this.#play();
+    if (shouldPlay && this.#video.paused) {
+      this.#sought = undefined;
+      void this.#play();
+    }
     if (!shouldPlay && !this.#video.paused) this.#video.pause();
-    if (correction.kind === 'seek' && this.#seekingTo !== correction.to) {
-      this.#seekingTo = correction.to;
+    if (correction.kind === 'seek' && this.#sought !== correction.to) {
+      this.#sought = correction.to;
       this.#presented = undefined;
       this.#video.currentTime = correction.to;
     }
@@ -268,11 +280,16 @@ export class ReferencePicture implements Observable<PictureState> {
     }
   }
 
+  /**
+   * Follows the frames the browser presents, one callback at a time: each asks
+   * for the next, and the one waiting is cancelled with the file, since a
+   * callback waiting on the element outlives a change of its source.
+   */
   #watchFrames(): void {
     const watch = (): void => {
-      this.#video.requestVideoFrameCallback((_now, metadata) => {
+      this.#frameRequest = this.#video.requestVideoFrameCallback((_now, metadata) => {
         this.#presented = metadata.mediaTime;
-        if (this.#url !== undefined) watch();
+        watch();
       });
     };
     watch();
@@ -314,6 +331,10 @@ export class ReferencePicture implements Observable<PictureState> {
   #release(): void {
     this.#filmstrip?.close();
     this.#filmstrip = undefined;
+    if (this.#frameRequest !== undefined) {
+      this.#video.cancelVideoFrameCallback(this.#frameRequest);
+      this.#frameRequest = undefined;
+    }
     if (this.#url === undefined) return;
     this.#video.pause();
     this.#video.removeAttribute('src');

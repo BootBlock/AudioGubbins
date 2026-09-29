@@ -2099,6 +2099,7 @@ Published paths
   type PictureCorrection = { readonly kind: "in-sync"; } | { readonly kind: "no-picture"; } | { readonly kind: "seek"; readonly to: number; }
   interface PresentedPicture
   readonly PresentedPicture.mediaTime: number
+  readonly PresentedPicture.stamped: boolean
   readonly PresentedPicture.duration: number
   interface ReferenceMediaClockBinding
   readonly ReferenceMediaClockBinding.timelineRate: SampleRate

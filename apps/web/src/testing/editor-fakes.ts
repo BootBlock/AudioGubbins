@@ -27,8 +27,52 @@ import { createSelectionStore } from '../state/selection-store.js';
 import { createSessionContent } from '../state/session-content.js';
 import type { StateStorage } from '../state/state-storage.js';
 
-/** A video element that loads nothing, and plays and seeks only by what it is told. */
-function fakeVideo(): HTMLVideoElement {
+/**
+ * The frame callbacks waiting on a fake element, which a test fires as the
+ * browser would when it presents a frame.
+ */
+class FakeFrames {
+  #next = 1;
+  readonly #waiting = new Map<number, VideoFrameRequestCallback>();
+
+  request(callback: VideoFrameRequestCallback): number {
+    const handle = this.#next;
+    this.#next += 1;
+    this.#waiting.set(handle, callback);
+    return handle;
+  }
+
+  cancel(handle: number): void {
+    this.#waiting.delete(handle);
+  }
+
+  /** How many callbacks wait for the next frame. */
+  get waiting(): number {
+    return this.#waiting.size;
+  }
+
+  /** Presents the frame stamped `mediaTime` to every callback waiting. */
+  present(mediaTime: number): void {
+    const due = [...this.#waiting.values()];
+    this.#waiting.clear();
+    for (const callback of due) {
+      callback(0, {
+        mediaTime,
+        presentationTime: 0,
+        expectedDisplayTime: 0,
+        presentedFrames: 1,
+        width: 320,
+        height: 180,
+      });
+    }
+  }
+}
+
+/**
+ * A video element that loads nothing, and plays, seeks and presents frames only
+ * by what it is told. Each time it is sent is recorded in `seeks`.
+ */
+function fakeVideo(frames: FakeFrames, seeks: number[]): HTMLVideoElement {
   const element = document.createElement('video');
   let paused = true;
   let currentTime = 0;
@@ -54,25 +98,38 @@ function fakeVideo(): HTMLVideoElement {
       get: () => currentTime,
       set: (value: number) => {
         currentTime = value;
+        seeks.push(value);
+      },
+    },
+    requestVideoFrameCallback: {
+      value: (callback: VideoFrameRequestCallback) => frames.request(callback),
+    },
+    cancelVideoFrameCallback: {
+      value: (handle: number) => {
+        frames.cancel(handle);
       },
     },
   });
 }
 
-/** The picture's platform over a fake element, which the test can reach. */
-function fakePicturePlatform(): PicturePlatform & { readonly videos: HTMLVideoElement[] } {
-  const videos: HTMLVideoElement[] = [];
+/**
+ * The picture's platform over a fake element, with the frame callbacks waiting
+ * on it and where it was sent, which the test can reach.
+ */
+export function fakePicturePlatform(framesAnnounced = false): PicturePlatform & {
+  readonly frames: FakeFrames;
+  readonly seeks: readonly number[];
+} {
+  const frames = new FakeFrames();
+  const seeks: number[] = [];
   return {
-    videos,
-    createVideo: () => {
-      const video = fakeVideo();
-      videos.push(video);
-      return video;
-    },
+    frames,
+    seeks,
+    createVideo: () => fakeVideo(frames, seeks),
     createUrl: () => 'blob:picture',
     revokeUrl: () => undefined,
     capture: () => Promise.resolve(document.createElement('canvas')),
-    framesAnnounced: false,
+    framesAnnounced,
   };
 }
 
