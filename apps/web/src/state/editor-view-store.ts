@@ -12,8 +12,8 @@
  *
  * Written to its own key in schema `editorViews`, a moment after a change
  * rather than on every one, so a drag that scrolls sixty times a second is not
- * sixty writes; a view left a moment before the page closes reopens a little
- * short of where it was, which costs nothing that matters.
+ * sixty writes; a write still waiting when the page is hidden, as it is before
+ * it closes or reloads, is made then.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -43,7 +43,11 @@ export interface EditorViewEntry {
 /** Every editor panel's view. */
 export interface EditorViewsState {
   readonly views: ReadonlyMap<string, EditorViewEntry>;
-  /** The view a command that names none acts on: the editor last in use. */
+  /**
+   * The view a command that names none acts on: the editor last in use. Not
+   * kept, since it follows the workspace, whose panel in use is kept; noting
+   * it is no change of the person's, so it writes nothing.
+   */
   readonly focused: string | undefined;
 }
 
@@ -61,6 +65,8 @@ export interface EditorViewStore extends Observable<EditorViewsState> {
   readonly focus: (panel: string) => void;
   /** Forgets the view of every editor panel not among `open`. */
   readonly forgetClosed: (open: readonly string[]) => void;
+  /** Makes a write still waiting now, as the page is hidden. */
+  readonly flush: () => void;
 }
 
 const EMPTY: EditorViewsState = { views: new Map(), focused: undefined };
@@ -90,11 +96,7 @@ function readViews(stored: string | null, logger: Logger): EditorViewsState {
       if (view !== undefined) views.set(panel, { ...view, fitting: false });
     }
   }
-  const focused = parsed['focused'];
-  return {
-    views,
-    focused: typeof focused === 'string' && views.has(focused) ? focused : undefined,
-  };
+  return { views, focused: undefined };
 }
 
 function serialised(state: EditorViewsState): string {
@@ -103,7 +105,6 @@ function serialised(state: EditorViewsState): string {
   return JSON.stringify({
     schemaVersion: SCHEMA_VERSIONS.editorViews,
     views,
-    ...(state.focused === undefined ? {} : { focused: state.focused }),
   });
 }
 
@@ -135,16 +136,27 @@ function opened(asset: EditorAsset): EditorViewEntry {
   return { asset: asset.id, state: newViewState(asset.length, 0), fitting: true };
 }
 
-/** `write`, run by `later` once for however many asks come before it runs. */
-function coalescedWrite(later: (write: () => void) => void, write: () => void): () => void {
+/**
+ * `write`, run by `later` once for however many asks come before it runs, and
+ * at once when flushed with one waiting.
+ */
+function coalescedWrite(
+  later: (write: () => void) => void,
+  write: () => void,
+): { readonly ask: () => void; readonly flush: () => void } {
   let waiting = false;
-  return () => {
-    if (waiting) return;
-    waiting = true;
-    later(() => {
-      waiting = false;
-      write();
-    });
+  const run = (): void => {
+    if (!waiting) return;
+    waiting = false;
+    write();
+  };
+  return {
+    ask: () => {
+      if (waiting) return;
+      waiting = true;
+      later(run);
+    },
+    flush: run,
   };
 }
 
@@ -165,7 +177,7 @@ export function createEditorViewStore(
   const adopt = (next: EditorViewsState): void => {
     if (next === state.get()) return;
     state.set(next);
-    write();
+    write.ask();
   };
 
   const withEntry = (panel: string, entry: EditorViewEntry): EditorViewsState => {
@@ -199,11 +211,13 @@ export function createEditorViewStore(
     },
 
     focus: (panel) => {
-      if (state.get().focused !== panel) adopt({ ...state.get(), focused: panel });
+      if (state.get().focused !== panel) state.set({ ...state.get(), focused: panel });
     },
 
     forgetClosed: (open) => {
       adopt(withoutClosed(state.get(), open));
     },
+
+    flush: write.flush,
   };
 }

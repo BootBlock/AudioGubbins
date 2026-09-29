@@ -42,15 +42,8 @@ const selectorOf = (roles: readonly string[], elements: readonly string[]): stri
     .concat(elements)
     .join(', ');
 
-/**
- * Controls that move among their parts, or change their value, with the
- * navigation keys pressed alone: an arrow in a tab list, a toolbar, a slider
- * or a radio group is the control's, not a shortcut's.
- */
-const NAVIGATES = selectorOf(
-  ['tablist', 'tab', 'toolbar', 'slider', 'spinbutton', 'radiogroup', 'radio'],
-  ['input[type="range"]'],
-);
+/** Where the editor's navigation keys pressed alone are its shortcuts: its surface. */
+const TAKES_NAVIGATION = '[role="application"]';
 
 /** Controls that also take a letter pressed alone, to find the entry it starts. */
 const TYPES_AHEAD = selectorOf(
@@ -71,18 +64,23 @@ const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a press made with no modifier but Shift is aimed at a control that
- * uses it itself: a navigation key in a control that moves with it, or any
- * such key in a list or a menu, which finds an entry by its letter. A shortcut
- * on a key pressed alone gives way there, so the editor's keys never take a
- * menu's, a toolbar's or a slider's.
+ * Whether a press made with no modifier but Shift is aimed at something that
+ * uses it itself. A navigation key pressed alone moves, scrolls or changes
+ * whatever has the keyboard, a list, a toolbar, a slider, a scrolled panel or
+ * a dialogue, so it is a shortcut only in the editor's surface and where
+ * nothing has the keyboard; any other key pressed alone is a list's or a
+ * menu's, which finds an entry by its letter. A shortcut on a key pressed
+ * alone gives way there, so the editor's keys never take what a control or a
+ * page does with them.
  */
 export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading): boolean {
   if (reading.ctrlKey || reading.metaKey || reading.altKey || !(target instanceof Element)) {
     return false;
   }
-  if (target.closest(TYPES_AHEAD) !== null) return true;
-  return NAVIGATION_KEYS.has(reading.code) && target.closest(NAVIGATES) !== null;
+  if (NAVIGATION_KEYS.has(reading.code)) {
+    return target !== target.ownerDocument.body && target.closest(TAKES_NAVIGATION) === null;
+  }
+  return target.closest(TYPES_AHEAD) !== null;
 }
 
 /**

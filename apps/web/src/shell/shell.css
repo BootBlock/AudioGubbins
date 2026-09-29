@@ -768,11 +768,6 @@
   user-select: none;
 }
 
-.ag-editor-surface:focus-visible {
-  outline: 2px solid var(--ag-chrome-border-focus);
-  outline-offset: 1px;
-}
-
 .ag-editor-canvas {
   position: absolute;
   inset: 0;

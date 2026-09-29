@@ -53,7 +53,6 @@ describe('the editor views', () => {
       timeFormat: { kind: 'timecode', frames: StandardFrameRates.ntscDropFrame },
       snapping: { ...state.snapping, kinds: new Set([SnapKind.Marker]) },
     }));
-    first.focus('editor');
 
     const again = storeOver(raw);
     const kept = again.entry('editor');
@@ -66,7 +65,33 @@ describe('the editor views', () => {
       viewport: { zoom: { kind: 'pixels-per-sample', pixels: 8 }, width: 0 },
     });
     expect([...(kept?.state.snapping.kinds ?? [])]).toEqual([SnapKind.Marker]);
-    expect(again.get().focused).toBe('editor');
+  });
+
+  it('note the editor in use without writing, since the person changed nothing', () => {
+    const raw = ephemeralStorage();
+    let writes = 0;
+    const views = createEditorViewStore(
+      createStateStorage(
+        {
+          ...raw,
+          write: (key, value) => {
+            writes += 1;
+            raw.write(key, value);
+          },
+        },
+        logger,
+        () => undefined,
+      ),
+      logger,
+      (write) => {
+        write();
+      },
+    );
+
+    views.focus('editor');
+
+    expect(views.get().focused).toBe('editor');
+    expect(writes).toBe(0);
   });
 
   it('take a stored field that is not usable as its default, and keep the rest', () => {
@@ -134,5 +159,19 @@ describe('the editor views', () => {
 
     expect(waiting).toHaveLength(1);
     expect(writes).toBe(1);
+  });
+
+  it('write a change still waiting when flushed, as the page is hidden', () => {
+    const raw = ephemeralStorage();
+    const views = createEditorViewStore(
+      createStateStorage(raw, logger, () => undefined),
+      logger,
+      () => undefined,
+    );
+    views.open('editor', TONES);
+
+    views.flush();
+
+    expect(storeOver(raw).entry('editor')?.asset).toBe(TONES.id);
   });
 });

@@ -408,7 +408,13 @@ describe('a key a focused control uses itself', () => {
     expect(ownsItsKeys(inside('slider'), reading('Home'))).toBe(true);
   });
 
-  it('is a shortcut’s anywhere else, with a modifier, and for a letter in a toolbar', () => {
+  it('is the page’s when it scrolls a dialogue or a panel, pressed alone', () => {
+    expect(ownsItsKeys(inside('dialog'), reading('PageDown'))).toBe(true);
+    expect(ownsItsKeys(inside('tabpanel'), reading('End'))).toBe(true);
+  });
+
+  it('is a shortcut’s in the editor, with nothing focused, with a modifier, and for a letter in a toolbar', () => {
+    expect(ownsItsKeys(inside('application'), reading('ArrowLeft'))).toBe(false);
     expect(ownsItsKeys(document.body, reading('ArrowLeft'))).toBe(false);
     expect(ownsItsKeys(inside('menu'), reading('KeyA', { ctrlKey: true }))).toBe(false);
     expect(ownsItsKeys(inside('toolbar'), reading('KeyV'))).toBe(false);

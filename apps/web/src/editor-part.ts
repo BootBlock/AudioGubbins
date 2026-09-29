@@ -134,6 +134,12 @@ export function startEditor(
     setTimeout(write, 250);
   });
   followWorkspace(workspace, editorViews);
+  // A page that closes or reloads is hidden first, which is the last moment a
+  // view's waiting write can be made.
+  const flushViews = (): void => {
+    if (document.visibilityState === 'hidden') editorViews.flush();
+  };
+  document.addEventListener('visibilitychange', flushViews);
   const picture = new ReferencePicture({
     platform: browserPicturePlatform(capabilities.has(CapabilityKey.VideoFrameCallback)),
     logger,
@@ -162,6 +168,8 @@ export function startEditor(
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>
       panelPartsOf(context, controls, { peaks, graphics, rendererReports, logger }),
     dispose: () => {
+      document.removeEventListener('visibilitychange', flushViews);
+      editorViews.flush();
       peaks.dispose();
       picture.dispose();
     },
