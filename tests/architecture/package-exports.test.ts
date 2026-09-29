@@ -185,7 +185,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/input': {
-    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The waveform canvas, Phase 04, is the first surface a pointer edits; the shell reads only key presses.':
+    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
       ['NO_GESTURE', 'toolStrength'],
   },
   '@audiogubbins/domain': {
@@ -262,7 +262,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'nominalFramesPerSecond',
         'roundHalfAway',
         'samplesInPixel',
-        'targetRange',
         'targetsWithin',
         'viewportAtStart',
         'withSpectralArea',

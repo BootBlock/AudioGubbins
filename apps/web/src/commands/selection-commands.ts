@@ -23,6 +23,7 @@ import {
 import {
   EMPTY_SELECTION,
   SelectionFacet,
+  activeFacet,
   selectionsEqual,
   withChannels,
   withObjects,
@@ -81,13 +82,19 @@ function boundary(value: number): SampleCount | undefined {
   return read.ok ? read.value : undefined;
 }
 
-/** The range the selection is extended from: its time range, or the sample at the playhead. */
+/**
+ * The range the selection is extended from: its time range where that is the
+ * facet made last, and otherwise the sample at the playhead, never a range the
+ * person made before the marker they have since chosen.
+ */
 function extensible(
   current: SelectionSet,
   target: EditorTarget,
   context: ShellContext,
 ): BoundaryRange {
-  if (current.time !== undefined) return current.time;
+  if (activeFacet(current) === SelectionFacet.Time && current.time !== undefined) {
+    return current.time;
+  }
   const at = playheadOf(context, target.asset);
   const end = boundary(Math.min(at + 1, target.asset.length));
   return { start: at, end: end ?? at };

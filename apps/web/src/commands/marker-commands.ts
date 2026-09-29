@@ -27,12 +27,26 @@ import {
   isWellFormedId,
   type DomainResult,
   type Marker,
+  type MarkerId,
   type SampleCount,
 } from '@audiogubbins/domain';
-import { formatPosition, TimeFormatKind, type TimeFormat } from '@audiogubbins/timeline';
+import {
+  SelectionFacet,
+  TimeFormatKind,
+  formatPosition,
+  type MadeFacet,
+  type TargetRequest,
+  type TimeFormat,
+} from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-import { boundaryArgument, editorTarget, needsEditor, playheadOf } from './editor-target.js';
+import {
+  boundaryArgument,
+  editorTarget,
+  needsEditor,
+  playheadOf,
+  selectedTarget,
+} from './editor-target.js';
 import { isRecord } from '../state/stored-value.js';
 import { markerIdsOf } from './selection-commands.js';
 import { textArgument } from './shell-command.js';
@@ -195,6 +209,22 @@ function addMarker(): Command<ShellContext> {
   );
 }
 
+/** Objects, and nothing else: a delete never falls back to a range, nor to everything. */
+const MARKERS_SELECTED: TargetRequest = {
+  accepts: new Set<MadeFacet>([SelectionFacet.Objects]),
+  whenNothing: 'refuse',
+};
+
+/** The markers the active selection in `asset` holds, or why it holds none. */
+function selectedMarkers(context: ShellContext, asset: EditorAsset): readonly MarkerId[] | string {
+  const target = selectedTarget(context, asset, MARKERS_SELECTED);
+  if (typeof target === 'string') return target;
+  if (target.kind !== 'objects' || target.objects.kind !== 'markers') {
+    return 'The active selection holds no markers. Click a marker first.';
+  }
+  return target.objects.ids;
+}
+
 function removeMarkers(): Command<ShellContext> {
   return markerCommand(
     'editor.remove-markers',
@@ -203,10 +233,9 @@ function removeMarkers(): Command<ShellContext> {
       const found = assetOf(context, invocation);
       if (typeof found === 'string') return found;
       const { asset } = found;
-      const selection = context.selections.of(asset.id).objects;
       const named = markerIdsOf(textArgument(invocation, 'markers'));
-      const ids = named.length > 0 ? named : selection?.kind === 'markers' ? selection.ids : [];
-      if (ids.length === 0) return 'No marker is selected. Click a marker first.';
+      const ids = named.length > 0 ? named : selectedMarkers(context, asset);
+      if (typeof ids === 'string') return ids;
       const removed: Marker[] = [];
       for (const id of ids) {
         const gone = context.content.removeMarker(asset, id);

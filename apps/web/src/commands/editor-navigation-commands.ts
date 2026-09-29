@@ -18,6 +18,7 @@ import {
 } from '@audiogubbins/commands';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import {
+  SelectionFacet,
   framing,
   pixelOf,
   placedAt,
@@ -27,8 +28,11 @@ import {
   zoomedAround,
   zoomedIn,
   zoomedOut,
+  targetRange,
   zoomsEqual,
   type BoundaryRange,
+  type MadeFacet,
+  type TargetRequest,
   type ViewportState,
   type Zoom,
 } from '@audiogubbins/timeline';
@@ -39,6 +43,7 @@ import {
   needsEditor,
   numberArgument,
   playheadOf,
+  selectedTarget,
   type EditorTarget,
 } from './editor-target.js';
 import { shellCommand, type ShellCommandOptions } from './shell-command.js';
@@ -116,10 +121,17 @@ function zoomTo(zoom: (current: Zoom) => Zoom): ViewChange {
   };
 }
 
-/** The time range the selection in the target's asset holds, or why there is none. */
+/** A range in time or a spectral area has an extent to frame; objects are framed by theirs. */
+const EXTENT_SELECTED: TargetRequest = {
+  accepts: new Set<MadeFacet>([SelectionFacet.Time, SelectionFacet.Spectral]),
+  whenNothing: 'refuse',
+};
+
+/** The range the active selection in the target's asset covers, or why there is none. */
 function selectedRange(target: EditorTarget, context: ShellContext): BoundaryRange | string {
-  const range = context.selections.of(target.asset.id).time;
-  return range ?? 'Nothing is selected in time to zoom to. Select a range first.';
+  const selected = selectedTarget(context, target.asset, EXTENT_SELECTED);
+  if (typeof selected === 'string') return selected;
+  return targetRange(selected) ?? 'The active selection has no extent in time to zoom to.';
 }
 
 /** A view scrolled by a share of its width, back or forward. */

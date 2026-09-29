@@ -117,6 +117,40 @@ describe('a selection (REQ-EDIT-063, REQ-EDIT-064)', () => {
     expect(set.time).toEqual({ start: 100, end: 200 });
   });
 
+  it('is acted on by its facet made last, never by one made before it', () => {
+    openView('editor', 'test:loop');
+    const loop = context.assets.find('test:loop');
+    if (loop === undefined) throw new Error('No loop test.');
+    const [attack] = context.content.of(loop).markers;
+    if (attack === undefined) throw new Error('No marker.');
+
+    run('editor.select-marker', { marker: attack.id });
+    run('editor.select-time', { start: 4800, end: 9600 });
+    const removal = run('editor.remove-markers');
+    run('editor.select-marker', { marker: attack.id });
+    const shown = view('editor').viewport;
+    const zoom = run('editor.zoom-to-selection');
+
+    expect(removal.kind).toBe('refused');
+    expect(context.content.of(loop).markers).toHaveLength(3);
+    expect(zoom.kind).toBe('refused');
+    expect(view('editor').viewport).toEqual(shown);
+  });
+
+  it('extends from the playhead when the facet made last is not a range', () => {
+    openView('editor', 'test:loop');
+    const loop = context.assets.find('test:loop');
+    const [attack] = loop === undefined ? [] : context.content.of(loop).markers;
+    if (attack === undefined) throw new Error('No marker.');
+
+    run('editor.select-time', { start: 100, end: 200 });
+    run('editor.select-marker', { marker: attack.id });
+    run('editor.set-playhead', { position: 4800 });
+    run('editor.extend-selection-forward');
+
+    expect(context.selections.of('test:loop').time).toEqual({ start: 4800, end: 4802 });
+  });
+
   it('refuses a range outside the asset, and one that ends before it starts', () => {
     expect(run('editor.select-time', { start: 10, end: 5 }).kind).toBe('refused');
     expect(run('editor.select-time', { start: 0, end: 480_001 }).kind).toBe('refused');

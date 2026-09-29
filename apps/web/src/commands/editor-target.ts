@@ -14,8 +14,9 @@ import {
   type CommandAvailability,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { sampleCount, type SampleCount } from '@audiogubbins/domain';
+import { channelCount, sampleCount, type SampleCount } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
+import { resolveTarget, type SelectionTarget, type TargetRequest } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import type { EditorViewEntry } from '../state/editor-view-store.js';
@@ -101,6 +102,24 @@ export function channelsArgument(
     .map((part) => Number(part.trim()))
     .filter((channel) => Number.isInteger(channel) && channel >= 0 && channel < channelCount);
   return channels.length === 0 ? undefined : channels;
+}
+
+/**
+ * What the selection in `asset` gives a command making `request`, by the
+ * selection set's one precedence (ADR-0042), or the reason it gives nothing: a
+ * command reads its target here rather than a facet of its choosing, so a
+ * facet made earlier is never acted on under the one the person made since.
+ */
+export function selectedTarget(
+  context: ShellContext,
+  asset: EditorAsset,
+  request: TargetRequest,
+): SelectionTarget | string {
+  const resolved = resolveTarget(context.selections.of(asset.id), request, {
+    length: asset.length,
+    channelCount: channelCount(asset.layout),
+  });
+  return resolved.ok ? resolved.value : resolved.failures[0].summary;
 }
 
 /**
