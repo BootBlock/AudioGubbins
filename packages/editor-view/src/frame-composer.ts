@@ -192,14 +192,15 @@ export class FrameComposer {
     for (const frequency of [100, 1000, 10_000]) {
       if (frequency < settings.lowest || frequency > settings.highest) continue;
       const y = frequencyY(lane, frequency, settings);
-      ticks.add(area.x, y, 6, 1);
+      // At the lane's right edge, clear of the channel's name at its left.
+      ticks.add(area.x + area.width - 6, y, 6, 1);
       labels.push({
         text: frequency >= 1000 ? `${String(frequency / 1000)} kHz` : `${String(frequency)} Hz`,
-        x: area.x + 8,
+        x: area.x + area.width - 8,
         y,
         colour: scene.palette.quietText,
         font: scene.type.small,
-        align: 'left',
+        align: 'right',
         baseline: 'middle',
       });
     }

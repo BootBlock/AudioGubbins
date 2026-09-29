@@ -91,6 +91,33 @@ export function drawRuler(
 }
 
 /** Draws the strip: region spans with their names, and marker flags with theirs. */
+/**
+ * How wide a label of `text` is taken to be in CSS pixels: its length at an
+ * average glyph width for the font's size. The view has no canvas to measure
+ * text with, and a label need only be known not to reach the next.
+ */
+function labelWidth(text: string, font: string): number {
+  const size = Number.parseFloat(font);
+  return text.length * (Number.isFinite(size) ? size : 11) * 0.6;
+}
+
+/**
+ * The labels among `labels` that do not run into the one before them, in
+ * order along the strip: where two marks are closer than a name is long, the
+ * later name is left out and its mark is still drawn, so no name is written
+ * over another at a zoom that crowds them.
+ */
+function spacedLabels(labels: readonly TextLabel[]): TextLabel[] {
+  const kept: TextLabel[] = [];
+  let reach = -Infinity;
+  for (const each of labels.toSorted((one, other) => one.x - other.x)) {
+    if (each.x < reach) continue;
+    kept.push(each);
+    reach = each.x + labelWidth(each.text, each.font) + 4;
+  }
+  return kept;
+}
+
 export function drawStrip(
   pool: BuilderPool,
   layout: ViewLayout,
@@ -120,5 +147,8 @@ export function drawStrip(
     (selectedMarkers.has(marker.id) ? chosen : flags).add(x - 1, strip.y, 7, strip.height);
     labels.push(label(style, marker.displayName, x + 9, middle, 'middle'));
   }
-  out.push(spans.batch(), flags.batch(), chosen.batch(), { kind: 'text', labels });
+  out.push(spans.batch(), flags.batch(), chosen.batch(), {
+    kind: 'text',
+    labels: spacedLabels(labels),
+  });
 }

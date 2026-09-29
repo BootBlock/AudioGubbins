@@ -131,6 +131,27 @@ describe('composing a frame', () => {
     );
   });
 
+  it('leaves out a marker name that would run into the one before it, and keeps its mark', () => {
+    // 100,000 frames in 1000 pixels: a hundred frames a pixel.
+    const crowded = new FrameComposer().compose(
+      scene({
+        content: {
+          length: at(100_000),
+          channelNames: ['Left', 'Right'],
+          markers: [marker('Attack', 0), marker('Sustain', 500), marker('Release', 50_000)],
+          regions: [],
+        },
+      }),
+    );
+
+    expect(
+      texts(crowded).filter((text) => ['Attack', 'Sustain', 'Release'].includes(text)),
+    ).toEqual(['Attack', 'Release']);
+    // Every mark is still drawn in the strip, the second without its name.
+    const strip = crowded.layers.find((layer) => layer.clip?.y === 24 && layer.clip.height === 18);
+    expect(rectanglesOf(strip?.batches ?? [], PALETTE.marker)).toBe(3);
+  });
+
   it('composes the same frame from the same state, so a lost device is recovered by composing it again', () => {
     const composer = new FrameComposer();
     const given = scene({
