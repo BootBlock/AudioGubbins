@@ -73,6 +73,14 @@ export interface RenderJob {
 
   /** Frames rendered at a time, which bounds memory and never changes a bit of the output. */
   readonly chunkFrames: number;
+
+  /**
+   * The bytes each conversion may give its filter's table of coefficients,
+   * from the memory the host measured as available, or `undefined` where it
+   * could not tell. A table past it is not built, and that conversion computes
+   * its taps as it goes, slower and with the same bits (REQ-ARCH-087).
+   */
+  readonly coefficientBudgetBytes?: number;
 }
 
 /** How far a render has got. */

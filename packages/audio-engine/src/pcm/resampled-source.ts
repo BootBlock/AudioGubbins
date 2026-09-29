@@ -6,10 +6,12 @@
  * through the canonical resampler, and nothing converts implicitly.
  *
  * Output frame `k` is defined by the conversion of the whole source from its
- * first frame, so a read anywhere but where the last one ended runs the
- * conversion again from the start and discards up to the frame asked for.
- * Playback that seeks converts a source that starts at the seek position
- * instead (`offsetSource`), which is the conversion of that audio.
+ * first frame. A read anywhere but where the last one ended seeks the
+ * converter to that frame, which resumes the source a filter length before
+ * the frame's input position and writes the bits a conversion run from the
+ * first frame writes, so a read two hours in costs what a read at the start
+ * does. Playback that seeks converts a source that starts at the seek
+ * position instead (`offsetSource`), which is the conversion of that audio.
  */
 
 import {
@@ -21,7 +23,12 @@ import {
 } from '@audiogubbins/domain';
 
 import { throwIfCancelled, type CancellationSignal } from '../cancellation.js';
-import type { CanonicalDsp, CanonicalResampler, ResamplingQuality } from '../dsp/canonical-dsp.js';
+import type {
+  CanonicalDsp,
+  CanonicalResampler,
+  ResamplerCoefficients,
+  ResamplingQuality,
+} from '../dsp/canonical-dsp.js';
 import { allocateBlock, blockView, type AudioFrameBlock } from './frame-block.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 
@@ -33,27 +40,37 @@ function convertedLength(length: number, from: number, to: number): number {
   return Number((BigInt(length) * BigInt(to) + BigInt(from) - 1n) / BigInt(from));
 }
 
-/** The source's audio at `to`, converted at `quality`. */
+/** A converted source, and how its resampler came by its taps, for a workload estimate. */
+export interface ResampledSource extends PcmSource {
+  readonly coefficients: ResamplerCoefficients;
+}
+
+/**
+ * The source's audio at `to`, converted at `quality`, its resampler given
+ * `coefficientBudgetBytes` for its filter's table where the caller measured
+ * the memory it can spare (see `ResamplerSettings`).
+ */
 export function resampledSource(
   dsp: CanonicalDsp,
   source: PcmSource,
   to: SampleRate,
   quality: ResamplingQuality,
-): DomainResult<PcmSource> {
+  coefficientBudgetBytes?: number,
+): DomainResult<ResampledSource> {
   const length =
     source.length === undefined
       ? undefined
       : sampleCount(convertedLength(source.length, source.sampleRate, to));
   if (length !== undefined && !length.ok) return length;
-  const make = (): DomainResult<CanonicalResampler> =>
-    dsp.createResampler({
-      from: source.sampleRate,
-      to,
-      channels: source.layout.roles.length,
-      quality,
-    });
-  return mapResult(make(), (first) =>
-    new Conversion(source, to, make, first).asSource(length?.value),
+  const made = dsp.createResampler({
+    from: source.sampleRate,
+    to,
+    channels: source.layout.roles.length,
+    quality,
+    ...(coefficientBudgetBytes === undefined ? {} : { coefficientBudgetBytes }),
+  });
+  return mapResult(made, (resampler) =>
+    new Conversion(source, to, resampler).asSource(length?.value),
   );
 }
 
@@ -61,27 +78,22 @@ export function resampledSource(
 class Conversion {
   readonly #source: PcmSource;
   readonly #to: SampleRate;
-  readonly #make: () => DomainResult<CanonicalResampler>;
-  #resampler: CanonicalResampler;
+  readonly #resampler: CanonicalResampler;
+  /** The source frame the next push starts at. */
   #read = 0;
   #written = 0;
   readonly #input: AudioFrameBlock;
 
-  constructor(
-    source: PcmSource,
-    to: SampleRate,
-    make: () => DomainResult<CanonicalResampler>,
-    first: CanonicalResampler,
-  ) {
+  constructor(source: PcmSource, to: SampleRate, resampler: CanonicalResampler) {
     this.#source = source;
     this.#to = to;
-    this.#make = make;
-    this.#resampler = first;
+    this.#resampler = resampler;
     this.#input = allocateBlock(source.layout, source.sampleRate, INPUT_CHUNK);
   }
 
-  asSource(length: SampleCount | undefined): PcmSource {
+  asSource(length: SampleCount | undefined): ResampledSource {
     return {
+      coefficients: this.#resampler.coefficients,
       layout: this.#source.layout,
       sampleRate: this.#to,
       length,
@@ -99,7 +111,10 @@ class Conversion {
     signal: CancellationSignal | undefined,
   ): Promise<number> {
     assertReadableInto({ layout: this.#source.layout, sampleRate: this.#to }, into);
-    if (start !== this.#written) await this.#restartAt(start, signal);
+    if (start !== this.#written) {
+      this.#read = this.#resampler.seek(start);
+      this.#written = start;
+    }
     const wanted = framesAvailable(length, start, into.frames);
     let filled = 0;
     while (filled < wanted) {
@@ -130,25 +145,5 @@ class Conversion {
     const position = sampleCount(this.#read);
     if (!position.ok) throw new Error(position.failures[0].summary);
     return position.value;
-  }
-
-  async #restartAt(start: number, signal: CancellationSignal | undefined): Promise<void> {
-    this.#resampler.release();
-    const again = this.#make();
-    if (!again.ok) throw new Error(again.failures[0].summary);
-    this.#resampler = again.value;
-    this.#read = 0;
-    this.#written = 0;
-    const discard = allocateBlock(this.#source.layout, this.#to, INPUT_CHUNK);
-    while (this.#written < start) {
-      const frames = Math.min(INPUT_CHUNK, start - this.#written);
-      const skipped = await this.read(
-        this.#written,
-        undefined,
-        blockView(discard, 0, frames),
-        signal,
-      );
-      if (skipped === 0) return;
-    }
   }
 }

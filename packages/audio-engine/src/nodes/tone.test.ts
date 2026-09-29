@@ -117,6 +117,9 @@ describe('the tone node', () => {
                 render: (into) => {
                   made.value.render(into);
                 },
+                seek: (frame) => {
+                  made.value.seek(frame);
+                },
                 release: () => {
                   released += 1;
                 },

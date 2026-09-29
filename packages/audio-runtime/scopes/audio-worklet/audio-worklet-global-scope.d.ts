@@ -42,4 +42,10 @@ declare namespace WebAssembly {
 
   /** What compiling refuses bytes that are not a valid module with. */
   class CompileError extends Error {}
+
+  /** What instantiating refuses a module whose imports cannot be linked with. */
+  class LinkError extends Error {}
+
+  /** What a module traps with, as its start function runs or later. */
+  class RuntimeError extends Error {}
 }

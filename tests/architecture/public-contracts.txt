@@ -44,13 +44,16 @@ Published paths
   CanonicalDsp.createResampler: (settings: ResamplerSettings) => DomainResult<CanonicalResampler>
   interface CanonicalOscillator
   CanonicalOscillator.render: (into: Float32Array) => void
+  CanonicalOscillator.seek: (frame: number) => void
   CanonicalOscillator.release: () => void
   interface CanonicalResampler
   readonly CanonicalResampler.channels: number
   readonly CanonicalResampler.lookahead: number
+  readonly CanonicalResampler.coefficients: ResamplerCoefficients
   CanonicalResampler.push: (input: readonly Float32Array[]) => void
   CanonicalResampler.finish: () => void
   CanonicalResampler.pull: (output: readonly Float32Array[]) => number
+  CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
   interface ChunkPlan
@@ -63,9 +66,12 @@ Published paths
   readonly ChunkPlanRequest.frames: SampleCount
   readonly ChunkPlanRequest.channels: number
   readonly ChunkPlanRequest.sampleRate: SampleRate
+  readonly ChunkPlanRequest.conversions?: readonly ResamplerCoefficients[]
   interface ClockAnchor
   readonly ClockAnchor.contextFrame: number
   readonly ClockAnchor.timelineFrame: SampleCount
+  const CoefficientStrategy: { readonly Table: "table"; readonly Computed: "computed"; }
+  type CoefficientStrategy = "computed" | "table"
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   interface GraphExecutor
@@ -168,6 +174,7 @@ Published paths
   readonly RenderJob.range: RenderRange
   readonly RenderJob.quality: RenderQualityProfile
   readonly RenderJob.chunkFrames: number
+  readonly RenderJob.coefficientBudgetBytes?: number
   interface RenderOptions
   readonly RenderOptions.signal?: CancellationSignal
   readonly RenderOptions.onProgress?: (progress: RenderProgress) => void
@@ -186,11 +193,15 @@ Published paths
   readonly RenderSummary.frames: SampleCount
   readonly RenderSummary.latencyTrimmed: ReadonlyMap<NodeId, SampleCount>
   readonly RenderSummary.conversions: readonly RenderConversion[]
+  interface ResamplerCoefficients
+  readonly ResamplerCoefficients.strategy: CoefficientStrategy
+  readonly ResamplerCoefficients.tableBytes: number
   interface ResamplerSettings
   readonly ResamplerSettings.from: SampleRate
   readonly ResamplerSettings.to: SampleRate
   readonly ResamplerSettings.channels: number
   readonly ResamplerSettings.quality: ResamplingQuality
+  readonly ResamplerSettings.coefficientBudgetBytes?: number
   const ResamplingQuality: { readonly Maximum: 0; readonly High: 1; readonly Draft: 2; }
   type ResamplingQuality = 0 | 1 | 2
   interface ResourceWarning
@@ -235,10 +246,13 @@ Published paths
   interface WorkloadEstimate
   readonly WorkloadEstimate.bytesHeldWhole: number
   readonly WorkloadEstimate.audioSeconds: number
+  readonly WorkloadEstimate.coefficientTableBytes: number
+  readonly WorkloadEstimate.computedConversions: number
   interface WorkloadShape
   readonly WorkloadShape.frames: SampleCount
   readonly WorkloadShape.channels: number
   readonly WorkloadShape.sampleRate: SampleRate
+  readonly WorkloadShape.conversions?: readonly ResamplerCoefficients[]
   function allocateBlock(layout: ChannelLayout, sampleRate: SampleRate, frames: number): AudioFrameBlock
   function assertReadableInto(source: Pick<PcmSource, "layout" | "sampleRate">, into: AudioFrameBlock): void
   function assessStability(history: UnderrunHistory, contextFrame: number, profile: PerformanceProfile, settings: PerformanceSettings): StabilityAssessment
@@ -260,7 +274,7 @@ Published paths
   function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan>
   function recordUnderruns(history: UnderrunHistory, contextFrame: number, count?: number): DomainResult<UnderrunHistory>
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
-  function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality): DomainResult<PcmSource>
+  function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
   function selectProcessingMode(request: ProcessingModeRequest): DomainResult<ProcessingModeChoice>
   function settingsFor(profile: PresetProfile): DomainResult<PerformanceSettings>
   function settingsFor(profile: "custom", custom: PerformanceSettings): DomainResult<PerformanceSettings>
@@ -1666,6 +1680,15 @@ Published paths
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
 
 Named by a published contract, and published by no entry point
+
+packages/audio-engine/src/pcm/resampled-source.ts
+  interface ResampledSource extends PcmSource
+  readonly ResampledSource.coefficients: ResamplerCoefficients
+  readonly ResampledSource.layout: import("packages/domain/src/index").ChannelLayout
+  readonly ResampledSource.sampleRate: SampleRate
+  readonly ResampledSource.length: SampleCount | undefined
+  ResampledSource.read: (start: SampleCount, into: AudioFrameBlock, signal?: CancellationSignal) => Promise<number>
+  ResampledSource.release: () => void
 
 packages/audio-runtime/src/context/audio-context-port.ts
   interface AudioContextOptions

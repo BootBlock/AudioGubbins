@@ -15,7 +15,7 @@ import {
   type OscillatorSettings,
   type ResamplerSettings,
 } from '../canonical-dsp.js';
-import { checkOscillator, checkResampler } from '../settings.js';
+import { assertSeekFrame, checkOscillator, checkResampler, framesOfPlanar } from '../settings.js';
 import { ReferenceOscillator, sineOfTurns } from './primitives.js';
 import { ReferenceResampler } from './resampling.js';
 
@@ -30,6 +30,10 @@ function oscillatorFrom(settings: OscillatorSettings): CanonicalOscillator {
     render: (into) => {
       oscillator.render(into);
     },
+    seek: (frame) => {
+      assertSeekFrame(frame, 'An oscillator');
+      oscillator.seek(frame);
+    },
     // Garbage collected: nothing outside the object holds its state.
     release: () => undefined,
   };
@@ -41,19 +45,29 @@ function resamplerFrom(settings: ResamplerSettings): CanonicalResampler {
     settings.to,
     settings.channels,
     settings.quality,
+    settings.coefficientBudgetBytes ?? Number.POSITIVE_INFINITY,
   );
+  const channels = resampler.channels;
   return {
-    channels: resampler.channels,
+    channels,
     lookahead: resampler.lookahead,
+    coefficients: resampler.coefficients,
     push: (input) => {
-      if (!resampler.push(input)) {
-        throw new Error('The resampler was given input after its end, or of the wrong shape.');
+      if (!resampler.push(input, framesOfPlanar(input, channels))) {
+        throw new Error('The resampler was given input after its end.');
       }
     },
     finish: () => {
       resampler.finish();
     },
-    pull: (output) => resampler.pull(output),
+    pull: (output) => {
+      framesOfPlanar(output, channels);
+      return resampler.pull(output);
+    },
+    seek: (frame) => {
+      assertSeekFrame(frame, 'A resampler');
+      return resampler.seek(frame);
+    },
     get drained() {
       return resampler.drained;
     },

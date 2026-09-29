@@ -1,20 +1,9 @@
 //! Streaming conversion: input pushed in any chunks, output pulled in any.
 
+use crate::error::ResamplerError;
 use crate::greatest_common_divisor;
-use crate::kernel::Kernel;
+use crate::kernel::{CoefficientStrategy, Kernel};
 use crate::quality::ResamplingQuality;
-
-/// Why a resampler cannot be made or fed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResamplerError {
-    /// A sample rate is zero.
-    RateZero,
-    /// There are no channels.
-    NoChannels,
-    /// Input was given after the stream was finished, or with the wrong
-    /// number of channels or of different lengths.
-    InputRefused,
-}
 
 /// A multichannel converter from one rate to another.
 ///
@@ -27,6 +16,10 @@ pub enum ResamplerError {
 /// starts at input position zero, so the conversion adds no delay to an
 /// offline render; to produce a sample it needs `K` input frames past it,
 /// which is its latency when it runs in real time.
+///
+/// Because a sample depends only on the `2K + 1` input frames around its
+/// position and on its phase, the stream can [seek](Self::seek) to any output
+/// frame and write from there the bits a stream run from frame zero writes.
 #[derive(Debug)]
 pub struct StreamingResampler {
     kernel: Kernel,
@@ -37,11 +30,14 @@ pub struct StreamingResampler {
     finished: bool,
     index: u64,
     phase: u32,
-    scratch: Vec<f64>,
 }
 
 impl StreamingResampler {
-    /// A converter from `from` to `to` hertz for `channels` channels.
+    /// A converter from `from` to `to` hertz for `channels` channels, keeping
+    /// its filter's coefficients in a table if the table fits in
+    /// `coefficient_budget` bytes, and computing them as it goes if not; see
+    /// [`Kernel::new`]. The budget is the caller's measure of the memory it
+    /// can spare, and changes no bit of the output.
     ///
     /// # Errors
     ///
@@ -51,6 +47,7 @@ impl StreamingResampler {
         to: u32,
         channels: usize,
         quality: ResamplingQuality,
+        coefficient_budget: usize,
     ) -> Result<Self, ResamplerError> {
         if from == 0 || to == 0 {
             return Err(ResamplerError::RateZero);
@@ -59,8 +56,7 @@ impl StreamingResampler {
             return Err(ResamplerError::NoChannels);
         }
         let divisor = greatest_common_divisor(from, to);
-        let kernel = Kernel::new(to / divisor, from / divisor, quality);
-        let scratch = vec![0.0; kernel.taps()];
+        let kernel = Kernel::new(to / divisor, from / divisor, quality, coefficient_budget);
         Ok(Self {
             kernel,
             history: vec![Vec::new(); channels],
@@ -69,7 +65,6 @@ impl StreamingResampler {
             finished: false,
             index: 0,
             phase: 0,
-            scratch,
         })
     }
 
@@ -77,6 +72,18 @@ impl StreamingResampler {
     #[must_use]
     pub fn lookahead(&self) -> u32 {
         self.kernel.half()
+    }
+
+    /// Whether its filter's taps come from a table or are computed as it goes.
+    #[must_use]
+    pub fn coefficient_strategy(&self) -> CoefficientStrategy {
+        self.kernel.strategy()
+    }
+
+    /// The bytes its filter's table holds, or 0 where the taps are computed.
+    #[must_use]
+    pub fn table_bytes(&self) -> usize {
+        self.kernel.table_bytes()
     }
 
     /// How many channels it converts.
@@ -110,6 +117,38 @@ impl StreamingResampler {
     /// sample are taken as silence and the rest of the output can be pulled.
     pub fn finish(&mut self) {
         self.finished = true;
+    }
+
+    /// Moves the stream so the next frame pulled is output frame `frame`, and
+    /// answers the input frame the next push must start at.
+    ///
+    /// Output frame `j` sits at input position `j · M / L`: index
+    /// `⌊j · M / L⌋` and phase `j · M mod L`, computed exactly. The input it
+    /// reads starts `K` frames before that index, so that is where the input
+    /// must resume; the history is emptied, and an end marked is forgotten.
+    /// Every frame pulled after the seek has the bits the same frame has in a
+    /// stream run from zero, and reaching it costs nothing that grows with
+    /// `frame`.
+    ///
+    /// # Errors
+    ///
+    /// [`ResamplerError::SeekOutOfRange`] when the frame's input position does
+    /// not fit in a 64-bit frame count; the stream is left as it was.
+    pub fn seek(&mut self, frame: u64) -> Result<u64, ResamplerError> {
+        let position = u128::from(frame) * u128::from(self.kernel.input_step());
+        let step = u128::from(self.kernel.output_step());
+        let index = u64::try_from(position / step).map_err(|_| ResamplerError::SeekOutOfRange)?;
+        let phase = u32::try_from(position % step).map_err(|_| ResamplerError::SeekOutOfRange)?;
+        let start = index.saturating_sub(u64::from(self.kernel.half()));
+        for channel in &mut self.history {
+            channel.clear();
+        }
+        self.base = start;
+        self.received = start;
+        self.finished = false;
+        self.index = index;
+        self.phase = phase;
+        Ok(start)
     }
 
     /// Whether every output sample has been pulled.
@@ -148,8 +187,8 @@ impl StreamingResampler {
     /// order, in `f64`, rounded once to `f32`; an index before the start or
     /// past the end of a finished stream reads silence.
     fn write_sample(&mut self, output: &mut [&mut [f32]], at: usize) {
-        let taps = self.kernel.phase_taps(self.phase, &mut self.scratch);
         let half = i64::from(self.kernel.half());
+        let taps = self.kernel.phase_taps(self.phase);
         #[allow(
             clippy::cast_possible_wrap,
             reason = "stream positions stay far below 2^63"
@@ -213,7 +252,7 @@ mod tests {
 
     use audiogubbins_dsp_core::SineOscillator;
 
-    use super::{ResamplerError, StreamingResampler};
+    use super::{CoefficientStrategy, ResamplerError, StreamingResampler};
     use crate::quality::ResamplingQuality;
 
     /// Converts `input` in chunks of `input_chunk`, pulling in `output_chunk`.
@@ -225,7 +264,8 @@ mod tests {
         input_chunk: usize,
         output_chunk: usize,
     ) -> Vec<f32> {
-        let mut resampler = StreamingResampler::new(from, to, 1, quality).expect("valid");
+        let mut resampler =
+            StreamingResampler::new(from, to, 1, quality, usize::MAX).expect("valid");
         let mut output = Vec::new();
         let mut buffer = vec![0.0_f32; output_chunk];
         let mut drain = |resampler: &mut StreamingResampler, output: &mut Vec<f32>| loop {
@@ -350,10 +390,113 @@ mod tests {
         assert!(peak < 1.0e-6, "{peak}");
     }
 
+    /// Seeks a fresh stream to `frame`, feeds it `input` from the frame the
+    /// seek answers, and pulls `count` frames.
+    fn convert_from(
+        input: &[f32],
+        from: u32,
+        to: u32,
+        quality: ResamplingQuality,
+        frame: u64,
+        count: usize,
+    ) -> Vec<f32> {
+        let mut resampler =
+            StreamingResampler::new(from, to, 1, quality, usize::MAX).expect("valid");
+        let start = usize::try_from(resampler.seek(frame).expect("in range")).expect("small");
+        let mut output = vec![0.0_f32; count];
+        let mut written = 0;
+        for chunk in input[start..].chunks(500) {
+            resampler.push(&[chunk]).expect("accepted");
+            written += resampler.pull(&mut [&mut output[written..]]);
+        }
+        resampler.finish();
+        written += resampler.pull(&mut [&mut output[written..]]);
+        assert_eq!(written, count);
+        output
+    }
+
+    #[test]
+    fn writes_after_a_seek_the_bits_a_run_from_zero_writes() {
+        let input = ramp(20_000);
+        for (from, to, quality) in [
+            (44_100, 48_000, ResamplingQuality::Maximum),
+            (48_000, 44_100, ResamplingQuality::High),
+            (48_000, 24_000, ResamplingQuality::Draft),
+        ] {
+            let whole = convert(&input, from, to, quality, 1_000, 1_000);
+            for frame in [0_usize, 5, 1_234, 9_000] {
+                let part = convert_from(&input, from, to, quality, frame as u64, 300);
+                assert_eq!(
+                    part,
+                    whole[frame..frame + 300],
+                    "{from} to {to} from {frame}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn resumes_its_input_a_filter_length_before_the_frame_sought() {
+        let mut resampler =
+            StreamingResampler::new(44_100, 48_000, 2, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
+        let half = u64::from(resampler.lookahead());
+        // Frame 160 000 of 48 kHz is frame 147 000 of 44.1 kHz exactly.
+        assert_eq!(resampler.seek(160_000), Ok(147_000 - half));
+        assert_eq!(resampler.seek(3), Ok(0));
+        // Past the end of what a 64-bit count holds, it refuses and stays.
+        let mut down = StreamingResampler::new(48_000, 1, 1, ResamplingQuality::Draft, usize::MAX)
+            .expect("valid");
+        assert_eq!(down.seek(u64::MAX), Err(ResamplerError::SeekOutOfRange));
+    }
+
+    #[test]
+    fn forgets_an_end_it_was_given_when_it_seeks() {
+        let mut resampler =
+            StreamingResampler::new(48_000, 48_000, 1, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
+        resampler.push(&[&[0.5; 10]]).expect("accepted");
+        resampler.finish();
+        let start = resampler.seek(4).expect("in range");
+        assert_eq!(start, 4);
+        assert!(!resampler.is_drained());
+        resampler
+            .push(&[&[0.25; 2]])
+            .expect("accepted after the seek");
+        resampler.finish();
+        let mut out = [0.0_f32; 4];
+        assert_eq!(resampler.pull(&mut [&mut out]), 2);
+        assert_eq!(out[..2], [0.25, 0.25]);
+    }
+
+    #[test]
+    fn writes_the_same_bits_whether_it_tabulates_or_computes_its_taps() {
+        let input = ramp(3_000);
+        for (from, to) in [(44_100, 48_000), (44_099, 48_000), (48_000, 48_000)] {
+            let run = |budget| {
+                let mut resampler =
+                    StreamingResampler::new(from, to, 1, ResamplingQuality::Draft, budget)
+                        .expect("valid");
+                resampler.push(&[&input]).expect("accepted");
+                resampler.finish();
+                let mut output = vec![0.0_f32; 4_000];
+                let written = resampler.pull(&mut [&mut output]);
+                output.truncate(written);
+                (resampler.coefficient_strategy(), output)
+            };
+            let (tabled, by_table) = run(usize::MAX);
+            let (computed, by_computing) = run(0);
+            assert_eq!(tabled, CoefficientStrategy::Table);
+            assert_eq!(computed, CoefficientStrategy::Computed);
+            assert_eq!(by_table, by_computing, "{from} to {to}");
+        }
+    }
+
     #[test]
     fn keeps_channels_aligned_and_separate() {
         let mut resampler =
-            StreamingResampler::new(44_100, 48_000, 3, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(44_100, 48_000, 3, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         let left = ramp(300);
         let silence = vec![0.0_f32; 300];
         let negated: Vec<f32> = left.iter().map(|sample| -sample).collect();
@@ -371,15 +514,18 @@ mod tests {
     #[test]
     fn refuses_what_it_cannot_convert() {
         assert_eq!(
-            StreamingResampler::new(0, 48_000, 1, ResamplingQuality::Draft).unwrap_err(),
+            StreamingResampler::new(0, 48_000, 1, ResamplingQuality::Draft, usize::MAX)
+                .unwrap_err(),
             ResamplerError::RateZero
         );
         assert_eq!(
-            StreamingResampler::new(48_000, 44_100, 0, ResamplingQuality::Draft).unwrap_err(),
+            StreamingResampler::new(48_000, 44_100, 0, ResamplingQuality::Draft, usize::MAX)
+                .unwrap_err(),
             ResamplerError::NoChannels
         );
         let mut resampler =
-            StreamingResampler::new(48_000, 44_100, 2, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(48_000, 44_100, 2, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         assert_eq!(
             resampler.push(&[&[0.0]]).unwrap_err(),
             ResamplerError::InputRefused
@@ -417,5 +563,12 @@ mod tests {
     }
 
     /// The ramp of 2 000 frames, 44.1 kHz to 48 kHz at maximum quality.
-    const GOLDEN_CONVERSION: u64 = 0x07bc_2c6d_5a22_da3f;
+    ///
+    /// Changed from `0x07bc_2c6d_5a22_da3f` when each quality's filter was
+    /// designed from its passband edge and stopband floor by Kaiser's formulas
+    /// (REQ-EXEC-180): the old cutoff put the transition band across the
+    /// lower Nyquist frequency, so the promised stopband did not hold. The new
+    /// value was computed by this crate, the WebAssembly module and the
+    /// TypeScript reference path, which agreed on every bit.
+    const GOLDEN_CONVERSION: u64 = 0x98be_85a5_9ec2_72f0;
 }
