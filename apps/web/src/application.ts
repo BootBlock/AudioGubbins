@@ -23,6 +23,7 @@ import {
 } from '@audiogubbins/commands';
 import {
   askLateQuestions,
+  audioRuntimeCapabilities,
   createCapabilityRegistry,
   describeEnvironment,
   detectBrowserEnvironment,
@@ -30,6 +31,7 @@ import {
   readLayoutMap,
   readPlatformSignals,
   watchAppearanceSettings,
+  type CapabilityRegistry,
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
 import { createDiagnosticCentre, createLogStore, type Logger } from '@audiogubbins/diagnostics';
@@ -42,12 +44,16 @@ import {
   type PanelKind,
 } from '@audiogubbins/workspace';
 
+import { browserEngineLoader, browserPlayback, browserRendering } from './audio/browser-audio.js';
+import { PlaybackControl } from './audio/playback-control.js';
+import { RenderControl } from './audio/render-control.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
 import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
-import { createInteractionStore } from './state/interaction-store.js';
+import { createAudioViewStore } from './state/audio-view-store.js';
+import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
 import { createLogViewStore } from './state/log-view-store.js';
 import {
@@ -103,6 +109,50 @@ function startKeyboardLayout(
   );
 
   return { store: keyboardLayout, stopWatching };
+}
+
+/**
+ * The audio part: the engine's view, and the controls that play and render
+ * the test signal.
+ *
+ * Nothing audible is made here. The context, the session, the DSP module and
+ * the render host are made by the first command that needs each, from the
+ * person's gesture, so a page that is only looked at starts no audio and loads
+ * none of the engine's threads, and one whose browser cannot play never makes
+ * a context at all: the command that would is unavailable there.
+ */
+function startAudio(
+  capabilities: CapabilityRegistry,
+  interaction: InteractionStore,
+  logger: Logger,
+): {
+  readonly parts: Pick<ShellContext, 'audio' | 'playback' | 'rendering'>;
+  readonly dispose: () => void;
+} {
+  const runtime = audioRuntimeCapabilities(capabilities);
+  const engine = browserEngineLoader(runtime);
+  const audio = createAudioViewStore();
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const playback = new PlaybackControl({
+    view: audio,
+    open: browserPlayback({ capabilities: runtime, engine, logger }),
+    announce,
+  });
+  const rendering = new RenderControl({
+    view: audio,
+    open: browserRendering(engine),
+    now: () => performance.now(),
+    announce,
+  });
+  return {
+    parts: { audio, playback, rendering },
+    dispose: () => {
+      playback.dispose();
+      rendering.dispose();
+    },
+  };
 }
 
 /**
@@ -198,6 +248,8 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
+  const audioPart = startAudio(capabilities, interaction, diagnostics.loggerFor('audio'));
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -213,6 +265,7 @@ export function createApplication() {
     verbosity: createVerbosityStore(verbosity, diagnostics, storage),
     environment: describeEnvironment(platform),
     clock,
+    ...audioPart.parts,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -263,9 +316,13 @@ export function createApplication() {
      *
      * Its own function rather than React's unmounting, because what is
      * registered here is outside React: `root.unmount()` removes no
-     * `visibilitychange` listener and no `focus` listener.
+     * `visibilitychange` listener and no `focus` listener, closes no audio
+     * context and ends no render.
      */
-    dispose: stopWatching,
+    dispose: () => {
+      stopWatching();
+      audioPart.dispose();
+    },
   };
 }
 

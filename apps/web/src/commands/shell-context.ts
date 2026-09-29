@@ -11,9 +11,11 @@
  * prohibits, and it would make every command untestable without the whole
  * application being constructed first.
  *
- * Note what is absent: no project, no audio, no renderer. A shell command
- * cannot mutate project state because it has no route to it, which is the
- * dependency direction REQ-EXEC-136.4 asks for rather than a rule to remember.
+ * Note what is absent: no project. A shell command cannot mutate project state
+ * because it has no route to it, which is the dependency direction
+ * REQ-EXEC-136.4 asks for rather than a rule to remember. The audio engine is
+ * here as the test signal's transport and renderer, which play and render a
+ * signal of their own and no project's audio.
  */
 
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
@@ -25,7 +27,10 @@ import type {
   LogStore,
 } from '@audiogubbins/diagnostics';
 
+import type { PlaybackControl } from '../audio/playback-control.js';
+import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
+import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
 import type { KeyboardLayoutStore } from '../state/keyboard-layout-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
@@ -74,4 +79,13 @@ export interface ShellContext {
 
   /** Where text the user asked to keep is offered as a file. */
   readonly files: TextFiles;
+
+  /** What the audio engine is doing, and the performance profile chosen. */
+  readonly audio: AudioViewStore;
+
+  /** Plays, pauses and stops the test signal. */
+  readonly playback: PlaybackControl;
+
+  /** Renders the test signal offline. */
+  readonly rendering: RenderControl;
 }

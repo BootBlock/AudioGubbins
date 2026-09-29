@@ -12,6 +12,7 @@ import {
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
+import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import { CapabilitiesPanel, DiagnosticsPanel, recordsPassing, renderPanel } from './panels.js';
 
@@ -87,6 +88,10 @@ describe('every panel', () => {
             logs: createLogStore(),
             logViews: createLogViewStore(),
             diagnosticModeActive: false,
+            audio: createAudioViewStore(),
+            playhead: () => undefined,
+            run: () => undefined,
+            unavailableReason: () => undefined,
           })}
         </>,
       );

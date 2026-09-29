@@ -1,6 +1,8 @@
 Published paths
   @audiogubbins/audio-engine
   @audiogubbins/audio-graph
+  @audiogubbins/audio-runtime
+  @audiogubbins/audio-runtime/threads/*
   @audiogubbins/capabilities
   @audiogubbins/commands
   @audiogubbins/design-system
@@ -393,6 +395,165 @@ Published paths
   function planGraph(analysis: LatencyAnalysis): ExecutionPlan
   function readGraphDescriptor(value: unknown): DomainResult<GraphDescriptor>
   function validateGraph(graph: GraphDescriptor, catalogue: NodeCatalogue): GraphValidation
+
+@audiogubbins/audio-runtime
+  interface AudioContextPort
+  readonly AudioContextPort.state: AudioContextState
+  readonly AudioContextPort.sampleRate: number
+  readonly AudioContextPort.currentTime: number
+  readonly AudioContextPort.baseLatency: number
+  readonly AudioContextPort.outputLatency: number | undefined
+  readonly AudioContextPort.destination: AudioDestinationPort
+  AudioContextPort.resume: () => Promise<void>
+  AudioContextPort.suspend: () => Promise<void>
+  AudioContextPort.close: () => Promise<void>
+  AudioContextPort.addEventListener: (type: "statechange", listener: () => void) => void
+  AudioContextPort.removeEventListener: (type: "statechange", listener: () => void) => void
+  readonly AudioContextPort.audioWorklet: { addModule(url: string): Promise<void>; }
+  AudioContextPort.createWorkletNode: (processorName: string, shape: WorkletNodeShape) => WorkletNodePort
+  readonly AudioContextPort.setSinkId?: (deviceId: string) => Promise<void>
+  const AudioContextState: { readonly Suspended: "suspended"; readonly Running: "running"; readonly Closed: "closed"; readonly Interrupted: "interrupted"; }
+  type AudioContextState = "closed" | "interrupted" | "running" | "suspended"
+  class ContextLifecycle
+  new ContextLifecycle(options: ContextLifecycleOptions): ContextLifecycle
+  readonly ContextLifecycle.#options: ContextLifecycleOptions
+  readonly ContextLifecycle.#listeners: Set<LifecycleListener>
+  ContextLifecycle.#attached: Attached | undefined
+  ContextLifecycle.#report: DeviceReport | undefined
+  ContextLifecycle.#ended: boolean
+  ContextLifecycle.#closedForGood: boolean
+  ContextLifecycle.#lastState: AudioContextState
+  ContextLifecycle.#suspendedByUs: boolean
+  ContextLifecycle.#suspendedBySystem: boolean
+  ContextLifecycle.state: LifecycleState
+  ContextLifecycle.report: DeviceReport | undefined
+  ContextLifecycle.context: () => AudioContextPort
+  ContextLifecycle.ensureRunning: () => Promise<DomainResult<AudioContextPort>>
+  ContextLifecycle.suspend: () => Promise<DomainResult<undefined>>
+  ContextLifecycle.subscribe: (listener: LifecycleListener) => () => void
+  ContextLifecycle.close: () => Promise<void>
+  ContextLifecycle.#open: () => Attached
+  ContextLifecycle.#stateChanged: (port: AudioContextPort) => void
+  ContextLifecycle.#runs: (port: AudioContextPort) => void
+  ContextLifecycle.#devicesChanged: (port: AudioContextPort) => void
+  ContextLifecycle.#recoverAfterDeviceChange: (port: AudioContextPort) => Promise<void>
+  ContextLifecycle.#refreshReport: (port: AudioContextPort) => void
+  ContextLifecycle.#detach: (attached: Attached) => void
+  ContextLifecycle.#emit: (event: LifecycleEvent) => void
+  interface ContextLifecycleOptions
+  readonly ContextLifecycleOptions.createContext: CreateAudioContext
+  readonly ContextLifecycleOptions.watchDevices: (changed: () => void) => () => void
+  readonly ContextLifecycleOptions.latencyHint: LatencyHint
+  readonly ContextLifecycleOptions.sampleRate?: number
+  readonly ContextLifecycleOptions.logger: Logger
+  type CreateAudioContext = (options: AudioContextOptions) => AudioContextPort
+  interface DeviceReport
+  readonly DeviceReport.sampleRate: number
+  readonly DeviceReport.baseLatencySeconds: number
+  readonly DeviceReport.outputLatencySeconds: number | undefined
+  readonly DeviceReport.maxChannelCount: number
+  readonly DeviceReport.channelCount: number
+  type DspModuleAvailability = { readonly kind: typeof DspModuleAvailabilityKind.Compiled; readonly module: WebAssembly.Module; } | { readonly kind: typeof DspModuleAvailabilityKind.Unavailable; readonly reason: string; }
+  const DspModuleAvailabilityKind: { readonly Compiled: "compiled"; readonly Unavailable: "unavailable"; }
+  type DspModuleAvailabilityKind = "compiled" | "unavailable"
+  interface DspStatus
+  readonly DspStatus.implementation: DspImplementation
+  readonly DspStatus.fallbackReason: string | undefined
+  type LifecycleEvent = { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport; } | { readonly kind: typeof LifecycleEventKind.Lost; } | { readonly kind: typeof LifecycleEventKind.Resumed; readonly contextFrame: number; } | { readonly kind: typeof LifecycleEventKind.SuspendedBySystem; readonly contextFrame: number; }
+  const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; }
+  type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "suspended-by-system"
+  type LifecycleListener = (event: LifecycleEvent) => void
+  const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
+  type LifecycleState = "closed" | "idle" | "interrupted" | "running" | "suspended"
+  interface MeterLevels
+  readonly MeterLevels.peak: readonly number[]
+  readonly MeterLevels.rms: readonly number[]
+  type PlaybackListener = (status: PlaybackStatus) => void
+  const PlaybackPhase: { readonly Unloaded: "unloaded"; readonly Loading: "loading"; readonly Ready: "ready"; readonly Refused: "refused"; readonly Faulted: "faulted"; }
+  type PlaybackPhase = "faulted" | "loading" | "ready" | "refused" | "unloaded"
+  interface PlaybackRequest
+  readonly PlaybackRequest.graph: GraphDescriptor
+  readonly PlaybackRequest.sources: ReadonlyMap<NodeId, PcmSource>
+  class PlaybackSession
+  new PlaybackSession(options: PlaybackSessionOptions): PlaybackSession
+  readonly PlaybackSession.#lifecycle: ContextLifecycle
+  readonly PlaybackSession.#state: PlaybackState
+  readonly PlaybackSession.#graph: GraphLoader
+  readonly PlaybackSession.#stopListening: () => void
+  PlaybackSession.#commands: number
+  PlaybackSession.#disposed: boolean
+  PlaybackSession.status: PlaybackStatus
+  PlaybackSession.subscribe: (listener: PlaybackListener) => () => void
+  PlaybackSession.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
+  PlaybackSession.play: () => Promise<DomainResult<void>>
+  PlaybackSession.pause: () => DomainResult<void>
+  PlaybackSession.stop: () => DomainResult<void>
+  PlaybackSession.seek: (to: SampleCount) => Promise<DomainResult<void>>
+  PlaybackSession.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>
+  PlaybackSession.position: () => DomainResult<SampleCount>
+  PlaybackSession.audiblePosition: () => DomainResult<SampleCount>
+  PlaybackSession.dispose: () => void
+  PlaybackSession.#startFrom: (loaded: LoadedProcessor, command: number, from: SampleCount) => Promise<DomainResult<void>>
+  PlaybackSession.#fault: (problem: string) => void
+  readonly PlaybackSession.#lifecycleEvent: (event: LifecycleEvent) => void
+  PlaybackSession.#notReady: () => DomainResult<never>
+  PlaybackSession.#superseded: () => DomainResult<never>
+  PlaybackSession.#assertLive: () => void
+  interface PlaybackSessionOptions
+  readonly PlaybackSessionOptions.lifecycle: ContextLifecycle
+  readonly PlaybackSessionOptions.capabilities: AudioRuntimeCapabilities
+  readonly PlaybackSessionOptions.dsp: WorkletDsp
+  readonly PlaybackSessionOptions.profile: PerformanceProfile
+  readonly PlaybackSessionOptions.settings: PerformanceSettings
+  readonly PlaybackSessionOptions.workletModuleUrl: string
+  readonly PlaybackSessionOptions.schedule: Schedule
+  readonly PlaybackSessionOptions.logger: Logger
+  interface PlaybackStatus
+  readonly PlaybackStatus.phase: PlaybackPhase
+  readonly PlaybackStatus.transport: TransportState
+  readonly PlaybackStatus.dsp: DspStatus | undefined
+  readonly PlaybackStatus.latencyFrames: number | undefined
+  readonly PlaybackStatus.device: DeviceReport | undefined
+  readonly PlaybackStatus.contextState: LifecycleState
+  readonly PlaybackStatus.stability: StabilityAssessment | undefined
+  readonly PlaybackStatus.meters: ReadonlyMap<NodeId, MeterLevels>
+  readonly PlaybackStatus.problems: readonly string[]
+  interface RenderHost
+  RenderHost.render: (request: RenderRequest, options: RenderRunOptions) => Promise<DomainResult<WorkerRenderSummary>>
+  interface RenderHostOptions
+  readonly RenderHostOptions.createWorker: () => RenderWorkerPort
+  readonly RenderHostOptions.scheduler: PriorityScheduler
+  readonly RenderHostOptions.dsp: { readonly module?: WebAssembly.Module; readonly unavailable?: string; }
+  readonly RenderHostOptions.schedule: Schedule
+  interface RenderRequest
+  readonly RenderRequest.graph: GraphDescriptor
+  readonly RenderRequest.sampleRate: SampleRate
+  readonly RenderRequest.range: RenderRange
+  readonly RenderRequest.chunkFrames: number
+  readonly RenderRequest.quality: RenderQualityProfile
+  readonly RenderRequest.sources: readonly SourceDescription[]
+  interface RenderRunOptions
+  readonly RenderRunOptions.priority: JobPriority
+  readonly RenderRunOptions.signal?: CancellationSignal
+  readonly RenderRunOptions.onProgress?: (progress: RenderProgress) => void
+  readonly RenderRunOptions.sinks: ReadonlyMap<NodeId, RenderSink>
+  interface RenderWorkerPort
+  RenderWorkerPort.postMessage: (message: ToRenderWorker, transfer: Transferable[]) => void
+  RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
+  RenderWorkerPort.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
+  RenderWorkerPort.terminate: () => void
+  type SourceDescription = { readonly node: NodeId; readonly kind: typeof SourceKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly node: NodeId; readonly kind: typeof SourceKind.Tone; readonly sampleRate: SampleRate; readonly frequency: number; readonly amplitude: number; readonly frames: SampleCount; }
+  const SourceKind: { readonly Pcm: "pcm"; readonly Tone: "tone"; }
+  type SourceKind = "pcm" | "tone"
+  interface WorkerRenderSummary extends RenderSummary
+  readonly WorkerRenderSummary.dsp: DspImplementation
+  readonly WorkerRenderSummary.dspFallbackReason: string | undefined
+  readonly WorkerRenderSummary.frames: import("packages/domain/src/index").SampleCount
+  readonly WorkerRenderSummary.latencyTrimmed: ReadonlyMap<NodeId, import("packages/domain/src/index").SampleCount>
+  readonly WorkerRenderSummary.conversions: readonly import("packages/audio-engine/src/index").RenderConversion[]
+  function browserAudioContext(capabilities: AudioRuntimeCapabilities): CreateAudioContext
+  function compileDspModule(bytes: Uint8Array<ArrayBuffer>, capabilities: AudioRuntimeCapabilities): Promise<DspModuleAvailability>
+  function createRenderHost(options: RenderHostOptions): RenderHost
 
 @audiogubbins/capabilities
   const ACCELERATED_RENDERING: FeatureRequirement
@@ -1501,6 +1662,307 @@ Published paths
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
 
 Named by a published contract, and published by no entry point
+
+packages/audio-runtime/src/context/audio-context-port.ts
+  interface AudioContextOptions
+  readonly AudioContextOptions.latencyHint: LatencyHint
+  readonly AudioContextOptions.sampleRate?: number
+  interface AudioDestinationPort
+  readonly AudioDestinationPort.maxChannelCount: number
+  readonly AudioDestinationPort.channelCount: number
+  interface WorkletMessagePort
+  WorkletMessagePort.postMessage: (message: unknown, transfer?: Transferable[]) => void
+  WorkletMessagePort.addEventListener: (type: WorkletPortEvent, listener: (event: MessageEvent) => void) => void
+  WorkletMessagePort.removeEventListener: (type: WorkletPortEvent, listener: (event: MessageEvent) => void) => void
+  WorkletMessagePort.start: () => void
+  interface WorkletNodePort
+  readonly WorkletNodePort.port: WorkletMessagePort
+  WorkletNodePort.connect: (destination: AudioDestinationPort) => void
+  WorkletNodePort.disconnect: () => void
+  interface WorkletNodeShape
+  readonly WorkletNodeShape.outputChannelCount: readonly number[]
+  readonly WorkletNodeShape.numberOfInputs: 0
+  readonly WorkletNodeShape.numberOfOutputs: 1
+  type WorkletPortEvent = "message" | "messageerror"
+
+packages/audio-runtime/src/context/context-lifecycle.ts
+  interface Attached
+  readonly Attached.port: AudioContextPort
+  readonly Attached.onStateChange: () => void
+  readonly Attached.stopWatchingDevices: () => void
+
+packages/audio-runtime/src/feed/feed-pump.ts
+  interface FeedDestination
+  readonly FeedDestination.queued: number
+  readonly FeedDestination.room: number
+  readonly FeedDestination.blockLimit: number | undefined
+  FeedDestination.blockFor: (frames: number) => AudioFrameBlock
+  FeedDestination.deliver: (block: AudioFrameBlock) => number
+  FeedDestination.end: () => void
+  FeedDestination.consumed: (frames: number) => void
+  interface FeedPump
+  FeedPump.tick: (consumedFrames: number) => void
+  readonly FeedPump.done: Promise<void>
+  type PostToProcessor = (message: ToProcessor, transfer: Transferable[]) => void
+  class RingDestination
+  new RingDestination(writer: RingWriter, layout: ChannelLayout, rate: SampleRate): RingDestination
+  readonly RingDestination.blockLimit: undefined
+  readonly RingDestination.#writer: RingWriter
+  readonly RingDestination.#layout: ChannelLayout
+  readonly RingDestination.#rate: SampleRate
+  RingDestination.#staging: AudioFrameBlock | undefined
+  RingDestination.queued: number
+  RingDestination.room: number
+  RingDestination.blockFor: (frames: number) => AudioFrameBlock
+  RingDestination.deliver: (block: AudioFrameBlock) => number
+  RingDestination.end: () => void
+  RingDestination.consumed: () => void
+
+packages/audio-runtime/src/feed/sample-ring.ts
+  interface RingShape
+  readonly RingShape.header: Int32Array<ArrayBufferLike>
+  readonly RingShape.channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly RingShape.capacity: number
+  class RingWriter
+  new RingWriter(shape: RingShape): RingWriter
+  readonly RingWriter.#header: Int32Array<ArrayBufferLike>
+  readonly RingWriter.#channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly RingWriter.#capacity: number
+  RingWriter.capacityFrames: number
+  RingWriter.available: number
+  RingWriter.queued: number
+  RingWriter.write: (block: AudioFrameBlock) => number
+  RingWriter.end: () => void
+  RingWriter.discard: () => void
+  RingWriter.#queued: () => number
+
+packages/audio-runtime/src/playback/consumption-ticker.ts
+  class ConsumptionTicker
+  new ConsumptionTicker(options: ConsumptionTickerOptions, startedAt: number): ConsumptionTicker
+  readonly ConsumptionTicker.#options: ConsumptionTickerOptions
+  readonly ConsumptionTicker.#startedAt: number
+  ConsumptionTicker.#cancel: (() => void) | undefined
+  ConsumptionTicker.#stopped: boolean
+  ConsumptionTicker.stop: () => void
+  ConsumptionTicker.#next: () => void
+  interface ConsumptionTickerOptions
+  readonly ConsumptionTickerOptions.schedule: Schedule
+  readonly ConsumptionTickerOptions.intervalMilliseconds: number
+  readonly ConsumptionTickerOptions.contextFrame: () => number
+  readonly ConsumptionTickerOptions.tick: (consumedFrames: number) => void
+
+packages/audio-runtime/src/playback/engine-link.ts
+  class EngineLink
+  new EngineLink(node: WorkletNodePort, logger: Logger): EngineLink
+  readonly EngineLink.#node: WorkletNodePort
+  readonly EngineLink.#logger: Logger
+  readonly EngineLink.#listeners: Set<ReplyListener>
+  EngineLink.#disposed: boolean
+  EngineLink.send: (message: ToProcessor, transfer?: Transferable[]) => void
+  EngineLink.subscribe: (listener: ReplyListener) => () => void
+  EngineLink.dispose: () => void
+  readonly EngineLink.#received: (event: MessageEvent) => void
+  readonly EngineLink.#undeliverable: () => void
+  EngineLink.#tell: (message: FromProcessor) => void
+  type ReplyListener = (message: FromProcessor) => void
+
+packages/audio-runtime/src/playback/feed-bindings.ts
+  interface Feed
+  readonly Feed.bound: BoundSource
+  readonly Feed.binding: FeedBinding
+  readonly Feed.ring: undefined | { readonly writer: RingWriter; readonly destination: RingDestination; }
+  interface FeedRun
+  readonly FeedRun.pumps: readonly RunningPump[]
+  readonly FeedRun.primed: Promise<void>
+  class PlaybackFeeds
+  new PlaybackFeeds(feeds: readonly Feed[], options: PlaybackFeedsOptions): PlaybackFeeds
+  readonly PlaybackFeeds.bindings: readonly FeedBinding[]
+  readonly PlaybackFeeds.#feeds: readonly Feed[]
+  readonly PlaybackFeeds.#options: PlaybackFeedsOptions
+  PlaybackFeeds.discard: () => void
+  PlaybackFeeds.start: (from: SampleCount, post: PostToProcessor, schedule: Schedule, signal: CancellationSignal) => DomainResult<FeedRun>
+  PlaybackFeeds.#destinationOf: (feed: Feed, rate: SampleRate, post: PostToProcessor) => FeedDestination
+  interface PlaybackFeedsOptions
+  readonly PlaybackFeedsOptions.sources: readonly BoundSource[]
+  readonly PlaybackFeedsOptions.rate: SampleRate
+  readonly PlaybackFeedsOptions.plan: FeedPlan
+  readonly PlaybackFeedsOptions.sharedMemory: boolean
+  interface RunningPump
+  readonly RunningPump.node: NodeId
+  readonly RunningPump.pump: FeedPump
+
+packages/audio-runtime/src/playback/feed-plan.ts
+  interface FeedPlan
+  readonly FeedPlan.feedAheadMilliseconds: number
+  readonly FeedPlan.aheadFrames: number
+  readonly FeedPlan.chunkFrames: number
+  readonly FeedPlan.ringFrames: number
+  readonly FeedPlan.tickMilliseconds: number
+
+packages/audio-runtime/src/playback/graph-loader.ts
+  class GraphLoader
+  new GraphLoader(options: GraphLoaderOptions): GraphLoader
+  readonly GraphLoader.#options: GraphLoaderOptions
+  readonly GraphLoader.#module: WorkletModule
+  GraphLoader.#loaded: LoadedProcessor | undefined
+  GraphLoader.#request: PlaybackRequest | undefined
+  GraphLoader.#lostRequest: PlaybackRequest | undefined
+  GraphLoader.#generation: number
+  GraphLoader.current: LoadedProcessor | undefined
+  GraphLoader.lostRequest: PlaybackRequest | undefined
+  GraphLoader.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
+  GraphLoader.unload: () => void
+  GraphLoader.lost: (problem: string) => void
+  GraphLoader.#attach: (port: AudioContextPort, request: PlaybackRequest, prepared: PreparedPlayback, stability: StabilityWatch) => LoadedProcessor
+  GraphLoader.#answered: (loaded: LoadedProcessor, outcome: LoadOutcome) => DomainResult<void>
+  GraphLoader.#feedFailed: (node: NodeId, error: unknown) => void
+  interface GraphLoaderOptions
+  readonly GraphLoaderOptions.lifecycle: ContextLifecycle
+  readonly GraphLoaderOptions.capabilities: AudioRuntimeCapabilities
+  readonly GraphLoaderOptions.dsp: WorkletDsp
+  readonly GraphLoaderOptions.profile: PerformanceProfile
+  readonly GraphLoaderOptions.settings: PerformanceSettings
+  readonly GraphLoaderOptions.workletModuleUrl: string
+  readonly GraphLoaderOptions.schedule: Schedule
+  readonly GraphLoaderOptions.logger: Logger
+  readonly GraphLoaderOptions.state: PlaybackState
+  readonly GraphLoaderOptions.faulted: (problem: string) => void
+
+packages/audio-runtime/src/playback/loaded-processor.ts
+  type LoadOutcome = { readonly kind: "abandoned"; readonly failure: DomainFailureResult; } | { readonly kind: "loaded"; readonly dsp: DspStatus; readonly latencyFrames: number | undefined; } | { readonly kind: "refused"; readonly reasons: readonly string[]; } | { readonly kind: "unanswered"; }
+  class LoadedProcessor
+  new LoadedProcessor(options: LoadedProcessorOptions): LoadedProcessor
+  readonly LoadedProcessor.link: EngineLink
+  readonly LoadedProcessor.runs: ProcessorRuns
+  readonly LoadedProcessor.graphLatencyFrames: number
+  readonly LoadedProcessor.outcome: Promise<LoadOutcome>
+  LoadedProcessor.#settle: (outcome: LoadOutcome) => void
+  LoadedProcessor.#replied: (reply: FromProcessor) => void
+  LoadedProcessor.#settled: boolean
+  readonly LoadedProcessor.#cancelWait: () => void
+  LoadedProcessor.onReply: (listener: (reply: FromProcessor) => void) => void
+  LoadedProcessor.abandon: (failure: DomainFailureResult) => void
+  LoadedProcessor.dispose: () => void
+  readonly LoadedProcessor.#reply: (reply: FromProcessor) => void
+  LoadedProcessor.#end: (outcome: LoadOutcome) => void
+  interface LoadedProcessorOptions
+  readonly LoadedProcessorOptions.port: AudioContextPort
+  readonly LoadedProcessorOptions.graph: GraphDescriptor
+  readonly LoadedProcessorOptions.prepared: PreparedPlayback
+  readonly LoadedProcessorOptions.dsp: WorkletDsp
+  readonly LoadedProcessorOptions.schedule: Schedule
+  readonly LoadedProcessorOptions.logger: Logger
+  readonly LoadedProcessorOptions.feedFailed: (node: NodeId, error: unknown) => void
+  type WorkletDsp = { readonly kind: typeof WorkletDspKind.Bytes; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof WorkletDspKind.Unavailable; readonly reason: string; }
+
+packages/audio-runtime/src/playback/playback-preparation.ts
+  interface PreparedPlayback
+  readonly PreparedPlayback.plan: ExecutionPlan
+  readonly PreparedPlayback.sinkChannels: number
+  readonly PreparedPlayback.feeds: PlaybackFeeds
+  readonly PreparedPlayback.feedPlan: FeedPlan
+
+packages/audio-runtime/src/playback/playback-state.ts
+  class PlaybackState
+  new PlaybackState(lifecycle: ContextLifecycle, logger: Logger): PlaybackState
+  readonly PlaybackState.#lifecycle: ContextLifecycle
+  readonly PlaybackState.#logger: Logger
+  readonly PlaybackState.#listeners: Set<PlaybackListener>
+  PlaybackState.#status: PlaybackStatus
+  PlaybackState.#timing: Timing | undefined
+  PlaybackState.status: PlaybackStatus
+  PlaybackState.subscribe: (listener: PlaybackListener) => () => void
+  PlaybackState.update: (status: PlaybackStatus) => void
+  PlaybackState.clear: () => void
+  PlaybackState.timing: () => Timing
+  PlaybackState.frame: () => number
+  PlaybackState.isPlaying: () => boolean
+  PlaybackState.apply: (event: TransportEvent) => DomainResult<void>
+  PlaybackState.follow: (event: TransportEvent) => void
+  PlaybackState.pauseTransport: () => void
+  PlaybackState.position: () => DomainResult<SampleCount>
+  PlaybackState.audiblePosition: (graphLatencyFrames: number) => DomainResult<SampleCount>
+  interface Timing
+  readonly Timing.port: AudioContextPort
+  readonly Timing.clock: MediaClock
+
+packages/audio-runtime/src/playback/processor-runs.ts
+  class ProcessorRuns
+  new ProcessorRuns(options: ProcessorRunsOptions): ProcessorRuns
+  readonly ProcessorRuns.#options: ProcessorRunsOptions
+  ProcessorRuns.#run: Run | undefined
+  ProcessorRuns.#lastRunId: number
+  ProcessorRuns.starting: boolean
+  ProcessorRuns.start: (from: SampleCount) => Promise<DomainResult<boolean>>
+  ProcessorRuns.started: (runId: number, contextFrame: number) => boolean
+  ProcessorRuns.isRunning: (runId: number) => boolean
+  ProcessorRuns.halt: () => void
+  ProcessorRuns.abandon: () => void
+  interface ProcessorRunsOptions
+  readonly ProcessorRunsOptions.link: EngineLink
+  readonly ProcessorRunsOptions.feeds: PlaybackFeeds
+  readonly ProcessorRunsOptions.schedule: Schedule
+  readonly ProcessorRunsOptions.tickMilliseconds: number
+  readonly ProcessorRunsOptions.contextFrame: () => number
+  readonly ProcessorRunsOptions.feedFailed: (node: NodeId, error: unknown) => void
+  interface Run
+  readonly Run.id: number
+  readonly Run.cancellation: CancellationSource
+  readonly Run.pumps: readonly RunningPump[]
+  Run.stage: RunStage
+  Run.ticker: ConsumptionTicker | undefined
+  const RunStage: { readonly Priming: "priming"; readonly Starting: "starting"; readonly Running: "running"; }
+  type RunStage = "priming" | "running" | "starting"
+
+packages/audio-runtime/src/playback/source-binding.ts
+  interface BoundSource
+  readonly BoundSource.node: NodeId
+  readonly BoundSource.source: PcmSource
+  readonly BoundSource.layout: ChannelLayout
+
+packages/audio-runtime/src/playback/stability-watch.ts
+  class StabilityWatch
+  new StabilityWatch(contextRate: SampleRate, options: StabilityWatchOptions): StabilityWatch
+  readonly StabilityWatch.#options: StabilityWatchOptions
+  StabilityWatch.#history: UnderrunHistory
+  StabilityWatch.assess: (contextFrame: number) => StabilityAssessment
+  StabilityWatch.underrun: (contextFrame: number, frames: number) => StabilityAssessment | undefined
+  interface StabilityWatchOptions
+  readonly StabilityWatchOptions.profile: PerformanceProfile
+  readonly StabilityWatchOptions.settings: PerformanceSettings
+  readonly StabilityWatchOptions.logger: Logger
+
+packages/audio-runtime/src/playback/worklet-module.ts
+  class WorkletModule
+  new WorkletModule(url: string, logger: Logger): WorkletModule
+  readonly WorkletModule.#url: string
+  readonly WorkletModule.#logger: Logger
+  WorkletModule.#registration: undefined | { readonly port: AudioContextPort; readonly done: Promise<DomainResult<void>>; }
+  WorkletModule.addTo: (port: AudioContextPort) => Promise<DomainResult<void>>
+  WorkletModule.forget: () => void
+  WorkletModule.#register: (port: AudioContextPort) => Promise<DomainResult<void>>
+
+packages/audio-runtime/src/protocol/processor-messages.ts
+  type FeedBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; readonly channels: number; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly channels: number; readonly ring: SharedArrayBuffer; }
+  const FeedTransport: { readonly SharedRing: "shared-ring"; readonly Posted: "posted"; }
+  type FeedTransport = "posted" | "shared-ring"
+  type FromProcessor = { readonly kind: typeof FromProcessorKind.Fault; readonly message: string; } | { readonly kind: typeof FromProcessorKind.FeedsEnded; readonly run: number; readonly contextFrame: number; } | { readonly kind: typeof FromProcessorKind.Loaded; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly latencyFrames: number | undefined; } | { readonly kind: typeof FromProcessorKind.Meter; readonly node: NodeId; readonly peak: readonly number[]; readonly rms: readonly number[]; } | { readonly kind: typeof FromProcessorKind.ParameterRefused; readonly node: NodeId; readonly name: string; readonly failures: readonly [ParameterRefusal, ...ParameterRefusal[]]; } | { readonly kind: typeof FromProcessorKind.Refused; readonly reasons: readonly string[]; } | { readonly kind: typeof FromProcessorKind.Started; readonly run: number; readonly contextFrame: number; } | { readonly kind: typeof FromProcessorKind.Underrun; readonly run: number; readonly contextFrame: number; readonly frames: number; }
+  interface ParameterRefusal
+  readonly ParameterRefusal.code: string
+  readonly ParameterRefusal.summary: string
+  type ToProcessor = { readonly kind: typeof ToProcessorKind.FeedBlock; readonly node: NodeId; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof ToProcessorKind.FeedEnd; readonly node: NodeId; } | { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dspModuleBytes: Uint8Array<ArrayBuffer> | undefined; readonly dspUnavailable: string | undefined; readonly feeds: readonly FeedBinding[]; readonly meterEveryBlocks: number; } | { readonly kind: typeof ToProcessorKind.Reset; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; }
+
+packages/audio-runtime/src/protocol/render-messages.ts
+  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly resamplingQuality: ResamplingQuality; readonly sources: readonly SourceDescription[]; readonly dspModule: WebAssembly.Module | undefined; readonly dspUnavailable: string | undefined; }
+
+packages/audio-runtime/src/render/worker-render.ts
+  interface RenderWorkerEvents
+  readonly RenderWorkerEvents.message: MessageEvent<any>
+  readonly RenderWorkerEvents.messageerror: MessageEvent<any>
+  readonly RenderWorkerEvents.error: ErrorEvent
+
+packages/audio-runtime/src/schedule.ts
+  type Schedule = (callback: () => void, delayMs: number) => () => void
 
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }

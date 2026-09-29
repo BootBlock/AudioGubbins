@@ -538,6 +538,126 @@
   overscroll-behavior: contain;
 }
 
+/* The Transport panel. */
+
+.ag-transport {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-medium);
+}
+
+.ag-transport > * {
+  margin-block: 0;
+}
+
+.ag-transport-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* Tabular figures, so the position does not shuffle sideways as it counts. */
+.ag-transport-position {
+  margin-inline-start: var(--ag-space-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-transport-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+.ag-transport-heading {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: 600;
+}
+
+.ag-readings {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  margin: 0;
+  font-size: var(--ag-text-small);
+}
+
+/* Each term and its reading take a row of the grid between them. */
+.ag-reading {
+  display: contents;
+}
+
+.ag-reading dt {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-reading dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ag-reading-note {
+  display: block;
+  margin-block-start: var(--ag-space-tiny);
+}
+
+.ag-meters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+}
+
+.ag-meter {
+  display: grid;
+  grid-template-columns: 4em minmax(0, 1fr) 5em;
+  align-items: center;
+  gap: var(--ag-space-small);
+  font-size: var(--ag-text-small);
+}
+
+.ag-meter-scale {
+  block-size: var(--ag-space-small);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-meter-background);
+  overflow: hidden;
+}
+
+.ag-meter-fill {
+  block-size: 100%;
+  background-color: var(--ag-meter-low);
+}
+
+.ag-meter-fill[data-ag-zone='mid'] {
+  background-color: var(--ag-meter-mid);
+}
+
+.ag-meter-fill[data-ag-zone='high'] {
+  background-color: var(--ag-meter-high);
+}
+
+.ag-meter-fill[data-ag-zone='clip'] {
+  background-color: var(--ag-meter-clip);
+}
+
+.ag-meter-value {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-render-progress {
+  inline-size: min(100%, 24em);
+  accent-color: var(--ag-chrome-accent);
+}
+
+.ag-audio-problems {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-small);
+}
+
 /*
  * A state, wherever it is written.
  *

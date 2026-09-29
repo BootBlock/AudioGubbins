@@ -30,6 +30,7 @@ import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { AZERTY, DVORAK, GERMAN, NAMED_LAYOUTS, RUSSIAN } from '../testing/keyboard-layouts.js';
+import { playbackSettled } from '../testing/audio-fakes.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import {
   DEFAULT_PROFILE_ID,
@@ -720,6 +721,12 @@ describe('finding the shell commands in the palette', () => {
       context: ShellContext,
     ) => void;
 
+    /**
+     * Whether that state is reached only once a Play has settled, as playback
+     * is only once the session has answered it.
+     */
+    readonly settles?: true;
+
     /** The arguments the command is run with, both times, read from where the test stands. */
     readonly arguments?: (context: ShellContext) => Arguments;
 
@@ -846,6 +853,9 @@ describe('finding the shell commands in the palette', () => {
       },
     ],
     'help.close-diagnostic-export': { before: (run) => run('help.open-diagnostic-export') },
+    'transport.pause': { before: (run) => run('transport.play-test-signal'), settles: true },
+    'transport.stop': { before: (run) => run('transport.play-test-signal'), settles: true },
+    'transport.profile-balanced': { before: (run) => run('transport.profile-low-latency') },
   };
 
   /** Everything a command can change, as text, without the announcement it makes. */
@@ -859,6 +869,12 @@ describe('finding the shell commands in the palette', () => {
       verbosity: context.verbosity.get(),
       diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
       logs: context.logs.usage().recordCount,
+      audio: {
+        profile: context.audio.get().profile,
+        starting: context.audio.get().starting,
+        transport: context.audio.get().playback?.transport,
+        render: context.audio.get().render.stage,
+      },
     });
   }
 
@@ -877,7 +893,7 @@ describe('finding the shell commands in the palette', () => {
 
   it.each(RUNS)(
     'runs %s a second time only when that changes something',
-    (_label, id, scenario) => {
+    async (_label, id, scenario) => {
       // A command that ran, changed nothing and was recorded as applied told
       // the log and the user something that did not happen. Fixed by name as
       // each is found, the next would be missed, so every command is run twice
@@ -897,6 +913,7 @@ describe('finding the shell commands in the palette', () => {
         });
 
       scenario.before?.(run, context);
+      if (scenario.settles === true) await playbackSettled(context.audio);
       const args = scenario.arguments?.(context);
 
       // The first run is asserted, so a scenario that fails to make the

@@ -1,19 +1,18 @@
 /**
  * The panels the Phase 01 shell can show.
  *
- * Phase 01 delivers the shell, not the editing (the Phase Packet's user-visible
- * outcome says so plainly: AudioGubbins launches as a polished responsive shell
- * but does not yet edit real audio). So the asset browser, editor and transport
- * say what they are for and which phase brings them, rather than showing a
- * pretend waveform.
+ * The shell arrived before the editing, so the asset browser, the editor and
+ * the inspector say what they are for and which phase brings them, rather than
+ * showing a pretend waveform.
  *
  * That is a deliberate distinction from the placeholder REQ-EXEC-181 forbids. A
  * placeholder pretends to be the real thing and fails silently; these state
  * what is not here yet. A user who opens AudioGubbins today should not be shown
  * a fake waveform and left to discover that nothing happens when they click it.
  *
- * Two panels are entirely real, because their subject exists now: the
- * capability surface and the diagnostic log.
+ * Three panels are entirely real, because their subject exists now: the
+ * capability surface, the diagnostic log, and the transport, which plays and
+ * renders the audio engine's test signal (`transport-panel.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -29,8 +28,11 @@ import {
 } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
 
+import type { ShellContext } from '../commands/shell-context.js';
 import { logCategoryName } from '../log-categories.js';
+import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { LogView, LogViewStore } from '../state/log-view-store.js';
+import { TransportPanel } from './transport-panel.js';
 
 /** A panel that describes what will live here, and when. */
 function ComingInAPhase({
@@ -241,6 +243,40 @@ export interface PanelContext {
   readonly logViews: LogViewStore;
   readonly diagnosticModeActive: boolean;
   readonly announcement?: { readonly text: string; readonly urgent: boolean };
+
+  /** What the audio engine is doing, which the Transport panel shows. */
+  readonly audio: AudioViewStore;
+
+  /** The frame the listener hears now, at the context's rate. */
+  readonly playhead: () => number | undefined;
+
+  /** Runs a command a panel's control names. */
+  readonly run: (id: string) => void;
+
+  /** Why a command cannot run now, or `undefined`, as the menus say it. */
+  readonly unavailableReason: (id: string) => string | undefined;
+}
+
+/**
+ * What a panel reads, from the shell's context, and how its controls run a
+ * command and ask why one cannot run: as every other surface does, so a
+ * panel's button and the palette entry of the same name are one action.
+ */
+export function panelContextOf(
+  context: ShellContext,
+  run: (id: string) => void,
+  unavailableReason: (id: string) => string | undefined,
+): PanelContext {
+  return {
+    capabilities: context.capabilities,
+    logs: context.logs,
+    logViews: context.logViews,
+    diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
+    audio: context.audio,
+    playhead: () => context.playback.audiblePosition(),
+    run,
+    unavailableReason,
+  };
 }
 
 /**
@@ -270,13 +306,6 @@ const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonl
         phase: 'core non-destructive editing',
       },
     ],
-    [
-      PanelKinds.Transport,
-      {
-        purpose: 'Play, stop, loop, and the output levels.',
-        phase: 'the audio engine foundation',
-      },
-    ],
   ]);
 
 /**
@@ -290,6 +319,18 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
   switch (panel.kind) {
     case PanelKinds.Capabilities:
       return <CapabilitiesPanel title={title} capabilities={context.capabilities} />;
+
+    case PanelKinds.Transport:
+      return (
+        <TransportPanel
+          title={title}
+          audio={context.audio}
+          capabilities={context.capabilities}
+          playhead={context.playhead}
+          run={context.run}
+          unavailableReason={context.unavailableReason}
+        />
+      );
 
     case PanelKinds.Diagnostics:
       return (

@@ -46,6 +46,18 @@
       "path": "../../packages/version"
     },
     {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/audio-graph"
+    },
+    {
+      "path": "../../packages/audio-engine"
+    },
+    {
+      "path": "../../packages/audio-runtime"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

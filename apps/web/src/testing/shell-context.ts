@@ -23,8 +23,11 @@ import {
 
 import { KeyboardConvention } from '@audiogubbins/commands';
 
+import { PlaybackControl } from '../audio/playback-control.js';
+import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { createInteractionStore } from '../state/interaction-store.js';
+import { createAudioViewStore } from '../state/audio-view-store.js';
+import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import {
   createKeyboardLayoutStore,
@@ -40,6 +43,7 @@ import {
 import { ephemeralStorage } from './ephemeral-storage.js';
 import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
+import { FakePlayback, FakeRendering } from './audio-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
 /**
@@ -105,6 +109,31 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
   ]),
 );
 
+/** The audio part over fakes of the runtime, which it makes nothing real with. */
+function fakeAudio(interaction: InteractionStore): {
+  readonly parts: Pick<ShellContext, 'audio' | 'playback' | 'rendering'>;
+  readonly fakes: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
+} {
+  const audio = createAudioViewStore();
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const fakes = { playback: new FakePlayback(), rendering: new FakeRendering() };
+  return {
+    fakes,
+    parts: {
+      audio,
+      playback: new PlaybackControl({ view: audio, open: fakes.playback.open, announce }),
+      rendering: new RenderControl({
+        view: audio,
+        open: fakes.rendering.open,
+        now: () => 0,
+        announce,
+      }),
+    },
+  };
+}
+
 /**
  * Builds a shell context, and the fakes behind it a test may want to inspect.
  *
@@ -120,6 +149,8 @@ export function buildShellContext(
   readonly logs: LogStore;
   readonly files: RecordedTextFiles;
   readonly storage: StateStorage;
+  /** The audio part's fakes, for a test of what the audio commands asked of them. */
+  readonly audio: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -139,10 +170,13 @@ export function buildShellContext(
   const layout =
     keyboardLayout ?? createKeyboardLayoutStore(storage, logger, KeyboardConvention.Windows);
 
+  const { parts, fakes } = fakeAudio(interaction);
+
   return {
     logs,
     files,
     storage,
+    audio: fakes,
     context: {
       preferences: createPreferencesStore(storage, logger),
       workspace: createWorkspaceStore(DESCRIPTORS, storage, logger),
@@ -158,6 +192,7 @@ export function buildShellContext(
       verbosity: createVerbosityStore(diagnostics.verbosity(), diagnostics, storage),
       environment: { browser: 'Test browser 1', operatingSystem: 'Test system', installed: false },
       clock: { now: () => 0 },
+      ...parts,
     },
   };
 }

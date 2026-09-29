@@ -230,6 +230,12 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/workspace/src/layout-reading.ts: resolveLayout'],
   'Keeping a changed layout in the collection, asked of layout store doubles by the workspace tests, since no stored text brings about the refusal it throws at; the store reaches it through `commit` and `rearranged`.':
     ['apps/web/src/state/workspace-store.ts: keptInCollection'],
+  "The ring's position arithmetic and its largest size, which the ring tests drive near 2³¹ positions, where no ring can be filled to reach them; the ring reaches them through its reader and writer.":
+    [
+      'packages/audio-runtime/src/feed/sample-ring.ts: MAXIMUM_RING_FRAMES',
+      'packages/audio-runtime/src/feed/sample-ring.ts: advancePosition',
+      'packages/audio-runtime/src/feed/sample-ring.ts: framesBetween',
+    ],
   "The named matrices and the mid/side layout, which the matrix tests name; a graph names a matrix by its setting's text, which the matrix node reads through `namedCoefficients`.":
     [
       'packages/audio-engine/src/nodes/named-matrices.ts: MID_SIDE',

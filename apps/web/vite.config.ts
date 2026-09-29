@@ -1,7 +1,12 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+import { buildDspModule } from '../../tools/build-wasm.mjs';
 import { previewRequestLog } from './preview-request-log.js';
 
 /**
@@ -85,10 +90,16 @@ const BROWSER_TARGETS = ['chrome111', 'edge111', 'firefox115', 'safari16.4', 'io
  * a style element at run time, and a static site cannot give it a per-response
  * nonce; scripts do not, and no inline script is emitted. `frame-ancestors` is
  * absent because a policy delivered in the page cannot set it.
+ *
+ * Scripts may compile WebAssembly, and nothing else they could not already do:
+ * the canonical DSP module is compiled in the page and posted to the audio
+ * worklet and each render worker (ADR-0031), which a policy without
+ * `'wasm-unsafe-eval'` refuses. It allows no `eval` of text, which
+ * `'unsafe-eval'` would.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
@@ -130,6 +141,55 @@ function contentSecurityPolicy(): Plugin {
           `${CHARSET}\n    <meta http-equiv="Content-Security-Policy" content="${CONTENT_SECURITY_POLICY}" />`,
         );
       },
+    },
+  };
+}
+
+/** Where the repository starts, for the crates the DSP module is built from. */
+const REPOSITORY_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+/** What the application imports the DSP module's bytes as. */
+const DSP_MODULE_ID = 'virtual:audiogubbins/dsp-module';
+
+/** The same, marked as no file on disk, so no other plugin tries to read it. */
+const RESOLVED_DSP_MODULE_ID = `\0${DSP_MODULE_ID}`;
+
+/** The crates' sources and manifests, each of which can change the module. */
+function crateSources(): readonly string[] {
+  const crates = join(REPOSITORY_ROOT, 'crates');
+  const sources = readdirSync(crates, { recursive: true, encoding: 'utf8' })
+    .filter((path) => path.endsWith('.rs') || path.endsWith('Cargo.toml'))
+    .map((path) => join(crates, path));
+  return [...sources, join(REPOSITORY_ROOT, 'Cargo.toml'), join(REPOSITORY_ROOT, 'Cargo.lock')];
+}
+
+/**
+ * The canonical DSP module, built from the crates and carried in the bundle.
+ *
+ * The page makes no request (the lint rules forbid `fetch` everywhere, for
+ * REQ-PRIV-161), so the module's bytes reach it as a module of the bundle: its
+ * text is the bytes in base64, decoded once when the module is first
+ * evaluated. The application imports it with `import()` when audio is first
+ * asked for, so it is a chunk of its own that the first paint does not load.
+ * Built by `tools/build-wasm.mjs`, which runs cargo, so no build carries a
+ * module older than the crates (ADR-0031); in development a change to a crate
+ * builds it again.
+ */
+function dspModule(): Plugin {
+  return {
+    name: 'audiogubbins:dsp-module',
+    resolveId: (id) => (id === DSP_MODULE_ID ? RESOLVED_DSP_MODULE_ID : undefined),
+    load(id) {
+      if (id !== RESOLVED_DSP_MODULE_ID) return undefined;
+      for (const source of crateSources()) this.addWatchFile(source);
+      const encoded = readFileSync(buildDspModule()).toString('base64');
+      return [
+        `const binary = atob(${JSON.stringify(encoded)});`,
+        'export const DSP_MODULE_BYTES = new Uint8Array(binary.length);',
+        'for (let index = 0; index < binary.length; index += 1) {',
+        '  DSP_MODULE_BYTES[index] = binary.charCodeAt(index);',
+        '}',
+      ].join('\n');
     },
   };
 }
@@ -177,6 +237,8 @@ export default defineConfig(({ command }) => ({
     }),
 
     contentSecurityPolicy(),
+
+    dspModule(),
 
     // The browser suite's record of what the preview server received and
     // answered, present only where the suite asks for it.

@@ -1,5 +1,5 @@
 /**
- * Every action the Phase 01 shell can perform.
+ * Every action the shell can perform.
  *
  * REQ-EDIT-073 requires each of these to be reachable the same way from a menu,
  * a shortcut, the palette and a future macro, which is what registering them
@@ -16,6 +16,7 @@
 import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
+import { audioCommands } from './audio-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
@@ -118,5 +119,6 @@ export function shellCommands(
     ...surfaceCommands(),
     ...shortcutCommands(),
     ...diagnosticCommands(),
+    ...audioCommands(),
   ];
 }
