@@ -15,6 +15,7 @@ Published paths
   @audiogubbins/input/testing
   @audiogubbins/test-fixtures
   @audiogubbins/text
+  @audiogubbins/timeline
   @audiogubbins/version
   @audiogubbins/workspace
   @audiogubbins/workspace/styles/*.css
@@ -1347,10 +1348,7 @@ Published paths
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.processors: readonly ProcessorInstance[]
   type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
-  interface EmptySelection
-  readonly EmptySelection.kind: "none"
   type EntityId = AssetId | BusId | ClipId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
-  type EntitySelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
   const FIRST_ORDER_AMBIX: AmbisonicConvention
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
@@ -1368,7 +1366,6 @@ Published paths
   readonly Marker.position: SampleCount
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
-  const NO_SELECTION: EmptySelection
   interface NumericParameterDescriptor
   readonly NumericParameterDescriptor.kind: "numeric"
   readonly NumericParameterDescriptor.id: ParameterId
@@ -1426,15 +1423,7 @@ Published paths
   type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
   type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
   type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
-  type Selection = EmptySelection | EntitySelection | TimeRangeSelection
-  const SelectionFocus: { readonly Nothing: "nothing"; readonly TimeRange: "time-range"; readonly Clips: "clips"; readonly Regions: "regions"; readonly Markers: "markers"; readonly Tracks: "tracks"; readonly Assets: "assets"; readonly Processors: "processors"; }
-  type SelectionFocus = "assets" | "clips" | "markers" | "nothing" | "processors" | "regions" | "time-range" | "tracks"
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
-  interface TimeRangeSelection
-  readonly TimeRangeSelection.kind: "time-range"
-  readonly TimeRangeSelection.start: SampleCount
-  readonly TimeRangeSelection.length: SampleCount
-  readonly TimeRangeSelection.trackIds: readonly TrackId[]
   type TimelineEntity = Clip | Marker | Region
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
@@ -1481,7 +1470,6 @@ Published paths
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
-  function hasSelection(selection: Selection): boolean
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
@@ -1501,8 +1489,6 @@ Published paths
   function sampleRate(value: number): DomainResult<SampleRate>
   function samplesToSeconds(count: SampleCount, rate: SampleRate): number
   function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
-  function selectionFocus(selection: Selection): SelectionFocus
-  function selectionSize(selection: Selection): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
   function tracksInOrder(project: Project): readonly Track[]
@@ -1673,6 +1659,153 @@ Published paths
   function sentencesWithin(text: string, words: number): SentencesTaken
   function utf8Bytes(text: string): number
   function wholeCharactersWithin(text: string, bound: number): string
+
+@audiogubbins/timeline
+  interface BoundaryRange
+  readonly BoundaryRange.start: SampleCount
+  readonly BoundaryRange.end: SampleCount
+  const DEFAULT_SNAP_SETTINGS: SnapSettings
+  const EMPTY_SELECTION: SelectionSet
+  interface FrameRate
+  readonly FrameRate.numerator: number
+  readonly FrameRate.denominator: number
+  readonly FrameRate.dropFrame: boolean
+  interface FrequencyBand
+  readonly FrequencyBand.low: number
+  readonly FrequencyBand.high: number
+  const MAXIMUM_PIXELS_PER_SAMPLE: 256
+  const MAXIMUM_SAMPLES_PER_PIXEL: number
+  type MadeFacet = "objects" | "spectral" | "time"
+  const ONE_SAMPLE_PER_PIXEL: Zoom
+  type ObjectSelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
+  interface PixelsPerSample
+  readonly PixelsPerSample.kind: "pixels-per-sample"
+  readonly PixelsPerSample.pixels: number
+  interface RulerTick
+  readonly RulerTick.position: SampleCount
+  readonly RulerTick.label: string
+  interface RulerTicks
+  readonly RulerTicks.major: readonly RulerTick[]
+  readonly RulerTicks.minor: readonly SampleCount[]
+  const SNAP_PRECEDENCE: readonly SnapKind[]
+  interface SamplesPerPixel
+  readonly SamplesPerPixel.kind: "samples-per-pixel"
+  readonly SamplesPerPixel.samples: number
+  interface SelectableContent
+  readonly SelectableContent.length: SampleCount
+  readonly SelectableContent.channelCount: number
+  readonly SelectableContent.markers: ReadonlySet<string>
+  readonly SelectableContent.regions: ReadonlySet<string>
+  const SelectionFacet: { readonly None: "none"; readonly Time: "time"; readonly Spectral: "spectral"; readonly Objects: "objects"; }
+  type SelectionFacet = "none" | "objects" | "spectral" | "time"
+  interface SelectionSet
+  readonly SelectionSet.time?: BoundaryRange
+  readonly SelectionSet.spectral?: SpectralArea
+  readonly SelectionSet.objects?: ObjectSelection
+  readonly SelectionSet.channels?: readonly [number, ...number[]]
+  readonly SelectionSet.recency: readonly MadeFacet[]
+  type SelectionTarget = { readonly kind: "objects"; readonly objects: ObjectSelection; } | { readonly kind: "spectral"; readonly area: SpectralArea; readonly channels: readonly number[]; } | { readonly kind: "time"; readonly range: BoundaryRange; readonly channels: readonly number[]; } | { readonly kind: "whole-asset"; readonly range: BoundaryRange; readonly channels: readonly number[]; }
+  const SnapKind: { readonly Marker: "marker"; readonly RegionBoundary: "region-boundary"; readonly LoopBoundary: "loop-boundary"; readonly SelectionEdge: "selection-edge"; readonly Playhead: "playhead"; readonly Frame: "frame"; readonly ZeroCrossing: "zero-crossing"; readonly Grid: "grid"; }
+  type SnapKind = "frame" | "grid" | "loop-boundary" | "marker" | "playhead" | "region-boundary" | "selection-edge" | "zero-crossing"
+  interface SnapResult
+  readonly SnapResult.position: SampleCount
+  readonly SnapResult.target?: SnapTarget
+  interface SnapSettings
+  readonly SnapSettings.enabled: boolean
+  readonly SnapSettings.kinds: ReadonlySet<SnapKind>
+  readonly SnapSettings.tolerance: number
+  interface SnapTarget
+  readonly SnapTarget.kind: SnapKind
+  readonly SnapTarget.position: SampleCount
+  readonly SnapTarget.label?: string
+  interface SpectralArea
+  readonly SpectralArea.range: BoundaryRange
+  readonly SpectralArea.band: FrequencyBand
+  readonly SpectralArea.shape: SpectralShape
+  interface SpectralPoint
+  readonly SpectralPoint.position: SampleCount
+  readonly SpectralPoint.frequency: number
+  type SpectralShape = { readonly kind: "lasso"; readonly points: readonly [SpectralPoint, SpectralPoint, SpectralPoint, ...SpectralPoint[]]; } | { readonly kind: "rectangle"; }
+  const StandardFrameRates: { readonly film: FrameRate; readonly filmPulledDown: FrameRate; readonly pal: FrameRate; readonly ntscDropFrame: FrameRate; readonly ntscNonDrop: FrameRate; readonly thirty: FrameRate; readonly palDouble: FrameRate; readonly ntscDoubleDropFrame: FrameRate; readonly ntscDoubleNonDrop: FrameRate; readonly sixty: FrameRate; }
+  interface TargetAsset
+  readonly TargetAsset.length: SampleCount
+  readonly TargetAsset.channelCount: number
+  interface TargetRequest
+  readonly TargetRequest.accepts: ReadonlySet<MadeFacet>
+  readonly TargetRequest.whenNothing: "refuse" | "whole-asset"
+  interface TargetWriting
+  readonly TargetWriting.position: (position: SampleCount) => string
+  readonly TargetWriting.channel: (index: number) => string
+  readonly TargetWriting.channelCount: number
+  readonly TargetWriting.frequency: (hertz: number) => string
+  type TimeFormat = { readonly kind: "clock"; } | { readonly kind: "milliseconds"; } | { readonly kind: "samples"; } | { readonly kind: "timecode"; readonly frames: FrameRate; }
+  const TimeFormatKind: { readonly Samples: "samples"; readonly Milliseconds: "milliseconds"; readonly Clock: "clock"; readonly Timecode: "timecode"; }
+  type TimeFormatKind = "clock" | "milliseconds" | "samples" | "timecode"
+  const TimePrecision: { readonly Milliseconds: "milliseconds"; readonly Microseconds: "microseconds"; }
+  type TimePrecision = "microseconds" | "milliseconds"
+  interface TimecodeLabel
+  readonly TimecodeLabel.negative: boolean
+  readonly TimecodeLabel.hours: number
+  readonly TimecodeLabel.minutes: number
+  readonly TimecodeLabel.seconds: number
+  readonly TimecodeLabel.frames: number
+  readonly TimecodeLabel.dropFrame: boolean
+  interface ViewportState
+  readonly ViewportState.start: SampleCount
+  readonly ViewportState.offset: number
+  readonly ViewportState.zoom: Zoom
+  readonly ViewportState.width: number
+  type Zoom = PixelsPerSample | SamplesPerPixel
+  function activeFacet(set: SelectionSet): SelectionFacet
+  function boundaryAt(view: ViewportState, x: number, length: SampleCount): SampleCount
+  function centredOn(view: ViewportState, position: SampleCount, length: SampleCount): ViewportState
+  function clampedView(view: ViewportState, length: SampleCount): ViewportState
+  function describeTarget(target: SelectionTarget, writing: TargetWriting): string
+  function formatPosition(position: number, rate: SampleRate, format: TimeFormat, precision?: TimePrecision): string
+  function frameAt(position: number, sampleRate: SampleRate, frames: FrameRate): number
+  function frameRate(numerator: number, denominator: number, dropFrame: boolean): DomainResult<FrameRate>
+  function frameRatesEqual(left: FrameRate, right: FrameRate): boolean
+  function frameStart(frame: number, sampleRate: SampleRate, frames: FrameRate): number
+  function framesPerSecond(frames: FrameRate): number
+  function framing(view: ViewportState, range: BoundaryRange, margin: number, length: SampleCount): ViewportState
+  function gridPositions(ticks: RulerTicks): readonly SampleCount[]
+  function nearestBoundary(view: ViewportState, x: number): number
+  function nominalFramesPerSecond(frames: FrameRate): number
+  function pixelOf(view: ViewportState, position: number): number
+  function pixelsPerSample(pixels: number): Zoom
+  function placedAt(view: ViewportState, position: SampleCount, x: number, length: SampleCount): ViewportState
+  function reconciled(set: SelectionSet, content: SelectableContent): SelectionSet
+  function resized(view: ViewportState, width: number, length: SampleCount): ViewportState
+  function resolveTarget(set: SelectionSet, request: TargetRequest, asset: TargetAsset): DomainResult<SelectionTarget>
+  function roundHalfAway(value: number): number
+  function rulerTicks(view: ViewportState, length: SampleCount, rate: SampleRate, format: TimeFormat, minimumSpacing: number): RulerTicks
+  function sampleAt(view: ViewportState, x: number, length: SampleCount): SampleCount | undefined
+  function samplesInPixel(zoom: Zoom): number
+  function samplesPerPixel(samples: number): Zoom
+  function samplesWithin(view: ViewportState, pixels: number): number
+  function scrolledBy(view: ViewportState, dx: number, length: SampleCount): ViewportState
+  function selectionsEqual(left: SelectionSet, right: SelectionSet): boolean
+  function snapped(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, within: number): SnapResult
+  function targetOutside(target: SelectionTarget, shown: BoundaryRange): boolean
+  function targetRange(target: SelectionTarget): BoundaryRange | undefined
+  function targetsWithin(targets: readonly SnapTarget[], span: BoundaryRange): readonly SnapTarget[]
+  function timecodeOf(frame: number, frames: FrameRate): TimecodeLabel
+  function timecodeText(label: TimecodeLabel): string
+  function viewportAtStart(zoom: Zoom, width: number): ViewportState
+  function viewportFitting(length: SampleCount, width: number): ViewportState
+  function visibleRange(view: ViewportState, length: SampleCount): BoundaryRange
+  function withChannels(set: SelectionSet, channels: readonly number[], channelCount: number): SelectionSet
+  function withObjects(set: SelectionSet, objects: ObjectSelection): SelectionSet
+  function withSpectralArea(set: SelectionSet, area: SpectralArea): SelectionSet
+  function withTimeRange(set: SelectionSet, time: BoundaryRange): SelectionSet
+  function withoutFacet(set: SelectionSet, facet: SelectionFacet): SelectionSet
+  function zoomFitting(samples: number, width: number): Zoom
+  function zoomScaled(zoom: Zoom, factor: number): Zoom
+  function zoomShowing(samples: number): Zoom
+  function zoomedAround(view: ViewportState, zoom: Zoom, anchorX: number, length: SampleCount): ViewportState
+  function zoomedIn(zoom: Zoom): Zoom
+  function zoomedOut(zoom: Zoom): Zoom
+  function zoomsEqual(left: Zoom, right: Zoom): boolean
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"

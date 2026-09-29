@@ -42,6 +42,12 @@
       "path": "./packages/audio-runtime/scopes/dedicated-worker"
     },
     {
+      "path": "./packages/timeline"
+    },
+    {
+      "path": "./packages/timeline/scopes/any"
+    },
+    {
       "path": "./packages/commands"
     },
     {

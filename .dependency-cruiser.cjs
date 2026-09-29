@@ -23,6 +23,9 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   timeline        the time axis as values: viewport, formats, ruler, the
+ *                   selection set and snapping; depends on domain alone, knows
+ *                   no thread or browser (ADR-0040)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -112,7 +115,9 @@ module.exports = {
       comment:
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
-      from: { path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|version)/' },
+      from: {
+        path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|timeline|version)/',
+      },
       to: {
         dependencyTypes: THIRD_PARTY,
         path: thirdParty(
@@ -162,6 +167,16 @@ module.exports = {
       to: {
         path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
       },
+    },
+    {
+      name: 'timeline-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The timeline is the time axis of the editor as values, below every view that draws it and ' +
+        'every command that reads its selection (ADR-0040). It depends on the domain alone, whose ' +
+        'sample counts and identifiers it is written in, so it runs in any scope.',
+      from: { path: '^packages/timeline/' },
+      to: { path: '^packages/(?!(timeline|domain)/)' },
     },
     {
       name: 'input-owns-nothing-else',

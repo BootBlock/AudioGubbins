@@ -245,6 +245,23 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The time axis as values: zoom and the viewport's exact conversions,
+    // frame rates and timecode, time formats, the ruler, the selection set
+    // with its command-target precedence, and snapping (ADR-0040, ADR-0041,
+    // ADR-0042). No browser, so it runs in any scope.
+    dir: 'packages/timeline',
+    name: '@audiogubbins/timeline',
+    description:
+      'The editor timeline as values: sample-accurate viewport coordinates, time formats, the ruler, the selection set and snapping.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

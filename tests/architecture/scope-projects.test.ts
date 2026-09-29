@@ -20,7 +20,12 @@ import { forwardSlashes, inRepository } from '../repository.js';
 import { productionSources, read, sourcesMatching } from './source-reading.js';
 
 /** The packages that run in any scope: the engine, and what it is built on. */
-const PORTABLE = ['packages/domain', 'packages/audio-graph', 'packages/audio-engine'];
+const PORTABLE = [
+  'packages/domain',
+  'packages/audio-graph',
+  'packages/audio-engine',
+  'packages/timeline',
+];
 
 /** The library each thread entry's scope is compiled with, by entry. */
 const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly lib: string[] }>> =
