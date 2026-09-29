@@ -12,8 +12,12 @@ import {
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
+import { createAudioSettingsStore } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
+import { createRenderStrategyStore } from '../state/render-strategy-store.js';
+import { createStateStorage } from '../state/state-storage.js';
+import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { CapabilitiesPanel, DiagnosticsPanel, recordsPassing, renderPanel } from './panels.js';
 
 /**
@@ -78,6 +82,7 @@ describe('every panel', () => {
   it.each([...Object.values(PanelKinds), 'a-kind-this-build-does-not-have'])(
     'draws %s with its heading and no region',
     (kind) => {
+      const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
       render(
         <>
           {renderPanel({ id: 'probe', kind }, 'Probe', {
@@ -89,6 +94,11 @@ describe('every panel', () => {
             logViews: createLogViewStore(),
             diagnosticModeActive: false,
             audio: createAudioViewStore(),
+            audioSettings: createAudioSettingsStore(
+              createStateStorage(ephemeralStorage(), logger, () => undefined),
+              logger,
+            ),
+            renderStrategy: createRenderStrategyStore(),
             playhead: () => undefined,
             run: () => undefined,
             unavailableReason: () => undefined,

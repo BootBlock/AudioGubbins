@@ -13,6 +13,7 @@ import {
   createDiagnosticCentre,
   createLogStore,
   type LogStore,
+  type Logger,
 } from '@audiogubbins/diagnostics';
 import {
   DockRegion,
@@ -26,6 +27,7 @@ import { KeyboardConvention } from '@audiogubbins/commands';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
+import { createAudioSettingsStore } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
@@ -34,6 +36,7 @@ import {
   type KeyboardLayoutStore,
 } from '../state/keyboard-layout-store.js';
 import { createPreferencesStore } from '../state/preferences-store.js';
+import { createRenderStrategyStore } from '../state/render-strategy-store.js';
 import { createShortcutStore } from '../state/shortcut-store.js';
 import {
   createStateStorage,
@@ -109,12 +112,24 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
   ]),
 );
 
-/** The audio part over fakes of the runtime, which it makes nothing real with. */
-function fakeAudio(interaction: InteractionStore): {
-  readonly parts: Pick<ShellContext, 'audio' | 'playback' | 'rendering'>;
+/**
+ * The audio part over fakes of the runtime, which it makes nothing real with,
+ * on a machine that does not say how much memory it has left.
+ */
+function fakeAudio(
+  interaction: InteractionStore,
+  storage: StateStorage,
+  logger: Logger,
+): {
+  readonly parts: Pick<
+    ShellContext,
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+  >;
   readonly fakes: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
 } {
   const audio = createAudioViewStore();
+  const audioSettings = createAudioSettingsStore(storage, logger);
+  const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
     interaction.announce(text);
   };
@@ -123,12 +138,23 @@ function fakeAudio(interaction: InteractionStore): {
     fakes,
     parts: {
       audio,
-      playback: new PlaybackControl({ view: audio, open: fakes.playback.open, announce }),
+      audioSettings,
+      renderStrategy,
+      playback: new PlaybackControl({
+        view: audio,
+        open: fakes.playback.open,
+        profile: () => audioSettings.get().chosen,
+        announce,
+      }),
       rendering: new RenderControl({
         view: audio,
+        settings: audioSettings,
+        strategy: renderStrategy,
         open: fakes.rendering.open,
+        resources: () => ({ availableMemoryBytes: undefined }),
         now: () => 0,
         announce,
+        logger,
       }),
     },
   };
@@ -170,7 +196,7 @@ export function buildShellContext(
   const layout =
     keyboardLayout ?? createKeyboardLayoutStore(storage, logger, KeyboardConvention.Windows);
 
-  const { parts, fakes } = fakeAudio(interaction);
+  const { parts, fakes } = fakeAudio(interaction, storage, logger);
 
   return {
     logs,

@@ -38,7 +38,26 @@ export type PresetProfile = Exclude<PerformanceProfile, typeof PerformanceProfil
  * requested output latency in seconds. The engine only carries it; the runtime
  * hands it to the context it creates.
  */
-export type LatencyHint = 'interactive' | 'balanced' | 'playback' | number;
+export type LatencyHint = LatencyCategory | number;
+
+/** The Web Audio latency categories a hint may name. */
+export const LATENCY_CATEGORIES = ['interactive', 'balanced', 'playback'] as const;
+
+/** A Web Audio latency category. */
+export type LatencyCategory = (typeof LATENCY_CATEGORIES)[number];
+
+/**
+ * Whether a value is a latency hint in form: a category, or a number of
+ * seconds. Custom settings arrive from storage and from commands, which can
+ * carry anything; whether the number is usable is
+ * {@link validatePerformanceSettings}'s to say.
+ */
+export function isLatencyHint(value: unknown): value is LatencyHint {
+  return (
+    typeof value === 'number' ||
+    (typeof value === 'string' && LATENCY_CATEGORIES.some((category) => category === value))
+  );
+}
 
 /** What a profile sets. Buffering and scheduling only. */
 export interface PerformanceSettings {

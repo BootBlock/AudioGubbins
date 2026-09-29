@@ -17,6 +17,7 @@ import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogub
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
 import { audioCommands } from './audio-commands.js';
+import { audioSettingsCommands } from './audio-settings-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
@@ -120,5 +121,6 @@ export function shellCommands(
     ...shortcutCommands(),
     ...diagnosticCommands(),
     ...audioCommands(),
+    ...audioSettingsCommands(),
   ];
 }

@@ -247,6 +247,10 @@ export interface PanelContext {
   /** What the audio engine is doing, which the Transport panel shows. */
   readonly audio: AudioViewStore;
 
+  /** The person's audio settings, and how the latest render was planned, which it shows too. */
+  readonly audioSettings: ShellContext['audioSettings'];
+  readonly renderStrategy: ShellContext['renderStrategy'];
+
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;
 
@@ -273,6 +277,8 @@ export function panelContextOf(
     logViews: context.logViews,
     diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
     audio: context.audio,
+    audioSettings: context.audioSettings,
+    renderStrategy: context.renderStrategy,
     playhead: () => context.playback.audiblePosition(),
     run,
     unavailableReason,
@@ -325,6 +331,8 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
         <TransportPanel
           title={title}
           audio={context.audio}
+          audioSettings={context.audioSettings}
+          renderStrategy={context.renderStrategy}
           capabilities={context.capabilities}
           playhead={context.playhead}
           run={context.run}

@@ -245,6 +245,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
+  'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };
 
 /**
