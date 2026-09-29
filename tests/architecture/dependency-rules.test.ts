@@ -2756,10 +2756,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       60,
       'One pass that threads a single redaction tally through every category it includes.',
     ],
-    'packages/domain/src/audio/channel-layout.ts: channelLayout': [
-      51,
-      'Validates a list of roles step by step: empty, too many, a position twice, mono mixed with others.',
-    ],
   };
 
   it('names every production function from the review start, with the review that kept it', () => {

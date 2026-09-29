@@ -596,6 +596,18 @@ Published paths
   function severityPasses(severity: LogSeverity, minimum: LogSeverity): boolean
 
 @audiogubbins/domain
+  interface AmbisonicComponent
+  readonly AmbisonicComponent.degree: number
+  readonly AmbisonicComponent.index: number
+  readonly AmbisonicComponent.acn: number
+  interface AmbisonicConvention
+  readonly AmbisonicConvention.order: number
+  readonly AmbisonicConvention.ordering: AmbisonicOrdering
+  readonly AmbisonicConvention.normalisation: AmbisonicNormalisation
+  const AmbisonicNormalisation: { readonly Sn3d: "sn3d"; readonly N3d: "n3d"; readonly FuMa: "fuma"; }
+  type AmbisonicNormalisation = "fuma" | "n3d" | "sn3d"
+  const AmbisonicOrdering: { readonly Acn: "acn"; readonly FuMa: "fuma"; }
+  type AmbisonicOrdering = "acn" | "fuma"
   interface Asset
   readonly Asset.id: AssetId
   readonly Asset.displayName: string
@@ -623,8 +635,10 @@ Published paths
   type BusId = string & { readonly [BrandTag]: "BusId"; }
   interface ChannelLayout
   readonly ChannelLayout.roles: readonly [ChannelRole, ...ChannelRole[]]
-  const ChannelRole: { readonly Mono: "mono"; readonly Left: "left"; readonly Right: "right"; readonly Centre: "centre"; readonly LowFrequency: "low-frequency"; readonly SurroundLeft: "surround-left"; readonly SurroundRight: "surround-right"; readonly RearLeft: "rear-left"; readonly RearRight: "rear-right"; readonly TopFrontLeft: "top-front-left"; readonly TopFrontRight: "top-front-right"; readonly TopRearLeft: "top-rear-left"; readonly TopRearRight: "top-rear-right"; readonly Discrete: "discrete"; }
-  type ChannelRole = "centre" | "discrete" | "left" | "low-frequency" | "mono" | "rear-left" | "rear-right" | "right" | "surround-left" | "surround-right" | "top-front-left" | "top-front-right" | "top-rear-left" | "top-rear-right"
+  readonly ChannelLayout.labels?: readonly [string, ...string[]]
+  readonly ChannelLayout.ambisonic?: AmbisonicConvention
+  const ChannelRole: { readonly Mono: "mono"; readonly Left: "left"; readonly Right: "right"; readonly Centre: "centre"; readonly LowFrequency: "low-frequency"; readonly SurroundLeft: "surround-left"; readonly SurroundRight: "surround-right"; readonly RearLeft: "rear-left"; readonly RearRight: "rear-right"; readonly RearCentre: "rear-centre"; readonly FrontLeftOfCentre: "front-left-of-centre"; readonly FrontRightOfCentre: "front-right-of-centre"; readonly TopCentre: "top-centre"; readonly TopFrontLeft: "top-front-left"; readonly TopFrontCentre: "top-front-centre"; readonly TopFrontRight: "top-front-right"; readonly TopRearLeft: "top-rear-left"; readonly TopRearCentre: "top-rear-centre"; readonly TopRearRight: "top-rear-right"; readonly Discrete: "discrete"; readonly Ambisonic: "ambisonic"; }
+  type ChannelRole = "ambisonic" | "centre" | "discrete" | "front-left-of-centre" | "front-right-of-centre" | "left" | "low-frequency" | "mono" | "rear-centre" | "rear-left" | "rear-right" | "right" | "surround-left" | "surround-right" | "top-centre" | "top-front-centre" | "top-front-left" | "top-front-right" | "top-rear-centre" | "top-rear-left" | "top-rear-right"
   interface ChoiceOption
   readonly ChoiceOption.key: string
   readonly ChoiceOption.label: string
@@ -668,6 +682,7 @@ Published paths
   readonly EmptySelection.kind: "none"
   type EntityId = AssetId | BusId | ClipId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
   type EntitySelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
+  const FIRST_ORDER_AMBIX: AmbisonicConvention
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
   interface IdGenerator
@@ -744,7 +759,7 @@ Published paths
   type Selection = EmptySelection | EntitySelection | TimeRangeSelection
   const SelectionFocus: { readonly Nothing: "nothing"; readonly TimeRange: "time-range"; readonly Clips: "clips"; readonly Regions: "regions"; readonly Markers: "markers"; readonly Tracks: "tracks"; readonly Assets: "assets"; readonly Processors: "processors"; }
   type SelectionFocus = "assets" | "clips" | "markers" | "nothing" | "processors" | "regions" | "time-range" | "tracks"
-  const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; }
+  const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
   interface TimeRangeSelection
   readonly TimeRangeSelection.kind: "time-range"
   readonly TimeRangeSelection.start: SampleCount
@@ -771,12 +786,16 @@ Published paths
   type TrackId = string & { readonly [BrandTag]: "TrackId"; }
   const ZERO_SAMPLES: SampleCount
   function addSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
+  function ambisonicChannelCount(order: number): number
+  function ambisonicComponentOf(layout: ChannelLayout, channel: number): AmbisonicComponent | undefined
+  function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<SampleCount>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
-  function channelLayout(roles: readonly ChannelRole[]): DomainResult<ChannelLayout>
+  function channelLabelOf(layout: ChannelLayout, index: number): string | undefined
+  function channelLayout(roles: readonly ChannelRole[], labels?: readonly string[] | undefined): DomainResult<ChannelLayout>
   function clipAssetId(clip: Clip): AssetId
   function clipEnd(clip: Clip): number
   function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[]
@@ -800,6 +819,7 @@ Published paths
   function isSuccess<TValue>(result: DomainResult<TValue>): boolean
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
   function isWellFormedId(candidate: string): boolean
+  function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function processorsInSignalOrder(chain: EffectChain): readonly ProcessorInstance[]
