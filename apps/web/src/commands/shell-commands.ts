@@ -24,9 +24,11 @@ import { editorNavigationCommands } from './editor-navigation-commands.js';
 import { editorOptionCommands } from './editor-option-commands.js';
 import { editorPresentationCommands } from './editor-presentation-commands.js';
 import { markerCommands } from './marker-commands.js';
+import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
 import { selectionCommands } from './selection-commands.js';
+import { selectionPlayheadCommands } from './selection-playhead-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
 import type { ShellContext } from './shell-context.js';
@@ -135,7 +137,9 @@ export function shellCommands(
     ...editorPresentationCommands(),
     ...editorOptionCommands(),
     ...selectionCommands(),
+    ...selectionPlayheadCommands(),
     ...markerCommands(),
+    ...markerNudgeCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

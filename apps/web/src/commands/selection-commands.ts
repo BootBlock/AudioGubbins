@@ -1,10 +1,11 @@
 /**
- * The selection commands (ADR-0042): the one way a selection changes, whether
- * a tool's drag, a click on a marker, a key or the palette asked for it
- * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the
- * editor last in use, and every view of that asset shows the result
- * (REQ-EDIT-061). The editor's selection scope, a live region, says what is
- * selected after each, so none of them speaks as well.
+ * The selection commands (ADR-0042): the one way a selection changes, whether a
+ * tool's drag, a click on a marker, a key or the palette asked for it
+ * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the editor
+ * last in use, and every view of that asset shows the result (REQ-EDIT-061).
+ * The editor's selection scope, a live region, says what is selected after
+ * each, so none of them speaks as well. Those that select time with the
+ * playhead are `selection-playhead-commands.ts`.
  *
  * None is undoable: a selection is not project content, and Undo is kept for
  * what is (REQ-EDIT-073).
@@ -23,13 +24,11 @@ import {
 import {
   EMPTY_SELECTION,
   SelectionFacet,
-  activeFacet,
   selectionsEqual,
   withChannels,
   withObjects,
   withTimeRange,
   withoutFacet,
-  type BoundaryRange,
   type SelectionSet,
 } from '@audiogubbins/timeline';
 
@@ -38,7 +37,6 @@ import {
   channelsArgument,
   editorTarget,
   needsEditor,
-  playheadOf,
   type EditorTarget,
 } from './editor-target.js';
 import { shellCommand, textArgument, type ShellCommandOptions } from './shell-command.js';
@@ -83,38 +81,8 @@ function boundary(value: number): SampleCount | undefined {
 }
 
 /**
- * The range the selection is extended from: its time range where that is the
- * facet made last, and otherwise the sample at the playhead, never a range the
- * person made before the marker they have since chosen.
- */
-function extensible(
-  current: SelectionSet,
-  target: EditorTarget,
-  context: ShellContext,
-): BoundaryRange {
-  if (activeFacet(current) === SelectionFacet.Time && current.time !== undefined) {
-    return current.time;
-  }
-  const at = playheadOf(context, target.asset);
-  const end = boundary(Math.min(at + 1, target.asset.length));
-  return { start: at, end: end ?? at };
-}
-
-function extendBy(step: -1 | 1): SelectionChange {
-  return (current, target, context) => {
-    const range = extensible(current, target, context);
-    const moved =
-      step === 1
-        ? { start: range.start, end: boundary(Math.min(range.end + 1, target.asset.length)) }
-        : { start: boundary(Math.max(range.start - 1, 0)), end: range.end };
-    if (moved.start === undefined || moved.end === undefined) return current;
-    return withTimeRange(current, { start: moved.start, end: moved.end });
-  };
-}
-
-/**
- * The marker identities an argument names, as a list separated by commas,
- * each checked for the shape an identifier has before it is taken as one.
+ * The marker identities an argument names, as a list separated by commas, each
+ * checked for the shape an identifier has before it is taken as one.
  */
 export function markerIdsOf(text: string | undefined): readonly MarkerId[] {
   return (text ?? '')
@@ -187,20 +155,6 @@ function wholeCommands(): readonly Command<ShellContext>[] {
     selectionCommand('editor.clear-selection', 'Select nothing', () => EMPTY_SELECTION, {
       keywords: ['clear', 'deselect', 'none', 'nothing', 'selection'],
     }),
-    selectionCommand(
-      'editor.extend-selection-back',
-      'Extend the selection back one sample',
-      extendBy(-1),
-      {
-        keywords: ['extend', 'selection', 'sample', 'back', 'left', 'grow'],
-      },
-    ),
-    selectionCommand(
-      'editor.extend-selection-forward',
-      'Extend the selection forward one sample',
-      extendBy(1),
-      { keywords: ['extend', 'selection', 'sample', 'forward', 'right', 'grow'] },
-    ),
     selectionCommand(
       'editor.scope-all-channels',
       'Select every channel',

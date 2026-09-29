@@ -19,12 +19,12 @@
  * test reads every press of this profile on every platform, so the shipped
  * profile cannot quietly include a shortcut that never fires.
  *
- * The editor's keys are pressed alone, or with Shift, as an audio editor's
- * are: arrows move the playhead and zoom, and a letter chooses a tool. A key
- * pressed alone is the shortcut's only outside a field one types in and a
- * control that uses the key itself (`use-shortcuts.ts`), and a screen reader
- * in browse mode keeps a letter for itself, which is why the editor's surface
- * is an application region, where the reader passes keys through.
+ * The editor's keys are pressed alone, or with Shift, as an audio editor's are:
+ * arrows move the playhead and zoom, and a letter chooses a tool. A key pressed
+ * alone is the shortcut's only outside a field one types in and a control that
+ * uses the key itself (`use-shortcuts.ts`), and a screen reader in browse mode
+ * keeps a letter for itself, which is why the editor's surface is an
+ * application region, where the reader passes keys through.
  *
  * Every character here is a letter, or the comma. A layout that types Latin
  * letters types each of them with no modifier, and on one that types other
@@ -171,45 +171,41 @@ export function placeDefaults(
       shortcut: of(prefix, primaryOn('p')),
     },
     {
-      // Command+comma is what every Mac application uses for its settings,
-      // and Safari opens its own with it. Whether Safari's menu acts on it
-      // before WebKit hands it to the page is not read, so it is no row of
-      // the reservation table, but a default is placed without the user
-      // asking, and one that did nothing on Safari would be found only by
-      // pressing it. Apple hardware gets the shifted form instead, and a
-      // user can rebind it to the conventional one.
+      // Command+comma is what every Mac application uses for its settings, and
+      // Safari opens its own with it. Whether Safari's menu acts on it before
+      // WebKit hands it to the page is not read, so it is no row of the
+      // reservation table, but a default is placed without the user asking, and
+      // one that did nothing on Safari would be found only by pressing it.
+      // Apple hardware gets the shifted form instead, and a user can rebind it
+      // to the conventional one.
       commandId: commandId('settings.open'),
       shortcut: of(primaryOn(',', apple ? { shift: true } : {})),
     },
 
     // Brightness, behind the prefix, on the arrow keys: up for brighter and
-    // down for darker.
-    //
-    // Three other pairs fail, each for its own reason. `=` and `-`:
-    // Ctrl+Shift+Equal and Ctrl+Minus are the browser's zoom, a layout types
-    // neither without Shift, and on German and Swiss the key a US layout types
-    // `=` on is a dead key, so the second press could never fire. Bare B and D:
-    // a screen reader in browse mode keeps them for itself, as the next button
-    // and the next landmark, and in a text field the letter would be typed and
-    // the chord given up. The theme's own letters with Shift: reachable, but
-    // Ctrl+K Ctrl+B is the light theme, so Ctrl+K Ctrl+Shift+B for Brighten
-    // would keep the pair a user confuses a pair, told apart by the modifier a
-    // user is likeliest to leave on or let go; and Ctrl+Shift+B and
-    // Ctrl+Shift+D are the bookmarks bar and bookmark-every-tab in Chrome, Edge
-    // and Firefox, which hand them to the page first: neither is in any
+    // down for darker. Three other pairs fail, each for its own reason. `=` and
+    // `-`: Ctrl+Shift+Equal and Ctrl+Minus are the browser's zoom, a layout
+    // types neither without Shift, and on German and Swiss the key a US layout
+    // types `=` on is a dead key, so the second press could never fire. Bare B
+    // and D: a screen reader in browse mode keeps them for itself, as the next
+    // button and the next landmark, and in a text field the letter would be
+    // typed and the chord given up. The theme's own letters with Shift:
+    // reachable, but Ctrl+K Ctrl+B is the light theme, so Ctrl+K Ctrl+Shift+B
+    // for Brighten would keep the pair a user confuses a pair, told apart by
+    // the modifier a user is likeliest to leave on or let go; and Ctrl+Shift+B
+    // and Ctrl+Shift+D are the bookmarks bar and bookmark-every-tab in Chrome,
+    // Edge and Firefox, which hand them to the page first: neither is in any
     // engine's set of presses it keeps from the page, as the reservation
-    // table's header reads those sets.
-    //
-    // An arrow key answers all of it. It is the same key on every layout, so
-    // it never waits and never moves; it types nothing in a field; it is
-    // modified, so a screen reader passes it through; and up for brighter
-    // needs no learning. No browser or system takes it *before the page* with
-    // the usual modifier alone on any convention, which is the reservation
-    // table's criterion and is what matters here. macOS does act on Command
-    // with the arrows — scroll to top and bottom, and document start and end
-    // inside a field — and is believed to deliver the press, which the chord
-    // handler cancels on both the waiting press and the running one either
-    // way.
+    // table's header reads those sets. An arrow key answers all of it. It is
+    // the same key on every layout, so it never waits and never moves; it types
+    // nothing in a field; it is modified, so a screen reader passes it through;
+    // and up for brighter needs no learning. No browser or system takes it
+    // *before the page* with the usual modifier alone on any convention, which
+    // is the reservation table's criterion and is what matters here. macOS does
+    // act on Command with the arrows — scroll to top and bottom, and document
+    // start and end inside a field — and is believed to deliver the press,
+    // which the chord handler cancels on both the waiting press and the running
+    // one either way.
     {
       commandId: commandId('view.brighten'),
       shortcut: of(prefix, primaryPress('ArrowUp', primary)),
@@ -251,7 +247,9 @@ export function placeDefaults(
       commandId: commandId('help.start-diagnostic-mode'),
       shortcut: of(prefix, primaryOn('g')),
     },
-    ...editorBindings(of, layout, primaryOn, (key) => primaryPress(key, primary)),
+    ...editorBindings(of, layout, primaryOn, (key, shift = false) =>
+      primaryPress(key, primary, { shift }),
+    ),
   ];
 
   const waiting = new Map<CommandId, readonly string[]>();
@@ -282,11 +280,16 @@ export function placeDefaults(
 
 /**
  * The editor's defaults. Up and down zoom, as a vertical move of a timeline
- * does in most editors; left and right move the playhead a pixel, a sample
- * with the usual modifier, and extend the selection by a sample with Shift.
- * The tools are the letters their names or their habits give: V selects, R
- * selects a range of time, H is the hand, Z zooms, C cuts with the razor and N
- * places markers; M adds a marker at the playhead, as in most editors.
+ * does in most editors; left and right move the playhead a pixel, a sample with
+ * the usual modifier, and extend the selection with the playhead by the same
+ * with Shift, as a text field's selection follows its caret. With Alt they
+ * nudge the selected markers a pixel, and a sample with Alt and Shift: Alt with
+ * the usual modifier and an arrow is a system's on Linux and Command with
+ * Option and an arrow the browser's on a Mac. I and O start and end the
+ * selection at the playhead, as a video editor's in and out points do. The
+ * tools are the letters their names or their habits give: V selects, R selects
+ * a range of time, H is the hand, Z zooms, C cuts with the razor and N places
+ * markers; M adds a marker at the playhead, as in most editors.
  */
 function editorBindings(
   of: (
@@ -295,7 +298,7 @@ function editorBindings(
   ) => Shortcut | readonly string[],
   layout: KeyboardLayout,
   primaryOn: (character: string) => KeyPress | string,
-  withPrimary: (key: string) => KeyPress,
+  withPrimary: (key: string, shift?: boolean) => KeyPress,
 ): readonly { readonly commandId: CommandId; readonly shortcut: Shortcut | readonly string[] }[] {
   /** The key typing a character pressed alone, or with Shift, or the character while it is not known. */
   const alone = (character: string, shift = false): KeyPress | string => {
@@ -304,6 +307,8 @@ function editorBindings(
   };
   /** A named key, the same on every layout, pressed alone or with Shift. */
   const named = (key: string, shift = false): KeyPress => keyPress(key, { shift });
+  /** A named key with Alt, and Shift or not. */
+  const withAlt = (key: string, shift = false): KeyPress => keyPress(key, { alt: true, shift });
   const bind = (id: string, shortcut: Shortcut | readonly string[]) => ({
     commandId: commandId(id),
     shortcut,
@@ -319,6 +324,14 @@ function editorBindings(
     bind('editor.playhead-forward-sample', of(withPrimary('ArrowRight'))),
     bind('editor.extend-selection-back', of(named('ArrowLeft', true))),
     bind('editor.extend-selection-forward', of(named('ArrowRight', true))),
+    bind('editor.extend-selection-back-sample', of(withPrimary('ArrowLeft', true))),
+    bind('editor.extend-selection-forward-sample', of(withPrimary('ArrowRight', true))),
+    bind('editor.selection-start-at-playhead', of(alone('i'))),
+    bind('editor.selection-end-at-playhead', of(alone('o'))),
+    bind('editor.nudge-markers-back', of(withAlt('ArrowLeft'))),
+    bind('editor.nudge-markers-forward', of(withAlt('ArrowRight'))),
+    bind('editor.nudge-markers-back-sample', of(withAlt('ArrowLeft', true))),
+    bind('editor.nudge-markers-forward-sample', of(withAlt('ArrowRight', true))),
     bind('editor.playhead-to-start', of(named('Home'))),
     bind('editor.playhead-to-end', of(named('End'))),
     bind('editor.scroll-back', of(named('PageUp'))),

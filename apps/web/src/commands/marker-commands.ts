@@ -53,7 +53,7 @@ import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The asset a marker command acts on, the format it speaks positions in, or why there is none. */
-function assetOf(
+export function assetOf(
   context: ShellContext,
   invocation: CommandInvocation,
 ): { readonly asset: EditorAsset; readonly format: TimeFormat } | string {
@@ -216,7 +216,10 @@ const MARKERS_SELECTED: TargetRequest = {
 };
 
 /** The markers the active selection in `asset` holds, or why it holds none. */
-function selectedMarkers(context: ShellContext, asset: EditorAsset): readonly MarkerId[] | string {
+export function selectedMarkers(
+  context: ShellContext,
+  asset: EditorAsset,
+): readonly MarkerId[] | string {
   const target = selectedTarget(context, asset, MARKERS_SELECTED);
   if (typeof target === 'string') return target;
   if (target.kind !== 'objects' || target.objects.kind !== 'markers') {
