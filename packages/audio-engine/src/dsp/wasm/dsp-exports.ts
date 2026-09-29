@@ -65,11 +65,20 @@ function exported(exports: object, name: string, missing: string[], unsigned = t
   };
 }
 
+/**
+ * Whether a value is an `ArrayBuffer` of any realm. The module's memory is
+ * made in the realm that compiled it, which need not be the caller's, and an
+ * `instanceof` test would refuse it there.
+ */
+function isArrayBuffer(value: unknown): value is ArrayBuffer {
+  return Object.prototype.toString.call(value) === '[object ArrayBuffer]';
+}
+
 /** The memory export's current buffer, or `undefined` if it has none. */
 function bufferOf(memory: unknown): ArrayBuffer | undefined {
   if (typeof memory !== 'object' || memory === null) return undefined;
   const buffer: unknown = Reflect.get(memory, 'buffer');
-  return buffer instanceof ArrayBuffer ? buffer : undefined;
+  return isArrayBuffer(buffer) ? buffer : undefined;
 }
 
 /** The functions of `exports`, or why they are not the module this binding speaks to. */

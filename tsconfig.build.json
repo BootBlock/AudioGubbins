@@ -24,6 +24,9 @@
       "path": "./packages/audio-engine"
     },
     {
+      "path": "./packages/audio-runtime"
+    },
+    {
       "path": "./packages/commands"
     },
     {

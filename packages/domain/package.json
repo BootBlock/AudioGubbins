@@ -20,8 +20,10 @@
   "files": [
     "src"
   ],
+  "sideEffects": false,
   "scripts": {
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project domain"
   },
   "devDependencies": {
     "vitest": "5.0.1"

@@ -20,6 +20,9 @@
  *                   or buffer (ADR-0030)
  *   audio-engine    the audio core that runs on any thread; depends on domain
  *                   and audio-graph, knows no browser (ADR-0030)
+ *   audio-runtime   the browser host of the engine: context, worklet, render
+ *                   worker and their messages; depends on domain, diagnostics,
+ *                   capabilities, audio-graph and audio-engine (ADR-0030)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -148,6 +151,19 @@ module.exports = {
       to: { path: '^packages/(?!(audio-engine|audio-graph|domain)/)' },
     },
     {
+      name: 'audio-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The browser host of the engine is given what the device offers and runs the engine in ' +
+        'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
+        'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
+        'storage or command package.',
+      from: { path: '^packages/audio-runtime/' },
+      to: {
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+      },
+    },
+    {
       name: 'input-owns-nothing-else',
       severity: 'error',
       comment:
@@ -247,6 +263,10 @@ module.exports = {
           // from production code is refused by the rule below, not by this
           // one, so the path being public costs nothing.
           '^packages/[^/]+/src/testing/index\\.ts$',
+
+          // A module a package declares as a thread entry point, which the
+          // browser loads by URL in its own global scope (ADR-0030).
+          '^packages/[^/]+/src/threads/[^/]+\\.ts$',
         ],
       },
     },
@@ -312,7 +332,12 @@ module.exports = {
         // test support with them. The composite build stops them again, since
         // the importing package references no project the source is in, so the
         // typecheck fails.
-        pathNot: '^packages/[^/]+/src/',
+        //
+        // The application's own build also serves a module no manifest can
+        // declare: the canonical DSP module's bytes, built from the crates by
+        // the Vite configuration's plugin under the `virtual:audiogubbins/`
+        // prefix, which only that plugin resolves.
+        pathNot: ['^packages/[^/]+/src/', '^virtual:audiogubbins/'],
       },
     },
   ],

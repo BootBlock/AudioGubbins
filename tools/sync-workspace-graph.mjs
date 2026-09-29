@@ -57,6 +57,20 @@ function hasStylesheets(spec) {
 }
 
 /**
+ * Whether a package has modules that run in another global scope.
+ *
+ * An AudioWorklet processor or a worker is loaded by URL, not imported, so
+ * the application hands the bundler a path to it; ADR-0030 puts such modules
+ * under `src/threads/` and declares them as an entry point, so that path
+ * stops at the package's boundary rather than reaching into its source.
+ *
+ * @param {PackageSpec} spec
+ */
+function hasThreadEntries(spec) {
+  return existsSync(join(REPO_ROOT, spec.dir, 'src', 'threads'));
+}
+
+/**
  * Whether a package offers its test support to another package's tests.
  *
  * Read from the tree, like the stylesheets: the entry point exists exactly
@@ -177,6 +191,28 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The browser host of the audio engine: the audio context and its
+    // lifecycle, the AudioWorklet processor and the render worker with their
+    // typed messages, and the feed of source frames into the worklet
+    // (ADR-0030). Given what the device offers, never probing it.
+    dir: 'packages/audio-runtime',
+    name: '@audiogubbins/audio-runtime',
+    description:
+      'The browser host of the audio engine: the audio context, the AudioWorklet processor, the render worker and their typed messages.',
+    dom: true,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/capabilities',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:
@@ -275,6 +311,10 @@ const PACKAGES = [
       '@audiogubbins/input',
       '@audiogubbins/text',
       '@audiogubbins/version',
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/audio-runtime',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },
@@ -336,6 +376,9 @@ function manifestFor(spec) {
       // not have.
       ...(hasStylesheets(spec) ? { './styles/*.css': './src/styles/*.css' } : {}),
 
+      // Modules the browser loads as a worklet or a worker, by URL.
+      ...(hasThreadEntries(spec) ? { './threads/*': './src/threads/*' } : {}),
+
       // Test support another package's tests take, where there is any. No
       // production module may import it, whatever path it uses, which an
       // architecture rule refuses rather than this map.
@@ -351,8 +394,21 @@ function manifestFor(spec) {
     main: './src/index.ts',
     types: './src/index.ts',
     files: ['src'],
+    // What the bundler may drop when nothing uses it. A package without the
+    // browser runs nothing when it is imported, so all of it may go; a
+    // package with thread entries runs those, as their global scope loads
+    // them, and nothing else. Undeclared elsewhere, where a stylesheet or a
+    // registration may run on import, so the bundler keeps what it cannot
+    // prove unused. Declared, the first paint no longer carries the audio
+    // engine the shell only loads when audio is first used.
+    sideEffects: spec.dom ? (hasThreadEntries(spec) ? ['./src/threads/*'] : undefined) : false,
     scripts: {
       typecheck: 'tsc --build',
+      // Runs the package's own project from the root configuration, so that
+      // `pnpm test --filter <package>` runs its tests: without a script of its
+      // own a filtered run selects the package, finds nothing to run and
+      // passes.
+      test: `vitest run --root ${'../'.repeat(spec.dir.split('/').length)} --project ${vitestProjectFor(spec).name}`,
     },
   };
 
@@ -382,6 +438,7 @@ function manifestFor(spec) {
       build: 'vite build',
       preview: 'vite preview',
       typecheck: 'tsc --build',
+      test: manifest.scripts.test,
     };
   }
 

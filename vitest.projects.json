@@ -58,6 +58,17 @@
       ]
     },
     {
+      "name": "audio-runtime",
+      "root": "packages/audio-runtime",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",

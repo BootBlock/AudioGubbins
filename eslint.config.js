@@ -188,7 +188,7 @@ export default tseslint.config(
   {
     files: [
       'apps/web/**/*.{ts,tsx}',
-      'packages/{design-system,workspace,capabilities}/**/*.{ts,tsx}',
+      'packages/{audio-runtime,design-system,workspace,capabilities}/**/*.{ts,tsx}',
     ],
     languageOptions: {
       globals: globals.browser,
