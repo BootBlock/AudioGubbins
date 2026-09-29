@@ -5,8 +5,9 @@
  * stream contract, the canonical DSP port and its two implementations, the
  * node types and the executor that runs a plan, the offline renderer, the
  * media clock and the transport, performance profiles, processing-mode
- * selection, the priority scheduler and resource-aware chunking. Each is its
- * own module with one rule to keep, and none is a manager of the others.
+ * selection, the priority scheduler, resource-aware chunking and the render
+ * strategy that composes the last three. Each is its own module with one rule
+ * to keep, and none is a manager of the others.
  *
  * The package depends on the domain and the graph alone, and is compiled
  * without the browser's type definitions, so the same code runs in an
@@ -46,8 +47,10 @@ export {
   type CanonicalDsp,
   type CanonicalOscillator,
   type CanonicalResampler,
+  CoefficientStrategy,
   DspImplementation,
   type OscillatorSettings,
+  type ResamplerCoefficients,
   type ResamplerSettings,
   ResamplingQuality,
 } from './dsp/canonical-dsp.js';
@@ -103,7 +106,10 @@ export {
 } from './transport/transport.js';
 
 export {
+  LATENCY_CATEGORIES,
+  type LatencyCategory,
   type LatencyHint,
+  isLatencyHint,
   PRESET_SETTINGS,
   PerformanceProfile,
   type PerformanceSettings,
@@ -148,3 +154,10 @@ export {
   estimateWorkload,
   planChunks,
 } from './scheduling/workload.js';
+
+export {
+  type RenderAssessment,
+  type RenderStrategy,
+  type RenderStrategyRequest,
+  assessRender,
+} from './scheduling/render-strategy.js';

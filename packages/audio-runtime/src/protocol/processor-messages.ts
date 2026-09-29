@@ -15,8 +15,8 @@
  * reaches the end, which is what the main thread anchors the media clock to.
  *
  * The audio itself does not come this way. The feeder worker sends it, or the
- * rewinds of shared rings, through a channel of its own
- * (`feed-messages.ts`), whose far end crosses here in the `load`.
+ * rewinds of shared rings, through a channel of its own (`feed-messages.ts`),
+ * whose far end crosses here in the `load`.
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -102,8 +102,9 @@ export type ToProcessor =
       /** Quanta between two reports: the rate the main thread hears the count and the meters at. */
       readonly reportEveryBlocks: number;
       /**
-       * The processor's end of the channel to the feeder, transferred, where the
-       * graph has feeds: the posted blocks and every feed's rewinds arrive on it.
+       * The processor's end of the channel to the feeder, transferred, where
+       * the graph has feeds: the posted blocks and every feed's rewinds arrive
+       * on it.
        */
       readonly feeder: MessagePort | undefined;
     }

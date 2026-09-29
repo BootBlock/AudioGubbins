@@ -3,13 +3,13 @@
  * means for the transport and the status.
  *
  * A reply about a run counts only if the run is still the current one: a
- * `started`, a report or an end posted just before a halt reached the
- * processor arrives after the main thread has moved on, and the run it names is
- * how it is told apart. The processor's count is the transport's: a start
- * anchors it, a report moves the anchor without publishing anything, a halt
- * after a pause settles where it paused, and the end stops it where the audio
- * ended. The load's own answer is the loaded processor's to take, and a fault
- * is handed back to the session, which owns what a fault ends.
+ * `started`, a report or an end posted just before a halt reached the processor
+ * arrives after the main thread has moved on, and the run it names is how it is
+ * told apart. The processor's count is the transport's: a start anchors it, a
+ * report moves the anchor without publishing anything, a halt after a pause
+ * settles where it paused, and the end stops it where the audio ended. The
+ * load's own answer is the loaded processor's to take, and a fault is handed
+ * back to the session, which owns what a fault ends.
  */
 
 import { sampleCount, type SampleCount } from '@audiogubbins/domain';

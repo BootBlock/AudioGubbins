@@ -30,11 +30,13 @@ import type {
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
+import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
 import type { KeyboardLayoutStore } from '../state/keyboard-layout-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
 import type { PreferencesStore } from '../state/preferences-store.js';
+import type { RenderStrategyStore } from '../state/render-strategy-store.js';
 import type { ShortcutStore } from '../state/shortcut-store.js';
 import type { VerbosityStore } from '../state/verbosity-store.js';
 import type { WorkspaceStore } from '../state/workspace-store.js';
@@ -80,8 +82,17 @@ export interface ShellContext {
   /** Where text the user asked to keep is offered as a file. */
   readonly files: TextFiles;
 
-  /** What the audio engine is doing, and the performance profile chosen. */
+  /** What the audio engine is doing. */
   readonly audio: AudioViewStore;
+
+  /**
+   * How the person has set the audio engine up: the performance profile, the
+   * Custom profile's settings, the background priority and the render mode.
+   */
+  readonly audioSettings: AudioSettingsStore;
+
+  /** How the latest render was planned, and what the last one measured. */
+  readonly renderStrategy: RenderStrategyStore;
 
   /** Plays, pauses and stops the test signal. */
   readonly playback: PlaybackControl;

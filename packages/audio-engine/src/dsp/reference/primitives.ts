@@ -42,39 +42,112 @@ export function sineOfTurns(turns: number): number {
   return sum * t;
 }
 
-/** Where each value of an oscillator's state sits in its {@link ReferenceOscillator} array. */
-const PHASE = 0;
-const INCREMENT = 1;
-const AMPLITUDE = 2;
+/** `2³²`: one carry from the low half of the phase into the high. */
+const TWO_32 = 4_294_967_296;
 
-/** A sine oscillator whose phase is held in turns, as `oscillator.rs`. */
+/** `2⁻³²` and `2⁻⁶⁴`: a unit of the high and of the low half of the phase, in turns. */
+const HIGH_TURNS = 1 / TWO_32;
+const LOW_TURNS = 1 / 18_446_744_073_709_551_616;
+
+/** `2⁶⁴`, to scale a fraction of a turn to units. */
+const UNITS_PER_TURN = 18_446_744_073_709_551_616;
+
+const LOW_MASK = 0xffff_ffffn;
+const WORD_MASK = 0xffff_ffff_ffff_ffffn;
+
+/**
+ * `frequency / rate` in units of 2⁻⁶⁴ turn, rounded to the nearest, a half
+ * up, from the frequency's significand and exponent: `increment_of` in
+ * `oscillator.rs`, in `bigint`s.
+ */
+function incrementOf(frequency: number, rate: number): bigint {
+  const bits = new BigUint64Array(Float64Array.of(frequency).buffer)[0] ?? 0n;
+  const biased = (bits >> 52n) & 0x7ffn;
+  const fraction = bits & ((1n << 52n) - 1n);
+  const significand = biased === 0n ? fraction : fraction | (1n << 52n);
+  const shift = (biased === 0n ? -1074n : biased - 1075n) + 64n;
+  let numerator: bigint;
+  let denominator: bigint;
+  if (shift >= 0n) {
+    numerator = significand << shift;
+    denominator = BigInt(rate);
+  } else if (shift >= -96n) {
+    numerator = significand;
+    denominator = BigInt(rate) << -shift;
+  } else {
+    return 0n;
+  }
+  const quotient = numerator / denominator;
+  const remainder = numerator % denominator;
+  const rounded = remainder >= denominator - remainder ? quotient + 1n : quotient;
+  return rounded > WORD_MASK ? WORD_MASK : rounded;
+}
+
+/** Where each value of an oscillator's state sits in its {@link ReferenceOscillator} array. */
+const PHASE_HIGH = 0;
+const PHASE_LOW = 1;
+const INCREMENT_HIGH = 2;
+const INCREMENT_LOW = 3;
+const AMPLITUDE = 4;
+
+/**
+ * A sine oscillator whose phase is a 64-bit fixed-point count of turns, as
+ * `oscillator.rs`: frame `n`'s phase is `(start + n · increment) mod 2⁶⁴`.
+ *
+ * The phase is held as two 32-bit halves in doubles, each exact, added with a
+ * carry. The turns a sample is the sine of are `hi · 2⁻³² + lo · 2⁻⁶⁴`: two
+ * exact products and one correctly rounded sum, which is the phase rounded to
+ * the nearest double, the number the crate's `phase as f64 · 2⁻⁶⁴` gives.
+ */
 export class ReferenceOscillator {
   /**
-   * The phase, the increment and the amplitude, in one f64 array rather than
-   * three fields: V8 boxes a double it writes to an object field, which on
-   * the fallback path of the audio thread was a heap number every sample.
+   * The phase and increment halves and the amplitude, in one f64 array rather
+   * than fields: V8 boxes a double it writes to an object field, which on the
+   * fallback path of the audio thread was a heap number every sample.
    */
-  readonly #state = new Float64Array(3);
+  readonly #state = new Float64Array(5);
+  readonly #start: bigint;
+  readonly #increment: bigint;
 
   /** Settings already checked by `checkOscillator`. */
   constructor(frequency: number, sampleRate: number, startPhase: number, amplitude: number) {
-    this.#state[PHASE] = startPhase - Math.floor(startPhase);
-    this.#state[INCREMENT] = frequency / sampleRate;
+    const fraction = startPhase - Math.floor(startPhase);
+    this.#start = BigInt(Math.floor(fraction * UNITS_PER_TURN));
+    this.#increment = incrementOf(frequency, sampleRate);
+    this.#state[INCREMENT_HIGH] = Number(this.#increment >> 32n);
+    this.#state[INCREMENT_LOW] = Number(this.#increment & LOW_MASK);
     this.#state[AMPLITUDE] = amplitude;
+    this.seek(0);
+  }
+
+  /** Moves to frame `frame` of the run, a whole number `assertSeekFrame` has checked. */
+  seek(frame: number): void {
+    const phase = (this.#start + BigInt(frame) * this.#increment) & WORD_MASK;
+    this.#state[PHASE_HIGH] = Number(phase >> 32n);
+    this.#state[PHASE_LOW] = Number(phase & LOW_MASK);
   }
 
   /** Writes the next samples; storing into the array rounds each once to f32. */
   render(into: Float32Array): void {
     const state = this.#state;
-    const increment = state[INCREMENT] ?? 0;
+    const incrementHigh = state[INCREMENT_HIGH] ?? 0;
+    const incrementLow = state[INCREMENT_LOW] ?? 0;
     const amplitude = state[AMPLITUDE] ?? 0;
-    let phase = state[PHASE] ?? 0;
+    let high = state[PHASE_HIGH] ?? 0;
+    let low = state[PHASE_LOW] ?? 0;
     for (let index = 0; index < into.length; index += 1) {
-      into[index] = amplitude * sineOfTurns(phase);
-      phase += increment;
-      if (phase >= 1) phase -= 1;
+      into[index] = amplitude * sineOfTurns(high * HIGH_TURNS + low * LOW_TURNS);
+      low += incrementLow;
+      let carry = 0;
+      if (low >= TWO_32) {
+        low -= TWO_32;
+        carry = 1;
+      }
+      high += incrementHigh + carry;
+      if (high >= TWO_32) high -= TWO_32;
     }
-    state[PHASE] = phase;
+    state[PHASE_HIGH] = high;
+    state[PHASE_LOW] = low;
   }
 }
 

@@ -2,8 +2,8 @@
  * The messages between the feeder worker and the engine's AudioWorklet
  * processor, on the channel whose two ends the main thread hands them.
  *
- * The audio of every graph input crosses here, not through the main thread,
- * so no long task there can starve the audio thread (REQ-ARCH-036): a shared
+ * The audio of every graph input crosses here, not through the main thread, so
+ * no long task there can starve the audio thread (REQ-ARCH-036): a shared
  * ring's audio is written in place and only its rewinds are sent, and a posted
  * feed's blocks are sent one by one, each answered once the graph input has
  * read it, which is how the feeder knows how much the processor holds. Both

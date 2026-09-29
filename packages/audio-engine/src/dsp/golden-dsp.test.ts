@@ -105,13 +105,19 @@ describe.each([
     const samples = new Float32Array(4_800);
     oscillator.render(samples);
     oscillator.release();
-    expect(fingerprint(samples)).toBe(0x46fc8a6833be7402n);
+    // Was 0x46fc8a6833be7402 before the oscillator's phase became a 64-bit
+    // fixed-point count of turns, exact at any frame so it can seek there
+    // (REQ-EXEC-180); see `GOLDEN_TONE` in `oscillator.rs`, the same value.
+    expect(fingerprint(samples)).toBe(0xc92ed51ca6467571n);
   });
 
   it('converts the golden ramp', () => {
     const output = convert(dspOf(), ramp(2_000), 44_100, 48_000, 300, 256);
     expect(output.length).toBe(2_177);
-    expect(fingerprint(output)).toBe(0x07bc2c6d5a22da3fn);
+    // Was 0x07bc2c6d5a22da3f before each quality's filter was designed from
+    // its passband edge and stopband floor (REQ-EXEC-180); see
+    // `GOLDEN_CONVERSION` in `stream.rs`, which holds the same value.
+    expect(fingerprint(output)).toBe(0x98be85a59ec272f0n);
   });
 
   it('writes the same bits whatever the chunks it is fed and pulled in', () => {
@@ -119,6 +125,102 @@ describe.each([
     const whole = convert(dspOf(), input, 48_000, 32_000, 3_000, 4_096);
     const pieces = convert(dspOf(), input, 48_000, 32_000, 17, 5);
     expect(pieces).toEqual(whole);
+  });
+
+  it('renders from any frame it seeks to the bits a run from the first frame renders', () => {
+    const settings = {
+      frequency: 997,
+      sampleRate: rate(44_100),
+      startPhase: 0.25,
+      amplitude: 0.5,
+    };
+    const whole = new Float32Array(10_000);
+    const first = expectSuccess(dspOf().createOscillator(settings));
+    first.render(whole);
+    first.release();
+    const oscillator = expectSuccess(dspOf().createOscillator(settings));
+    const part = new Float32Array(1_000);
+    for (const frame of [7_321, 5, 9_000, 0]) {
+      oscillator.seek(frame);
+      oscillator.render(part);
+      expect(part).toEqual(whole.subarray(frame, frame + 1_000));
+    }
+    expect(() => {
+      oscillator.seek(-1);
+    }).toThrow('An oscillator cannot seek to frame -1.');
+    oscillator.release();
+  });
+
+  it('renders the golden tone a trillion frames in', () => {
+    // Far enough in that a phase computed with any rounding would be off; the
+    // same value is `GOLDEN_TONE_FAR` in `oscillator.rs`.
+    const oscillator = expectSuccess(
+      dspOf().createOscillator({
+        frequency: 440,
+        sampleRate: rate(48_000),
+        startPhase: 0,
+        amplitude: 0.5,
+      }),
+    );
+    const samples = new Float32Array(4_800);
+    oscillator.seek(1_000_000_000_000);
+    oscillator.render(samples);
+    oscillator.release();
+    expect(fingerprint(samples)).toBe(0x6c15de3e30ae6635n);
+  });
+
+  it('renders a call of no frames, and the frames after it as if it had not been made', () => {
+    const oscillator = expectSuccess(
+      dspOf().createOscillator({
+        frequency: 440,
+        sampleRate: rate(48_000),
+        startPhase: 0,
+        amplitude: 0.5,
+      }),
+    );
+    oscillator.render(new Float32Array(0));
+    const samples = new Float32Array(4_800);
+    oscillator.render(samples);
+    oscillator.release();
+    expect(fingerprint(samples)).toBe(0xc92ed51ca6467571n);
+  });
+
+  it('takes and gives no frames, and throws the same fault for arrays of the wrong shape', () => {
+    const resampler = expectSuccess(
+      dspOf().createResampler({
+        from: rate(48_000),
+        to: rate(44_100),
+        channels: 2,
+        quality: ResamplingQuality.Draft,
+      }),
+    );
+    const empty = new Float32Array(0);
+    resampler.push([empty, empty]);
+    expect(resampler.pull([empty, empty])).toBe(0);
+
+    const long = new Float32Array(64);
+    const short = new Float32Array(32);
+    const uneven = 'A resampler was given channel arrays of different lengths.';
+    expect(() => {
+      resampler.push([long, short]);
+    }).toThrow(uneven);
+    expect(() => {
+      resampler.push([short, long]);
+    }).toThrow(uneven);
+    expect(() => {
+      resampler.push([long]);
+    }).toThrow('A resampler of 2 channels was given 1 arrays.');
+    resampler.push([long, long]);
+    resampler.finish();
+    expect(() => resampler.pull([long, short])).toThrow(uneven);
+    expect(() => resampler.pull([short, long])).toThrow(uneven);
+    expect(() => resampler.pull([long, long, long])).toThrow(
+      'A resampler of 2 channels was given 3 arrays.',
+    );
+    expect(() => resampler.seek(1.5)).toThrow('A resampler cannot seek to frame 1.5.');
+    // Nothing refused was taken: the 64 frames pushed whole convert to 59.
+    expect(resampler.pull([long, long])).toBe(59);
+    resampler.release();
   });
 
   it('refuses a tone above half the rate, with the reason', () => {
@@ -140,8 +242,9 @@ describe('the two implementations', () => {
   });
 
   it('agree on every sample of a long multichannel conversion between unrelated rates', () => {
-    // 44 099 and 48 000 share no factor, so the kernel computes each phase as
-    // it goes instead of from its table, the other branch of the crate.
+    // 44 099 and 48 000 share no factor, so the kernel's table has 48 000
+    // phases, each filled the first time it is used, in the order the
+    // conversion reaches them.
     const left = ramp(6_000);
     const right = left.map((sample) => -sample / 2);
     const run = (dsp: CanonicalDsp): Float32Array[] => {

@@ -56,7 +56,7 @@ describe('the audio commands', () => {
     }
   });
 
-  it('offers one command for each preset profile, and none for Custom', () => {
+  it('offers one command for each profile, Custom among them', () => {
     const profiles = audioCommands()
       .map((command) => command.id)
       .filter((id) => id.startsWith('transport.profile-'));
@@ -64,6 +64,7 @@ describe('the audio commands', () => {
       'transport.profile-low-latency',
       'transport.profile-balanced',
       'transport.profile-maximum-stability',
+      'transport.profile-custom',
     ]);
   });
 });
@@ -162,7 +163,7 @@ describe('running the audio commands', () => {
 
     expect(run('transport.profile-maximum-stability').kind).toBe('applied');
 
-    expect(context.audio.get().profile).toBe(PerformanceProfile.MaximumStability);
+    expect(context.audioSettings.get().chosen.profile).toBe(PerformanceProfile.MaximumStability);
     expect(context.interaction.get().announcement?.text).toBe(
       'The performance profile is Maximum stability.',
     );
@@ -176,10 +177,87 @@ describe('running the audio commands', () => {
     run('transport.profile-low-latency');
     await playbackSettled(context.audio);
 
-    expect(playback.opened.map((one) => [one.profile, one.closed])).toEqual([
+    expect(playback.opened.map((one) => [one.profile.profile, one.closed])).toEqual([
       [PerformanceProfile.Balanced, true],
       [PerformanceProfile.LowLatency, false],
     ]);
     expect(context.audio.get().playback?.transport.mode).toBe(TransportMode.Playing);
+  });
+});
+
+describe('the Custom profile and the render decisions', () => {
+  let context: ShellContext;
+  let bus: CommandBus<ShellContext>;
+  let playback: FakePlayback;
+  let rendering: FakeRendering;
+  const run = (id: string) => bus.execute(context, { commandId: commandId(id) });
+
+  beforeEach(() => {
+    ({ context, bus, playback, rendering } = rig());
+  });
+
+  it('plays with the Custom settings once Custom is chosen', async () => {
+    run('transport.play-test-signal');
+    await playbackSettled(context.audio);
+
+    expect(run('transport.profile-custom').kind).toBe('applied');
+    expect(context.interaction.get().announcement?.text).toBe('The performance profile is Custom.');
+    await playbackSettled(context.audio);
+
+    expect(playback.opened.at(-1)?.profile).toEqual({
+      profile: PerformanceProfile.Custom,
+      settings: context.audioSettings.get().custom,
+    });
+  });
+
+  it('never changes what can be done: every other command is as available under every profile', () => {
+    const others = shellCommands(DESCRIPTORS)
+      .map((command) => command.id)
+      .filter((id) => !id.startsWith('transport.profile-'));
+    const availabilityUnder = (profile: string) => {
+      run(`transport.profile-${profile}`);
+      return others.map((id) => [id, bus.availability(context, id).available]);
+    };
+
+    const balanced = others.map((id) => [id, bus.availability(context, id).available]);
+    for (const profile of ['low-latency', 'maximum-stability', 'custom', 'balanced']) {
+      expect(availabilityUnder(profile)).toEqual(balanced);
+    }
+  });
+
+  it('says a render starts in the background when it does', async () => {
+    run('transport.render-mode-background-offline');
+
+    expect(run('transport.render-test-signal').kind).toBe('applied');
+
+    expect(context.interaction.get().announcement?.text).toBe(
+      'Rendering the test signal offline, in the background.',
+    );
+    await everythingQueued();
+  });
+
+  it('offers the decisions only while a render waits on a warning, and says what it asks', async () => {
+    expect(reason(bus, context, 'transport.render-safer')).toBe(
+      'No render is waiting for a decision.',
+    );
+    run('transport.render-mode-final-offline');
+    context.renderStrategy.measured(2);
+
+    expect(run('transport.render-test-signal').kind).toBe('applied');
+
+    expect(rendering.requests).toEqual([]);
+    expect(context.interaction.get().announcement?.text).toMatch(
+      /The processor is the limiting resource\. Render in the background, or render as chosen\?$/,
+    );
+    expect(reason(bus, context, 'transport.render-safer')).toBeUndefined();
+    expect(reason(bus, context, 'transport.render-as-chosen')).toBeUndefined();
+
+    expect(run('transport.render-safer').kind).toBe('applied');
+    await everythingQueued();
+
+    expect(rendering.runs.map((one) => one.priority)).toEqual(['background']);
+    expect(reason(bus, context, 'transport.render-as-chosen')).toBe(
+      'No render is waiting for a decision.',
+    );
   });
 });

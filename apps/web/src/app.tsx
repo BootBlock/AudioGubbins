@@ -56,6 +56,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
     interaction,
     shortcuts,
     verbosity,
+    audioSettings,
     keyboardLayout,
     persistence,
     missingCapabilities,
@@ -267,6 +268,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                     diagnosticModeEnds: new Date(diagnosticModeEndsAt).toLocaleTimeString('en-GB'),
                   })}
               verbosity={verbosity}
+              audio={audioSettings}
               logCategories={logCategories}
               layout={workspace.layout}
               available={workspace.available}

@@ -1,9 +1,11 @@
 /**
- * The checks every canonical DSP implementation makes before it builds.
+ * The checks every canonical DSP implementation makes before it builds, and
+ * before it takes a call.
  *
  * Written once, so the two implementations refuse the same settings with the
- * same failure: the Rust module refuses them too, but by answering handle 0,
- * which says nothing a person could act on.
+ * same failure, and the same calls with the same fault: the Rust module
+ * refuses them too, but by answering handle 0 or a status, which says nothing
+ * a person could act on.
  */
 
 import { failure, FailureKind, fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -56,6 +58,17 @@ export function checkResampler(settings: ResamplerSettings): DomainResult<Resamp
       ),
     );
   }
+  const budget = settings.coefficientBudgetBytes;
+  if (budget !== undefined && !(budget >= 0)) {
+    return fail(
+      failure(
+        'dsp.resampler-budget-invalid',
+        FailureKind.Rejected,
+        'A resampler’s memory budget is a number of bytes, zero or more.',
+        { details: { budget: String(budget) } },
+      ),
+    );
+  }
   if (!QUALITIES.has(settings.quality)) {
     return fail(
       failure(
@@ -67,4 +80,37 @@ export function checkResampler(settings: ResamplerSettings): DomainResult<Resamp
     );
   }
   return succeed(settings);
+}
+
+/**
+ * The frames in `arrays`, one array per channel of a resampler of `channels`,
+ * or a throw where they are not that shape: another number of arrays, or
+ * arrays of different lengths. The engine owns every push and pull, so a
+ * wrong shape is a fault in the engine, which the port throws for; checked
+ * here, both implementations throw it for the same calls.
+ */
+export function framesOfPlanar(arrays: readonly Float32Array[], channels: number): number {
+  const frames = arrays[0]?.length ?? 0;
+  if (arrays.length !== channels) {
+    throw new Error(
+      `A resampler of ${String(channels)} channels was given ${String(arrays.length)} arrays.`,
+    );
+  }
+  // Indexed rather than `some`, whose callback would be an object a call.
+  for (let index = 1; index < arrays.length; index += 1) {
+    if (arrays[index]?.length !== frames) {
+      throw new Error('A resampler was given channel arrays of different lengths.');
+    }
+  }
+  return frames;
+}
+
+/**
+ * Throws unless `frame` is a frame an oscillator or resampler can seek to: a
+ * whole number from 0. `what` names the object, for the fault's message.
+ */
+export function assertSeekFrame(frame: number, what: string): void {
+  if (!Number.isSafeInteger(frame) || frame < 0) {
+    throw new Error(`${what} cannot seek to frame ${String(frame)}.`);
+  }
 }

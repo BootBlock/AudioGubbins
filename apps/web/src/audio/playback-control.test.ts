@@ -3,8 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { FailureKind, fail, failure } from '@audiogubbins/domain';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
 import { PlaybackPhase } from '@audiogubbins/audio-runtime';
+import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
+import { createAudioSettingsStore } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
+import { createStateStorage } from '../state/state-storage.js';
+import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_CONTEXT_RATE, FakePlayback, playbackSettled } from '../testing/audio-fakes.js';
 import { PlaybackControl } from './playback-control.js';
 
@@ -13,9 +17,24 @@ function rig() {
   const view = createAudioViewStore();
   const parts = new FakePlayback();
   const announce = vi.fn<(text: string) => void>();
-  const control = new PlaybackControl({ view, open: parts.open, announce });
+  const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
+  const settings = createAudioSettingsStore(
+    createStateStorage(ephemeralStorage(), logger, () => undefined),
+    logger,
+  );
+  const control = new PlaybackControl({
+    view,
+    open: parts.open,
+    profile: () => settings.get().chosen,
+    announce,
+  });
   const settled = () => playbackSettled(view);
-  return { view, parts, announce, control, settled };
+  /** Chooses a profile as its command does: in the settings, and then for playback. */
+  const choose = (profile: PerformanceProfile) => {
+    settings.chooseProfile(profile);
+    control.useProfile(settings.get().chosen);
+  };
+  return { view, parts, announce, control, settled, settings, choose };
 }
 
 describe('playing the test signal', () => {
@@ -136,39 +155,38 @@ describe('playing the test signal', () => {
 });
 
 describe('changing the performance profile', () => {
-  it('only records the choice while nothing has been made', () => {
-    const { control, parts, view } = rig();
+  it('makes nothing when a profile is chosen before anything has been made', () => {
+    const { parts, choose } = rig();
 
-    control.useProfile(PerformanceProfile.LowLatency);
+    choose(PerformanceProfile.LowLatency);
 
-    expect(view.get().profile).toBe(PerformanceProfile.LowLatency);
     expect(parts.opened).toEqual([]);
   });
 
   it('makes the next Play with the profile chosen', async () => {
-    const { control, parts, settled } = rig();
-    control.useProfile(PerformanceProfile.MaximumStability);
+    const { control, parts, settled, choose } = rig();
+    choose(PerformanceProfile.MaximumStability);
 
     control.play();
     await settled();
 
-    expect(parts.opened[0]?.profile).toBe(PerformanceProfile.MaximumStability);
+    expect(parts.opened[0]?.profile.profile).toBe(PerformanceProfile.MaximumStability);
   });
 
   it('closes a playing context and goes on from the same place in a new one', async () => {
-    const { control, parts, view, settled } = rig();
+    const { control, parts, view, settled, choose } = rig();
     control.play();
     await settled();
     const first = parts.latest();
     first.contextFrame = 9_600;
 
-    control.useProfile(PerformanceProfile.LowLatency);
+    choose(PerformanceProfile.LowLatency);
     await settled();
 
     expect(parts.opened[0]?.closed).toBe(true);
     expect(first.disposed).toBe(true);
     expect(parts.opened[1]).toMatchObject({
-      profile: PerformanceProfile.LowLatency,
+      profile: { profile: PerformanceProfile.LowLatency },
       contextStarts: 1,
     });
     expect(parts.latest().seeks).toEqual([9_600]);
@@ -176,13 +194,13 @@ describe('changing the performance profile', () => {
   });
 
   it('keeps where a paused transport was for the next Play, and makes nothing until then', async () => {
-    const { control, parts, settled } = rig();
+    const { control, parts, settled, choose } = rig();
     control.play();
     await settled();
     parts.latest().contextFrame = 4_800;
     control.pause();
 
-    control.useProfile(PerformanceProfile.LowLatency);
+    choose(PerformanceProfile.LowLatency);
     expect(parts.opened).toHaveLength(1);
     expect(parts.opened[0]?.closed).toBe(true);
 

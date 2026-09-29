@@ -5,12 +5,12 @@
  * channels in phase, -1 one the inverse of the other, and 0 no relation, which
  * is also what a pair with a silent channel reads, since a channel that does
  * not vary correlates with nothing. The arithmetic is in f64 in a stated order
- * (ADR-0032), so a reading is the same number on every machine: each
- * channel's mean is summed in frame order and divided once; its deviations
- * from the mean, and their squares summed in frame order, are found once
- * however many pairs it is in; each pair's products of deviations are summed
- * in frame order; and the reading is that sum divided by the root of the
- * product of the two sums of squares, held to [-1, 1] against rounding.
+ * (ADR-0032), so a reading is the same number on every machine: each channel's
+ * mean is summed in frame order and divided once; its deviations from the
+ * mean, and their squares summed in frame order, are found once however many
+ * pairs it is in; each pair's products of deviations are summed in frame
+ * order; and the reading is that sum divided by the root of the product of the
+ * two sums of squares, held to [-1, 1] against rounding.
  *
  * It runs on the audio thread, so every array it needs is made when it is.
  */

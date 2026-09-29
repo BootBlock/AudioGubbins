@@ -38,8 +38,8 @@ import { ProcessorRuns } from './processor-runs.js';
 const LOAD_ANSWER_MILLISECONDS = 10_000;
 
 /**
- * How often the processor reports: about thirty times a second, as often as
- * a display redraws a meter usefully and often enough to anchor the playhead.
+ * How often the processor reports: about thirty times a second, as often as a
+ * display redraws a meter usefully and often enough to anchor the playhead.
  */
 const REPORTS_PER_SECOND = 30;
 

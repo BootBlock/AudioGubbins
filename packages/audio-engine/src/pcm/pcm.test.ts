@@ -187,7 +187,7 @@ describe('releasing a source', () => {
     const converted = expectSuccess(
       resampledSource(dsp, tone, expectSuccess(sampleRate(44_100)), ResamplingQuality.Draft),
     );
-    // A read that seeks back makes the resampler and the oscillator again.
+    // A read that seeks back moves the resampler, and makes the oscillator again.
     await readAll(converted, 1_000);
     await converted.read(
       frames(10),

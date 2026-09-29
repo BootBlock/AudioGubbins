@@ -41,7 +41,7 @@ import {
   latencySecondsText,
   meterZone,
   peakText,
-} from './audio-format.js';
+} from '../audio-format.js';
 
 /** The audio features whose reductions the panel lists, in the order a person meets them. */
 const AUDIO_FEATURES = [AUDIO_PLAYBACK, CANONICAL_DSP, OFFLINE_RENDERING, OUTPUT_DEVICE_CHOICE];

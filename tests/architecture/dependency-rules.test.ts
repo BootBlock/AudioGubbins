@@ -2711,7 +2711,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       85,
       'One settings section whose controls each run a workspace command, sharing only the name typed and the one rename the field and its button both ask for.',
     ],
-    'apps/web/src/shell/panels.tsx: DiagnosticsPanel': [
+    'apps/web/src/shell/diagnostics-panel.tsx: DiagnosticsPanel': [
       82,
       "One panel whose filter controls and record list share the reader's chosen level and subsystem, kept beside the dock as well so a remount keeps them.",
     ],

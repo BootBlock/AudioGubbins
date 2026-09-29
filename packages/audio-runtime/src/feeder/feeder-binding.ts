@@ -2,12 +2,12 @@
  * One request's sources joined to one loaded processor, and the runs that
  * feed it from a timeline frame.
  *
- * A run is a pump per graph input from one frame. Each starts by rewinding
- * the feeds: every ring is marked, so the processor skips what it held, and a
+ * A run is a pump per graph input from one frame. Each starts by rewinding the
+ * feeds: every ring is marked, so the processor skips what it held, and a
  * rewind is sent on the channel before any of the new audio, so the processor
  * drops a posted feed's old blocks and knows which audio the run plays. The
- * rewind names the run, and a posted block's answer names the run it was
- * sent in, so an answer about audio a rewind discarded counts for nothing.
+ * rewind names the run, and a posted block's answer names the run it was sent
+ * in, so an answer about audio a rewind discarded counts for nothing.
  *
  * A pause does not come here: the processor halts and keeps what the feeds
  * hold, and the pumps, finding no room, wait. Only a stop, a seek or a new

@@ -1,13 +1,13 @@
 /**
  * Reading a message that crossed into another global scope.
  *
- * A message between the main thread, the AudioWorklet, the feeder and a
- * render worker arrives as a structured clone, which the receiver cannot trust to have the
- * shape its type claims (REQ-EXEC-136.12, and the packet's "no stringly typed
- * AudioWorklet message protocol"). Each protocol names its messages in one
- * discriminated union and reads a received value into it here, field by
- * field, so a malformed message is refused with the field that was wrong
- * rather than acted on.
+ * A message between the main thread, the AudioWorklet, the feeder and a render
+ * worker arrives as a structured clone, which the receiver cannot trust to have
+ * the shape its type claims (REQ-EXEC-136.12, and the packet's "no stringly
+ * typed AudioWorklet message protocol"). Each protocol names its messages in
+ * one discriminated union and reads a received value into it here, field by
+ * field, so a malformed message is refused with the field that was wrong rather
+ * than acted on.
  *
  * A reader throws {@link MalformedMessage} at the first wrong field, caught
  * once by the protocol's `read` function and turned into a failure: a message

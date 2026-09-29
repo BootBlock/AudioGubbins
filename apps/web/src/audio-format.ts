@@ -1,6 +1,7 @@
 /**
- * How the Transport panel writes the engine's numbers: times, latencies,
- * levels and fingerprints.
+ * How the engine's numbers are written, in the Transport panel and in what the
+ * audio part says: times, latencies, levels and fingerprints. At the root of
+ * the application, below both, so the two write each number alike.
  *
  * Latency is written twice, in milliseconds for a person and in frames for an
  * engineer, since each reads the other as noise when it is the only one

@@ -18,11 +18,11 @@
  * transport takes it from there.
  *
  * A halt keeps everything: the graph's history, its delay lines and the feeds'
- * queued audio, so the next start of the same audio goes on with the very
- * next frame, and every frame is played once however often playback pauses.
- * A start of other audio, after a seek or a stop, waits for the feeder's
- * rewind to it on the feeder's channel, since the feeds' old audio is gone only
- * then, and makes the graph again.
+ * queued audio, so the next start of the same audio goes on with the very next
+ * frame, and every frame is played once however often playback pauses. A start
+ * of other audio, after a seek or a stop, waits for the feeder's rewind to it
+ * on the feeder's channel, since the feeds' old audio is gone only then, and
+ * makes the graph again.
  *
  * A quantum allocates nothing while the graph runs steadily. The feeds, the
  * executor, the sink's target and the meters' windows are all made at a load,
@@ -340,8 +340,8 @@ export class EngineProcessorCore {
 
   /**
    * The feeds' audio from here on is run `epoch`'s. What they held is dropped,
-   * and a run playing it halts: the main thread has already told it to, on
-   * its own port, which may land later.
+   * and a run playing it halts: the main thread has already told it to, on its
+   * own port, which may land later.
    */
   #rewind(epoch: number): void {
     this.#feeds.rewind(epoch);

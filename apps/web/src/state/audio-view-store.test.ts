@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { DspImplementation, PerformanceProfile } from '@audiogubbins/audio-engine';
+import { DspImplementation } from '@audiogubbins/audio-engine';
 
 import { UNLOADED } from '../testing/audio-fakes.js';
 import { RenderStage, createAudioViewStore, type RenderResult } from './audio-view-store.js';
@@ -15,26 +15,13 @@ const RESULT: RenderResult = {
 };
 
 describe('the audio engine view', () => {
-  it('starts Balanced, with nothing played and nothing rendered', () => {
+  it('starts with nothing played and nothing rendered', () => {
     const view = createAudioViewStore().get();
 
-    expect(view.profile).toBe(PerformanceProfile.Balanced);
     expect(view.playback).toBeUndefined();
     expect(view.starting).toBe(false);
     expect(view.problems).toEqual([]);
     expect(view.render).toEqual({ stage: RenderStage.Idle });
-  });
-
-  it('keeps the profile chosen, and tells nobody when it is chosen again', () => {
-    const store = createAudioViewStore();
-    const heard = vi.fn();
-    store.subscribe(heard);
-
-    store.chooseProfile(PerformanceProfile.MaximumStability);
-    store.chooseProfile(PerformanceProfile.MaximumStability);
-
-    expect(store.get().profile).toBe(PerformanceProfile.MaximumStability);
-    expect(heard).toHaveBeenCalledTimes(1);
   });
 
   it('shows the session’s status, and tells nobody when the same one is shown again', () => {
@@ -76,12 +63,8 @@ describe('the audio engine view', () => {
   it('follows a render from its progress to its result, or to its reasons', () => {
     const store = createAudioViewStore();
 
-    store.renderProgressed(24_000, 480_000);
-    expect(store.get().render).toEqual({
-      stage: RenderStage.Running,
-      framesRendered: 24_000,
-      framesTotal: 480_000,
-    });
+    store.renderStarted(480_000);
+    expect(store.get().render).toEqual({ stage: RenderStage.Running, framesTotal: 480_000 });
 
     store.renderFinished(RESULT);
     expect(store.get().render).toEqual({ stage: RenderStage.Finished, result: RESULT });

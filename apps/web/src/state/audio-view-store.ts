@@ -4,21 +4,14 @@
  *
  * REQ-ARCH-153 gives audio state its own partition, apart from the interface's
  * and the preferences', so this holds only the engine's view: the playback
- * session's last status, the performance profile chosen, whether a Play is on
- * its way, and the latest offline render. It owns no audio: the session and
- * the render host are the audio part's, which report here.
- *
- * The profile lasts for the session. The preferences store is the theme's
- * preferences, versioned by the theme's schema, and a profile written into it
- * would change a stored format another package owns; it is kept here until a
- * stored audio settings format exists to hold it.
+ * session's last status, whether a Play is on its way, and the latest offline
+ * render. It owns no audio: the session and the render host are the audio
+ * part's, which report here. The performance profile is the person's
+ * preference, and is kept with the other audio settings
+ * (`audio-settings-store.ts`).
  */
 
-import {
-  PerformanceProfile,
-  type DspImplementation,
-  type PresetProfile,
-} from '@audiogubbins/audio-engine';
+import type { DspImplementation } from '@audiogubbins/audio-engine';
 import type { PlaybackStatus } from '@audiogubbins/audio-runtime';
 
 import { observable, type Observable } from './observable.js';
@@ -54,8 +47,12 @@ export interface RenderResult {
 export type RenderView =
   | { readonly stage: typeof RenderStage.Idle }
   | {
+      /**
+       * Running, `framesTotal` frames long. How far it has reached changes with
+       * every chunk and is read where it is shown, once a display frame, from
+       * the render control, not stored here.
+       */
       readonly stage: typeof RenderStage.Running;
-      readonly framesRendered: number;
       readonly framesTotal: number;
     }
   | { readonly stage: typeof RenderStage.Finished; readonly result: RenderResult }
@@ -63,8 +60,6 @@ export type RenderView =
 
 /** What the audio engine is doing. */
 export interface AudioView {
-  readonly profile: PresetProfile;
-
   /**
    * Playback as the session last reported it, or `undefined` while there is
    * no session: before the first Play, and after a change of profile, which
@@ -83,13 +78,13 @@ export interface AudioView {
 
 /** The engine's view, and how the audio part reports to it. */
 export interface AudioViewStore extends Observable<AudioView> {
-  readonly chooseProfile: (profile: PresetProfile) => void;
   readonly showPlayback: (status: PlaybackStatus | undefined) => void;
   /** A Play has been asked for, which clears what the last one reported. */
   readonly playbackStarting: () => void;
   /** The Play asked for has started, or has not for `problems`. */
   readonly playbackSettled: (problems: readonly string[]) => void;
-  readonly renderProgressed: (framesRendered: number, framesTotal: number) => void;
+  /** A render of `framesTotal` frames has started. */
+  readonly renderStarted: (framesTotal: number) => void;
   readonly renderFinished: (result: RenderResult) => void;
   readonly renderFailed: (reasons: Reasons) => void;
 }
@@ -99,7 +94,6 @@ const NOTHING_RENDERED: RenderView = { stage: RenderStage.Idle };
 /** Creates the engine's view, with nothing played and nothing rendered. */
 export function createAudioViewStore(): AudioViewStore {
   const state = observable<AudioView>({
-    profile: PerformanceProfile.Balanced,
     playback: undefined,
     starting: false,
     problems: [],
@@ -109,10 +103,6 @@ export function createAudioViewStore(): AudioViewStore {
   return {
     get: state.get,
     subscribe: state.subscribe,
-
-    chooseProfile: (profile) => {
-      state.update((view) => (view.profile === profile ? view : { ...view, profile }));
-    },
 
     showPlayback: (playback) => {
       // The session publishes only a status that changed, and the same one
@@ -128,11 +118,8 @@ export function createAudioViewStore(): AudioViewStore {
       state.update((view) => ({ ...view, starting: false, problems }));
     },
 
-    renderProgressed: (framesRendered, framesTotal) => {
-      state.update((view) => ({
-        ...view,
-        render: { stage: RenderStage.Running, framesRendered, framesTotal },
-      }));
+    renderStarted: (framesTotal) => {
+      state.update((view) => ({ ...view, render: { stage: RenderStage.Running, framesTotal } }));
     },
 
     renderFinished: (result) => {

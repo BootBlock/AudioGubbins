@@ -16,11 +16,7 @@
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
-import {
-  PRESET_SETTINGS,
-  createPriorityScheduler,
-  type PresetProfile,
-} from '@audiogubbins/audio-engine';
+import { createPriorityScheduler, type PerformanceSettings } from '@audiogubbins/audio-engine';
 import {
   DspModuleAvailabilityKind,
   PlaybackDspKind,
@@ -37,6 +33,7 @@ import feederWorkerUrl from '@audiogubbins/audio-runtime/threads/feeder-worker.t
 import renderWorkerUrl from '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url';
 import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 
+import type { ChosenProfile } from '../state/audio-settings-store.js';
 import { browserSchedule } from './browser-schedule.js';
 import type { PlaybackSessionPort } from './playback-control.js';
 import type { RenderParts } from './render-control.js';
@@ -83,14 +80,14 @@ const PLAYBACK_THREADS: PlaybackThreads = {
 /** What a session is made with, beside what the engine brings. */
 export interface SessionOptions {
   readonly lifecycle: ContextLifecycle;
-  readonly profile: PresetProfile;
+  readonly profile: ChosenProfile;
   readonly logger: Logger;
 }
 
 /** The engine, loaded, with its DSP compiled: what every session and render of the page shares. */
 export interface BrowserEngine {
   readonly openSession: (options: SessionOptions) => PlaybackSessionPort;
-  readonly openRendering: (profile: PresetProfile) => DomainResult<RenderParts>;
+  readonly openRendering: (settings: PerformanceSettings) => DomainResult<RenderParts>;
 }
 
 /** The engine, with the DSP module compiled from the bytes the bundle carries. */
@@ -104,19 +101,18 @@ export async function browserEngine(
         lifecycle,
         capabilities,
         dsp: playbackDsp(dspModule),
-        profile,
-        settings: PRESET_SETTINGS[profile],
+        profile: profile.profile,
+        settings: profile.settings,
         workletModuleUrl: engineProcessorUrl,
         threads: PLAYBACK_THREADS,
         schedule: browserSchedule,
         logger,
       }),
-    openRendering: (profile) =>
+    openRendering: (settings) =>
       mapResult(
         createPriorityScheduler({
           concurrency: RENDER_CONCURRENCY,
-          backgroundConcurrencyWhileInteractive:
-            PRESET_SETTINGS[profile].backgroundConcurrencyWhileInteractive,
+          backgroundConcurrencyWhileInteractive: settings.backgroundConcurrencyWhileInteractive,
         }),
         (scheduler) => ({
           scheduler,

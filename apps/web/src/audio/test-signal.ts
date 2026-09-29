@@ -2,8 +2,8 @@
  * The test signal: the deterministic PCM the packet's outcome plays and
  * renders, and the graph it runs through.
  *
- * A stereo tone from the canonical oscillator into a gain, whose output is
- * both metered, with the correlation of its two channels, and played:
+ * A stereo tone from the canonical oscillator into a gain, whose output is both
+ * metered, with the correlation of its two channels, and played:
  * `graph-input → gain → meter + output`. The same graph plays in real time, at
  * the context's rate, and renders offline at {@link RENDER_SAMPLE_RATE}, so the
  * one graph exercises the transport, the worklet, the meters, the feeder and
@@ -47,7 +47,7 @@ interface TestSignalGraph {
 }
 
 /** The layout the test signal is made in, from its source to its output. */
-const STEREO = StandardLayouts.stereo;
+export const STEREO = StandardLayouts.stereo;
 
 function node(
   id: NodeId,

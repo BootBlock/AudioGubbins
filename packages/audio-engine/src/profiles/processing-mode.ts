@@ -11,10 +11,15 @@
  * The profile moves only the line between hearing it live and hearing it from
  * a cache. It never removes a mode: {@link availableProcessingModes} takes no
  * profile, so a profile cannot change what is possible.
+ *
+ * What the host can run is its own fact, not the purpose's: a host with no
+ * cache to play from says so, with its reason, and the choice then never
+ * claims one, whether chosen automatically or asked for.
  */
 
 import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
 
+import type { ResourceWarning } from '../scheduling/workload.js';
 import type { LatencyHint, PerformanceSettings } from './performance-profile.js';
 
 /** The strategies processing can run under. */
@@ -53,6 +58,16 @@ export interface ProcessingModeRequest {
   readonly measuredCostRatio?: number;
   readonly override?: ProcessingMode;
   readonly settings: PerformanceSettings;
+  /**
+   * Modes the host cannot run, each with the reason, worded for the person.
+   * None is chosen automatically, and one asked for is refused.
+   */
+  readonly unavailable?: ReadonlyMap<ProcessingMode, string>;
+  /**
+   * What planning the workload warned of. A warning that the processor is the
+   * limiting resource moves a final render into the background.
+   */
+  readonly warnings?: readonly ResourceWarning[];
 }
 
 /** The mode chosen and why, worded for the person it is shown to. */
@@ -67,8 +82,9 @@ const AVAILABLE: Readonly<Record<ProcessingPurpose, readonly ProcessingMode[]>> 
   [ProcessingPurpose.Preview]: [ProcessingMode.RealTime, ProcessingMode.CachedPreview],
   [ProcessingPurpose.Analysis]: [ProcessingMode.BackgroundOffline, ProcessingMode.FinalOffline],
   // A final render must be canonical: bit-identical whatever the machine's
-  // speed, which only the offline path guarantees (REQ-ARCH-081).
-  [ProcessingPurpose.FinalRender]: [ProcessingMode.FinalOffline],
+  // speed, which only the offline path guarantees (REQ-ARCH-081). Rendered in
+  // the background it is the same render, queued behind interactive work.
+  [ProcessingPurpose.FinalRender]: [ProcessingMode.FinalOffline, ProcessingMode.BackgroundOffline],
 };
 
 /** The modes processing for `purpose` may run under, whatever the profile. */
@@ -100,15 +116,28 @@ function percent(ratio: number): string {
   return `${String(Math.round(ratio * 100))}%`;
 }
 
+function capitalised(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
+
+/**
+ * Live or from a cache, by the measured cost. `noCache` is why the host has no
+ * cache to play from, where it has none: live playback is then the only way to
+ * hear it, and the reason says what that risks rather than promising a cache
+ * the host cannot give.
+ */
 function automaticListening(
   cost: number | undefined,
   settings: PerformanceSettings,
+  noCache: string | undefined,
 ): ProcessingModeChoice {
   if (cost === undefined) {
     return {
       mode: ProcessingMode.RealTime,
       reason:
-        'Playing live. The processing has not been measured yet; it moves to a cached preview if it cannot keep up.',
+        noCache === undefined
+          ? 'Playing live. The processing has not been measured yet; it moves to a cached preview if it cannot keep up.'
+          : `Playing live. The processing has not been measured yet, and a cached preview is not available: ${noCache}`,
       overridden: false,
     };
   }
@@ -120,11 +149,47 @@ function automaticListening(
       overridden: false,
     };
   }
+  const tooCostly =
+    `The processing takes ${percent(cost)} of real time, more than ` +
+    `the ${percent(ceiling)} this profile allows for playing live without drop-outs.`;
+  if (noCache !== undefined) {
+    return {
+      mode: ProcessingMode.RealTime,
+      reason: `Playing live, which may drop out. ${tooCostly} A cached preview is not available: ${noCache}`,
+      overridden: false,
+    };
+  }
   return {
     mode: ProcessingMode.CachedPreview,
-    reason:
-      `Playing from a cached preview. The processing takes ${percent(cost)} of real time, more than ` +
-      `the ${percent(ceiling)} this profile allows for playing live without drop-outs.`,
+    reason: `Playing from a cached preview. ${tooCostly}`,
+    overridden: false,
+  };
+}
+
+/** The compute warning planning gave, where the processor is the limiting resource. */
+function computeWarning(request: ProcessingModeRequest): ResourceWarning | undefined {
+  return request.warnings?.find((warning) => warning.resource === 'compute');
+}
+
+/**
+ * Offline, in the foreground where someone waits on it, or in the background
+ * where the processor is the limiting resource and playback and editing would
+ * otherwise queue behind it.
+ */
+function automaticFinalRender(request: ProcessingModeRequest): ProcessingModeChoice {
+  const compute = computeWarning(request);
+  if (compute !== undefined && !request.unavailable?.has(ProcessingMode.BackgroundOffline)) {
+    return {
+      mode: ProcessingMode.BackgroundOffline,
+      reason:
+        'Rendering in the background at full quality, so playback and editing come first; ' +
+        `the file is identical on every machine either way. ${compute.explanation}`,
+      overridden: false,
+    };
+  }
+  return {
+    mode: ProcessingMode.FinalOffline,
+    reason: 'Rendering offline at full quality, so the file is identical on every machine.',
     overridden: false,
   };
 }
@@ -133,7 +198,11 @@ function automatic(request: ProcessingModeRequest, cost: number | undefined): Pr
   switch (request.purpose) {
     case ProcessingPurpose.Monitor:
     case ProcessingPurpose.Preview:
-      return automaticListening(cost, request.settings);
+      return automaticListening(
+        cost,
+        request.settings,
+        request.unavailable?.get(ProcessingMode.CachedPreview),
+      );
     case ProcessingPurpose.Analysis:
       return {
         mode: ProcessingMode.BackgroundOffline,
@@ -141,12 +210,24 @@ function automatic(request: ProcessingModeRequest, cost: number | undefined): Pr
         overridden: false,
       };
     case ProcessingPurpose.FinalRender:
-      return {
-        mode: ProcessingMode.FinalOffline,
-        reason: 'Rendering offline at full quality, so the file is identical on every machine.',
-        overridden: false,
-      };
+      return automaticFinalRender(request);
   }
+}
+
+/** What choosing `override` over the automatic choice risks, as a sentence to add. */
+function riskOf(
+  request: ProcessingModeRequest,
+  override: ProcessingMode,
+  chosen: ProcessingModeChoice,
+): string {
+  if (override === ProcessingMode.RealTime && chosen.mode !== ProcessingMode.RealTime) {
+    return ' It may drop out: the measured cost leaves too little headroom.';
+  }
+  const compute = computeWarning(request);
+  if (override === ProcessingMode.FinalOffline && compute !== undefined) {
+    return ` It holds up playback and editing while it runs. ${compute.explanation}`;
+  }
+  return '';
 }
 
 function withOverride(
@@ -161,13 +242,18 @@ function withOverride(
         : `This work cannot use ${MODE_NAMES[override]}, so that choice was not applied.`;
     return { ...chosen, reason: `${refusal} ${chosen.reason}` };
   }
-  const risk =
-    override === ProcessingMode.RealTime && chosen.mode !== ProcessingMode.RealTime
-      ? ' It may drop out: the measured cost leaves too little headroom.'
-      : '';
+  const missing = request.unavailable?.get(override);
+  if (missing !== undefined) {
+    return {
+      ...chosen,
+      reason:
+        `${capitalised(MODE_NAMES[override])} is not available, so that choice was not applied: ` +
+        `${missing} ${chosen.reason}`,
+    };
+  }
   return {
     mode: override,
-    reason: `Using ${MODE_NAMES[override]}, as chosen.${risk}`,
+    reason: `Using ${MODE_NAMES[override]}, as chosen.${riskOf(request, override, chosen)}`,
     overridden: true,
   };
 }
@@ -175,9 +261,10 @@ function withOverride(
 /**
  * Chooses the mode for a piece of processing, and says why.
  *
- * An override that is available for the purpose is honoured, with a warning
- * where the measurement argues against it; one that is not is refused and the
- * automatic choice stands, with the refusal in its reason.
+ * An override that is available for the purpose, and that the host can run,
+ * is honoured, with a warning where the measurement argues against it; one
+ * that is not is refused and the automatic choice stands, with the refusal in
+ * its reason.
  */
 export function selectProcessingMode(
   request: ProcessingModeRequest,

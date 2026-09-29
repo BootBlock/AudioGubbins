@@ -3,13 +3,13 @@
  * audio context's AudioWorkletGlobalScope.
  *
  * It only connects the scope, and the channel to the feeder worker each load
- * brings, to `EngineProcessorCore`, which holds everything the processor
- * does, so that behaviour is tested without a worklet, which a test cannot
- * make. The package is compiled with the DOM's types, which have
- * none for the worklet's scope, so the names this module reads from it are
- * declared here. It is compiled again, with everything it imports, by
- * `scopes/audio-worklet`, against the scope's own globals alone, so a module
- * that reaches for one the scope lacks fails to compile.
+ * brings, to `EngineProcessorCore`, which holds everything the processor does,
+ * so that behaviour is tested without a worklet, which a test cannot make. The
+ * package is compiled with the DOM's types, which have none for the worklet's
+ * scope, so the names this module reads from it are declared here. It is
+ * compiled again, with everything it imports, by `scopes/audio-worklet`,
+ * against the scope's own globals alone, so a module that reaches for one the
+ * scope lacks fails to compile.
  */
 
 import { EngineProcessorCore } from '../processor/engine-processor-core.js';

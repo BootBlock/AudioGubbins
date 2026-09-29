@@ -127,7 +127,13 @@ function prepareSources(job: RenderJob, dsp: CanonicalDsp): DomainResult<Prepare
   for (const [node, source] of job.sources) {
     let read = source;
     if (source.sampleRate !== job.sampleRate) {
-      const converted = resampledSource(dsp, source, job.sampleRate, job.quality.resampling);
+      const converted = resampledSource(
+        dsp,
+        source,
+        job.sampleRate,
+        job.quality.resampling,
+        job.coefficientBudgetBytes,
+      );
       if (!converted.ok) {
         for (const one of made) one.release();
         return converted;

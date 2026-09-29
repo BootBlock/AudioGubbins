@@ -29,8 +29,16 @@ const SURROUND = StandardLayouts.surround5_1;
 const STEREO = StandardLayouts.stereo;
 const FRAMES = 9_600;
 
-/** The pinned fingerprint of the golden render, left channel then right. */
-const GOLDEN = 0x797fca5300be6765n;
+/**
+ * The pinned fingerprint of the golden render, left channel then right.
+ *
+ * Was 0x797fca5300be6765 before each resampling quality's filter was designed
+ * from its passband edge and stopband floor (REQ-EXEC-180): the old cutoff put
+ * the transition band across the lower Nyquist frequency, so the promised
+ * stopband did not hold. The WebAssembly module and the reference path, each
+ * in several chunk sizes, agreed on every bit of the new value.
+ */
+const GOLDEN = 0x6b1d7f884c8844a1n;
 
 const GRAPH = graphOf(
   [
@@ -82,8 +90,15 @@ const GRAPH = graphOf(
   ],
 );
 
-/** Renders the golden graph with `dsp` in chunks of `chunkFrames`, and its fingerprint. */
-async function goldenRender(dsp: CanonicalDsp, chunkFrames: number): Promise<bigint> {
+/**
+ * Renders the golden graph with `dsp` in chunks of `chunkFrames`, each
+ * conversion given `coefficientBudgetBytes` for its table, and its fingerprint.
+ */
+async function goldenRender(
+  dsp: CanonicalDsp,
+  chunkFrames: number,
+  coefficientBudgetBytes?: number,
+): Promise<bigint> {
   const recording = expectSuccess(
     toneSource(dsp, {
       layout: SURROUND,
@@ -96,12 +111,15 @@ async function goldenRender(dsp: CanonicalDsp, chunkFrames: number): Promise<big
   const out = collectingSink();
   const summary = expectSuccess(
     await renderOffline(
-      jobOf(GRAPH, {
-        sources: { recording },
-        sinks: { out },
-        length: FRAMES,
-        chunkFrames,
-      }),
+      {
+        ...jobOf(GRAPH, {
+          sources: { recording },
+          sinks: { out },
+          length: FRAMES,
+          chunkFrames,
+        }),
+        ...(coefficientBudgetBytes === undefined ? {} : { coefficientBudgetBytes }),
+      },
       dsp,
       BUILT_IN_NODES,
     ),
@@ -132,6 +150,10 @@ describe('golden offline renders', () => {
     expect(await goldenRender(wasm, 333)).toBe(hash);
     expect(await goldenRender(REFERENCE_DSP, 4_800)).toBe(hash);
     expect(await goldenRender(REFERENCE_DSP, 777)).toBe(hash);
+    // With no memory for a table, each conversion computes its taps: slower,
+    // and the same bits.
+    expect(await goldenRender(wasm, 4_800, 0)).toBe(hash);
+    expect(await goldenRender(REFERENCE_DSP, 4_800, 0)).toBe(hash);
     expect(`0x${hash.toString(16).padStart(16, '0')}`).toBe(
       `0x${GOLDEN.toString(16).padStart(16, '0')}`,
     );

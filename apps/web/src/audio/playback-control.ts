@@ -13,7 +13,7 @@
 
 import { succeed, type DomainResult, type SampleCount } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { TransportMode, type PresetProfile } from '@audiogubbins/audio-engine';
+import { TransportMode } from '@audiogubbins/audio-engine';
 import {
   PLAYBACK_SUPERSEDED,
   PlaybackPhase,
@@ -21,6 +21,7 @@ import {
   type PlaybackSession,
 } from '@audiogubbins/audio-runtime';
 
+import type { ChosenProfile } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import { reasonsOf, type Reasons } from '../state/reasons.js';
 import { testSignalPlayback } from './test-signal.js';
@@ -58,11 +59,11 @@ export interface PlaybackParts {
 }
 
 /** Makes the parts for a profile. */
-export type OpenPlayback = (profile: PresetProfile) => PlaybackParts;
+export type OpenPlayback = (profile: ChosenProfile) => PlaybackParts;
 
 /** One profile's parts, and what was made with them. */
 interface Opened {
-  readonly profile: PresetProfile;
+  readonly profile: ChosenProfile;
   readonly parts: PlaybackParts;
   session: PlaybackSessionPort | undefined;
   stopListening: (() => void) | undefined;
@@ -83,6 +84,7 @@ function reasonsFor(outcome: DomainResult<void>): Reasons | undefined {
 export class PlaybackControl {
   readonly #view: AudioViewStore;
   readonly #open: OpenPlayback;
+  readonly #profile: () => ChosenProfile;
   readonly #announce: (text: string) => void;
   #opened: Opened | undefined;
   /** Where playback paused before a change of profile closed its context, for the next Play. */
@@ -91,10 +93,13 @@ export class PlaybackControl {
   constructor(options: {
     readonly view: AudioViewStore;
     readonly open: OpenPlayback;
+    /** The profile the person chose, which the first Play opens with. */
+    readonly profile: () => ChosenProfile;
     readonly announce: (text: string) => void;
   }) {
     this.#view = options.view;
     this.#open = options.open;
+    this.#profile = options.profile;
     this.#announce = options.announce;
   }
 
@@ -102,7 +107,7 @@ export class PlaybackControl {
   play(): void {
     const from = this.#resumeFrom;
     this.#resumeFrom = undefined;
-    this.#start(this.#opened ?? this.#openFor(this.#view.get().profile), from);
+    this.#start(this.#opened ?? this.#openFor(this.#profile()), from);
   }
 
   pause(): Reasons | undefined {
@@ -116,8 +121,7 @@ export class PlaybackControl {
   }
 
   /** Plays with `profile` from now on, which needs a context of its own. */
-  useProfile(profile: PresetProfile): void {
-    this.#view.chooseProfile(profile);
+  useProfile(profile: ChosenProfile): void {
     const current = this.#opened;
     if (current === undefined || current.profile === profile) return;
     const mode = current.session?.status.transport.mode;
@@ -152,7 +156,7 @@ export class PlaybackControl {
     if (this.#opened !== undefined) this.#close(this.#opened);
   }
 
-  #openFor(profile: PresetProfile): Opened {
+  #openFor(profile: ChosenProfile): Opened {
     const opened: Opened = {
       profile,
       parts: this.#open(profile),

@@ -4,6 +4,8 @@ import type { DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import {
+  isLatencyHint,
+  LATENCY_CATEGORIES,
   PerformanceProfile,
   PRESET_SETTINGS,
   PRESETS_BY_STABILITY,
@@ -66,6 +68,12 @@ describe('custom performance settings', () => {
     expect(expectSuccess(settingsFor(PerformanceProfile.Custom, named)).latencyHint).toBe(
       'playback',
     );
+  });
+
+  it('knows a latency hint by its form, as stored and commanded settings are read', () => {
+    for (const hint of [...LATENCY_CATEGORIES, 0.01, -1]) expect(isLatencyHint(hint)).toBe(true);
+    for (const hint of ['fast', '0.01', undefined, null, {}])
+      expect(isLatencyHint(hint)).toBe(false);
   });
 
   it('refuses the Custom profile without settings', () => {

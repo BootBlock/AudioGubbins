@@ -2,9 +2,9 @@
  * Delay: every channel later by a whole number of frames, and each by its own
  * as well.
  *
- * The `frames` setting delays every channel alike, and `channel-delays`,
- * one whole number of frames for each channel in layout order, adds to it for
- * that channel alone, to time-align speakers or microphones (REQ-ARCH-157).
+ * The `frames` setting delays every channel alike, and `channel-delays`, one
+ * whole number of frames for each channel in layout order, adds to it for that
+ * channel alone, to time-align speakers or microphones (REQ-ARCH-157).
  *
  * Two different things are a delay, and the `as-latency` setting says which.
  * Usually the delay is the effect the person asked for, an echo's dry offset

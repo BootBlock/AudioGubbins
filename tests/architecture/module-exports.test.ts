@@ -186,9 +186,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/input/use-shortcuts.ts: isTextField'],
   'Each panel drawn on its own, and the log filter decided on its own, for the panel tests: the dock draws a panel through `renderPanel`, and the filter is chosen in a portalled listbox, which jsdom opens once per file.':
     [
+      'apps/web/src/shell/diagnostics-panel.tsx: recordsPassing',
       'apps/web/src/shell/panels.tsx: CapabilitiesPanel',
-      'apps/web/src/shell/panels.tsx: DiagnosticsPanel',
-      'apps/web/src/shell/panels.tsx: recordsPassing',
     ],
   'The texts set aside, read back from what is stored by the storage and workspace tests; the storage itself reads them only to add to them.':
     ['apps/web/src/state/state-storage.ts: textsSetAside'],
@@ -245,6 +244,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
+  'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };
 
 /**

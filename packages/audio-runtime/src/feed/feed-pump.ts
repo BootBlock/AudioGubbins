@@ -74,13 +74,13 @@ export interface FeedDestination {
 /**
  * A destination that writes a ring the processor reads.
  *
- * What it counts as queued is the audio of the current position alone. After
- * a rewind the old audio may still wait behind its mark until the processor
- * skips it, and counting it would hold the new position's first chunks back
- * for a wake of the pump; the ring has a chunk of room beyond the time ahead
- * for them (`playback/feed-plan.ts`). The processor reads nothing written
- * after the mark before it skips to the mark, so the new audio still queued is
- * the lesser of what the ring holds and what was written since the rewind.
+ * What it counts as queued is the audio of the current position alone. After a
+ * rewind the old audio may still wait behind its mark until the processor skips
+ * it, and counting it would hold the new position's first chunks back for a
+ * wake of the pump; the ring has a chunk of room beyond the time ahead for them
+ * (`playback/feed-plan.ts`). The processor reads nothing written after the mark
+ * before it skips to the mark, so the new audio still queued is the lesser of
+ * what the ring holds and what was written since the rewind.
  */
 export class RingDestination implements FeedDestination {
   readonly blockLimit = undefined;

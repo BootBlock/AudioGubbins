@@ -2,16 +2,15 @@
  * A worklet node whose processor is the real `EngineProcessorCore`, for
  * testing the main thread's side of playback without a browser.
  *
- * Every message crosses as a structured clone, each way, with its transfers,
- * as a `MessagePort` carries it: the processor reads what arrives with its
- * reader, the main thread with its own, and a message that relied on sharing
- * an object with the other side would fail here as it would in a browser. The
- * end of the feeder's channel a load brings is listened to as the worklet's
- * shell listens to it.
- * Delivery is a microtask later, not at once, since a port delivers a message
- * as a task of the receiving side, never inside `postMessage`. The processor
- * renders only when the test says, one render quantum at a time, and keeps
- * what it rendered with the context frame it rendered at.
+ * Every message crosses as a structured clone, each way, with its transfers, as
+ * a `MessagePort` carries it: the processor reads what arrives with its reader,
+ * the main thread with its own, and a message that relied on sharing an object
+ * with the other side would fail here as it would in a browser. The end of the
+ * feeder's channel a load brings is listened to as the worklet's shell listens
+ * to it. Delivery is a microtask later, not at once, since a port delivers a
+ * message as a task of the receiving side, never inside `postMessage`. The
+ * processor renders only when the test says, one render quantum at a time, and
+ * keeps what it rendered with the context frame it rendered at.
  */
 
 import { EngineProcessorCore } from '../processor/engine-processor-core.js';

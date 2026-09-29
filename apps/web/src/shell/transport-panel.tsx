@@ -11,44 +11,53 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import { TEST_SIGNAL } from '../audio/test-signal.js';
-import { PRESET_PROFILES, PROFILE_NAMES, profileCommandId } from '../commands/audio-commands.js';
+import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import {
   RenderStage,
   type AudioView,
   type AudioViewStore,
   type RenderResult,
 } from '../state/audio-view-store.js';
+import type { RenderStrategyStore } from '../state/render-strategy-store.js';
 import {
   durationText,
   dspText,
   fingerprintText,
   framesText,
   positionText,
-} from './audio-format.js';
+} from '../audio-format.js';
 import {
   AudioDegradations,
   EngineState,
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
+import { PerformanceChoice } from './performance-choice.js';
+import { ProcessingModes } from './processing-modes.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface TransportPanelProps {
   readonly title: string;
   readonly audio: AudioViewStore;
+  /** The person's audio settings: the profile, and the render mode. */
+  readonly audioSettings: AudioSettingsStore;
+  /** How the latest render was planned. */
+  readonly renderStrategy: RenderStrategyStore;
   readonly capabilities: CapabilityRegistry;
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;
   /** Each meter's latest levels, the same map until the next report. */
   readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
+  /** The frames the running render has reached. */
+  readonly framesRendered: () => number;
   readonly run: (id: string) => void;
   /** Why a command cannot run now, or `undefined`, as the menus say it. */
   readonly unavailableReason: (id: string) => string | undefined;
@@ -121,30 +130,6 @@ function TransportControls({
   );
 }
 
-/** The choice between the three presets, each through its command. */
-function ProfileChoice({
-  view,
-  commands,
-}: {
-  readonly view: AudioView;
-  readonly commands: Commands;
-}): ReactNode {
-  return (
-    <OptionSelect
-      label="Performance profile"
-      value={view.profile}
-      options={PRESET_PROFILES.map((profile) => ({
-        value: profile,
-        label: PROFILE_NAMES[profile],
-      }))}
-      onValueChange={(value) => {
-        const chosen = PRESET_PROFILES.find((profile) => profile === value);
-        if (chosen !== undefined) commands.run(profileCommandId(chosen));
-      }}
-    />
-  );
-}
-
 /** What a finished render produced. */
 function RenderSummary({ result }: { readonly result: RenderResult }): ReactNode {
   return (
@@ -181,17 +166,20 @@ function RenderSummary({ result }: { readonly result: RenderResult }): ReactNode
 /** The offline render: the command, its progress, and what it produced. */
 function OfflineRender({
   view,
+  framesRendered,
   commands,
 }: {
   readonly view: AudioView;
+  readonly framesRendered: () => number;
   readonly commands: Commands;
 }): ReactNode {
   const { render } = view;
+  const rendered = useDisplayFrame(framesRendered, render.stage === RenderStage.Running);
   // Said in tenths, so a screen reader hears the render move without being
   // read every chunk.
   const tenths =
     render.stage === RenderStage.Running && render.framesTotal > 0
-      ? Math.floor((render.framesRendered / render.framesTotal) * 10) * 10
+      ? Math.floor((rendered / render.framesTotal) * 10) * 10
       : undefined;
   return (
     <div className="ag-transport-section">
@@ -206,7 +194,7 @@ function OfflineRender({
           className="ag-render-progress"
           aria-label="Render progress"
           max={render.framesTotal}
-          value={render.framesRendered}
+          value={rendered}
         />
       )}
       <p role="status" className="ag-panel-note">
@@ -234,6 +222,7 @@ function Levels({
 export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead, meters } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
+  const { chosen } = useSyncExternalStore(props.audioSettings.subscribe, props.audioSettings.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
     <section className="ag-panel ag-transport">
@@ -244,9 +233,15 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
       <TransportControls view={view} playhead={playhead} commands={props} />
       <PlaybackProblems problems={problems} />
       <Levels view={view} meters={meters} />
-      <ProfileChoice view={view} commands={props} />
+      <PerformanceChoice profile={chosen.profile} run={props.run} />
       <EngineState status={view.playback} />
-      <OfflineRender view={view} commands={props} />
+      <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
+      <ProcessingModes
+        settings={props.audioSettings}
+        strategy={props.renderStrategy}
+        run={props.run}
+        unavailableReason={props.unavailableReason}
+      />
       <AudioDegradations capabilities={capabilities} />
     </section>
   );

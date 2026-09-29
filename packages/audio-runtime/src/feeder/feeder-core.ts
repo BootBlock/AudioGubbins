@@ -136,8 +136,8 @@ export class FeederCore {
     this.#release(message.request);
     const made = sourcesFor(message, this.#host.chooseDsp);
     if (!made.ok) {
-      // The code and summary alone: a failure's details and cause may hold
-      // what a structured clone cannot carry, and the main thread shows the summary.
+      // The code and summary alone: a failure's details and cause may hold what
+      // a structured clone cannot carry, and the main thread shows the summary.
       const summarised = ({ code, summary }: FailureSummary): FailureSummary => ({ code, summary });
       const [first, ...rest] = made.failures;
       this.#host.post({

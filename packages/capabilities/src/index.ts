@@ -29,6 +29,9 @@ export {
 
 export { type AudioRuntimeCapabilities, audioRuntimeCapabilities } from './audio-runtime.js';
 
+// What the machine has left, for the engine to plan work around (REQ-ARCH-087).
+export { type ResourceFigures, readResourceFigures } from './resources.js';
+
 // When the audio devices change, for the runtime to recover its context.
 export { watchAudioDevices } from './audio-devices.js';
 

@@ -20,6 +20,7 @@ export const SCHEMA_VERSIONS = {
   shortcutProfile: 1,
   logVerbosity: 1,
   keyboardLayout: 1,
+  audioSettings: 1,
   diagnosticBundle: 1,
 } as const satisfies Record<string, number>;
 
