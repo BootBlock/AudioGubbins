@@ -5,9 +5,10 @@
  * - `storage.json`: the storage root.
  * - `projects/<project>/project-0.json` and `project-1.json`: the project's
  *   header, a pair rewritten by turns (`generational-pair.ts`).
- * - `projects/<project>/head-0.json` and `head-1.json`: the commit point, a
- *   pair too.
- * - `projects/<project>/checkpoints/<id>.json`: a checkpoint.
+ * - `projects/<project>/heads/<epoch>-<generation>.json`: a commit point,
+ *   written once by the writer of its lease epoch (`project-heads.ts`).
+ * - `projects/<project>/checkpoints/<epoch>-<id>.json`: a checkpoint, named by
+ *   the lease epoch it was written under.
  * - `projects/<project>/states/<fingerprint>.json`: a state.
  * - `projects/<project>/journal/e<epoch>/<sequence>.json`: a journal record.
  * - `projects/<project>/journal/quarantine/e<epoch>-<sequence>.json`: a record
@@ -48,6 +49,8 @@ const DIGITS = 12;
 const EPOCH_DIRECTORY = /^e([0-9]{12})$/u;
 const RECORD_FILE = /^([0-9]{12})\.json$/u;
 const LEASE_FILE = /^([0-9]{12})\.json$/u;
+const HEAD_FILE = /^([0-9]{12})-([0-9]{12})\.json$/u;
+const CHECKPOINT_FILE = /^([0-9]{12})-(.+)\.json$/u;
 const GENERATION_DIRECTORY = /^([0-9]{12})$/u;
 const QUARANTINE_DIRECTORY = 'quarantine';
 
@@ -80,6 +83,23 @@ export function epochOfLease(name: string): number | undefined {
   return numberIn(LEASE_FILE.exec(name));
 }
 
+/** The lease epoch and generation a head's name holds, or `undefined` for another name. */
+export function headOfName(
+  name: string,
+): { readonly epoch: number; readonly generation: number } | undefined {
+  const match = HEAD_FILE.exec(name);
+  const epoch = match?.[1];
+  const generation = match?.[2];
+  return epoch === undefined || generation === undefined
+    ? undefined
+    : { epoch: Number(epoch), generation: Number(generation) };
+}
+
+/** The lease epoch a checkpoint's name holds, or `undefined` for another name. */
+export function epochOfCheckpoint(name: string): number | undefined {
+  return numberIn(CHECKPOINT_FILE.exec(name));
+}
+
 /** The number a backup generation's directory holds, or `undefined` for another name. */
 export function numberOfGeneration(name: string): number | undefined {
   return numberIn(GENERATION_DIRECTORY.exec(name));
@@ -88,6 +108,7 @@ export function numberOfGeneration(name: string): number | undefined {
 /** The paths of one project's files. */
 export class ProjectPaths {
   readonly directory: string;
+  readonly heads: string;
   readonly checkpoints: string;
   readonly states: string;
   readonly journal: string;
@@ -99,6 +120,7 @@ export class ProjectPaths {
 
   constructor(project: ProjectId) {
     this.directory = `${PROJECTS_DIRECTORY}/${project}`;
+    this.heads = `${this.directory}/heads`;
     this.checkpoints = `${this.directory}/checkpoints`;
     this.states = `${this.directory}/states`;
     this.journal = `${this.directory}/journal`;
@@ -111,12 +133,12 @@ export class ProjectPaths {
     return `${this.directory}/project-${String(slot)}.json`;
   }
 
-  head(slot: PairSlot): string {
-    return `${this.directory}/head-${String(slot)}.json`;
+  head(epoch: number, generation: number): string {
+    return `${this.heads}/${digits(epoch)}-${digits(generation)}.json`;
   }
 
-  checkpoint(id: CheckpointId): string {
-    return `${this.checkpoints}/${id}.json`;
+  checkpoint(epoch: number, id: CheckpointId): string {
+    return `${this.checkpoints}/${digits(epoch)}-${id}.json`;
   }
 
   epoch(epoch: number): string {

@@ -22,6 +22,7 @@
 export { type ExternalFile } from './external-file.js';
 
 export {
+  type MediaSharing,
   MediaObjectStore,
   type MediaStoreServices,
   type PutOutcome,

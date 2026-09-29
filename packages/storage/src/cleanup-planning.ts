@@ -11,9 +11,11 @@
  * 2. Projects whose making was cut short: never finished, never listed.
  * 3. Backup generations each project's retention no longer keeps, and those a
  *    crash left incomplete: restoring to them is lost.
- * 4. Journal records recovery set aside: what they held can no longer be looked
+ * 4. History each project's retention policy lets go (`expired-history.ts`):
+ *    the plan of each lists the undoing, branches and export states it loses.
+ * 5. Journal records recovery set aside: what they held can no longer be looked
  *    at.
- * 5. Media nothing refers to: no project, history, snapshot, journal or backup
+ * 6. Media nothing refers to: no project, history, snapshot, journal or backup
  *    holds it, and it is gone for good.
  *
  * Planning removes nothing. Every step past the caches reduces what can be
@@ -21,16 +23,13 @@
  * bytes those steps would free (`cleanup-running.ts`). Media is planned only
  * where everything that could retain it was read: a file that could not be read
  * might retain anything, so the plan says media cannot be purged, and why,
- * rather than risk media something needs.
+ * rather than risk media something needs. It is not planned either where the
+ * platform cannot coordinate windows, since a purge must keep every other
+ * window from storing media while it runs (`cleanup-running.ts`).
  */
 
-import {
-  isWellFormedId,
-  succeed,
-  unsafeBrandId,
-  type DomainResult,
-  type ProjectId,
-} from '@audiogubbins/domain';
+import { succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
+import type { CompactionPlan } from '@audiogubbins/history';
 import {
   planCollection,
   type CollectionPlan,
@@ -42,18 +41,22 @@ import { BackupGenerations } from './backup-generations.js';
 import { planBackupPruning } from './backup-planning.js';
 import { CACHE_CLEANUP_ORDER, type CacheCategory, type CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
+import { expiredHistory } from './expired-history.js';
+import { projectsIn } from './project-listing.js';
 import { readPair } from './generational-pair.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 import { bytesUnder } from './usage-measurement.js';
+import type { LeaseCoordinator } from './write-lease.js';
 
 /** One kind of cleanup a person may choose. */
 export type CleanupChoice =
   | { readonly kind: 'cache'; readonly category: CacheCategory }
   | { readonly kind: 'unfinished-projects' }
   | { readonly kind: 'expired-backups' }
+  | { readonly kind: 'expired-history' }
   | { readonly kind: 'set-aside-records' }
   | { readonly kind: 'unreferenced-media' };
 
@@ -68,6 +71,8 @@ export type RecoverabilityLoss =
   | 'unfinished-projects'
   /** Restoring the project to the generations removed. */
   | 'backup-generations'
+  /** The history each compaction removes, as each plan lists what it loses. */
+  | 'history'
   /** Looking at the changes recovery set aside. */
   | 'set-aside-changes'
   /** The media itself, which nothing refers to, for good. */
@@ -84,9 +89,22 @@ export type CleanupStep = {
       readonly kind: 'expired-backups';
       readonly generations: ReadonlyMap<ProjectId, readonly number[]>;
     }
+  | {
+      readonly kind: 'expired-history';
+      readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>;
+    }
   | { readonly kind: 'set-aside-records'; readonly projects: readonly ProjectId[] }
   | { readonly kind: 'unreferenced-media'; readonly collection: CollectionPlan }
 );
+
+/** Why media cannot be purged now. */
+export type MediaPurgeRefusal =
+  /** Something that could retain media cannot be read. */
+  | { readonly kind: 'unreadable'; readonly roots: readonly UnreadableRoot[] }
+  /** The platform cannot keep other windows from storing media while a purge runs. */
+  | { readonly kind: 'no-coordination' }
+  /** A window is storing media it has yet to refer to; the purge may be tried again. */
+  | { readonly kind: 'storing' };
 
 /** A cleanup planned: its steps in the safe order, and what confirming it means. */
 export interface CleanupPlan {
@@ -96,7 +114,7 @@ export interface CleanupPlan {
   readonly confirmationBytes: number;
 
   /** Why media cannot be purged, where it was chosen and cannot be. */
-  readonly mediaBlockedBy?: readonly UnreadableRoot[];
+  readonly mediaRefused?: MediaPurgeRefusal;
 }
 
 /** What planning a cleanup works with. */
@@ -105,12 +123,16 @@ export interface CleanupServices {
   readonly digest: Digest;
   readonly store: MediaObjectStore;
   readonly caches: CacheStore;
+
+  /** The platform's lease coordination, absent where it has none. */
+  readonly coordinator?: LeaseCoordinator;
 }
 
 const EVERY_CHOICE: readonly CleanupChoice[] = [
   ...CACHE_CLEANUP_ORDER.map((category) => ({ kind: 'cache', category }) as const),
   { kind: 'unfinished-projects' },
   { kind: 'expired-backups' },
+  { kind: 'expired-history' },
   { kind: 'set-aside-records' },
   { kind: 'unreferenced-media' },
 ];
@@ -146,12 +168,14 @@ export async function planCleanup(
       chosen.some((choice) => choice.kind === kind);
     if (has('unfinished-projects')) steps.push(...(await unfinishedProjects(records)));
     if (has('expired-backups')) steps.push(...(await expiredBackups(records, now, signal)));
+    if (has('expired-history'))
+      steps.push(...historyStep(await expiredHistory(records, now, signal)));
     if (has('set-aside-records')) steps.push(...(await setAsideRecords(records)));
-    let mediaBlockedBy: readonly UnreadableRoot[] | undefined;
+    let mediaRefused: MediaPurgeRefusal | undefined;
     if (has('unreferenced-media')) {
       const media = await unreferencedMedia(services, signal);
       if (!media.ok) return media;
-      if ('blockedBy' in media.value) mediaBlockedBy = media.value.blockedBy;
+      if ('refused' in media.value) mediaRefused = media.value.refused;
       else if (media.value.step.bytes > 0) steps.push(media.value.step);
     }
     const confirmationBytes = steps
@@ -160,18 +184,9 @@ export async function planCleanup(
     return succeed({
       steps,
       confirmationBytes,
-      ...(mediaBlockedBy === undefined ? {} : { mediaBlockedBy }),
+      ...(mediaRefused === undefined ? {} : { mediaRefused }),
     });
   });
-}
-
-/** Every project directory under `directory`, by identifier. */
-async function projectsIn(tree: StorageTree, directory: string): Promise<readonly ProjectId[]> {
-  return (await tree.list(directory)).flatMap((entry) =>
-    entry.kind === 'directory' && isWellFormedId(entry.name)
-      ? [unsafeBrandId<'ProjectId'>(entry.name)]
-      : [],
-  );
 }
 
 async function unfinishedProjects(records: CheckedRecords): Promise<readonly CleanupStep[]> {
@@ -220,12 +235,18 @@ async function expiredBackups(
     : [{ kind: 'expired-backups', generations, bytes, loses: 'backup-generations' }];
 }
 
+/** The step of history compactions, where any project lets history go. */
+function historyStep(compactions: ReadonlyMap<ProjectId, CompactionPlan>): readonly CleanupStep[] {
+  let bytes = 0;
+  for (const plan of compactions.values()) bytes += plan.reclaimableBytes;
+  return compactions.size === 0
+    ? []
+    : [{ kind: 'expired-history', compactions, bytes, loses: 'history' }];
+}
+
 /** A project's backup policy, as its newest checkpoint records it. */
 async function backupPolicyOf(files: ProjectFiles, signal?: AbortSignal) {
-  const head = (await readPair(files.records, files.heads, signal)).valid[0];
-  if (head === undefined) return undefined;
-  const checkpoint = await files.readCheckpoint(head.value.checkpoint, signal);
-  return checkpoint.kind === 'valid' ? checkpoint.value.backup : undefined;
+  return (await files.newestCheckpoint(signal))?.backup;
 }
 
 async function setAsideRecords(records: CheckedRecords): Promise<readonly CleanupStep[]> {
@@ -247,9 +268,8 @@ async function setAsideRecords(records: CheckedRecords): Promise<readonly Cleanu
 async function unreferencedMedia(
   services: CleanupServices,
   signal?: AbortSignal,
-): Promise<
-  DomainResult<{ readonly step: CleanupStep } | { readonly blockedBy: readonly UnreadableRoot[] }>
-> {
+): Promise<DomainResult<{ readonly step: CleanupStep } | { readonly refused: MediaPurgeRefusal }>> {
+  if (services.coordinator === undefined) return succeed({ refused: { kind: 'no-coordination' } });
   const unreadable: UnreadableRoot[] = [];
   const roots = retainedMedia(
     services.tree,
@@ -259,7 +279,9 @@ async function unreferencedMedia(
   );
   const collection = await planCollection(services.store, roots, signal);
   if (!collection.ok) return collection;
-  if (unreadable.length > 0) return succeed({ blockedBy: unreadable });
+  if (unreadable.length > 0) {
+    return succeed({ refused: { kind: 'unreadable', roots: unreadable } });
+  }
   return succeed({
     step: {
       kind: 'unreferenced-media',

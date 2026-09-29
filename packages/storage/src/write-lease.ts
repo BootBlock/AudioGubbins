@@ -10,7 +10,11 @@
  * taken by another window whose person decided to, or handed over on request.
  * The coordinator decides who may write; the epoch fencing in storage
  * (`lease-records.ts`) makes sure a writer that lost the lease late changes
- * nothing that counts.
+ * nothing that counts. The coordinator also tells a window that reads a project
+ * when its writer changes or writes a checkpoint, so the reader can load the
+ * latest state, and holds the one lock that spans the whole storage, which
+ * keeps a purge in one window from removing media another has stored and not
+ * yet referred to (REQ-STOR-102).
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -52,6 +56,9 @@ export interface ProjectWriteLease {
    */
   onTransferRequest(listener: (request: TransferRequest) => void): () => void;
 
+  /** Tells every window watching the project that a checkpoint of it was written. */
+  announceCheckpoint(): void;
+
   /** Lets the project go, for this window or another to take. */
   release(): Promise<void>;
 }
@@ -64,10 +71,49 @@ export type LeaseAcquisition =
 
       /** The window holding it, where it can be told. */
       readonly owner?: LeaseOwner;
-    };
+    }
+  /**
+   * The platform refused the lock, as a sandboxed frame's may: no window can be
+   * sure it is the only writer, which is not the same as another writing.
+   */
+  | { readonly kind: 'unavailable' };
 
 /** How a holder answered a request for its project. */
 export type TransferAnswer = 'granted' | 'declined';
+
+/**
+ * How a request for a project ended: the holder's answer, or `unreachable`
+ * where the request could not be delivered or no writer answered before the
+ * asker stopped waiting.
+ */
+export type TransferOutcome = TransferAnswer | 'unreachable';
+
+/** What a window watching a project hears of its writer. */
+export type OwnershipEvent =
+  /** A window took the lease, opening the project to write or taking it over. */
+  | { readonly kind: 'acquired'; readonly owner?: LeaseOwner }
+  /** The writer let the project go, having written everything it held. */
+  | { readonly kind: 'released' }
+  /** The writer wrote a checkpoint, so storage holds a newer state. */
+  | { readonly kind: 'checkpointed' };
+
+/** How a window takes the lock that spans the whole storage. */
+export type StorageLockMode =
+  /**
+   * Held by each window while it stores media it has yet to refer to, by as
+   * many as are storing at once.
+   */
+  | 'shared'
+  /** Held by one window alone, while a purge finds what nothing refers to and removes it. */
+  | 'exclusive';
+
+/** What asking for the storage-wide lock found. */
+export type StorageLocking =
+  | { readonly kind: 'held'; readonly release: () => Promise<void> }
+  /** Another holder keeps it from being taken now; only where the asker would not wait. */
+  | { readonly kind: 'busy' }
+  /** The platform refused the lock. */
+  | { readonly kind: 'unavailable' };
 
 /** The platform's coordination of write leases across windows. */
 export interface LeaseCoordinator {
@@ -86,9 +132,16 @@ export interface LeaseCoordinator {
 
   /**
    * Asks the holder of a project's lease to hand it over, settling with its
-   * answer. Granted means the holder has let the project go.
+   * answer. Granted means the holder has let the project go, which is also the
+   * answer where no window holds it. Settles `unreachable` at once where the
+   * request cannot reach the holder, and once `signal` aborts where the holder
+   * has not answered by then: how long to wait is the asker's to say.
    */
-  requestTransfer(project: ProjectId, from: LeaseOwner): Promise<TransferAnswer>;
+  requestTransfer(
+    project: ProjectId,
+    from: LeaseOwner,
+    signal?: AbortSignal,
+  ): Promise<TransferOutcome>;
 
   /**
    * Answers a request for a project this window holds. The holder lets its
@@ -99,4 +152,23 @@ export interface LeaseCoordinator {
     request: TransferRequest,
     answer: TransferAnswer,
   ): Promise<void>;
+
+  /**
+   * Calls `listener` with each change of the project's writer, and each
+   * checkpoint it writes, until the returned function is called. A writer that
+   * vanishes without a word, as a closed tab may, is not heard of.
+   */
+  watchOwnership(project: ProjectId, listener: (event: OwnershipEvent) => void): () => void;
+
+  /**
+   * Takes the storage-wide lock in `mode`. With `wait`, waits for it, and
+   * rejects with the signal's reason where `signal` aborts first; without, is
+   * `busy` where it cannot be taken at once. A window that waited for the
+   * exclusive lock while it held the shared one would wait for ever, so the
+   * exclusive lock is asked for without waiting.
+   */
+  lockStorage(
+    mode: StorageLockMode,
+    options: { readonly wait: boolean; readonly signal?: AbortSignal },
+  ): Promise<StorageLocking>;
 }

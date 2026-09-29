@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { unsafeBrandId } from '@audiogubbins/domain';
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 
 import { CheckedRecords } from './checked-records.js';
 import { CommandJournal } from './command-journal.js';
 import type { JournalEvent } from './journal-events.js';
 import type { LeaseRecord } from './lease-records.js';
 import { ProjectPaths } from './storage-layout.js';
+import { nodeDigest } from './testing/node-services.js';
 
 const PROJECT = unsafeBrandId<'ProjectId'>('0000cccc-0000-4000-8000-000000000001');
 const EVENT: JournalEvent = { kind: 'retention-policy', policy: { kind: 'unlimited' } };
@@ -19,7 +20,11 @@ async function journalOf(records: readonly (readonly [number, number])[]) {
   return { tree, journal, paths: new ProjectPaths(PROJECT) };
 }
 
-const OPEN_EPOCH_2: LeaseRecord = { epoch: 2, seals: [{ epoch: 1, lastSequence: 2 }] };
+const OPEN_EPOCH_2: LeaseRecord = {
+  epoch: 2,
+  seals: [{ epoch: 1, lastSequence: 2 }],
+  holder: 'test-opening',
+};
 
 describe('the plan of a journal after a position (REQ-STOR-101)', () => {
   it('replays in order across epochs, and fences a sealed epoch’s records past its seal', async () => {

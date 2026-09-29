@@ -33,12 +33,15 @@ import {
   switchSide,
   undoTarget,
   withStateFingerprint,
+  type CompactionPlan,
+  type CompactionRequest,
   type ComparisonSource,
   type History,
   type SideName,
 } from '@audiogubbins/history';
 import {
   historyLabelFrom,
+  type BackupPolicy,
   type ExportRecord,
   type HistoryNodeId,
   type ProjectState,
@@ -47,13 +50,19 @@ import {
   type StateFingerprint,
 } from '@audiogubbins/project-format';
 
-import type { BackupPolicy } from './backup-policy.js';
 import { choiceOf } from './comparison-record.js';
 import { arriveAt, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
 import { keptStatesOf } from './journal-replay.js';
+import {
+  compactedModel,
+  planHistoryCompaction,
+  type CompactedModel,
+  type CompactionConfirmation,
+  type CompactionServices,
+} from './history-compaction.js';
 import { withEvent, withMove, type ProjectModel, type SettledEvent } from './project-model.js';
-import { SnapshotPublisher, type ProjectAccess, type ProjectSnapshot } from './project-snapshot.js';
+import { SnapshotPublisher, type ProjectSnapshot } from './project-snapshot.js';
 import type {
   ChangeOutcome,
   ComparisonOutcome,
@@ -68,15 +77,12 @@ import {
   NO_COMPARISON,
   NO_SUCH_NODE,
   notWritable,
+  retentionUnconfirmed,
   unsavedChanges,
 } from './session-failures.js';
+import { SessionOwnership } from './session-ownership.js';
 import { SessionWriter } from './session-writer.js';
-import type {
-  LeaseLoss,
-  ProjectWriteLease,
-  TransferAnswer,
-  TransferRequest,
-} from './write-lease.js';
+import type { TransferAnswer, TransferRequest } from './write-lease.js';
 import type { SaveStatus, WriteOutcome } from './write-queue.js';
 
 /** A project open to write (see the module comment). */
@@ -86,39 +92,29 @@ export class ProjectSession {
   readonly getSnapshot: () => ProjectSnapshot;
 
   private readonly services: SessionServices;
-  private readonly lease: ProjectWriteLease;
+  private readonly ownership: SessionOwnership;
   private readonly keepStateEvery: number;
   private readonly writer: SessionWriter;
   private readonly publisher: SnapshotPublisher;
   private readonly moves: MoveServices;
+  private readonly compacting: CompactionServices;
   private model: ProjectModel;
-  private access: ProjectAccess = { kind: 'writable', transferRequests: [] };
   private operations: Promise<unknown> = Promise.resolve();
 
   constructor(services: SessionServices, start: SessionStart) {
     this.project = services.files.project;
     this.services = services;
-    this.lease = start.lease;
     this.keepStateEvery = start.cadence.keepStateEvery;
     this.model = start.recovered.model;
-    this.writer = new SessionWriter({
-      files: services.files,
-      ids: services.ids,
+    this.writer = this.writerOf(services, start);
+    this.ownership = new SessionOwnership({
+      project: this.project,
+      lease: start.lease,
+      coordinator: services.coordinator,
+      writer: this.writer,
       logger: services.logger,
-      epoch: start.epoch,
-      position: start.recovered.position,
-      keptStates: start.recovered.keptStates,
-      unwritten: start.recovered.unwritten,
-      headerName: start.headerName,
-      cadence: start.cadence,
       onChange: () => {
         this.publish();
-      },
-      onCheckpoint: (node, state) => {
-        this.nameCheckpointedState(node, state);
-      },
-      onSuperseded: () => {
-        this.lose({ kind: 'taken' });
       },
     });
     this.moves = {
@@ -126,16 +122,13 @@ export class ProjectSession {
       logger: services.logger,
       states: keptStatesOf(services.files, this.writer.kept, this.writer.unwritten),
     };
+    this.compacting = {
+      ...this.moves,
+      fingerprint: async (state) => await services.files.states.fingerprint(state),
+    };
     this.publisher = new SnapshotPublisher(this.snapshotNow());
     this.subscribe = this.publisher.subscribe;
     this.getSnapshot = this.publisher.getSnapshot;
-
-    void start.lease.lost.then((loss) => {
-      this.lose(loss);
-    });
-    start.lease.onTransferRequest((request) => {
-      this.hearRequest(request);
-    });
   }
 
   /** Runs one command. */
@@ -191,9 +184,53 @@ export class ProjectSession {
   readonly recordExport = async (record: ExportRecord): Promise<DomainResult<WriteOutcome>> =>
     await this.settle({ kind: 'export', record });
 
+  /**
+   * Sets how much history is kept. Where the policy would let history the
+   * project holds go, it is set only with the person's confirmation of that
+   * plan (`planCompaction` with the policy), and the plan is carried out with
+   * it (REQ-STOR-055, REQ-STOR-106).
+   */
   readonly setRetentionPolicy = async (
     policy: RetentionPolicy,
-  ): Promise<DomainResult<WriteOutcome>> => await this.settle({ kind: 'retention-policy', policy });
+    confirmation?: CompactionConfirmation,
+  ): Promise<DomainResult<WriteOutcome>> =>
+    await this.whileWritable(async () => {
+      const plan = await this.planned({ kind: 'policy', policy });
+      if (!plan.ok) return plan;
+      const event: SettledEvent = { kind: 'retention-policy', policy };
+      const next = withEvent(this.model, event);
+      if (!next.ok) return next;
+      if (plan.value.removable.length === 0) return succeed(await this.commit(event, next.value));
+      if (confirmation === undefined) return fail(retentionUnconfirmed(plan.value));
+      const compacted = await compactedModel(next.value, plan.value, confirmation, this.compacting);
+      if (!compacted.ok) return compacted;
+      await this.commit(event, next.value);
+      return succeed(await this.adoptCompaction(keeping(compacted.value)));
+    });
+
+  /**
+   * Plans a compaction of the history, removing nothing: what it would free and
+   * every capability it would take away, for the person to confirm.
+   */
+  readonly planCompaction = async (
+    request: CompactionRequest,
+  ): Promise<DomainResult<CompactionPlan>> =>
+    await this.exclusive(async () => await this.planned(request));
+
+  /**
+   * Carries out a compaction the person confirmed, keeping the new root's state
+   * whole, and writes a checkpoint of the history it leaves at once.
+   */
+  readonly compactHistory = async (
+    plan: CompactionPlan,
+    confirmation: CompactionConfirmation,
+  ): Promise<DomainResult<WriteOutcome>> =>
+    await this.whileWritable(async () => {
+      const compacted = await compactedModel(this.model, plan, confirmation, this.compacting);
+      return compacted.ok
+        ? succeed(await this.adoptCompaction(keeping(compacted.value)))
+        : compacted;
+    });
 
   readonly setBackupPolicy = async (policy: BackupPolicy): Promise<DomainResult<WriteOutcome>> =>
     await this.settle({ kind: 'backup-policy', policy });
@@ -228,6 +265,22 @@ export class ProjectSession {
   readonly promote = async (side: SideName): Promise<DomainResult<WriteOutcome>> =>
     await this.moveTowards((_, model) => model.comparison?.[side].node, NO_COMPARISON);
 
+  /**
+   * Replaces the whole project, history and all, with `model`, whose kept
+   * states are `states`, and writes a checkpoint of it at once. Refused while
+   * anything is not saved. It is no change the history can undo: the caller
+   * keeps what it replaces recoverable (`backup-restoring.ts`).
+   */
+  readonly replaceProject = async (
+    model: ProjectModel,
+    states: ReadonlyMap<StateFingerprint, ProjectState>,
+  ): Promise<DomainResult<WriteOutcome>> =>
+    await this.whileWritable(async () => {
+      const saved = await this.writer.checkpoint(this.model);
+      if (saved.kind !== 'written') return fail(unsavedChanges(this.writer.status));
+      return succeed(await this.adoptCompaction({ model, states }));
+    });
+
   /** Writes a checkpoint now, as the application does when the page is hidden. */
   readonly checkpoint = async (): Promise<DomainResult<WriteOutcome>> =>
     await this.whileWritable(async () => succeed(await this.writer.checkpoint(this.model)));
@@ -244,18 +297,7 @@ export class ProjectSession {
     request: TransferRequest,
     answer: TransferAnswer,
   ): Promise<DomainResult<void>> =>
-    await this.whileWritable(async () => {
-      // A grant refused for unsaved changes leaves the request waiting, to be
-      // granted once they are saved or declined.
-      if (answer === 'granted') {
-        const released = await this.letGo({ kind: 'handed-over' });
-        if (!released.ok) return released;
-      }
-      this.forgetRequest(request);
-      await this.services.coordinator.answerTransfer(this.project, request, answer);
-      this.publish();
-      return succeed(undefined);
-    });
+    await this.whileWritable(async () => await this.ownership.answer(request, answer, this.model));
 
   /**
    * Checkpoints and closes the project, letting the lease go. Refused, and the
@@ -263,8 +305,37 @@ export class ProjectSession {
    */
   readonly close = async (): Promise<DomainResult<void>> =>
     await this.exclusive(async () =>
-      this.access.kind === 'writable' ? await this.letGo({ kind: 'closed' }) : succeed(undefined),
+      this.ownership.access.kind === 'writable'
+        ? await this.ownership.letGo({ kind: 'closed' }, this.model)
+        : succeed(undefined),
     );
+
+  /** The writer of everything the session writes, telling the session what it did. */
+  private writerOf(services: SessionServices, start: SessionStart): SessionWriter {
+    return new SessionWriter({
+      files: services.files,
+      ids: services.ids,
+      logger: services.logger,
+      lease: start.leaseRecord,
+      position: start.recovered.position,
+      keptStates: start.recovered.keptStates,
+      unwritten: start.recovered.unwritten,
+      headerName: start.headerName,
+      cadence: start.cadence,
+      onChange: () => {
+        this.publish();
+      },
+      onCheckpoint: (node, state) => {
+        this.nameCheckpointedState(node, state);
+      },
+      onCheckpointWritten: () => {
+        start.lease.announceCheckpoint();
+      },
+      onSuperseded: () => {
+        this.ownership.lose({ kind: 'taken' });
+      },
+    });
+  }
 
   /** Runs a command or a group and records what it changed. */
   private async change(
@@ -312,6 +383,28 @@ export class ProjectSession {
     });
   }
 
+  private async planned(request: CompactionRequest): Promise<DomainResult<CompactionPlan>> {
+    const now = this.services.clock.now();
+    return await planHistoryCompaction(this.services.files, this.model, request, now);
+  }
+
+  /**
+   * Adopts a compacted or replaced project, with states it must keep. It is no
+   * event of the journal: a checkpoint of it is queued at once, behind every
+   * record before it and ahead of every record after, and until that checkpoint
+   * is written storage holds the project as it was, which loses nothing.
+   */
+  private async adoptCompaction(compacted: {
+    readonly model: ProjectModel;
+    readonly states: ReadonlyMap<StateFingerprint, ProjectState>;
+  }): Promise<WriteOutcome> {
+    for (const [fingerprint, state] of compacted.states)
+      this.writer.unwritten.set(fingerprint, state);
+    this.model = compacted.model;
+    this.publish();
+    return await this.writer.checkpoint(this.model);
+  }
+
   /** Adopts the model an event made and writes the event. */
   private async commit(event: JournalEvent, next: ProjectModel): Promise<WriteOutcome> {
     this.model = next;
@@ -319,23 +412,14 @@ export class ProjectSession {
     return await this.writer.append(event, next);
   }
 
-  /** Checkpoints, stops writing and lets the lease go, unless something is not saved. */
-  private async letGo(ended: ProjectAccess): Promise<DomainResult<void>> {
-    const saved = await this.writer.checkpoint(this.model);
-    if (saved.kind !== 'written') return fail(unsavedChanges(this.writer.status));
-    this.writer.queue.stop();
-    this.access = ended;
-    await this.lease.release();
-    this.publish();
-    return succeed(undefined);
-  }
-
   /** Runs an operation in turn, refused with the reason where this window no longer writes. */
   private async whileWritable<TValue>(
     work: () => Promise<DomainResult<TValue>>,
   ): Promise<DomainResult<TValue>> {
     return await this.exclusive(async () =>
-      this.access.kind === 'writable' ? await work() : fail(notWritable(this.access)),
+      this.ownership.access.kind === 'writable'
+        ? await work()
+        : fail(notWritable(this.ownership.access)),
     );
   }
 
@@ -348,29 +432,6 @@ export class ProjectSession {
     const result = this.operations.then(work);
     this.operations = Promise.allSettled([result]);
     return await result;
-  }
-
-  private lose(loss: LeaseLoss): void {
-    if (this.access.kind !== 'writable') return;
-    const unsaved = this.writer.queue.stop();
-    this.access = { kind: 'lost', loss, unsaved };
-    this.services.logger.warning('The project was taken by another window; this one stopped.', {
-      count: unsaved,
-    });
-    this.publish();
-  }
-
-  private hearRequest(request: TransferRequest): void {
-    if (this.access.kind !== 'writable') return;
-    const transferRequests = [...this.access.transferRequests, request];
-    this.access = { kind: 'writable', transferRequests };
-    this.publish();
-  }
-
-  private forgetRequest(request: TransferRequest): void {
-    if (this.access.kind !== 'writable') return;
-    const transferRequests = this.access.transferRequests.filter((held) => held.id !== request.id);
-    this.access = { kind: 'writable', transferRequests };
   }
 
   /** Adopts the fingerprint a checkpoint gave a node, in turn with the operations. */
@@ -388,11 +449,20 @@ export class ProjectSession {
   }
 
   private snapshotNow(): ProjectSnapshot {
-    const { project, model, access } = this;
-    return { project, model, save: this.writer.status, access };
+    const { project, model } = this;
+    return { project, model, save: this.writer.status, access: this.ownership.access };
   }
 
   private publish(): void {
     this.publisher.publish(this.snapshotNow());
   }
+}
+
+/** A compaction as a model and the states it must keep: the new root's, where it moves. */
+function keeping(compacted: CompactedModel) {
+  const { model, rootState } = compacted;
+  return {
+    model,
+    states: new Map(rootState === undefined ? [] : [[rootState.fingerprint, rootState.state]]),
+  };
 }

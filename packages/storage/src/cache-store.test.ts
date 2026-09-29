@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, generatedSource, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, generatedSource } from '@audiogubbins/media-store/testing';
 
 import {
   CACHE_CLEANUP_ORDER,
@@ -13,6 +13,7 @@ import {
   type CacheKey,
 } from './cache-store.js';
 import { contentOf } from './testing/test-commands.js';
+import { nodeDigest } from './testing/node-services.js';
 
 /**
  * Caches are disposable (REQ-STOR-027): one kept whole reads back, one torn or

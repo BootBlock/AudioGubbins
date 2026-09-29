@@ -2,16 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import {
-  MemoryStorageTree,
-  SimulatedCrash,
-  memorySource,
-  nodeDigest,
-} from '@audiogubbins/media-store/testing';
-import type { ByteSink, ContentId, StorageTree } from '@audiogubbins/project-format';
+import { MemoryStorageTree, SimulatedCrash, memorySource } from '@audiogubbins/media-store/testing';
+import type { BackupPolicy, ByteSink, ContentId, StorageTree } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
-import type { BackupPolicy } from './backup-policy.js';
 import { BackupScheduler, type BackupTick, type ExternalBackupTarget } from './backup-scheduler.js';
 import { retainedMedia } from './media-roots.js';
 import { openProject } from './project-opening.js';
@@ -20,7 +14,8 @@ import { exportBackup, importBundle } from './project-transfer.js';
 import { summaryOf } from './testing/model-summary.js';
 import { memorySink, storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
 import { addAsset, setName } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Backup generations (REQ-STOR-105): made as the policy says when the

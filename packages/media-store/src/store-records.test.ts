@@ -4,7 +4,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { contentIdFrom, decodeUtf8, encodeUtf8 } from '@audiogubbins/project-format';
 
 import { intentBytes, readIntent, readSeal, sealBytes } from './store-records.js';
-import { nodeDigest } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 const id = expectSuccess(contentIdFrom(`c1-${'ab'.repeat(32)}`));
 

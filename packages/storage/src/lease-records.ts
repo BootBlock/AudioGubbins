@@ -11,11 +11,24 @@
  * reads back valid, so no rewrite in place can tear what the fencing rests on:
  * the newest valid record is current, and a newer one that is torn was never
  * written under, since nothing is journalled under an epoch before its record
- * is confirmed.
+ * is confirmed. Each record names the opening that wrote it, so two openings
+ * that raced to one epoch number cannot both take it to be theirs: each checks
+ * the record it reads back, and the lease it writes under, by that name.
+ *
+ * An opening raises the epoch twice. First it claims one before it reads
+ * anything of the project, carrying the earlier seals; from then on the writer
+ * it replaces finds itself superseded at its next reading of the lease, before
+ * it moves a head or removes a file. Only then does it read the project, and
+ * then it raises the epoch again, sealing each earlier epoch at the last record
+ * it read, and the claimed epoch, under which nothing is written, at none.
+ * Claiming first is what lets a writer that lost the project late remove what
+ * its own newest head replaced: any opening that has not yet claimed will read
+ * that head (`checkpoint-writing.ts`).
  */
 
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 import {
+  asId,
   listConverter,
   objectOf,
   pathOf,
@@ -40,6 +53,9 @@ export interface LeaseRecord {
 
   /** One seal for each earlier epoch that may still hold records, by epoch. */
   readonly seals: readonly EpochSeal[];
+
+  /** Names the opening that wrote the record: no other writes under its epoch. */
+  readonly holder: string;
 }
 
 /** What a project's lease records say. */
@@ -52,9 +68,9 @@ export interface LeaseReading {
 }
 
 /** The lease of a project no writer has opened. */
-const UNOPENED: LeaseRecord = { epoch: 0, seals: [] };
+const UNOPENED: LeaseRecord = { epoch: 0, seals: [], holder: '' };
 
-const LEASE_MEMBERS: ReadonlySet<string> = new Set(['epoch', 'seals']);
+const LEASE_MEMBERS: ReadonlySet<string> = new Set(['epoch', 'seals', 'holder']);
 const SEAL_MEMBERS: ReadonlySet<string> = new Set(['epoch', 'lastSequence']);
 
 /** The most seals one record holds: one for each epoch a checkpoint has not yet passed. */
@@ -87,36 +103,84 @@ export async function readLease(
   return { current: UNOPENED, highestNamed };
 }
 
+/** Whether the lease as read is the one an opening wrote: the same epoch, taken by it. */
+export function isHeldBy(reading: LeaseReading, lease: LeaseRecord): boolean {
+  return reading.current.epoch === lease.epoch && reading.current.holder === lease.holder;
+}
+
 /**
- * Raises the epoch past every one named, sealing the earlier epochs as `seals`
- * says, and confirms the record by reading it back.
+ * Claims the epoch past every one named, before the project is read. The
+ * earlier seals are carried, and every epoch named past the current one, which
+ * no opening confirmed and so none wrote under, is sealed at none.
  */
-export async function raiseEpoch(
+export async function claimEpoch(
   records: CheckedRecords,
   paths: ProjectPaths,
-  reading: LeaseReading,
+  holder: string,
+  signal?: AbortSignal,
+): Promise<DomainResult<LeaseRecord>> {
+  const reading = await readLease(records, paths, signal);
+  const seals = [...reading.current.seals, ...unconfirmedAfter(reading)];
+  return await raiseEpoch(records, paths, reading, { seals, holder }, signal);
+}
+
+/**
+ * Raises the epoch past a claim once the project is read, sealing the earlier
+ * epochs as `seals` says and the claimed one at none. Refused where another
+ * opening has claimed the project since.
+ */
+export async function sealEpoch(
+  records: CheckedRecords,
+  paths: ProjectPaths,
+  claim: LeaseRecord,
   seals: readonly EpochSeal[],
   signal?: AbortSignal,
 ): Promise<DomainResult<LeaseRecord>> {
+  const reading = await readLease(records, paths, signal);
+  if (!isHeldBy(reading, claim)) return fail(notConfirmed());
+  const sealed = [...seals, { epoch: claim.epoch, lastSequence: 0 }, ...unconfirmedAfter(reading)];
+  return await raiseEpoch(records, paths, reading, { seals: sealed, holder: claim.holder }, signal);
+}
+
+/** The seals at none of every epoch named past the current one. */
+function unconfirmedAfter(reading: LeaseReading): readonly EpochSeal[] {
+  const seals: EpochSeal[] = [];
+  for (let epoch = reading.current.epoch + 1; epoch <= reading.highestNamed; epoch += 1) {
+    seals.push({ epoch, lastSequence: 0 });
+  }
+  return seals;
+}
+
+/** Raises the epoch past every one named, and confirms the record by reading it back. */
+async function raiseEpoch(
+  records: CheckedRecords,
+  paths: ProjectPaths,
+  reading: LeaseReading,
+  lease: Omit<LeaseRecord, 'epoch'>,
+  signal?: AbortSignal,
+): Promise<DomainResult<LeaseRecord>> {
   const epoch = Math.max(reading.current.epoch, reading.highestNamed) + 1;
-  const record: LeaseRecord = { epoch, seals };
+  const record: LeaseRecord = { ...lease, epoch };
   await records.write(paths.lease(epoch), RecordKind.Lease, writeLeaseRecord(record), signal);
   const back = await records.read(paths.lease(epoch), RecordKind.Lease, readLeaseRecord, signal);
-  if (back.kind !== 'valid' || back.value.epoch !== epoch) {
-    return fail(
-      failure(
-        'storage.lease-not-confirmed',
-        FailureKind.Retryable,
-        'The write lease could not be confirmed in storage, so the project was not opened to write.',
-      ),
-    );
+  if (back.kind !== 'valid' || back.value.epoch !== epoch || back.value.holder !== lease.holder) {
+    return fail(notConfirmed());
   }
   return succeed(back.value);
+}
+
+function notConfirmed() {
+  return failure(
+    'storage.lease-not-confirmed',
+    FailureKind.Retryable,
+    'The write lease could not be confirmed in storage, so the project was not opened to write.',
+  );
 }
 
 function writeLeaseRecord(record: LeaseRecord): JsonObject {
   return {
     epoch: record.epoch,
+    holder: record.holder,
     seals: [...record.seals]
       .sort((left, right) => left.epoch - right.epoch)
       .map((seal) => ({ epoch: seal.epoch, lastSequence: seal.lastSequence })),
@@ -134,13 +198,17 @@ const asSeal: Converter<EpochSeal> = (reading, value, parent, key) => {
 
 const asSeals = listConverter(MAXIMUM_SEALS, asSeal);
 
+/** The opening a record names, minted by the injected identifiers. */
+const asHolder = asId<'LeaseHolder'>;
+
 const readLeaseRecord: Converter<LeaseRecord> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, LEASE_MEMBERS);
   if (object === undefined) return undefined;
   const at = pathOf(parent, key);
   const epoch = required(reading, object, at, 'epoch', asWholeNumber);
   const seals = required(reading, object, at, 'seals', asSeals);
-  if (epoch === undefined || seals === undefined) return undefined;
+  const holder = required(reading, object, at, 'holder', asHolder);
+  if (epoch === undefined || seals === undefined || holder === undefined) return undefined;
   if (seals.some((seal) => seal.epoch >= epoch)) {
     reading.refuse(
       'lease.seal-not-earlier',
@@ -149,5 +217,5 @@ const readLeaseRecord: Converter<LeaseRecord> = (reading, value, parent, key) =>
     );
     return undefined;
   }
-  return { epoch, seals };
+  return { epoch, seals, holder };
 };

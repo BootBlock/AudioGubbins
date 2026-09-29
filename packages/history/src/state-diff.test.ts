@@ -8,6 +8,7 @@ import {
   type Region,
 } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { affectedBy } from './affected-entities.js';
 import { unmovedPositions } from './order-changes.js';
@@ -26,7 +27,7 @@ function withChain(state: ProjectState, chain: EffectChain): ProjectState {
 
 describe('the difference of two states (REQ-STOR-195)', () => {
   it('is empty between a state and itself, and between equal states built apart', () => {
-    const { state } = fixtureState();
+    const { state } = fixtureState(sampleProject());
     const empty = {
       added: [],
       removed: [],
@@ -44,11 +45,11 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       effectChains: [],
     };
     expect(diffStates(state, state)).toEqual(expected);
-    expect(diffStates(state, fixtureState().state)).toEqual(expected);
+    expect(diffStates(state, fixtureState(sampleProject()).state)).toEqual(expected);
   });
 
   it('names the project fields that changed', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const after: ProjectState = {
       ...state,
       project: {
@@ -66,7 +67,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('lists entities added, removed and changed, each sorted, with the fields that changed', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const { firstStep, secondStep } = fixture.clips;
     const extra: Marker = {
       id: fixture.ids.next<'MarkerId'>(),
@@ -100,7 +101,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('compares nested values by what they hold: a region’s loop and tags, a clip’s source range', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const { loop } = fixture.regions;
     const { firstStep } = fixture.clips;
     const current = loop.loop;
@@ -145,7 +146,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('names an asset whose media changed among the sources', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const { footstep } = fixture.assets;
     const source = state.sources.get(footstep.id);
     if (source?.media.kind !== 'managed') throw new Error('Every fixture source is managed.');
@@ -162,7 +163,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('compares effect chains processor by processor: added, removed, moved, switched and set', () => {
-    const { state, fixture, chain } = fixtureState();
+    const { state, fixture, chain } = fixtureState(sampleProject());
     const gain = fixture.ids.next<'ParameterId'>();
     const shape = fixture.ids.next<'ParameterId'>();
     const eq = processor(fixture, 'parametric-eq', [
@@ -234,7 +235,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('does not call a processor moved because one was inserted before it', () => {
-    const { state, fixture, chain } = fixtureState();
+    const { state, fixture, chain } = fixtureState(sampleProject());
     const first = processor(fixture, 'eq');
     const second = processor(fixture, 'compressor');
     const inserted = processor(fixture, 'gate');
@@ -247,7 +248,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('lists every processor of an added or removed chain, with its parameters', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const level = fixture.ids.next<'ParameterId'>();
     const added: EffectChain = {
       id: fixture.ids.next<'EffectChainId'>(),
@@ -283,7 +284,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
   });
 
   it('is the same whatever order the maps were built in', () => {
-    const { state, fixture } = fixtureState();
+    const { state, fixture } = fixtureState(sampleProject());
     const reversed: ProjectState = {
       ...state,
       project: {
@@ -312,7 +313,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
 
 describe('the entities a change affected', () => {
   it('gathers each kind’s identifiers, sorted and once, counting a changed source as its asset', () => {
-    const { state, fixture, chain } = fixtureState();
+    const { state, fixture, chain } = fixtureState(sampleProject());
     const { footstep, ambience } = fixture.assets;
     const source = state.sources.get(ambience.id);
     if (source?.media.kind !== 'managed') throw new Error('Every fixture source is managed.');

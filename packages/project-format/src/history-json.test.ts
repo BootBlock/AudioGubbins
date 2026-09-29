@@ -145,7 +145,12 @@ function randomRecord(seed: number): HistoryRecord {
       id: root,
       at: EPOCH,
       origin: random.chance(0.5)
-        ? { kind: 'fork', project: ids.next<'ProjectId'>(), node: ids.next<'HistoryNodeId'>() }
+        ? {
+            kind: 'fork',
+            project: ids.next<'ProjectId'>(),
+            node: ids.next<'HistoryNodeId'>(),
+            stateFingerprint: fingerprint(0),
+          }
         : { kind: random.pick(['new', 'import'] as const) },
     },
   ];
@@ -362,8 +367,34 @@ describe('a history as JSON (REQ-STOR-193, REQ-EXEC-136.12)', () => {
     ],
     [
       'a fork origin without its node',
-      () => withValue(written(), nodeAt(indexOf(0), 'origin'), { kind: 'fork', project: stranger }),
+      () =>
+        withValue(written(), nodeAt(indexOf(0), 'origin'), {
+          kind: 'fork',
+          project: stranger,
+          stateFingerprint: fingerprint(0),
+        }),
       'schema.missing-member',
+    ],
+    [
+      'a fork origin without the fingerprint of the state it was taken from',
+      () =>
+        withValue(written(), nodeAt(indexOf(0), 'origin'), {
+          kind: 'fork',
+          project: stranger,
+          node: stranger,
+        }),
+      'schema.missing-member',
+    ],
+    [
+      'a fork origin whose source state is not a fingerprint',
+      () =>
+        withValue(written(), nodeAt(indexOf(0), 'origin'), {
+          kind: 'fork',
+          project: stranger,
+          node: stranger,
+          stateFingerprint: 'the latest',
+        }),
+      'schema.malformed-fingerprint',
     ],
     [
       'a malformed project identifier',

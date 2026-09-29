@@ -31,7 +31,9 @@ import { writeProjectDocument } from './project-json.js';
 import type { ProjectState } from './project-state.js';
 import { writeTreeHeader } from './project-tree-header.js';
 import {
+  BACKUP_POLICY_PATH,
   BRANCH_NAMES_PATH,
+  COMPARISON_PATH,
   CURSOR_PATH,
   ENTITY_DIRECTORIES,
   RETENTION_PATH,
@@ -53,6 +55,8 @@ import {
   stripExportRecords,
 } from './provenance-stripping.js';
 import { writeRetentionPolicy } from './retention-json.js';
+import { writeBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
+import { writeComparisonChoice, type ComparisonChoiceRecord } from './comparison-choice-json.js';
 import { encodeUtf8 } from './utf8.js';
 
 /** A piece of managed media a tree carries. */
@@ -74,6 +78,9 @@ export interface ProjectTreeHistory {
 
   /** The states kept whole, by fingerprint: at least every snapshot's. */
   readonly states: ReadonlyMap<StateFingerprint, ProjectState>;
+
+  /** The A/B comparison open between two of its states, where one is (REQ-STOR-195). */
+  readonly comparison?: ComparisonChoiceRecord;
 }
 
 /**
@@ -92,6 +99,9 @@ export interface ProjectTreeContent {
 
   /** The export log, oldest first. */
   readonly exports: readonly ExportRecord[];
+
+  /** The project's backup policy, which is the project's as its settings are. */
+  readonly backup: BackupPolicy;
   readonly media: readonly TreeMedia[];
 
   /** The caches, where the tree holds them. */
@@ -132,6 +142,7 @@ export function projectTree(content: ProjectTreeContent): readonly ProjectTreeFi
     }),
   );
   addProject(files, state);
+  files.text(BACKUP_POLICY_PATH, writeBackupPolicy(content.backup));
   if (scope.kind === 'history') addHistory(files, state.project.id, scope.history);
   for (const record of stripExportRecords(content.exports, provenance)) {
     files.text(exportPath(record.id), writeExportRecord(record));
@@ -193,6 +204,9 @@ function addHistory(files: TreeFiles, project: ProjectId, history: ProjectTreeHi
   });
   files.text(BRANCH_NAMES_PATH, valueIn(record, 'branchNames'));
   files.text(RETENTION_PATH, writeRetentionPolicy(history.retention));
+  if (history.comparison !== undefined) {
+    files.text(COMPARISON_PATH, writeComparisonChoice(history.comparison));
+  }
   for (const node of objectsIn(record, 'nodes')) files.text(nodePath(textIn(node, 'id')), node);
   for (const snapshot of objectsIn(record, 'snapshots')) {
     files.text(snapshotPath(textIn(snapshot, 'id')), snapshot);

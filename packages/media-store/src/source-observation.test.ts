@@ -7,7 +7,8 @@ import type { ExternalFile } from './external-file.js';
 import { hashProgressively } from './progressive-hashing.js';
 import { completeIdentity, observeFile } from './source-observation.js';
 import { sampleSource } from './source-sampling.js';
-import { generatedBytes, generatedSource, memorySource, nodeDigest } from './testing/index.js';
+import { generatedBytes, generatedSource, memorySource } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 const SIZE = 3 * CONTENT_CHUNK_BYTES + 99;
 

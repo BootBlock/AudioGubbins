@@ -19,6 +19,8 @@ import {
 } from '@audiogubbins/domain';
 import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
 
+import type { LeaseAcquisition } from './write-lease.js';
+
 /** The failure a refusal of the storage tree is reported as. */
 export function storageRefused(refusal: TreeFailure): DomainFailure {
   switch (refusal.kind) {
@@ -86,6 +88,14 @@ export function projectBusy(project: ProjectId): DomainFailure {
     'Another window is changing this project.',
     { details: { project } },
   );
+}
+
+/** Why a project's lease that was asked for is not held: another window's, or none to be had. */
+export function leaseRefused(
+  refusal: Exclude<LeaseAcquisition, { readonly kind: 'held' }>,
+  project: ProjectId,
+): DomainFailure {
+  return refusal.kind === 'busy' ? projectBusy(project) : noCoordination();
 }
 
 /**

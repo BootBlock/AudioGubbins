@@ -144,7 +144,18 @@ export async function historyContent(
         },
         retention: { kind: 'rules', rules: [{ kind: 'recent-changes', count: 50 }] },
         states,
+        comparison: {
+          a: { kind: 'node', node: cursorParent },
+          b: { kind: 'node', node: cursor },
+          listening: 'b',
+        },
       },
+    },
+    backup: {
+      kind: 'automatic',
+      trigger: { everyChanges: 5 },
+      retention: { count: 3, days: 30 },
+      external: true,
     },
     exports: [
       exportRecordAt(ids.next<'ExportRecordId'>(), EPOCH + 20, current),

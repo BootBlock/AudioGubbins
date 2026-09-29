@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import type { BackupPolicy, BackupRetention } from '@audiogubbins/project-format';
 
-import type { BackupPolicy, BackupRetention } from './backup-policy.js';
 import {
   backupDue,
   planBackupPruning,
@@ -11,7 +11,8 @@ import {
   type BackupReason,
 } from './backup-planning.js';
 import { seededRandom } from './testing/seeded-random.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { setName } from './testing/test-commands.js';
 
 /**

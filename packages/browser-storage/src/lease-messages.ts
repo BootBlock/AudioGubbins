@@ -10,7 +10,12 @@
  * coordinator already treats as a window it cannot describe.
  */
 
-import type { LeaseOwner, TransferAnswer, TransferRequest } from '@audiogubbins/storage';
+import type {
+  LeaseOwner,
+  OwnershipEvent,
+  TransferAnswer,
+  TransferRequest,
+} from '@audiogubbins/storage';
 
 /** Names this form of the messages. */
 const PROTOCOL = 'audiogubbins.lease/1';
@@ -26,7 +31,9 @@ export type LeaseMessage =
   /** Sent just before taking the project, so its writer can say who took it. */
   | { readonly kind: 'taking'; readonly by: LeaseOwner }
   | { readonly kind: 'transfer-request'; readonly request: TransferRequest }
-  | { readonly kind: 'transfer-answer'; readonly request: string; readonly answer: TransferAnswer };
+  | { readonly kind: 'transfer-answer'; readonly request: string; readonly answer: TransferAnswer }
+  /** Tells the windows watching the project who writes it, or that it wrote a checkpoint. */
+  | OwnershipEvent;
 
 /** A message as it is posted. */
 export function postedForm(message: LeaseMessage): object {
@@ -80,6 +87,14 @@ export function readLeaseMessage(data: unknown): LeaseMessage | undefined {
       const request = requestOf(member(data, 'request'));
       return request === undefined ? undefined : { kind: 'transfer-request', request };
     }
+    case 'acquired': {
+      const owner = ownerOf(member(data, 'owner'));
+      return owner === undefined ? { kind: 'acquired' } : { kind: 'acquired', owner };
+    }
+    case 'released':
+      return { kind: 'released' };
+    case 'checkpointed':
+      return { kind: 'checkpointed' };
     case 'transfer-answer': {
       const request = textOf(member(data, 'request'));
       const answer = answerOf(member(data, 'answer'));
@@ -88,6 +103,22 @@ export function readLeaseMessage(data: unknown): LeaseMessage | undefined {
         : { kind: 'transfer-answer', request, answer };
     }
     default:
+      return undefined;
+  }
+}
+
+/** The change to a project's writer a message tells of, where it tells of one. */
+export function ownershipEventOf(message: LeaseMessage): OwnershipEvent | undefined {
+  switch (message.kind) {
+    case 'acquired':
+    case 'released':
+    case 'checkpointed':
+      return message;
+    case 'who-owns':
+    case 'owner':
+    case 'taking':
+    case 'transfer-request':
+    case 'transfer-answer':
       return undefined;
   }
 }

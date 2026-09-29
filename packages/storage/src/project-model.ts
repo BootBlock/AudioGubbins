@@ -27,9 +27,13 @@ import {
   type Comparison,
   type History,
 } from '@audiogubbins/history';
-import type { ExportRecord, ProjectState, RetentionPolicy } from '@audiogubbins/project-format';
+import type {
+  BackupPolicy,
+  ExportRecord,
+  ProjectState,
+  RetentionPolicy,
+} from '@audiogubbins/project-format';
 
-import type { BackupPolicy } from './backup-policy.js';
 import { comparisonFrom } from './comparison-record.js';
 import type { JournalEvent } from './journal-events.js';
 

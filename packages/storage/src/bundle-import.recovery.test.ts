@@ -10,7 +10,8 @@ import { openProject } from './project-opening.js';
 import { exportBundle, importBundle } from './project-transfer.js';
 import { summaryOf } from './testing/model-summary.js';
 import { memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 import { addAsset, setName } from './testing/test-commands.js';
 
 /**
@@ -98,11 +99,7 @@ describe('a crash while a bundle is brought in (REQ-EXEC-180)', () => {
       // Whatever the crash left is cleaned up, and the bundle comes in whole.
       const restarted = storageOf(test, after);
       expectSuccess(await restarted.store.recoverIncomplete());
-      const services = {
-        ...restarted.exporting,
-        coordinator: test.coordinator,
-        owner: test.services(after).owner,
-      };
+      const services = restarted.cleaning;
       const plan = expectSuccess(await planCleanup('everything', services, 0));
       expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, services));
       expectSuccess(await importBundle(memorySource(bundle), 'original', restarted.importing));

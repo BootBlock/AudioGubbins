@@ -9,7 +9,8 @@ import { summaryOf } from './testing/model-summary.js';
 import { OPERATION_KINDS, randomStep } from './testing/random-sessions.js';
 import { seededRandom } from './testing/seeded-random.js';
 import { contentOf, setName } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
 
 /**
  * Randomised round trips (the packet's acceptance criteria): seeded sessions of

@@ -8,11 +8,9 @@ import { emptyProject } from '@audiogubbins/test-fixtures';
 import type { OpenLeaseChannel } from './project-channels.js';
 import { MemoryBroadcast, settled } from './testing/memory-broadcast.js';
 import { MemoryLocks } from './testing/memory-locks.js';
-import {
-  createLeaseCoordinator,
-  type LeaseLocks,
-  type WebLeaseServices,
-} from './web-lock-leases.js';
+import type { LeaseLocks } from './lock-manager.js';
+import { createLeaseCoordinator, type WebLeaseServices } from './web-lock-leases.js';
+import { webDigest } from './web-digest.js';
 
 /**
  * The lease coordinator over Web Locks and broadcast channels, driven through
@@ -82,6 +80,12 @@ describeWriteLeaseScenarios('Web Locks and broadcast channels', {
   windows: () => new Profile(),
   uncoordinated: () =>
     createLeaseCoordinator({ ...new Profile().services('window-a', undefined), locks: undefined }),
+  refusing: () => {
+    const profile = new Profile();
+    profile.locks.refusal = { error: new DOMException('Denied.', 'SecurityError'), thrown: false };
+    return profile.window({ instance: 'window-a', label: 'Window A' });
+  },
+  digest: webDigest(crypto.subtle),
 });
 
 const PROJECT = emptyProject().id;
@@ -132,15 +136,18 @@ describe('the Web Locks lease coordinator (REQ-STOR-098)', () => {
   });
 
   it.each([true, false])(
-    'opens nothing to write where the lock manager refuses (thrown: %s)',
+    'reports every lock unavailable where the lock manager refuses (thrown: %s)',
     async (thrown) => {
       const profile = new Profile();
       profile.locks.refusal = { error: new DOMException('Denied.', 'SecurityError'), thrown };
       expect(await profile.window(A).acquire(PROJECT, { steal: false, owner: A })).toEqual({
-        kind: 'busy',
+        kind: 'unavailable',
       });
       expect(await profile.window(A).acquire(PROJECT, { steal: true, owner: A })).toEqual({
-        kind: 'busy',
+        kind: 'unavailable',
+      });
+      expect(await profile.window(A).lockStorage('exclusive', { wait: false })).toEqual({
+        kind: 'unavailable',
       });
       expect(warnings(profile)).toContain(
         'The browser refused the project’s lock, so this window does not write it.',
@@ -167,6 +174,28 @@ describe('the Web Locks lease coordinator (REQ-STOR-098)', () => {
     expect((await profile.window(B).acquire(PROJECT, { steal: false, owner: B })).kind).toBe(
       'held',
     );
+  });
+
+  it('settles a request unreachable at once where no channel can carry it', async () => {
+    const profile = new Profile();
+    await held(profile.window(A), A);
+    expect(await profile.window(B, 'mute').requestTransfer(PROJECT, B)).toBe('unreachable');
+    expect(warnings(profile)).toContain('A request for a project could not reach its writer.');
+  });
+
+  it('tells a watching window of a checkpoint and of the writer letting the project go', async () => {
+    const profile = new Profile();
+    const heard: string[] = [];
+    const stop = profile.window(B).watchOwnership(PROJECT, (event) => heard.push(event.kind));
+    const lease = await held(profile.window(A), A);
+    lease.announceCheckpoint();
+    await settled();
+    await lease.release();
+    await settled();
+    lease.announceCheckpoint();
+    await settled();
+    stop();
+    expect(heard).toEqual(['acquired', 'checkpointed', 'released']);
   });
 
   it('has let the lock go by the time a release settles', async () => {

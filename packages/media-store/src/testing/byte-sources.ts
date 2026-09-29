@@ -1,18 +1,12 @@
 /**
- * Byte sources, a digest and tokens for tests of media stored through a tree.
+ * Byte sources and tokens for tests of media stored through a tree.
  *
  * A generated source makes each range's bytes when it is read, from the offset
  * and a seed, so a test can stream a file larger than several chunks and prove
  * that nothing read it whole: the source never holds it either.
  */
 
-import { webcrypto } from 'node:crypto';
-
-import type { ByteSource, Digest } from '@audiogubbins/project-format';
-
-/** SHA-256 through Node's Web Crypto, as the browser's would be injected. */
-export const nodeDigest: Digest = async (bytes) =>
-  new Uint8Array(await webcrypto.subtle.digest('SHA-256', bytes));
+import type { ByteSource } from '@audiogubbins/project-format';
 
 /** A source that reports what it was asked for. */
 export interface ObservedSource extends ByteSource {

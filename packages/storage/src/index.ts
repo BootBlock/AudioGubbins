@@ -13,10 +13,13 @@
  *
  * Around the kept projects: the portable bundle and the unpacked tree a project
  * is taken out as and brought in from (REQ-STOR-099, REQ-STOR-103), backup
- * generations and the scheduler that makes them (REQ-STOR-105), disposable
- * caches (REQ-STOR-027), usage by category and a cleanup planned in the safest
- * order and carried out only with the person's confirmation (REQ-STOR-102,
- * REQ-STOR-106, REQ-STOR-200), forks (REQ-STOR-199) and consolidation.
+ * generations, the scheduler that makes them and their restoring
+ * (REQ-STOR-105), disposable caches (REQ-STOR-027), usage by category, history
+ * compaction, and a cleanup planned in the safest order and carried out only
+ * with the person's confirmation (REQ-STOR-055, REQ-STOR-102, REQ-STOR-106,
+ * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; and the media store's
+ * sharing of the storage-wide lock, which keeps a purge from media another
+ * window has stored and not yet referred to.
  *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
@@ -58,7 +61,7 @@ export {
   type SessionCadence,
   type SnapshotRequest,
 } from './session-contracts.js';
-export { ReadOnlyProject } from './read-only-project.js';
+export { ReadOnlyProject, type ReadOnlyServices } from './read-only-project.js';
 export {
   type ProjectAccess,
   type ProjectSnapshot,
@@ -77,23 +80,21 @@ export { type JournalPosition } from './journal-position.js';
 export { type SnapshotStore } from './state-store.js';
 
 export {
-  type BackupPolicy,
-  type BackupRetention,
-  type BackupTrigger,
-  DEFAULT_BACKUP_POLICY,
-} from './backup-policy.js';
-
-export {
   type LeaseAcquisition,
   type LeaseCoordinator,
   type LeaseLoss,
   type LeaseOwner,
+  type OwnershipEvent,
   type ProjectWriteLease,
+  type StorageLockMode,
+  type StorageLocking,
   type TransferAnswer,
+  type TransferOutcome,
   type TransferRequest,
 } from './write-lease.js';
 
 export { type UnreadableRoot, retainedMedia } from './media-roots.js';
+export { mediaSharingOf } from './media-sharing.js';
 
 export { type BundleScope, type CopyOptions, type TreeSources } from './tree-content.js';
 export {
@@ -144,6 +145,7 @@ export {
   type CleanupSelection,
   type CleanupServices,
   type CleanupStep,
+  type MediaPurgeRefusal,
   type RecoverabilityLoss,
   planCleanup,
 } from './cleanup-planning.js';
@@ -155,6 +157,14 @@ export {
   relieveStoragePressure,
   runCleanup,
 } from './cleanup-running.js';
+
+export {
+  type RestoreServices,
+  type RestoreTarget,
+  type RestoredBackup,
+  restoreBackup,
+} from './backup-restoring.js';
+export { type CompactionConfirmation } from './history-compaction.js';
 
 export {
   type ForkPoint,

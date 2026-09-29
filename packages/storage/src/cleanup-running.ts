@@ -7,8 +7,13 @@
  * without it nothing at all is removed. Each step is checked again as it runs,
  * against storage as it is by then: a project is changed only under its write
  * lease, and one another window holds is passed over and reported; a generation
- * protected since the plan was made is kept; and media is removed only where it
- * is still unreachable from roots gathered afresh and read whole. Relieving
+ * protected since the plan was made is kept; a history is compacted through a
+ * session of its project, and only where its plan still fits; and media is
+ * removed only where it is still unreachable from roots gathered afresh and
+ * read whole, under the storage-wide lock held alone, so no window stores media
+ * meanwhile that nothing yet refers to (`media-sharing.ts`). Where that lock
+ * cannot be had, because a window is storing media or the platform cannot
+ * coordinate windows, no media is removed, and the outcome says why. Relieving
  * pressure touches the caches alone, in the order they are given up, and stops
  * once enough is freed: authoritative state, history, backups and source media
  * are never removed without the person.
@@ -18,6 +23,7 @@ import {
   FailureKind,
   fail,
   failure,
+  mapResult,
   succeed,
   type DomainResult,
   type ProjectId,
@@ -33,24 +39,29 @@ import {
   type CleanupPlan,
   type CleanupServices,
   type CleanupStep,
+  type MediaPurgeRefusal,
 } from './cleanup-planning.js';
+import { compactExpiredHistory } from './expired-history.js';
 import { readPair } from './generational-pair.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
+import type { OpeningServices } from './project-opening.js';
 import { bytesUnder } from './usage-measurement.js';
-import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
+import type { LeaseCoordinator } from './write-lease.js';
 
 /** The person's confirmation of a plan: the bytes they were shown it would free past the caches. */
 export interface CleanupConfirmation {
   readonly bytes: number;
 }
 
-/** What carrying a cleanup out works with, each made once by the composition root. */
-export interface CleanupRunServices extends CleanupServices {
-  /** The platform's lease coordination, absent where it has none. */
+/**
+ * What carrying a cleanup out works with, each made once by the composition
+ * root: what planning works with, and what opening a project to compact its
+ * history does.
+ */
+export interface CleanupRunServices extends CleanupServices, OpeningServices {
   readonly coordinator?: LeaseCoordinator;
-  readonly owner: LeaseOwner;
 }
 
 /** What one step did. */
@@ -61,8 +72,11 @@ export interface StepOutcome {
   /** The projects passed over because another window holds them. */
   readonly busy: readonly ProjectId[];
 
-  /** Where media was kept after all because something could not be read. */
-  readonly blockedBy?: readonly UnreadableRoot[];
+  /** The projects whose history had moved on from its plan, left as they were. */
+  readonly unapplied?: readonly ProjectId[];
+
+  /** Why media was kept after all. */
+  readonly refused?: MediaPurgeRefusal;
 }
 
 /** Carries a cleanup out (see the module comment). */
@@ -114,22 +128,17 @@ async function runStep(
       });
     case 'expired-backups':
       return await eachHeld(step, [...step.generations.keys()], services, async (project) => {
-        const generations = new BackupGenerations(services.tree, services.digest, project);
-        const listing = await generations.list(signal);
-        if (!listing.ok) return 0;
-        const planned = new Set(step.generations.get(project));
-        const guarded = new Set(
-          listing.value.generations
-            .filter((generation) => generation.protected || generation.reason === 'manual')
-            .map(({ number }) => number),
-        );
-        const removed = [...planned].filter((number) => !guarded.has(number));
-        const freed = listing.value.generations
-          .filter(({ number }) => removed.includes(number))
-          .reduce((sum, generation) => sum + generation.bytes, 0);
-        const done = await generations.remove(removed, signal);
-        return done.ok ? freed : 0;
+        return await expiredGenerationsRemoved(project, step.generations, services, signal);
       });
+    case 'expired-history': {
+      const compacted = await compactExpiredHistory(step.compactions, services, signal);
+      return mapResult(compacted, ({ freed, busy, unapplied }) => ({
+        step: step.kind,
+        freed,
+        busy,
+        unapplied,
+      }));
+    }
     case 'set-aside-records':
       return await eachHeld(step, step.projects, services, async (project) => {
         const files = new ProjectFiles(records, project);
@@ -138,6 +147,33 @@ async function runStep(
     case 'unreferenced-media':
       return await purgedMedia(step, services, signal);
   }
+}
+
+/**
+ * Removes a project's planned generations that are still unprotected and not
+ * manual, giving the bytes they held.
+ */
+async function expiredGenerationsRemoved(
+  project: ProjectId,
+  planned: ReadonlyMap<ProjectId, readonly number[]>,
+  services: CleanupRunServices,
+  signal?: AbortSignal,
+): Promise<number> {
+  const generations = new BackupGenerations(services.tree, services.digest, project);
+  const listing = await generations.list(signal);
+  if (!listing.ok) return 0;
+  const numbers = new Set(planned.get(project));
+  const guarded = new Set(
+    listing.value.generations
+      .filter((generation) => generation.protected || generation.reason === 'manual')
+      .map(({ number }) => number),
+  );
+  const removed = [...numbers].filter((number) => !guarded.has(number));
+  const freed = listing.value.generations
+    .filter(({ number }) => removed.includes(number))
+    .reduce((sum, generation) => sum + generation.bytes, 0);
+  const done = await generations.remove(removed, signal);
+  return done.ok ? freed : 0;
 }
 
 /**
@@ -156,6 +192,7 @@ async function eachHeld(
   let freed = 0;
   for (const project of projects) {
     const acquired = await coordinator.acquire(project, { steal: false, owner });
+    if (acquired.kind === 'unavailable') return fail(noCoordination());
     if (acquired.kind === 'busy') {
       busy.push(project);
       continue;
@@ -184,6 +221,29 @@ async function purgedMedia(
   services: CleanupRunServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<StepOutcome>> {
+  const refused = (reason: MediaPurgeRefusal): DomainResult<StepOutcome> =>
+    succeed({ step: step.kind, freed: 0, busy: [], refused: reason });
+  const { coordinator } = services;
+  if (coordinator === undefined) return refused({ kind: 'no-coordination' });
+  const lock = await coordinator.lockStorage('exclusive', {
+    wait: false,
+    ...(signal === undefined ? {} : { signal }),
+  });
+  if (lock.kind === 'unavailable') return refused({ kind: 'no-coordination' });
+  if (lock.kind === 'busy') return refused({ kind: 'storing' });
+  try {
+    return await collectedUnderLock(step, services, signal);
+  } finally {
+    await lock.release();
+  }
+}
+
+/** Collects what is still unreachable, while no window stores media. */
+async function collectedUnderLock(
+  step: Extract<CleanupStep, { kind: 'unreferenced-media' }>,
+  services: CleanupRunServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<StepOutcome>> {
   const unreadable: UnreadableRoot[] = [];
   const roots: ContentId[] = [];
   for await (const root of retainedMedia(
@@ -197,7 +257,12 @@ async function purgedMedia(
     roots.push(root);
   }
   if (unreadable.length > 0) {
-    return succeed({ step: step.kind, freed: 0, busy: [], blockedBy: unreadable });
+    return succeed({
+      step: step.kind,
+      freed: 0,
+      busy: [],
+      refused: { kind: 'unreadable', roots: unreadable },
+    });
   }
   const collected = await collect(
     services.store,

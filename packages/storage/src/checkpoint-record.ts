@@ -23,14 +23,20 @@ import {
   optional,
   pathOf,
   presentMembers,
+  readBackupPolicy,
+  readComparisonChoice,
   readExportRecord,
   readHistoryRecord,
   readRetentionPolicy,
   required,
   sortedBy,
+  writeBackupPolicy,
+  writeComparisonChoice,
   writeExportRecord,
   writeHistoryRecord,
   writeRetentionPolicy,
+  type BackupPolicy,
+  type ComparisonChoiceRecord,
   type Converter,
   type ExportRecord,
   type JsonObject,
@@ -39,14 +45,7 @@ import {
   type StateFingerprint,
 } from '@audiogubbins/project-format';
 
-import { readBackupPolicy, writeBackupPolicy, type BackupPolicy } from './backup-policy.js';
-import {
-  choiceOf,
-  comparisonFrom,
-  readChoice,
-  writeChoice,
-  type ComparisonChoice,
-} from './comparison-record.js';
+import { choiceOf, comparisonFrom } from './comparison-record.js';
 import { asFingerprint, asWholeNumber } from './record-values.js';
 
 /** A project as of a position in its journal. */
@@ -113,7 +112,7 @@ export function writeCheckpoint(checkpoint: Checkpoint): JsonObject {
     comparison:
       checkpoint.comparison === undefined
         ? undefined
-        : writeChoice(choiceOf(checkpoint.comparison)),
+        : writeComparisonChoice(choiceOf(checkpoint.comparison)),
     leaseEpoch: checkpoint.leaseEpoch,
   });
 }
@@ -129,7 +128,7 @@ export const readCheckpoint: Converter<Checkpoint> = (reading, value, parent, ke
   const exports = required(reading, object, at, 'exports', asExports);
   const retention = required(reading, object, at, 'retention', readRetentionPolicy);
   const backup = required(reading, object, at, 'backup', readBackupPolicy);
-  const choice = optional(reading, object, at, 'comparison', readChoice);
+  const choice = optional(reading, object, at, 'comparison', readComparisonChoice);
   const leaseEpoch = required(reading, object, at, 'leaseEpoch', asWholeNumber);
   if (
     history === undefined ||
@@ -192,7 +191,7 @@ const asHistory: Converter<History> = (reading, value, parent, key) => {
 function comparisonIn(
   reading: Reading,
   history: History,
-  choice: ComparisonChoice,
+  choice: ComparisonChoiceRecord,
   at: string,
 ): Comparison | undefined {
   const comparison = comparisonFrom(history, choice);

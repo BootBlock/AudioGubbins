@@ -15,8 +15,7 @@
  */
 
 import type { History } from '@audiogubbins/history';
-
-import type { BackupPolicy, BackupRetention } from './backup-policy.js';
+import type { BackupPolicy, BackupRetention } from '@audiogubbins/project-format';
 
 /** Why a generation was made. */
 export type BackupReason =

@@ -41,6 +41,7 @@ import {
 import type { BodyOpener } from './bundle-writing.js';
 import { bytesSource } from './byte-streams.js';
 import { CACHE_CLEANUP_ORDER, cacheKeyOf, cachePathOf, type CacheStore } from './cache-store.js';
+import { choiceOf } from './comparison-record.js';
 import { contentIdsIn } from './content-references.js';
 import { offeredStates, type ProjectCopy } from './project-copy.js';
 import { refusalsReported } from './storage-failures.js';
@@ -87,7 +88,7 @@ export async function treeOfCopy(
   const wanted = new Set<ContentId>();
   let content: Omit<ProjectTreeContent, 'media' | 'caches'>;
   if (options.scope.kind === 'whole-history') {
-    const states = await keptStatesOf(copy, signal);
+    const states = await loadedStatesOf(copy, signal);
     if (!states.ok) return states;
     for (const state of states.value.values()) {
       for (const each of contentReferencedBy(state)) required.add(each);
@@ -98,13 +99,24 @@ export async function treeOfCopy(
       state: model.state,
       scope: {
         kind: 'history',
-        history: { record, retention: model.retention, states: states.value },
+        history: {
+          record,
+          retention: model.retention,
+          states: states.value,
+          ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
+        },
       },
       exports: model.exports,
+      backup: model.backup,
     };
   } else {
     const { provenance } = options.scope;
-    content = { state: model.state, scope: { kind: 'state', provenance }, exports: model.exports };
+    content = {
+      state: model.state,
+      scope: { kind: 'state', provenance },
+      exports: model.exports,
+      backup: model.backup,
+    };
   }
 
   const media = await mediaOf(sources.store, required, wanted);
@@ -126,7 +138,7 @@ export async function treeOfCopy(
  * cannot be read fails the copy, since a restore point would be lost; any other
  * is left out, and the history reaches its node by replay instead.
  */
-async function keptStatesOf(
+export async function loadedStatesOf(
   copy: ProjectCopy,
   signal?: AbortSignal,
 ): Promise<DomainResult<ReadonlyMap<StateFingerprint, ProjectState>>> {

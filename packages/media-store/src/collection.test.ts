@@ -13,7 +13,13 @@ import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { collect, contentReferencedBy, planCollection } from './collection.js';
 import { MediaObjectStore } from './object-store.js';
-import { MemoryStorageTree, countingTokens, generatedSource, nodeDigest } from './testing/index.js';
+import {
+  MemoryStorageTree,
+  countedSharing,
+  countingTokens,
+  generatedSource,
+} from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 function storeOver(tree = new MemoryStorageTree()): MediaObjectStore {
   return new MediaObjectStore({
@@ -21,6 +27,7 @@ function storeOver(tree = new MemoryStorageTree()): MediaObjectStore {
     root: 'media',
     digest: nodeDigest,
     nextToken: countingTokens(),
+    sharing: countedSharing(),
   });
 }
 

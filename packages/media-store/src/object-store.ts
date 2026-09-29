@@ -29,9 +29,13 @@
  * resolving and its reference being recorded, the object is held
  * ({@link MediaObjectStore.release}), and collection keeps what is held.
  *
- * One writer holds a media tree at a time across tabs (the storage layer's
- * lock); within this instance {@link ExclusionGate} keeps recovery and removal
- * apart from stores in progress.
+ * Across windows, every store shares the storage-wide lock through the injected
+ * {@link MediaSharing} from before it receives a byte until its hold is
+ * released, and a purge takes that lock alone, so a purge in one window never
+ * removes what another has stored and not yet referred to, nor an object
+ * another has just found stored already. Within this instance
+ * {@link ExclusionGate} keeps recovery and removal apart from stores in
+ * progress.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -77,6 +81,19 @@ export interface PutOutcome extends StoredObject {
 /** A unique tree segment for each store or removal, such as a random identifier. */
 export type TokenSource = () => string;
 
+/**
+ * Keeps other windows' purges from running while this one stores media it has
+ * yet to refer to (REQ-STOR-102).
+ */
+export interface MediaSharing {
+  /**
+   * Waits until no purge runs, then keeps any from starting until the returned
+   * function is called. Rejects with the signal's reason where `signal` aborts
+   * first.
+   */
+  share(signal?: AbortSignal): Promise<() => void>;
+}
+
 /** What a store is built from. */
 export interface MediaStoreServices {
   readonly tree: StorageTree;
@@ -85,6 +102,7 @@ export interface MediaStoreServices {
   readonly root: string;
   readonly digest: Digest;
   readonly nextToken: TokenSource;
+  readonly sharing: MediaSharing;
 }
 
 /** What recovery undid: the objects left incomplete by a change that never finished. */
@@ -114,22 +132,44 @@ export class CollectionWarrant {
 export class MediaObjectStore {
   readonly #files: ObjectFiles;
   readonly #nextToken: TokenSource;
+  readonly #sharing: MediaSharing;
   readonly #gate = new ExclusionGate();
   readonly #settling = new KeyedQueue<ContentId>();
-  readonly #holds = new Map<ContentId, number>();
+
+  /** Each held object's holds, each the ending of the share its store took. */
+  readonly #holds = new Map<ContentId, (() => void)[]>();
 
   constructor(services: MediaStoreServices) {
-    const { tree, root, digest, nextToken } = services;
+    const { tree, root, digest, nextToken, sharing } = services;
     this.#files = { tree, layout: new MediaLayout(root), digest };
     this.#nextToken = nextToken;
+    this.#sharing = sharing;
   }
 
   /**
    * Stores every byte of `source` under its identity, or finds it already
-   * stored. The identity is held until {@link release}d. Rejects with the
-   * signal's reason on abort, leaving nothing named by an identity.
+   * stored, once no purge runs. The identity is held, and the storage-wide lock
+   * shared, until {@link release}d. Rejects with the signal's reason on abort,
+   * leaving nothing named by an identity.
    */
   async put(source: ByteSource, options: PutOptions = {}): Promise<DomainResult<PutOutcome>> {
+    const unshare = await this.#sharing.share(options.signal);
+    let held = false;
+    try {
+      const outcome = await this.#stored(source, options);
+      if (outcome.ok) {
+        const { contentId } = outcome.value;
+        this.#holds.set(contentId, [...(this.#holds.get(contentId) ?? []), unshare]);
+        held = true;
+      }
+      return outcome;
+    } finally {
+      if (!held) unshare();
+    }
+  }
+
+  /** Stores `source`, or finds it stored, within this instance's gate. */
+  async #stored(source: ByteSource, options: PutOptions): Promise<DomainResult<PutOutcome>> {
     return await this.#gate.shared(
       async () =>
         await refusalsReported(async () => {
@@ -145,7 +185,6 @@ export class MediaObjectStore {
               const stored = await storeReceived(this.#files, identity.value, token, options);
               return stored.ok ? succeed({ ...identity.value, deduplicated: false }) : stored;
             });
-            if (outcome.ok) this.#holds.set(contentId, (this.#holds.get(contentId) ?? 0) + 1);
             return outcome;
           } finally {
             await discard(this.#files.tree, this.#files.layout.received(token));
@@ -160,10 +199,14 @@ export class MediaObjectStore {
    * not held is a programmer error.
    */
   release(contentId: ContentId): void {
-    const count = this.#holds.get(contentId);
-    if (count === undefined) throw new Error('Only a held media object can be released.');
-    if (count === 1) this.#holds.delete(contentId);
-    else this.#holds.set(contentId, count - 1);
+    const holds = this.#holds.get(contentId);
+    const unshare = holds?.[0];
+    if (holds === undefined || unshare === undefined) {
+      throw new Error('Only a held media object can be released.');
+    }
+    if (holds.length === 1) this.#holds.delete(contentId);
+    else this.#holds.set(contentId, holds.slice(1));
+    unshare();
   }
 
   /** Whether a store holds the object until it is released. */

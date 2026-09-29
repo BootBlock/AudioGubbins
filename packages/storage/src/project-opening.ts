@@ -3,13 +3,14 @@
  * to read otherwise (REQ-STOR-021, REQ-STOR-098, REQ-STOR-101).
  *
  * To write, the lease is taken first, or taken over where the person decided
- * to; then the project is rebuilt from storage (`project-recovery.ts`), and
- * only then is the epoch raised, sealing each earlier epoch at the last record
- * replayed from it, so a previous owner's late write is never replayed. A
- * project whose lease another window holds opens read-only with that window's
- * description, and so does every project on a platform that cannot coordinate
- * writers, with the reason (REQ-STOR-098: fail safely). Whichever way it opens,
- * the recovery report says what was found and done.
+ * to; then an epoch is claimed in storage, the project is rebuilt from storage
+ * (`project-recovery.ts`), and only then is the epoch raised again, sealing
+ * each earlier epoch at the last record replayed from it, so a previous owner's
+ * late write is never replayed (`lease-records.ts`). A project whose lease
+ * another window holds opens read-only with that window's description, and so
+ * does every project on a platform that cannot coordinate writers or refuses
+ * the lock, with the reason (REQ-STOR-098: fail safely). Whichever way it
+ * opens, the recovery report says what was found and done.
  */
 
 import type { CommandBus } from '@audiogubbins/commands';
@@ -18,6 +19,7 @@ import {
   FailureKind,
   fail,
   failure,
+  mapResult,
   succeed,
   type DomainResult,
   type IdGenerator,
@@ -27,7 +29,13 @@ import type { Digest, ProjectState, StorageTree } from '@audiogubbins/project-fo
 
 import { CheckedRecords } from './checked-records.js';
 import { readPair } from './generational-pair.js';
-import { raiseEpoch, readLease, type EpochSeal, type LeaseReading } from './lease-records.js';
+import {
+  claimEpoch,
+  readLease,
+  sealEpoch,
+  type EpochSeal,
+  type LeaseRecord,
+} from './lease-records.js';
 import { ProjectFiles } from './project-files.js';
 import type { ProjectHeader } from './project-header.js';
 import {
@@ -107,6 +115,9 @@ export async function openProject(
     steal: request.steal ?? false,
     owner: services.owner,
   });
+  if (acquired.kind === 'unavailable') {
+    return await openToRead(files, { kind: 'no-coordination' }, services);
+  }
   if (acquired.kind === 'busy') {
     const reason: ReadOnlyReason =
       acquired.owner === undefined ? { kind: 'busy' } : { kind: 'busy', owner: acquired.owner };
@@ -137,15 +148,32 @@ async function openToRead(
   services: OpeningServices,
 ): Promise<DomainResult<OpenedProject>> {
   return await refusalsReported(async () => {
-    const lease = await readLease(files.records, files.paths);
-    const recovered = await recoverProject(files, lease.current, services);
+    const recovered = await recoverAsItIs(files, services);
     if (!recovered.ok) return recovered;
+    // Where writers are not coordinated there is no writer to watch or ask.
+    const { coordinator } = services;
+    const coordinated = coordinator !== undefined && reason.kind !== 'no-coordination';
     const view = new ReadOnlyProject(files.project, recovered.value.model, reason, {
       owner: services.owner,
-      ...(services.coordinator === undefined ? {} : { coordinator: services.coordinator }),
+      logger: services.logger,
+      reload: async (signal) =>
+        await refusalsReported(async () =>
+          mapResult(await recoverAsItIs(files, services, signal), ({ model }) => model),
+        ),
+      ...(coordinated ? { coordinator } : {}),
     });
     return succeed({ kind: 'read-only', view, report: recovered.value.report });
   });
+}
+
+/** The project rebuilt from storage under the lease as it now reads, changing nothing. */
+async function recoverAsItIs(
+  files: ProjectFiles,
+  services: OpeningServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<RecoveredProject>> {
+  const lease = await readLease(files.records, files.paths, signal);
+  return await recoverProject(files, lease.current, services, signal);
 }
 
 async function openToWrite(
@@ -156,18 +184,22 @@ async function openToWrite(
   services: OpeningServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<OpenedProject>> {
-  const reading = await readLease(files.records, files.paths, signal);
-  const recovered = await recoverProject(files, reading.current, services, signal);
+  // The epoch is claimed before anything is read, so the writer this window
+  // replaces stops before it moves a head or removes a file
+  // (`lease-records.ts`).
+  const holder = services.ids.next<'LeaseHolder'>();
+  const claim = await claimEpoch(files.records, files.paths, holder, signal);
+  if (!claim.ok) return claim;
+  const recovered = await recoverProject(files, claim.value, services, signal);
   if (!recovered.ok) return recovered;
-
-  const raised = await raiseEpoch(
+  const sealed = await sealEpoch(
     files.records,
     files.paths,
-    reading,
-    sealsAfter(reading, recovered.value),
+    claim.value,
+    sealsAfter(claim.value, recovered.value),
     signal,
   );
-  if (!raised.ok) return raised;
+  if (!sealed.ok) return sealed;
 
   const session = new ProjectSession(
     {
@@ -181,7 +213,7 @@ async function openToWrite(
     {
       recovered: recovered.value,
       lease,
-      epoch: raised.value.epoch,
+      leaseRecord: sealed.value,
       headerName: header.name,
       cadence: services.cadence ?? DEFAULT_CADENCE,
     },
@@ -190,14 +222,14 @@ async function openToWrite(
 }
 
 /**
- * The seals a new epoch is written with: each epoch from the head's to the
- * current one sealed at its last record replayed, which is none for an epoch
- * replay did not reach, and every earlier seal kept as it was.
+ * The seals the epoch after a claim is written with: each epoch from the head's
+ * to the one before the claim sealed at its last record replayed, which is none
+ * for an epoch replay did not reach, and every earlier seal kept as it was.
  */
-function sealsAfter(reading: LeaseReading, recovered: RecoveredProject): readonly EpochSeal[] {
+function sealsAfter(claim: LeaseRecord, recovered: RecoveredProject): readonly EpochSeal[] {
   const first = Math.min(...recovered.lastReplayed.keys());
-  const seals = reading.current.seals.filter((seal) => seal.epoch < first);
-  for (let epoch = first; epoch <= reading.current.epoch; epoch += 1) {
+  const seals = claim.seals.filter((seal) => seal.epoch < first);
+  for (let epoch = first; epoch < claim.epoch; epoch += 1) {
     seals.push({ epoch, lastSequence: recovered.lastReplayed.get(epoch) ?? 0 });
   }
   return seals;

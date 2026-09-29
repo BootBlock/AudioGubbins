@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AssetId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { observeFile, type ExternalFile } from '@audiogubbins/media-store';
-import { MemoryStorageTree, memorySource, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import {
   SourceChangePolicy,
   contentIdOf,
@@ -15,8 +15,10 @@ import {
 import { bytesSource } from './byte-streams.js';
 import { consolidate, type ConsolidationServices } from './consolidation.js';
 import { storageOf } from './testing/memory-ports.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { setMedia } from './testing/test-commands.js';
+import { FillableTree } from './testing/fillable-tree.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Consolidation (REQ-STOR-099): each linked asset becomes managed media by one
@@ -45,7 +47,9 @@ async function setUp(
   const tree = new MemoryStorageTree();
   const storage = storageOf(test, tree);
   const header = await madeProject(test, tree);
-  const session = await openToWrite(test, tree, header.id);
+  // The session writes through a tree that can fill up; the store does not.
+  const sessionTree = new FillableTree(tree);
+  const session = await openToWrite(test, sessionTree, header.id);
   const identity = expectSuccess(await observeFile(fileOf(AUDIO), nodeDigest));
   const asset = test.ids.next<'AssetId'>();
   expectSuccess(await session.run(setMedia(asset, media(identity))));
@@ -55,7 +59,7 @@ async function setUp(
     locate: () => Promise.resolve(located),
     setMedia: (id: AssetId, managed: MediaSource) => setMedia(id, managed),
   };
-  return { session, services, asset, storage };
+  return { session, services, asset, storage, sessionTree };
 }
 
 const following = (identity: ExternalSourceIdentity): ExternalMedia => ({
@@ -80,6 +84,19 @@ describe('consolidation (REQ-STOR-099)', () => {
 
     expectSuccess(await session.undo());
     expect(session.getSnapshot().model.state.sources.get(asset)?.media.kind).toBe('external');
+  });
+
+  it('holds what it copied, keeping every purge off it, until the change is saved', async () => {
+    const { session, services, storage, sessionTree } = await setUp(fileOf(AUDIO), following);
+    const { contentId } = expectSuccess(await contentIdOf(bytesSource(AUDIO), nodeDigest));
+    sessionTree.full = true;
+    expectSuccess(await consolidate(session, services));
+    expect(session.getSnapshot().save.kind).toBe('not-saved');
+    expect(storage.store.isHeld(contentId)).toBe(true);
+
+    sessionTree.full = false;
+    expect(await session.retry()).toEqual({ kind: 'saved' });
+    expect(storage.store.isHeld(contentId)).toBe(false);
   });
 
   it('passes over a file that changed, and one that is missing with nothing retained', async () => {

@@ -3,15 +3,16 @@
  * at the checkpoint's cursor, then every journal record after it (REQ-STOR-021,
  * REQ-STOR-101, the packet's "Failure and Recovery Behaviour").
  *
- * The valid head with the higher generation is tried first. A head is passed
- * over, and the other tried, where it is fenced by the lease (a writer that
- * lost the project wrote it late), where its checkpoint cannot be read, or
- * where the state at its cursor can be neither read nor rebuilt. A cursor state
- * that fails its check is rebuilt from the nearest earlier state the checkpoint
- * keeps, by replaying the changes between, and must come out as the state the
- * checkpoint names. Replay then applies each record in order, through the same
- * functions a session applied it with, and stops at the first that is invalid
- * or that the command layer will not apply again.
+ * The valid heads are tried newest first, by lease epoch and then by generation
+ * (`project-heads.ts`). A head is passed over, and the next tried, where it is
+ * fenced by the lease (a writer that lost the project wrote it past what the
+ * next writer read), where its checkpoint cannot be read, or where the state at
+ * its cursor can be neither read nor rebuilt. A cursor state that fails its
+ * check is rebuilt from the nearest earlier state the checkpoint keeps, by
+ * replaying the changes between, and must come out as the state the checkpoint
+ * names. Replay then applies each record in order, through the same functions a
+ * session applied it with, and stops at the first that is invalid or that the
+ * command layer will not apply again.
  *
  * Nothing is repaired silently (REQ-STOR-101). Every head passed over, the
  * records replayed, the break and every record discarded past it, the fenced
@@ -36,16 +37,14 @@ import type { ProjectState, StateFingerprint } from '@audiogubbins/project-forma
 import type { RecordFault } from './checked-records.js';
 import type { Checkpoint } from './checkpoint-record.js';
 import type { JournalBreak } from './command-journal.js';
-import { readPair, type Slotted } from './generational-pair.js';
 import { replayEvent, type ReplayContext } from './journal-replay.js';
 import type { JournalPosition } from './journal-position.js';
 import { sealOf, type LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
-import type { ProjectHead } from './project-heads.js';
+import { readHeads, type ProjectHead } from './project-heads.js';
 import type { ProjectModel } from './project-model.js';
 import { replayInvocations } from './history-moves.js';
 import { replayDiverged } from './storage-failures.js';
-import type { PairSlot } from './storage-layout.js';
 
 /** Why a head was passed over. */
 export type HeadFallbackReason =
@@ -57,17 +56,15 @@ export type HeadFallbackReason =
 
 /** A head passed over, and why. */
 export interface HeadFallback {
-  readonly slot: PairSlot;
-
-  /** The head's generation, where it could be read. */
-  readonly generation?: number;
+  /** The head's file. */
+  readonly path: string;
   readonly reason: HeadFallbackReason;
 }
 
 /** What recovery found and did, for the person and the diagnostic log. */
 export interface ProjectRecoveryReport {
   /** The head the project was opened from. */
-  readonly head: { readonly slot: PairSlot; readonly generation: number };
+  readonly head: { readonly epoch: number; readonly generation: number };
   readonly fallbacks: readonly HeadFallback[];
 
   /** How many journal records were replayed after the checkpoint. */
@@ -117,9 +114,9 @@ export async function recoverProject(
   services: RecoveryServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<RecoveredProject>> {
-  const heads = await readPair(files.records, files.heads, signal);
-  const fallbacks: HeadFallback[] = heads.faults.map(({ slot, fault }) => ({
-    slot,
+  const heads = await readHeads(files.records, files.paths, signal);
+  const fallbacks: HeadFallback[] = heads.faults.map(({ path, fault }) => ({
+    path,
     reason: { kind: 'head-invalid', fault },
   }));
 
@@ -154,18 +151,18 @@ type Start =
 
 async function startFrom(
   files: ProjectFiles,
-  head: Slotted<ProjectHead>,
+  head: ProjectHead,
   lease: LeaseRecord,
   services: RecoveryServices,
   signal?: AbortSignal,
 ): Promise<Start> {
   const passOver = (reason: HeadFallbackReason): Start => ({
     ok: false,
-    fallback: { slot: head.slot, generation: head.value.generation, reason },
+    fallback: { path: files.paths.head(head.epoch, head.generation), reason },
   });
-  if (isFenced(head.value.journal, lease)) return passOver({ kind: 'head-fenced' });
+  if (isFenced(head.journal, lease)) return passOver({ kind: 'head-fenced' });
 
-  const read = await files.readCheckpoint(head.value.checkpoint, signal);
+  const read = await files.readCheckpoint(head.epoch, head.checkpoint, signal);
   if (read.kind === 'absent') return passOver({ kind: 'checkpoint-missing' });
   if (read.kind === 'invalid') return passOver({ kind: 'checkpoint-invalid', fault: read.fault });
   const checkpoint = read.value;
@@ -222,7 +219,7 @@ async function rebuildCursorState(
 /** Replays the journal after a head onto its checkpoint. */
 async function replayAfter(
   files: ProjectFiles,
-  head: Slotted<ProjectHead>,
+  head: ProjectHead,
   start: Extract<Start, { ok: true }>,
   lease: LeaseRecord,
   fallbacks: readonly HeadFallback[],
@@ -245,7 +242,7 @@ async function replayAfter(
     backup: checkpoint.backup,
     ...(checkpoint.comparison === undefined ? {} : { comparison: checkpoint.comparison }),
   };
-  const replay = await replayJournal(model, head.value.journal, lease, context, signal);
+  const replay = await replayJournal(model, head.journal, lease, context, signal);
   const missingStates = [...retainedStates(replay.model.history)].filter(
     (state) => !held.has(state) && !context.unwritten.has(state),
   );
@@ -256,7 +253,7 @@ async function replayAfter(
     keptStates: context.kept,
     unwritten: context.unwritten,
     report: {
-      head: { slot: head.slot, generation: head.value.generation },
+      head: { epoch: head.epoch, generation: head.generation },
       fallbacks,
       replayed: replay.replayed,
       ...(replay.journalBreak === undefined ? {} : { journalBreak: replay.journalBreak }),

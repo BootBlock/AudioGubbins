@@ -18,11 +18,12 @@ import { MediaObjectStore } from './object-store.js';
 import { sampleSource } from './source-sampling.js';
 import {
   MemoryStorageTree,
+  countedSharing,
   countingTokens,
   generatedBytes,
   generatedSource,
-  nodeDigest,
 } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 const SIZE = 250_000;
 
@@ -32,6 +33,7 @@ function servicesOver(tree = new MemoryStorageTree()) {
     root: 'media',
     digest: nodeDigest,
     nextToken: countingTokens(),
+    sharing: countedSharing(),
   });
   return { tree, store, services: { store, digest: nodeDigest } };
 }

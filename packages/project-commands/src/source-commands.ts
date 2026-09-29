@@ -57,6 +57,7 @@ import {
   projectCommand,
   quoted,
 } from './project-command.js';
+import { setAssetMediaInvocation } from './project-invocations.js';
 import { withMedia } from './state-edits.js';
 
 /** What the undo menu calls choosing each policy, for an asset's quoted name. */
@@ -312,10 +313,7 @@ function changedMedia(
   const { asset, source } = target;
   return applied(
     withMedia(state, asset, source, media),
-    {
-      commandId: ProjectCommandId.SetAssetMedia,
-      arguments: { assetId: asset.id, media: canonicalJson(writeMediaSource(source.media)) },
-    },
+    setAssetMediaInvocation(asset.id, source.media),
     description,
   );
 }

@@ -7,6 +7,7 @@ import {
   type HistoryNodeId,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import {
   comparedDifference,
@@ -104,7 +105,7 @@ describe('whole-project A/B comparison (REQ-STOR-195)', () => {
 
   it('gives the difference of the two states, refusing a state of another project', () => {
     const { comparison } = setUp();
-    const { state } = fixtureState();
+    const { state } = fixtureState(sampleProject());
     const ours: ProjectState = {
       ...state,
       project: { ...state.project, id: comparison.a.project },

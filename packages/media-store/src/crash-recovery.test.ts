@@ -8,10 +8,11 @@ import { MediaObjectStore } from './object-store.js';
 import {
   MemoryStorageTree,
   SimulatedCrash,
+  countedSharing,
   countingTokens,
   generatedSource,
-  nodeDigest,
 } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 /**
  * A crash at every operation of each change a store makes, each followed by a
@@ -28,6 +29,7 @@ function storeOver(tree: MemoryStorageTree): MediaObjectStore {
     root: 'media',
     digest: nodeDigest,
     nextToken: countingTokens(),
+    sharing: countedSharing(),
   });
 }
 

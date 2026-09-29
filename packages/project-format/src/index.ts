@@ -195,6 +195,20 @@ export {
 export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
 export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
 export { readRetentionPolicy, writeRetentionPolicy } from './retention-json.js';
+export {
+  type BackupPolicy,
+  type BackupRetention,
+  type BackupTrigger,
+  DEFAULT_BACKUP_POLICY,
+  readBackupPolicy,
+  writeBackupPolicy,
+} from './backup-policy-json.js';
+export {
+  type ComparisonChoiceRecord,
+  type ComparisonSourceRecord,
+  readComparisonChoice,
+  writeComparisonChoice,
+} from './comparison-choice-json.js';
 
 export {
   type ProjectTreeContent,

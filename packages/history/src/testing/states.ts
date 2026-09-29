@@ -1,14 +1,20 @@
 /**
- * Project states for this package's tests: the fixtures' sample project with a
- * managed source attached to each asset, and a chain of processors, so a
- * difference has one of every kind of thing to find.
+ * Project states for this package's tests: a fixture's project with a managed
+ * source attached to each asset, and a chain of processors, so a difference has
+ * one of every kind of thing to find.
+ *
+ * The fixture is the test's to pass, so this module reaches nothing but the
+ * package's own dependencies: only a test file may take the fixtures package.
  */
 
 import type {
+  AssetId,
   EffectChain,
+  IdGenerator,
   ParameterId,
   ParameterValue,
   ProcessorInstance,
+  Project,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
@@ -17,7 +23,12 @@ import {
   type ContentId,
   type ProjectState,
 } from '@audiogubbins/project-format';
-import { sampleProject, type ProjectFixture } from '@audiogubbins/test-fixtures';
+
+/** What a state is made from: a project and the identifiers it was made with. */
+export interface StateFixture {
+  readonly ids: IdGenerator;
+  readonly project: Project;
+}
 
 /** A content identifier made of one hexadecimal digit repeated. */
 export function contentOf(digit: string): ContentId {
@@ -26,7 +37,7 @@ export function contentOf(digit: string): ContentId {
 
 /** A processor of a type, with its parameter values. */
 export function processor(
-  fixture: ProjectFixture,
+  fixture: StateFixture,
   typeKey: string,
   values: readonly (readonly [ParameterId, ParameterValue])[] = [],
 ): ProcessorInstance {
@@ -39,15 +50,16 @@ export function processor(
   };
 }
 
-/** The sample project with a managed source for each asset and one empty chain. */
-export function fixtureState(): {
-  readonly fixture: ProjectFixture;
+/** The fixture's project with a managed source for each asset and one empty chain. */
+export function fixtureState<TFixture extends StateFixture>(
+  fixture: TFixture,
+): {
+  readonly fixture: TFixture;
   readonly state: ProjectState;
   readonly chain: EffectChain;
 } {
-  const fixture = sampleProject();
   const chain: EffectChain = { id: fixture.ids.next<'EffectChainId'>(), processors: [] };
-  const sources = new Map<ProjectFixture['assets']['footstep']['id'], AssetSource>();
+  const sources = new Map<AssetId, AssetSource>();
   let digit = 0;
   for (const asset of fixture.project.assets.values()) {
     digit += 1;

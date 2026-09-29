@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import type { ContentId } from '@audiogubbins/project-format';
 
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { addAsset, contentOf } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 async function rootsOf(tree: MemoryStorageTree) {
   const unreadable: UnreadableRoot[] = [];

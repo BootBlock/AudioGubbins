@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { contentReferencedBy } from '@audiogubbins/media-store';
-import { MemoryStorageTree, SimulatedCrash, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, SimulatedCrash } from '@audiogubbins/media-store/testing';
 import type { ContentId } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
@@ -16,8 +16,9 @@ import { openProject } from './project-opening.js';
 import { storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
 import { randomStep } from './testing/random-sessions.js';
 import { seededRandom } from './testing/seeded-random.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 import { addAsset } from './testing/test-commands.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Cleanup under storage pressure (REQ-STOR-106, REQ-STOR-102, REQ-STOR-027):
@@ -61,11 +62,7 @@ async function world(seed = 1): Promise<World> {
     test,
     storage,
     tree,
-    services: {
-      ...storage.exporting,
-      coordinator: test.coordinator,
-      owner: test.services(tree).owner,
-    },
+    services: storage.cleaning,
     project: header.id,
     current,
     undone,
@@ -169,7 +166,10 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
 
     const blocked = expectSuccess(await planCleanup('everything', services, 0));
     expect(blocked.steps.some((step) => step.kind === 'unreferenced-media')).toBe(false);
-    expect(blocked.mediaBlockedBy?.map(({ path }) => path)).toEqual([checkpoint]);
+    expect(blocked.mediaRefused).toMatchObject({
+      kind: 'unreadable',
+      roots: [{ path: checkpoint }],
+    });
 
     const before = await held(storage);
     const outcomes = expectSuccess(
@@ -268,11 +268,7 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
       for (let step = 0; step < 40; step += 1) await randomStep(run, step);
       expectSuccess(await session.close());
 
-      const services = {
-        ...storage.exporting,
-        coordinator: test.coordinator,
-        owner: test.services(tree).owner,
-      };
+      const services = storage.cleaning;
       const plan = expectSuccess(await planCleanup('everything', services, 0));
       expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, services));
 

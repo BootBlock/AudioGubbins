@@ -6,7 +6,8 @@ import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import { BackupScheduler } from './backup-scheduler.js';
 import { CacheCategory } from './cache-store.js';
 import { storageOf, storedMedia } from './testing/memory-ports.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { addAsset, setName } from './testing/test-commands.js';
 import { measureUsage } from './usage-measurement.js';
 

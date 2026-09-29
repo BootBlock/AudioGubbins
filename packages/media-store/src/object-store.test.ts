@@ -15,12 +15,13 @@ import { intentBytes, sealBytes } from './store-records.js';
 import type { StoreProgress } from './object-writing.js';
 import {
   MemoryStorageTree,
+  countedSharing,
   countingTokens,
   generatedBytes,
   generatedSource,
   memorySource,
-  nodeDigest,
 } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 function storeOver(tree: MemoryStorageTree): MediaObjectStore {
   return new MediaObjectStore({
@@ -28,6 +29,7 @@ function storeOver(tree: MemoryStorageTree): MediaObjectStore {
     root: 'media',
     digest: nodeDigest,
     nextToken: countingTokens(),
+    sharing: countedSharing(),
   });
 }
 
@@ -251,5 +253,67 @@ describe('holding what a store returned until its reference is recorded', () => 
     expect(() => {
       store.release(contentId);
     }).toThrow('Only a held media object can be released.');
+  });
+});
+
+describe('sharing the storage-wide lock while stored media is not yet referred to', () => {
+  function sharedStore() {
+    const sharing = countedSharing();
+    const store = new MediaObjectStore({
+      tree: new MemoryStorageTree(),
+      root: 'media',
+      digest: nodeDigest,
+      nextToken: countingTokens(),
+      sharing,
+    });
+    return { sharing, store };
+  }
+
+  it('shares the lock for each hold until it is released', async () => {
+    const { sharing, store } = sharedStore();
+    const first = expectSuccess(await store.put(generatedSource(4_000, 1)));
+    const again = expectSuccess(await store.put(generatedSource(4_000, 1)));
+    expect(again.deduplicated).toBe(true);
+    expect(sharing.active).toBe(2);
+    store.release(first.contentId);
+    expect(sharing.active).toBe(1);
+    store.release(again.contentId);
+    expect(sharing.active).toBe(0);
+  });
+
+  it('ends the share of a store that fails or is called off', async () => {
+    const { sharing, store } = sharedStore();
+    const controller = new AbortController();
+    controller.abort(new Error('stopped'));
+    await expect(
+      store.put(generatedSource(4_000, 2), { signal: controller.signal }),
+    ).rejects.toThrow('stopped');
+    expect(sharing.active).toBe(0);
+  });
+
+  it('receives nothing while a purge keeps the lock, and stores once it lets it go', async () => {
+    const tree = new MemoryStorageTree();
+    const sharing = countedSharing();
+    const store = new MediaObjectStore({
+      tree,
+      root: 'media',
+      digest: nodeDigest,
+      nextToken: countingTokens(),
+      sharing,
+    });
+    sharing.close();
+    let settled = false;
+    const putting = store.put(generatedSource(4_000, 3)).then((outcome) => {
+      settled = true;
+      return outcome;
+    });
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(settled).toBe(false);
+    expect(tree.paths()).toEqual([]);
+    sharing.open();
+    const { contentId } = expectSuccess(await putting);
+    expect(store.isHeld(contentId)).toBe(true);
   });
 });

@@ -5,9 +5,10 @@
  *
  * The source is read as a read-only window reads it, so forking never changes
  * it, and needs no lease on it. The fork has its own identity, journal, history
- * and header: its history begins at an origin that records the project and the
- * node it was taken from, and its export log begins empty, so no export recipe
- * is linked to the source's. Media is shared by content, as the store shares it
+ * and header: its history begins at an origin that records the project, the
+ * node it was taken from and the fingerprint of the state it began as there
+ * (REQ-STOR-194), and its export log begins empty, so no export recipe is
+ * linked to the source's. Media is shared by content, as the store shares it
  * between every project, so no audio is copied. The state is reached as a move
  * to the node would reach it, from the snapshot's kept state where the fork is
  * of a snapshot.
@@ -77,10 +78,12 @@ export async function forkProject(
     return fail(failure('project.name-empty', FailureKind.Rejected, 'A project needs a name.'));
   }
   const records = new CheckedRecords(services.tree, services.digest);
-  const copy = await readProjectCopy(new ProjectFiles(records, request.source), services, signal);
+  const source = new ProjectFiles(records, request.source);
+  const copy = await readProjectCopy(source, services, signal);
   if (!copy.ok) return copy;
   const reached = await stateFrom(copy.value, request.from, services, signal);
   if (!reached.ok) return reached;
+  const sourceState = await source.states.fingerprint(reached.value.state);
 
   const project = services.ids.next<'ProjectId'>();
   const forked = stateOf(reached.value.state, project);
@@ -95,7 +98,12 @@ export async function forkProject(
         new ProjectFiles(records, project),
         {
           state,
-          origin: { kind: 'fork', project: request.source, node: reached.value.node },
+          origin: {
+            kind: 'fork',
+            project: request.source,
+            node: reached.value.node,
+            stateFingerprint: sourceState,
+          },
           at: services.clock.now(),
         },
         services.ids,

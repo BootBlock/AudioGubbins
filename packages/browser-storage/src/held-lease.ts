@@ -32,15 +32,18 @@ export class HeldLease implements ProjectWriteLease {
   readonly kept: Promise<void>;
 
   readonly #listeners = new Set<(request: TransferRequest) => void>();
+  readonly #announceCheckpoint: () => void;
   readonly #ended: Promise<void>;
+  #over = false;
   #letGo: () => void = () => undefined;
   #lose: (loss: LeaseLoss) => void = () => undefined;
   #end: () => void = () => undefined;
   #takenBy: LeaseOwner | undefined;
 
-  constructor(project: ProjectId, owner: LeaseOwner) {
+  constructor(project: ProjectId, owner: LeaseOwner, announceCheckpoint: () => void) {
     this.project = project;
     this.owner = owner;
+    this.#announceCheckpoint = announceCheckpoint;
     this.kept = new Promise((resolve) => {
       this.#letGo = resolve;
     });
@@ -57,6 +60,11 @@ export class HeldLease implements ProjectWriteLease {
     return () => {
       this.#listeners.delete(listener);
     };
+  }
+
+  /** Tells the watching windows of a checkpoint, while this window still writes the project. */
+  announceCheckpoint(): void {
+    if (!this.#over) this.#announceCheckpoint();
   }
 
   /** Lets the lock go, settling once the browser no longer holds it for this window. */
@@ -81,11 +89,13 @@ export class HeldLease implements ProjectWriteLease {
 
   /** Records that the lock was let go, as {@link release} asked. */
   ended(): void {
+    this.#over = true;
     this.#end();
   }
 
   /** Records that the lock was taken from this window, which stops writing at once. */
   taken(): void {
+    this.#over = true;
     this.#lose(
       this.#takenBy === undefined ? { kind: 'taken' } : { kind: 'taken', by: this.#takenBy },
     );

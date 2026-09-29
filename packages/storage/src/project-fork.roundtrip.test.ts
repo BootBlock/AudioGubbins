@@ -5,6 +5,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   canonicalJson,
+  fingerprintOf,
   writeProjectDocument,
   type ContentId,
   type HistoryNodeId,
@@ -17,7 +18,8 @@ import { summaryOf } from './testing/model-summary.js';
 import { storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
 import { randomStep } from './testing/random-sessions.js';
 import { seededRandom } from './testing/seeded-random.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 
 /**
  * Forks (REQ-STOR-199): a fork from any node or snapshot is a project of its
@@ -117,11 +119,20 @@ describe('forks (REQ-STOR-199)', () => {
       const { model } = forked.getSnapshot();
       expect(model.exports).toEqual([]);
       expect(model.history.nodes.size).toBe(1);
+      const sourceState = await stateAtNode(session, node);
       expect(model.history.nodes.get(model.history.root)).toMatchObject({
-        origin: { kind: 'fork', project, node },
+        origin: {
+          kind: 'fork',
+          project,
+          node,
+          stateFingerprint: await fingerprintOf(
+            canonicalJson(writeProjectDocument(sourceState)),
+            test.digest,
+          ),
+        },
       });
       expect(model.state.project.id).toBe(fork.id);
-      expect(held(model.state)).toBe(held(await stateAtNode(session, node)));
+      expect(held(model.state)).toBe(held(sourceState));
 
       // The fork survives a reload, and changes of its own leave the source alone.
       const summary = summaryOf(model);

@@ -11,6 +11,7 @@ import type { IdGenerator } from '@audiogubbins/domain';
 import type { StateDifference } from '@audiogubbins/history';
 import type { ProjectState, SnapshotKind } from '@audiogubbins/project-format';
 
+import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import type { RecoveredProject } from './project-recovery.js';
 import type { WritingCadence } from './session-writer.js';
@@ -44,8 +45,8 @@ export interface SessionStart {
   readonly recovered: RecoveredProject;
   readonly lease: ProjectWriteLease;
 
-  /** The epoch the opening raised the lease to. */
-  readonly epoch: number;
+  /** The lease record the opening wrote, whose epoch the session writes under. */
+  readonly leaseRecord: LeaseRecord;
   readonly headerName: string | undefined;
   readonly cadence: SessionCadence;
 }

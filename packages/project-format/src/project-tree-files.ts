@@ -50,6 +50,7 @@ const HISTORY_PLACES: ReadonlySet<TreePlace['kind']> = new Set([
   'cursor',
   'branch-names',
   'retention',
+  'comparison',
   'node',
   'snapshot',
   'state',

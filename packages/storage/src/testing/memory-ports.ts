@@ -7,15 +7,12 @@
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MediaObjectStore } from '@audiogubbins/media-store';
-import {
-  countingTokens,
-  generatedSource,
-  memorySource,
-  nodeDigest,
-} from '@audiogubbins/media-store/testing';
+import { countingTokens, generatedSource, memorySource } from '@audiogubbins/media-store/testing';
 import type { ByteSink, ByteSource, ContentId, StorageTree } from '@audiogubbins/project-format';
 
 import { CacheStore } from '../cache-store.js';
+import type { CleanupRunServices } from '../cleanup-running.js';
+import { mediaSharingOf } from '../media-sharing.js';
 import type { DirectoryFile, DirectoryWriter } from '../project-directory.js';
 import type { ExportServices } from '../project-transfer.js';
 import type { ImportServices } from '../tree-import.js';
@@ -101,26 +98,30 @@ export interface TestStorage {
   readonly caches: CacheStore;
   readonly exporting: ExportServices;
   readonly importing: ImportServices;
+  readonly cleaning: CleanupRunServices;
 }
 
 /** The storage of one window of a test over a tree. */
 export function storageOf(test: Harness, tree: StorageTree): TestStorage {
+  const { digest } = test;
   const store = new MediaObjectStore({
     tree,
     root: 'media',
-    digest: nodeDigest,
+    digest,
     nextToken: countingTokens(),
+    sharing: mediaSharingOf(test.coordinator),
   });
-  const caches = new CacheStore(tree, nodeDigest);
+  const caches = new CacheStore(tree, digest);
   const services = test.services(tree);
   return {
     tree,
     store,
     caches,
     exporting: { ...services, store, caches },
+    cleaning: { ...services, store, caches },
     importing: {
       tree,
-      digest: nodeDigest,
+      digest,
       clock: test.clock,
       ids: test.ids,
       store,

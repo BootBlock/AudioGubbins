@@ -21,4 +21,5 @@ export {
   addAssetInvocation,
   adoptSourceVersionInvocation,
   relinkSourceInvocation,
+  setAssetMediaInvocation,
 } from './project-invocations.js';

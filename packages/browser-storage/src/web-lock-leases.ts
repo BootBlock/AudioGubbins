@@ -12,11 +12,18 @@
  *
  * A requester learns a transfer was granted by the lock coming free, since that
  * is what granting means and it also covers a holder that closed the project or
- * went away, and learns a refusal from the holder's answer.
+ * went away, and learns a refusal from the holder's answer. A request that no
+ * channel can carry is unreachable at once, and one the holder has not answered
+ * by the time the asker's signal aborts is unreachable then.
+ *
+ * The channel also tells every window watching a project that a window took it,
+ * that its writer let it go once the lock is free, and that the writer wrote a
+ * checkpoint; watchers in this window hear the same from it directly, since a
+ * window never hears its own channel.
  *
  * Nothing here decides for the person: a busy project is reported with its
- * owner where the owner answers, and a lock the browser refuses opens the
- * project read-only, never writable.
+ * owner where the owner answers, and a lock the browser refuses is reported as
+ * unavailable, which opens the project read-only, never writable.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -24,30 +31,19 @@ import type {
   LeaseAcquisition,
   LeaseCoordinator,
   LeaseOwner,
+  OwnershipEvent,
+  StorageLockMode,
+  StorageLocking,
   TransferAnswer,
+  TransferOutcome,
   TransferRequest,
 } from '@audiogubbins/storage';
 
 import { HeldLease, type ProjectId } from './held-lease.js';
-import type { LeaseMessage } from './lease-messages.js';
+import { ownershipEventOf, type LeaseMessage } from './lease-messages.js';
 import { ProjectChannels, type OpenLeaseChannel } from './project-channels.js';
-
-/** The options of a lock request the coordination makes. */
-export interface LeaseLockOptions {
-  readonly ifAvailable?: boolean;
-  readonly steal?: boolean;
-  readonly signal?: AbortSignal;
-}
-
-/** The members of a `LockManager` the coordination uses. */
-export interface LeaseLocks {
-  request(
-    name: string,
-    options: LeaseLockOptions,
-    callback: (lock: Lock | null) => Promise<void>,
-  ): Promise<void>;
-  query(): Promise<{ readonly held?: readonly { readonly name?: string }[] }>;
-}
+import type { LeaseLocks } from './lock-manager.js';
+import { lockStorage } from './storage-lock.js';
 
 /** What a window coordinates its leases with, each made once by the composition root. */
 export interface WebLeaseServices {
@@ -90,6 +86,7 @@ class WebLockLeases implements LeaseCoordinator {
   readonly #services: WebLeaseServices;
   readonly #channels: ProjectChannels;
   readonly #held = new Map<ProjectId, HeldLease>();
+  readonly #watchers = new Map<ProjectId, Set<(event: OwnershipEvent) => void>>();
 
   /** This window's own requests waiting for an answer, by identifier. */
   readonly #waiting = new Map<string, (answer: TransferAnswer) => void>();
@@ -110,13 +107,16 @@ class WebLockLeases implements LeaseCoordinator {
       this.#held.get(project)?.noteTaking(options.owner);
       this.#channels.post(name, { kind: 'taking', by: options.owner });
     }
-    const lease = new HeldLease(project, options.owner);
+    const lease = new HeldLease(project, options.owner, () => {
+      this.#announce(project, { kind: 'checkpointed' });
+    });
     const taking = await this.#take(lease, options.steal);
     if (taking === 'held') {
       this.#hold(lease);
+      this.#announce(project, { kind: 'acquired', owner: options.owner });
       return { kind: 'held', lease };
     }
-    if (taking === 'refused') return { kind: 'busy' };
+    if (taking === 'refused') return { kind: 'unavailable' };
     const owner = await this.ownerOf(project);
     return owner === undefined ? { kind: 'busy' } : { kind: 'busy', owner };
   }
@@ -143,12 +143,19 @@ class WebLockLeases implements LeaseCoordinator {
     return owner;
   }
 
-  async requestTransfer(project: ProjectId, from: LeaseOwner): Promise<TransferAnswer> {
+  async requestTransfer(
+    project: ProjectId,
+    from: LeaseOwner,
+    signal?: AbortSignal,
+  ): Promise<TransferOutcome> {
     const name = lockNameOf(project);
+    const holder = this.#held.get(project);
+    if (holder === undefined && !(await this.#isHeld(name))) return 'granted';
+    if (signal?.aborted === true) return 'unreachable';
     const request: TransferRequest = { id: this.#nextId(), from };
     const watch = new AbortController();
     let stop: () => void = () => undefined;
-    const answer = await new Promise<TransferAnswer>((resolve) => {
+    const outcome = await new Promise<TransferOutcome>((resolve) => {
       this.#waiting.set(request.id, resolve);
       stop = this.#channels.listen(name, (message) => {
         if (message.kind === 'transfer-answer' && message.request === request.id) {
@@ -158,18 +165,23 @@ class WebLockLeases implements LeaseCoordinator {
       void this.#watchFree(name, watch.signal).then((free) => {
         if (free) resolve('granted');
       });
-      const holder = this.#held.get(project);
+      signal?.addEventListener(
+        'abort',
+        () => {
+          resolve('unreachable');
+        },
+        { once: true },
+      );
       if (holder !== undefined) holder.hearRequest(request);
       else if (!this.#channels.post(name, { kind: 'transfer-request', request })) {
-        // No window can hear the request, so none can grant it; the lock coming
-        // free still answers it, should the writer close the project.
         this.#services.logger.warning('A request for a project could not reach its writer.');
+        resolve('unreachable');
       }
     });
     watch.abort();
     stop();
     this.#waiting.delete(request.id);
-    return answer;
+    return outcome;
   }
 
   answerTransfer(
@@ -187,6 +199,33 @@ class WebLockLeases implements LeaseCoordinator {
       });
     }
     return Promise.resolve();
+  }
+
+  watchOwnership(project: ProjectId, listener: (event: OwnershipEvent) => void): () => void {
+    const watching = this.#watchers.get(project) ?? new Set();
+    this.#watchers.set(project, watching);
+    watching.add(listener);
+    const stop = this.#channels.listen(lockNameOf(project), (message) => {
+      const event = ownershipEventOf(message);
+      if (event !== undefined) listener(event);
+    });
+    return () => {
+      watching.delete(listener);
+      stop();
+    };
+  }
+
+  lockStorage(
+    mode: StorageLockMode,
+    options: { readonly wait: boolean; readonly signal?: AbortSignal },
+  ): Promise<StorageLocking> {
+    return lockStorage(this.#locks, mode, options, this.#services.logger);
+  }
+
+  /** Tells the watchers of this window and of every other of a change to a project. */
+  #announce(project: ProjectId, event: OwnershipEvent): void {
+    for (const listener of [...(this.#watchers.get(project) ?? [])]) listener(event);
+    this.#channels.post(lockNameOf(project), event);
   }
 
   /** Asks for the lock, holding it until the lease lets it go or it is taken. */
@@ -219,6 +258,7 @@ class WebLockLeases implements LeaseCoordinator {
       request.then(
         () => {
           lease.ended();
+          this.#announce(lease.project, { kind: 'released' });
         },
         (error: unknown) => {
           if (granted) this.#lost(lease, error);

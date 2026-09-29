@@ -2,7 +2,7 @@
  * The services a test of kept projects runs with, made the same way on every
  * run: a deterministic clock and identifiers shared by every window of the
  * test, so no two sessions mint one identifier; the test commands' bus; the
- * digest the media store's tests use; and windows that share one coordinator.
+ * digest the caller hashes with; and windows that share one coordinator.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
@@ -15,8 +15,7 @@ import {
   type ProjectSettings,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { nodeDigest } from '@audiogubbins/media-store/testing';
-import type { StorageTree } from '@audiogubbins/project-format';
+import type { Digest, StorageTree } from '@audiogubbins/project-format';
 
 import { ProjectRepository } from '../project-catalogue.js';
 import type { ProjectHeader } from '../project-header.js';
@@ -52,6 +51,7 @@ function steppingClock(): Clock {
 
 /** What one test's windows share. */
 export interface Harness {
+  readonly digest: Digest;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly coordinator: MemoryLeaseCoordinator;
@@ -70,14 +70,15 @@ export interface Harness {
   repository(tree: StorageTree): ProjectRepository;
 }
 
-/** A harness whose identifiers come from `seed`. */
-export function harness(seed = 11): Harness {
+/** A harness hashing with `digest`, whose identifiers come from `seed`. */
+export function harnessOver(digest: Digest, seed = 11): Harness {
   const clock = steppingClock();
   const ids = createDeterministicIdGenerator(seed);
   const coordinator = new MemoryLeaseCoordinator();
   const bus = testBus();
   const logger = silentLogger();
   return {
+    digest,
     clock,
     ids,
     coordinator,
@@ -85,7 +86,7 @@ export function harness(seed = 11): Harness {
       const chosen = options.coordinator ?? coordinator;
       return {
         tree,
-        digest: nodeDigest,
+        digest,
         bus,
         clock,
         ids,
@@ -96,7 +97,7 @@ export function harness(seed = 11): Harness {
       };
     },
     repository: (tree) =>
-      new ProjectRepository({ tree, digest: nodeDigest, clock, ids, coordinator, owner: WINDOW_A }),
+      new ProjectRepository({ tree, digest, clock, ids, coordinator, owner: WINDOW_A }),
   };
 }
 

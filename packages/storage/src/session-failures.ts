@@ -4,6 +4,7 @@
  */
 
 import { FailureKind, failure, type DomainFailure } from '@audiogubbins/domain';
+import type { CompactionPlan } from '@audiogubbins/history';
 
 import type { ProjectAccess } from './project-snapshot.js';
 import type { SaveStatus } from './write-queue.js';
@@ -65,3 +66,16 @@ export const NO_COMPARISON = failure(
   FailureKind.Rejected,
   'No comparison is open.',
 );
+
+/**
+ * The failure of a retention policy that would let history go, set without the
+ * person's confirmation of what it lets go (REQ-STOR-106).
+ */
+export function retentionUnconfirmed(plan: CompactionPlan): DomainFailure {
+  return failure(
+    'storage.retention-unconfirmed',
+    FailureKind.Rejected,
+    'The retention policy would remove history, and was not confirmed as it was shown.',
+    { details: { reclaimableBytes: plan.reclaimableBytes, changes: plan.removable.length } },
+  );
+}

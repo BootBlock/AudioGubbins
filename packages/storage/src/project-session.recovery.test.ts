@@ -1,18 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, SimulatedCrash, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, SimulatedCrash } from '@audiogubbins/media-store/testing';
 import { changeNodeOf } from '@audiogubbins/history';
 import type { AffectedEntities, HistoryNodeId, StorageTree } from '@audiogubbins/project-format';
 
 import { CheckedRecords } from './checked-records.js';
-import { readPair } from './generational-pair.js';
+import { newestHead } from './project-heads.js';
 import { ProjectFiles } from './project-files.js';
 import { openProject, type OpenedProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { summaryOf } from './testing/model-summary.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Crash injection at every operation of the tree (REQ-EXEC-180, the packet's
@@ -212,7 +213,7 @@ describe('recovery from damage it did not make', () => {
     return { test, tree, header, session, files };
   }
 
-  it('opens from the other head when a head is torn as it is written', async () => {
+  it('opens from the head before when a head is torn as it is written', async () => {
     // Learn which operation writes the second checkpoint's head, then crash on it.
     const spy = new HeadWrites(new MemoryStorageTree());
     await twoCheckpoints(spy);
@@ -246,8 +247,8 @@ describe('recovery from damage it did not make', () => {
 
   it('rebuilds a cursor state whose file does not hold what its name promises, and reports it', async () => {
     const { tree, header, files, session } = await closedProject();
-    const heads = await readPair(files.records, files.heads);
-    const checkpoint = await files.readCheckpoint(expectDefined(heads.valid[0]).value.checkpoint);
+    const head = expectDefined(await newestHead(files.records, files.paths));
+    const checkpoint = await files.readCheckpoint(head.epoch, head.checkpoint);
     if (checkpoint.kind !== 'valid') throw new Error('No checkpoint.');
     const cursor = checkpoint.value.cursorState;
     const other = [...checkpoint.value.keptStates].find((state) => state !== cursor);
@@ -292,15 +293,15 @@ describe('recovery from damage it did not make', () => {
       affects: { ...PROJECT_ONLY },
       stateFingerprint: await files.states.fingerprint(session.getSnapshot().model.state),
     });
-    // The session wrote records 1 and 2 of epoch 1; this one claims a state its
+    // The session wrote records 1 and 2 of epoch 2; this one claims a state its
     // replay will not give.
-    await files.journal.append({ epoch: 1, sequence: 3 }, { kind: 'change', node });
+    await files.journal.append({ epoch: 2, sequence: 3 }, { kind: 'change', node });
 
     const reopened = expectSuccess(
       await openProject({ project: header.id, access: 'read' }, harness(99).services(tree)),
     );
     expect(reopened.report.journalBreak).toMatchObject({
-      at: { epoch: 1, sequence: 3 },
+      at: { epoch: 2, sequence: 3 },
       reason: { kind: 'refused', failure: { code: 'storage.replay-diverged' } },
     });
     const view = reopened.kind === 'read-only' ? reopened.view.getSnapshot() : undefined;
@@ -372,7 +373,7 @@ class HeadWrites implements StorageTree {
   };
   list = async (directory: string) => await this.inner.list(directory);
   writeFile = async (path: string, bytes: Uint8Array) => {
-    if (/\/head-[01]\.json$/u.test(path)) this.operations.push(this.inner.operations + 1);
+    if (/\/heads\/[0-9-]+\.json$/u.test(path)) this.operations.push(this.inner.operations + 1);
     await this.inner.writeFile(path, bytes);
   };
 }

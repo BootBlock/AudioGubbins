@@ -41,7 +41,6 @@ import {
   type StorageTree,
 } from '@audiogubbins/project-format';
 
-import { DEFAULT_BACKUP_POLICY } from './backup-policy.js';
 import type { BodyOpener } from './bundle-writing.js';
 import { cacheKeyOf, type CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
@@ -50,7 +49,7 @@ import { writeProject, type ProjectContents } from './project-creation.js';
 import { ProjectFiles } from './project-files.js';
 import type { ProjectHeader } from './project-header.js';
 import { contentAs } from './project-identity.js';
-import { noCoordination, projectBusy, refusalsReported } from './storage-failures.js';
+import { leaseRefused, noCoordination, refusalsReported } from './storage-failures.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 
 /** Whether a project is brought in as itself or as a copy under a new identity. */
@@ -93,7 +92,7 @@ export async function importTree(
   const { coordinator, owner } = services;
   if (coordinator === undefined) return fail(noCoordination());
   const acquired = await coordinator.acquire(project, { steal: false, owner });
-  if (acquired.kind === 'busy') return fail(projectBusy(project));
+  if (acquired.kind !== 'held') return fail(leaseRefused(acquired, project));
   const held: ContentId[] = [];
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   try {
@@ -201,7 +200,10 @@ async function contentsOf(
     kept: scope.kind === 'history' ? scope.history.states : new Map(),
     exports: content.exports,
     retention: scope.kind === 'history' ? scope.history.retention : DEFAULT_RETENTION_POLICY,
-    backup: DEFAULT_BACKUP_POLICY,
+    backup: content.backup,
+    ...(scope.kind === 'history' && scope.history.comparison !== undefined
+      ? { comparison: scope.history.comparison }
+      : {}),
     created: at,
   });
 }

@@ -11,13 +11,8 @@ import type { WriteOutcome } from './write-queue.js';
 import { FillableTree } from './testing/fillable-tree.js';
 import { summaryOf } from './testing/model-summary.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
-import {
-  SETTINGS,
-  harness,
-  madeProject,
-  openToWrite,
-  type Harness,
-} from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { SETTINGS, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 
 /**
  * Storage pressure (REQ-STOR-106, REQ-EXEC-216, the packet's "Quota exhaustion

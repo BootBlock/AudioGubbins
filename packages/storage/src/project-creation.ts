@@ -17,7 +17,10 @@
 import { mapResult, type DomainResult, type IdGenerator } from '@audiogubbins/domain';
 import { startHistory, withStateFingerprint, type History } from '@audiogubbins/history';
 import {
+  DEFAULT_BACKUP_POLICY,
   DEFAULT_RETENTION_POLICY,
+  type BackupPolicy,
+  type ComparisonChoiceRecord,
   type ExportRecord,
   type ProjectOrigin,
   type ProjectState,
@@ -25,8 +28,8 @@ import {
   type StateFingerprint,
 } from '@audiogubbins/project-format';
 
-import { DEFAULT_BACKUP_POLICY, type BackupPolicy } from './backup-policy.js';
-import { readPair, writeNext } from './generational-pair.js';
+import { readPair, writeNext, type Slotted } from './generational-pair.js';
+import { comparisonFrom } from './comparison-record.js';
 import { JOURNAL_START } from './journal-position.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHead } from './project-heads.js';
@@ -52,6 +55,9 @@ export interface ProjectContents {
   readonly exports: readonly ExportRecord[];
   readonly retention: RetentionPolicy;
   readonly backup: BackupPolicy;
+
+  /** The A/B comparison open, where the project had one. */
+  readonly comparison?: ComparisonChoiceRecord;
 
   /** When the project was made, in milliseconds since the epoch. */
   readonly created: number;
@@ -109,6 +115,11 @@ export async function writeProject(
   const cursorState = await files.states.put(state, signal);
   const history = withStateFingerprint(contents.history, contents.history.cursor, cursorState);
   if (!history.ok) return history;
+  const comparison =
+    contents.comparison === undefined
+      ? undefined
+      : comparisonFrom(history.value, contents.comparison);
+  if (comparison?.ok === false) return comparison;
 
   const checkpoint = ids.next<'CheckpointId'>();
   await files.writeCheckpoint(
@@ -120,34 +131,43 @@ export async function writeProject(
       exports: contents.exports,
       retention: contents.retention,
       backup: contents.backup,
+      ...(comparison === undefined ? {} : { comparison: comparison.value }),
       leaseEpoch: JOURNAL_START.epoch,
     },
     signal,
   );
 
-  const head = await writeNext(
+  const head = await writeHead(
     files.records,
-    files.heads,
-    await readPair(files.records, files.heads, signal),
-    (generation) => writeHead({ generation, checkpoint, journal: JOURNAL_START }),
+    files.paths,
+    { epoch: JOURNAL_START.epoch, checkpoint, journal: JOURNAL_START },
     signal,
   );
   if (!head.ok) return head;
 
-  const header = await writeNext(
+  const header = await writeFirstHeader(files, contents, signal);
+  if (header.ok) await tree.remove(files.paths.unfinished);
+  return mapResult(header, (written) => written.value);
+}
+
+/** The header that makes a project appear in the list, written once all else is whole. */
+async function writeFirstHeader(
+  files: ProjectFiles,
+  contents: ProjectContents,
+  signal?: AbortSignal,
+): Promise<DomainResult<Slotted<ProjectHeader>>> {
+  return await writeNext(
     files.records,
     files.header,
     await readPair(files.records, files.header, signal),
     (generation) =>
       writeHeader({
         generation,
-        id: state.project.id,
-        name: state.project.displayName,
+        id: contents.state.project.id,
+        name: contents.state.project.displayName,
         created: contents.created,
         ...(contents.imported === undefined ? {} : { imported: contents.imported }),
       }),
     signal,
   );
-  if (header.ok) await tree.remove(files.paths.unfinished);
-  return mapResult(header, (written) => written.value);
 }

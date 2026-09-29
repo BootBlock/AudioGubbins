@@ -1,13 +1,15 @@
-import { nodeDigest } from '@audiogubbins/media-store/testing';
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { yieldToHost } from './host-yielding.js';
 import { webDigest } from './web-digest.js';
 
 describe('the digest over Web Crypto', () => {
-  it('is SHA-256, as the reference digest is', async () => {
+  it("is SHA-256, as Node's own hash is", async () => {
     const bytes = new TextEncoder().encode('AudioGubbins');
-    expect(await webDigest(crypto.subtle)(bytes)).toEqual(await nodeDigest(bytes));
+    const reference = new Uint8Array(createHash('sha256').update(bytes).digest());
+    expect(await webDigest(crypto.subtle)(bytes)).toEqual(reference);
   });
 });
 

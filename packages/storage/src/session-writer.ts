@@ -20,6 +20,7 @@ import { writeCheckpointAndHead } from './checkpoint-writing.js';
 import { readPair, writeNext } from './generational-pair.js';
 import type { JournalEvent } from './journal-events.js';
 import type { JournalPosition } from './journal-position.js';
+import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHeader } from './project-header.js';
 import type { ProjectModel } from './project-model.js';
@@ -37,8 +38,8 @@ export interface WriterStart {
   readonly ids: IdGenerator;
   readonly logger: Logger;
 
-  /** The epoch of the lease the session holds, which its records are written under. */
-  readonly epoch: number;
+  /** The lease the session holds, whose epoch its records are written under. */
+  readonly lease: LeaseRecord;
 
   /** The last record the project as opened includes. */
   readonly position: JournalPosition;
@@ -54,6 +55,9 @@ export interface WriterStart {
 
   /** Called once a checkpoint has named the state at a node. */
   readonly onCheckpoint: (node: HistoryNodeId, state: StateFingerprint) => void;
+
+  /** Called once each checkpoint is written and its head confirmed. */
+  readonly onCheckpointWritten: () => void;
 
   /** Called when a checkpoint finds another window has taken the project. */
   readonly onSuperseded: () => void;
@@ -93,7 +97,7 @@ export class SessionWriter {
    * project after, and anything that record makes due.
    */
   async append(event: JournalEvent, model: ProjectModel): Promise<WriteOutcome> {
-    const position = { epoch: this.start.epoch, sequence: this.nextSequence };
+    const position = { epoch: this.start.lease.epoch, sequence: this.nextSequence };
     this.nextSequence += 1;
     this.last = position;
     const record = this.queue.enqueue(async () => {
@@ -128,7 +132,7 @@ export class SessionWriter {
       id: this.start.ids.next<'CheckpointId'>(),
       model,
       position: this.last,
-      leaseEpoch: this.start.epoch,
+      lease: this.start.lease,
       unwritten: new Map(this.unwritten),
     };
     return await this.queue.enqueue(async () => {
@@ -145,6 +149,7 @@ export class SessionWriter {
       const cursor = model.history.cursor;
       const named = written.value.history.nodes.get(cursor)?.stateFingerprint;
       if (named !== undefined) this.start.onCheckpoint(cursor, named);
+      this.start.onCheckpointWritten();
       return succeed(undefined);
     });
   }

@@ -1,35 +1,32 @@
 /**
- * A project's backup policy: whether automatic backup generations are made,
- * what makes one, and which are kept (REQ-STOR-105).
+ * A project's backup policy as a value and as JSON: whether automatic backup
+ * generations are made, what makes one, and which are kept (REQ-STOR-105,
+ * REQ-EXEC-136.12).
  *
- * Backup generations are distinct from the journal, the history and the
- * snapshots: a generation is a copy of a checkpoint and the states it keeps,
- * made so a project can be restored even when its working files are lost. The
- * policy is part of the project, recorded in its checkpoint and changed through
- * its journal, so it survives a reload and travels with the project. A
- * generation the person protects is never pruned by any retention limit.
- *
- * Generations are kept in the application's storage, and where the policy says
- * so each one is written as a bundle into the backup directory the person chose
- * too, where the platform lets them choose one. The policy says whether; which
- * directory is this machine's, kept by the application, and never travels with
+ * The policy is part of the project, as its retention policy is: a checkpoint
+ * records it, its journal changes it, and a bundle or an unpacked tree carries
+ * it, so it survives a reload and travels with the project (REQ-STOR-103).
+ * Backup generations themselves are the storage's, kept apart from the history,
+ * the journal and the snapshots; a generation the person protects is never
+ * pruned by any retention limit. Where the policy says so, each generation is
+ * also written as a bundle into the backup directory the person chose, where
+ * the platform lets them choose one: the policy says whether, and which
+ * directory is the machine's, kept by the application, which never travels with
  * the project.
  */
 
+import type { JsonObject } from './canonical-json.js';
 import {
   anyObjectOf,
-  asBoolean,
   checkMembers,
-  integerConverter,
   objectOf,
-  oneOfConverter,
   optional,
   pathOf,
-  presentMembers,
   required,
   type Converter,
-  type JsonObject,
-} from '@audiogubbins/project-format';
+} from './document-reading.js';
+import { presentMembers } from './document-writing.js';
+import { asBoolean, integerConverter, oneOfConverter } from './scalar-reading.js';
 
 /** What makes an automatic generation: whichever comes first of those set. */
 export interface BackupTrigger {

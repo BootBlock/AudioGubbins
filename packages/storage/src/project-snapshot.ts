@@ -20,6 +20,8 @@ export type ReadOnlyReason =
   | { readonly kind: 'requested' }
   /** Another window holds the write lease. */
   | { readonly kind: 'busy'; readonly owner?: LeaseOwner }
+  /** The window that wrote the project let it go, and none writes it now. */
+  | { readonly kind: 'released' }
   /** The platform cannot coordinate writers, so none may write (REQ-STOR-098). */
   | { readonly kind: 'no-coordination' };
 

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import {
-  MemoryStorageTree,
-  generatedBytes,
-  memorySource,
-  nodeDigest,
-} from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, generatedBytes, memorySource } from '@audiogubbins/media-store/testing';
 import {
   canonicalJson,
   encodeUtf8,
@@ -18,6 +13,7 @@ import {
 
 import { exportRawStorage } from './raw-export.js';
 import { openStorageRoot, wipeStorage } from './storage-root.js';
+import { nodeDigest } from './testing/node-services.js';
 
 /**
  * The storage root and the pre-1.0 compatibility flow (REQ-STOR-052): an empty

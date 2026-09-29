@@ -1,7 +1,7 @@
 /**
  * What another package's tests may take from the media store's test support: an
- * in-memory storage tree that can crash and fill up, and the sources, digest
- * and tokens its tests are driven with.
+ * in-memory storage tree that can crash and fill up, and the sources, tokens
+ * and sharing of the storage-wide lock its tests are driven with.
  *
  * Apart from the package's own entry point, because none of it is production
  * code: an architecture rule refuses any production module that reaches test
@@ -16,5 +16,6 @@ export {
   generatedBytes,
   generatedSource,
   memorySource,
-  nodeDigest,
 } from './byte-sources.js';
+
+export { type CountedSharing, countedSharing } from './sharing.js';

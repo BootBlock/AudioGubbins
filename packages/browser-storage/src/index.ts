@@ -54,12 +54,8 @@ export {
 
 export { BlobSink } from './blob-sink.js';
 
-export {
-  type LeaseLockOptions,
-  type LeaseLocks,
-  type WebLeaseServices,
-  createLeaseCoordinator,
-} from './web-lock-leases.js';
+export { type WebLeaseServices, createLeaseCoordinator } from './web-lock-leases.js';
+export { type LeaseLockOptions, type LeaseLocks } from './lock-manager.js';
 
 export { type LeaseChannel, type OpenLeaseChannel } from './project-channels.js';
 

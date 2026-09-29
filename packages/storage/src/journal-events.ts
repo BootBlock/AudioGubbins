@@ -27,16 +27,22 @@ import {
   optional,
   pathOf,
   presentMembers,
+  readBackupPolicy,
+  readComparisonChoice,
   readExportRecord,
   readHistoryLabel,
   readHistoryNodeRecord,
   readRetentionPolicy,
   readSnapshotRecord,
   required,
+  writeBackupPolicy,
+  writeComparisonChoice,
   writeExportRecord,
   writeHistoryNodeRecord,
   writeRetentionPolicy,
   writeSnapshotRecord,
+  type BackupPolicy,
+  type ComparisonChoiceRecord,
   type Converter,
   type ExportRecord,
   type HistoryLabel,
@@ -48,9 +54,6 @@ import {
   type SnapshotId,
 } from '@audiogubbins/project-format';
 
-import { readBackupPolicy, writeBackupPolicy, type BackupPolicy } from './backup-policy.js';
-import { readChoice, writeChoice, type ComparisonChoice } from './comparison-record.js';
-
 /** One event of a project's history, as a journal record holds it. */
 export type JournalEvent =
   | { readonly kind: 'change'; readonly node: ChangeNode }
@@ -61,7 +64,7 @@ export type JournalEvent =
   | { readonly kind: 'export'; readonly record: ExportRecord }
   | { readonly kind: 'retention-policy'; readonly policy: RetentionPolicy }
   | { readonly kind: 'backup-policy'; readonly policy: BackupPolicy }
-  | { readonly kind: 'comparison'; readonly choice?: ComparisonChoice };
+  | { readonly kind: 'comparison'; readonly choice?: ComparisonChoiceRecord };
 
 const EVENT_KINDS = [
   'change',
@@ -112,7 +115,7 @@ export function writeEvent(event: JournalEvent): JsonObject {
     case 'comparison':
       return presentMembers({
         kind: event.kind,
-        choice: event.choice === undefined ? undefined : writeChoice(event.choice),
+        choice: event.choice === undefined ? undefined : writeComparisonChoice(event.choice),
       });
   }
 }
@@ -163,7 +166,7 @@ export const readEvent: Converter<JournalEvent> = (reading, value, parent, key) 
       return policy === undefined ? undefined : { kind, policy };
     }
     case 'comparison': {
-      const choice = optional(reading, object, at, 'choice', readChoice);
+      const choice = optional(reading, object, at, 'choice', readComparisonChoice);
       // A choice present but refused has been recorded as a problem, so the
       // reading fails whatever is returned here.
       return { kind, ...(choice === undefined ? {} : { choice }) };

@@ -14,7 +14,11 @@ import { contentIdOfDigit } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { ProjectCommandId } from './project-command.js';
-import { adoptSourceVersionInvocation, relinkSourceInvocation } from './project-invocations.js';
+import {
+  adoptSourceVersionInvocation,
+  relinkSourceInvocation,
+  setAssetMediaInvocation,
+} from './project-invocations.js';
 import {
   appliedOf,
   assertReadsBack,
@@ -273,6 +277,24 @@ describe('project.set-asset-media', () => {
       `content:c1-${'f'.repeat(64)}`,
     );
     expect(entry.description).toBe('Change where “Rain” is kept');
+  });
+
+  it('sets the media the builder is given, undone by the builder’s invocation for the old', () => {
+    const managed: MediaSource = {
+      kind: 'managed',
+      contentId: contentIdOfDigit('f'),
+      byteLength: 10,
+      mediaType: 'audio/wav',
+    };
+    const { next, entry } = appliedAndUndone(
+      state,
+      setAssetMediaInvocation(assets.forest.id, managed),
+    );
+
+    expect(mediaOf(next, assets.forest)).toEqual(managed);
+    expect(entry.inverse).toEqual([
+      setAssetMediaInvocation(assets.forest.id, mediaOf(state, assets.forest)),
+    ]);
   });
 
   it('refuses media the format refuses, and changes nothing for the same media', () => {

@@ -12,7 +12,9 @@
  * falls back to a retained copy of the same content; one that changed is passed
  * over and reported, so the person decides, as the source change policy has
  * them do. The commands are the project commands', which the storage does not
- * depend on, so the caller gives the invocation that sets an asset's media.
+ * depend on, so the caller gives their builder of the invocation that sets an
+ * asset's media. What is copied is held in the media store, keeping every
+ * window's purge off it, until storage holds the change that refers to it.
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
@@ -30,6 +32,7 @@ import {
   type ExternalMedia,
   type ExternalSourceIdentity,
   type ManagedMedia,
+  type MediaSource,
 } from '@audiogubbins/project-format';
 
 import type { ProjectSession } from './project-session.js';
@@ -46,8 +49,11 @@ export interface ConsolidationServices {
     signal?: AbortSignal,
   ) => Promise<ExternalFile | undefined>;
 
-  /** The project commands' invocation that sets where an asset's bytes are kept. */
-  readonly setMedia: (asset: AssetId, media: ManagedMedia) => CommandInvocation;
+  /**
+   * The invocation that sets where an asset's bytes are kept: the project
+   * commands' `setAssetMediaInvocation`, which the storage does not depend on.
+   */
+  readonly setMedia: (asset: AssetId, media: MediaSource) => CommandInvocation;
 }
 
 /** What became of one linked asset. */
@@ -84,18 +90,24 @@ export async function consolidate(
       byteLength,
       mediaType: media.identity.mediaType,
     };
-    try {
-      const ran = await session.run(services.setMedia(asset, managed));
-      outcomes.push(
-        ran.ok
-          ? { asset, kind: 'consolidated', contentId }
-          : { asset, kind: 'failed', failure: ran.failures[0] },
-      );
-    } finally {
-      // The project refers to the object once the change is recorded, and needs
-      // no hold on it either way from here.
+    const release = (): void => {
       if (held) services.store.release(contentId);
+    };
+    let ran: Awaited<ReturnType<ProjectSession['run']>> | undefined;
+    try {
+      ran = await session.run(services.setMedia(asset, managed));
+    } finally {
+      // The hold is let go once storage holds the change that refers to the
+      // object, or at once where there is none; until then a purge in any
+      // window would find nothing retaining it.
+      if (ran?.ok === true) releaseOnceSaved(session, release);
+      else release();
     }
+    outcomes.push(
+      ran.ok
+        ? { asset, kind: 'consolidated', contentId }
+        : { asset, kind: 'failed', failure: ran.failures[0] },
+    );
   }
   return succeed(outcomes);
 }
@@ -147,4 +159,24 @@ async function copyOf(
     return succeed({ kind: 'changed' });
   }
   return succeed({ kind: 'copied', contentId, byteLength, held: true });
+}
+
+/**
+ * Calls `release` once the session has written everything it holds, or has
+ * stopped writing, after which nothing it holds will reach storage.
+ */
+function releaseOnceSaved(session: ProjectSession, release: () => void): void {
+  const settled = (): boolean => {
+    const { save } = session.getSnapshot();
+    return save.kind === 'saved' || save.kind === 'stopped';
+  };
+  if (settled()) {
+    release();
+    return;
+  }
+  const stop = session.subscribe(() => {
+    if (!settled()) return;
+    stop();
+    release();
+  });
 }

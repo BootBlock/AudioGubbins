@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
+import { DEFAULT_BACKUP_POLICY } from './backup-policy-json.js';
 import { canonicalJson } from './canonical-json.js';
 import { writeExportRecord } from './export-record-json.js';
 import { writeHistoryRecord } from './history-json.js';
@@ -136,6 +137,7 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
           state: of,
           scope: { kind: 'state', provenance: ProvenanceLevel.Full },
           exports: [],
+          backup: DEFAULT_BACKUP_POLICY,
           media: [],
         }),
       );

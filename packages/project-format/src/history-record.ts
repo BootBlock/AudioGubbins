@@ -91,11 +91,14 @@ export type ProjectOrigin =
   | {
       /**
        * A fork of another project's state (REQ-STOR-199): the project and the
-       * node it was taken from, which the fork never changes.
+       * node it was taken from, which the fork never changes, and the
+       * fingerprint of the state it began as there (REQ-STOR-194), which says
+       * which state of the source it is even once that node is compacted away.
        */
       readonly kind: 'fork';
       readonly project: ProjectId;
       readonly node: HistoryNodeId;
+      readonly stateFingerprint: StateFingerprint;
     };
 
 /**

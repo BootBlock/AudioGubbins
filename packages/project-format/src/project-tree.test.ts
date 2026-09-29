@@ -168,6 +168,28 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     expect(problems.map(([, file]) => file)).toContain(pathOf(files, 'caches/'));
   });
 
+  it('carries the backup policy and the open comparison, and refuses a tree without the policy', async () => {
+    const files = await sampleTree();
+    expect(jsonOf(files, 'project/backup-policy.json')).toMatchObject({ kind: 'automatic' });
+    expect(jsonOf(files, 'history/comparison.json')).toMatchObject({ listening: 'b' });
+    const without = files.filter(({ path }) => path !== 'project/backup-policy.json');
+    expect(await problemsOf(without)).toContainEqual([
+      'tree.missing-file',
+      'project/backup-policy.json',
+    ]);
+  });
+
+  it('refuses a comparison whose side the history does not hold', async () => {
+    const files = edited(await sampleTree(), 'history/comparison.json', (choice) => ({
+      ...choice,
+      a: { kind: 'snapshot', snapshot: '0000000a-0000-4000-8000-000000000000' },
+    }));
+    expect(await problemsOf(files)).toContainEqual([
+      'tree.comparison-unknown',
+      'history/comparison.json',
+    ]);
+  });
+
   it('never reads a media file or a cache, which are the caller’s to stream', async () => {
     const files = await sampleTree();
     const read: string[] = [];

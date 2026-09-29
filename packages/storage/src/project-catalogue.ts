@@ -45,8 +45,8 @@ import { writeNewProject } from './project-creation.js';
 import { ProjectFiles } from './project-files.js';
 import { writeHeader, type ProjectHeader } from './project-header.js';
 import {
+  leaseRefused,
   noCoordination,
-  projectBusy,
   projectMissing,
   refusalsReported,
 } from './storage-failures.js';
@@ -212,7 +212,7 @@ export class ProjectRepository {
     const { coordinator, owner } = this.services;
     if (coordinator === undefined) return fail(noCoordination());
     const acquired = await coordinator.acquire(project, { steal: false, owner });
-    if (acquired.kind === 'busy') return fail(projectBusy(project));
+    if (acquired.kind !== 'held') return fail(leaseRefused(acquired, project));
     try {
       const files = new ProjectFiles(this.records, project);
       return await refusalsReported(async () => {

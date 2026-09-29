@@ -34,7 +34,6 @@ import type {
 
 import type { CacheCategory, CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
-import { readPair } from './generational-pair.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
 import { refusalsReported } from './storage-failures.js';
@@ -139,16 +138,14 @@ async function measureProject(
     (await bytesUnder(tree, files.paths.journal)) -
     (await bytesUnder(tree, files.paths.states));
 
-  const head = (await readPair(files.records, files.heads, signal)).valid[0];
-  const checkpoint =
-    head === undefined ? undefined : await files.readCheckpoint(head.value.checkpoint, signal);
-  const history = checkpoint?.kind === 'valid' ? checkpoint.value.history : undefined;
-  if (checkpoint?.kind === 'valid') {
-    const state = await files.states.get(checkpoint.value.cursorState, signal);
+  const checkpoint = await files.newestCheckpoint(signal);
+  const history = checkpoint?.history;
+  if (checkpoint !== undefined) {
+    const state = await files.states.get(checkpoint.cursorState, signal);
     if (state.ok) for (const content of contentReferencedBy(state.value)) current.add(content);
     else
       unreadable.push({
-        path: files.states.path(checkpoint.value.cursorState),
+        path: files.states.path(checkpoint.cursorState),
         failure: state.failures[0],
       });
   }

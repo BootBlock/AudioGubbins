@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { activeLine } from '@audiogubbins/history';
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   ExportDestinationKind,
   ExportStatus,
@@ -14,7 +14,8 @@ import {
 import { openProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 async function started() {
   const test = harness();

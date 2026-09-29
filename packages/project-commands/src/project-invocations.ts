@@ -1,22 +1,25 @@
 /**
- * The invocations of the project commands that carry a nested value, built
- * with the value written as the command reads it (REQ-EDIT-073, REQ-STOR-101).
+ * The invocations of the project commands that carry a nested value, built with
+ * the value written as the command reads it (REQ-EDIT-073, REQ-STOR-101).
  *
- * A caller outside this package cannot write an asset record or an external
- * identity in the project document's shape, and should not learn to: the
- * import pipeline and the source change prompt build their invocations here,
- * so the text a journal keeps is always the text the command reads.
+ * A caller outside this package cannot write an asset record, an external
+ * identity or a media source in the project document's shape, and should not
+ * learn to: the import pipeline, the source change prompt and consolidation
+ * build their invocations here, and so does every command whose inverse sets
+ * media back, so the text a journal keeps is always the text the command reads.
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import type { Asset } from '@audiogubbins/domain';
+import type { Asset, AssetId } from '@audiogubbins/domain';
 import {
   canonicalJson,
   writeAssetRecord,
   writeExternalIdentity,
+  writeMediaSource,
   type AssetSource,
   type ContentId,
   type ExternalSourceIdentity,
+  type MediaSource,
 } from '@audiogubbins/project-format';
 
 import { ProjectCommandId } from './project-command.js';
@@ -26,6 +29,14 @@ export function addAssetInvocation(asset: Asset, source: AssetSource): CommandIn
   return {
     commandId: ProjectCommandId.AddAsset,
     arguments: { asset: canonicalJson(writeAssetRecord({ asset, source })) },
+  };
+}
+
+/** Sets where an asset's bytes are kept, whatever kept them before. */
+export function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation {
+  return {
+    commandId: ProjectCommandId.SetAssetMedia,
+    arguments: { assetId: asset, media: canonicalJson(writeMediaSource(media)) },
   };
 }
 

@@ -8,7 +8,8 @@ import type { CatalogueEntry } from './project-catalogue.js';
 import { exportBundle, importBundle } from './project-transfer.js';
 import { FillableTree } from './testing/fillable-tree.js';
 import { memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
-import { harness, madeProject, openToWrite } from './testing/storage-harness.js';
+import { harness } from './testing/node-services.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { addAsset } from './testing/test-commands.js';
 
 /**

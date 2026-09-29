@@ -5,6 +5,7 @@
  * - `audiogubbins-project.json`: the header (`project-tree-header.ts`).
  * - `project/settings.json` and `project/track-order.json`: the project's
  *   settings and the order of its tracks.
+ * - `project/backup-policy.json`: the project's backup policy.
  * - `project/<list>/<id>.json`: one entity of a list, such as a track at
  *   `project/tracks/<id>.json`.
  * - `project/assets/<id>.source.json`: where an asset's bytes come from and how
@@ -12,6 +13,8 @@
  * - `history/cursor.json`: the node the project is at, and the child redo
  *   follows from each node.
  * - `history/branch-names.json` and `history/retention.json`.
+ * - `history/comparison.json`: the A/B comparison open, where one is; a tree
+ *   without the history carries none, since its sides are the history's.
  * - `history/nodes/<id>.json` and `history/snapshots/<id>.json`: one node or
  *   named snapshot each.
  * - `history/states/<fingerprint>.json`: a state the history keeps whole.
@@ -62,6 +65,8 @@ export const TRACK_ORDER_PATH = 'project/track-order.json';
 export const CURSOR_PATH = 'history/cursor.json';
 export const BRANCH_NAMES_PATH = 'history/branch-names.json';
 export const RETENTION_PATH = 'history/retention.json';
+export const BACKUP_POLICY_PATH = 'project/backup-policy.json';
+export const COMPARISON_PATH = 'history/comparison.json';
 
 const ENTITY_FILE = /^project\/([a-z-]+)\/([0-9a-f-]+)\.json$/u;
 const SOURCE_FILE = /^project\/assets\/([0-9a-f-]+)\.source\.json$/u;
@@ -82,6 +87,8 @@ export type TreePlace =
   | { readonly kind: 'cursor' }
   | { readonly kind: 'branch-names' }
   | { readonly kind: 'retention' }
+  | { readonly kind: 'backup-policy' }
+  | { readonly kind: 'comparison' }
   | { readonly kind: 'node'; readonly id: string }
   | { readonly kind: 'snapshot'; readonly id: string }
   | { readonly kind: 'state'; readonly fingerprint: StateFingerprint }
@@ -96,6 +103,8 @@ const FIXED_PLACES: ReadonlyMap<string, TreePlace> = new Map<string, TreePlace>(
   [CURSOR_PATH, { kind: 'cursor' }],
   [BRANCH_NAMES_PATH, { kind: 'branch-names' }],
   [RETENTION_PATH, { kind: 'retention' }],
+  [BACKUP_POLICY_PATH, { kind: 'backup-policy' }],
+  [COMPARISON_PATH, { kind: 'comparison' }],
 ]);
 
 /** What the file at `path` holds, or `undefined` for a path the tree never has. */

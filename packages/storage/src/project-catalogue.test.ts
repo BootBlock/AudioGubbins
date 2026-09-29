@@ -1,19 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import { encodeUtf8, type StorageTree } from '@audiogubbins/project-format';
 
 import { ProjectRepository, type CatalogueEntry } from './project-catalogue.js';
 import { openProject } from './project-opening.js';
-import {
-  SETTINGS,
-  WINDOW_A,
-  harness,
-  madeProject,
-  openToWrite,
-} from './testing/storage-harness.js';
+import { SETTINGS, WINDOW_A, madeProject, openToWrite } from './testing/storage-harness.js';
 import { setName } from './testing/test-commands.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 async function listOf(
   test: ReturnType<typeof harness>,

@@ -66,7 +66,12 @@ const CHANGE_NODE_MEMBERS: ReadonlySet<string> = new Set([
   'stateFingerprint',
 ]);
 const PLAIN_ORIGIN_MEMBERS: ReadonlySet<string> = new Set(['kind']);
-const FORK_ORIGIN_MEMBERS: ReadonlySet<string> = new Set(['kind', 'project', 'node']);
+const FORK_ORIGIN_MEMBERS: ReadonlySet<string> = new Set([
+  'kind',
+  'project',
+  'node',
+  'stateFingerprint',
+]);
 const AFFECTED_MEMBERS: ReadonlySet<string> = new Set([
   'assets',
   'tracks',
@@ -108,7 +113,12 @@ export function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject {
 
 function writeOrigin(origin: ProjectOrigin): JsonObject {
   return origin.kind === 'fork'
-    ? { kind: origin.kind, project: origin.project, node: origin.node }
+    ? {
+        kind: origin.kind,
+        project: origin.project,
+        node: origin.node,
+        stateFingerprint: origin.stateFingerprint,
+      }
     : { kind: origin.kind };
 }
 
@@ -220,7 +230,10 @@ const asOrigin: Converter<ProjectOrigin> = (reading, value, parent, key) => {
   checkMembers(reading, object, at, FORK_ORIGIN_MEMBERS);
   const project = required(reading, object, at, 'project', asId<'ProjectId'>);
   const node = required(reading, object, at, 'node', asId<'HistoryNodeId'>);
-  return project === undefined || node === undefined ? undefined : { kind, project, node };
+  const stateFingerprint = required(reading, object, at, 'stateFingerprint', asStateFingerprint);
+  return project === undefined || node === undefined || stateFingerprint === undefined
+    ? undefined
+    : { kind, project, node, stateFingerprint };
 };
 
 const asAssetIds = listConverter(MAXIMUM_ENTITIES, asId<'AssetId'>);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, memorySource, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import {
   ProvenanceLevel,
   contentIdOf,
@@ -32,32 +32,26 @@ import { randomStep } from './testing/random-sessions.js';
 import type { CopyOptions } from './tree-content.js';
 import { seededRandom } from './testing/seeded-random.js';
 import { addAsset } from './testing/test-commands.js';
-import { harness, madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Bundles and unpacked trees round-trip (REQ-STOR-103, REQ-STOR-099): a project
  * made by a random session, taken out as a bundle and brought into another
  * storage, is the same project, with its state, its whole history, its
- * snapshots and its export log; a bundle unpacked and packed again is the same
- * bundle, byte for byte, and so is the tree the storage writes; and media is
- * kept once however many projects bring it in.
+ * snapshots, its export log, its policies and its open comparison; a bundle
+ * unpacked and packed again is the same bundle, byte for byte, and so is the
+ * tree the storage writes; and media is kept once however many projects bring
+ * it in.
  */
 
 const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
 const SEEDS = Array.from({ length: 12 }, (_, index) => index + 1);
 
-/**
- * What a bundle carries of a project: everything but its backup policy, which
- * belongs to the storage it is kept in, and an open comparison, which belongs
- * to the window it was open in.
- */
-function carried(summary: string): unknown {
-  const {
-    backup: _backup,
-    comparison: _comparison,
-    ...rest
-  } = JSON.parse(summary) as Record<string, unknown>;
-  return rest;
+/** The nodes a summary holds, which a copy under a new identity keeps as they were. */
+function nodesOf(summary: string): unknown {
+  const parsed: unknown = JSON.parse(summary);
+  return typeof parsed === 'object' && parsed !== null ? Reflect.get(parsed, 'nodes') : undefined;
 }
 
 async function openedSummary(test: Harness, tree: StorageTree, project: ProjectId) {
@@ -118,7 +112,7 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
       );
       expect(header.id).toBe(project);
       expect(header.imported?.from).toBe(project);
-      expect(carried(await openedSummary(other, target.tree, project))).toEqual(carried(summary));
+      expect(await openedSummary(other, target.tree, project)).toBe(summary);
 
       // Unpacked and packed again, the bundle is the same, byte for byte.
       const directory = new MemoryDirectory();
@@ -136,7 +130,7 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
       const third = harness(seed + 200);
       const fromTree = storageOf(third, new MemoryStorageTree());
       expectSuccess(await importUnpacked(written, 'original', fromTree.importing));
-      expect(carried(await openedSummary(third, fromTree.tree, project))).toEqual(carried(summary));
+      expect(await openedSummary(third, fromTree.tree, project)).toBe(summary);
     },
   );
 
@@ -165,9 +159,7 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
       openedSummary(harness(5), target.tree, project),
       openedSummary(harness(6), target.tree, copy.id),
     ]);
-    const { nodes: originalNodes } = carried(original) as { nodes: unknown };
-    const { nodes: copiedNodes } = carried(copied) as { nodes: unknown };
-    expect(copiedNodes).toEqual(originalNodes);
+    expect(nodesOf(copied)).toEqual(nodesOf(original));
   });
 
   it('carries every piece of media a project shares with another', async () => {

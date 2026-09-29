@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   emptyProjectState,
   stateFingerprintOf,
@@ -10,6 +10,7 @@ import {
 import { emptyProject } from '@audiogubbins/test-fixtures';
 
 import { SnapshotStore } from './state-store.js';
+import { nodeDigest } from './testing/node-services.js';
 
 const STATE: ProjectState = emptyProjectState(emptyProject());
 const RENAMED: ProjectState = { ...STATE, project: { ...STATE.project, displayName: 'Renamed' } };

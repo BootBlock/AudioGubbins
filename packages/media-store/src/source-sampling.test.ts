@@ -6,7 +6,8 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { ByteSource } from '@audiogubbins/project-format';
 
 import { sampleSource } from './source-sampling.js';
-import { generatedBytes, generatedSource, memorySource, nodeDigest } from './testing/index.js';
+import { generatedBytes, generatedSource, memorySource } from './testing/index.js';
+import { nodeDigest } from './testing/node-digest.js';
 
 const KIB = 1_024;
 

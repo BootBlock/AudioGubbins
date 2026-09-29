@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MemoryStorageTree, nodeDigest } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   canonicalJson,
   decodeUtf8,
@@ -13,6 +13,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { CheckedRecords, RecordKind } from './checked-records.js';
+import { nodeDigest } from './testing/node-services.js';
 
 const NAME_MEMBERS: ReadonlySet<string> = new Set(['name']);
 const asName = textConverter({ maximumLength: 16 });

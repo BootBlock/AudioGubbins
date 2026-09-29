@@ -39,7 +39,9 @@ import type { ProjectState } from './project-state.js';
 import { TreeReading, atFile, namedValues, type ProjectTreeListing } from './project-tree-files.js';
 import type { TreeHeader } from './project-tree-header.js';
 import {
+  BACKUP_POLICY_PATH,
   BRANCH_NAMES_PATH,
+  COMPARISON_PATH,
   CURSOR_PATH,
   ENTITY_DIRECTORIES,
   RETENTION_PATH,
@@ -50,6 +52,8 @@ import {
 import type { ProjectTreeContent, ProjectTreeHistory, TreeCache } from './project-tree-writing.js';
 import { stripAssetProvenance, stripExportRecords } from './provenance-stripping.js';
 import { readRetentionPolicy } from './retention-json.js';
+import { readBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
+import { readComparisonChoice, type ComparisonChoiceRecord } from './comparison-choice-json.js';
 
 const CURSOR_MEMBERS: ReadonlySet<string> = new Set(['cursor', 'preferred']);
 
@@ -65,6 +69,7 @@ export async function readProjectTree(
   tree.placeEvery(header.value);
 
   const state = await readState(tree, header.value);
+  const backup = await readBackup(tree);
   const history = header.value.history
     ? await readHistory(tree, header.value, state, digest)
     : undefined;
@@ -79,7 +84,11 @@ export async function readProjectTree(
 
   const [first, ...rest] = tree.problems;
   if (first !== undefined) return fail(first, ...rest);
-  if (state === undefined || (header.value.history && history === undefined)) {
+  if (
+    state === undefined ||
+    backup === undefined ||
+    (header.value.history && history === undefined)
+  ) {
     throw new Error('A tree read with no problem found must have given its parts.');
   }
   const { provenance } = header.value;
@@ -87,6 +96,7 @@ export async function readProjectTree(
     state: stripAssetProvenance(state, provenance),
     scope: history === undefined ? { kind: 'state', provenance } : { kind: 'history', history },
     exports: stripExportRecords(exports, provenance),
+    backup,
     media,
     ...(header.value.caches ? { caches } : {}),
   });
@@ -145,6 +155,7 @@ async function readHistory(
 ): Promise<ProjectTreeHistory | undefined> {
   const record = await readRecord(tree, header);
   const retention = await readRetention(tree);
+  const comparison = record === undefined ? undefined : await readComparison(tree, record);
   const states = await readStates(tree, header, digest);
   if (record === undefined || retention === undefined || state === undefined) return undefined;
 
@@ -158,7 +169,7 @@ async function readHistory(
   if (named !== undefined && named !== (await stateFingerprintOf(state, digest))) {
     tree.refuse('tree.cursor-state-mismatch', CURSOR_PATH);
   }
-  return { record, retention, states };
+  return { record, retention, states, ...(comparison === undefined ? {} : { comparison }) };
 }
 
 /** The history's record, put back together from its files and read whole. */
@@ -204,6 +215,36 @@ async function readRetention(tree: TreeReading): Promise<RetentionPolicy | undef
   const [file] = tree.ofKind('retention');
   if (file !== undefined) return await tree.converted(file, readRetentionPolicy);
   tree.refuse('tree.missing-file', RETENTION_PATH);
+  return undefined;
+}
+
+/** The project's backup policy. */
+async function readBackup(tree: TreeReading): Promise<BackupPolicy | undefined> {
+  const [file] = tree.ofKind('backup-policy');
+  if (file !== undefined) return await tree.converted(file, readBackupPolicy);
+  tree.refuse('tree.missing-file', BACKUP_POLICY_PATH);
+  return undefined;
+}
+
+/**
+ * The comparison open, where the tree holds one, refused where a side names a
+ * node or snapshot the history does not hold.
+ */
+async function readComparison(
+  tree: TreeReading,
+  record: HistoryRecord,
+): Promise<ComparisonChoiceRecord | undefined> {
+  const [file] = tree.ofKind('comparison');
+  if (file === undefined) return undefined;
+  const choice = await tree.converted(file, readComparisonChoice);
+  if (choice === undefined) return undefined;
+  const nodes = new Set<string>(record.nodes.map((node) => node.id));
+  const snapshots = new Set<string>(record.snapshots.map((snapshot) => snapshot.id));
+  const held = [choice.a, choice.b].every((source) =>
+    source.kind === 'node' ? nodes.has(source.node) : snapshots.has(source.snapshot),
+  );
+  if (held) return choice;
+  tree.refuse('tree.comparison-unknown', COMPARISON_PATH);
   return undefined;
 }
 
