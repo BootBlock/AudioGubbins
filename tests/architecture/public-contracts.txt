@@ -209,6 +209,7 @@ Published paths
   readonly RenderStrategyRequest.frames: import("packages/domain/src/index").SampleCount
   readonly RenderStrategyRequest.channels: number
   readonly RenderStrategyRequest.sampleRate: import("packages/domain/src/index").SampleRate
+  readonly RenderStrategyRequest.conversions?: readonly import("packages/audio-engine/src/index").ResamplerCoefficients[]
   interface RenderSummary
   readonly RenderSummary.frames: SampleCount
   readonly RenderSummary.latencyTrimmed: ReadonlyMap<NodeId, SampleCount>
