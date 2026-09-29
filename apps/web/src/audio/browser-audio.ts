@@ -15,7 +15,7 @@
 import type { DomainResult } from '@audiogubbins/domain';
 import { watchAudioDevices, type AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
-import { PRESET_SETTINGS, type PresetProfile } from '@audiogubbins/audio-engine';
+import type { PerformanceSettings } from '@audiogubbins/audio-engine';
 import { ContextLifecycle, browserAudioContext } from '@audiogubbins/audio-runtime';
 
 import type { BrowserEngine } from './browser-engine.js';
@@ -61,7 +61,7 @@ export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
     const lifecycle = new ContextLifecycle({
       createContext: browserAudioContext(capabilities),
       watchDevices: watchAudioDevices,
-      latencyHint: PRESET_SETTINGS[profile].latencyHint,
+      latencyHint: profile.settings.latencyHint,
       schedule: browserSchedule,
       logger,
     });
@@ -79,9 +79,9 @@ export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
   };
 }
 
-/** The render host and its scheduler, starting from `profile`'s share for background work. */
+/** The render host and its scheduler, starting from `settings`' share for background work. */
 export function browserRendering(
   engine: () => Promise<BrowserEngine>,
-): (profile: PresetProfile) => Promise<DomainResult<RenderParts>> {
-  return async (profile) => (await engine()).openRendering(profile);
+): (settings: PerformanceSettings) => Promise<DomainResult<RenderParts>> {
+  return async (settings) => (await engine()).openRendering(settings);
 }

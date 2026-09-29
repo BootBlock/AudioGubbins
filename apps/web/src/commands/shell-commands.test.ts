@@ -746,6 +746,13 @@ describe('finding the shell commands in the palette', () => {
     });
   }
 
+  /** Leaves a render waiting on the person's decision, as a warning makes one. */
+  function awaitDecision(run: (id: string) => unknown, context: ShellContext): void {
+    run('transport.render-mode-final-offline');
+    context.renderStrategy.measured(2);
+    run('transport.render-test-signal');
+  }
+
   /**
    * The scenario of each command that needs one, or one per form for a command
    * that takes its arguments in more than one shape: with one scenario, only
@@ -856,6 +863,17 @@ describe('finding the shell commands in the palette', () => {
     'transport.pause': { before: (run) => run('transport.play-test-signal'), settles: true },
     'transport.stop': { before: (run) => run('transport.play-test-signal'), settles: true },
     'transport.profile-balanced': { before: (run) => run('transport.profile-low-latency') },
+    'transport.set-custom-profile': { arguments: () => ({ feedAheadMilliseconds: 321 }) },
+    'transport.priority-interactive-first': {
+      before: (run) => run('transport.priority-throughput'),
+    },
+    'transport.render-mode-automatic': {
+      before: (run) => run('transport.render-mode-final-offline'),
+    },
+    // A render waits on a decision where the foreground was chosen over a
+    // warning that the last render ran slower than real time.
+    'transport.render-safer': { before: awaitDecision },
+    'transport.render-as-chosen': { before: awaitDecision },
   };
 
   /** Everything a command can change, as text, without the announcement it makes. */
@@ -869,8 +887,9 @@ describe('finding the shell commands in the palette', () => {
       verbosity: context.verbosity.get(),
       diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
       logs: context.logs.usage().recordCount,
+      audioSettings: context.audioSettings.get(),
+      planning: context.renderStrategy.get().planning.stage,
       audio: {
-        profile: context.audio.get().profile,
         starting: context.audio.get().starting,
         transport: context.audio.get().playback?.transport,
         render: context.audio.get().render.stage,

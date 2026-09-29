@@ -26,8 +26,9 @@ import {
   frameBlock,
   nextTransportState,
   transportPosition,
-  type PresetProfile,
+  type PerformanceSettings,
   type RenderProgress,
+  type SchedulingPolicy,
   type TransportEvent,
 } from '@audiogubbins/audio-engine';
 import {
@@ -47,6 +48,7 @@ import { vi } from 'vitest';
 
 import type { PlaybackParts, PlaybackSessionPort } from '../audio/playback-control.js';
 import type { RenderParts } from '../audio/render-control.js';
+import type { ChosenProfile } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import { PROMPTLY } from './waiting.js';
 
@@ -160,7 +162,7 @@ export class FakeSession implements PlaybackSessionPort {
 
 /** One profile's fake parts, and what was asked of them. */
 export interface FakeOpened {
-  readonly profile: PresetProfile;
+  readonly profile: ChosenProfile;
   readonly session: FakeSession;
   contextStarts: number;
   closed: boolean;
@@ -174,7 +176,7 @@ export class FakePlayback {
   /** What each new session's Play answers, where a test wants the context refused. */
   playRefusal: DomainResult<void> | undefined;
 
-  readonly open = (profile: PresetProfile): PlaybackParts => {
+  readonly open = (profile: ChosenProfile): PlaybackParts => {
     const made: FakeOpened = {
       profile,
       session: new FakeSession(),
@@ -211,19 +213,30 @@ export class FakeRendering {
   chunks: readonly (readonly Float32Array[])[] = [];
   /** What the render finishes with, where a test wants it refused. */
   refusal: DomainResult<never> | undefined;
+  /** What the render throws instead of answering, where a test wants a fault no code expected. */
+  thrown: unknown;
   readonly requests: RenderRequest[] = [];
+  /** What each render was run with: its priority above all. */
+  readonly runs: RenderRunOptions[] = [];
   readonly interactive: boolean[] = [];
+  readonly policies: SchedulingPolicy[] = [];
   readonly backgroundLimits: number[] = [];
+  /** The settings the parts were first made with, one entry per making. */
+  readonly openedWith: PerformanceSettings[] = [];
   opens = 0;
 
-  readonly open = (): Promise<DomainResult<RenderParts>> => {
+  readonly open = (settings: PerformanceSettings): Promise<DomainResult<RenderParts>> => {
     this.opens += 1;
+    this.openedWith.push(settings);
     return Promise.resolve(succeed({ host: this.#host, scheduler: this.#scheduler }));
   };
 
   readonly #scheduler: RenderParts['scheduler'] = {
     setInteractive: (active) => {
       this.interactive.push(active);
+    },
+    setPolicy: (policy) => {
+      this.policies.push(policy);
     },
     setBackgroundConcurrencyWhileInteractive: (limit) => {
       this.backgroundLimits.push(limit);
@@ -240,6 +253,9 @@ export class FakeRendering {
     run: RenderRunOptions,
   ): Promise<DomainResult<WorkerRenderSummary>> {
     this.requests.push(request);
+    this.runs.push(run);
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the fault stood in for is one that is not an Error
+    if (this.thrown !== undefined) throw this.thrown;
     if (this.refusal !== undefined) return this.refusal;
     const [sink] = run.sinks.values();
     if (sink === undefined) return fail(failure('fake.no-sink', FailureKind.Rejected, 'No sink.'));

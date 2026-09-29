@@ -17,6 +17,7 @@ import {
   JobPriority,
   MAXIMUM_RENDER_QUALITY,
   createCancellationSource,
+  SchedulingPolicy,
   createPriorityScheduler,
   type AudioFrameBlock,
   type PriorityScheduler,
@@ -143,17 +144,18 @@ function chunk(jobId: string, node = OUT, frames = 2): FromRenderWorker {
 function hostUnderTest(concurrency = 2) {
   const workers: FakeRenderWorker[] = [];
   const timers = playedTimers();
+  const jobs = scheduler(concurrency);
   const host: RenderHost = createRenderHost({
     createWorker: () => {
       const worker = new FakeRenderWorker();
       workers.push(worker);
       return worker;
     },
-    scheduler: scheduler(concurrency),
+    scheduler: jobs,
     dsp: { unavailable: 'None was compiled.' },
     schedule: timers.schedule,
   });
-  return { host, workers, timers };
+  return { host, workers, timers, scheduler: jobs };
 }
 
 /** The worker the host made for the render it started last. */
@@ -558,5 +560,57 @@ describe('the render host', () => {
 
     expect(workers.map((worker) => worker.jobId)).toEqual(['render-1', 'render-3', 'render-2']);
     expect(workers.every((worker) => worker.terminated)).toBe(true);
+  });
+
+  describe('under the priority policy the person chose', () => {
+    const sinks = () =>
+      new Map([
+        [OUT, immediateSink()],
+        [MONITOR, immediateSink()],
+      ]);
+
+    it('starts renders in the order they were asked for under the throughput policy', async () => {
+      const { host, workers, scheduler: jobs } = hostUnderTest(1);
+      jobs.setPolicy(SchedulingPolicy.Throughput);
+      const first = host.render(request(), { priority: JobPriority.Foreground, sinks: sinks() });
+      const background = host.render(request(), {
+        priority: JobPriority.Background,
+        sinks: sinks(),
+      });
+      const foreground = host.render(request(), {
+        priority: JobPriority.Foreground,
+        sinks: sinks(),
+      });
+      await idle();
+
+      lastWorker(workers).reply(done('render-1'));
+      await first;
+      await idle();
+      // Interactive first would start render-3 here, as the test above shows.
+      expect(workers.map((worker) => worker.jobId)).toEqual(['render-1', 'render-2']);
+
+      lastWorker(workers).reply(done('render-2'));
+      await background;
+      await idle();
+      lastWorker(workers).reply(done('render-3'));
+      await foreground;
+    });
+
+    it('holds background renders to their share while a person plays, unless throughput is chosen', async () => {
+      const { host, workers, scheduler: jobs } = hostUnderTest(2);
+      jobs.setInteractive(true);
+      const renders = [1, 2].map(() =>
+        host.render(request(), { priority: JobPriority.Background, sinks: sinks() }),
+      );
+      await idle();
+      expect(workers).toHaveLength(1);
+
+      jobs.setPolicy(SchedulingPolicy.Throughput);
+      await idle();
+      expect(workers.map((worker) => worker.jobId)).toEqual(['render-1', 'render-2']);
+
+      for (const worker of workers) worker.reply(done(worker.jobId));
+      await Promise.all(renders);
+    });
   });
 });

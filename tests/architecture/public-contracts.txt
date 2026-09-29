@@ -60,6 +60,7 @@ Published paths
   interface ChunkPlanRequest extends WorkloadShape
   readonly ChunkPlanRequest.settings: PerformanceSettings
   readonly ChunkPlanRequest.availableMemoryBytes?: number
+  readonly ChunkPlanRequest.measuredCostRatio?: number
   readonly ChunkPlanRequest.frames: SampleCount
   readonly ChunkPlanRequest.channels: number
   readonly ChunkPlanRequest.sampleRate: SampleRate
@@ -86,6 +87,8 @@ Published paths
   KernelContext.feedFor: (node: NodeId) => InputFeed | undefined
   KernelContext.sinkFor: (node: NodeId) => SinkTarget | undefined
   KernelContext.meterFor: (node: NodeId) => MeterTarget | undefined
+  const LATENCY_CATEGORIES: readonly ["interactive", "balanced", "playback"]
+  type LatencyCategory = "balanced" | "interactive" | "playback"
   type LatencyHint = "balanced" | "interactive" | "playback" | number
   type LimitingResource = "compute" | "memory" | "storage"
   const MAXIMUM_RENDER_QUALITY: RenderQualityProfile
@@ -151,9 +154,14 @@ Published paths
   readonly ProcessingModeRequest.measuredCostRatio?: number
   readonly ProcessingModeRequest.override?: ProcessingMode
   readonly ProcessingModeRequest.settings: PerformanceSettings
+  readonly ProcessingModeRequest.unavailable?: ReadonlyMap<ProcessingMode, string>
+  readonly ProcessingModeRequest.warnings?: readonly ResourceWarning[]
   const ProcessingPurpose: { readonly Monitor: "monitor"; readonly Preview: "preview"; readonly Analysis: "analysis"; readonly FinalRender: "final-render"; }
   type ProcessingPurpose = "analysis" | "final-render" | "monitor" | "preview"
   const REFERENCE_DSP: CanonicalDsp
+  interface RenderAssessment
+  readonly RenderAssessment.strategy: RenderStrategy
+  readonly RenderAssessment.safer?: RenderStrategy
   interface RenderConversion
   readonly RenderConversion.node: NodeId
   readonly RenderConversion.from: SampleRate
@@ -182,6 +190,18 @@ Published paths
   readonly RenderRange.length: SampleCount
   interface RenderSink
   RenderSink.write: (block: AudioFrameBlock, signal?: CancellationSignal) => Promise<void>
+  interface RenderStrategy
+  readonly RenderStrategy.choice: ProcessingModeChoice
+  readonly RenderStrategy.priority: JobPriority
+  readonly RenderStrategy.plan: ChunkPlan
+  interface RenderStrategyRequest extends ChunkPlanRequest
+  readonly RenderStrategyRequest.override?: ProcessingMode
+  readonly RenderStrategyRequest.settings: import("packages/audio-engine/src/index").PerformanceSettings
+  readonly RenderStrategyRequest.availableMemoryBytes?: number
+  readonly RenderStrategyRequest.measuredCostRatio?: number
+  readonly RenderStrategyRequest.frames: import("packages/domain/src/index").SampleCount
+  readonly RenderStrategyRequest.channels: number
+  readonly RenderStrategyRequest.sampleRate: import("packages/domain/src/index").SampleRate
   interface RenderSummary
   readonly RenderSummary.frames: SampleCount
   readonly RenderSummary.latencyTrimmed: ReadonlyMap<NodeId, SampleCount>
@@ -241,6 +261,7 @@ Published paths
   readonly WorkloadShape.sampleRate: SampleRate
   function allocateBlock(layout: ChannelLayout, sampleRate: SampleRate, frames: number): AudioFrameBlock
   function assertReadableInto(source: Pick<PcmSource, "layout" | "sampleRate">, into: AudioFrameBlock): void
+  function assessRender(request: RenderStrategyRequest): DomainResult<RenderAssessment>
   function assessStability(history: UnderrunHistory, contextFrame: number, profile: PerformanceProfile, settings: PerformanceSettings): StabilityAssessment
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
@@ -254,6 +275,7 @@ Published paths
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
+  function isLatencyHint(value: unknown): boolean
   function memorySource(block: AudioFrameBlock): DomainResult<PcmSource>
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
@@ -653,6 +675,8 @@ Published paths
   readonly PlatformSignals.platformHint?: string
   readonly PlatformSignals.maxTouchPoints: number
   const RECORDING: FeatureRequirement
+  interface ResourceFigures
+  readonly ResourceFigures.availableMemoryBytes: number | undefined
   const SETTINGS_STORAGE: FeatureRequirement
   const SYSTEM_APPEARANCE: FeatureRequirement
   function absent(key: CapabilityKey, reason: string, remedy?: string | undefined): CapabilityAbsent
@@ -665,6 +689,7 @@ Published paths
   function present(key: CapabilityKey): CapabilityPresent
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
   function readPlatformSignals(): PlatformSignals
+  function readResourceFigures(performanceLike: object): ResourceFigures
   function usesAppleModifiers(system: OperatingSystem): boolean
   function watchAppearanceSettings(): AppearanceSettingsWatch
   function watchAudioDevices(changed: () => void): () => void
@@ -1565,8 +1590,8 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly diagnosticBundle: 1; }
-  type SchemaName = "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly diagnosticBundle: 1; }
+  type SchemaName = "audioSettings" | "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/workspace
   const BUILT_IN_IS_NOT_DELETABLE: "A built-in workspace cannot be deleted."

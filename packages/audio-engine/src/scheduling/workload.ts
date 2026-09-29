@@ -6,6 +6,12 @@
  * plan around, never a reason to refuse: work is always processed in chunks,
  * and when holding it whole would need more memory than is available the plan
  * says so, names the resource and the safer strategy, and proceeds.
+ *
+ * The processor is planned around the same way. Where this machine has been
+ * measured processing audio more slowly than it plays, the plan says the
+ * processor is the limiting resource and offers the background, where the work
+ * waits behind playback and editing rather than holding them up. That is never
+ * a reason to refuse either.
  */
 
 import {
@@ -57,6 +63,11 @@ export interface ChunkPlanRequest extends WorkloadShape {
   readonly settings: PerformanceSettings;
   /** Bytes the host measured as available; undefined when it could not tell. */
   readonly availableMemoryBytes?: number;
+  /**
+   * Processing seconds per second of audio, as this machine last measured
+   * work of the kind planned; undefined until it has been measured.
+   */
+  readonly measuredCostRatio?: number;
 }
 
 /** How a workload is split, and anything the person should know first. */
@@ -103,6 +114,18 @@ function describeBytes(bytes: number): string {
     : `${(bytes / unit[0]).toFixed(1)} ${unit[1]}`;
 }
 
+/** A duration in words, to the tenth of a second under a minute and to the second above. */
+function describeSeconds(seconds: number): string {
+  if (seconds < 60) return `${seconds.toFixed(1)} seconds`;
+  const whole = Math.round(seconds);
+  const hours = Math.floor(whole / 3_600);
+  const minutes = Math.floor((whole % 3_600) / 60);
+  const rest = whole % 60;
+  return hours > 0
+    ? `${String(hours)} h ${String(minutes)} min`
+    : `${String(minutes)} min ${String(rest)} s`;
+}
+
 function describeChunk(frames: number, rate: SampleRate): string {
   return `${String(Math.round((frames / rate) * 1_000))} ms`;
 }
@@ -144,6 +167,39 @@ function memoryWarning(
   };
 }
 
+/**
+ * The processor is the limiting resource where the measured cost is above
+ * one: the work runs more slowly than the audio plays, so it cannot keep pace
+ * with real time and holds a processor for longer than the audio lasts.
+ */
+function computeWarning(audioSeconds: number, costRatio: number): ResourceWarning | undefined {
+  if (costRatio <= 1) return undefined;
+  const needed = audioSeconds * costRatio;
+  return {
+    resource: 'compute',
+    needed,
+    available: audioSeconds,
+    explanation:
+      `At the speed this machine last processed audio, this takes about ${describeSeconds(needed)} ` +
+      `for ${describeSeconds(audioSeconds)} of audio, more slowly than it plays. ` +
+      'The processor is the limiting resource.',
+    saferStrategy:
+      'Run it in the background, so playback and editing keep the processor first while it runs. ' +
+      'It may take longer, and it finishes.',
+  };
+}
+
+function validCostRatio(ratio: number | undefined): DomainResult<number | undefined> {
+  if (ratio === undefined || (Number.isFinite(ratio) && ratio >= 0)) return succeed(ratio);
+  return fail(
+    failure(
+      'workload.cost-ratio-invalid',
+      FailureKind.Rejected,
+      `A measured cost ratio must be a finite number of at least zero; ${String(ratio)} was given.`,
+    ),
+  );
+}
+
 function validMemory(available: number | undefined): DomainResult<number | undefined> {
   if (available === undefined || (Number.isFinite(available) && available >= 0)) {
     return succeed(available);
@@ -160,21 +216,27 @@ function validMemory(available: number | undefined): DomainResult<number | undef
 /**
  * Splits a workload into chunks. It never refuses a workload for its size:
  * when holding it whole would exceed the memory available, the plan carries a
- * warning and still proceeds in chunks. Unknown memory is assumed neither
- * large nor small, so the plan chunks and warns of nothing it cannot know.
+ * warning and still proceeds in chunks, and when the processor was measured
+ * slower than real time it carries a warning of that. Unknown memory and an
+ * unmeasured processor are assumed neither large nor small, so the plan warns
+ * of nothing it cannot know.
  */
 export function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan> {
   const estimate = estimateWorkload(request);
   if (!estimate.ok) return estimate;
   const available = validMemory(request.availableMemoryBytes);
   if (!available.ok) return available;
+  const cost = validCostRatio(request.measuredCostRatio);
+  if (!cost.ok) return cost;
 
   const chunkFrames = chunkFramesFor(request);
   const chunks = Math.ceil(request.frames / chunkFrames);
   const needed = estimate.value.bytesHeldWhole;
-  const warnings =
+  const warnings = [
     available.value !== undefined && needed > available.value
-      ? [memoryWarning(request, needed, available.value, chunkFrames, chunks)]
-      : [];
+      ? memoryWarning(request, needed, available.value, chunkFrames, chunks)
+      : undefined,
+    cost.value === undefined ? undefined : computeWarning(estimate.value.audioSeconds, cost.value),
+  ].filter((warning) => warning !== undefined);
   return succeed({ chunkFrames, chunks, warnings });
 }

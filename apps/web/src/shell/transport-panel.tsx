@@ -11,37 +11,44 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, OptionSelect } from '@audiogubbins/design-system';
+import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import { TransportMode } from '@audiogubbins/audio-engine';
 
 import { TEST_SIGNAL } from '../audio/test-signal.js';
-import { PRESET_PROFILES, PROFILE_NAMES, profileCommandId } from '../commands/audio-commands.js';
+import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import {
   RenderStage,
   type AudioView,
   type AudioViewStore,
   type RenderResult,
 } from '../state/audio-view-store.js';
+import type { RenderStrategyStore } from '../state/render-strategy-store.js';
 import {
   durationText,
   dspText,
   fingerprintText,
   framesText,
   positionText,
-} from './audio-format.js';
+} from '../audio-format.js';
 import {
   AudioDegradations,
   EngineState,
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
+import { PerformanceChoice } from './performance-choice.js';
+import { ProcessingModes } from './processing-modes.js';
 import { usePlayhead } from './use-playhead.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface TransportPanelProps {
   readonly title: string;
   readonly audio: AudioViewStore;
+  /** The person's audio settings: the profile, and the render mode. */
+  readonly audioSettings: AudioSettingsStore;
+  /** How the latest render was planned. */
+  readonly renderStrategy: RenderStrategyStore;
   readonly capabilities: CapabilityRegistry;
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;
@@ -114,30 +121,6 @@ function TransportControls({
       </span>
       {view.starting && <span className="ag-panel-note">Starting…</span>}
     </div>
-  );
-}
-
-/** The choice between the three presets, each through its command. */
-function ProfileChoice({
-  view,
-  commands,
-}: {
-  readonly view: AudioView;
-  readonly commands: Commands;
-}): ReactNode {
-  return (
-    <OptionSelect
-      label="Performance profile"
-      value={view.profile}
-      options={PRESET_PROFILES.map((profile) => ({
-        value: profile,
-        label: PROFILE_NAMES[profile],
-      }))}
-      onValueChange={(value) => {
-        const chosen = PRESET_PROFILES.find((profile) => profile === value);
-        if (chosen !== undefined) commands.run(profileCommandId(chosen));
-      }}
-    />
   );
 }
 
@@ -218,6 +201,7 @@ function OfflineRender({
 export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
+  const { chosen } = useSyncExternalStore(props.audioSettings.subscribe, props.audioSettings.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
     <section className="ag-panel ag-transport">
@@ -228,9 +212,15 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
       <TransportControls view={view} playhead={playhead} commands={props} />
       <PlaybackProblems problems={problems} />
       <LevelMeters status={view.playback} />
-      <ProfileChoice view={view} commands={props} />
+      <PerformanceChoice profile={chosen.profile} run={props.run} />
       <EngineState status={view.playback} />
       <OfflineRender view={view} commands={props} />
+      <ProcessingModes
+        settings={props.audioSettings}
+        strategy={props.renderStrategy}
+        run={props.run}
+        unavailableReason={props.unavailableReason}
+      />
       <AudioDegradations capabilities={capabilities} />
     </section>
   );

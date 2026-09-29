@@ -132,6 +132,14 @@ export default defineConfig<SuiteOptions>({
       testMatch: /(input|touch)\.spec\.ts/,
     },
     {
+      // Playback and the offline render, driven from the Transport panel. A
+      // project of its own, so the fast tier does not wait on an audio context
+      // starting and a render running in a worker.
+      name: 'chromium-transport',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /transport\.spec\.ts/,
+    },
+    {
       // Accessibility as well as the smoke suite: asserted on Chromium alone,
       // the focus ring, the live regions and the reduced-motion handling would
       // go untested on the two engines whose focus heuristics differ most from

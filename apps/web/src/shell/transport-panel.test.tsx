@@ -7,13 +7,40 @@ import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubb
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId } from '@audiogubbins/audio-graph';
-import { DspImplementation, PerformanceProfile } from '@audiogubbins/audio-engine';
+import { sampleCount, sampleRate } from '@audiogubbins/domain';
+import {
+  DspImplementation,
+  PRESET_SETTINGS,
+  PerformanceProfile,
+  ProcessingMode,
+  assessRender,
+} from '@audiogubbins/audio-engine';
 import { LifecycleState, PlaybackPhase, type PlaybackStatus } from '@audiogubbins/audio-runtime';
 
+import {
+  createAudioSettingsStore,
+  type AudioSettingsStore,
+} from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioViewStore } from '../state/audio-view-store.js';
+import {
+  createRenderStrategyStore,
+  type RenderStrategyStore,
+} from '../state/render-strategy-store.js';
+import { createStateStorage } from '../state/state-storage.js';
+import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_DEVICE, FakeSession, UNLOADED } from '../testing/audio-fakes.js';
 import { CAPABLE } from '../testing/shell-context.js';
 import { TransportPanel } from './transport-panel.js';
+
+const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
+
+/** Audio settings as they start, kept nowhere. */
+function audioSettings(): AudioSettingsStore {
+  return createAudioSettingsStore(
+    createStateStorage(ephemeralStorage(), logger, () => undefined),
+    logger,
+  );
+}
 
 /** The panel over `audio`, in a browser `environment` describes. */
 function draw(
@@ -22,6 +49,8 @@ function draw(
     readonly environment?: CapabilityEnvironment;
     readonly playhead?: () => number | undefined;
     readonly unavailable?: Readonly<Record<string, string>>;
+    readonly settings?: AudioSettingsStore;
+    readonly strategy?: RenderStrategyStore;
   } = {},
 ) {
   const run = vi.fn<(id: string) => void>();
@@ -33,6 +62,8 @@ function draw(
     <TransportPanel
       title="Transport"
       audio={audio}
+      audioSettings={options.settings ?? audioSettings()}
+      renderStrategy={options.strategy ?? createRenderStrategyStore()}
       capabilities={capabilities}
       playhead={options.playhead ?? (() => undefined)}
       run={run}
@@ -102,14 +133,91 @@ describe('the Transport panel before anything plays', () => {
     expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
   });
 
-  it('shows the profile chosen', () => {
-    const audio = createAudioViewStore();
-    audio.chooseProfile(PerformanceProfile.MaximumStability);
-    draw(audio);
+  it('shows the profile chosen, Custom among them', () => {
+    const settings = audioSettings();
+    settings.chooseProfile(PerformanceProfile.MaximumStability);
+    draw(undefined, { settings });
 
-    expect(screen.getByRole('combobox', { name: 'Performance profile' })).toHaveTextContent(
-      'Maximum stability',
+    const choice = screen.getByRole('combobox', { name: 'Performance profile' });
+    expect(choice).toHaveTextContent('Maximum stability');
+    act(() => {
+      settings.chooseProfile(PerformanceProfile.Custom);
+    });
+    expect(choice).toHaveTextContent('Custom');
+  });
+});
+
+/** A ten-second render chosen in the foreground over a warning that the last one ran too slowly. */
+function contestedRender() {
+  const assessment = expectSuccess(
+    assessRender({
+      frames: expectSuccess(sampleCount(480_000)),
+      channels: 2,
+      sampleRate: expectSuccess(sampleRate(48_000)),
+      settings: PRESET_SETTINGS[PerformanceProfile.Balanced],
+      measuredCostRatio: 2,
+      override: ProcessingMode.FinalOffline,
+    }),
+  );
+  const { safer } = assessment;
+  if (safer === undefined) throw new Error('The assessment offered no safer strategy.');
+  return { ...assessment, safer };
+}
+
+describe('the Transport panel’s processing modes', () => {
+  it('shows playback as real-time processing, and says why no cached preview is used', () => {
+    draw();
+
+    expect(reading('Playback')).toMatch(/^Real-time processing/);
+    expect(reading('Playback')).toContain(
+      'a cached preview is not available: nothing in AudioGubbins renders a preview ahead of playback yet',
     );
+  });
+
+  it('shows the mode the next render takes before any render, with its reason', () => {
+    draw();
+
+    expect(reading('Offline render')).toBe(
+      'Final offline rendering' +
+        'Rendering offline at full quality, so the file is identical on every machine.',
+    );
+    expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
+  });
+
+  it('shows the mode a render was planned with, and where it queued', () => {
+    const strategy = createRenderStrategyStore();
+    strategy.decide(contestedRender().safer);
+    draw(undefined, { strategy });
+
+    expect(reading('Offline render')).toMatch(/^Background rendering/);
+    expect(reading('Offline render')).toContain(
+      'Queued behind playback, editing and work you are waiting on.',
+    );
+  });
+
+  it('shows what the render was warned of, naming the resource, and runs the decision it asks for', async () => {
+    const strategy = createRenderStrategyStore();
+    strategy.awaitDecision(contestedRender());
+    const { run } = draw(undefined, { strategy });
+
+    const warnings = screen.getByRole('list', { name: 'What the render was warned of' });
+    expect(within(warnings).getByText('Processor.')).toBeInTheDocument();
+    expect(warnings).toHaveTextContent('The processor is the limiting resource.');
+
+    const decision = screen.getByRole('group', { name: 'How to render' });
+    await userEvent.click(
+      within(decision).getByRole('button', { name: 'Render in the background' }),
+    );
+    await userEvent.click(within(decision).getByRole('button', { name: 'Render as chosen' }));
+
+    expect(run.mock.calls).toEqual([['transport.render-safer'], ['transport.render-as-chosen']]);
+  });
+
+  it('offers no decision, and no warnings, while nothing warns', () => {
+    draw();
+
+    expect(screen.queryByRole('group', { name: 'How to render' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'What the render was warned of' })).toBeNull();
   });
 });
 

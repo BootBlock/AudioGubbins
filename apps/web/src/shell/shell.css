@@ -418,6 +418,22 @@
   font-size: var(--ag-text-small);
 }
 
+/* A set of settings applied together, such as the Custom profile's. */
+.ag-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: var(--ag-space-small) var(--ag-space-medium);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-small);
+}
+
+.ag-settings-group > legend {
+  padding-inline: var(--ag-space-tiny);
+  font-weight: 600;
+}
+
 .ag-shortcut-table {
   inline-size: 100%;
   border-collapse: collapse;
@@ -650,6 +666,28 @@
 .ag-render-progress {
   inline-size: min(100%, 24em);
   accent-color: var(--ag-chrome-accent);
+}
+
+/* What a render's resources warned of, each naming the resource that limits it. */
+.ag-render-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-small);
+}
+
+/* The two ways a render waiting on a warning can go. */
+.ag-render-decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-render-decision > .ag-panel-note {
+  flex-basis: 100%;
 }
 
 .ag-audio-problems {

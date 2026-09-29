@@ -30,6 +30,7 @@ import {
   operatingSystemOf,
   readLayoutMap,
   readPlatformSignals,
+  readResourceFigures,
   watchAppearanceSettings,
   type CapabilityRegistry,
   type LayoutMapPairs,
@@ -52,6 +53,7 @@ import type { ShellContext } from './commands/shell-context.js';
 import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
+import { createAudioSettingsStore } from './state/audio-settings-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
@@ -61,6 +63,7 @@ import {
   type KeyboardLayoutStore,
 } from './state/keyboard-layout-store.js';
 import { createPreferencesStore } from './state/preferences-store.js';
+import { createRenderStrategyStore } from './state/render-strategy-store.js';
 import { createShortcutStore } from './state/shortcut-store.js';
 import { browserStorage, createStateStorage, type StateStorage } from './state/state-storage.js';
 import { createVerbosityStore, readStoredVerbosity } from './state/verbosity-store.js';
@@ -112,8 +115,8 @@ function startKeyboardLayout(
 }
 
 /**
- * The audio part: the engine's view, and the controls that play and render
- * the test signal.
+ * The audio part: the engine's view, the person's audio settings, how renders
+ * are planned, and the controls that play and render the test signal.
  *
  * Nothing audible is made here. The context, the session, the DSP module and
  * the render host are made by the first command that needs each, from the
@@ -124,30 +127,42 @@ function startKeyboardLayout(
 function startAudio(
   capabilities: CapabilityRegistry,
   interaction: InteractionStore,
+  storage: StateStorage,
   logger: Logger,
 ): {
-  readonly parts: Pick<ShellContext, 'audio' | 'playback' | 'rendering'>;
+  readonly parts: Pick<
+    ShellContext,
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+  >;
   readonly dispose: () => void;
 } {
   const runtime = audioRuntimeCapabilities(capabilities);
   const engine = browserEngineLoader(runtime);
   const audio = createAudioViewStore();
+  const audioSettings = createAudioSettingsStore(storage, logger);
+  const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
     interaction.announce(text);
   };
   const playback = new PlaybackControl({
     view: audio,
     open: browserPlayback({ capabilities: runtime, engine, logger }),
+    profile: () => audioSettings.get().chosen,
     announce,
   });
   const rendering = new RenderControl({
     view: audio,
+    settings: audioSettings,
+    strategy: renderStrategy,
     open: browserRendering(engine),
+    // Measured when each render is asked for, since what the page holds moves.
+    resources: () => readResourceFigures(performance),
     now: () => performance.now(),
     announce,
+    logger,
   });
   return {
-    parts: { audio, playback, rendering },
+    parts: { audio, audioSettings, renderStrategy, playback, rendering },
     dispose: () => {
       playback.dispose();
       rendering.dispose();
@@ -248,7 +263,7 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
-  const audioPart = startAudio(capabilities, interaction, diagnostics.loggerFor('audio'));
+  const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),

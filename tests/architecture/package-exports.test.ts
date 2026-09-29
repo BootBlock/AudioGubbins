@@ -291,21 +291,11 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
-    "The engine's primitives no host in this phase calls yet: processing-mode selection (REQ-ARCH-079), the workload estimate and chunk plan (REQ-ARCH-087), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
+    "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
       [
-        'ChunkPlan',
-        'ChunkPlanRequest',
-        'LimitingResource',
-        'ProcessingMode',
-        'ProcessingModeChoice',
-        'ProcessingModeRequest',
-        'ProcessingPurpose',
-        'ResourceWarning',
         'STABILITY_WINDOW_SECONDS',
         'WorkloadEstimate',
-        'WorkloadShape',
         'assertReadableInto',
-        'availableProcessingModes',
         'childCancellation',
         'contextFrameFor',
         'estimateWorkload',
@@ -313,12 +303,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'offsetSource',
         'planChunks',
         'resampledSource',
-        'selectProcessingMode',
         'settingsFor',
         'silence',
         'throwIfCancelled',
         'timelineFrameAt',
-        'validatePerformanceSettings',
       ],
   },
   '@audiogubbins/diagnostics': {
