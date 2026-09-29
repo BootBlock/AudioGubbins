@@ -262,6 +262,24 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The multi-resolution peak pyramid, made off the page by the peak worker
+    // and shared among views by source identity and revision, with its
+    // disposable cache format and the zero-crossing search (ADR-0040,
+    // ADR-0043). No browser: the worker's scope is declared by its shape.
+    dir: 'packages/waveform',
+    name: '@audiogubbins/waveform',
+    description:
+      'Waveform peaks: the multi-resolution pyramid, its worker, its disposable cache and the column reads a view draws from.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'peak-worker.ts': 'dedicated-worker' },
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

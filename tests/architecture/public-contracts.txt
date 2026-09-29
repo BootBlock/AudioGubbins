@@ -17,6 +17,8 @@ Published paths
   @audiogubbins/text
   @audiogubbins/timeline
   @audiogubbins/version
+  @audiogubbins/waveform
+  @audiogubbins/waveform/threads/*
   @audiogubbins/workspace
   @audiogubbins/workspace/styles/*.css
 
@@ -1824,6 +1826,106 @@ Published paths
   const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly diagnosticBundle: 1; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
+@audiogubbins/waveform
+  const BASE_BUCKET_FRAMES: 256
+  interface ColumnPeaks
+  ColumnPeaks.columns: number
+  readonly ColumnPeaks.minimum: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.maximum: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.rms: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.clipped: Uint8Array<ArrayBufferLike>
+  readonly ColumnPeaks.known: Uint8Array<ArrayBufferLike>
+  interface ColumnSpan
+  readonly ColumnSpan.start: number
+  readonly ColumnSpan.framesPerColumn: number
+  readonly ColumnSpan.columns: number
+  interface FrameRange
+  readonly FrameRange.start: number
+  readonly FrameRange.end: number
+  interface LevelGeometry
+  readonly LevelGeometry.bucketFrames: number
+  readonly LevelGeometry.buckets: number
+  interface PeakCacheStore
+  PeakCacheStore.read: (identity: string, revision: string) => Promise<Uint8Array<ArrayBuffer> | undefined>
+  PeakCacheStore.write: (identity: string, revision: string, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  interface PeakChannel
+  readonly PeakChannel.minimum: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.maximum: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.rms: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.clipped: Uint8Array<ArrayBufferLike>
+  type PeakEvent = { readonly kind: "cache-refused"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unreadable"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unwritten"; readonly identity: string; readonly reason: string; } | { readonly kind: "failed"; readonly identity: string; readonly reason: string; }
+  interface PeakGeometry
+  readonly PeakGeometry.frames: number
+  readonly PeakGeometry.channels: number
+  readonly PeakGeometry.levels: readonly LevelGeometry[]
+  interface PeakHandle
+  readonly PeakHandle.pyramid: WaveformPeakPyramid
+  readonly PeakHandle.status: PeakStatus
+  PeakHandle.subscribe: (listener: () => void) => () => void
+  PeakHandle.focus: (range: FrameRange) => void
+  PeakHandle.samples: (range: FrameRange, signal?: CancellationSignal) => Promise<SampleWindow>
+  readonly PeakHandle.zeroCrossings: ZeroCrossingSearch
+  PeakHandle.release: () => void
+  class PeakHost
+  new PeakHost(options: { readonly createWorker: () => PeakWorkerPort; readonly cache: PeakCacheStore; readonly report: (event: PeakEvent) => void; }): PeakHost
+  readonly PeakHost.#createWorker: () => PeakWorkerPort
+  readonly PeakHost.#cache: PeakCacheStore
+  readonly PeakHost.#report: (event: PeakEvent) => void
+  readonly PeakHost.#shared: Map<string, Shared>
+  readonly PeakHost.#byName: Map<string, PeakJob>
+  PeakHost.#worker: PeakWorkerPort | undefined
+  PeakHost.#jobs: number
+  PeakHost.open: (subject: PeakSubject) => PeakHandle
+  PeakHost.#start: (key: string, subject: PeakSubject) => Shared
+  PeakHost.#workerPort: () => PeakWorkerPort
+  PeakHost.#receive: (value: unknown) => void
+  PeakHost.#workerFailed: (reason: string) => void
+  PeakHost.#close: (key: string, job: PeakJob) => void
+  PeakHost.dispose: () => void
+  interface PeakLevel extends LevelGeometry
+  readonly PeakLevel.channels: readonly PeakChannel[]
+  readonly PeakLevel.known: Uint8Array<ArrayBufferLike>
+  readonly PeakLevel.bucketFrames: number
+  readonly PeakLevel.buckets: number
+  interface PeakRun
+  readonly PeakRun.level: number
+  readonly PeakRun.first: number
+  readonly PeakRun.channels: readonly PeakChannel[]
+  type PeakStatus = { readonly kind: "complete"; } | { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "generating"; readonly progress: number; } | { readonly kind: "reading-cache"; }
+  interface PeakSubject
+  readonly PeakSubject.identity: string
+  readonly PeakSubject.revision: string
+  readonly PeakSubject.channels: number
+  readonly PeakSubject.frames: number
+  readonly PeakSubject.sampleRate: number
+  readonly PeakSubject.describe: () => PcmDescription
+  interface PeakWorkerPort
+  PeakWorkerPort.post: (message: ToPeakWorker, transfer: readonly ArrayBuffer[]) => void
+  PeakWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  PeakWorkerPort.terminate: () => void
+  interface SampleWindow
+  readonly SampleWindow.start: number
+  readonly SampleWindow.channels: readonly Float32Array<ArrayBufferLike>[]
+  class WaveformPeakPyramid
+  new WaveformPeakPyramid(geometry: PeakGeometry, levels?: readonly PeakLevel[]): WaveformPeakPyramid
+  readonly WaveformPeakPyramid.geometry: PeakGeometry
+  readonly WaveformPeakPyramid.levels: readonly PeakLevel[]
+  WaveformPeakPyramid.#version: number
+  readonly WaveformPeakPyramid.#known: number[]
+  WaveformPeakPyramid.version: number
+  WaveformPeakPyramid.progress: number
+  WaveformPeakPyramid.complete: boolean
+  WaveformPeakPyramid.apply: (run: PeakRun) => void
+  interface ZeroCrossingSearch
+  ZeroCrossingSearch.nearest: (position: number, within: number, channels: readonly number[], signal?: CancellationSignal) => Promise<number | undefined>
+  function columnPeaks(capacity: number): ColumnPeaks
+  function peakGeometry(frames: number, channels: number): PeakGeometry
+  function readPyramidColumns(pyramid: WaveformPeakPyramid, channel: number, span: ColumnSpan, into: ColumnPeaks): void
+  function readSampleColumns(held: SampleWindow, channel: number, span: ColumnSpan, into: ColumnPeaks): void
+  function readsPyramid(pyramid: WaveformPeakPyramid, span: ColumnSpan): boolean
+  function windowCovers(held: SampleWindow, span: ColumnSpan): boolean
+  function windowFrames(held: SampleWindow): number
+
 @audiogubbins/workspace
   const BUILT_IN_IS_NOT_DELETABLE: "A built-in workspace cannot be deleted."
   const DEFAULT_PRESET_ID: "editing"
@@ -2266,6 +2368,55 @@ packages/design-system/src/primitives/overlays.tsx
   readonly DropdownMenuProps.trigger: ReactNode
   readonly DropdownMenuProps.groups: readonly MenuGroup[]
   readonly DropdownMenuProps.label: string
+
+packages/waveform/src/peak-host.ts
+  interface Shared
+  readonly Shared.job: PeakJob
+  Shared.holders: number
+
+packages/waveform/src/peak-job.ts
+  class PeakJob
+  new PeakJob(options: { readonly name: string; readonly subject: PeakSubject; readonly post: (message: ToPeakWorker) => void; readonly keep: (bytes: Uint8Array<ArrayBuffer>) => Promise<void>; readonly report: (event: PeakEvent) => void; }): PeakJob
+  readonly PeakJob.subject: PeakSubject
+  readonly PeakJob.#name: string
+  readonly PeakJob.#post: (message: ToPeakWorker) => void
+  readonly PeakJob.#report: (event: PeakEvent) => void
+  readonly PeakJob.#keep: (bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  readonly PeakJob.#listeners: Set<() => void>
+  PeakJob.#pyramid: WaveformPeakPyramid
+  PeakJob.#status: PeakStatus
+  PeakJob.#focus: FrameRange | undefined
+  PeakJob.#requests: number
+  readonly PeakJob.#samples: Map<number, Pending<SampleWindow>>
+  readonly PeakJob.#crossings: Map<number, Pending<number | undefined>>
+  PeakJob.#windows: SampleWindow[]
+  PeakJob.#closed: boolean
+  PeakJob.#started: boolean
+  PeakJob.#queued: ToPeakWorker[]
+  PeakJob.pyramid: WaveformPeakPyramid
+  PeakJob.status: PeakStatus
+  PeakJob.subscribe: (listener: () => void) => () => void
+  PeakJob.#changed: () => void
+  PeakJob.start: (cached: Uint8Array<ArrayBuffer> | undefined) => void
+  PeakJob.focus: (range: FrameRange) => void
+  PeakJob.samples: (range: FrameRange, signal?: CancellationSignal) => Promise<SampleWindow>
+  PeakJob.nearestZeroCrossing: (position: number, within: number, channels: readonly number[], signal?: CancellationSignal) => Promise<number | undefined>
+  PeakJob.#ask: <T>(pending: Map<number, Pending<T>>, signal: CancellationSignal | undefined, message: (request: number) => ToPeakWorker) => Promise<T>
+  PeakJob.#send: (message: ToPeakWorker) => void
+  PeakJob.receive: (message: FromPeakWorker) => void
+  PeakJob.#adopt: (bytes: Uint8Array<ArrayBuffer>) => void
+  PeakJob.#complete: (bytes: Uint8Array<ArrayBuffer>, refusedCache: string | undefined) => void
+  PeakJob.#answerSamples: (request: number, held: SampleWindow) => void
+  PeakJob.fail: (reason: string) => void
+  PeakJob.#rejectAll: (error: Error) => void
+  PeakJob.close: () => void
+  interface Pending<T>
+  readonly Pending.resolve: (value: T) => void
+  readonly Pending.reject: (error: Error) => void
+
+packages/waveform/src/peak-messages.ts
+  type FromPeakWorker = { readonly kind: typeof FromPeakWorkerKind.Adopted; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof FromPeakWorkerKind.Complete; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; readonly refusedCache: string | undefined; } | { readonly kind: typeof FromPeakWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromPeakWorkerKind.Runs; readonly job: string; readonly runs: readonly PeakRun[]; } | { readonly kind: typeof FromPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly start: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof FromPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number | undefined; }
+  type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
 
 packages/workspace/src/layout-reading.ts
   interface RecoveredLayout

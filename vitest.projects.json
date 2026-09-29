@@ -77,6 +77,14 @@
       ]
     },
     {
+      "name": "waveform",
+      "root": "packages/waveform",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",

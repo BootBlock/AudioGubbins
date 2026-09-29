@@ -48,6 +48,15 @@
       "path": "./packages/timeline/scopes/any"
     },
     {
+      "path": "./packages/waveform"
+    },
+    {
+      "path": "./packages/waveform/scopes/any"
+    },
+    {
+      "path": "./packages/waveform/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/commands"
     },
     {

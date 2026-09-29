@@ -182,6 +182,8 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
+    ['packages/waveform/src/peak-codec.ts: crc32'],
   'Which element is a text field, asked of every kind of element by the listener tests; the listener asks it of an event target alone.':
     ['apps/web/src/input/use-shortcuts.ts: isTextField'],
   'Each panel drawn on its own, and the log filter decided on its own, for the panel tests: the dock draws a panel through `renderPanel`, and the filter is chosen in a portalled listbox, which jsdom opens once per file.':

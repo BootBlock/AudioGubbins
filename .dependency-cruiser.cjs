@@ -26,6 +26,9 @@
  *   timeline        the time axis as values: viewport, formats, ruler, the
  *                   selection set and snapping; depends on domain alone, knows
  *                   no thread or browser (ADR-0040)
+ *   waveform        the peak pyramid, its worker, cache format and column
+ *                   reads; depends on domain + audio-engine, knows no browser
+ *                   (ADR-0043)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -116,7 +119,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|timeline|version)/',
+        path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|timeline|version|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -177,6 +180,16 @@ module.exports = {
         'sample counts and identifiers it is written in, so it runs in any scope.',
       from: { path: '^packages/timeline/' },
       to: { path: '^packages/(?!(timeline|domain)/)' },
+    },
+    {
+      name: 'waveform-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Peaks are derived from sources the engine reads and are drawn by the views above them ' +
+        '(ADR-0043). The package depends on the domain and the engine alone, and knows no ' +
+        'interface or storage: the cache is kept through a port the application implements.',
+      from: { path: '^packages/waveform/' },
+      to: { path: '^packages/(?!(waveform|audio-engine|domain)/)' },
     },
     {
       name: 'input-owns-nothing-else',

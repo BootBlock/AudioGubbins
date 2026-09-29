@@ -1,5 +1,6 @@
-> **Status:** In progress. 2026-09-29: the decisions are recorded
-> (`ADR-0040` to `ADR-0047`); the packages, the editor surface, the review
+> **Status:** In progress. 2026-09-29: the decisions, the timeline, the signal
+> recipes and the waveform package are committed; the renderer, the editor
+> view, the video reference, the application, the browser suites, the review
 > pass, the evidence, the ledger, the handoff and the landing remain.
 
 # Phase 04 — Waveform and Timeline Foundation
@@ -51,4 +52,20 @@ fix its findings, land. The packet's commands are root scripts:
 
 ## Progress
 
-Nothing is committed beyond the decisions.
+Committed on the branch: `6199fdc` decisions, `a56cb46` `packages/timeline`
+(the domain's unused selection removed), `8b84bee` signal recipes (the tone
+description and the engine's tone source removed), `ff6efe4` the engine's
+`PcmDescription`, shared by the runtime and the peak worker, then
+`packages/waveform`.
+
+Notes for what follows:
+
+- Package exports not yet used by production are listed in
+  `tests/architecture/package-exports.test.ts` under a reason that says the
+  commits that follow reach them; prune each list as consumers arrive.
+- Comments are held to an 80-column fill by `tests/comment-width.test.ts`; a
+  reflow script kept outside the repository applies it.
+- The peak worker uses the reference DSP. The page never builds peaks, which
+  `peak-messages.test.ts` holds by the host's import graph.
+- The Transport panel's render fingerprint `0xe576a76257ddb259` is checked
+  only by `tests/e2e/transport.spec.ts`; run it once the app plays assets.

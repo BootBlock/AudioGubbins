@@ -25,6 +25,7 @@ const PORTABLE = [
   'packages/audio-graph',
   'packages/audio-engine',
   'packages/timeline',
+  'packages/waveform',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */
@@ -39,6 +40,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
     'packages/audio-runtime/src/threads/render-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
+    'packages/waveform/src/threads/peak-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
