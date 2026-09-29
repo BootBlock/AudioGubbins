@@ -8,10 +8,17 @@
  * policy is part of the project, recorded in its checkpoint and changed through
  * its journal, so it survives a reload and travels with the project. A
  * generation the person protects is never pruned by any retention limit.
+ *
+ * Generations are kept in the application's storage, and where the policy says
+ * so each one is written as a bundle into the backup directory the person chose
+ * too, where the platform lets them choose one. The policy says whether; which
+ * directory is this machine's, kept by the application, and never travels with
+ * the project.
  */
 
 import {
   anyObjectOf,
+  asBoolean,
   checkMembers,
   integerConverter,
   objectOf,
@@ -55,6 +62,9 @@ export type BackupPolicy =
       readonly kind: 'automatic';
       readonly trigger: BackupTrigger;
       readonly retention: BackupRetention;
+
+      /** Whether each generation is written into the chosen backup directory as well. */
+      readonly external?: boolean;
     };
 
 /**
@@ -69,7 +79,12 @@ export const DEFAULT_BACKUP_POLICY: BackupPolicy = {
 
 const POLICY_KINDS = ['off', 'automatic'] as const;
 const OFF_MEMBERS: ReadonlySet<string> = new Set(['kind']);
-const AUTOMATIC_MEMBERS: ReadonlySet<string> = new Set(['kind', 'trigger', 'retention']);
+const AUTOMATIC_MEMBERS: ReadonlySet<string> = new Set([
+  'kind',
+  'trigger',
+  'retention',
+  'external',
+]);
 const TRIGGER_MEMBERS: ReadonlySet<string> = new Set(['everyMinutes', 'everyChanges']);
 const RETENTION_MEMBERS: ReadonlySet<string> = new Set(['count', 'days', 'bytes']);
 
@@ -90,6 +105,7 @@ export function writeBackupPolicy(policy: BackupPolicy): JsonObject {
       days: policy.retention.days,
       bytes: policy.retention.bytes,
     }),
+    ...(policy.external === undefined ? {} : { external: policy.external }),
   };
 }
 
@@ -107,9 +123,10 @@ export const readBackupPolicy: Converter<BackupPolicy> = (reading, value, parent
   checkMembers(reading, object, at, AUTOMATIC_MEMBERS);
   const trigger = required(reading, object, at, 'trigger', asTrigger);
   const retention = required(reading, object, at, 'retention', asRetention);
+  const external = optional(reading, object, at, 'external', asBoolean);
   return trigger === undefined || retention === undefined
     ? undefined
-    : { kind, trigger, retention };
+    : { kind, trigger, retention, ...(external === undefined ? {} : { external }) };
 };
 
 const asTrigger: Converter<BackupTrigger> = (reading, value, parent, key) => {

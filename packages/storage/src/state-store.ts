@@ -20,7 +20,6 @@ import {
   succeed,
   type DomainFailure,
   type DomainResult,
-  type ProjectId,
 } from '@audiogubbins/domain';
 import {
   canonicalJson,
@@ -36,20 +35,21 @@ import {
   type StorageTree,
 } from '@audiogubbins/project-format';
 
-import { ProjectPaths } from './storage-layout.js';
-
 const STATE_FILE = /^(s1-[0-9a-f]{64})\.json$/u;
 
-/** The states one project keeps whole. */
+/**
+ * The states kept whole in one directory: a project's own, or those of one of
+ * its backup generations.
+ */
 export class SnapshotStore {
   private readonly tree: StorageTree;
   private readonly digest: Digest;
-  private readonly paths: ProjectPaths;
+  private readonly directory: string;
 
-  constructor(tree: StorageTree, digest: Digest, project: ProjectId) {
+  constructor(tree: StorageTree, digest: Digest, directory: string) {
     this.tree = tree;
     this.digest = digest;
-    this.paths = new ProjectPaths(project);
+    this.directory = directory;
   }
 
   /** The fingerprint a state is kept under, without keeping it. */
@@ -65,7 +65,7 @@ export class SnapshotStore {
     const text = canonicalJson(writeProjectDocument(state));
     const fingerprint = await fingerprintOf(text, this.digest);
     const bytes = encodeUtf8(text);
-    const path = this.paths.state(fingerprint);
+    const path = this.path(fingerprint);
     // A file of the full length is whole: the tree tears a write by cutting it
     // short, and a name is only ever written with the one text it names.
     const held = await this.tree.openFile(path);
@@ -78,7 +78,7 @@ export class SnapshotStore {
     fingerprint: StateFingerprint,
     signal?: AbortSignal,
   ): Promise<DomainResult<ProjectState>> {
-    const bytes = await this.tree.readFile(this.paths.state(fingerprint), signal);
+    const bytes = await this.tree.readFile(this.path(fingerprint), signal);
     if (bytes === undefined) return fail(stateMissing(fingerprint));
     const read = flatMapResult(decodeUtf8(bytes), parseProjectDocument);
     if (!read.ok) {
@@ -110,7 +110,7 @@ export class SnapshotStore {
   /** The fingerprint of every state file the project holds, whole or not. */
   async list(): Promise<ReadonlySet<StateFingerprint>> {
     const held = new Set<StateFingerprint>();
-    for (const entry of await this.tree.list(this.paths.states)) {
+    for (const entry of await this.tree.list(this.directory)) {
       const name = STATE_FILE.exec(entry.name)?.[1];
       const fingerprint = name === undefined ? undefined : stateFingerprintFrom(name);
       if (entry.kind === 'file' && fingerprint?.ok === true) held.add(fingerprint.value);
@@ -120,7 +120,12 @@ export class SnapshotStore {
 
   /** Removes a kept state, once nothing the project keeps names it. */
   async remove(fingerprint: StateFingerprint): Promise<void> {
-    await this.tree.remove(this.paths.state(fingerprint));
+    await this.tree.remove(this.path(fingerprint));
+  }
+
+  /** The file a state is kept in. */
+  path(fingerprint: StateFingerprint): string {
+    return `${this.directory}/${fingerprint}.json`;
   }
 }
 

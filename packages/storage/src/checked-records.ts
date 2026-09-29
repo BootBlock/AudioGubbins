@@ -43,6 +43,8 @@ export const RecordKind = {
   Checkpoint: 'checkpoint',
   JournalRecord: 'journal-record',
   Lease: 'lease',
+  CacheSeal: 'cache-seal',
+  BackupGeneration: 'backup-generation',
 } as const;
 
 /** What a record is, written in its envelope. */

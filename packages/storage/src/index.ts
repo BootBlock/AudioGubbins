@@ -11,6 +11,13 @@
  * lets one window at a time write a project, fenced by epochs in storage
  * (REQ-STOR-098).
  *
+ * Around the kept projects: the portable bundle and the unpacked tree a project
+ * is taken out as and brought in from (REQ-STOR-099, REQ-STOR-103), backup
+ * generations and the scheduler that makes them (REQ-STOR-105), disposable
+ * caches (REQ-STOR-027), usage by category and a cleanup planned in the safest
+ * order and carried out only with the person's confirmation (REQ-STOR-102,
+ * REQ-STOR-106, REQ-STOR-200), forks (REQ-STOR-199) and consolidation.
+ *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
  * injected, so every rule here is tested without a browser. Everything absent
@@ -35,7 +42,7 @@ export {
   ProjectRepository,
   type PurgeProjectConfirmation,
 } from './project-catalogue.js';
-export { type ProjectHeader } from './project-header.js';
+export { type ImportOrigin, type ProjectHeader } from './project-header.js';
 
 export {
   type OpenedProject,
@@ -87,3 +94,76 @@ export {
 } from './write-lease.js';
 
 export { type UnreadableRoot, retainedMedia } from './media-roots.js';
+
+export { type BundleScope, type CopyOptions, type TreeSources } from './tree-content.js';
+export {
+  type ExportServices,
+  type ExportedBundle,
+  exportBackup,
+  exportBundle,
+  exportUnpacked,
+  importBundle,
+  importUnpacked,
+} from './project-transfer.js';
+export { type ImportIdentity, type ImportServices } from './tree-import.js';
+export { packUnpacked, unpackBundle } from './bundle-conversion.js';
+export {
+  type DirectoryFile,
+  type DirectoryReader,
+  type DirectoryWriter,
+} from './project-directory.js';
+
+export {
+  CACHE_CLEANUP_ORDER,
+  CacheCategory,
+  type CacheEntry,
+  type CacheKey,
+  type CacheScope,
+  CacheStore,
+} from './cache-store.js';
+
+export {
+  type BackupGeneration,
+  type BackupPruning,
+  type BackupReason,
+  planBackupPruning,
+} from './backup-planning.js';
+export { BackupGenerations, type GenerationListing } from './backup-generations.js';
+export {
+  type BackupServices,
+  type BackupTick,
+  BackupScheduler,
+  type ExternalBackupTarget,
+  type ExternalCopy,
+} from './backup-scheduler.js';
+
+export { type StorageUsage, type UsageServices, measureUsage } from './usage-measurement.js';
+export {
+  type CleanupChoice,
+  type CleanupPlan,
+  type CleanupSelection,
+  type CleanupServices,
+  type CleanupStep,
+  type RecoverabilityLoss,
+  planCleanup,
+} from './cleanup-planning.js';
+export {
+  type CleanupConfirmation,
+  type CleanupRunServices,
+  type PressureRelief,
+  type StepOutcome,
+  relieveStoragePressure,
+  runCleanup,
+} from './cleanup-running.js';
+
+export {
+  type ForkPoint,
+  type ForkRequest,
+  type ForkServices,
+  forkProject,
+} from './project-fork.js';
+export {
+  type AssetConsolidation,
+  type ConsolidationServices,
+  consolidate,
+} from './consolidation.js';

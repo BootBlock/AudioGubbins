@@ -29,10 +29,18 @@ export class ProjectFiles {
     this.project = project;
     this.records = records;
     this.paths = new ProjectPaths(project);
-    this.states = new SnapshotStore(records.tree, records.digest, project);
+    this.states = new SnapshotStore(records.tree, records.digest, this.paths.states);
     this.journal = new CommandJournal(records, project);
     this.heads = headFiles(this.paths);
     this.header = headerFiles(this.paths);
+  }
+
+  /**
+   * Whether the project is marked unfinished: being made, or its making cut
+   * short. Only where no header can be read does the mark count.
+   */
+  async isUnfinished(): Promise<boolean> {
+    return (await this.records.tree.openFile(this.paths.unfinished)) !== undefined;
   }
 
   async readCheckpoint(

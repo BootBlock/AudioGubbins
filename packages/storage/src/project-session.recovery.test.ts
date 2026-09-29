@@ -253,8 +253,8 @@ describe('recovery from damage it did not make', () => {
     const other = [...checkpoint.value.keptStates].find((state) => state !== cursor);
     // The cursor's file now holds another valid state: it reads, but is not the one named.
     await tree.writeFile(
-      files.paths.state(cursor),
-      expectDefined(await tree.readFile(files.paths.state(expectDefined(other)))),
+      files.states.path(cursor),
+      expectDefined(await tree.readFile(files.states.path(expectDefined(other)))),
     );
 
     const test = harness(99);
@@ -270,7 +270,7 @@ describe('recovery from damage it did not make', () => {
     const { tree, header, files, session } = await closedProject();
     expectSuccess(await session.createSnapshot({ name: 'Kept' }));
     const snapshot = expectDefined([...session.getSnapshot().model.history.snapshots.values()][0]);
-    await tree.remove(files.paths.state(snapshot.stateFingerprint));
+    await tree.remove(files.states.path(snapshot.stateFingerprint));
     const test = harness(99);
     const reopened = expectSuccess(
       await openProject({ project: header.id, access: 'read' }, test.services(tree)),

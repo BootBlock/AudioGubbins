@@ -6,7 +6,9 @@
  * is authoritative: the session writes the header again whenever the state's
  * name changes, so the list agrees with the project. Deleting is soft: the flag
  * hides the project, and everything it holds stays until an explicit purge. The
- * header changes in place, so it is a pair (`generational-pair.ts`).
+ * header changes in place, so it is a pair (`generational-pair.ts`). A project
+ * brought in from a bundle or an unpacked tree says so, and which project it
+ * was brought from (REQ-STOR-103).
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -37,6 +39,15 @@ export interface ProjectHeader extends Generational {
 
   /** When the project was deleted, where it has been and not restored. */
   readonly deleted?: number;
+
+  /** Where the project was brought in from a bundle or a tree: the project it was, and when. */
+  readonly imported?: ImportOrigin;
+}
+
+/** The project a project was imported as a copy or a continuation of, and when. */
+export interface ImportOrigin {
+  readonly from: ProjectId;
+  readonly at: number;
 }
 
 const HEADER_MEMBERS: ReadonlySet<string> = new Set([
@@ -45,7 +56,9 @@ const HEADER_MEMBERS: ReadonlySet<string> = new Set([
   'name',
   'created',
   'deleted',
+  'imported',
 ]);
+const IMPORTED_MEMBERS: ReadonlySet<string> = new Set(['from', 'at']);
 
 /** The longest name, as the project document holds one. */
 const asName = textConverter({ maximumLength: 1_024 });
@@ -58,6 +71,10 @@ export function writeHeader(header: ProjectHeader): JsonObject {
     name: header.name,
     created: header.created,
     deleted: header.deleted,
+    imported:
+      header.imported === undefined
+        ? undefined
+        : { from: header.imported.from, at: header.imported.at },
   });
 }
 
@@ -71,10 +88,27 @@ const readHeader: Converter<ProjectHeader> = (reading, value, parent, key) => {
   const name = required(reading, object, at, 'name', asName);
   const created = required(reading, object, at, 'created', asWholeNumber);
   const deleted = optional(reading, object, at, 'deleted', asWholeNumber);
+  const imported = optional(reading, object, at, 'imported', asImportOrigin);
   if (generation === undefined || id === undefined || name === undefined || created === undefined) {
     return undefined;
   }
-  return { generation, id, name, created, ...(deleted === undefined ? {} : { deleted }) };
+  return {
+    generation,
+    id,
+    name,
+    created,
+    ...(deleted === undefined ? {} : { deleted }),
+    ...(imported === undefined ? {} : { imported }),
+  };
+};
+
+const asImportOrigin: Converter<ImportOrigin> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, IMPORTED_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const from = required(reading, object, at, 'from', asId<'ProjectId'>);
+  const time = required(reading, object, at, 'at', asWholeNumber);
+  return from === undefined || time === undefined ? undefined : { from, at: time };
 };
 
 /** The two files a project's header is kept in. */

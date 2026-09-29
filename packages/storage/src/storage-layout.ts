@@ -14,19 +14,29 @@
  *   set aside rather than deleted.
  * - `projects/<project>/leases/<epoch>.json`: the write lease's epoch and
  *   seals.
+ * - `projects/<project>/unfinished`: present while a project is being made,
+ *   until its header is written.
+ * - `backups/<project>/<generation>/`: a backup generation
+ *   (`backup-generations.ts`).
+ * - `cache/<category>/<scope>/<name>`: a disposable cache (`cache-store.ts`).
  *
  * Epochs and sequence numbers are written as twelve decimal digits, so a
  * directory listed in name order is listed in number order.
  */
 
 import type { Branded, ProjectId } from '@audiogubbins/domain';
-import type { StateFingerprint } from '@audiogubbins/project-format';
 
 /** The storage root's file. */
 export const STORAGE_ROOT_FILE = 'storage.json';
 
 /** The directory every project is kept under. */
 export const PROJECTS_DIRECTORY = 'projects';
+
+/** The directory every project's backup generations are kept under. */
+export const BACKUPS_DIRECTORY = 'backups';
+
+/** The directory every cache is kept under. */
+export const CACHE_DIRECTORY = 'cache';
 
 /** One of the two files of a pair that is rewritten by turns. */
 export type PairSlot = 0 | 1;
@@ -38,6 +48,7 @@ const DIGITS = 12;
 const EPOCH_DIRECTORY = /^e([0-9]{12})$/u;
 const RECORD_FILE = /^([0-9]{12})\.json$/u;
 const LEASE_FILE = /^([0-9]{12})\.json$/u;
+const GENERATION_DIRECTORY = /^([0-9]{12})$/u;
 const QUARANTINE_DIRECTORY = 'quarantine';
 
 /** A whole number as the fixed-width digits a numbered name is written in. */
@@ -69,6 +80,11 @@ export function epochOfLease(name: string): number | undefined {
   return numberIn(LEASE_FILE.exec(name));
 }
 
+/** The number a backup generation's directory holds, or `undefined` for another name. */
+export function numberOfGeneration(name: string): number | undefined {
+  return numberIn(GENERATION_DIRECTORY.exec(name));
+}
+
 /** The paths of one project's files. */
 export class ProjectPaths {
   readonly directory: string;
@@ -78,6 +94,9 @@ export class ProjectPaths {
   readonly quarantine: string;
   readonly leases: string;
 
+  /** Present while the project is being made, until its header is written. */
+  readonly unfinished: string;
+
   constructor(project: ProjectId) {
     this.directory = `${PROJECTS_DIRECTORY}/${project}`;
     this.checkpoints = `${this.directory}/checkpoints`;
@@ -85,6 +104,7 @@ export class ProjectPaths {
     this.journal = `${this.directory}/journal`;
     this.quarantine = `${this.journal}/${QUARANTINE_DIRECTORY}`;
     this.leases = `${this.directory}/leases`;
+    this.unfinished = `${this.directory}/unfinished`;
   }
 
   header(slot: PairSlot): string {
@@ -97,10 +117,6 @@ export class ProjectPaths {
 
   checkpoint(id: CheckpointId): string {
     return `${this.checkpoints}/${id}.json`;
-  }
-
-  state(fingerprint: StateFingerprint): string {
-    return `${this.states}/${fingerprint}.json`;
   }
 
   epoch(epoch: number): string {
@@ -117,5 +133,38 @@ export class ProjectPaths {
 
   lease(epoch: number): string {
     return `${this.leases}/${digits(epoch)}.json`;
+  }
+}
+
+/** The paths of one project's backup generations. */
+export class BackupPaths {
+  readonly directory: string;
+
+  constructor(project: ProjectId) {
+    this.directory = `${BACKUPS_DIRECTORY}/${project}`;
+  }
+
+  generation(generation: number): string {
+    return `${this.directory}/${digits(generation)}`;
+  }
+
+  /** The record that makes a generation whole and says what it is, written last. */
+  record(generation: number): string {
+    return `${this.generation(generation)}/generation.json`;
+  }
+
+  /** The copy of the checkpoint a generation holds. */
+  checkpoint(generation: number): string {
+    return `${this.generation(generation)}/checkpoint.json`;
+  }
+
+  /** The states a generation keeps. */
+  states(generation: number): string {
+    return `${this.generation(generation)}/states`;
+  }
+
+  /** Present while the generation is protected from pruning. */
+  protection(generation: number): string {
+    return `${this.generation(generation)}/protected`;
   }
 }

@@ -6,11 +6,14 @@
  * Listing reads each project's header and nothing else, one project at a time,
  * in the order of their identifiers, and reports a project whose header cannot
  * be read rather than leaving it out: a project that vanished from the list
- * would look lost. Deleting only marks the header, so a deleted project keeps
- * every state, record and media reference it had until the person purges it,
- * and purging needs the confirmation of the deletion they were shown. Each
- * change to a project takes its write lease for the while, so it never races a
- * window writing the same project.
+ * would look lost. A project still being made, or whose making was cut short,
+ * is not listed: it is marked unfinished and has no header yet
+ * (`project-creation.ts`). Deleting only marks the header, so a deleted project
+ * keeps every state, record and media reference it had until the person purges
+ * it, and purging needs the confirmation of the deletion they were shown;
+ * purging removes the project's backup generations with it. Each change to a
+ * project takes its write lease for the while, so it never races a window
+ * writing the same project.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
@@ -47,7 +50,7 @@ import {
   projectMissing,
   refusalsReported,
 } from './storage-failures.js';
-import { PROJECTS_DIRECTORY } from './storage-layout.js';
+import { BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 
 /** One entry of the list of projects. */
@@ -107,6 +110,7 @@ export class ProjectRepository {
       const files = new ProjectFiles(this.records, unsafeBrandId<'ProjectId'>(entry.name));
       const header = await readPair(this.records, files.header, signal);
       const newest = header.valid[0];
+      if (newest === undefined && (await files.isUnfinished())) continue;
       yield newest === undefined
         ? { kind: 'unreadable', name: entry.name, faults: header.faults.map(({ fault }) => fault) }
         : { kind: 'project', header: newest.value };
@@ -174,6 +178,7 @@ export class ProjectRepository {
       // The header goes last, so a purge a crash cut short leaves a deleted
       // project that is purged again, never files that belong to nothing.
       const tree = this.services.tree;
+      await tree.remove(new BackupPaths(project).directory);
       const headerFiles = new Set([files.paths.header(0), files.paths.header(1)]);
       for (const entry of await tree.list(files.paths.directory)) {
         const path = `${files.paths.directory}/${entry.name}`;

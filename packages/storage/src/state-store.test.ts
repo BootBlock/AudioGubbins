@@ -15,7 +15,10 @@ const STATE: ProjectState = emptyProjectState(emptyProject());
 const RENAMED: ProjectState = { ...STATE, project: { ...STATE.project, displayName: 'Renamed' } };
 
 function store(tree = new MemoryStorageTree()) {
-  return { tree, states: new SnapshotStore(tree, nodeDigest, STATE.project.id) };
+  return {
+    tree,
+    states: new SnapshotStore(tree, nodeDigest, `projects/${STATE.project.id}/states`),
+  };
 }
 
 describe('the states a project keeps whole (REQ-STOR-101)', () => {

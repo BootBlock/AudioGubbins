@@ -195,3 +195,24 @@ export {
 export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
 export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
 export { readRetentionPolicy, writeRetentionPolicy } from './retention-json.js';
+
+export {
+  type ProjectTreeContent,
+  type ProjectTreeFile,
+  type ProjectTreeHistory,
+  type ProjectTreeScope,
+  type TreeCache,
+  type TreeFileBody,
+  type TreeMedia,
+  projectTree,
+} from './project-tree-writing.js';
+export { isProjectTreePath, isWithinProjectTree } from './project-tree-layout.js';
+export { type ProjectTreeListing, type TreeListedFile } from './project-tree-files.js';
+export { readProjectTree } from './project-tree-reading.js';
+export {
+  BUNDLE_MANIFEST_PATH,
+  type BundleManifest,
+  type ManifestEntry,
+  readBundleManifest,
+  writeBundleManifest,
+} from './bundle-manifest.js';

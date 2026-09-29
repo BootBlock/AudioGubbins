@@ -32,9 +32,15 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
+  canonicalJson,
   contentIdFrom,
+  parseJson,
+  readMediaSource,
+  startReading,
   storageKeyOf,
+  writeMediaSource,
   type ContentId,
+  type MediaSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
 
@@ -43,6 +49,7 @@ import { silentLogger } from './silent-logger.js';
 const SET_NAME = commandId('test.set-name');
 const ADD_ASSET = commandId('test.add-asset');
 const REMOVE_ASSET = commandId('test.remove-asset');
+const SET_MEDIA = commandId('test.set-media');
 
 const RATE = expectSuccess(sampleRate(48_000));
 const LENGTH = expectSuccess(sampleCount(4_800));
@@ -55,6 +62,14 @@ export function setName(name: string): CommandInvocation {
 /** An invocation adding an asset of managed media. */
 export function addAsset(asset: string, content: ContentId): CommandInvocation {
   return { commandId: ADD_ASSET, arguments: { asset, content } };
+}
+
+/** An invocation keeping an asset's bytes where `media` says, adding the asset if it is new. */
+export function setMedia(asset: string, media: MediaSource): CommandInvocation {
+  return {
+    commandId: SET_MEDIA,
+    arguments: { asset, media: canonicalJson(writeMediaSource(media)) },
+  };
 }
 
 /** A content identifier made of a number. */
@@ -157,10 +172,65 @@ function removeAssetCommand(): Command<ProjectState> {
   });
 }
 
+function mediaIn(invocation: CommandInvocation): MediaSource | undefined {
+  const text = invocation.arguments?.['media'];
+  if (typeof text !== 'string') return undefined;
+  const parsed = parseJson(text, { maximumLength: 65_536, maximumDepth: 8 });
+  if (!parsed.ok) return undefined;
+  const reading = startReading();
+  const media = reading.outcome(readMediaSource(reading, parsed.value, '', 'media'));
+  return media.ok ? media.value : undefined;
+}
+
+function setMediaCommand(): Command<ProjectState> {
+  return command(SET_MEDIA, (state, invocation): CommandOutcome<ProjectState> => {
+    const asset = invocation.arguments?.['asset'];
+    const media = mediaIn(invocation);
+    if (typeof asset !== 'string' || !isWellFormedId(asset) || media === undefined) {
+      return refusal('test.media', 'An asset and its media are needed.');
+    }
+    const id = unsafeBrandId<'AssetId'>(asset);
+    const held = state.project.assets.get(id);
+    const before = state.sources.get(id);
+    const next: Asset = held ?? {
+      id,
+      displayName: `Asset ${asset.slice(0, 8)}`,
+      origin: AssetOrigin.Imported,
+      sampleRate: RATE,
+      channelLayout: StandardLayouts.mono,
+      length: LENGTH,
+      storageKey: '',
+    };
+    return {
+      kind: 'applied',
+      next: {
+        project: {
+          ...state.project,
+          assets: new Map(state.project.assets).set(id, {
+            ...next,
+            storageKey: storageKeyOf(id, media),
+          }),
+        },
+        sources: new Map(state.sources).set(id, { ...before, media }),
+      },
+      inverse:
+        before === undefined
+          ? { commandId: REMOVE_ASSET, arguments: { asset, content: contentOf(0) } }
+          : setMedia(asset, before.media),
+      description: 'Keep an asset elsewhere',
+    };
+  });
+}
+
 /** A bus running the test commands. */
 export function testBus(): CommandBus<ProjectState> {
   const registry = createCommandRegistry<ProjectState>();
-  for (const each of [setNameCommand(), addAssetCommand(), removeAssetCommand()]) {
+  for (const each of [
+    setNameCommand(),
+    addAssetCommand(),
+    removeAssetCommand(),
+    setMediaCommand(),
+  ]) {
     registry.register(each);
   }
   return createCommandBus(registry, silentLogger());
