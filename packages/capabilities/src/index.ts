@@ -27,6 +27,11 @@ export {
   createCapabilityRegistry,
 } from './registry.js';
 
+export { type AudioRuntimeCapabilities, audioRuntimeCapabilities } from './audio-runtime.js';
+
+// When the audio devices change, for the runtime to recover its context.
+export { watchAudioDevices } from './audio-devices.js';
+
 export {
   type AppearanceSettings,
   type AppearanceSettingsWatch,
@@ -49,11 +54,14 @@ export {
   ACCELERATED_RENDERING,
   ALL_FEATURES,
   AUDIO_PLAYBACK,
+  CANONICAL_DSP,
   DIRECT_FILE_ACCESS,
   HARDWARE_CODECS,
   MULTI_THREADED_DSP,
   NAMING,
+  OFFLINE_RENDERING,
   OFFLINE_USE,
+  OUTPUT_DEVICE_CHOICE,
   PRESSURE_SENSITIVE_TOOLS,
   PROJECT_STORAGE,
   RECORDING,

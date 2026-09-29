@@ -454,4 +454,39 @@ describe('the smaller probes', () => {
       else Object.defineProperty(navigator, 'serviceWorker', original);
     }
   });
+
+  it('reports WebAssembly by compiling a module, so a policy that forbids compilation reads as absent', () => {
+    // jsdom runs in Node, which compiles WebAssembly.
+    expect(detectBrowserEnvironment().compilesWebAssembly).toBe(true);
+
+    // A page whose security policy lacks 'wasm-unsafe-eval' keeps the global
+    // and throws from every compilation.
+    const refusing = vi.spyOn(WebAssembly, 'Module').mockImplementation(() => {
+      throw new WebAssembly.CompileError('Refused to compile by the page security policy.');
+    });
+    try {
+      expect(detectBrowserEnvironment().compilesWebAssembly).toBe(false);
+    } finally {
+      refusing.mockRestore();
+    }
+  });
+
+  it('reports output selection only where the audio context can choose its device', () => {
+    const original = Object.getOwnPropertyDescriptor(window, 'AudioContext');
+    try {
+      Reflect.deleteProperty(window, 'AudioContext');
+      expect(detectBrowserEnvironment().choosesAudioOutput).toBe(false);
+
+      class ChoosingContext {
+        setSinkId(): Promise<void> {
+          return Promise.resolve();
+        }
+      }
+      Object.defineProperty(window, 'AudioContext', { configurable: true, value: ChoosingContext });
+      expect(detectBrowserEnvironment().choosesAudioOutput).toBe(true);
+    } finally {
+      if (original === undefined) Reflect.deleteProperty(window, 'AudioContext');
+      else Object.defineProperty(window, 'AudioContext', original);
+    }
+  });
 });

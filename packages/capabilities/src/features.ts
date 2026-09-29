@@ -34,12 +34,58 @@ export const DIRECT_FILE_ACCESS: FeatureRequirement = {
   fallback: 'Files are imported through a file chooser and exported to your downloads instead.',
 };
 
-/** Playing and processing audio without interrupting the interface. */
+/**
+ * Playing and processing audio without interrupting the interface.
+ *
+ * Shared memory lets the audio thread read what it plays without a message
+ * for every block; without it, audio is sent in messages and the engine keeps
+ * more of it ahead of the play position, so playback starts a little later.
+ */
 export const AUDIO_PLAYBACK: FeatureRequirement = {
   featureKey: 'audio-playback',
   label: 'Playback and live effects',
   required: [CapabilityKey.AudioWorklet],
+  preferred: [CapabilityKey.SharedArrayBuffer],
   fallback: 'Playback is unavailable in this browser.',
+};
+
+/**
+ * The canonical DSP compiled to WebAssembly (ADR-0031).
+ *
+ * Without it, processing runs the TypeScript reference path, which repeats
+ * every operation of the canonical one in the same order and gives the same
+ * bits (ADR-0032), so nothing a render produces changes; only its speed does.
+ */
+export const CANONICAL_DSP: FeatureRequirement = {
+  featureKey: 'canonical-dsp',
+  label: 'Fast canonical processing',
+  required: [],
+  preferred: [CapabilityKey.WebAssembly],
+  fallback:
+    'Processing runs without WebAssembly. Renders are the same, sample for sample, and take longer.',
+};
+
+/**
+ * Rendering offline, away from the interface.
+ *
+ * Requires background threads outright: REQ-ARCH-036 keeps heavy processing
+ * off the thread that draws the interface, so a browser without workers is
+ * told the renderer is unavailable rather than having its interface stall.
+ */
+export const OFFLINE_RENDERING: FeatureRequirement = {
+  featureKey: 'offline-rendering',
+  label: 'Rendering in the background',
+  required: [CapabilityKey.WebWorkers],
+  fallback:
+    'Offline rendering is unavailable in this browser, because it would stop the interface while it ran.',
+};
+
+/** Choosing the device playback goes to. */
+export const OUTPUT_DEVICE_CHOICE: FeatureRequirement = {
+  featureKey: 'output-device-choice',
+  label: 'Choosing the playback device',
+  required: [CapabilityKey.AudioOutputSelection],
+  fallback: "Playback goes to your system's default device.",
 };
 
 /** Running DSP across several threads. */
@@ -169,6 +215,9 @@ export const ALL_FEATURES: readonly FeatureRequirement[] = [
   PROJECT_STORAGE,
   DIRECT_FILE_ACCESS,
   AUDIO_PLAYBACK,
+  OUTPUT_DEVICE_CHOICE,
+  CANONICAL_DSP,
+  OFFLINE_RENDERING,
   MULTI_THREADED_DSP,
   ACCELERATED_RENDERING,
   RECORDING,

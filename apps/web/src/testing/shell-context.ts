@@ -52,6 +52,8 @@ export const CAPABLE: CapabilityEnvironment = {
   hasSharedArrayBuffer: true,
   isCrossOriginIsolated: true,
   hasAudioWorklet: true,
+  compilesWebAssembly: true,
+  choosesAudioOutput: true,
   hasWebWorkers: true,
   hasWebGpu: true,
   hasWebGl2: true,
