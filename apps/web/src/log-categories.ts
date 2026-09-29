@@ -22,7 +22,15 @@ import { isLogCategory } from '@audiogubbins/diagnostics';
  * user raising the level for commands to investigate a problem should not have
  * to wait for a command to log first.
  */
-const KNOWN_LOG_CATEGORIES = ['shell', 'commands'] as const;
+const KNOWN_LOG_CATEGORIES = [
+  'shell',
+  'commands',
+  // Project storage: opening, saving and recovering projects, the project
+  // commands' own bus, and the storage beneath them, each levelled apart.
+  'projects',
+  'project-commands',
+  'storage',
+] as const;
 
 /** One of the categories above. */
 type KnownLogCategory = (typeof KNOWN_LOG_CATEGORIES)[number];
@@ -40,6 +48,9 @@ interface CategoryNames {
 const LOG_CATEGORY_NAMES: Readonly<Record<KnownLogCategory, CategoryNames>> = {
   shell: { alone: 'Shell', inSentence: 'the shell' },
   commands: { alone: 'Commands', inSentence: 'commands' },
+  projects: { alone: 'Projects', inSentence: 'projects' },
+  'project-commands': { alone: 'Project changes', inSentence: 'changes to projects' },
+  storage: { alone: 'Storage', inSentence: 'storage' },
 };
 
 /** The same names, looked up by whatever a record carries. */

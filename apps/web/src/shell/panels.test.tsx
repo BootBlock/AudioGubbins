@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -7,11 +7,13 @@ import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbi
 import {
   ALL_FEATURES,
   createCapabilityRegistry,
+  missingStorageCapabilities,
   type CapabilityEnvironment,
 } from '@audiogubbins/capabilities';
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
+import { ProjectPanelKinds } from '../panel-kinds.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import { CapabilitiesPanel, DiagnosticsPanel, recordsPassing, renderPanel } from './panels.js';
 
@@ -72,27 +74,33 @@ function bareEnvironment(): CapabilityEnvironment {
  * each get their region back unseen.
  */
 describe('every panel', () => {
-  it.each([...Object.values(PanelKinds), 'a-kind-this-build-does-not-have'])(
-    'draws %s with its heading and no region',
-    (kind) => {
-      render(
-        <>
-          {renderPanel({ id: 'probe', kind }, 'Probe', {
-            capabilities: createCapabilityRegistry(
-              bareEnvironment(),
-              createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
-            ),
-            logs: createLogStore(),
-            logViews: createLogViewStore(),
-            diagnosticModeActive: false,
-          })}
-        </>,
-      );
+  it.each([
+    ...Object.values(PanelKinds),
+    ...Object.values(ProjectPanelKinds),
+    'a-kind-this-build-does-not-have',
+  ])('draws %s with its heading and no region', (kind) => {
+    render(
+      <>
+        {renderPanel({ id: 'probe', kind }, 'Probe', {
+          capabilities: createCapabilityRegistry(
+            bareEnvironment(),
+            createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+          ),
+          logs: createLogStore(),
+          logViews: createLogViewStore(),
+          diagnosticModeActive: false,
+          storageAbsences: [],
+          projects: undefined,
+          projectsUnavailable: 'This test keeps no projects.',
+          run: () => true,
+          unavailableReason: () => undefined,
+        })}
+      </>,
+    );
 
-      expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
-      expect(screen.queryAllByRole('region')).toEqual([]);
-    },
-  );
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(screen.queryAllByRole('region')).toEqual([]);
+  });
 });
 
 describe('the diagnostic log panel', () => {
@@ -239,7 +247,7 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} storageAbsences={[]} />);
 
     expect(screen.getAllByText(/Unavailable|Reduced/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recording/).length).toBeGreaterThan(0);
@@ -267,7 +275,7 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} storageAbsences={[]} />);
 
     expect(screen.getByText('Default shortcuts on your keyboard from the start')).toBeVisible();
     expect(
@@ -295,7 +303,7 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} storageAbsences={[]} />);
 
     const statuses = screen.getAllByText(/^(Unavailable|Reduced)$/);
     expect(statuses.map((status) => status.getAttribute('data-ag-status'))).toEqual(
@@ -345,5 +353,47 @@ describe('filtering the diagnostic log', () => {
 
   it('can leave nothing, which is what the panel says the filter did', () => {
     expect(recordsPassing(records, LogSeverity.Error, 'commands')).toEqual([]);
+  });
+});
+
+describe('what the browser lacks for keeping projects', () => {
+  it('lists each missing part with what AudioGubbins does instead and what can be done', () => {
+    const registry = createCapabilityRegistry(
+      bareEnvironment(),
+      createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+    );
+    const absences = missingStorageCapabilities({
+      originPrivateFileSystem: true,
+      locks: undefined,
+      openBroadcastChannel: undefined,
+      persistence: undefined,
+      estimate: undefined,
+      pickers: undefined,
+      indexedDb: undefined,
+      subtle: undefined,
+      randomBytes: undefined,
+      hostYielding: { kind: 'none' },
+    });
+
+    render(
+      <CapabilitiesPanel title="Capabilities" capabilities={registry} storageAbsences={absences} />,
+    );
+
+    const keeping = screen.getByRole('group', { name: 'Keeping projects' });
+    expect(
+      within(keeping).getByText(
+        'This browser cannot agree between tabs which one may change a project.',
+      ),
+    ).toBeVisible();
+    expect(
+      within(keeping).getByText(
+        /Projects open read-only, so two tabs can never overwrite each other\./,
+      ),
+    ).toBeVisible();
+    expect(
+      within(keeping).getAllByText(
+        'Open AudioGubbins from its https:// address rather than an insecure one.',
+      ),
+    ).not.toEqual([]);
   });
 });

@@ -36,7 +36,15 @@ import {
   defaultShortcutProfile,
   placeDefaults,
 } from '../state/default-shortcuts.js';
+import { backupCommands } from './backup-commands.js';
+import { compactionCommands } from './compaction-commands.js';
+import { historyCommands } from './history-commands.js';
+import { ownershipCommands } from './ownership-commands.js';
+import { deletionCommands } from './project-deletion-commands.js';
+import { projectFileCommands } from './project-file-commands.js';
+import { projectTransferCommands } from './project-transfer-commands.js';
 import { shellCommands } from './shell-commands.js';
+import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
 
 describe('the shell command set', () => {
@@ -702,6 +710,27 @@ describe('finding the shell commands in the palette', () => {
     'settings.export-unread-text',
   ]);
 
+  /**
+   * The project system's commands, whose work settles after they return, so a
+   * second run here would read the stores before the first had changed them.
+   * Each is run with its work awaited, over a storage in memory, in the
+   * project command tests beside this one (`project-file-commands.test.ts` and
+   * the rest), which is where a project to act on is, and each is refused
+   * there where it would change nothing.
+   */
+  const PROJECT_SYSTEM: ReadonlySet<string> = new Set(
+    [
+      ...projectFileCommands(),
+      ...deletionCommands(),
+      ...projectTransferCommands(),
+      ...backupCommands(),
+      ...historyCommands(),
+      ...compactionCommands(),
+      ...ownershipCommands(),
+      ...storageCommands(),
+    ].map((command) => command.id),
+  );
+
   /** What a command is given, as an invocation carries it. */
   type Arguments = Readonly<Record<string, string | number | boolean>>;
 
@@ -883,7 +912,7 @@ describe('finding the shell commands in the palette', () => {
   /** Each command run twice, once for each of its forms. */
   const RUNS: readonly (readonly [label: string, id: string, scenario: Scenario])[] = commands
     .map((command) => command.id)
-    .filter((id) => !REPEATABLE.has(id))
+    .filter((id) => !REPEATABLE.has(id) && !PROJECT_SYSTEM.has(id))
     .flatMap((id) => {
       const given = SCENARIOS[id] ?? {};
       const forms: readonly Scenario[] = Array.isArray(given) ? given : [given];

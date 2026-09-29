@@ -74,6 +74,8 @@ export const PersistedPart = {
   Shortcuts: 'shortcuts',
   Verbosity: 'verbosity',
   KeyboardLayout: 'keyboard-layout',
+  SourceHandling: 'source-handling',
+  LastProject: 'last-project',
 } as const;
 
 /** A part of the shell's state that is stored on its own. */
@@ -88,9 +90,13 @@ export type PersistedPart = (typeof PersistedPart)[keyof typeof PersistedPart];
  * will not survive a reload" at the first key they pressed, and the status bar
  * would list "keyboard layout" among what was not being saved, with nothing
  * they could do about either (REQ-ARCH-153 keeps derived state apart from
- * theirs).
+ * theirs). The project last open is the same: remembered to open it again at
+ * the next start, and never a change the user made.
  */
-const LEARNED_PARTS: ReadonlySet<PersistedPart> = new Set([PersistedPart.KeyboardLayout]);
+const LEARNED_PARTS: ReadonlySet<PersistedPart> = new Set([
+  PersistedPart.KeyboardLayout,
+  PersistedPart.LastProject,
+]);
 
 /** What the user calls each part. */
 const PART_NAMES: Record<PersistedPart, string> = {
@@ -99,6 +105,8 @@ const PART_NAMES: Record<PersistedPart, string> = {
   [PersistedPart.Shortcuts]: 'shortcut profiles',
   [PersistedPart.Verbosity]: 'diagnostic log levels',
   [PersistedPart.KeyboardLayout]: 'keyboard layout',
+  [PersistedPart.SourceHandling]: 'the choice of how files are brought in',
+  [PersistedPart.LastProject]: 'the project to open next time',
 };
 
 /** Why a caller keeps back some of a write, and what the user is told about it. */

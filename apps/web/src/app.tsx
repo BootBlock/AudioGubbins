@@ -32,11 +32,15 @@ import { DiagnosticExportDialog } from './shell/diagnostic-export.js';
 import { ApplicationFailure, FailureBoundary, PanelFailure } from './shell/failure-boundary.js';
 import { shellMenus } from './shell/menus.js';
 import { renderPanel } from './shell/panels.js';
+import { ProjectBanner } from './shell/project-banner.js';
+import { ProjectSurfaces } from './shell/project-surfaces.js';
+import { SaveStatus } from './shell/save-status.js';
 import { SettingsDialog } from './shell/settings-dialog.js';
 import { StatusBar } from './shell/status-bar.js';
 import { TooNarrowNotice } from './shell/too-narrow.js';
 import { useRecoveryAnnouncement } from './shell/use-recovery-announcement.js';
 import { useShellState } from './shell/use-shell-state.js';
+import { useProjectState } from './shell/use-project-state.js';
 import { useWorkspaceWidth } from './shell/use-workspace-width.js';
 import { standingRecovery } from './state/recovery-notices.js';
 
@@ -67,6 +71,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
   } = useShellState(application);
 
   const [settingsSection, setSettingsSection] = useState('appearance');
+  const project = useProjectState(context.storageRoot, context.projects);
 
   /**
    * Why this browser does not say what the keyboard types, where it does not.
@@ -163,6 +168,13 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               </ControlBar>
             </header>
 
+            <ProjectBanner
+              root={context.storageRoot}
+              project={context.projects?.project}
+              run={runNamed}
+              announce={announce}
+            />
+
             {/* Focusable, so the reader can be put back at the workspace when
               the window is widened past the declared minimum again. */}
             <main className="ag-workspace" tabIndex={-1}>
@@ -200,6 +212,11 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                       logs: context.logs,
                       logViews: context.logViews,
                       diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
+                      storageAbsences: context.storageAbsences,
+                      projects: context.projects,
+                      projectsUnavailable: unavailableReason('file.projects'),
+                      run: runNamed,
+                      unavailableReason,
                     })}
                   </FailureBoundary>
                 )}
@@ -213,7 +230,8 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               diagnosticModeActive={context.diagnostics.isDiagnosticModeActive()}
               persistence={persistence}
               recovery={recovery}
-              missingCapabilities={missingCapabilities.length}
+              missingCapabilities={missingCapabilities.length + context.storageAbsences.length}
+              saving={<SaveStatus open={project.open} run={runNamed} announce={announce} />}
               run={run}
             />
 
@@ -274,6 +292,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               available={workspace.available}
               deleted={workspace.deleted}
               workspaceUnread={workspace.unread}
+              projects={context.projects}
               section={settingsSection}
               onSectionChange={setSettingsSection}
               run={runNamed}
@@ -286,6 +305,14 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               }}
               sourcesFor={(notes) => bundleSourcesFrom(context, notes)}
               run={runNamed}
+            />
+
+            <ProjectSurfaces
+              root={context.storageRoot}
+              projects={context.projects}
+              section={interaction.projectsSection}
+              run={runNamed}
+              unavailableReason={unavailableReason}
             />
 
             <NoticeSurface />

@@ -40,6 +40,7 @@ import {
 import { ephemeralStorage } from './ephemeral-storage.js';
 import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
+import { unavailableStorageRoot } from '../state/storage-root-store.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
 /**
@@ -156,6 +157,11 @@ export function buildShellContext(
       verbosity: createVerbosityStore(diagnostics.verbosity(), diagnostics, storage),
       environment: { browser: 'Test browser 1', operatingSystem: 'Test system', installed: false },
       clock: { now: () => 0 },
+      // A context of the shell alone keeps no projects; a test of the project
+      // commands builds one that does (`project-context.ts`).
+      storageRoot: unavailableStorageRoot('This test keeps no projects.'),
+      projects: undefined,
+      storageAbsences: [],
     },
   };
 }

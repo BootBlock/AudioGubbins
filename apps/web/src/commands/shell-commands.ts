@@ -1,5 +1,6 @@
 /**
- * Every action the Phase 01 shell can perform.
+ * Every action the shell can perform: the Phase 01 shell's own, and the project
+ * system's.
  *
  * REQ-EDIT-073 requires each of these to be reachable the same way from a menu,
  * a shortcut, the palette and a future macro, which is what registering them
@@ -16,9 +17,17 @@
 import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
+import { backupCommands } from './backup-commands.js';
+import { compactionCommands } from './compaction-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
+import { historyCommands } from './history-commands.js';
+import { ownershipCommands } from './ownership-commands.js';
+import { deletionCommands } from './project-deletion-commands.js';
+import { projectFileCommands } from './project-file-commands.js';
+import { projectTransferCommands } from './project-transfer-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
+import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
 import { viewCommands } from './view-commands.js';
 import { panelCommands } from './panel-commands.js';
@@ -102,6 +111,20 @@ function surfaceCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/** Every command of the project system: its projects, their history and the storage. */
+function projectSystemCommands(): readonly Command<ShellContext>[] {
+  return [
+    ...projectFileCommands(),
+    ...deletionCommands(),
+    ...projectTransferCommands(),
+    ...backupCommands(),
+    ...historyCommands(),
+    ...compactionCommands(),
+    ...ownershipCommands(),
+    ...storageCommands(),
+  ];
+}
+
 /**
  * Builds every shell command.
  *
@@ -120,5 +143,6 @@ export function shellCommands(
     ...shortcutCommands(),
     ...unreadTextCommands(),
     ...diagnosticCommands(),
+    ...projectSystemCommands(),
   ];
 }

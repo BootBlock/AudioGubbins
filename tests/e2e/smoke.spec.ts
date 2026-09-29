@@ -1611,8 +1611,9 @@ test.describe('the workspace', () => {
     await expect(page.locator('.ag-status-bar')).toContainText(
       'Not being saved: appearance settings',
     );
+    // With why, and what makes room, since the quota was met (F-209).
     await expect(page.locator('.ag-notice')).toHaveText(
-      'Your appearance settings could not be saved, so your changes will not survive a reload.',
+      "Your appearance settings could not be saved, so your changes will not survive a reload. The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.",
     );
   });
 });

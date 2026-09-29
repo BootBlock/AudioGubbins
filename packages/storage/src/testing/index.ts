@@ -1,7 +1,9 @@
 /**
  * What another package's tests may take from the storage's test support: the
  * single-writer scenarios every `LeaseCoordinator` must pass (REQ-STOR-098,
- * REQ-STOR-102, ADR-0020).
+ * REQ-STOR-102, ADR-0020), and the in-memory stand-ins for the platform's
+ * leases, a directory and a sink, which the application's tests run its project
+ * flows over.
  *
  * The scenarios live here, not in one test, so the in-memory coordinator and
  * every platform's coordinator are held to the same behaviour rather than to
@@ -23,6 +25,8 @@ import { STORAGE_LOCK_SCENARIOS } from './storage-lock-scenarios.js';
 import { WRITER_SCENARIOS } from './writer-scenarios.js';
 
 export { type LeasePlatform, type LeaseWindows } from './lease-scene.js';
+export { MemoryLeaseCoordinator } from './memory-leases.js';
+export { MemoryDirectory, type MemorySink, memorySink } from './memory-ports.js';
 
 /** Runs the single-writer scenarios over a platform's coordination. */
 export function describeWriteLeaseScenarios(name: string, platform: LeasePlatform): void {

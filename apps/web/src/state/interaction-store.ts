@@ -55,6 +55,17 @@ export interface Announcement extends AnnouncementOptions {
   readonly sequence: number;
 }
 
+/** A section of the Projects dialogue. */
+export const ProjectsSection = {
+  New: 'new',
+  Open: 'open',
+  Current: 'current',
+  Import: 'import',
+} as const;
+
+/** A section of the Projects dialogue. */
+export type ProjectsSection = (typeof ProjectsSection)[keyof typeof ProjectsSection];
+
 /** What the user is currently doing with the interface. */
 export interface InteractionState {
   /** Whether the command palette is open. */
@@ -71,6 +82,14 @@ export interface InteractionState {
    * has to be the one thing on screen when it is given (REQ-PRIV-161).
    */
   readonly diagnosticExportOpen: boolean;
+
+  /**
+   * The section of the Projects dialogue showing, while it is open: making a
+   * project, opening one, the project open now, or bringing one in. A dialogue
+   * rather than a command's arguments, because a project needs a name, and a
+   * command cannot open a dialogue and wait for one.
+   */
+  readonly projectsSection: ProjectsSection | undefined;
 
   /**
    * The presses of a chord in progress, for the hint the status bar shows.
@@ -101,6 +120,7 @@ const INITIAL: InteractionState = {
   paletteOpen: false,
   settingsOpen: false,
   diagnosticExportOpen: false,
+  projectsSection: undefined,
   pendingChord: [],
   commandPressKeyAsked: undefined,
 };
@@ -110,6 +130,9 @@ export interface InteractionStore extends Observable<InteractionState> {
   readonly setPaletteOpen: (open: boolean) => void;
   readonly setSettingsOpen: (open: boolean) => void;
   readonly setDiagnosticExportOpen: (open: boolean) => void;
+
+  /** Shows the Projects dialogue at a section, or shuts it. */
+  readonly setProjectsSection: (section: ProjectsSection | undefined) => void;
   readonly setPendingChord: (presses: readonly KeyPress[]) => void;
   readonly askForCommandPress: (code: string | undefined) => void;
 
@@ -143,6 +166,10 @@ export function createInteractionStore(): InteractionStore {
 
     setDiagnosticExportOpen: (open) => {
       state.update((current) => ({ ...current, diagnosticExportOpen: open }));
+    },
+
+    setProjectsSection: (section) => {
+      state.update((current) => ({ ...current, projectsSection: section }));
     },
 
     askForCommandPress: (code) => {

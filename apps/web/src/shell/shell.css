@@ -19,7 +19,7 @@
  */
 .ag-app {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto auto 1fr auto;
   grid-template-columns: minmax(0, 1fr);
   block-size: 100dvh;
   overflow: hidden;
@@ -94,7 +94,7 @@
  */
 .ag-workspace {
   isolation: isolate;
-  grid-row: 2;
+  grid-row: 3;
   min-block-size: 0;
   padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px);
   background-color: var(--ag-chrome-surface-base);
@@ -123,6 +123,14 @@
 @media (width < 640px) {
   .ag-workspace > .ag-dock-host,
   .ag-workspace > :not(.ag-too-narrow) {
+    display: none;
+  }
+
+  /* The project strip goes with the workspace it speaks of, so the notice has
+     the room: wrapped at this width it would take the height the notice needs.
+     What it would say is still said aloud, and the menus still reach it. Named
+     through the shell, to outrank the strip's own rule further down. */
+  .ag-app > .ag-project-banner {
     display: none;
   }
 
@@ -158,7 +166,7 @@
 }
 
 .ag-status-bar {
-  grid-row: 3;
+  grid-row: 4;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -212,6 +220,192 @@
 
 .ag-status-spacer {
   flex: 1 1 auto;
+}
+
+/*
+ * The project strip under the menu bar: what project is open, how this tab may
+ * use it, and the action that answers each thing it says. It wraps rather than
+ * running off a narrow page, and takes no room when it says nothing.
+ */
+.ag-project-banner {
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  padding-block: var(--ag-space-tiny);
+  padding-inline: calc(var(--ag-space-small) + env(safe-area-inset-left, 0px))
+    calc(var(--ag-space-small) + env(safe-area-inset-right, 0px));
+  background-color: var(--ag-chrome-surface-base);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+  color: var(--ag-chrome-text-primary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-project-banner:empty {
+  display: none;
+}
+
+.ag-project-banner-name {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ag-project-banner-text {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.ag-project-banner-confirm,
+.ag-project-banner-request,
+.ag-project-banner-report {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+}
+
+/* A heading inside a panel, a dialogue's section or a settings tab. */
+.ag-section-heading {
+  margin: var(--ag-space-small) 0 var(--ag-space-tiny);
+  font-size: inherit;
+  font-weight: 600;
+}
+
+/* The lists of projects and of backups. */
+.ag-project-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+}
+
+.ag-project-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  padding-block-end: var(--ag-space-small);
+  border-block-end: 1px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-project-row-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ag-project-row-note {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-project-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-tiny);
+  margin-inline-start: auto;
+}
+
+/* The History panel. */
+.ag-history-list {
+  margin: 0 0 var(--ag-space-medium);
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-small);
+}
+
+.ag-history-list:focus-visible {
+  outline-style: solid;
+  outline-width: var(--ag-focus-ring-width);
+  outline-color: var(--ag-chrome-border-focus);
+  outline-offset: var(--ag-focus-ring-offset);
+}
+
+.ag-history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  padding: var(--ag-space-tiny) var(--ag-space-small);
+  cursor: pointer;
+}
+
+/* A branch is drawn a step further in, as deep as a narrow panel allows. */
+.ag-history-row[data-ag-depth='1'] {
+  padding-inline-start: calc(var(--ag-space-small) + 1 * var(--ag-space-large));
+}
+.ag-history-row[data-ag-depth='2'] {
+  padding-inline-start: calc(var(--ag-space-small) + 2 * var(--ag-space-large));
+}
+.ag-history-row[data-ag-depth='3'] {
+  padding-inline-start: calc(var(--ag-space-small) + 3 * var(--ag-space-large));
+}
+.ag-history-row[data-ag-depth='4'] {
+  padding-inline-start: calc(var(--ag-space-small) + 4 * var(--ag-space-large));
+}
+.ag-history-row[data-ag-depth='5'] {
+  padding-inline-start: calc(var(--ag-space-small) + 5 * var(--ag-space-large));
+}
+.ag-history-row[data-ag-depth='6'] {
+  padding-inline-start: calc(var(--ag-space-small) + 6 * var(--ag-space-large));
+}
+
+.ag-history-row[aria-selected='true'] {
+  background-color: var(--ag-chrome-surface-sunken);
+  box-shadow: inset 3px 0 0 var(--ag-chrome-accent);
+}
+
+.ag-history-row[data-ag-current] .ag-history-row-description {
+  font-weight: 600;
+}
+
+.ag-history-row-time,
+.ag-history-row-mark {
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
+.ag-history-actions,
+.ag-history-comparison,
+.ag-history-compaction,
+.ag-cleanup-plan {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  margin-block-end: var(--ag-space-medium);
+}
+
+/* The Storage panel. */
+.ag-usage {
+  margin: 0 0 var(--ag-space-medium);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+}
+
+.ag-usage-part {
+  display: contents;
+}
+
+.ag-usage dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.ag-cleanup-steps,
+.ag-source-changes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
 }
 
 /* Panels. */

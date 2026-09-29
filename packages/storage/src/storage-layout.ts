@@ -20,6 +20,8 @@
  * - `backups/<project>/<generation>/`: a backup generation
  *   (`backup-generations.ts`).
  * - `cache/<category>/<scope>/<name>`: a disposable cache (`cache-store.ts`).
+ * - `media/`: the media object store every project shares, which the
+ *   composition root makes over this directory.
  *
  * Epochs and sequence numbers are written as twelve decimal digits, so a
  * directory listed in name order is listed in number order.
@@ -38,6 +40,9 @@ export const BACKUPS_DIRECTORY = 'backups';
 
 /** The directory every cache is kept under. */
 export const CACHE_DIRECTORY = 'cache';
+
+/** The directory the shared media object store is kept under. */
+export const MEDIA_DIRECTORY = 'media';
 
 /** One of the two files of a pair that is rewritten by turns. */
 export type PairSlot = 0 | 1;

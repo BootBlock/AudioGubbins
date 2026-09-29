@@ -35,6 +35,7 @@ export {
   wipeStorage,
 } from './storage-root.js';
 export { exportRawStorage } from './raw-export.js';
+export { MEDIA_DIRECTORY } from './storage-layout.js';
 
 export { type RecordFault } from './checked-records.js';
 

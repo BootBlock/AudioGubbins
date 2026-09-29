@@ -49,6 +49,9 @@ export interface StatusBarProps {
   /** How many capabilities this browser lacks. */
   readonly missingCapabilities: number;
 
+  /** Whether the open project's changes are saved, where one is open. */
+  readonly saving?: ReactNode;
+
   readonly run: (id: CommandId, args?: Readonly<Record<string, string>>) => void;
 }
 
@@ -166,6 +169,7 @@ export function StatusBar({
   persistence,
   recovery,
   missingCapabilities,
+  saving,
   run,
 }: StatusBarProps): ReactNode {
   const bar = useRef<HTMLElement>(null);
@@ -181,6 +185,7 @@ export function StatusBar({
   return (
     <footer className="ag-status-bar" ref={bar} tabIndex={focus.tabIndex} aria-label="Status">
       <span className="ag-status-item">{workspaceName}</span>
+      {saving}
 
       {pendingChord !== undefined && (
         <span className="ag-status-item" data-ag-status="reduced">

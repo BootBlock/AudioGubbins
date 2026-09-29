@@ -29,6 +29,7 @@ import {
   operatingSystemOf,
   readLayoutMap,
   readPlatformSignals,
+  readStoragePlatform,
   watchAppearanceSettings,
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
@@ -49,6 +50,8 @@ import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { createInteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
+import { startProjectSystem } from './state/project-system.js';
+import { ProjectPanelKinds } from './panel-kinds.js';
 import { createLogViewStore } from './state/log-view-store.js';
 import {
   createKeyboardLayoutStore,
@@ -121,6 +124,8 @@ const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
+      [ProjectPanelKinds.History, 'History', DockRegion.Right],
+      [ProjectPanelKinds.Storage, 'Storage', DockRegion.Bottom],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
@@ -188,6 +193,15 @@ export function createApplication() {
   );
 
   const workspace = createWorkspaceStore(PANEL_DESCRIPTORS, storage, logger);
+
+  // Read once, beside every other question put to the browser, and started
+  // before anything else reads project storage (REQ-STOR-052).
+  const projectSystem = startProjectSystem(readStoragePlatform(navigator, globalThis), {
+    diagnostics,
+    clock,
+    storage,
+    page: browserVisibility(),
+  });
   const logViews = createLogViewStore();
 
   // A log panel's filter lasts as long as the panel. A closed panel's
@@ -213,6 +227,9 @@ export function createApplication() {
     verbosity: createVerbosityStore(verbosity, diagnostics, storage),
     environment: describeEnvironment(platform),
     clock,
+    storageRoot: projectSystem.storageRoot,
+    projects: projectSystem.projects,
+    storageAbsences: projectSystem.storageAbsences,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -263,9 +280,12 @@ export function createApplication() {
      *
      * Its own function rather than React's unmounting, because what is
      * registered here is outside React: `root.unmount()` removes no
-     * `visibilitychange` listener and no `focus` listener.
+     * `visibilitychange` listener, no `focus` listener and no timer.
      */
-    dispose: stopWatching,
+    dispose: () => {
+      stopWatching();
+      projectSystem.dispose();
+    },
   };
 }
 

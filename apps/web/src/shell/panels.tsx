@@ -19,7 +19,12 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, OptionSelect } from '@audiogubbins/design-system';
-import { ALL_FEATURES, FeatureStatus, type CapabilityRegistry } from '@audiogubbins/capabilities';
+import {
+  ALL_FEATURES,
+  FeatureStatus,
+  type CapabilityRegistry,
+  type StorageCapabilityAbsence,
+} from '@audiogubbins/capabilities';
 import {
   LogSeverity,
   allSeverities,
@@ -30,7 +35,10 @@ import {
 import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
 
 import { logCategoryName } from '../log-categories.js';
+import { ProjectPanelKinds } from '../panel-kinds.js';
 import type { LogView, LogViewStore } from '../state/log-view-store.js';
+import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
+import { StorageAbsences } from './storage-absences.js';
 
 /** A panel that describes what will live here, and when. */
 function ComingInAPhase({
@@ -55,9 +63,13 @@ function ComingInAPhase({
 export function CapabilitiesPanel({
   title,
   capabilities,
+  storageAbsences,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
+
+  /** What this browser lacks for keeping projects, and what that costs. */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 }): ReactNode {
   // Subscribed, so an answer the browser gives late redraws the panel.
   useSyncExternalStore(capabilities.subscribe, capabilities.all);
@@ -70,7 +82,7 @@ export function CapabilitiesPanel({
         What this browser can do, and what AudioGubbins does where it cannot.
       </p>
 
-      {degraded.length === 0 ? (
+      {degraded.length === 0 && storageAbsences.length === 0 ? (
         <p>Every AudioGubbins feature can run at full capability in this browser.</p>
       ) : (
         <ul className="ag-capability-list">
@@ -93,6 +105,7 @@ export function CapabilitiesPanel({
           ))}
         </ul>
       )}
+      <StorageAbsences absences={storageAbsences} />
     </section>
   );
 }
@@ -235,12 +248,15 @@ export function DiagnosticsPanel({
 }
 
 /** What a panel needs to draw itself. */
-export interface PanelContext {
+export interface PanelContext extends ProjectPanelContext {
   readonly capabilities: CapabilityRegistry;
   readonly logs: LogStore;
   readonly logViews: LogViewStore;
   readonly diagnosticModeActive: boolean;
   readonly announcement?: { readonly text: string; readonly urgent: boolean };
+
+  /** What this browser lacks for keeping projects. */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 }
 
 /**
@@ -289,7 +305,17 @@ const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonl
 export function renderPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
     case PanelKinds.Capabilities:
-      return <CapabilitiesPanel title={title} capabilities={context.capabilities} />;
+      return (
+        <CapabilitiesPanel
+          title={title}
+          capabilities={context.capabilities}
+          storageAbsences={context.storageAbsences}
+        />
+      );
+
+    case ProjectPanelKinds.History:
+    case ProjectPanelKinds.Storage:
+      return <ProjectPanel kind={panel.kind} title={title} context={context} />;
 
     case PanelKinds.Diagnostics:
       return (

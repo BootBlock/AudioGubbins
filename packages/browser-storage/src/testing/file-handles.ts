@@ -37,6 +37,44 @@ class FakeHandle {
   }
 }
 
+/** The browser's writable file stream, over the chunks written to it, in order. */
+class FakeWritable
+  extends WritableStream<FileSystemWriteChunkType>
+  implements FileSystemWritableFileStream
+{
+  constructor(onClose: (parts: readonly BlobPart[]) => void) {
+    const parts: BlobPart[] = [];
+    super({
+      write: (chunk) => {
+        if (typeof chunk === 'object' && 'type' in chunk && !(chunk instanceof Blob)) {
+          throw new TypeError('A fake stream takes bytes, text or a blob, never a command.');
+        }
+        parts.push(chunk);
+      },
+      close: () => {
+        onClose(parts);
+      },
+    });
+  }
+
+  async write(data: FileSystemWriteChunkType): Promise<void> {
+    const writer = this.getWriter();
+    try {
+      await writer.write(data);
+    } finally {
+      writer.releaseLock();
+    }
+  }
+
+  seek(): Promise<void> {
+    return Promise.reject(new Error('A fake stream is written in order.'));
+  }
+
+  truncate(): Promise<void> {
+    return Promise.reject(new Error('A fake stream is written in order.'));
+  }
+}
+
 /** A file's handle, whose file can change or go under it. */
 export class FakeFileHandle extends FakeHandle implements FileSystemFileHandle {
   readonly kind = 'file';
@@ -63,38 +101,70 @@ export class FakeFileHandle extends FakeHandle implements FileSystemFileHandle {
       : Promise.resolve(this.#file);
   }
 
+  /**
+   * A stream that replaces the file once it closes, as the browser's writes a
+   * copy it swaps in then, and leaves it as it was where it is aborted.
+   */
   createWritable(): Promise<FileSystemWritableFileStream> {
-    return Promise.reject(new Error('A fake file handle writes nothing.'));
+    return Promise.resolve(
+      new FakeWritable((parts) => {
+        this.#file = new File([...parts], this.name);
+      }),
+    );
   }
 }
 
-/** A folder's handle, listing the handles given it. */
+/** Why a fake folder has nothing by a name. */
+function absent(name: string): DOMException {
+  return new DOMException(`There is nothing called ${name} here.`, 'NotFoundError');
+}
+
+/** A folder's handle, listing the handles given it, which opens, makes and removes by name. */
 export class FakeDirectoryHandle extends FakeHandle implements FileSystemDirectoryHandle {
   readonly kind = 'directory';
-  readonly #children: readonly (FakeFileHandle | FakeDirectoryHandle)[];
+  readonly #children: (FakeFileHandle | FakeDirectoryHandle)[];
 
   constructor(name: string, children: readonly (FakeFileHandle | FakeDirectoryHandle)[]) {
     super(name);
-    this.#children = children;
+    this.#children = [...children];
   }
 
   async *values(): AsyncGenerator<FakeFileHandle | FakeDirectoryHandle> {
-    for (const child of this.#children) {
+    for (const child of [...this.#children]) {
       await Promise.resolve();
       yield child;
     }
   }
 
-  getDirectoryHandle(): Promise<FileSystemDirectoryHandle> {
-    return Promise.reject(new Error('A fake folder opens nothing by name.'));
+  getDirectoryHandle(
+    name: string,
+    options: { readonly create?: boolean } = {},
+  ): Promise<FileSystemDirectoryHandle> {
+    const found = this.#children.find((child) => child.name === name);
+    if (found instanceof FakeDirectoryHandle) return Promise.resolve(found);
+    if (found !== undefined || options.create !== true) return Promise.reject(absent(name));
+    const made = new FakeDirectoryHandle(name, []);
+    this.#children.push(made);
+    return Promise.resolve(made);
   }
 
-  getFileHandle(): Promise<FileSystemFileHandle> {
-    return Promise.reject(new Error('A fake folder opens nothing by name.'));
+  getFileHandle(
+    name: string,
+    options: { readonly create?: boolean } = {},
+  ): Promise<FileSystemFileHandle> {
+    const found = this.#children.find((child) => child.name === name);
+    if (found instanceof FakeFileHandle) return Promise.resolve(found);
+    if (found !== undefined || options.create !== true) return Promise.reject(absent(name));
+    const made = new FakeFileHandle(new File([], name));
+    this.#children.push(made);
+    return Promise.resolve(made);
   }
 
-  removeEntry(): Promise<void> {
-    return Promise.reject(new Error('A fake folder removes nothing.'));
+  removeEntry(name: string): Promise<void> {
+    const index = this.#children.findIndex((child) => child.name === name);
+    if (index < 0) return Promise.reject(absent(name));
+    this.#children.splice(index, 1);
+    return Promise.resolve();
   }
 
   resolve(): Promise<string[] | null> {

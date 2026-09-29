@@ -12,6 +12,7 @@
     "typecheck": "tsc --build"
   },
   "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/design-system": "workspace:*",

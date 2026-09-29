@@ -173,6 +173,7 @@ export {
   type AffectedEntities,
   type ChangeNodeRecord,
   DEFAULT_RETENTION_POLICY,
+  LONGEST_HISTORY_LABEL,
   type HistoryLabel,
   type HistoryNodeId,
   type HistoryNodeRecord,

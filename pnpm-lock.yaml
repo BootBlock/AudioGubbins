@@ -247,6 +247,9 @@ importers:
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../../packages/diagnostics
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@audiogubbins/history':
         specifier: workspace:*
         version: link:../../packages/history

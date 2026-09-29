@@ -183,6 +183,25 @@ export default defineConfig(({ command }) => ({
     previewRequestLog(),
   ],
 
+  /*
+   * The storage worker, built as a module of its own.
+   *
+   * ES modules, because the worker imports the storage packages as the page
+   * does and a classic worker cannot split them into shared chunks; every
+   * floor browser starts a module worker. Named after its content, as every
+   * other chunk is, so a new release never meets a stale worker.
+   */
+  worker: {
+    format: 'es' as const,
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
+
   build: {
     // Named after the content, so a browser can cache them indefinitely and a
     // new release is never served a stale chunk.

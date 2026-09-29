@@ -11,12 +11,15 @@
  * prohibits, and it would make every command untestable without the whole
  * application being constructed first.
  *
- * Note what is absent: no project, no audio, no renderer. A shell command
- * cannot mutate project state because it has no route to it, which is the
- * dependency direction REQ-EXEC-136.4 asks for rather than a rule to remember.
+ * Note what is absent: no audio and no renderer, and no project state to write.
+ * A shell command reaches an open project only through its session, whose every
+ * change is a project command run through the project's own bus and kept in its
+ * history (REQ-STOR-021), so a shell command cannot change a project by any
+ * other route: the dependency direction REQ-EXEC-136.4 asks for rather than a
+ * rule to remember.
  */
 
-import type { CapabilityRegistry } from '@audiogubbins/capabilities';
+import type { CapabilityRegistry, StorageCapabilityAbsence } from '@audiogubbins/capabilities';
 import type { KeyboardConvention } from '@audiogubbins/commands';
 import type {
   Clock,
@@ -26,6 +29,8 @@ import type {
 } from '@audiogubbins/diagnostics';
 
 import type { TextFiles } from '../io/text-files.js';
+import type { ProjectStores } from '../state/project-stores.js';
+import type { StorageRootStore } from '../state/storage-root-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
 import type { KeyboardLayoutStore } from '../state/keyboard-layout-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
@@ -74,4 +79,16 @@ export interface ShellContext {
 
   /** Where text the user asked to keep is offered as a file. */
   readonly files: TextFiles;
+
+  /**
+   * Whether projects can be kept and read at all: whether this browser can keep
+   * them, and whether the stored data is of this build's schema (REQ-STOR-052).
+   */
+  readonly storageRoot: StorageRootStore;
+
+  /** The project system's stores, absent where this browser cannot keep projects. */
+  readonly projects: ProjectStores | undefined;
+
+  /** What this browser lacks for keeping projects, and what that costs (REQ-EXEC-216). */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 }

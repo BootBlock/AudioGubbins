@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { KeyboardConvention, createCommandRegistry } from '@audiogubbins/commands';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
@@ -6,6 +6,7 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { shellCommands } from '../commands/shell-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
+import { projectWorld } from '../testing/project-context.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { shellMenus, type MenuSources } from './menus.js';
 
@@ -46,8 +47,8 @@ describe('the menu bar', () => {
     const menus = shellMenus(sources());
     const entries = menus.flatMap((menu) => menu.groups.flatMap((group) => group.items));
 
-    expect(menus.map((menu) => menu.label)).toEqual(['View', 'Workspace', 'Help']);
-    expect(entries).toHaveLength(45);
+    expect(menus.map((menu) => menu.label)).toEqual(['File', 'Edit', 'View', 'Workspace', 'Help']);
+    expect(entries).toHaveLength(64);
   });
 
   it('names the panel the arrangement entries act on', () => {
@@ -127,5 +128,50 @@ describe('the menu bar', () => {
     );
 
     expect(() => shellMenus(sources(withoutOne))).toThrow('"view.command-palette"');
+  });
+});
+
+describe('the File and Edit menus', () => {
+  it('opens the Projects dialogue at the section each entry names', async () => {
+    const window = await projectWorld().window();
+    const run = vi.fn();
+    const file = shellMenus({ ...sources(undefined, undefined, window.context), run }).find(
+      (menu) => menu.label === 'File',
+    );
+
+    const entries = file?.groups.flatMap((group) => group.items) ?? [];
+    entries.find((one) => one.label === 'New project…')?.onSelect();
+    entries.find((one) => one.label === 'Open project…')?.onSelect();
+    expect(run.mock.calls).toEqual([
+      ['file.projects', { section: 'new' }],
+      ['file.projects', { section: 'open' }],
+    ]);
+    expect(entries.find((one) => one.key === 'file.close-project')?.unavailableReason).toBe(
+      'No project is open.',
+    );
+  });
+
+  it('names the change Undo and Redo would reverse and repeat', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'A' });
+    await window.runAndHear('file.rename-project', { name: 'B' });
+
+    const edit = () =>
+      shellMenus(sources(undefined, undefined, window.context))
+        .find((menu) => menu.label === 'Edit')
+        ?.groups.flatMap((group) => group.items) ?? [];
+    expect(
+      edit()
+        .map((one) => one.label)
+        .slice(0, 2),
+    ).toEqual(['Undo Rename project to “B”', 'Redo']);
+
+    await window.runAndHear('edit.undo');
+    expect(
+      edit()
+        .map((one) => one.label)
+        .slice(0, 2),
+    ).toEqual(['Undo', 'Redo Rename project to “B”']);
+    expect(edit()[0]?.unavailableReason).toBe('There is nothing to undo.');
   });
 });
