@@ -166,6 +166,9 @@ importers:
 
   .:
     devDependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:packages/audio-engine
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:packages/capabilities
@@ -232,6 +235,15 @@ importers:
 
   apps/web:
     dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../../packages/audio-engine
+      '@audiogubbins/audio-graph':
+        specifier: workspace:*
+        version: link:../../packages/audio-graph
+      '@audiogubbins/audio-runtime':
+        specifier: workspace:*
+        version: link:../../packages/audio-runtime
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:../../packages/capabilities
@@ -244,6 +256,9 @@ importers:
       '@audiogubbins/diagnostics':
         specifier: workspace:*
         version: link:../../packages/diagnostics
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:../../packages/input
@@ -293,6 +308,51 @@ importers:
       vite-plugin-pwa:
         specifier: 1.3.0
         version: 1.3.0(supports-color@7.2.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))(workbox-build@7.4.1(supports-color@7.2.0))(workbox-window@7.4.1)
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/audio-engine:
+    dependencies:
+      '@audiogubbins/audio-graph':
+        specifier: workspace:*
+        version: link:../audio-graph
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/audio-graph:
+    dependencies:
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/audio-runtime:
+    dependencies:
+      '@audiogubbins/audio-engine':
+        specifier: workspace:*
+        version: link:../audio-engine
+      '@audiogubbins/audio-graph':
+        specifier: workspace:*
+        version: link:../audio-graph
+      '@audiogubbins/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
+      '@audiogubbins/diagnostics':
+        specifier: workspace:*
+        version: link:../diagnostics
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))

@@ -9,9 +9,17 @@
     "allowJs": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["**/*.ts", "../tools/check-build-output.mjs", "../tools/check-record-titles.mjs"],
+  "include": [
+    "**/*.ts",
+    "../tools/build-wasm.mjs",
+    "../tools/check-build-output.mjs",
+    "../tools/check-record-titles.mjs"
+  ],
   "exclude": ["dist"],
   "references": [
+    {
+      "path": "../packages/audio-engine"
+    },
     {
       "path": "../packages/capabilities"
     },

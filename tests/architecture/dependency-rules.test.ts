@@ -197,6 +197,15 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/input': ['@audiogubbins/text'],
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
+  '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+  '@audiogubbins/audio-runtime': [
+    '@audiogubbins/domain',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/capabilities',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+  ],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
@@ -651,7 +660,15 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
    * import in it would reach every package that reads it. The cruise's
    * framework rule names the same set.
    */
-  const FRAMEWORK_FREE_PACKAGES = ['commands', 'domain', 'input', 'text', 'version'] as const;
+  const FRAMEWORK_FREE_PACKAGES = [
+    'audio-engine',
+    'audio-graph',
+    'commands',
+    'domain',
+    'input',
+    'text',
+    'version',
+  ] as const;
   const FRAMEWORK_FREE = productionSources(
     `packages/{${FRAMEWORK_FREE_PACKAGES.join(',')}}/src/**/*.ts`,
   );
@@ -2694,7 +2711,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       85,
       'One settings section whose controls each run a workspace command, sharing only the name typed and the one rename the field and its button both ask for.',
     ],
-    'apps/web/src/shell/panels.tsx: DiagnosticsPanel': [
+    'apps/web/src/shell/diagnostics-panel.tsx: DiagnosticsPanel': [
       82,
       "One panel whose filter controls and record list share the reader's chosen level and subsystem, kept beside the dock as well so a remount keeps them.",
     ],
@@ -2755,10 +2772,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/diagnostics/src/bundle.ts: assembleBundle': [
       60,
       'One pass that threads a single redaction tally through every category it includes.',
-    ],
-    'packages/domain/src/audio/channel-layout.ts: channelLayout': [
-      51,
-      'Validates a list of roles step by step: empty, too many, a position twice, mono mixed with others.',
     ],
   };
 

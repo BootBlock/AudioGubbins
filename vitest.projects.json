@@ -42,6 +42,33 @@
       ]
     },
     {
+      "name": "audio-graph",
+      "root": "packages/audio-graph",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "audio-engine",
+      "root": "packages/audio-engine",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "audio-runtime",
+      "root": "packages/audio-runtime",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",

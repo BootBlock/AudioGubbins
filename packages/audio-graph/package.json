@@ -1,0 +1,30 @@
+{
+  "name": "@audiogubbins/audio-graph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The typed directed audio processing graph as a value, and every decision made from it without running it.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project audio-graph"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

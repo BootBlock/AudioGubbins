@@ -46,6 +46,15 @@ function safely(probe: () => unknown): boolean {
   }
 }
 
+/**
+ * The smallest module WebAssembly accepts: its magic number and version 1.
+ *
+ * Compiled, rather than `WebAssembly` looked for, because a security policy
+ * without `'wasm-unsafe-eval'` leaves the global in place and refuses every
+ * compilation, which is what the canonical DSP needs.
+ */
+const EMPTY_MODULE = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+
 /** The media queries the operating system's appearance settings answer. */
 const APPEARANCE_QUERIES = {
   prefersDark: '(prefers-color-scheme: dark)',
@@ -84,6 +93,12 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     isCrossOriginIsolated: safely(() => window.crossOriginIsolated),
     hasAudioWorklet: safely(
       () => exists(window, 'AudioWorkletNode') && exists(window, 'AudioContext'),
+    ),
+    compilesWebAssembly: safely(
+      () => new WebAssembly.Module(EMPTY_MODULE) instanceof WebAssembly.Module,
+    ),
+    choosesAudioOutput: safely(
+      () => exists(window, 'AudioContext') && 'setSinkId' in AudioContext.prototype,
     ),
     hasWebWorkers: safely(() => typeof Worker === 'function'),
     hasWebGpu: safely(() => exists(navigator, 'gpu')),

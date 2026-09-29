@@ -1,23 +1,20 @@
 # AudioGubbins Cargo workspace.
 #
-# Phase 01 establishes the workspace so that `cargo test --workspace` is part of
-# verification from the first commit, and so the Rust toolchain is wired into CI
-# before any DSP code depends on it (REQ-REPO-186, REQ-REPO-192).
-#
-# The DSP crates named by REQ-REPO-154 (dsp-core, resampling, analysis,
-# wasm-bindings) are owned by Phase 03 - Audio Engine Foundation. They are
-# deliberately absent here rather than stubbed: REQ-EXEC-181 treats an empty
-# placeholder implementation as a gate failure, and REQ-EXEC-136.9 prohibits
-# partially implementing a later phase.
-#
-# The one member is the Rust half of the version contract that REQ-REPO-187
-# places in this phase. Cargo rejects a workspace with no members, so a wholly
-# empty skeleton could not satisfy the packet own `cargo test --workspace`
-# verification command.
+# `cargo test --workspace` is part of every phase's verification (REQ-REPO-186,
+# REQ-REPO-192). The members are the Rust half of the version contract
+# (REQ-REPO-187) and the canonical DSP Phase 03 owns: deterministic primitives,
+# the resampler, and the narrow WebAssembly boundary the TypeScript engine
+# reaches them through (ADR-0031, ADR-0032). The analysis crate REQ-REPO-154
+# names belongs to the phases that analyse audio.
 
 [workspace]
 resolver = "3"
-members = ["crates/audiogubbins-version"]
+members = [
+  "crates/audiogubbins-version",
+  "crates/dsp-core",
+  "crates/resampling",
+  "crates/wasm-bindings",
+]
 
 [workspace.package]
 version = "0.1.0"

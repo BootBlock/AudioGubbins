@@ -165,6 +165,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-smoke': ['smoke'],
   'chromium-accessibility': ['accessibility'],
   'chromium-input': ['input', 'touch'],
+  'chromium-transport': ['transport'],
   firefox: ['accessibility', 'smoke'],
   webkit: ['accessibility', 'smoke'],
   'chromium-scaled': ['accessibility', 'smoke'],
@@ -317,6 +318,7 @@ describe('the browser matrix', () => {
       'tests/e2e/pages.spec.ts',
       'tests/e2e/smoke.spec.ts',
       'tests/e2e/touch.spec.ts',
+      'tests/e2e/transport.spec.ts',
     ]);
     expect(SPECS.flatMap((path) => tagsOf(path))).toContain('@scale');
   });

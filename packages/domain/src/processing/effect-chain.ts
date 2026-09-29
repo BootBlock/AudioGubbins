@@ -7,18 +7,28 @@
  * REQ-ARCH-144 requires processor latency to be explicit and compensable, so a
  * processor declares its latency rather than leaving the engine to discover it.
  * A chain that does not know its own latency cannot be delay-compensated, and
- * material processed through it arrives late against material that was not.
+ * material processed through it arrives late against material that was not, so
+ * a chain with one such processor applied says so rather than giving a total.
  */
 
 import type { EffectChainId, ParameterId, ProcessorId } from '../identity/branded-id.js';
-import { sampleCount, type SampleCount } from '../time/sample-time.js';
+import { sampleCount } from '../time/sample-time.js';
 import {
   defaultParameterValue,
   type ParameterDescriptor,
   type ParameterValue,
   validateParameterValue,
 } from './parameter.js';
-import { combine, failure, FailureKind, type DomainResult, fail } from '../result.js';
+import type { ProcessorLatency } from './processor-latency.js';
+import {
+  combine,
+  failure,
+  FailureKind,
+  type DomainResult,
+  fail,
+  mapResult,
+  succeed,
+} from '../result.js';
 
 /**
  * Describes a kind of processor, independently of any instance of it.
@@ -47,13 +57,14 @@ export interface ProcessorDescriptor {
   readonly parameters: readonly ParameterDescriptor[];
 
   /**
-   * Frames of delay the processor introduces at its declared rate.
+   * Frames of delay the processor introduces at its declared rate, or that it
+   * cannot say, and why.
    *
-   * Zero for a processor that is genuinely instantaneous. REQ-EXEC-216 names
-   * "a processor is zero-latency" as an assumption that must not be made
+   * Known zero for a processor that is genuinely instantaneous. REQ-EXEC-216
+   * names "a processor is zero-latency" as an assumption that must not be made
    * silently, so this is required rather than optional.
    */
-  readonly latency: SampleCount;
+  readonly latency: ProcessorLatency;
 }
 
 /** One processor placed in a chain, with its settings. */
@@ -100,17 +111,21 @@ export function processorsInSignalOrder(chain: EffectChain): readonly ProcessorI
 }
 
 /**
- * Total latency the chain introduces.
+ * Total latency the chain introduces, as the latency of one processor.
  *
  * Only the processors that will be applied contribute, because a bypassed
  * processor delays nothing. REQ-ARCH-144 requires this to be computable, since
- * the engine compensates by exactly this many frames.
+ * the engine compensates by exactly this many frames, so where an applied
+ * processor cannot say its latency the chain cannot either: it is unknown,
+ * with the reason of every processor that makes it so, never a total that
+ * leaves them out.
  */
 export function chainLatency(
   chain: EffectChain,
   descriptors: ReadonlyMap<string, ProcessorDescriptor>,
-): DomainResult<SampleCount> {
+): DomainResult<ProcessorLatency> {
   let total = 0;
+  const unknown: string[] = [];
 
   for (const processor of processorsInSignalOrder(chain)) {
     const descriptor = descriptors.get(processor.typeKey);
@@ -126,13 +141,22 @@ export function chainLatency(
         ),
       );
     }
-    total += descriptor.latency;
+    const latency = descriptor.latency;
+    if (latency.kind === 'known') {
+      total += latency.frames;
+    } else {
+      unknown.push(
+        `the latency of processor ${processor.id} (${processor.typeKey}) is not known: ${latency.reason}`,
+      );
+    }
   }
+
+  if (unknown.length > 0) return succeed({ kind: 'unknown', reason: unknown.join('; ') });
 
   // Checked like any other count: a sum of latencies can leave the range where
   // every integer is exact, and a total asserted into the type could not say
   // so.
-  return sampleCount(total);
+  return mapResult(sampleCount(total), (frames): ProcessorLatency => ({ kind: 'known', frames }));
 }
 
 /** Builds a processor instance with every parameter at its default. */

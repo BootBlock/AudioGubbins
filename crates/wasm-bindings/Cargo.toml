@@ -1,0 +1,21 @@
+[package]
+name = "audiogubbins-wasm-bindings"
+description = "The narrow C ABI through which AudioGubbins' TypeScript reaches its canonical DSP (ADR-0031)."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lib]
+# A cdylib is the WebAssembly module; the rlib lets `cargo test` exercise the
+# same functions natively.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+audiogubbins-dsp-core = { path = "../dsp-core" }
+audiogubbins-resampling = { path = "../resampling" }
+
+[lints]
+workspace = true

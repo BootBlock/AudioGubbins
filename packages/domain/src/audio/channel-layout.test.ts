@@ -7,8 +7,10 @@ import {
   StandardLayouts,
   channelCount,
   channelIndexOf,
+  channelLabelOf,
   channelLayout,
   discreteLayout,
+  labelledLayout,
   layoutsMatch,
 } from './channel-layout.js';
 
@@ -104,5 +106,74 @@ describe('channelIndexOf', () => {
 
   it('finds the first channel of a mono layout', () => {
     expect(channelIndexOf(StandardLayouts.mono, ChannelRole.Mono)).toBe(0);
+  });
+});
+
+describe('the positions beyond 7.1', () => {
+  it('accepts 7.1.4, with its four height channels', () => {
+    const layout = expectSuccess(channelLayout(StandardLayouts.surround7_1_4.roles));
+    expect(channelCount(layout)).toBe(12);
+    expect(channelIndexOf(layout, ChannelRole.TopRearRight)).toBe(11);
+  });
+
+  it('accepts LCR, which is three channels and not stereo with a centre guessed in', () => {
+    expect(channelCount(expectSuccess(channelLayout(StandardLayouts.lcr.roles)))).toBe(3);
+  });
+
+  it('refuses an ambisonic role outside a set that states its convention', () => {
+    expect(expectFailureCode(channelLayout([ChannelRole.Ambisonic]))).toBe(
+      'channel.layout-ambisonic-without-convention',
+    );
+  });
+});
+
+describe('labelled layouts', () => {
+  it('names each channel of a custom map, in buffer order', () => {
+    const layout = expectSuccess(labelledLayout(['Dialogue', 'Music', 'Effects']));
+    expect(channelCount(layout)).toBe(3);
+    expect(channelLabelOf(layout, 1)).toBe('Music');
+    expect(layout.roles.every((role) => role === ChannelRole.Discrete)).toBe(true);
+  });
+
+  it('labels positional channels too', () => {
+    const layout = expectSuccess(channelLayout(StandardLayouts.stereo.roles, ['Main L', 'Main R']));
+    expect(channelLabelOf(layout, 0)).toBe('Main L');
+  });
+
+  it('has no label where none was given', () => {
+    expect(channelLabelOf(StandardLayouts.stereo, 0)).toBeUndefined();
+  });
+
+  it('refuses a label count that differs from the channel count', () => {
+    expect(expectFailureCode(channelLayout(StandardLayouts.stereo.roles, ['Only one']))).toBe(
+      'channel.labels-count-mismatch',
+    );
+  });
+
+  it('refuses two channels of one name, which routing by name could not tell apart', () => {
+    expect(expectFailureCode(labelledLayout(['Take', 'Take']))).toBe('channel.label-duplicate');
+  });
+
+  it.each([
+    ['blank', ''],
+    ['space around it', ' Vox '],
+    ['a control character', 'Vox\u0007'],
+    ['longer than any label a person types', 'x'.repeat(129)],
+  ])('refuses a label that is %s', (_why, label) => {
+    expect(expectFailureCode(labelledLayout([label]))).toBe('channel.label-invalid');
+  });
+
+  it('refuses an empty custom map', () => {
+    expect(expectFailureCode(labelledLayout([]))).toBe('channel.layout-empty');
+  });
+
+  it('matches only a layout of the same labels', () => {
+    const one = expectSuccess(labelledLayout(['A', 'B']));
+    const same = expectSuccess(labelledLayout(['A', 'B']));
+    const other = expectSuccess(labelledLayout(['A', 'C']));
+    const unlabelled = expectSuccess(discreteLayout(2));
+    expect(layoutsMatch(one, same)).toBe(true);
+    expect(layoutsMatch(one, other)).toBe(false);
+    expect(layoutsMatch(one, unlabelled)).toBe(false);
   });
 });

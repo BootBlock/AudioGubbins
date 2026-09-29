@@ -18,7 +18,7 @@
  *   node tools/sync-workspace-graph.mjs --check   exit non-zero if any is stale
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, resolve } from 'node:path';
 
@@ -42,7 +42,31 @@ const PRODUCT_VERSION = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'),
  * @property {string[]} devDeps
  * @property {Record<string, string>} external
  * @property {Record<string, string>} externalDev
+ * @property {boolean} [portable] runs in any global scope, so its source is
+ *   compiled a second time with no host's globals at all
+ * @property {Record<string, ThreadScope>} [threads] the global scope each
+ *   module under `src/threads/` runs in, by file name
  */
+
+/**
+ * The global scopes a module can run in, beside the page's, and the library
+ * each is compiled with. A package compiled with the DOM's definitions, or
+ * with Node's, which load unasked where nothing names `types`, would let a
+ * module call what its scope lacks and fail only when it runs there: an
+ * AudioWorkletGlobalScope has no `setTimeout`, `TextDecoder`, `performance` or
+ * `self`. So each is compiled again, in a project of its own, with the
+ * definitions of its scope and nothing else; `declarations` names the file,
+ * beside that project, declaring the scope's globals that no library does.
+ *
+ * @typedef {'any' | 'audio-worklet' | 'dedicated-worker'} ThreadScope
+ * @type {Record<ThreadScope, { lib: string[], declarations?: string }>}
+ */
+const SCOPES = {
+  // What every scope has: the language, and nothing of a host.
+  any: { lib: ['ES2023'] },
+  'audio-worklet': { lib: ['ES2023'], declarations: 'audio-worklet-global-scope.d.ts' },
+  'dedicated-worker': { lib: ['ES2023', 'WebWorker'] },
+};
 
 /**
  * Whether a package ships stylesheets of its own.
@@ -54,6 +78,20 @@ const PRODUCT_VERSION = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'),
  */
 function hasStylesheets(spec) {
   return existsSync(join(REPO_ROOT, spec.dir, 'src', 'styles'));
+}
+
+/**
+ * Whether a package has modules that run in another global scope.
+ *
+ * An AudioWorklet processor or a worker is loaded by URL, not imported, so
+ * the application hands the bundler a path to it; ADR-0030 puts such modules
+ * under `src/threads/` and declares them as an entry point, so that path
+ * stops at the package's boundary rather than reaching into its source.
+ *
+ * @param {PackageSpec} spec
+ */
+function hasThreadEntries(spec) {
+  return existsSync(join(REPO_ROOT, spec.dir, 'src', 'threads'));
 }
 
 /**
@@ -79,6 +117,7 @@ const PACKAGES = [
       'Framework-agnostic AudioGubbins project and domain model. Owns domain truth; depends on nothing.',
     dom: false,
     jsx: false,
+    portable: true,
     deps: [],
     devDeps: [],
     external: {},
@@ -142,6 +181,66 @@ const PACKAGES = [
     jsx: false,
     deps: ['@audiogubbins/text', '@audiogubbins/version'],
     devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The processing graph as a value, and what can be decided from it
+    // without running it (ADR-0030). No thread, browser or buffer, so the
+    // engine can check and plan a graph wherever it runs.
+    dir: 'packages/audio-graph',
+    name: '@audiogubbins/audio-graph',
+    description:
+      'The typed directed audio processing graph as a value, and every decision made from it without running it.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The audio core that runs on any thread: blocks and sources, the canonical
+    // DSP port, graph execution, transport, offline render, profiles and
+    // scheduling (ADR-0030). No browser, so it runs in an AudioWorklet, a
+    // worker and a test alike.
+    dir: 'packages/audio-engine',
+    name: '@audiogubbins/audio-engine',
+    description:
+      'The audio engine core that runs on any thread: it moves, processes and renders audio through the processing graph.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The browser host of the audio engine: the audio context and its
+    // lifecycle, the AudioWorklet processor, the feeder worker and the render
+    // worker with their typed messages, and the feed of source frames into the
+    // worklet (ADR-0030). Given what the device offers, never probing it.
+    dir: 'packages/audio-runtime',
+    name: '@audiogubbins/audio-runtime',
+    description:
+      'The browser host of the audio engine: the audio context, the AudioWorklet processor, the render worker and their typed messages.',
+    dom: true,
+    jsx: false,
+    threads: {
+      'engine-processor.ts': 'audio-worklet',
+      'feeder-worker.ts': 'dedicated-worker',
+      'render-worker.ts': 'dedicated-worker',
+    },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/capabilities',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+    ],
+    devDeps: [],
     external: {},
     externalDev: {},
   },
@@ -244,6 +343,10 @@ const PACKAGES = [
       '@audiogubbins/input',
       '@audiogubbins/text',
       '@audiogubbins/version',
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/audio-runtime',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },
@@ -305,6 +408,9 @@ function manifestFor(spec) {
       // not have.
       ...(hasStylesheets(spec) ? { './styles/*.css': './src/styles/*.css' } : {}),
 
+      // Modules the browser loads as a worklet or a worker, by URL.
+      ...(hasThreadEntries(spec) ? { './threads/*': './src/threads/*' } : {}),
+
       // Test support another package's tests take, where there is any. No
       // production module may import it, whatever path it uses, which an
       // architecture rule refuses rather than this map.
@@ -320,8 +426,21 @@ function manifestFor(spec) {
     main: './src/index.ts',
     types: './src/index.ts',
     files: ['src'],
+    // What the bundler may drop when nothing uses it. A package without the
+    // browser runs nothing when it is imported, so all of it may go; a
+    // package with thread entries runs those, as their global scope loads
+    // them, and nothing else. Undeclared elsewhere, where a stylesheet or a
+    // registration may run on import, so the bundler keeps what it cannot
+    // prove unused. Declared, the first paint no longer carries the audio
+    // engine the shell only loads when audio is first used.
+    sideEffects: spec.dom ? (hasThreadEntries(spec) ? ['./src/threads/*'] : undefined) : false,
     scripts: {
       typecheck: 'tsc --build',
+      // Runs the package's own project from the root configuration, so that
+      // `pnpm test --filter <package>` runs its tests: without a script of its
+      // own a filtered run selects the package, finds nothing to run and
+      // passes.
+      test: `vitest run --root ${'../'.repeat(spec.dir.split('/').length)} --project ${vitestProjectFor(spec).name}`,
     },
   };
 
@@ -351,6 +470,7 @@ function manifestFor(spec) {
       build: 'vite build',
       preview: 'vite preview',
       typecheck: 'tsc --build',
+      test: manifest.scripts.test,
     };
   }
 
@@ -426,6 +546,106 @@ function tsconfigFor(spec) {
 }
 
 /**
+ * The modules under a package's `src/threads/`, read from the tree, which are
+ * the ones a global scope other than the page's loads.
+ *
+ * @param {PackageSpec} spec
+ */
+function threadEntries(spec) {
+  const threads = join(REPO_ROOT, spec.dir, 'src', 'threads');
+  if (!existsSync(threads)) return [];
+  return readdirSync(threads)
+    .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts'))
+    .sort();
+}
+
+/**
+ * The projects that compile a package's modules again in the global scopes
+ * they run in, one in `scopes/<scope>/` for each: a portable package's whole
+ * source in `any`, and each thread entry, with everything it imports from the
+ * package, in the scope declared for it. They check and emit nothing more,
+ * and read the packages they import as those packages' own projects built
+ * them, so each package's source is checked in its scope by its own project.
+ *
+ * @param {PackageSpec} spec
+ * @returns {[ThreadScope, Record<string, unknown>][]}
+ */
+function scopeProjectsFor(spec) {
+  const toRoot = '../'.repeat(spec.dir.split('/').length + 2);
+  /**
+   * @param {ThreadScope} scope
+   * @param {Record<string, string[]>} sources
+   */
+  const project = (scope, sources) => {
+    const { lib, declarations } = SCOPES[scope];
+    return [
+      scope,
+      {
+        $comment: `Generated by tools/sync-workspace-graph.mjs. The package's modules that run in the ${scope} scope, checked with that scope's definitions and no others.`,
+        extends: `${toRoot}tsconfig.base.json`,
+        compilerOptions: {
+          composite: false,
+          declaration: false,
+          declarationMap: false,
+          noEmit: true,
+          lib,
+          types: [],
+          tsBuildInfoFile: `../../dist/scope-${scope}.tsbuildinfo`,
+        },
+        ...(declarations === undefined
+          ? sources
+          : { ...sources, files: [...(sources.files ?? []), declarations] }),
+        references: spec.deps.map((name) => ({ path: `${toRoot}${DIR_BY_NAME.get(name)}` })),
+      },
+    ];
+  };
+
+  const projects = [];
+  if (spec.portable) {
+    projects.push(
+      project('any', {
+        include: ['../../src/**/*.ts'],
+        exclude: ['../../src/**/*.test.ts', '../../src/testing/**'],
+      }),
+    );
+  }
+  const entriesByScope = new Map();
+  for (const entry of threadEntries(spec)) {
+    const scope = spec.threads?.[entry];
+    entriesByScope.set(scope, [...(entriesByScope.get(scope) ?? []), entry]);
+  }
+  for (const [scope, entries] of entriesByScope) {
+    projects.push(project(scope, { files: entries.map((entry) => `../../src/threads/${entry}`) }));
+  }
+  return projects;
+}
+
+/**
+ * A portable package whose dependency is not portable, or a thread entry
+ * whose scope is not declared, would leave code unchecked in the scope it
+ * runs in, so the declaration is refused before anything is written.
+ */
+const unscoped = PACKAGES.flatMap((spec) => [
+  ...(spec.portable
+    ? spec.deps
+        .filter((name) => !PACKAGES.find((one) => one.name === name)?.portable)
+        .map((name) => `  - ${spec.name} is portable, but depends on ${name}, which is not`)
+    : []),
+  ...threadEntries(spec)
+    .filter((entry) => !Object.hasOwn(SCOPES, spec.threads?.[entry] ?? ''))
+    .map((entry) => `  - ${spec.name}: src/threads/${entry} declares no scope in \`threads\``),
+  ...Object.keys(spec.threads ?? {})
+    .filter((entry) => !threadEntries(spec).includes(entry))
+    .map((entry) => `  - ${spec.name}: \`threads\` names src/threads/${entry}, which is absent`),
+]);
+if (unscoped.length > 0) {
+  console.error(
+    `The workspace graph leaves code unchecked in the scope it runs in:\n${unscoped.join('\n')}`,
+  );
+  process.exit(1);
+}
+
+/**
  * The one AudioGubbins package a package's tests may take without the package
  * running with it (ADR-0019). Any other named in `devDeps` would let the
  * package's tests import it past the layering, so the declaration is refused
@@ -470,6 +690,9 @@ for (const spec of PACKAGES) {
   if (!CHECK_ONLY) mkdirSync(join(root, 'src'), { recursive: true });
   syncJson(join(root, 'package.json'), manifestFor(spec));
   syncJson(join(root, 'tsconfig.json'), tsconfigFor(spec));
+  for (const [scope, config] of scopeProjectsFor(spec)) {
+    syncJson(join(root, 'scopes', scope, 'tsconfig.json'), config);
+  }
 }
 
 // The projects `vitest.config.ts` runs each package's tests in.
@@ -485,7 +708,11 @@ syncJson(join(REPO_ROOT, 'tsconfig.build.json'), {
     'Solution file for `pnpm typecheck`. Project references give tsc the package dependency order, which is the same order the architecture rules enforce.',
   files: [],
   references: [
-    ...PACKAGES.map((spec) => ({ path: `./${spec.dir}` })),
+    ...PACKAGES.flatMap((spec) => [
+      { path: `./${spec.dir}` },
+      // Each package's modules again, in the global scopes they run in.
+      ...scopeProjectsFor(spec).map(([scope]) => ({ path: `./${spec.dir}/scopes/${scope}` })),
+    ]),
     // Repository-level tests and shared test setup. Not a package: it ships
     // nothing and nothing imports it, but it is typechecked to the same
     // standard as the code it verifies (REQ-EXEC-180).

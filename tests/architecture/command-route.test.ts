@@ -68,6 +68,12 @@ const READ_ONLY_MEMBERS: Readonly<Record<string, readonly string[]>> = {
   // the log and setting the verbosity are changes, and are commands.
   LogStore: ['snapshot', 'performanceSnapshot', 'usage'],
   DiagnosticCentre: ['loggerFor', 'isDiagnosticModeActive', 'diagnosticModeEndsAt'],
+
+  // The audio engine's view, and playback itself. Playing, pausing, stopping,
+  // rendering and choosing a profile are commands; the Transport panel only
+  // reads what they did, and the playhead reads the position as it moves.
+  AudioViewStore: ['get', 'subscribe'],
+  PlaybackSession: ['status', 'subscribe', 'position', 'audiblePosition'],
 };
 
 /**
@@ -87,6 +93,8 @@ const DECLARED_IN: Readonly<Record<string, string>> = {
   KeyboardLayoutStore: 'apps/web/src/state/keyboard-layout-store.ts',
   LogStore: 'packages/diagnostics/src/log-store.ts',
   DiagnosticCentre: 'packages/diagnostics/src/logger.ts',
+  AudioViewStore: 'apps/web/src/state/audio-view-store.ts',
+  PlaybackSession: 'packages/audio-runtime/src/playback/playback-session.ts',
 };
 
 /**
@@ -104,6 +112,9 @@ const NOT_INTERFACE: readonly string[] = [
   'apps/web/src/commands/',
   'apps/web/src/state/',
   'apps/web/src/application.ts',
+  // What the audio commands drive: the playback and render controls the root
+  // builds, which act on the runtime and render nothing.
+  'apps/web/src/audio/',
 ];
 
 function isInterfaceFile(path: string): boolean {

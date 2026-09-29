@@ -30,6 +30,17 @@ export const CapabilityKey = {
   /** Audio processing on the audio thread. */
   AudioWorklet: 'audio-worklet',
 
+  /**
+   * Compiling WebAssembly, which the canonical DSP runs as (ADR-0031).
+   *
+   * Asked by compiling a module, not by looking for the global: a page whose
+   * security policy forbids compilation has the global and cannot use it.
+   */
+  WebAssembly: 'webassembly',
+
+  /** Choosing which audio device playback goes to, rather than the system's. */
+  AudioOutputSelection: 'audio-output-selection',
+
   /** Background threads for analysis, decoding and rendering. */
   WebWorkers: 'web-workers',
 

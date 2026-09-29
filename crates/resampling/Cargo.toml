@@ -1,0 +1,15 @@
+[package]
+name = "audiogubbins-resampling"
+description = "AudioGubbins' canonical, deterministic sample-rate conversion (REQ-ARCH-085)."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+audiogubbins-dsp-core = { path = "../dsp-core" }
+
+[lints]
+workspace = true

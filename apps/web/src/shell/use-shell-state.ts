@@ -1,7 +1,7 @@
 /**
  * What the shell reads, from every store the application holds.
  *
- * The head of the component that draws the shell: nine subscriptions, and what
+ * The head of the component that draws the shell: ten subscriptions, and what
  * is derived from them. Apart from the component so that it stays within the
  * review trigger of 50 to 70 logical lines (REQ-EXEC-136.7): written inline,
  * they would take it past 280. The two effects that ride on what it reads, the
@@ -28,6 +28,10 @@ export function useShellState(application: Application) {
   const interaction = useSyncExternalStore(context.interaction.subscribe, context.interaction.get);
   const shortcuts = useSyncExternalStore(context.shortcuts.subscribe, context.shortcuts.get);
   const verbosity = useSyncExternalStore(context.verbosity.subscribe, context.verbosity.get);
+  const audioSettings = useSyncExternalStore(
+    context.audioSettings.subscribe,
+    context.audioSettings.get,
+  );
   const keyboardLayout = useSyncExternalStore(
     context.keyboardLayout.subscribe,
     context.keyboardLayout.get,
@@ -89,6 +93,7 @@ export function useShellState(application: Application) {
     interaction,
     shortcuts,
     verbosity,
+    audioSettings,
     keyboardLayout,
     persistence,
     missingCapabilities,

@@ -9,7 +9,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project web"
   },
   "dependencies": {
     "@audiogubbins/commands": "workspace:*",
@@ -20,6 +21,10 @@
     "@audiogubbins/input": "workspace:*",
     "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*",
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-graph": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/audio-runtime": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

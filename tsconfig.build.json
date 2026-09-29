@@ -6,6 +6,9 @@
       "path": "./packages/domain"
     },
     {
+      "path": "./packages/domain/scopes/any"
+    },
+    {
       "path": "./packages/version"
     },
     {
@@ -16,6 +19,27 @@
     },
     {
       "path": "./packages/diagnostics"
+    },
+    {
+      "path": "./packages/audio-graph"
+    },
+    {
+      "path": "./packages/audio-graph/scopes/any"
+    },
+    {
+      "path": "./packages/audio-engine"
+    },
+    {
+      "path": "./packages/audio-engine/scopes/any"
+    },
+    {
+      "path": "./packages/audio-runtime"
+    },
+    {
+      "path": "./packages/audio-runtime/scopes/audio-worklet"
+    },
+    {
+      "path": "./packages/audio-runtime/scopes/dedicated-worker"
     },
     {
       "path": "./packages/commands"

@@ -44,7 +44,11 @@
       "adr/ADR-0016-version-registry-package.md",
       "adr/ADR-0017-input-model-package.md",
       "adr/ADR-0018-reader-facing-text-package.md",
-      "adr/ADR-0019-tests-take-the-fixtures-package.md"
+      "adr/ADR-0019-tests-take-the-fixtures-package.md",
+      "adr/ADR-0030-audio-engine-package-topology.md",
+      "adr/ADR-0031-narrow-wasm-boundary.md",
+      "adr/ADR-0032-canonical-arithmetic.md",
+      "adr/ADR-0033-channel-layouts-in-the-domain.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",

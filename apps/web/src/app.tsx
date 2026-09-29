@@ -31,7 +31,7 @@ import { CommandPalette } from './shell/command-palette.js';
 import { DiagnosticExportDialog } from './shell/diagnostic-export.js';
 import { ApplicationFailure, FailureBoundary, PanelFailure } from './shell/failure-boundary.js';
 import { shellMenus } from './shell/menus.js';
-import { renderPanel } from './shell/panels.js';
+import { panelContextOf, renderPanel } from './shell/panels.js';
 import { SettingsDialog } from './shell/settings-dialog.js';
 import { StatusBar } from './shell/status-bar.js';
 import { TooNarrowNotice } from './shell/too-narrow.js';
@@ -56,6 +56,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
     interaction,
     shortcuts,
     verbosity,
+    audioSettings,
     keyboardLayout,
     persistence,
     missingCapabilities,
@@ -195,12 +196,11 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                       />
                     )}
                   >
-                    {renderPanel(panel, titleOf(panel, descriptors), {
-                      capabilities: context.capabilities,
-                      logs: context.logs,
-                      logViews: context.logViews,
-                      diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
-                    })}
+                    {renderPanel(
+                      panel,
+                      titleOf(panel, descriptors),
+                      panelContextOf(context, runNamed, unavailableReason),
+                    )}
                   </FailureBoundary>
                 )}
               />
@@ -268,6 +268,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                     diagnosticModeEnds: new Date(diagnosticModeEndsAt).toLocaleTimeString('en-GB'),
                   })}
               verbosity={verbosity}
+              audio={audioSettings}
               logCategories={logCategories}
               layout={workspace.layout}
               available={workspace.available}

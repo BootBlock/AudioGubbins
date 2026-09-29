@@ -186,14 +186,15 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/input/use-shortcuts.ts: isTextField'],
   'Each panel drawn on its own, and the log filter decided on its own, for the panel tests: the dock draws a panel through `renderPanel`, and the filter is chosen in a portalled listbox, which jsdom opens once per file.':
     [
+      'apps/web/src/shell/diagnostics-panel.tsx: recordsPassing',
       'apps/web/src/shell/panels.tsx: CapabilitiesPanel',
-      'apps/web/src/shell/panels.tsx: DiagnosticsPanel',
-      'apps/web/src/shell/panels.tsx: recordsPassing',
     ],
   'The texts set aside, read back from what is stored by the storage and workspace tests; the storage itself reads them only to add to them.':
     ['apps/web/src/state/state-storage.ts: textsSetAside'],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
+  'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':
+    ['packages/audio-runtime/src/context/context-resume.ts: GESTURE_WAIT_MILLISECONDS'],
   'How long a notice stays, which the announcement tests wait out.': [
     'packages/design-system/src/primitives/announcement.tsx: NOTICE_DURATION',
   ],
@@ -230,8 +231,21 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/workspace/src/layout-reading.ts: resolveLayout'],
   'Keeping a changed layout in the collection, asked of layout store doubles by the workspace tests, since no stored text brings about the refusal it throws at; the store reaches it through `commit` and `rearranged`.':
     ['apps/web/src/state/workspace-store.ts: keptInCollection'],
+  "The ring's position arithmetic and its largest size, which the ring tests drive near 2³¹ positions, where no ring can be filled to reach them; the ring reaches them through its reader and writer.":
+    [
+      'packages/audio-runtime/src/feed/sample-ring.ts: MAXIMUM_RING_FRAMES',
+      'packages/audio-runtime/src/feed/sample-ring.ts: advancePosition',
+      'packages/audio-runtime/src/feed/sample-ring.ts: framesBetween',
+    ],
+  "The named matrices and the mid/side layout, which the matrix tests name; a graph names a matrix by its setting's text, which the matrix node reads through `namedCoefficients`.":
+    [
+      'packages/audio-engine/src/nodes/named-matrices.ts: MID_SIDE',
+      'packages/audio-engine/src/nodes/named-matrices.ts: NamedMatrix',
+    ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
+  'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };
 
 /**
@@ -242,12 +256,13 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
  * reaches. This is about support code: a module a test runs and no user
  * receives, whose exports a test is expected to take.
  *
- * Empty, and expected to stay empty: every export of every support module is
- * taken by a test today. The rule that reads it is asleep until something is
- * listed, so its passing is not evidence of anything, and it is here so that
- * the first entry cannot be added without a reason beside it.
+ * An entry is an export the runner reaches by a path written in its
+ * configuration rather than by an import, which the rule cannot follow.
  */
-const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {};
+const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {
+  'The global setup that builds the canonical DSP module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
+    ['tests/setup/dsp-module.ts: setup'],
+};
 
 describe('module exports (REQ-EXEC-184)', () => {
   it('finds an export no other module takes, and not one another module imports', () => {

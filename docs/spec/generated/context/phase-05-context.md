@@ -1099,6 +1099,203 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-REPO-154`, `REQ-REPO-186`, `REQ-REPO-191`, `REQ-EXEC-181`, `REQ-EXEC-184`. Affected phase 01, whose text, diagnostics, commands and workspace packages and application gain a development dependency on the fixtures package. Affected `ADR-0018`, whose leaf clause this narrows for test code alone. Compatibility impact none, because nothing is persisted and nothing shipped changes. Already-passed phase remediation none. Verification by the dependency cruise (`pnpm test:dependencies`), the architecture rules on manifests and on the fixtures package, the generated graph (`pnpm graph:check`), and the fixtures package's own tests of the two measures; the count reads no machine time, so its tests and those it serves read the same on a quiet machine and a busy one. Three standing rules hold the edge to what this decision allows: the rule over each package's own rule in the cruise requires its `to.pathNot` to be `^packages/test-fixtures/` on the text and diagnostics packages' rules and absent on every other; a rule over every manifest requires each AudioGubbins development dependency of a package or the application to be the fixtures package, taken by some test of that package; and the graph's declaration refuses a `devDeps` entry that names any other package, before it writes or checks anything.
 - **Related requirements:** `REQ-REPO-154`, `REQ-REPO-186`, `REQ-REPO-191`, `REQ-EXEC-181`, `REQ-EXEC-184`.
 
+<!-- adr/ADR-0030-audio-engine-package-topology.md -->
+
+# ADR-0030 — The Audio Engine Is Three Packages: The Graph, The Engine And The Browser Runtime
+
+- **Status:** Accepted
+- **Decision:** Phase 03's TypeScript is three packages, each with one responsibility and one direction between them.
+  - `packages/audio-graph` (`@audiogubbins/audio-graph`) is the typed directed processing graph as a value, and everything that can be decided from it without running it: nodes, ports and edges, the versioned graph descriptor, reusable subgraphs, validation with its diagnostics, processor latency and its propagation, delay compensation, and the execution plan. It depends on `packages/domain` alone and knows no thread, browser or buffer. The `ProcessorLatency` value it propagates is the domain's, in `packages/domain/src/processing/processor-latency.ts`, the one type a processor's descriptor declares and a chain's latency is found in, so the project model and the graph cannot hold two models of latency.
+  - `packages/audio-engine` (`@audiogubbins/audio-engine`) is the audio core that runs on any thread: the frame block and stream contracts, node kernels and the executor that runs a plan block by block, parameter smoothing, the canonical DSP port and its two implementations, the media clock and transport, the chunked offline renderer, performance and quality profiles, processing-mode selection and the priority scheduler. It depends on `packages/domain` and `packages/audio-graph`, and is compiled without the browser's type definitions, so the same code runs in an AudioWorklet, a worker and a Node test.
+  - `packages/audio-runtime` (`@audiogubbins/audio-runtime`) is the browser host: the audio context and its lifecycle, the AudioWorklet processor and its typed message protocol, the offline-render worker and its protocol, the feed of source frames into the worklet, and the observation of underruns. It depends on the two above, `packages/domain`, `packages/diagnostics` and `packages/capabilities`, and is the only one of the three compiled with the browser's type definitions.
+  - A module that runs in another global scope, the worklet processor and the render worker, sits under `src/threads/` and is exported as `./threads/*`, so the application can give the bundler its URL without reaching past the package's entry points.
+- **Drivers:** `REQ-ARCH-140` forbids a central processor manager and asks for node lifecycle, scheduling, validation, latency propagation and render planning as cohesive subsystems with explicit ownership. `REQ-ARCH-036` separates real-time playback, AudioWorklet processing and worker-based offline computation. The packet names the three packages. Validation and planning are decisions over a value, execution is work over buffers, and hosting is the browser, and each has a different set of things it may know.
+- **Constraints:** a node type is one object that states its contract and makes its kernel (`NodeImplementation` in the engine extends `NodeContract` in the graph), so a type cannot be validated by one table and run by another. Browser probes stay in `packages/capabilities`: the runtime is given what exists, never asks. The engine takes the WASM instance from its host, so it never touches a browser global. No package here imports React.
+- **Change record:** affected requirements `REQ-ARCH-036`, `REQ-ARCH-140`, `REQ-REPO-154`, `REQ-EXEC-184`; affected phase 03, whose owned modules these are; compatibility impact none; verification by the dependency cruise, the layering rules in `tests/architecture/dependency-rules.test.ts` and the generated graph.
+- **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-140`, `REQ-REPO-154`, `REQ-EXEC-136`, `REQ-EXEC-184`.
+
+<!-- adr/ADR-0031-narrow-wasm-boundary.md -->
+
+# ADR-0031 — The WASM Boundary Is A Hand-Written C ABI Over Handles, With A Reference Path Beside It
+
+- **Status:** Accepted
+- **Decision:** `crates/wasm-bindings` exports a small C ABI from a `cdylib` built for `wasm32-unknown-unknown`: an ABI version, allocation and release of sample buffers, and create, run, query and free functions for each canonical DSP object, each object named by an integer handle into a table the crate owns. No pointer to a Rust object crosses the boundary; only the offset of a buffer the TypeScript side filled or will read. `packages/audio-engine` holds the one TypeScript module that knows the ABI: it checks the exports and the ABI version when the module is instantiated, owns every view of the module's memory, and offers the engine the same `CanonicalDsp` port as the reference TypeScript implementation. The `.wasm` file is built by `tools/build-wasm.mjs` into `target/wasm/`, which is ignored, and is never committed.
+- **Drivers:** `REQ-ARCH-141` asks for narrow, documented, typed bindings that do not leak memory ownership through the application. Generated bindings (`wasm-bindgen`) emit JavaScript glue that reads `TextDecoder`, which an AudioWorkletGlobalScope does not have, and pin a command-line tool to the crate's exact version on every contributor's machine. A hand-written ABI of a dozen functions is narrower than generated glue and runs in every scope the engine runs in. The failure path the packet requires ("WASM/accelerator failure must fall back to a documented supported path") is the reference implementation, which `ADR-0032` makes bit-identical.
+- **Constraints:** `unsafe` is allowed in `crates/wasm-bindings` alone, by a crate-level `allow` naming this ADR, and each `unsafe` block states the invariant it relies on. `dsp-core` and `resampling` keep the workspace's `deny`. A module whose ABI version differs, or which lacks an export, is refused with a failure that names what is missing, and the engine runs on the reference path with that reason reported. The build of the module is part of the test setup, so a test never runs against a stale binary.
+- **Change record:** affected requirements `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-REPO-186`; affected phase 03; compatibility impact none; verification by `cargo test --workspace`, the ABI conformance tests in the engine, and the golden tests that run both paths.
+- **Related requirements:** `REQ-ARCH-141`, `REQ-ARCH-081`, `REQ-ARCH-049`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0032-canonical-arithmetic.md -->
+
+# ADR-0032 — Canonical Processing Uses Only Basic IEEE-754 Arithmetic, In A Stated Order
+
+- **Status:** Accepted
+- **Decision:** Every canonical DSP primitive is written with the operations IEEE-754 defines exactly, addition, subtraction, multiplication, division, square root, floor and conversion between `f64` and `f32`, evaluated in one stated order, and never with a platform's transcendental functions. A sine is AudioGubbins' own: its argument is reduced by a split constant and evaluated by a fixed polynomial. The Kaiser window's Bessel function is a fixed series. Accumulation is in `f64` in a fixed order and rounded once to `f32`. Rust never contracts `a * b + c` into a fused operation and JavaScript cannot, so the Rust module and the reference TypeScript implementation produce the same bits on every machine, and a golden render is one hash for both.
+- **Drivers:** `REQ-ARCH-081` targets bit-identical PCM across machines and browsers wherever feasible. `Math.sin` and the C library's `sin` are approximations whose last bit differs between engines and platforms, so an oscillator or a filter designed with them cannot be bit-identical, while the basic operations are required to be correctly rounded everywhere.
+- **Documented platform variation:** the canonical path ends at the frames the engine produces. What the browser does after that is outside it: the audio context's own output resampling when the device rate differs from the context rate, its channel up- or down-mixing to the device, and its output latency. Real-time playback is therefore not canonical and is not held to a hash. Offline renders are. The tolerance for the canonical path is zero, and the tests hold it to zero.
+- **Constraints:** a new canonical primitive states its operation order in both implementations and gains a golden test that runs both. Performance work may not change the order of operations without new golden values, which `REQ-EXEC-180` requires to be justified and reviewed.
+- **Change record:** affected requirements `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`; affected phase 03; compatibility impact none; verification by the golden tests (`pnpm test:audio-golden`) and the Rust vectors in `cargo test --workspace`.
+- **Related requirements:** `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`, `REQ-ARCH-085`.
+
+<!-- adr/ADR-0033-channel-layouts-in-the-domain.md -->
+
+# ADR-0033 — Phase 03 Extends The Domain's Channel Layout Rather Than Owning A Second One
+
+- **Status:** Accepted
+- **Decision:** `ChannelLayout` stays in `packages/domain`, where `ADR-0015` placed it, and Phase 03 extends it there to meet `REQ-ARCH-157`: the speaker positions of the WAVEFORMATEXTENSIBLE set, an ambisonic set with its order, channel ordering (ACN or FuMa) and normalisation (SN3D, N3D or FuMa), and a label on each channel of a custom map. Layout equality compares the roles, the labels and the ambisonic convention. The channel operations the graph runs (remapping, reordering, extraction, duplication and matrix mixing, of which downmixing and mid/side are instances) are graph node types in `packages/audio-graph` and `packages/audio-engine`, not functions of the domain value.
+- **Drivers:** `ADR-0015` gives Phase 01 the value model and asks a later phase to extend its types rather than keep a copy. The packet names `ChannelLayout` among Phase 03's required contracts and owns `REQ-ARCH-157`. Two layout types would let a graph accept a layout the project model cannot state.
+- **Constraints:** nothing here is persisted, so no format changes (`REQ-STOR-052`); Phase 02's format converts from this value. An ambisonic set cannot be mixed with positional roles in one layout, because no format carries that and a processor could not tell which channels form the sphere. A layout whose roles do not say what a processor needs is not guessed at: the processor declares what it supports, and the graph refuses an edge that would need a silent downmix.
+- **Change record:** affected requirements `REQ-ARCH-157`; affected phases 01 (whose module this extends) and 03; compatibility impact none, because nothing stores a layout yet; verification by the domain's channel-layout tests and the engine's N-channel tests.
+- **Related requirements:** `REQ-ARCH-157`, `REQ-EXEC-216`, `REQ-STOR-052`.
+
+# Passed Dependency Handoffs
+
+<!-- traceability/handoffs/phase-03.md -->
+
+# Phase Handoff Capsule — Phase 03
+
+## Capability Delivered
+
+AudioGubbins has an N-channel, deterministic, local-first audio engine. A
+typed processing graph is validated, its latency propagated and compensated,
+and planned; the plan runs block by block on an AudioWorklet, fed from its own
+worker through a shared ring or posted blocks, and offline on a render worker
+in chunks, at maximum quality by default. Canonical DSP is Rust compiled to
+WebAssembly behind a narrow ABI, with a TypeScript reference path that gives
+the same bits. The transport's position is counted on the audio thread, and
+the context's suspension, a resume that awaits a gesture and a device change
+all recover. Performance profiles, Custom among them, processing modes, a
+priority policy and a workload estimate that warns and chunks rather than
+refuses are the person's to see and choose, in the Transport panel and the
+Audio settings.
+
+## Requirements Satisfied
+
+Each owned requirement is mapped to its implementation and its evidence in
+`reviews/phase-03-evidence.md`, under "Requirement-to-evidence mapping". Two
+parts of `REQ-ARCH-157` and one browser are owed elsewhere, as recorded below.
+
+- `REQ-PROD-009`
+- `REQ-ARCH-011`
+- `REQ-ARCH-036`
+- `REQ-ARCH-049`
+- `REQ-ARCH-079`
+- `REQ-ARCH-081`
+- `REQ-ARCH-083`
+- `REQ-ARCH-084`
+- `REQ-ARCH-085`
+- `REQ-ARCH-087`
+- `REQ-ARCH-088`
+- `REQ-ARCH-140`
+- `REQ-ARCH-141`
+- `REQ-ARCH-144`
+- `REQ-ARCH-157`
+
+## Public Contracts Introduced or Changed
+
+Every entry point's exported names and members are recorded in
+`tests/architecture/public-contracts.txt`, which
+`tests/architecture/public-contracts.test.ts` holds to the code. The evidence
+maps the packet's contract names to them.
+
+- `@audiogubbins/audio-graph`: `GraphDescriptor`, `NodeContract`, validation
+  and its diagnostics, latency analysis, `ExecutionPlan`.
+- `@audiogubbins/audio-engine`: `AudioFrameBlock`, `PcmSource`, `InputFeed`,
+  `RenderSink`, `CanonicalDsp` with `REFERENCE_DSP` and the WebAssembly
+  binding, `NodeImplementation` and the built-in node types, `MediaClock`,
+  `TransportState` and `nextTransportState`, `RenderJob`,
+  `RenderQualityProfile`, the offline renderer, performance profiles,
+  processing modes, the priority scheduler, the workload estimate and the
+  render strategy; `./testing` for other packages' tests.
+- `@audiogubbins/audio-runtime`: the context lifecycle, playback sessions, the
+  render host, the typed protocols, `DspDelivery`, and the thread entries
+  `./threads/engine-processor`, `./threads/feeder-worker` and
+  `./threads/render-worker`.
+- `@audiogubbins/capabilities`: `AudioRuntimeCapabilities`, the audio features
+  and the memory the page reports.
+- `@audiogubbins/domain`: `ChannelLayout` extended with positions, ambisonic
+  sets and labels, and `ProcessorLatency`, which the effect chain now uses.
+
+## Persisted / Interchange Formats
+
+- The application's audio settings, schema `audioSettings` version 1: the
+  chosen profile and the Custom profile's values, the priority policy and the
+  render mode, each field read back by the engine's own validation.
+- Nothing else is persisted. Layouts, graphs, render jobs and latencies are
+  runtime values; Phase 02's project format converts from the domain's layout.
+
+## Invariants Downstream Agents Must Preserve
+
+- `packages/audio-graph` depends on the domain alone, the engine on the domain
+  and the graph, and neither may name a browser or Node global: they compile
+  with `lib: ["ES2023"]` and no ambient types, and the worklet's and workers'
+  code compiles in the scope of its own thread (`scope-projects.test.ts`).
+- Only `packages/capabilities` probes the browser. `fetch` is used nowhere.
+- A node type is one `NodeImplementation` that states its contract and makes
+  its kernel. A kernel allocates nothing per quantum
+  (`kernel-allocation.test.ts`).
+- Canonical processing uses basic IEEE-754 arithmetic in a stated order, the
+  same in Rust and the reference, and a change of order needs new golden
+  values agreed by both paths and justified (`ADR-0032`, `REQ-EXEC-180`). A
+  GPU path is never chosen for a final render.
+- Only `packages/audio-engine/src/dsp/wasm` knows the ABI, which is versioned;
+  the module's WebAssembly features stay within the browser floor
+  (`dsp-module-features.test.ts`).
+- Processor latency is known or unknown with a reason, and unknown latency
+  never enters a parallel path silently.
+- The transport's position is the frame that has left the graph, counted on
+  the audio thread.
+- No output is downmixed or truncated at the device: channels are placed by
+  role, or the output is refused with its reason.
+- Nothing is refused for size; a heavy operation warns, names the resource and
+  offers a safer strategy.
+
+## ADRs
+
+- `ADR-0030` — the engine is three packages: the graph, the engine and the
+  browser runtime.
+- `ADR-0031` — the WebAssembly boundary is a hand-written C ABI over handles,
+  with a reference path beside it.
+- `ADR-0032` — canonical processing uses only basic IEEE-754 arithmetic, in a
+  stated order.
+- `ADR-0033` — the phase extends the domain's channel layout.
+
+## Verification Baselines
+
+- Golden values, zero tolerance, on both DSP paths and in Rust: the sine of
+  six turns, the tone `0xc92ed51ca6467571`, the conversion
+  `0x98be85a59ec272f0`, the far-seek tone `0x6c15de3e30ae6635`, the golden
+  render `0x6b1d7f884c8844a1`; the application's test signal renders to
+  `0xe576a76257ddb259`.
+- The resampler's measured response per quality (`resampler-response.test.ts`).
+- `pnpm run test:audio-golden`, `test:audio-latency`,
+  `test:worker-responsiveness`, `cargo test --workspace`, and
+  `tests/e2e/transport.spec.ts` in Chromium.
+
+## Intentionally Deferred Items
+
+Only items explicitly authorised by the specification:
+
+- Ambisonic encode, decode and rotate are processors; the canonical processor
+  library is Phase 06's (packet: "Full processor library" out of scope).
+- Cached preview processing has no producer until a phase renders ahead of
+  playback; the mode selector reports it unavailable with the reason.
+
+## Accepted Non-Blocking Debt
+
+- F-20 (MEDIUM): Safari on macOS and iOS was not run, because no Safari is
+  available to the test machine. Owed to Phase 14's compatibility hardening.
+- F-02 residue: the device order Chromium gives a 7.1 output was not checked on
+  a device of eight channels. Owed to Phase 14 with the rest of its N-channel,
+  surround and ambisonic end-to-end validation.
+- The main application chunk is over Vite's 500 kB warning. Owed to Phase 14's
+  performance hardening.
+
+## Downstream Readiness
+
+- Phase 04 — Waveform and Timeline Foundation is `READY`.
+- Phase 05 still waits on Phases 02 and 04, and Phase 06 on Phase 05.
+
 # Current Ledger Entry
 
 ```json

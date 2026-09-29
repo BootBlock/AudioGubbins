@@ -1,0 +1,278 @@
+/**
+ * Playing the test signal: the order of things between the person's Play and
+ * the playback session, and nothing the session decides itself.
+ *
+ * Nothing is made before the first Play. A browser starts an audio context
+ * only from a click or a key press, and AudioGubbins starts no audio of its
+ * own accord, so the context is made and started inside the command the press
+ * ran, before anything is awaited; the session, which needs the DSP module
+ * compiled, follows it. A context keeps the profile's latency hint for its
+ * life, so a change of profile closes it and makes another, going on from
+ * where playback was if it was playing.
+ */
+
+import { flatMapResult, succeed, type DomainResult, type SampleCount } from '@audiogubbins/domain';
+import type { Logger } from '@audiogubbins/diagnostics';
+import type { NodeId } from '@audiogubbins/audio-graph';
+import { TransportMode } from '@audiogubbins/audio-engine';
+import {
+  PLAYBACK_SUPERSEDED,
+  PlaybackPhase,
+  type MeterLevels,
+  type PlaybackSession,
+} from '@audiogubbins/audio-runtime';
+
+import type { ChosenProfile } from '../state/audio-settings-store.js';
+import type { AudioViewStore } from '../state/audio-view-store.js';
+import { reasonsOf, type Reasons } from '../state/reasons.js';
+import { testSignalPlayback } from './test-signal.js';
+
+/** The part of a playback session the control drives. */
+export type PlaybackSessionPort = Pick<
+  PlaybackSession,
+  | 'status'
+  | 'subscribe'
+  | 'load'
+  | 'play'
+  | 'pause'
+  | 'stop'
+  | 'seek'
+  | 'position'
+  | 'audiblePosition'
+  | 'meters'
+  | 'dispose'
+>;
+
+/** What playing with one profile is made of: a context's life, and a session over it. */
+export interface PlaybackParts {
+  /**
+   * Starts the context. Called from the person's gesture, before anything is
+   * awaited, so a browser that starts audio only inside one starts it; the
+   * session's own Play says why where it did not.
+   */
+  readonly startContext: () => void;
+  /**
+   * The rate the context runs at, which the test signal is made at
+   * (REQ-ARCH-085), or why the browser would not make the context.
+   */
+  readonly contextRate: () => DomainResult<number>;
+  /** The session, once the DSP module it runs has been loaded and compiled. */
+  readonly session: Promise<PlaybackSessionPort>;
+  /** Closes the context, for good. */
+  readonly close: () => Promise<void>;
+}
+
+/** Makes the parts for a profile. */
+export type OpenPlayback = (profile: ChosenProfile) => PlaybackParts;
+
+/** One profile's parts, and what was made with them. */
+interface Opened {
+  readonly profile: ChosenProfile;
+  readonly parts: PlaybackParts;
+  session: PlaybackSessionPort | undefined;
+  stopListening: (() => void) | undefined;
+  /** Whether the test signal was given to the session, which keeps it through a lost context. */
+  requested: boolean;
+}
+
+/** Why Pause or Stop finds nothing to act on; their availability says so first. */
+const NOTHING_PLAYING: Reasons = ['Nothing is playing.'];
+
+const NO_METERS: ReadonlyMap<NodeId, MeterLevels> = new Map();
+
+function reasonsFor(outcome: DomainResult<void>): Reasons | undefined {
+  return outcome.ok ? undefined : reasonsOf(outcome.failures);
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Plays, pauses and stops the test signal. */
+export class PlaybackControl {
+  readonly #view: AudioViewStore;
+  readonly #open: OpenPlayback;
+  readonly #profile: () => ChosenProfile;
+  readonly #announce: (text: string) => void;
+  readonly #logger: Logger;
+  #opened: Opened | undefined;
+  /** Where playback paused before a change of profile closed its context, for the next Play. */
+  #resumeFrom: SampleCount | undefined;
+
+  constructor(options: {
+    readonly view: AudioViewStore;
+    readonly open: OpenPlayback;
+    /** The profile the person chose, which the first Play opens with. */
+    readonly profile: () => ChosenProfile;
+    readonly announce: (text: string) => void;
+    readonly logger: Logger;
+  }) {
+    this.#view = options.view;
+    this.#open = options.open;
+    this.#profile = options.profile;
+    this.#announce = options.announce;
+    this.#logger = options.logger;
+  }
+
+  /** Plays from where the transport is, making whatever is not made yet. */
+  play(): void {
+    const from = this.#resumeFrom;
+    this.#resumeFrom = undefined;
+    this.#start(this.#opened ?? this.#openFor(this.#profile()), from);
+  }
+
+  pause(): Reasons | undefined {
+    const session = this.#opened?.session;
+    return session === undefined ? NOTHING_PLAYING : reasonsFor(session.pause());
+  }
+
+  stop(): Reasons | undefined {
+    const session = this.#opened?.session;
+    return session === undefined ? NOTHING_PLAYING : reasonsFor(session.stop());
+  }
+
+  /** Plays with `profile` from now on, which needs a context of its own. */
+  useProfile(profile: ChosenProfile): void {
+    const current = this.#opened;
+    if (current === undefined || current.profile === profile) return;
+    const mode = current.session?.status.transport.mode;
+    const playing =
+      this.#view.get().starting ||
+      mode === TransportMode.Playing ||
+      mode === TransportMode.Suspended;
+    const position = current.session?.position();
+    const from = position?.ok === true ? position.value : undefined;
+    this.#close(current);
+    // Chosen from a gesture, as every command is, so a context made now
+    // starts as the first one did. A Play still on its way goes on too, since
+    // the one it was waiting for has been closed under it. Paused, the new
+    // context waits for Play, which goes on from where the old one paused.
+    if (playing) this.#start(this.#openFor(profile), from);
+    else if (mode === TransportMode.Paused) this.#resumeFrom = from;
+  }
+
+  /** The timeline frame the listener hears, at the context's rate, or `undefined` with no session. */
+  audiblePosition(): number | undefined {
+    const heard = this.#opened?.session?.audiblePosition();
+    return heard?.ok === true ? heard.value : undefined;
+  }
+
+  /** Each meter's latest levels, read once a display frame, or none with no session. */
+  meters(): ReadonlyMap<NodeId, MeterLevels> {
+    return this.#opened?.session?.meters() ?? NO_METERS;
+  }
+
+  /** Lets go of the session and closes the context. */
+  dispose(): void {
+    if (this.#opened !== undefined) this.#close(this.#opened);
+  }
+
+  #openFor(profile: ChosenProfile): Opened {
+    const opened: Opened = {
+      profile,
+      parts: this.#open(profile),
+      session: undefined,
+      stopListening: undefined,
+      requested: false,
+    };
+    this.#opened = opened;
+    return opened;
+  }
+
+  #close(current: Opened): void {
+    if (this.#opened === current) this.#opened = undefined;
+    current.stopListening?.();
+    // A session still on its way is disposed by the Play awaiting it, which
+    // finds its parts closed.
+    current.session?.dispose();
+    // Nothing waits on the close, so a fault in it is recorded here, where
+    // the diagnostic log shows it, rather than left to reach no one.
+    void current.parts.close().catch((error: unknown) => {
+      this.#logger.error('The audio context could not be closed.', { reason: messageOf(error) });
+    });
+    this.#view.showPlayback(undefined);
+  }
+
+  #start(current: Opened, from: SampleCount | undefined): void {
+    current.parts.startContext();
+    this.#view.playbackStarting();
+    // The Play the person pressed is waiting on this, so a fault in it ends
+    // that Play with the reason and is recorded, rather than leaving the
+    // transport starting for ever.
+    void this.#run(current, from).catch((error: unknown) => {
+      this.#logger.error('Playback stopped on a fault.', { reason: messageOf(error) });
+      if (this.#opened === current) this.#close(current);
+      this.#refused([`Playback stopped on a fault: ${messageOf(error)}`]);
+    });
+  }
+
+  async #run(current: Opened, from: SampleCount | undefined): Promise<void> {
+    let session: PlaybackSessionPort;
+    try {
+      session = await current.parts.session;
+    } catch (error) {
+      // The engine's code could not be loaded, a chunk the server no longer
+      // has, which is all the session's promise waits on besides compiling
+      // the DSP module, which answers a refusal rather than throwing.
+      if (!(error instanceof Error)) throw error;
+      if (this.#opened === current) this.#close(current);
+      this.#refused([`The audio engine could not be started: ${error.message}`]);
+      return;
+    }
+    if (!this.#adopt(current, session)) return;
+    const ready = await this.#loaded(current, session);
+    // Closed while it loaded, by a change of profile whose own Play reports.
+    if (this.#opened !== current) return;
+    const moved = !ready.ok || from === undefined ? ready : await session.seek(from);
+    this.#settle(moved.ok ? await session.play() : moved);
+  }
+
+  /** Takes the session into use, or disposes of it where its parts were closed meanwhile. */
+  #adopt(current: Opened, session: PlaybackSessionPort): boolean {
+    if (this.#opened !== current) {
+      session.dispose();
+      return false;
+    }
+    if (current.session === undefined) {
+      current.session = session;
+      current.stopListening = session.subscribe(this.#view.showPlayback);
+      this.#view.showPlayback(session.status);
+    }
+    return true;
+  }
+
+  /**
+   * Loads the test signal, unless the session has it or will load it again
+   * itself. The tone is described, at the context's rate, and the feeder
+   * worker makes it: the page makes no audio of its own.
+   */
+  #loaded(current: Opened, session: PlaybackSessionPort): Promise<DomainResult<void>> {
+    const { phase } = session.status;
+    // Lost with its context, the graph is loaded again by the session's Play.
+    if (phase === PlaybackPhase.Ready || (phase === PlaybackPhase.Unloaded && current.requested)) {
+      return Promise.resolve(succeed(undefined));
+    }
+    const request = flatMapResult(current.parts.contextRate(), testSignalPlayback);
+    if (!request.ok) return Promise.resolve(request);
+    current.requested = true;
+    return session.load(request.value);
+  }
+
+  /** Says how the Play ended. */
+  #settle(result: DomainResult<void>): void {
+    if (result.ok) {
+      this.#view.playbackSettled([]);
+      this.#announce('The test signal is playing.');
+    } else if (result.failures.every((one) => one.code === PLAYBACK_SUPERSEDED)) {
+      // Overtaken by a later command, which says what it did.
+      this.#view.playbackSettled([]);
+    } else {
+      this.#refused(reasonsOf(result.failures));
+    }
+  }
+
+  #refused(reasons: Reasons): void {
+    this.#view.playbackSettled(reasons);
+    this.#announce(reasons.join(' '));
+  }
+}

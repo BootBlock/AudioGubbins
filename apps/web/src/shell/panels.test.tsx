@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import {
@@ -12,8 +12,18 @@ import {
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
+import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
+import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
-import { CapabilitiesPanel, DiagnosticsPanel, recordsPassing, renderPanel } from './panels.js';
+import type { Observable } from '../state/observable.js';
+import {
+  createRenderStrategyStore,
+  type RenderStrategyView,
+} from '../state/render-strategy-store.js';
+import { createStateStorage } from '../state/state-storage.js';
+import { ephemeralStorage } from '../testing/ephemeral-storage.js';
+import { DiagnosticsPanel, recordsPassing } from './diagnostics-panel.js';
+import { CapabilitiesPanel, renderPanel, type PanelContext } from './panels.js';
 
 /**
  * The diagnostic log panel.
@@ -47,6 +57,8 @@ function bareEnvironment(): CapabilityEnvironment {
     hasSharedArrayBuffer: false,
     isCrossOriginIsolated: false,
     hasAudioWorklet: false,
+    compilesWebAssembly: false,
+    choosesAudioOutput: false,
     hasWebWorkers: false,
     hasWebGpu: false,
     hasWebGl2: false,
@@ -65,16 +77,31 @@ function bareEnvironment(): CapabilityEnvironment {
   };
 }
 
+/** No meter's levels: one map, as a display's read wants the same value until it changes. */
+const NO_METERS = new Map();
+
 /**
  * No panel is a landmark of its own. The dock's tab names a panel and its
  * heading says it again, so a region named by the heading would make a screen
  * reader give the title three times. Asked of one panel only, the others could
  * each get their region back unseen.
  */
+
+describe('what a panel is given', () => {
+  it('reads the audio stores and cannot write them, changing them only by a command', () => {
+    // Compared exactly, so a store's setter added back to a panel's view of it
+    // fails to compile.
+    expectTypeOf<PanelContext['audio']>().toEqualTypeOf<Observable<AudioView>>();
+    expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
+    expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
+  });
+});
+
 describe('every panel', () => {
   it.each([...Object.values(PanelKinds), 'a-kind-this-build-does-not-have'])(
     'draws %s with its heading and no region',
     (kind) => {
+      const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
       render(
         <>
           {renderPanel({ id: 'probe', kind }, 'Probe', {
@@ -85,6 +112,17 @@ describe('every panel', () => {
             logs: createLogStore(),
             logViews: createLogViewStore(),
             diagnosticModeActive: false,
+            audio: createAudioViewStore(),
+            audioSettings: createAudioSettingsStore(
+              createStateStorage(ephemeralStorage(), logger, () => undefined),
+              logger,
+            ),
+            renderStrategy: createRenderStrategyStore(),
+            playhead: () => undefined,
+            meters: () => NO_METERS,
+            framesRendered: () => 0,
+            run: () => undefined,
+            unavailableReason: () => undefined,
           })}
         </>,
       );
