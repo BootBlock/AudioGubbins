@@ -222,6 +222,23 @@ describe('the playhead of a programme', () => {
     expect(control.playheadPosition()).toBe(1_000);
   });
 
+  it('stays where the listener stopped hearing when paused, and plays on from there', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    const session = parts.latest();
+    session.contextFrame = 4_800;
+    session.heard = expectSuccess(sampleCount(3_840));
+
+    control.pause();
+    session.heard = undefined;
+
+    expect(control.playheadPosition()).toBe(3_840);
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    expect(control.playheadPosition()).toBe(3_840);
+  });
+
   it('is moved only where the transport holds the programme named', async () => {
     const { control, settled } = rig();
     control.play(TEST_SIGNAL_PROGRAMME);

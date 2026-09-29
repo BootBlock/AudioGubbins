@@ -151,6 +151,11 @@ export class PlaybackControl {
     const current = this.#opened;
     const session = current?.session;
     if (current === undefined || session === undefined || current.loaded?.key !== key) return false;
+    this.#moveTo(current, session, to);
+    return true;
+  }
+
+  #moveTo(current: Opened, session: PlaybackSessionPort, to: SampleCount): void {
     void session.seek(to).then(
       (moved) => {
         if (!moved.ok && this.#opened === current) this.#refused(reasonsOf(moved.failures));
@@ -159,7 +164,6 @@ export class PlaybackControl {
         this.#logger.error('The transport could not be moved.', { reason: messageOf(error) });
       },
     );
-    return true;
   }
 
   /** The key of the programme the transport holds, or `undefined` where it holds none. */
@@ -168,9 +172,30 @@ export class PlaybackControl {
     return current?.session === undefined ? undefined : current.loaded?.key;
   }
 
+  /**
+   * Pauses where the listener stopped hearing. The processor counts ahead of
+   * the device by its output latency, so the transport is moved back to the
+   * frame heard: the playhead, a marker placed at it and a picture parked on it
+   * are what was heard, and Play goes on from there. A seek while paused moves
+   * the transport before it answers.
+   */
   pause(): Reasons | undefined {
-    const session = this.#opened?.session;
-    return session === undefined ? NOTHING_PLAYING : reasonsFor(session.pause());
+    const current = this.#opened;
+    const session = current?.session;
+    if (current === undefined || session === undefined) return NOTHING_PLAYING;
+    const playing = session.status.transport.mode === TransportMode.Playing;
+    const heard = playing ? session.audiblePosition() : undefined;
+    const refused = reasonsFor(session.pause());
+    const position = session.position();
+    if (
+      refused === undefined &&
+      heard?.ok === true &&
+      position.ok &&
+      heard.value < position.value
+    ) {
+      this.#moveTo(current, session, heard.value);
+    }
+    return refused;
   }
 
   stop(): Reasons | undefined {
