@@ -148,6 +148,25 @@ export default defineConfig<SuiteOptions>({
       testMatch: /(smoke|accessibility)\.spec\.ts/,
     },
     {
+      // Projects kept in the browser's private file system, across reloads and
+      // between tabs, where the storage worker, Web Locks and the broadcast
+      // channel are the browser's own. Chromium and Firefox alone: Playwright's
+      // WebKit on Windows refuses the page the private file system before any
+      // application code runs, so a WebKit run here would prove nothing of the
+      // application, and that limit of the platform is recorded, not tested.
+      name: 'chromium-projects',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /projects\.spec\.ts/,
+    },
+    {
+      name: 'firefox-projects',
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { ...FIREFOX_MOUSE, 'ui.textScaleFactor': 100 } },
+      },
+      testMatch: /projects\.spec\.ts/,
+    },
+    {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
       testMatch: /(smoke|accessibility)\.spec\.ts/,

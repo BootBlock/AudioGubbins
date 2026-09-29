@@ -4,14 +4,15 @@
  *
  * The storage tree over the origin-private file system, through one dedicated
  * worker writing with synchronous access handles; the kept handles of linked
- * files in IndexedDB, and finding them again; the pickers and the page's file
- * input, as files the media store takes; a chosen folder read or written as a
- * project's unpacked tree; sinks over a file or folder the user chose and over
- * a download; the write leases over Web Locks and a broadcast channel; the
- * digest; and giving the page a turn. The platform objects are read by the
- * capabilities package and passed in, so nothing here reaches a global
- * (REQ-EXEC-136.4), and each one's absence is a decision of whoever passes it
- * (REQ-EXEC-216). Everything absent from this list is internal (REQ-REPO-186).
+ * files and of the folder chosen for backups in IndexedDB, and finding them
+ * again; the pickers and the page's file input, as files the media store takes;
+ * a chosen folder read or written as a project's unpacked tree; sinks over a
+ * file or folder the user chose and over a download; the write leases over Web
+ * Locks and a broadcast channel; the digest; and giving the page a turn. The
+ * platform objects are read by the capabilities package and passed in, so
+ * nothing here reaches a global (REQ-EXEC-136.4), and each one's absence is a
+ * decision of whoever passes it (REQ-EXEC-216). Everything absent from this
+ * list is internal (REQ-REPO-186).
  */
 
 export { type TreeWorker } from './worker-channel.js';
@@ -22,6 +23,7 @@ export { type TreeWorkerScope, serveOriginPrivateTree } from './serve-tree.js';
 
 export {
   FileHandleKeeper,
+  FolderUse,
   type HandleDatabase,
   type HandleDatabaseFactory,
   type HandleObjectStore,
@@ -31,6 +33,11 @@ export {
 } from './file-handle-keeper.js';
 
 export { type KeptFileAccess, reopenKeptFile, requestKeptFileAccess } from './kept-files.js';
+export {
+  type KeptFolderAccess,
+  reopenKeptFolder,
+  requestKeptFolderAccess,
+} from './kept-folders.js';
 
 export {
   type Picked,

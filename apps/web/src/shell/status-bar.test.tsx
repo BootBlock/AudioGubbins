@@ -187,7 +187,7 @@ describe('StatusBar', () => {
 
     expect(
       screen.getByText(
-        "Not being saved: workspaces, shortcut profiles. The browser is refusing this site any storage, as it does where its settings block site data or a private window keeps none. Allowing this site to keep data, in the browser's settings, lets AudioGubbins save again; it tries with your next change.",
+        'Not being saved: workspaces, shortcut profiles. The browser refuses this site storage; its settings can allow it. AudioGubbins tries again with your next change.',
       ),
     ).toBeInTheDocument();
   });

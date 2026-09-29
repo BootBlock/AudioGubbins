@@ -19,6 +19,7 @@ import {
   sayWhenSettled,
   sessionAvailability,
 } from './project-access.js';
+import { recordedNote } from './project-transfer-commands.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -56,7 +57,9 @@ function backupPolicyFrom(invocation: CommandInvocation): BackupPolicy | string 
     ...(count === undefined ? {} : { count }),
     ...(days === undefined ? {} : { days }),
   };
-  return { kind: 'automatic', trigger, retention };
+  // Asked for by name, so a policy set without it copies nothing out.
+  const external = invocation.arguments?.['external'] === true;
+  return { kind: 'automatic', trigger, retention, ...(external ? { external } : {}) };
 }
 
 function backUpNowCommand(): Command<ShellContext> {
@@ -166,7 +169,10 @@ function exportBackupCommand(): Command<ShellContext> {
       sayWhenSettled(
         context,
         stores.transfer.exportBackup(open.snapshot.project, generation, titled),
-        (exported) => (exported === undefined ? undefined : 'The backup is exported as a bundle.'),
+        (exported) =>
+          exported === undefined
+            ? undefined
+            : `The backup is exported as a bundle.${recordedNote(exported.recorded)}`,
       );
       return undefined;
     },

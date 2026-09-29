@@ -44,17 +44,17 @@ import { StorageAbsences } from './storage-absences.js';
 function ComingInAPhase({
   title,
   purpose,
-  phase,
+  arrival,
 }: {
   readonly title: string;
   readonly purpose: string;
-  readonly phase: string;
+  readonly arrival: string;
 }): ReactNode {
   return (
     <section className="ag-panel ag-panel-pending">
       <h2 className="ag-panel-title">{title}</h2>
       <p>{purpose}</p>
-      <p className="ag-panel-note">Arrives with {phase}.</p>
+      <p className="ag-panel-note">{arrival}</p>
     </section>
   );
 }
@@ -260,40 +260,45 @@ export interface PanelContext extends ProjectPanelContext {
 }
 
 /**
- * The panels a later phase fills, with what each is for and which phase brings
- * it. A placeholder that says so rather than pretends (REQ-EXEC-136.9).
+ * The panels a later phase fills, with what each is for and what arrives with
+ * which phase. A placeholder that says so rather than pretends
+ * (REQ-EXEC-136.9). The Assets panel's projects are kept already; what it waits
+ * for is audio to list, which a project gains only once files can be read, so
+ * it names importing rather than the panel.
  */
-const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonly phase: string }> =
-  new Map([
-    [
-      PanelKinds.AssetBrowser,
-      {
-        purpose: 'The audio in this project, ready to open, rename and organise.',
-        phase: 'the project and storage system',
-      },
-    ],
-    [
-      PanelKinds.Editor,
-      {
-        purpose: 'The waveform, the selection and the editing tools.',
-        phase: 'the waveform and timeline foundation',
-      },
-    ],
-    [
-      PanelKinds.Inspector,
-      {
-        purpose: 'The properties of whatever you have selected, editable in place.',
-        phase: 'core non-destructive editing',
-      },
-    ],
-    [
-      PanelKinds.Transport,
-      {
-        purpose: 'Play, stop, loop, and the output levels.',
-        phase: 'the audio engine foundation',
-      },
-    ],
-  ]);
+const PENDING_PANELS: ReadonlyMap<
+  PanelKind,
+  { readonly purpose: string; readonly arrival: string }
+> = new Map([
+  [
+    PanelKinds.AssetBrowser,
+    {
+      purpose: 'The audio in the open project, ready to open, rename and organise.',
+      arrival: 'Importing audio arrives with the import, export and codec system.',
+    },
+  ],
+  [
+    PanelKinds.Editor,
+    {
+      purpose: 'The waveform, the selection and the editing tools.',
+      arrival: 'Arrives with the waveform and timeline foundation.',
+    },
+  ],
+  [
+    PanelKinds.Inspector,
+    {
+      purpose: 'The properties of whatever you have selected, editable in place.',
+      arrival: 'Arrives with core non-destructive editing.',
+    },
+  ],
+  [
+    PanelKinds.Transport,
+    {
+      purpose: 'Play, stop, loop, and the output levels.',
+      arrival: 'Arrives with the audio engine foundation.',
+    },
+  ],
+]);
 
 /**
  * Draws whichever panel the workspace asks for, under the title its tab shows.

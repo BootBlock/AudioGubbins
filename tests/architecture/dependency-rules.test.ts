@@ -2678,7 +2678,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Four commands that open and close the palette and the settings, each self-contained.',
     ],
     'apps/web/src/state/default-shortcuts.ts: placeDefaults': [
-      88,
+      98,
       'The bindings that ship as the default profile, each written as the character it is pressed with and given its reason; the helper that places a character, pressed with the usual modifier, on the layout the user types with, and the one that joins presses into a shortcut or names the characters it waits for; and the split of the placed defaults from those waiting for a key and those waiting for a Command press.',
     ],
     'packages/test-fixtures/src/projects.ts: sampleProject': [
@@ -2724,14 +2724,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      86,
+      98,
       'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page.',
     ],
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      200,
-      "Puts together six independent surfaces, each given only what it needs. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
+      221,
+      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
       122,
@@ -2782,8 +2782,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Nine subscriptions and what the shell derives from them; its two effects are hooks of their own.',
     ],
     'apps/web/src/input/use-shortcuts.ts: useShortcuts': [
-      60,
-      "One document listener deciding what a key press means for the chord tracker, and handing every press it reads to the keyboard layout's reader.",
+      80,
+      "One document listener deciding what a key press means for the chord tracker, leaving a field the presses it edits its own text with, and handing every press it reads to the keyboard layout's reader.",
     ],
     'apps/web/src/input/use-shortcuts.ts: useShortcuts > useEffect callback': [
       55,

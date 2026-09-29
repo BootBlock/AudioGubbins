@@ -37,6 +37,7 @@ import {
   placeDefaults,
 } from '../state/default-shortcuts.js';
 import { backupCommands } from './backup-commands.js';
+import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { historyCommands } from './history-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
@@ -587,20 +588,26 @@ describe('the default shortcut profile', () => {
     // key press ends. Read on Windows alone, an Apple wait could never have
     // been seen here at all. A default waits where its character sits away
     // from its US key and no Command press has shown how the system reads the
-    // layout: Dvorak moves every one of them, AZERTY moves the comma alone,
-    // and the two settled readings of Dvorak place them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 10', 'apple, AZERTY: 1']);
+    // layout: Dvorak moves every one of them, AZERTY moves the comma and the Z
+    // of undo and redo, German moves the Z alone, and the two settled readings
+    // of Dvorak place them all.
+    expect(forTheLayer).toEqual(['apple, Dvorak: 12', 'apple, AZERTY: 3', 'apple, German: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {
     // Known to type T, the key at K is not where K is: the prefix there would
-    // be Ctrl+T, a new tab, so every chord waits until K is found.
+    // be Ctrl+T, a new tab, so every chord waits until K is found. The single
+    // presses, whose keys are not known to type anything else, are placed.
     const partly = keyboardLayout([['KeyK', 't']]);
     const bound = defaultShortcutProfile(KeyboardConvention.Windows, partly).bindings.map(
       (binding) => binding.commandId,
     );
 
-    expect(bound).toEqual([commandId('settings.open')]);
+    expect(bound).toEqual([
+      commandId('settings.open'),
+      commandId('edit.undo'),
+      commandId('edit.redo'),
+    ]);
   });
 
   it('writes each default by what the layout types, in the menus and the palette', () => {
@@ -724,6 +731,7 @@ describe('finding the shell commands in the palette', () => {
       ...deletionCommands(),
       ...projectTransferCommands(),
       ...backupCommands(),
+      ...backupFolderCommands(),
       ...historyCommands(),
       ...compactionCommands(),
       ...ownershipCommands(),

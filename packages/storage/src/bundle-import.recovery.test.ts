@@ -35,12 +35,14 @@ async function sampleBundle(test: Harness) {
   expectSuccess(await session.close());
   const sink = memorySink();
   expectSuccess(
-    await exportBundle(
-      header.id,
-      sink,
-      { scope: { kind: 'whole-history' }, includeCaches: false },
-      source.exporting,
-    ),
+    expectSuccess(
+      await exportBundle(
+        header.id,
+        sink,
+        { scope: { kind: 'whole-history' }, includeCaches: false },
+        source.exporting,
+      ),
+    ).written,
   );
   return { project: header.id, bundle: sink.bytes(), summary };
 }

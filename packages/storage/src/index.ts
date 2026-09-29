@@ -99,7 +99,9 @@ export { mediaSharingOf } from './media-sharing.js';
 
 export { type BundleScope, type CopyOptions, type TreeSources } from './tree-content.js';
 export {
+  type ExportAttempt,
   type ExportServices,
+  type ExportSource,
   type ExportedBundle,
   exportBackup,
   exportBundle,

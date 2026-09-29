@@ -105,7 +105,7 @@ const PART_NAMES: Record<PersistedPart, string> = {
   [PersistedPart.Shortcuts]: 'shortcut profiles',
   [PersistedPart.Verbosity]: 'diagnostic log levels',
   [PersistedPart.KeyboardLayout]: 'keyboard layout',
-  [PersistedPart.SourceHandling]: 'the choice of how files are brought in',
+  [PersistedPart.SourceHandling]: 'way of bringing files in',
   [PersistedPart.LastProject]: 'the project to open next time',
 };
 
@@ -125,8 +125,8 @@ export interface WriteAccount {
 
   /**
    * What the user is told once this write is kept, when it keeps what earlier
-   * writes kept back: they were told it could not be kept, and are told when
-   * it is. Said only when no key of the write is refused.
+   * writes kept back: they were told it could not be kept, and are told when it
+   * is. Said only when no key of the write is refused.
    */
   readonly resumed?: string;
 }
@@ -138,9 +138,9 @@ export interface PersistenceState {
 
   /**
    * Why the browser refused the last write it refused, while any part is not
-   * being kept: `undefined` while every part is, or where no write was
-   * refused and a part is kept back by its caller (see `Withheld`), which
-   * says why itself.
+   * being kept: `undefined` while every part is, or where no write was refused
+   * and a part is kept back by its caller (see `Withheld`), which says why
+   * itself.
    */
   readonly cause: StorageFailureCause | undefined;
 }
@@ -151,8 +151,8 @@ export interface SetAsideAnswer {
   readonly kept: boolean;
 
   /**
-   * How many older texts were dropped to make room for it, which the store
-   * that set it aside tells the user of; none where it was not kept.
+   * How many older texts were dropped to make room for it, which the store that
+   * set it aside tells the user of; none where it was not kept.
    */
   readonly dropped: number;
 
@@ -205,8 +205,8 @@ export interface StateStorage extends Observable<PersistenceState> {
    * Added, never written over: written over, a later damage would replace the
    * text set aside before it, which nobody had read yet. The key holds a list
    * of a bounded size, whose oldest texts go to make room for a new one (see
-   * `set-aside-texts.ts`); text already in it is not added twice, so text
-   * still damaged at the next start is set aside once.
+   * `set-aside-texts.ts`); text already in it is not added twice, so text still
+   * damaged at the next start is set aside once.
    *
    * Outside every part: a refusal is the caller's to report, in the notice
    * about that text. Reported as a part that was not saved, it would tell a
@@ -326,7 +326,7 @@ function writeEach(
 
 /** What the user is told when the browser starts refusing a part: what, why, and what to do. */
 function notSaved(part: PersistedPart, cause: StorageFailureCause): string {
-  return `Your ${PART_NAMES[part]} could not be saved, so your changes will not survive a reload. ${causeAndRemedy(cause)}`;
+  return `Your ${PART_NAMES[part]} will not survive a reload. ${causeAndRemedy(cause)}`;
 }
 
 /**

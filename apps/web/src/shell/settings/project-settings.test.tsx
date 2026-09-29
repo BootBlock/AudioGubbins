@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { projectWorld, type ProjectWindow } from '../../testing/project-context.js';
+import { ScriptedFolderPort } from '../../testing/scripted-folder.js';
 import { Backups } from './backups.js';
 import { ProjectSettings } from './projects.js';
 
@@ -79,6 +80,7 @@ describe('the backup settings', () => {
       everyChanges: 50,
       keepCount: 10,
       keepDays: 0,
+      external: false,
     });
   });
 
@@ -127,5 +129,45 @@ describe('the backup settings', () => {
     );
 
     expect(screen.getByText('Open a project to set how it is backed up.')).toBeVisible();
+  });
+});
+
+describe('the backups folder in the backup settings (REQ-STOR-105)', () => {
+  it('explains the folder is this machine’s, asks for leave after a reload, and copies by the policy', async () => {
+    const window = await projectWorld().window({ backupFolder: new ScriptedFolderPort() });
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const run = recorder();
+    render(<Backups projects={window.projects} run={run} unavailableReason={() => undefined} />);
+
+    const folder = screen.getByRole('region', { name: 'Backups folder' });
+    expect(within(folder).getByText(/belongs to this browser on this computer/u)).toBeVisible();
+    expect(within(folder).getByText(/until you allow writing to "Backups" again/u)).toBeVisible();
+    await userEvent.click(
+      within(folder).getByRole('button', { name: 'Allow writing to the folder' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('backup.allow-folder');
+    await userEvent.click(within(folder).getByRole('button', { name: 'Choose another folder…' }));
+    expect(run).toHaveBeenLastCalledWith('backup.choose-folder');
+
+    await userEvent.click(
+      screen.getByRole('switch', { name: 'Also copy each backup to the backups folder' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Save the backup settings' }));
+    expect(run).toHaveBeenLastCalledWith(
+      'backup.set-policy',
+      expect.objectContaining({ kind: 'automatic', external: true }),
+    );
+  });
+
+  it('says backups stay in the browser where it gives no folder, and offers no copy', async () => {
+    const window = await withBackup();
+    render(
+      <Backups projects={window.projects} run={recorder()} unavailableReason={() => undefined} />,
+    );
+
+    expect(screen.getByText(/cannot give AudioGubbins a folder to write into/u)).toBeVisible();
+    expect(
+      screen.queryByRole('switch', { name: 'Also copy each backup to the backups folder' }),
+    ).toBeNull();
   });
 });

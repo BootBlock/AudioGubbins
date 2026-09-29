@@ -149,7 +149,7 @@ describe('what the composition root drives from the workspace', () => {
 
     await vi.waitFor(() => {
       expect(interaction.get().announcement).toMatchObject({
-        text: "Your appearance settings could not be saved, so your changes will not survive a reload. The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.",
+        text: "Your appearance settings will not survive a reload. This site's storage is full: delete what you no longer need in Settings. AudioGubbins tries again with your next change.",
         urgent: true,
       });
     }, PROMPTLY);

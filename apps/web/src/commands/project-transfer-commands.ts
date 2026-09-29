@@ -18,6 +18,7 @@ import {
 import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { CopyOptions } from '@audiogubbins/storage';
 
+import type { RecordedExport } from '../state/export-recorder.js';
 import { quoted } from '../wording.js';
 import {
   projectsAvailability,
@@ -50,6 +51,22 @@ function openProject(context: ShellContext) {
     : 'No project is open.';
 }
 
+/**
+ * Whether the export is kept in the project's history, where it is not: an
+ * export changes no state, so undo cannot take its file back, and its
+ * provenance is recorded instead (REQ-STOR-197, REQ-STOR-198).
+ */
+export function recordedNote(recorded: RecordedExport): string {
+  switch (recorded) {
+    case 'kept':
+      return '';
+    case 'not-writable':
+      return ' Its history does not record the export, because this tab cannot change the project.';
+    case 'failed':
+      return ' Its history could not record the export.';
+  }
+}
+
 /** What a copy of a project could not carry, where it could not carry something. */
 function linkedNote(linked: readonly unknown[]): string {
   return linked.length === 0
@@ -73,7 +90,7 @@ function exportBundleCommand(): Command<ShellContext> {
       sayWhenSettled(context, work, (exported) =>
         exported === undefined
           ? undefined
-          : `${quoted(open.name)} is exported as a bundle.${linkedNote(exported.linked)}`,
+          : `${quoted(open.name)} is exported as a bundle.${linkedNote(exported.linked)}${recordedNote(exported.recorded)}`,
       );
       return undefined;
     },
@@ -99,10 +116,10 @@ function exportFolderCommand(): Command<ShellContext> {
       if (typeof open === 'string') return open;
       const options = copyOptionsFrom(invocation);
       if (typeof options === 'string') return options;
-      sayWhenSettled(context, stores.transfer.exportFolder(open.project, options), (linked) =>
-        linked === undefined
+      sayWhenSettled(context, stores.transfer.exportFolder(open.project, options), (exported) =>
+        exported === undefined
           ? undefined
-          : `${quoted(open.name)} is exported to the folder.${linkedNote(linked)}`,
+          : `${quoted(open.name)} is exported to the folder.${linkedNote(exported.linked)}${recordedNote(exported.recorded)}`,
       );
       return undefined;
     },

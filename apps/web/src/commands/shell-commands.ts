@@ -18,6 +18,7 @@ import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogub
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
 import { backupCommands } from './backup-commands.js';
+import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { historyCommands } from './history-commands.js';
@@ -118,6 +119,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...deletionCommands(),
     ...projectTransferCommands(),
     ...backupCommands(),
+    ...backupFolderCommands(),
     ...historyCommands(),
     ...compactionCommands(),
     ...ownershipCommands(),

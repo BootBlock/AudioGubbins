@@ -776,11 +776,13 @@ describe('what the shortcut settings say beside the table', () => {
     // Which layouts ask, and for what, so a change that stops the note asking
     // at all is not read as every layout passing. Apple hardware and a layout
     // that moves a default's character: Dvorak moves every one of them, AZERTY
-    // the comma alone. Dvorak's answer is not the first key it offers — that
-    // one opens a browser window with Command — and AZERTY has no answer at
-    // all, because it moves four letters and each of them is read either as
-    // the key that quits the browser or as the key that closes the tab.
-    expect(asked).toEqual(['Dvorak: C', 'AZERTY: none']);
+    // the comma and the Z of undo and redo, and German that Z alone. Dvorak's
+    // answer is not the first key it offers — that one opens a browser window
+    // with Command — and AZERTY has no answer at all, because it moves four
+    // letters and each of them is read either as the key that quits the
+    // browser or as the key that closes the tab. German swaps Y and Z, and
+    // Command with either reaches the page.
+    expect(asked).toEqual(['Dvorak: C', 'AZERTY: none', 'German: Y']);
   });
 
   it('says no key can be asked for, where the platform takes every one the layout offers', () => {

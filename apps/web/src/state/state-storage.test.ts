@@ -67,11 +67,11 @@ const NO_CAUSE = 'The browser did not say why. AudioGubbins tries again with you
 
 /** What the notice adds where the browser's storage for the site is full. */
 const FULL =
-  "The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.";
+  "This site's storage is full: delete what you no longer need in Settings. AudioGubbins tries again with your next change.";
 
 /** What the notice adds where the browser refuses the site any storage. */
 const REFUSED =
-  "The browser is refusing this site any storage, as it does where its settings block site data or a private window keeps none. Allowing this site to keep data, in the browser's settings, lets AudioGubbins save again; it tries with your next change.";
+  'The browser refuses this site storage; its settings can allow it. AudioGubbins tries again with your next change.';
 
 /** Storage whose every write throws `error`, as a browser throws it. */
 function throwing(error: unknown): KeyValueStorage {
@@ -92,9 +92,7 @@ describe('state storage', () => {
     storage.save(PersistedPart.Preferences, { a: '1' });
     storage.save(PersistedPart.Preferences, { a: '2' });
 
-    expect(told).toEqual([
-      `Your appearance settings could not be saved, so your changes will not survive a reload. ${FULL}`,
-    ]);
+    expect(told).toEqual([`Your appearance settings will not survive a reload. ${FULL}`]);
     expect(storage.get().unsaved).toEqual([PersistedPart.Preferences]);
   });
 
@@ -126,9 +124,7 @@ describe('state storage', () => {
 
       storage.save(PersistedPart.Workspace, { a: '1' });
 
-      expect(told).toEqual([
-        `Your workspaces could not be saved, so your changes will not survive a reload. ${said}`,
-      ]);
+      expect(told).toEqual([`Your workspaces will not survive a reload. ${said}`]);
       expect(storage.get()).toEqual({ unsaved: [PersistedPart.Workspace], cause });
       expect(describeUnsaved(storage.get())).toBe(`Not being saved: workspaces. ${said}`);
     },
@@ -303,9 +299,7 @@ describe('state storage', () => {
       { withheld: { reason: 'nowhere', told: 'Kept back.' } },
     );
 
-    expect(told).toEqual([
-      `Your workspaces could not be saved, so your changes will not survive a reload. ${NO_CAUSE}`,
-    ]);
+    expect(told).toEqual([`Your workspaces will not survive a reload. ${NO_CAUSE}`]);
   });
 
   it('tells the user when a write keeps again what earlier writes kept back', () => {
@@ -362,9 +356,7 @@ describe('state storage', () => {
       { resumed: 'The list is kept again.' },
     );
 
-    expect(told).toEqual([
-      `Your workspaces could not be saved, so your changes will not survive a reload. ${NO_CAUSE}`,
-    ]);
+    expect(told).toEqual([`Your workspaces will not survive a reload. ${NO_CAUSE}`]);
   });
 
   it('adds a text set aside to those set aside before, and adds each once', () => {
@@ -505,7 +497,7 @@ describe('a store whose writes are refused', () => {
     // root's choice, which this context's own storage stands in for, so that
     // is held where the application is built.
     expect(context.interaction.get().announcement?.text).toBe(
-      `Your appearance settings could not be saved, so your changes will not survive a reload. ${FULL}`,
+      `Your appearance settings will not survive a reload. ${FULL}`,
     );
   });
 });

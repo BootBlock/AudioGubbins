@@ -11,7 +11,9 @@
  * hiding it writes a checkpoint of the project open to write, so a tab closed
  * or discarded in the background loses nothing written since, and the
  * application's clock ticks the backup scheduler, which the storage leaves to
- * the application because it keeps no timer.
+ * the application because it keeps no timer. The backups folder kept by this
+ * browser is looked for as the page starts, without asking for leave to write
+ * into it, which only the person's gesture can.
  */
 
 import {
@@ -21,6 +23,7 @@ import {
 } from '@audiogubbins/capabilities';
 import type { Clock, DiagnosticCentre } from '@audiogubbins/diagnostics';
 
+import { browserBackupFolder } from '../io/backup-folder.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf } from '../storage/project-services.js';
 import type { PageVisibility } from './layout-map-watch.js';
@@ -77,6 +80,7 @@ export function startProjectSystem(
     needs.storage,
     files,
     platform.pickers !== undefined,
+    browserBackupFolder(platform.pickers, services.keeper),
   );
   const logger = needs.diagnostics.loggerFor('projects');
 
@@ -88,6 +92,7 @@ export function startProjectSystem(
       logger.error(what, { reason: error instanceof Error ? error.message : 'unknown' });
     };
   startProjects(storageRoot, projects, logger).catch(logFault('Projects could not be started.'));
+  projects.backupFolder.start().catch(logFault('The backups folder could not be looked for.'));
   const stopWatching = needs.page.listen('visibilitychange', () => {
     if (needs.page.isVisible()) return;
     projects.project.checkpoint().catch(logFault('A checkpoint as the page was hidden failed.'));

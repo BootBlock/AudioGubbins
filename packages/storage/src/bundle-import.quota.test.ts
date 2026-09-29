@@ -35,12 +35,14 @@ describe('bringing a bundle into a full storage (REQ-EXEC-216)', () => {
     expectSuccess(await session.close());
     const sink = memorySink();
     expectSuccess(
-      await exportBundle(
-        header.id,
-        sink,
-        { scope: { kind: 'whole-history' }, includeCaches: false },
-        source.exporting,
-      ),
+      expectSuccess(
+        await exportBundle(
+          header.id,
+          sink,
+          { scope: { kind: 'whole-history' }, includeCaches: false },
+          source.exporting,
+        ),
+      ).written,
     );
 
     const refusals: string[] = [];

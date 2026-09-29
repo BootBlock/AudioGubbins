@@ -132,13 +132,15 @@ describe('backup generations (REQ-STOR-105)', () => {
 
     const sink = memorySink();
     expectSuccess(
-      await exportBackup(
-        setup.project,
-        made.generation.number,
-        sink,
-        { scope: { kind: 'whole-history' }, includeCaches: false },
-        setup.storage.exporting,
-      ),
+      expectSuccess(
+        await exportBackup(
+          setup.project,
+          made.generation.number,
+          sink,
+          { scope: { kind: 'whole-history' }, includeCaches: false },
+          setup.storage.exporting,
+        ),
+      ).written,
     );
     const other = harness(40);
     const target = storageOf(other, new MemoryStorageTree());

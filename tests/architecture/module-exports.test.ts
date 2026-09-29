@@ -230,6 +230,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/workspace-store.ts: keptInCollection'],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
+  "The storage worker's service over any synchronous root, which the worker tests serve over a directory in memory; the worker reaches it through `serveOriginPrivateTree`, over the origin-private file system.":
+    ['packages/browser-storage/src/serve-tree.ts: serveTree'],
 };
 
 /**

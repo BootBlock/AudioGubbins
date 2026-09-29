@@ -6,19 +6,23 @@
  * Restoring in place replaces the project, history and all, which undo cannot
  * reverse, so it asks a second time and says the project as it is now is kept
  * as a backup first. A backup made by hand is kept until it is let go; the
- * others go as the policy says. Every control runs a command.
+ * others go as the policy says. Where the browser gives a folder to write into,
+ * a backup can be copied to one as well (`backup-folder.tsx`). Every control
+ * runs a command.
  */
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
-import type { BackupPolicy } from '@audiogubbins/project-format';
+import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { BackupGeneration } from '@audiogubbins/storage';
 
+import type { BackupFolderState } from '../../state/backup-folder-store.js';
 import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { describeBytes } from '../../wording.js';
+import { BackupFolder } from './backup-folder.js';
+import { PolicyFormView } from './backup-policy-form.js';
 import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
 
@@ -31,82 +35,6 @@ const REASONS: Readonly<Record<BackupGeneration['reason'], string>> = {
   time: 'made after a spell of work',
   save: 'made after a number of changes',
 };
-
-/** The policy's numbers as the form holds them, a blank for one not set. */
-interface PolicyForm {
-  readonly kind: string;
-  readonly everyMinutes: string;
-  readonly everyChanges: string;
-  readonly keepCount: string;
-  readonly keepDays: string;
-}
-
-/** The form a policy starts it from. */
-function formOf(policy: BackupPolicy): PolicyForm {
-  if (policy.kind === 'off') {
-    return { kind: 'off', everyMinutes: '', everyChanges: '', keepCount: '', keepDays: '' };
-  }
-  const text = (value: number | undefined): string => (value === undefined ? '' : String(value));
-  return {
-    kind: 'automatic',
-    everyMinutes: text(policy.trigger.everyMinutes),
-    everyChanges: text(policy.trigger.everyChanges),
-    keepCount: text(policy.retention.count),
-    keepDays: text(policy.retention.days),
-  };
-}
-
-/** The fields of the form, and what each is called. */
-const FIELDS = [
-  ['everyMinutes', 'After this many minutes of work'],
-  ['everyChanges', 'After this many changes'],
-  ['keepCount', 'Keep the newest'],
-  ['keepDays', 'Keep those from the last days'],
-] as const;
-
-/** When backups are made, and how many are kept. */
-function PolicyFormView({
-  policy,
-  run,
-}: {
-  readonly policy: BackupPolicy;
-  readonly run: RunCommand;
-}): ReactNode {
-  const [form, setForm] = useState(formOf(policy));
-  const numbers = Object.fromEntries(FIELDS.map(([field]) => [field, Number(form[field])]));
-  return (
-    <div className="ag-settings-section">
-      <OptionSelect
-        label="Back the project up"
-        value={form.kind}
-        options={[
-          { value: 'automatic', label: 'On its own, as set below' },
-          { value: 'off', label: 'Only when I ask' },
-        ]}
-        onValueChange={(kind) => {
-          setForm({ ...form, kind });
-        }}
-      />
-      {form.kind === 'automatic' && (
-        <div className="ag-settings-row">
-          {FIELDS.map(([field, label]) => (
-            <TextField
-              key={field}
-              label={label}
-              value={form[field]}
-              onValueChange={(typed) => {
-                setForm({ ...form, [field]: typed });
-              }}
-            />
-          ))}
-        </div>
-      )}
-      <Button onClick={() => run('backup.set-policy', { kind: form.kind, ...numbers })}>
-        Save the backup settings
-      </Button>
-    </div>
-  );
-}
 
 /** Restoring a backup in place, once the person has read that undo cannot reverse it. */
 function RestoreConfirmation({
@@ -236,23 +164,60 @@ export function Backups({
   readonly projects: {
     readonly project: Observable<OpenProjectState>;
     readonly backups: Observable<BackupState>;
+    readonly backupFolder: Observable<BackupFolderState>;
   };
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
 }): ReactNode {
   const open = useSyncExternalStore(projects.project.subscribe, projects.project.get);
   const backups = useSyncExternalStore(projects.backups.subscribe, projects.backups.get);
-  if (open.kind !== 'open')
-    return <p className="ag-settings-note">Open a project to set how it is backed up.</p>;
+  const folder = useSyncExternalStore(projects.backupFolder.subscribe, projects.backupFolder.get);
+  const chooser = (
+    <BackupFolder
+      folder={projects.backupFolder}
+      backups={projects.backups}
+      run={run}
+      unavailableReason={unavailableReason}
+    />
+  );
+  if (open.kind !== 'open') {
+    return (
+      <div className="ag-settings-section">
+        <p className="ag-settings-note">Open a project to set how it is backed up.</p>
+        {chooser}
+      </div>
+    );
+  }
   return (
     <div className="ag-settings-section">
-      <PolicyFormView key={open.snapshot.project} policy={open.snapshot.model.backup} run={run} />
+      <PolicyFormView
+        key={open.snapshot.project}
+        policy={open.snapshot.model.backup}
+        canCopyOut={folder.kind !== 'unsupported'}
+        run={run}
+      />
+      {chooser}
       <ReasonedButton
         reason={unavailableReason('file.back-up-now')}
         onPress={() => run('file.back-up-now')}
       >
         Back up now
       </ReasonedButton>
+      <GenerationList backups={backups} run={run} />
+    </div>
+  );
+}
+
+/** Every backup kept, and what is being done with them. */
+function GenerationList({
+  backups,
+  run,
+}: {
+  readonly backups: BackupState;
+  readonly run: RunCommand;
+}): ReactNode {
+  return (
+    <>
       {backups.working !== undefined && (
         <p role="status">{backups.working === 'restoring' ? 'Restoring…' : 'Backing up…'}</p>
       )}
@@ -266,6 +231,6 @@ export function Backups({
           ))}
         </ul>
       )}
-    </div>
+    </>
   );
 }

@@ -10,11 +10,11 @@ Resume note and design record. The packet is
 
 ## Where the work is
 
-|                  |                                                              |
-| ---------------- | ------------------------------------------------------------ |
+|                  |                                                             |
+| ---------------- | ----------------------------------------------------------- |
 | Primary checkout | the repository's own directory, on `main`, for reading only |
-| Worktree         | `../AudioGubbins-phase-02` — **do the work here**            |
-| Branch           | `phase-02-project-storage`                                   |
+| Worktree         | `../AudioGubbins-phase-02` — **do the work here**           |
+| Branch           | `phase-02-project-storage`                                  |
 
 ## Coordination with Phase 03
 

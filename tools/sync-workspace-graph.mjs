@@ -339,6 +339,7 @@ const PACKAGES = [
     // would delete them, depending on which ran last.
     bundled: true,
     deps: [
+      '@audiogubbins/domain',
       '@audiogubbins/commands',
       '@audiogubbins/capabilities',
       '@audiogubbins/design-system',

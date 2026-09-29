@@ -68,15 +68,15 @@ describe('useShortcuts', () => {
   let read: string[] = [];
 
   /**
-   * A listener over a profile binding Ctrl+Alt+Minus, Option+B and Ctrl+K
-   * Ctrl+X, counting what ran.
+   * A listener over a profile binding Ctrl+Alt+Minus, Option+B, Ctrl+K Ctrl+X
+   * and Ctrl+Z, a text field keeping the last, counting what ran.
    */
   function listening(convention: KeyboardConvention) {
     const ran: string[] = [];
     cancelled = [];
     read = [];
     const registry = createCommandRegistry<null>();
-    for (const id of ['test.minus', 'test.option-b', 'test.chord']) {
+    for (const id of ['test.minus', 'test.option-b', 'test.chord', 'test.undo']) {
       registry.register({
         id: commandId(id),
         label: id,
@@ -111,6 +111,10 @@ describe('useShortcuts', () => {
             keyPress('KeyX', { control: true }),
           ),
         },
+        {
+          commandId: commandId('test.undo'),
+          shortcut: shortcut(keyPress('KeyZ', { control: true })),
+        },
       ],
     };
 
@@ -132,6 +136,7 @@ describe('useShortcuts', () => {
           },
           asked: () => false,
         },
+        fieldEditing: new Set([commandId('test.undo')]),
         logger,
       });
     });
@@ -228,6 +233,21 @@ describe('useShortcuts', () => {
     expect(cancelled).toEqual(['cancelled']);
   });
 
+  it('leaves a press a text field edits with to the field, and runs it everywhere else', () => {
+    // Ctrl+Z is the project's undo and a field's own. Taken from a field, it
+    // undid the last change to the project while the user meant to take back
+    // what they had just typed into a name.
+    const ran = listening(KeyboardConvention.Windows);
+
+    const inField = press(field(), { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(ran).toEqual([]);
+    expect(inField.defaultPrevented).toBe(false);
+
+    const onPage = press(document.body, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(ran).toEqual(['test.undo']);
+    expect(onPage.defaultPrevented).toBe(true);
+  });
+
   it('says the chord is given up when Escape abandons it', () => {
     listening(KeyboardConvention.Windows);
 
@@ -287,6 +307,7 @@ describe('useShortcuts over the stores it is wired to', () => {
           read: layout.learn,
           asked: () => false,
         },
+        fieldEditing: new Set(),
         logger,
       });
     });
@@ -314,6 +335,7 @@ describe('useShortcuts over the stores it is wired to', () => {
           read: vi.fn(),
           asked: (reading) => reading.code === 'KeyI',
         },
+        fieldEditing: new Set(),
         logger,
       });
     });
@@ -348,6 +370,7 @@ describe('useShortcuts over the stores it is wired to', () => {
           read: vi.fn(),
           asked: () => false,
         },
+        fieldEditing: new Set(),
         logger,
       });
     });

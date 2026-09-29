@@ -38,6 +38,7 @@ import { MemoryLeaseCoordinator, memorySink, type MemorySink } from '@audiogubbi
 
 import { shellCommands } from '../commands/shell-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
+import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
@@ -67,6 +68,9 @@ export interface ScriptedFiles extends TransferFiles {
   dismissSave: boolean;
 }
 
+/** What every folder the person chooses to write into is called. */
+export const CHOSEN_FOLDER_NAME = 'Sounds';
+
 /** Files scripted by the test, with the folder picker where `canWriteFolders`. */
 function scriptedFiles(canWriteFolders = true): ScriptedFiles {
   const files: ScriptedFiles = {
@@ -82,6 +86,7 @@ function scriptedFiles(canWriteFolders = true): ScriptedFiles {
       files.saved.push(saved);
       const target: SaveTarget = {
         sink: saved.sink,
+        name,
         finish: () => {
           saved.finished = true;
         },
@@ -91,7 +96,12 @@ function scriptedFiles(canWriteFolders = true): ScriptedFiles {
     chooseBundle: () => Promise.resolve(files.bundles.shift()),
     chooseFolderToRead: () => Promise.resolve(files.foldersToRead.shift()),
     chooseFolderToWrite: canWriteFolders
-      ? () => Promise.resolve(files.foldersToWrite.shift())
+      ? () => {
+          const writer = files.foldersToWrite.shift();
+          return Promise.resolve(
+            writer === undefined ? undefined : { writer, name: CHOSEN_FOLDER_NAME },
+          );
+        }
       : undefined,
     chooseMediaFile: () => Promise.resolve(files.mediaFiles.shift()),
   };
@@ -131,8 +141,14 @@ export interface ProjectWorld {
   readonly tree: MemoryStorageTree;
   readonly coordinator: MemoryLeaseCoordinator;
 
-  /** Opens a window: its storage root is opened and its list read, as the application starts. */
-  window(options?: { readonly canWriteFolders?: boolean }): Promise<ProjectWindow>;
+  /**
+   * Opens a window: its storage root is opened and its list read, and its
+   * backups folder looked for, as the application starts.
+   */
+  window(options?: {
+    readonly canWriteFolders?: boolean;
+    readonly backupFolder?: BackupFolderPort;
+  }): Promise<ProjectWindow>;
 }
 
 /**
@@ -221,7 +237,13 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
       const services = servicesOf(world, built.context, shared, windows);
       const files = scriptedFiles(options.canWriteFolders);
       const root = new StorageRoot(services);
-      const projects = createProjectStores(services, built.storage, files, true);
+      const projects = createProjectStores(
+        services,
+        built.storage,
+        files,
+        true,
+        options.backupFolder,
+      );
       return await windowOver(built.context, services, root, projects, files);
     },
   };
@@ -263,6 +285,7 @@ async function windowOver(
 
   await root.open();
   await projects.library.refresh();
+  await projects.backupFolder.start();
   return {
     context,
     projects,

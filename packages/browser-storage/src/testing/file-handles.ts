@@ -19,6 +19,9 @@ class FakeHandle {
     answer: 'granted' | 'denied';
   } = { state: 'granted', answer: 'granted' };
 
+  /** The access each question about the permission was asked for, in order. */
+  readonly modesAsked: string[] = [];
+
   constructor(name: string) {
     this.name = name;
   }
@@ -27,11 +30,13 @@ class FakeHandle {
     return Promise.resolve(Object.is(other, this));
   }
 
-  queryPermission(): Promise<string> {
+  queryPermission(descriptor: { readonly mode: string }): Promise<string> {
+    this.modesAsked.push(descriptor.mode);
     return Promise.resolve(this.permission.state);
   }
 
-  requestPermission(): Promise<string> {
+  requestPermission(descriptor: { readonly mode: string }): Promise<string> {
+    this.modesAsked.push(descriptor.mode);
     if (this.permission.state === 'prompt') this.permission.state = this.permission.answer;
     return Promise.resolve(this.permission.state);
   }

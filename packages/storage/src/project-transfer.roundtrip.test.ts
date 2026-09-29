@@ -91,7 +91,9 @@ function storedMediaMissing(): never {
 
 async function bundleOf(storage: TestStorage, project: ProjectId, options: CopyOptions = WHOLE) {
   const sink = memorySink();
-  expectSuccess(await exportBundle(project, sink, options, storage.exporting));
+  expectSuccess(
+    expectSuccess(await exportBundle(project, sink, options, storage.exporting)).written,
+  );
   expect(sink.ending).toBe('closed');
   return sink.bytes();
 }
@@ -123,7 +125,9 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
 
       // The tree the storage writes is the tree the bundle holds.
       const written = new MemoryDirectory();
-      expectSuccess(await exportUnpacked(project, written, WHOLE, source.exporting));
+      expectSuccess(
+        expectSuccess(await exportUnpacked(project, written, WHOLE, source.exporting)).written,
+      );
       expect([...written.files].sort()).toEqual([...directory.files].sort());
 
       // And a tree brings the project in as a bundle does.
@@ -270,22 +274,26 @@ describe('an unpacked tree in a directory the person keeps (REQ-STOR-103)', () =
     const directory = new MemoryDirectory();
     directory.files.set('.git/HEAD', new TextEncoder().encode('ref: main'));
     directory.files.set('notes/readme.txt', new TextEncoder().encode('Our notes.'));
-    expectSuccess(await exportUnpacked(header.id, directory, WHOLE, storage.exporting));
+    expectSuccess(
+      expectSuccess(await exportUnpacked(header.id, directory, WHOLE, storage.exporting)).written,
+    );
     const assetFiles = () =>
       [...directory.files.keys()].filter((path) => path.startsWith('project/assets/'));
     expect(assetFiles()).toHaveLength(2);
 
     expectSuccess(await session.undo());
     expectSuccess(
-      await exportUnpacked(
-        header.id,
-        directory,
-        {
-          scope: { kind: 'current-state', provenance: ProvenanceLevel.Full },
-          includeCaches: false,
-        },
-        storage.exporting,
-      ),
+      expectSuccess(
+        await exportUnpacked(
+          header.id,
+          directory,
+          {
+            scope: { kind: 'current-state', provenance: ProvenanceLevel.Full },
+            includeCaches: false,
+          },
+          storage.exporting,
+        ),
+      ).written,
     );
     expect(assetFiles()).toEqual([]);
     expect([...directory.files.keys()].some((path) => path.startsWith('history/'))).toBe(false);

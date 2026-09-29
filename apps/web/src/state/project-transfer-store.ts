@@ -2,7 +2,7 @@
  * Taking a project out of this browser and bringing one in: as a portable
  * bundle, as an unpacked tree in a folder, and making a project whole by
  * copying the files it links to into it (REQ-STOR-099, REQ-STOR-103,
- * REQ-STOR-166).
+ * REQ-STOR-166, REQ-STOR-197).
  *
  * The file or folder is asked for first, in the handler of the person's
  * gesture, since a browser opens no chooser outside one; one dismissed brings
@@ -10,11 +10,20 @@
  * identity where the storage does not hold it yet, and comes in as a copy where
  * it does, so bringing the same bundle in twice never refuses the person.
  * Copying linked files runs through the open project's session, one project
- * command an asset, so undo reverses each.
+ * command an asset, so undo reverses each. Every export of a project that was
+ * read is an event of its provenance, whether it wrote or failed, and is
+ * recorded in its history where this tab writes the project
+ * (`export-recorder.ts`); undo never reverses one.
  */
 
 import { succeed, type AssetId, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import { setAssetMediaInvocation } from '@audiogubbins/project-commands';
+import {
+  ExportDestinationKind,
+  type ContentIdentity,
+  type ExportDestination,
+  type ExportOutput,
+} from '@audiogubbins/project-format';
 import {
   consolidate,
   exportBackup,
@@ -24,14 +33,17 @@ import {
   importUnpacked,
   type AssetConsolidation,
   type CopyOptions,
+  type ExportAttempt,
   type ExportedBundle,
   type ImportIdentity,
   type ProjectHeader,
   type ProjectSession,
 } from '@audiogubbins/storage';
 
-import type { TransferFiles } from '../io/transfer-files.js';
+import { bundleNameOf } from '../io/file-names.js';
+import type { SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
+import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
 import { linkedFileOf } from './linked-files.js';
 import { observable, type Observable } from './observable.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
@@ -42,6 +54,12 @@ export interface ImportedProject {
   readonly asCopy: boolean;
 }
 
+/** An export written, whether its history records it, and the linked assets it could not carry. */
+export interface ExportedProject {
+  readonly linked: readonly AssetId[];
+  readonly recorded: RecordedExport;
+}
+
 /** What is being taken out or brought in, while something is. */
 export interface TransferState {
   readonly working?: 'exporting' | 'importing' | 'consolidating';
@@ -50,14 +68,39 @@ export interface TransferState {
 /** What a bundle is saved as. */
 const BUNDLE_TYPE = 'application/zip';
 
-/** Characters no file name may hold on the systems a bundle is saved to. */
-const NOT_IN_A_FILE_NAME = /[\\/:*?"<>|\p{Cc}]+/gu;
+/** The container a bundle is, as its provenance names it. */
+const BUNDLE_CONTAINER = 'zip';
 
-/** The name a project's bundle, or one of its backups, is suggested as. */
-function bundleNameOf(projectName: string): string {
-  const cleaned = projectName.replace(NOT_IN_A_FILE_NAME, ' ').replace(/\s+/gu, ' ').trim();
-  return `${cleaned === '' ? 'Project' : cleaned}.zip`;
+/** The container an unpacked project is, as its provenance names it. */
+const FOLDER_CONTAINER = 'project-tree';
+
+/** What an export says of itself, and how its written output is read. */
+interface ExportDescription<TWritten> {
+  readonly output: ExportOutput;
+  readonly destination: ExportDestination;
+
+  /** The assets it could not carry, and the identity of its bytes where it has one output. */
+  readonly readOut: (written: TWritten) => {
+    readonly linked: readonly AssetId[];
+    readonly identity?: ContentIdentity;
+  };
+
+  /** Hands the written file to the person, where saving it takes a step of its own. */
+  readonly finish?: () => void;
 }
+
+/** A bundle saved to `target`, as its export describes itself. */
+function bundleExport(target: SaveTarget, output: ExportOutput): ExportDescription<ExportedBundle> {
+  return {
+    output,
+    destination: { kind: ExportDestinationKind.Bundle, label: target.name },
+    readOut: ({ linked, output: identity }) => ({ linked, identity }),
+    finish: target.finish,
+  };
+}
+
+/** A backup is exported whole, as it was kept. */
+const WHOLE_HISTORY: CopyOptions = { scope: { kind: 'whole-history' }, includeCaches: false };
 
 /**
  * Why bringing a project in as itself is refused where it is taken already: the
@@ -85,15 +128,22 @@ export class ProjectTransferStore implements Observable<TransferState> {
   private readonly services: ProjectServices;
   private readonly files: TransferFiles;
   private readonly library: ProjectLibraryStore;
+  private readonly recorder: ExportRecorder;
   private readonly state = observable<TransferState>({});
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(services: ProjectServices, files: TransferFiles, library: ProjectLibraryStore) {
+  constructor(
+    services: ProjectServices,
+    files: TransferFiles,
+    library: ProjectLibraryStore,
+    recorder: ExportRecorder,
+  ) {
     this.services = services;
     this.files = files;
     this.library = library;
+    this.recorder = recorder;
   }
 
   /** Writes a project as a bundle, saved where the person chooses. */
@@ -101,14 +151,18 @@ export class ProjectTransferStore implements Observable<TransferState> {
     project: ProjectId,
     name: string,
     options: CopyOptions,
-  ): Promise<DomainResult<ExportedBundle | undefined>> => {
+  ): Promise<DomainResult<ExportedProject | undefined>> => {
     const target = await this.files.save(bundleNameOf(name), BUNDLE_TYPE);
     if (target === undefined) return succeed(undefined);
-    return await this.working('exporting', async () => {
-      const written = await exportBundle(project, target.sink, options, this.services);
-      if (written.ok) target.finish();
-      return written;
-    });
+    return await this.working(
+      'exporting',
+      async () =>
+        await this.recorded(
+          project,
+          await exportBundle(project, target.sink, options, this.services),
+          bundleExport(target, copyOutput(BUNDLE_CONTAINER, options)),
+        ),
+    );
   };
 
   /** Writes one of a project's backups as a bundle, saved where the person chooses. */
@@ -116,26 +170,39 @@ export class ProjectTransferStore implements Observable<TransferState> {
     project: ProjectId,
     generation: number,
     name: string,
-  ): Promise<DomainResult<ExportedBundle | undefined>> => {
+  ): Promise<DomainResult<ExportedProject | undefined>> => {
     const target = await this.files.save(bundleNameOf(name), BUNDLE_TYPE);
     if (target === undefined) return succeed(undefined);
-    return await this.working('exporting', async () => {
-      const whole = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
-      const written = await exportBackup(project, generation, target.sink, whole, this.services);
-      if (written.ok) target.finish();
-      return written;
-    });
+    return await this.working(
+      'exporting',
+      async () =>
+        await this.recorded(
+          project,
+          await exportBackup(project, generation, target.sink, WHOLE_HISTORY, this.services),
+          bundleExport(target, copyOutput(BUNDLE_CONTAINER, WHOLE_HISTORY, { backup: generation })),
+        ),
+    );
   };
 
   /** Writes a project as an unpacked tree into a folder the person chooses. */
   readonly exportFolder = async (
     project: ProjectId,
     options: CopyOptions,
-  ): Promise<DomainResult<readonly AssetId[] | undefined>> => {
+  ): Promise<DomainResult<ExportedProject | undefined>> => {
     const folder = await this.files.chooseFolderToWrite?.();
     if (folder === undefined) return succeed(undefined);
-    return await this.working('exporting', () =>
-      exportUnpacked(project, folder, options, this.services),
+    return await this.working(
+      'exporting',
+      async () =>
+        await this.recorded(
+          project,
+          await exportUnpacked(project, folder.writer, options, this.services),
+          {
+            output: copyOutput(FOLDER_CONTAINER, options),
+            destination: { kind: ExportDestinationKind.Directory, label: folder.name },
+            readOut: (linked) => ({ linked }),
+          },
+        ),
     );
   };
 
@@ -181,6 +248,30 @@ export class ProjectTransferStore implements Observable<TransferState> {
     } finally {
       this.state.set({});
     }
+  }
+
+  /**
+   * Keeps an export of a project that was read in its history, whether it wrote
+   * or failed, and hands a written file over; a project that could not be read
+   * wrote nothing and has nothing to record.
+   */
+  private async recorded<TWritten>(
+    project: ProjectId,
+    attempt: DomainResult<ExportAttempt<TWritten>>,
+    described: ExportDescription<TWritten>,
+  ): Promise<DomainResult<ExportedProject>> {
+    if (!attempt.ok) return attempt;
+    const { source, written } = attempt.value;
+    const { output, destination } = described;
+    const draft = { project, source, output, destination };
+    if (!written.ok) {
+      await this.recorder.record({ ...draft, written });
+      return written;
+    }
+    const { linked, identity } = described.readOut(written.value);
+    described.finish?.();
+    const recorded = await this.recorder.record({ ...draft, written: succeed(identity) });
+    return succeed({ linked, recorded });
   }
 
   /** Brings in what `bringIn` reads, and reads the list again after. */

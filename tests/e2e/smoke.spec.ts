@@ -211,7 +211,9 @@ test.describe('starting up', () => {
       'The properties of whatever you have selected, editable in place.',
     );
     await expect(panel('Inspector')).toContainText('Arrives with core non-destructive editing.');
-    await expect(panel('Assets')).toContainText('Arrives with the project and storage system.');
+    await expect(panel('Assets')).toContainText(
+      'Importing audio arrives with the import, export and codec system.',
+    );
   });
 
   test('says what the browser cannot do rather than failing quietly', async ({ page }) => {
@@ -1613,7 +1615,7 @@ test.describe('the workspace', () => {
     );
     // With why, and what makes room, since the quota was met (F-209).
     await expect(page.locator('.ag-notice')).toHaveText(
-      "Your appearance settings could not be saved, so your changes will not survive a reload. The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.",
+      "Your appearance settings will not survive a reload. This site's storage is full: delete what you no longer need in Settings. AudioGubbins tries again with your next change.",
     );
   });
 });

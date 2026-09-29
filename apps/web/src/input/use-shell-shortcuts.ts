@@ -9,11 +9,25 @@
 
 import { useCallback, useMemo } from 'react';
 
-import { describePresses, keyboardPlatformFor } from '@audiogubbins/commands';
+import {
+  commandId,
+  describePresses,
+  keyboardPlatformFor,
+  type CommandId,
+} from '@audiogubbins/commands';
 import { commandLayerOf, type KeyEventReading } from '@audiogubbins/input';
 
 import type { Application } from '../application.js';
 import { useShortcuts } from './use-shortcuts.js';
+
+/**
+ * The commands whose presses a text field keeps: undo and redo, which a field
+ * does to its own typing with the keys the project's history is bound to.
+ */
+const FIELD_EDITING: ReadonlySet<CommandId> = new Set([
+  commandId('edit.undo'),
+  commandId('edit.redo'),
+]);
 
 /** What the shortcuts are read and run with. */
 type ShortcutParts = Pick<Application, 'context' | 'run' | 'tracker' | 'logger' | 'convention'>;
@@ -68,6 +82,7 @@ export function useShellShortcuts({
       }),
       [context],
     ),
+    fieldEditing: FIELD_EDITING,
     logger,
   });
 }

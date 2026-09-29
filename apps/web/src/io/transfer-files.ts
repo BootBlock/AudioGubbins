@@ -36,8 +36,17 @@ import { chooseThroughInput } from './file-input.js';
 export interface SaveTarget {
   readonly sink: ByteSink;
 
+  /** The file's name, as the person chose it or as the download is offered. */
+  readonly name: string;
+
   /** Hands the file over once its sink has closed: a download, where there was no picker. */
   readonly finish: () => void;
+}
+
+/** A folder the person chose to write into, and its name. */
+export interface ChosenFolder {
+  readonly writer: DirectoryWriter;
+  readonly name: string;
 }
 
 /** A bundle the person chose to bring in. */
@@ -58,7 +67,7 @@ export interface TransferFiles {
   chooseFolderToRead(): Promise<DirectoryReader | undefined>;
 
   /** A folder to write an unpacked project into, absent where the browser gives none. */
-  readonly chooseFolderToWrite: (() => Promise<DirectoryWriter | undefined>) | undefined;
+  readonly chooseFolderToWrite: (() => Promise<ChosenFolder | undefined>) | undefined;
 
   /** One audio file, kept to be found again where the browser can, or nothing where dismissed. */
   chooseMediaFile(): Promise<ExternalFile | undefined>;
@@ -81,6 +90,7 @@ function downloadTarget(name: string, mediaType: string): SaveTarget {
   const sink = new BlobSink(mediaType);
   return {
     sink,
+    name,
     finish: () => {
       offerDownload(sink.blob(), name);
     },
@@ -97,7 +107,11 @@ export function browserTransferFiles(
       if (pickers === undefined) return downloadTarget(name, mediaType);
       const picked = await pickSaveFile(pickers.saveFile, name);
       if (picked.kind === 'cancelled') return undefined;
-      return { sink: await openFileSink(picked.chosen), finish: () => undefined };
+      return {
+        sink: await openFileSink(picked.chosen),
+        name: picked.chosen.name,
+        finish: () => undefined,
+      };
     },
     chooseBundle: async () => bundleOf(await chooseThroughInput({ accept: BUNDLE_ACCEPT })),
     chooseFolderToRead: async () => {
@@ -109,7 +123,9 @@ export function browserTransferFiles(
         ? undefined
         : async () => {
             const picked = await pickDirectory(pickers.openDirectory, 'readwrite');
-            return picked.kind === 'cancelled' ? undefined : writableFolder(picked.chosen);
+            return picked.kind === 'cancelled'
+              ? undefined
+              : { writer: writableFolder(picked.chosen), name: picked.chosen.name };
           },
     chooseMediaFile: async () => {
       if (pickers === undefined) {

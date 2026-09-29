@@ -81,13 +81,28 @@ export interface ShortcutBindingOptions {
   /** Given every key event read, typing included. */
   readonly reader: KeyReader;
 
+  /**
+   * The commands a text field does for itself, such as undo: pressed in a
+   * field, their shortcut is the field's, and the command does not run.
+   */
+  readonly fieldEditing: ReadonlySet<CommandId>;
+
   readonly logger: Logger;
 }
 
 /** Listens for shortcuts while the component is mounted. */
 export function useShortcuts(options: ShortcutBindingOptions): void {
-  const { tracker, run, onPendingChange, onAnnounce, onChordCancelled, platform, reader, logger } =
-    options;
+  const {
+    tracker,
+    run,
+    onPendingChange,
+    onAnnounce,
+    onChordCancelled,
+    platform,
+    reader,
+    fieldEditing,
+    logger,
+  } = options;
 
   useEffect(() => {
     /**
@@ -153,6 +168,10 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
 
         case 'run': {
           onPendingChange([]);
+
+          // Left to the field, which undoes its own typing with the same
+          // press, and would otherwise lose it to the project's history.
+          if (isTextField(event.target) && fieldEditing.has(outcome.commandId)) return;
           event.preventDefault();
 
           // A shortcut that appears to do nothing is how a user decides the
@@ -184,5 +203,15 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
       document.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('blur', onBlur);
     };
-  }, [tracker, run, onPendingChange, onAnnounce, onChordCancelled, platform, reader, logger]);
+  }, [
+    tracker,
+    run,
+    onPendingChange,
+    onAnnounce,
+    onChordCancelled,
+    platform,
+    reader,
+    fieldEditing,
+    logger,
+  ]);
 }

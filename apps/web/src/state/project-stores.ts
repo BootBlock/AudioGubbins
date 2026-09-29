@@ -10,9 +10,12 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 
+import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
+import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
+import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
@@ -36,6 +39,7 @@ export interface ProjectStores {
   readonly review: HistoryReviewStore;
   readonly usage: StorageUsageStore;
   readonly backups: BackupStore;
+  readonly backupFolder: BackupFolderStore;
   readonly sources: SourceChangeStore;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
@@ -44,18 +48,20 @@ export interface ProjectStores {
 /**
  * Makes the stores over the storage, each once. `canLink` says whether the
  * browser gives files it lets AudioGubbins find again, which only the pickers
- * do.
+ * do, and `folder` is the backups folder, absent where the browser gives none.
  */
 export function createProjectStores(
   services: ProjectServices,
   storage: StateStorage,
   files: TransferFiles,
   canLink: boolean,
+  folder: BackupFolderPort | undefined,
 ): ProjectStores {
   const preferences = createProjectPreferencesStore(storage, canLink, services.logger);
   const library = new ProjectLibraryStore(services);
   const project = new OpenProjectStore(services, preferences);
   const sources = new SourceChangeStore(services, project, files);
+  const backupFolder = new BackupFolderStore(folder, services.logger);
 
   relieveWhenFull(project, services.caches, services.logger);
 
@@ -64,11 +70,17 @@ export function createProjectStores(
 
   return {
     library,
-    transfer: new ProjectTransferStore(services, files, library),
+    transfer: new ProjectTransferStore(
+      services,
+      files,
+      library,
+      new ExportRecorder(services, project),
+    ),
     project,
     review: new HistoryReviewStore(project),
     usage: new StorageUsageStore(services, project),
-    backups: new BackupStore(services, project, library),
+    backups: new BackupStore(services, project, library, backupFolder.target),
+    backupFolder,
     sources,
     preferences,
     files,

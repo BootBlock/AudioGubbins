@@ -9,7 +9,9 @@
  * project makes its generations; a window reading it lists them. Restoring in
  * place closes the project here first, since the restore opens it to write
  * itself, and the session the restore leaves open becomes the open project;
- * where the restore fails, the project is opened again as it was.
+ * where the restore fails, the project is opened again as it was. A backup is
+ * also copied to the backups folder where the project's policy asks, and what
+ * became of the latest copy is kept to be shown beside the backups.
  */
 
 import {
@@ -27,6 +29,8 @@ import {
   restoreBackup,
   type BackupGeneration,
   type BackupTick,
+  type ExternalBackupTarget,
+  type ExternalCopy,
   type ProjectSession,
   type RestoreTarget,
   type RestoredBackup,
@@ -48,6 +52,9 @@ export interface BackupState {
 
   /** Why the generations could not be listed the last time, where they could not. */
   readonly problem?: string;
+
+  /** What became of the latest copy to the backups folder, where one was asked for. */
+  readonly copied?: Exclude<ExternalCopy, { readonly kind: 'not-asked' }>;
 }
 
 /** Why a backup cannot be made or changed here. */
@@ -62,6 +69,7 @@ export class BackupStore implements Observable<BackupState> {
   private readonly services: ProjectServices;
   private readonly project: OpenProjectStore;
   private readonly library: ProjectLibraryStore;
+  private readonly folder: ExternalBackupTarget;
   private readonly state = observable<BackupState>({ generations: [] });
   private scheduler:
     { readonly session: ProjectSession; readonly made: BackupScheduler } | undefined;
@@ -69,10 +77,16 @@ export class BackupStore implements Observable<BackupState> {
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(services: ProjectServices, project: OpenProjectStore, library: ProjectLibraryStore) {
+  constructor(
+    services: ProjectServices,
+    project: OpenProjectStore,
+    library: ProjectLibraryStore,
+    folder: ExternalBackupTarget,
+  ) {
     this.services = services;
     this.project = project;
     this.library = library;
+    this.folder = folder;
     project.subscribe(() => {
       this.follow();
     });
@@ -89,6 +103,7 @@ export class BackupStore implements Observable<BackupState> {
         code: ticked.failures[0].code,
       });
     } else if (ticked.value.kind === 'made') {
+      this.noteCopy(ticked.value.external);
       await this.list(session.project);
     }
   };
@@ -99,7 +114,9 @@ export class BackupStore implements Observable<BackupState> {
       const session = this.project.session();
       const made = this.schedulerNow();
       if (made === undefined || session === undefined) return fail(NOT_WRITABLE);
-      return await made.backUpNow(this.services.clock.now(), session.getSnapshot().model);
+      const done = await made.backUpNow(this.services.clock.now(), session.getSnapshot().model);
+      if (done.ok && done.value.kind === 'made') this.noteCopy(done.value.external);
+      return done;
     });
 
   /** Restores a generation as a new project, or in place of the project open. */
@@ -135,6 +152,17 @@ export class BackupStore implements Observable<BackupState> {
     return session === undefined ? fail(NOT_WRITABLE) : await session.setBackupPolicy(policy);
   };
 
+  /** Keeps what became of a copy to the backups folder, where one was asked for. */
+  private noteCopy(copy: ExternalCopy): void {
+    if (copy.kind === 'not-asked') return;
+    this.state.update((current) => ({ ...current, copied: copy }));
+    if (copy.kind === 'failed') {
+      this.services.logger.warning('A backup was not copied to the backups folder.', {
+        code: copy.failure.code,
+      });
+    }
+  }
+
   /** Lists the generations of a project opened in place of another. */
   private follow(): void {
     const open = this.project.get();
@@ -160,7 +188,10 @@ export class BackupStore implements Observable<BackupState> {
     const session = this.project.session();
     if (session === undefined) return undefined;
     if (this.scheduler?.session !== session) {
-      this.scheduler = { session, made: new BackupScheduler(session.project, this.services) };
+      this.scheduler = {
+        session,
+        made: new BackupScheduler(session.project, this.services, this.folder),
+      };
     }
     return this.scheduler.made;
   }

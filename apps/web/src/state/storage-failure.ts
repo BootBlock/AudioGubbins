@@ -65,12 +65,17 @@ export function causeOf(thrown: unknown): StorageFailureCause {
  * `MAKING_ROOM_SAFELY`); where the browser refuses the site storage, only its
  * settings can change that. Every one ends with the retry, which holds whatever
  * the cause: every write tries again.
+ *
+ * Each names where its remedy is rather than listing every step: the notice is
+ * raised in a dialogue's footer too, where it must be read whole beside the
+ * dialogue's actions on a page 320 by 256 pixels, and the Workspaces and
+ * Shortcuts settings list what can be deleted, exported and discarded.
  */
 const SAID: Readonly<Record<StorageFailureCause, string>> = {
   [StorageFailureCause.Full]:
-    "The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.",
+    "This site's storage is full: delete what you no longer need in Settings. AudioGubbins tries again with your next change.",
   [StorageFailureCause.Refused]:
-    "The browser is refusing this site any storage, as it does where its settings block site data or a private window keeps none. Allowing this site to keep data, in the browser's settings, lets AudioGubbins save again; it tries with your next change.",
+    'The browser refuses this site storage; its settings can allow it. AudioGubbins tries again with your next change.',
   [StorageFailureCause.Unknown]:
     'The browser did not say why. AudioGubbins tries again with your next change.',
 };

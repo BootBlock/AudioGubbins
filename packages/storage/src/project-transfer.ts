@@ -8,14 +8,31 @@
  * the same files, so what one brings in the other would too. Bringing a project
  * in reads and checks the whole of what it is given before anything is written
  * (`tree-import.ts`).
+ *
+ * An export is an event of the project's provenance (REQ-STOR-197), which only
+ * the window writing the project can record, so each export answers what its
+ * provenance needs for whoever records it: the state and the history node it
+ * was taken from, as read, and how the writing went, a failure included, and
+ * for a bundle the identity of the bytes written. A project that could not be
+ * read is the only failure with nothing written and nothing to record.
  */
 
-import { mapResult, type AssetId, type DomainResult, type ProjectId } from '@audiogubbins/domain';
+import {
+  mapResult,
+  succeed,
+  type AssetId,
+  type DomainResult,
+  type ProjectId,
+} from '@audiogubbins/domain';
 import {
   readProjectTree,
+  stateFingerprintOf,
   type ByteSink,
   type ByteSource,
+  type ContentIdentity,
   type Digest,
+  type HistoryNodeId,
+  type StateFingerprint,
   type StorageTree,
   type ZipWritten,
 } from '@audiogubbins/project-format';
@@ -24,6 +41,7 @@ import { openBundle } from './bundle-reading.js';
 import { writeBundle } from './bundle-writing.js';
 import { CheckedRecords } from './checked-records.js';
 import { BackupGenerations } from './backup-generations.js';
+import { HashingSink } from './hashing-sink.js';
 import { readProjectCopy, type ProjectCopy } from './project-copy.js';
 import {
   directoryTree,
@@ -43,22 +61,43 @@ export interface ExportServices extends RecoveryServices, TreeSources {
   readonly digest: Digest;
 }
 
+/** What an export was taken from: the state written and the history node it is at. */
+export interface ExportSource {
+  readonly state: StateFingerprint;
+  readonly node: HistoryNodeId;
+}
+
+/**
+ * An export of a project that was read: what it was taken from, and how the
+ * writing went, which may have failed with part of the output written.
+ */
+export interface ExportAttempt<TWritten> {
+  readonly source: ExportSource;
+  readonly written: DomainResult<TWritten>;
+}
+
 /** A bundle written, and the assets whose bytes it could not carry. */
 export interface ExportedBundle {
   readonly written: ZipWritten;
 
   /** Assets linked to files outside the storage, with no copy the store keeps. */
   readonly linked: readonly AssetId[];
+
+  /** The identity of the bundle's bytes, as written. */
+  readonly output: ContentIdentity;
 }
 
-/** Writes a project as a portable bundle into `sink`, and closes it. */
+/**
+ * Writes a project as a portable bundle into `sink`, and closes it; abandons it
+ * where the project cannot be read or the bundle cannot be written whole.
+ */
 export async function exportBundle(
   project: ProjectId,
   sink: ByteSink,
   options: CopyOptions,
   services: ExportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ExportedBundle>> {
+): Promise<DomainResult<ExportAttempt<ExportedBundle>>> {
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   return await writeCopy(
     await readProjectCopy(files, services, signal),
@@ -81,7 +120,7 @@ export async function exportBackup(
   options: CopyOptions,
   services: ExportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ExportedBundle>> {
+): Promise<DomainResult<ExportAttempt<ExportedBundle>>> {
   const generations = new BackupGenerations(services.tree, services.digest, project);
   return await writeCopy(
     await generations.copyOf(generation, signal),
@@ -92,30 +131,52 @@ export async function exportBackup(
   );
 }
 
+/** What a copy is exported from: the state at its history's cursor. */
+async function sourceOf(copy: ProjectCopy, digest: Digest): Promise<ExportSource> {
+  return {
+    state: await stateFingerprintOf(copy.model.state, digest),
+    node: copy.model.history.cursor,
+  };
+}
+
 async function writeCopy(
   copy: DomainResult<ProjectCopy>,
   sink: ByteSink,
   options: CopyOptions,
   services: ExportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ExportedBundle>> {
-  const tree = copy.ok ? await treeOfCopy(copy.value, options, services, signal) : copy;
+): Promise<DomainResult<ExportAttempt<ExportedBundle>>> {
+  if (!copy.ok) {
+    await sink.abort(copy.failures[0]);
+    return copy;
+  }
+  const source = await sourceOf(copy.value, services.digest);
+  const tree = await treeOfCopy(copy.value, options, services, signal);
   if (!tree.ok) {
     await sink.abort(tree.failures[0]);
-    return tree;
+    return succeed({ source, written: tree });
   }
-  const written = await writeBundle(tree.value.files, sink, {
+  const hashing = new HashingSink(sink, services.digest);
+  const written = await writeBundle(tree.value.files, hashing, {
     open: storedBodies(services),
     digest: services.digest,
     proveMedia: false,
     ...(signal === undefined ? {} : { signal }),
   });
-  return mapResult(written, (zip) => ({ written: zip, linked: tree.value.linked }));
+  return succeed({
+    source,
+    written: mapResult(written, (zip) => ({
+      written: zip,
+      linked: tree.value.linked,
+      output: hashing.identity,
+    })),
+  });
 }
 
 /**
  * Writes a project as an unpacked tree into a directory, and gives the assets
- * whose bytes it could not carry.
+ * whose bytes it could not carry. A failure part of the way through leaves the
+ * files written before it in the directory.
  */
 export async function exportUnpacked(
   project: ProjectId,
@@ -123,13 +184,15 @@ export async function exportUnpacked(
   options: CopyOptions,
   services: ExportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<readonly AssetId[]>> {
+): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>> {
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   const copy = await readProjectCopy(files, services, signal);
-  const tree = copy.ok ? await treeOfCopy(copy.value, options, services, signal) : copy;
-  if (!tree.ok) return tree;
+  if (!copy.ok) return copy;
+  const source = await sourceOf(copy.value, services.digest);
+  const tree = await treeOfCopy(copy.value, options, services, signal);
+  if (!tree.ok) return succeed({ source, written: tree });
   const written = await writeTreeInto(writer, tree.value.files, storedBodies(services), signal);
-  return mapResult(written, () => tree.value.linked);
+  return succeed({ source, written: mapResult(written, () => tree.value.linked) });
 }
 
 /** Brings in the project a bundle holds, as itself or as a copy. */

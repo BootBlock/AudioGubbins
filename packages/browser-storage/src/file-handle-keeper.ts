@@ -8,6 +8,11 @@
  * the user keeps their files, and would stop naming the file the moment it
  * moved (REQ-STOR-104, REQ-PRIV-161).
  *
+ * The folder chosen for backups is kept the same way, under the name of the use
+ * it is kept for rather than a token, since this browser keeps one folder for
+ * each use and nothing records the key (REQ-STOR-105). A name of a use is never
+ * a token, which is a counter or random letters and digits.
+ *
  * IndexedDB is reached through the few members this module uses, which the
  * browser's own factory has, so a test drives it with a small fake. A refusal
  * becomes a `TreeFailure` of its kind, the one failure every storage adapter
@@ -57,6 +62,15 @@ export interface HandleDatabaseFactory {
   open(name: string, version: number): HandleOpenRequest;
 }
 
+/** What a kept folder is for, and the key it is kept under. */
+export const FolderUse = {
+  /** The folder each backup of a project is copied to (REQ-STOR-105). */
+  Backups: 'folder:backups',
+} as const;
+
+/** What a kept folder is for, and the key it is kept under. */
+export type FolderUse = (typeof FolderUse)[keyof typeof FolderUse];
+
 const DATABASE = 'audiogubbins-file-handles';
 const VERSION = 1;
 const STORE = 'handles';
@@ -92,7 +106,7 @@ function committed(transaction: HandleTransaction, what: string): Promise<void> 
   });
 }
 
-/** The kept handles of linked files (see the module comment). */
+/** The kept handles of linked files and chosen folders (see the module comment). */
 export class FileHandleKeeper {
   readonly #factory: HandleDatabaseFactory;
   readonly #nextToken: TokenSource;
@@ -115,17 +129,35 @@ export class FileHandleKeeper {
 
   /** The handle kept under the key, or `undefined` where none is. */
   async find(key: string): Promise<FileSystemFileHandle | undefined> {
-    const transaction = (await this.#open()).transaction(STORE, 'readonly');
-    const found = await settled(transaction.objectStore(STORE).get(key), 'Finding a file handle');
+    const found = await this.#found(key);
     return found instanceof FileSystemFileHandle ? found : undefined;
   }
 
-  /** Stops keeping the handle under the key; none there is not a failure. */
+  /** Keeps a folder for a use, in place of the one kept for it before. */
+  async keepFolder(use: FolderUse, folder: FileSystemDirectoryHandle): Promise<void> {
+    const transaction = (await this.#open()).transaction(STORE, 'readwrite');
+    const done = committed(transaction, 'Keeping a folder handle');
+    transaction.objectStore(STORE).put(folder, use);
+    await done;
+  }
+
+  /** The folder kept for a use, or `undefined` where none is. */
+  async findFolder(use: FolderUse): Promise<FileSystemDirectoryHandle | undefined> {
+    const found = await this.#found(use);
+    return found instanceof FileSystemDirectoryHandle ? found : undefined;
+  }
+
+  /** Stops keeping the handle under the key or use; none there is not a failure. */
   async forget(key: string): Promise<void> {
     const transaction = (await this.#open()).transaction(STORE, 'readwrite');
     const done = committed(transaction, 'Forgetting a file handle');
     transaction.objectStore(STORE).delete(key);
     await done;
+  }
+
+  async #found(key: string): Promise<unknown> {
+    const transaction = (await this.#open()).transaction(STORE, 'readonly');
+    return await settled(transaction.objectStore(STORE).get(key), 'Finding a handle');
   }
 
   /**

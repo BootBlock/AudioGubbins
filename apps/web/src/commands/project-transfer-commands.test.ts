@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
 import { MemoryDirectory } from '@audiogubbins/storage/testing';
 
-import { bundleFrom, projectWorld, type ProjectWindow } from '../testing/project-context.js';
+import {
+  CHOSEN_FOLDER_NAME,
+  bundleFrom,
+  projectWorld,
+  type ProjectWindow,
+} from '../testing/project-context.js';
 
 /** The names of the projects a window lists, deleted ones among them, sorted. */
 function names(window: ProjectWindow): readonly string[] {
@@ -232,5 +238,103 @@ describe('backups of the open project', () => {
     expect(await window.runAndHear('backup.set-policy', { kind: 'off' })).toBe(
       'Backups are no longer made on their own.',
     );
+  });
+});
+
+/** The exports the project open in a window records, oldest first. */
+function exportsOf(window: ProjectWindow) {
+  const open = window.projects.project.get();
+  return open.kind === 'open' ? open.snapshot.model.exports : [];
+}
+
+describe('an export, recorded in its project’s history (REQ-STOR-197, REQ-STOR-198)', () => {
+  it('records a bundle as provenance: its state, node, bytes and name, and never as a change', async () => {
+    const { window } = await withProject();
+    const open = window.projects.project.get();
+    if (open.kind !== 'open') throw new Error('No project is open.');
+    const { history } = open.snapshot.model;
+
+    await window.runAndHear('file.export-bundle', { scope: 'current-state', provenance: 'none' });
+
+    const [saved] = window.files.saved;
+    const [record] = exportsOf(window);
+    expect(record).toMatchObject({
+      historyNodeId: history.cursor,
+      destination: { kind: 'bundle', label: 'Harbour at dusk.zip' },
+      output: { container: 'zip' },
+      status: 'succeeded',
+      problems: [],
+    });
+    expect(Object.fromEntries(record?.output.settings ?? [])).toEqual({
+      scope: 'current-state',
+      provenance: 'none',
+      caches: false,
+    });
+    expect(record?.outputContentId).toMatch(/^c1-[0-9a-f]{64}$/u);
+    expect(saved?.sink.bytes().length).toBeGreaterThan(0);
+
+    // The history is as it was, so undo still reverses the rename, not the export.
+    const after = window.projects.project.get();
+    expect(after.kind === 'open' ? after.snapshot.model.history : undefined).toBe(history);
+    expect(await window.runAndHear('edit.undo')).toMatch(/^Undone: Rename/);
+    expect(exportsOf(window)).toHaveLength(1);
+  });
+
+  it('records a folder written in part as a failed export, with what went wrong', async () => {
+    const { window } = await withProject();
+    const folder = new MemoryDirectory();
+    let created = 0;
+    window.files.foldersToWrite.push({
+      list: () => folder.list(),
+      open: (path) => folder.open(path),
+      remove: (path) => folder.remove(path),
+      create: async (path) => {
+        created += 1;
+        if (created > 1) throw new TreeFailure(TreeFailureKind.Quota, 'The disk is full.');
+        return await folder.create(path);
+      },
+    });
+
+    expect(await window.runAndHear('file.export-folder')).toMatch(/full/u);
+
+    expect(exportsOf(window)).toMatchObject([
+      {
+        destination: { kind: 'directory', label: CHOSEN_FOLDER_NAME },
+        output: { container: 'project-tree' },
+        status: 'failed',
+        problems: [expect.stringMatching(/full/u)],
+      },
+    ]);
+    expect(folder.files.size).toBe(1);
+  });
+
+  it('exports from a tab that only reads the project, and says the export is not recorded', async () => {
+    const { world, window } = await withProject();
+    const reader = await world.window();
+    const open = window.projects.project.get();
+    const project = open.kind === 'open' ? open.snapshot.project : '';
+    await reader.runAndHear('file.open', { project });
+
+    expect(await reader.runAndHear('file.export-bundle')).toBe(
+      '"Harbour at dusk" is exported as a bundle. Its history does not record the export, because this tab cannot change the project.',
+    );
+    expect(reader.files.saved[0]?.finished).toBe(true);
+    expect(exportsOf(window)).toEqual([]);
+  });
+
+  it('records a backup taken out, by the state it was kept at', async () => {
+    const { window } = await withProject();
+    await window.runAndHear('file.back-up-now');
+    const [backup] = window.projects.backups.get().generations;
+
+    expect(await window.runAndHear('backup.export', { generation: backup?.number ?? 0 })).toBe(
+      'The backup is exported as a bundle.',
+    );
+    expect(exportsOf(window)).toMatchObject([
+      { destination: { kind: 'bundle' }, status: 'succeeded' },
+    ]);
+    expect(Object.fromEntries(exportsOf(window)[0]?.output.settings ?? [])).toMatchObject({
+      backup: backup?.number,
+    });
   });
 });
