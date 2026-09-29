@@ -8,7 +8,6 @@
  */
 
 import type { JsonObject, JsonValue } from './canonical-json.js';
-import { stateFingerprintFrom, type StateFingerprint } from './content-identity.js';
 import {
   listConverter,
   listOf,
@@ -22,6 +21,7 @@ import {
 import {
   asContentId,
   asId,
+  asStateFingerprint,
   integerConverter,
   oneOfConverter,
   textConverter,
@@ -122,7 +122,7 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
 
   const id = required(reading, object, at, 'id', asId<'ExportRecordId'>);
   const time = required(reading, object, at, 'at', asWholeQuantity);
-  const stateFingerprint = required(reading, object, at, 'stateFingerprint', asFingerprint);
+  const stateFingerprint = required(reading, object, at, 'stateFingerprint', asStateFingerprint);
   const historyNodeId = optional(reading, object, at, 'historyNodeId', asId<'HistoryNodeId'>);
   const recipe = optional(reading, object, at, 'recipe', asRecipe);
   const engineVersions = required(reading, object, at, 'engineVersions', asEngineVersions);
@@ -159,17 +159,6 @@ export const readExportRecord: Converter<ExportRecord> = (reading, value, parent
     status,
     problems,
   };
-};
-
-const asFingerprint: Converter<StateFingerprint> = (reading, value, parent, key) => {
-  const read = typeof value === 'string' ? stateFingerprintFrom(value) : undefined;
-  if (read?.ok === true) return read.value;
-  reading.refuse(
-    'schema.malformed-fingerprint',
-    'A state fingerprint is expected here.',
-    pathOf(parent, key),
-  );
-  return undefined;
 };
 
 const asRecipe: Converter<ExportRecipeReference> = (reading, value, parent, key) => {

@@ -146,3 +146,46 @@ export {
 } from './project-json.js';
 
 export { readExportRecord, writeExportRecord } from './export-record-json.js';
+
+export {
+  type ZipEntryInput,
+  type ZipWritingOptions,
+  type ZipWritten,
+  writeZip,
+} from './zip-writing.js';
+export {
+  type VerifiedReadingOptions,
+  type ZipArchive,
+  type ZipEntry,
+  type ZipReadingOptions,
+  openZip,
+  readVerified,
+} from './zip-reading.js';
+export { type ZipLimits } from './zip-end-records.js';
+
+export {
+  type AffectedEntities,
+  type ChangeNodeRecord,
+  DEFAULT_RETENTION_POLICY,
+  type HistoryLabel,
+  type HistoryNodeId,
+  type HistoryNodeRecord,
+  type HistoryRecord,
+  type InvocationRecord,
+  type NamedSnapshot,
+  type OriginNodeRecord,
+  type ProjectOrigin,
+  type RetentionPolicy,
+  type RetentionRule,
+  type SnapshotId,
+  type SnapshotKind,
+  historyLabelFrom,
+} from './history-record.js';
+export {
+  LONGEST_CHANGE_DESCRIPTION,
+  readHistoryNodeRecord,
+  writeHistoryNodeRecord,
+} from './history-node-json.js';
+export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
+export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
+export { readRetentionPolicy, writeRetentionPolicy } from './retention-json.js';

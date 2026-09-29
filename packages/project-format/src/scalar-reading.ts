@@ -1,7 +1,7 @@
 /**
  * The converters for the scalar values of a document: booleans, bounded text,
- * bounded numbers, a value from a fixed set, identifiers and content
- * identifiers (REQ-EXEC-136.12).
+ * bounded numbers, a value from a fixed set, identifiers, content identifiers
+ * and state fingerprints (REQ-EXEC-136.12).
  *
  * Each refuses in the one way `document-reading.ts` describes: a stable code,
  * the path of the value, and never the value itself.
@@ -15,7 +15,12 @@ import {
 } from '@audiogubbins/domain';
 
 import type { JsonValue } from './canonical-json.js';
-import { contentIdFrom, type ContentId } from './content-identity.js';
+import {
+  contentIdFrom,
+  stateFingerprintFrom,
+  type ContentId,
+  type StateFingerprint,
+} from './content-identity.js';
 import { pathOf, type Converter, type Reading } from './document-reading.js';
 
 /** How a text value is bounded. */
@@ -174,6 +179,18 @@ export const asContentId: Converter<ContentId> = (reading, value, parent, key) =
   reading.refuse(
     'schema.malformed-content-id',
     'A content identifier is expected here.',
+    pathOf(parent, key),
+  );
+  return undefined;
+};
+
+/** Reads a state fingerprint. */
+export const asStateFingerprint: Converter<StateFingerprint> = (reading, value, parent, key) => {
+  const read = typeof value === 'string' ? stateFingerprintFrom(value) : undefined;
+  if (read?.ok === true) return read.value;
+  reading.refuse(
+    'schema.malformed-fingerprint',
+    'A state fingerprint is expected here.',
     pathOf(parent, key),
   );
   return undefined;
