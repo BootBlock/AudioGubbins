@@ -42,7 +42,7 @@ const filter: ProcessorDescriptor = {
   label: 'Low-pass filter',
   implementationVersion: 1,
   parameters: [cutoff, gentle],
-  latency: 0 as SampleCount,
+  latency: { kind: 'known', frames: 0 as SampleCount },
 };
 
 const lookAheadLimiter: ProcessorDescriptor = {
@@ -50,13 +50,27 @@ const lookAheadLimiter: ProcessorDescriptor = {
   label: 'Look-ahead limiter',
   implementationVersion: 1,
   parameters: [],
-  latency: 480 as SampleCount,
+  latency: { kind: 'known', frames: 480 as SampleCount },
+};
+
+const adaptiveDenoiser: ProcessorDescriptor = {
+  typeKey: 'adaptive-denoiser',
+  label: 'Adaptive denoiser',
+  implementationVersion: 1,
+  parameters: [],
+  latency: { kind: 'unknown', reason: 'its lookahead follows the material' },
 };
 
 const descriptors = new Map([
   [filter.typeKey, filter],
   [lookAheadLimiter.typeKey, lookAheadLimiter],
+  [adaptiveDenoiser.typeKey, adaptiveDenoiser],
 ]);
+
+/** A latency known to be `frames` frames. */
+function known(frames: number) {
+  return { kind: 'known', frames };
+}
 
 function processorId(suffix: string): ProcessorId {
   return unsafeBrandId<'ProcessorId'>(`22222222-${suffix}`);
@@ -118,13 +132,13 @@ describe('processorsInSignalOrder', () => {
 
 describe('chainLatency', () => {
   it('reports zero for an empty chain', () => {
-    expect(expectSuccess(chainLatency(chain(), descriptors))).toBe(0);
+    expect(expectSuccess(chainLatency(chain(), descriptors))).toEqual(known(0));
   });
 
   it('sums the latency of every applied processor', () => {
     const one = instantiateProcessor(processorId('aaaa'), lookAheadLimiter);
     const two = instantiateProcessor(processorId('bbbb'), lookAheadLimiter);
-    expect(expectSuccess(chainLatency(chain(one, two), descriptors))).toBe(960);
+    expect(expectSuccess(chainLatency(chain(one, two), descriptors))).toEqual(known(960));
   });
 
   it('excludes a bypassed processor, which delays nothing', () => {
@@ -133,7 +147,7 @@ describe('chainLatency', () => {
       ...instantiateProcessor(processorId('bbbb'), lookAheadLimiter),
       enabled: false,
     };
-    expect(expectSuccess(chainLatency(chain(active, bypassed), descriptors))).toBe(480);
+    expect(expectSuccess(chainLatency(chain(active, bypassed), descriptors))).toEqual(known(480));
   });
 
   it('counts only the soloed processor when one is soloed', () => {
@@ -141,14 +155,40 @@ describe('chainLatency', () => {
     // not soloed, each gives a wrong answer to one of the two.
     const limiter = instantiateProcessor(processorId('aaaa'), lookAheadLimiter);
     const soloedFilter = { ...instantiateProcessor(processorId('bbbb'), filter), soloed: true };
-    expect(expectSuccess(chainLatency(chain(limiter, soloedFilter), descriptors))).toBe(0);
+    expect(expectSuccess(chainLatency(chain(limiter, soloedFilter), descriptors))).toEqual(
+      known(0),
+    );
 
     const plainFilter = instantiateProcessor(processorId('cccc'), filter);
     const soloedLimiter = {
       ...instantiateProcessor(processorId('dddd'), lookAheadLimiter),
       soloed: true,
     };
-    expect(expectSuccess(chainLatency(chain(plainFilter, soloedLimiter), descriptors))).toBe(480);
+    expect(expectSuccess(chainLatency(chain(plainFilter, soloedLimiter), descriptors))).toEqual(
+      known(480),
+    );
+  });
+
+  it('is unknown, naming each processor and its reason, when an applied one does not know its own', () => {
+    // A total that left the unknown processor out would be a number the engine
+    // compensated by, and wrongly (REQ-ARCH-144).
+    const limiter = instantiateProcessor(processorId('aaaa'), lookAheadLimiter);
+    const first = instantiateProcessor(processorId('bbbb'), adaptiveDenoiser);
+    const second = instantiateProcessor(processorId('cccc'), adaptiveDenoiser);
+    expect(expectSuccess(chainLatency(chain(limiter, first, second), descriptors))).toEqual({
+      kind: 'unknown',
+      reason:
+        'the latency of processor 22222222-bbbb (adaptive-denoiser) is not known: its lookahead follows the material; the latency of processor 22222222-cccc (adaptive-denoiser) is not known: its lookahead follows the material',
+    });
+  });
+
+  it('is known when the processor that does not know its latency is bypassed', () => {
+    const limiter = instantiateProcessor(processorId('aaaa'), lookAheadLimiter);
+    const bypassed = {
+      ...instantiateProcessor(processorId('bbbb'), adaptiveDenoiser),
+      enabled: false,
+    };
+    expect(expectSuccess(chainLatency(chain(limiter, bypassed), descriptors))).toEqual(known(480));
   });
 
   it('refuses to guess the latency of a processor type it does not know', () => {

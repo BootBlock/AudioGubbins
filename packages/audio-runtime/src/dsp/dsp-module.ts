@@ -56,8 +56,8 @@ export async function compileDspModule(
   } catch (error) {
     // A CompileError is bytes the engine refuses, a damaged or truncated
     // download; a RangeError is an engine out of memory. Either leaves the
-    // reference path to run, and anything that is not an Error is not ours.
-    if (!(error instanceof Error)) throw error;
+    // reference path to run. Anything else is a fault, and surfaces as one.
+    if (!(error instanceof WebAssembly.CompileError || error instanceof RangeError)) throw error;
     return {
       kind: DspModuleAvailabilityKind.Unavailable,
       reason: `The DSP module could not be compiled: ${error.message} ${SAME_RESULT_MORE_SLOWLY}`,

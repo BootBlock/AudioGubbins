@@ -11,6 +11,8 @@
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { LatencyHint } from '@audiogubbins/audio-engine';
 
+import { routeToDevice } from './device-routing.js';
+
 /**
  * What the browser says a context is doing. `interrupted` is Safari's: the
  * system took the device, for a call or another application, and the context
@@ -30,8 +32,12 @@ export type AudioContextState = (typeof AudioContextState)[keyof typeof AudioCon
 export interface AudioDestinationPort {
   /** The most channels the device takes. */
   readonly maxChannelCount: number;
-  /** The channels the context currently sends it. */
-  readonly channelCount: number;
+  /** The channels the context sends it, at most `maxChannelCount`. */
+  channelCount: number;
+  /** Whether what arrives is mixed to `channelCount` (`explicit`) or to a count of its own. */
+  channelCountMode: 'max' | 'clamped-max' | 'explicit';
+  /** Whether channels are mixed as speakers or passed one by one (`discrete`). */
+  channelInterpretation: 'speakers' | 'discrete';
 }
 
 /**
@@ -52,8 +58,12 @@ export interface WorkletMessagePort {
 /** A node running a worklet processor: a source with one output and no input. */
 export interface WorkletNodePort {
   readonly port: WorkletMessagePort;
-  /** Connects the output to the context's own destination, the only place it plays to. */
-  connect(destination: AudioDestinationPort): void;
+  /**
+   * Connects the output to the context's own destination, the only place it
+   * plays to, with output channel `outputChannelOf[k]` on the destination's
+   * channel `k`.
+   */
+  connect(destination: AudioDestinationPort, outputChannelOf: readonly number[]): void;
   disconnect(): void;
 }
 
@@ -143,19 +153,22 @@ function workletNodeOf(
     numberOfOutputs: shape.numberOfOutputs,
     outputChannelCount: [...shape.outputChannelCount],
   });
+  let unroute = (): void => {
+    node.disconnect();
+  };
   return {
     port: node.port,
-    connect: (destination) => {
+    connect: (destination, outputChannelOf) => {
       // The port's destination is the context's own node, handed out below,
       // so anything else is a node from another context, which the browser
       // would refuse less clearly.
       if (destination !== context.destination) {
         throw new Error('A worklet node plays only to the destination of its own context.');
       }
-      node.connect(context.destination);
+      unroute = routeToDevice(context, node, outputChannelOf);
     },
     disconnect: () => {
-      node.disconnect();
+      unroute();
     },
   };
 }

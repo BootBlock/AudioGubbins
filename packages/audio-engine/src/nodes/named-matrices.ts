@@ -1,12 +1,12 @@
 /**
  * The mixing matrices a matrix node may name rather than spell out.
  *
- * Each is written as the channels it sums, by what they carry, never by where
- * they sit: a coefficient is placed by finding its channel's role or label in
- * the node's own port layouts (ADR-0033). A named matrix is refused unless both
- * ports carry exactly the layouts it was written for, because applying one to
- * channels that mean something else would be a silent wrong mix, not a
- * conversion (REQ-ARCH-157).
+ * Most are written for one pair of layouts, as the channels they sum, by what
+ * they carry, never by where they sit: a coefficient is placed by finding its
+ * channel's role or label in the node's own port layouts (ADR-0033), and the
+ * matrix is refused unless both ports carry exactly the layouts it was written
+ * for. A change of ambisonic convention is written for every pair of sets of
+ * one order, in `ambisonic-conversion.ts`.
  */
 
 import {
@@ -17,6 +17,8 @@ import {
   type ChannelLayout,
 } from '@audiogubbins/domain';
 
+import { AMBISONIC_CONVERSION } from './ambisonic-conversion.js';
+import type { MatrixDefinition } from './matrix-definition.js';
 import type { NodeProblem, NodeShape, PortShape } from './node-shape.js';
 
 /** The matrices a matrix node may name. */
@@ -29,6 +31,12 @@ export const NamedMatrix = {
 
   /** Mid and side back to stereo. */
   MidSideDecode: 'mid-side-decode',
+
+  /**
+   * An ambisonic set in another ordering or normalisation of the same order:
+   * ACN or Furse-Malham ordering, SN3D, N3D or Furse-Malham scaling, each way.
+   */
+  AmbisonicConversion: 'ambisonic-conversion',
 } as const;
 
 /** A matrix a matrix node may name. */
@@ -58,7 +66,8 @@ interface MatrixRow {
   readonly terms: readonly MatrixTerm[];
 }
 
-interface MatrixDefinition {
+/** A matrix written for one pair of layouts, as the channels each output channel sums. */
+interface FixedMatrix {
   readonly input: ChannelLayout;
   readonly output: ChannelLayout;
 
@@ -72,8 +81,47 @@ const RIGHT = { role: ChannelRole.Right } as const;
 const MID = { label: 'mid' } as const;
 const SIDE = { label: 'side' } as const;
 
+/** Where a channel sits in a layout, found by its role or its label. */
+function indexIn(layout: ChannelLayout, key: ChannelKey): number | undefined {
+  if ('role' in key) return channelIndexOf(layout, key.role);
+  const index = layout.labels?.indexOf(key.label) ?? -1;
+  return index === -1 ? undefined : index;
+}
+
+/** The named matrix of a {@link FixedMatrix}, refusing any other pair of layouts. */
+function fixedMatrix(definition: FixedMatrix): MatrixDefinition {
+  return {
+    coefficientsBetween: (shape, name, input, output, problems) => {
+      if (
+        !layoutsMatch(input.layout, definition.input) ||
+        !layoutsMatch(output.layout, definition.output)
+      ) {
+        problems.push({
+          code: 'layout-unsupported',
+          message: `Node ${shape.id} uses the matrix "${name}", which converts ${definition.converts}, but its ports "${input.name}" and "${output.name}" do not carry those layouts. Give the ports those layouts, or give the node its own "coefficients".`,
+          node: shape.id,
+        });
+        return undefined;
+      }
+      const columns = definition.input.roles.length;
+      const coefficients = new Array<number>(definition.output.roles.length * columns).fill(0);
+      for (const row of definition.rows) {
+        const to = indexIn(output.layout, row.to);
+        for (const term of row.terms) {
+          const from = indexIn(input.layout, term.from);
+          if (to === undefined || from === undefined) {
+            throw new Error(`The matrix "${name}" names a channel its own layouts do not have.`);
+          }
+          coefficients[to * columns + from] = term.weight;
+        }
+      }
+      return coefficients;
+    },
+  };
+}
+
 const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
-  [NamedMatrix.Bs775FiveOneToStereo]: {
+  [NamedMatrix.Bs775FiveOneToStereo]: fixedMatrix({
     input: StandardLayouts.surround5_1,
     output: StandardLayouts.stereo,
     converts:
@@ -99,8 +147,8 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  },
-  [NamedMatrix.MidSideEncode]: {
+  }),
+  [NamedMatrix.MidSideEncode]: fixedMatrix({
     input: StandardLayouts.stereo,
     output: MID_SIDE,
     converts: 'from stereo (left, right) to mid and side (labelled "mid", "side")',
@@ -120,8 +168,8 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  },
-  [NamedMatrix.MidSideDecode]: {
+  }),
+  [NamedMatrix.MidSideDecode]: fixedMatrix({
     input: MID_SIDE,
     output: StandardLayouts.stereo,
     converts: 'from mid and side (labelled "mid", "side") to stereo (left, right)',
@@ -141,20 +189,14 @@ const DEFINITIONS: Readonly<Record<NamedMatrix, MatrixDefinition>> = {
         ],
       },
     ],
-  },
+  }),
+  [NamedMatrix.AmbisonicConversion]: AMBISONIC_CONVERSION,
 };
 
 const NAMES: readonly string[] = Object.values(NamedMatrix);
 
 function isNamedMatrix(name: string): name is NamedMatrix {
   return NAMES.includes(name);
-}
-
-/** Where a channel sits in a layout, found by its role or its label. */
-function indexIn(layout: ChannelLayout, key: ChannelKey): number | undefined {
-  if ('role' in key) return channelIndexOf(layout, key.role);
-  const index = layout.labels?.indexOf(key.label) ?? -1;
-  return index === -1 ? undefined : index;
 }
 
 /**
@@ -177,29 +219,5 @@ export function namedCoefficients(
     });
     return undefined;
   }
-  const definition = DEFINITIONS[name];
-  if (
-    !layoutsMatch(input.layout, definition.input) ||
-    !layoutsMatch(output.layout, definition.output)
-  ) {
-    problems.push({
-      code: 'layout-unsupported',
-      message: `Node ${shape.id} uses the matrix "${name}", which converts ${definition.converts}, but its ports "${input.name}" and "${output.name}" do not carry those layouts. Give the ports those layouts, or give the node its own "coefficients".`,
-      node: shape.id,
-    });
-    return undefined;
-  }
-  const columns = definition.input.roles.length;
-  const coefficients = new Array<number>(definition.output.roles.length * columns).fill(0);
-  for (const row of definition.rows) {
-    const to = indexIn(output.layout, row.to);
-    for (const term of row.terms) {
-      const from = indexIn(input.layout, term.from);
-      if (to === undefined || from === undefined) {
-        throw new Error(`The matrix "${name}" names a channel its own layouts do not have.`);
-      }
-      coefficients[to * columns + from] = term.weight;
-    }
-  }
-  return coefficients;
+  return DEFINITIONS[name].coefficientsBetween(shape, name, input, output, problems);
 }

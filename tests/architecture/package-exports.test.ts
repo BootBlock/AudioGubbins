@@ -201,14 +201,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   },
   '@audiogubbins/domain': {
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
-      [
-        'AmbisonicComponent',
-        'FIRST_ORDER_AMBIX',
-        'ambisonicChannelCount',
-        'ambisonicComponentOf',
-        'channelLabelOf',
-        'labelledLayout',
-      ],
+      ['FIRST_ORDER_AMBIX', 'ambisonicChannelCount', 'channelLabelOf', 'labelledLayout'],
     'The domain value model ADR-0015 gives this phase, for the phases that open, edit and play a project, Phase 02 on. The shell edits no project.':
       [
         'ChoiceOption',

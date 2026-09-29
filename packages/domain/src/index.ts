@@ -144,6 +144,8 @@ export {
   validateProcessorInstance,
 } from './processing/effect-chain.js';
 
+export { type ProcessorLatency } from './processing/processor-latency.js';
+
 export {
   type Project,
   type ProjectSettings,

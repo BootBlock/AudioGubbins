@@ -42,26 +42,39 @@ export function sineOfTurns(turns: number): number {
   return sum * t;
 }
 
+/** Where each value of an oscillator's state sits in its {@link ReferenceOscillator} array. */
+const PHASE = 0;
+const INCREMENT = 1;
+const AMPLITUDE = 2;
+
 /** A sine oscillator whose phase is held in turns, as `oscillator.rs`. */
 export class ReferenceOscillator {
-  #phase: number;
-  readonly #increment: number;
-  readonly #amplitude: number;
+  /**
+   * The phase, the increment and the amplitude, in one f64 array rather than
+   * three fields: V8 boxes a double it writes to an object field, which on
+   * the fallback path of the audio thread was a heap number every sample.
+   */
+  readonly #state = new Float64Array(3);
 
   /** Settings already checked by `checkOscillator`. */
   constructor(frequency: number, sampleRate: number, startPhase: number, amplitude: number) {
-    this.#phase = startPhase - Math.floor(startPhase);
-    this.#increment = frequency / sampleRate;
-    this.#amplitude = amplitude;
+    this.#state[PHASE] = startPhase - Math.floor(startPhase);
+    this.#state[INCREMENT] = frequency / sampleRate;
+    this.#state[AMPLITUDE] = amplitude;
   }
 
   /** Writes the next samples; storing into the array rounds each once to f32. */
   render(into: Float32Array): void {
+    const state = this.#state;
+    const increment = state[INCREMENT] ?? 0;
+    const amplitude = state[AMPLITUDE] ?? 0;
+    let phase = state[PHASE] ?? 0;
     for (let index = 0; index < into.length; index += 1) {
-      into[index] = this.#amplitude * sineOfTurns(this.#phase);
-      this.#phase += this.#increment;
-      if (this.#phase >= 1) this.#phase -= 1;
+      into[index] = amplitude * sineOfTurns(phase);
+      phase += increment;
+      if (phase >= 1) phase -= 1;
     }
+    state[PHASE] = phase;
   }
 }
 

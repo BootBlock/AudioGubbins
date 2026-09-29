@@ -6,7 +6,9 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { ParameterRamp, rampFrames } from './parameter-ramp.js';
 
 function take(ramp: ParameterRamp, count: number): number[] {
-  return Array.from({ length: count }, () => ramp.next());
+  const values = new Float64Array(count);
+  ramp.fill(values, count);
+  return Array.from(values);
 }
 
 describe('a parameter ramp', () => {
@@ -33,6 +35,14 @@ describe('a parameter ramp', () => {
     const awkward = new ParameterRamp(0.2, 3);
     awkward.set(0.9);
     expect(take(awkward, 4).at(-1)).toBe(0.9);
+  });
+
+  it('gives the same values filled in blocks of any size', () => {
+    const whole = new ParameterRamp(0.2, 7);
+    whole.set(0.9);
+    const pieces = new ParameterRamp(0.2, 7);
+    pieces.set(0.9);
+    expect([...take(pieces, 3), ...take(pieces, 1), ...take(pieces, 6)]).toEqual(take(whole, 10));
   });
 
   it('starts a new ramp from where the last one had reached', () => {

@@ -21,7 +21,7 @@ import { NodeRole } from '@audiogubbins/audio-graph';
 
 import type { AudioFrameBlock } from '../pcm/frame-block.js';
 import { BuiltInNodeType } from './built-in-node-type.js';
-import { portAt } from './kernel-ports.js';
+import { channelAt, portAt } from './kernel-ports.js';
 import { unknownParameter } from './node-parameters.js';
 import type { InputFeed, NodeImplementation, NodeKernel } from './node-implementation.js';
 import {
@@ -63,7 +63,10 @@ class GraphInputKernel implements NodeKernel {
   ): void {
     const output = portAt(outputs, 0);
     const got = this.#inputFeed.fill(output);
-    for (const channel of output.channels) channel.fill(0, got, frames);
+    // Indexed, because an iterator over the channels is an allocation each quantum.
+    for (let channel = 0; channel < output.channels.length; channel += 1) {
+      channelAt(output, channel).fill(0, got, frames);
+    }
   }
 
   setParameter(name: string): DomainResult<void> {

@@ -8,6 +8,12 @@
  * matrices `named-matrices.ts` defines, which places its weights by what each
  * channel carries. Each output sample is summed in f64 from zero, input channel
  * by input channel in layout order, and stored once as f32 (ADR-0032).
+ *
+ * The kernel runs that order a whole input channel at a time: an output
+ * channel's sums are a block of f64 it adds each input channel into, in turn,
+ * so each input channel is read once, in order, per output channel. Every
+ * sample still receives its terms in layout order, so the bits are those of
+ * summing one sample at a time.
  */
 
 import { channelCount, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -80,14 +86,17 @@ function readMatrix(shape: NodeShape): NodeReading<MatrixWeights> {
 }
 
 class MatrixKernel implements NodeKernel {
+  /** The weights, row-major: output channel `row` takes input channel `column` at `row * columns + column`. */
   readonly #coefficients: Float64Array;
+  readonly #columns: number;
 
-  /** Every input channel, gathered once a block so the inner loop indexes arrays only. */
-  readonly #columns: Float32Array[];
+  /** The f64 sums of the output channel being written, one per frame of a block. */
+  readonly #sums: Float64Array;
 
-  constructor({ coefficients, columns }: MatrixWeights) {
+  constructor({ coefficients, columns }: MatrixWeights, blockFrames: number) {
     this.#coefficients = Float64Array.from(coefficients);
-    this.#columns = Array.from({ length: columns }, () => new Float32Array(0));
+    this.#columns = columns;
+    this.#sums = new Float64Array(blockFrames);
   }
 
   process(
@@ -99,18 +108,18 @@ class MatrixKernel implements NodeKernel {
     const output = portAt(outputs, 0);
     const coefficients = this.#coefficients;
     const columns = this.#columns;
-    const width = columns.length;
-    for (let column = 0; column < width; column += 1) columns[column] = channelAt(input, column);
+    const sums = this.#sums;
     for (let row = 0; row < output.channels.length; row += 1) {
-      const to = channelAt(output, row);
-      const first = row * width;
-      for (let frame = 0; frame < frames; frame += 1) {
-        let sum = 0;
-        for (let column = 0; column < width; column += 1) {
-          sum += (columns[column]?.[frame] ?? 0) * (coefficients[first + column] ?? 0);
+      sums.fill(0, 0, frames);
+      for (let column = 0; column < columns; column += 1) {
+        const from = channelAt(input, column);
+        const weight = coefficients[row * columns + column] ?? 0;
+        for (let frame = 0; frame < frames; frame += 1) {
+          sums[frame] = (sums[frame] ?? 0) + (from[frame] ?? 0) * weight;
         }
-        to[frame] = sum;
       }
+      const to = channelAt(output, row);
+      for (let frame = 0; frame < frames; frame += 1) to[frame] = sums[frame] ?? 0;
     }
   }
 
@@ -129,10 +138,10 @@ export const MATRIX_NODE: NodeImplementation = {
   role: NodeRole.Processor,
   check: (node) => problemsOf(readMatrix(node)),
   latency: () => ZERO_LATENCY,
-  createKernel: (step) => {
+  createKernel: (step, context) => {
     const shape = plannedShape(step);
     const reading = readMatrix(shape);
     if (!reading.ok) return kernelRefusal(shape, reading.problems);
-    return succeed(new MatrixKernel(reading.value));
+    return succeed(new MatrixKernel(reading.value, context.blockFrames));
   },
 };

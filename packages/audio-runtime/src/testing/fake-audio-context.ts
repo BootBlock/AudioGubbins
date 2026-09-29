@@ -5,6 +5,14 @@
  * It keeps the one ordering a real context guarantees that matters here: its
  * state has changed, and `statechange` been dispatched, by the time the
  * promise of `resume`, `suspend` or `close` settles.
+ *
+ * It answers `resume` as browsers do. A context not yet allowed to start, on a
+ * page that has had no click or key press, and one the system holds, as Safari
+ * holds an interrupted one, leave the promise pending: it resolves when the
+ * context runs, after a `gesture` or the system's release, and is rejected with
+ * an `InvalidStateError` if the context is suspended or closed first. A closed
+ * context refuses at once with the same error. No browser rejects a resume for
+ * want of a gesture, so this fake does not either.
  */
 
 import {
@@ -21,6 +29,8 @@ export interface FakeAudioContextSettings {
   readonly outputLatency?: number | undefined;
   readonly maxChannelCount?: number;
   readonly channelCount?: number;
+  /** Whether the page has had the click or key press a context needs to start; it has, by default. */
+  readonly allowedToStart?: boolean;
 }
 
 /** An audio context driven by a test. */
@@ -30,15 +40,25 @@ export class FakeAudioContext implements AudioContextPort {
   currentTime = 0;
   baseLatency: number;
   outputLatency: number | undefined;
-  readonly destination: { maxChannelCount: number; channelCount: number };
+  readonly destination: {
+    maxChannelCount: number;
+    channelCount: number;
+    channelCountMode: 'max' | 'clamped-max' | 'explicit';
+    channelInterpretation: 'speakers' | 'discrete';
+  };
   readonly audioWorklet = { addModule: (): Promise<void> => Promise.resolve() };
 
-  /** Set to make `resume` reject with it, as a browser refusing autoplay does. */
-  refuseResume: Error | undefined;
+  /** Whether the page has had the click or key press a context needs to start. */
+  allowedToStart: boolean;
   resumeCalls = 0;
   closeCalls = 0;
 
   readonly #stateListeners = new Set<() => void>();
+  /** The resumes waiting for the context to run, as a browser keeps them. */
+  readonly #pendingResumes: {
+    readonly resolve: () => void;
+    readonly reject: (error: DOMException) => void;
+  }[] = [];
 
   constructor(settings: FakeAudioContextSettings = {}) {
     this.state = settings.state ?? AudioContextState.Suspended;
@@ -48,7 +68,11 @@ export class FakeAudioContext implements AudioContextPort {
     this.destination = {
       maxChannelCount: settings.maxChannelCount ?? 2,
       channelCount: settings.channelCount ?? 2,
+      // A context's destination as a browser makes it: stereo, mixed as speakers.
+      channelCountMode: 'explicit',
+      channelInterpretation: 'speakers',
     };
+    this.allowedToStart = settings.allowedToStart ?? true;
   }
 
   /** How many `statechange` listeners are attached. */
@@ -56,21 +80,54 @@ export class FakeAudioContext implements AudioContextPort {
     return this.#stateListeners.size;
   }
 
-  /** Moves to `state` and says so, as the browser or the system does. */
+  /** How many resumes wait for the context to run. */
+  get pendingResumeCount(): number {
+    return this.#pendingResumes.length;
+  }
+
+  /**
+   * Moves to `state` and says so, as the browser or the system does. A
+   * context that runs resolves the resumes waiting on it; one that closes
+   * rejects them.
+   */
   becomes(state: AudioContextState): void {
     if (this.state === state) return;
     this.state = state;
     for (const listener of [...this.#stateListeners]) listener();
+    if (state === AudioContextState.Running) {
+      for (const pending of this.#pendingResumes.splice(0)) pending.resolve();
+    } else if (state === AudioContextState.Closed) {
+      this.#rejectPendingResumes('The AudioContext was closed.');
+    }
+  }
+
+  /** The person clicks or presses a key, which lets a context start and resumes one waiting to. */
+  gesture(): void {
+    this.allowedToStart = true;
+    if (this.#pendingResumes.length > 0 && this.state === AudioContextState.Suspended) {
+      this.becomes(AudioContextState.Running);
+    }
   }
 
   resume(): Promise<void> {
     this.resumeCalls += 1;
-    if (this.refuseResume !== undefined) return Promise.reject(this.refuseResume);
-    this.becomes(AudioContextState.Running);
-    return Promise.resolve();
+    if (this.state === AudioContextState.Closed) {
+      return Promise.reject(
+        new DOMException('Cannot resume a closed AudioContext.', 'InvalidStateError'),
+      );
+    }
+    if (this.state === AudioContextState.Running) return Promise.resolve();
+    const waiting = new Promise<void>((resolve, reject) => {
+      this.#pendingResumes.push({ resolve, reject });
+    });
+    if (this.allowedToStart && this.state === AudioContextState.Suspended) {
+      this.becomes(AudioContextState.Running);
+    }
+    return waiting;
   }
 
   suspend(): Promise<void> {
+    this.#rejectPendingResumes('The AudioContext was suspended.');
     this.becomes(AudioContextState.Suspended);
     return Promise.resolve();
   }
@@ -79,6 +136,12 @@ export class FakeAudioContext implements AudioContextPort {
     this.closeCalls += 1;
     this.becomes(AudioContextState.Closed);
     return Promise.resolve();
+  }
+
+  #rejectPendingResumes(message: string): void {
+    for (const pending of this.#pendingResumes.splice(0)) {
+      pending.reject(new DOMException(message, 'InvalidStateError'));
+    }
   }
 
   addEventListener(_type: 'statechange', listener: () => void): void {

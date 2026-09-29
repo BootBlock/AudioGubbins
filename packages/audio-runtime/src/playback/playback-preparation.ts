@@ -5,7 +5,9 @@
  * cannot play is refused here first, with the compiler's reasons, before a
  * worklet node, a ring or a module load has been spent on it; and compiling
  * here is how the main thread learns what it must make: the sink's channel
- * count for the node's output, and a feed for each graph input.
+ * count for the node's output, the device channel each of them plays on, and
+ * a feed for each graph input. A sink the device cannot take every channel
+ * of is refused here too, since playing it would drop or mix channels.
  */
 
 import {
@@ -33,6 +35,8 @@ import {
   type PerformanceSettings,
 } from '@audiogubbins/audio-engine';
 
+import type { AudioDestinationPort } from '../context/audio-context-port.js';
+import { deviceChannelsFor, type DeviceChannels } from '../context/device-channels.js';
 import { PlaybackFeeds } from './feed-bindings.js';
 import { feedPlanFor, type FeedPlan } from './feed-plan.js';
 import { bindSources } from './source-binding.js';
@@ -49,6 +53,8 @@ export interface PreparedPlayback {
   readonly plan: ExecutionPlan;
   /** The channels of the one sink, which the worklet node's output carries. */
   readonly sinkChannels: number;
+  /** The device channel each of the sink's channels plays on. */
+  readonly device: DeviceChannels;
   readonly feeds: PlaybackFeeds;
   readonly feedPlan: FeedPlan;
 }
@@ -66,10 +72,14 @@ function graphProblem(diagnostic: GraphDiagnostic): DomainFailure {
   });
 }
 
-/** The graph compiled at `rate`, its sources bound and its feeds made, or every reason it cannot play. */
+/**
+ * The graph compiled at `rate`, placed on the channels of `destination`'s
+ * device, its sources bound and its feeds made, or every reason it cannot play.
+ */
 export function preparePlayback(
   request: PlaybackRequest,
   rate: SampleRate,
+  destination: AudioDestinationPort,
   options: PreparationOptions,
 ): DomainResult<PreparedPlayback> {
   if (!options.capabilities.playback) {
@@ -99,16 +109,19 @@ export function preparePlayback(
       ),
     );
   }
-  return flatMapResult(bindSources(plan, request.sources, rate), (sources) =>
-    flatMapResult(feedPlanFor(options.settings, rate), (feedPlan) =>
-      flatMapResult(
-        PlaybackFeeds.create({
-          sources,
-          rate,
-          plan: feedPlan,
-          sharedMemory: options.capabilities.sharedMemory,
-        }),
-        (feeds) => succeed({ plan, sinkChannels: channelCount(sinkLayout), feeds, feedPlan }),
+  return flatMapResult(deviceChannelsFor(sinkLayout, destination.maxChannelCount), (device) =>
+    flatMapResult(bindSources(plan, request.sources, rate), (sources) =>
+      flatMapResult(feedPlanFor(options.settings, rate), (feedPlan) =>
+        flatMapResult(
+          PlaybackFeeds.create({
+            sources,
+            rate,
+            plan: feedPlan,
+            sharedMemory: options.capabilities.sharedMemory,
+          }),
+          (feeds) =>
+            succeed({ plan, sinkChannels: channelCount(sinkLayout), device, feeds, feedPlan }),
+        ),
       ),
     ),
   );

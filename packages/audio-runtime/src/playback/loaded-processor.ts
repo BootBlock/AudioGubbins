@@ -16,6 +16,7 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 
 import type { AudioContextPort } from '../context/audio-context-port.js';
+import { sendToDevice } from '../context/device-channels.js';
 import type { Schedule } from '../schedule.js';
 import { ENGINE_PROCESSOR_NAME } from '../processor/engine-processor-name.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
@@ -100,7 +101,8 @@ export class LoadedProcessor {
       numberOfOutputs: 1,
       outputChannelCount: [prepared.sinkChannels],
     });
-    node.connect(port.destination);
+    sendToDevice(port.destination, prepared.device);
+    node.connect(port.destination, prepared.device.outputChannelOf);
     this.link = new EngineLink(node, logger);
     this.runs = new ProcessorRuns({
       link: this.link,

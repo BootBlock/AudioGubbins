@@ -15,6 +15,7 @@ import {
   sampleCount,
   sampleRate,
   type ChannelLayout,
+  type ProcessorLatency,
   type SampleRate,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -30,12 +31,7 @@ import {
   type SubgraphNodeDescriptor,
 } from '../descriptor.js';
 import type { GraphDiagnostic } from '../diagnostic.js';
-import {
-  NodeRole,
-  type NodeCatalogue,
-  type NodeContract,
-  type ProcessorLatency,
-} from '../node-contract.js';
+import { NodeRole, type NodeCatalogue, type NodeContract } from '../node-contract.js';
 import { nodeId, type NodeId, type PortReference } from '../node-id.js';
 
 export const RATE: SampleRate = expectSuccess(sampleRate(48_000));

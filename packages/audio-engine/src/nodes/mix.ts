@@ -7,7 +7,9 @@
  * (REQ-ARCH-157); a matrix or channel map converts one first. Each output
  * sample is summed in f64 from zero, input by input in port order, and stored
  * once as f32 (ADR-0032), so a mix does not lose the small inputs that summing
- * in f32 a step at a time would round away.
+ * in f32 a step at a time would round away. The kernel adds a whole input
+ * channel at a time into a block of f64 sums, which gives each sample its
+ * terms in that same order.
  */
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
@@ -57,12 +59,12 @@ function readMix(shape: NodeShape): NodeReading<readonly number[]> {
 class MixKernel implements NodeKernel {
   readonly #gains: Float64Array;
 
-  /** One channel of each input, gathered per channel so the inner loop indexes arrays only. */
-  readonly #sources: Float32Array[];
+  /** The f64 sums of the output channel being written, one per frame of a block. */
+  readonly #sums: Float64Array;
 
-  constructor(gains: readonly number[]) {
+  constructor(gains: readonly number[], blockFrames: number) {
     this.#gains = Float64Array.from(gains);
-    this.#sources = gains.map(() => new Float32Array(0));
+    this.#sums = new Float64Array(blockFrames);
   }
 
   process(
@@ -72,19 +74,18 @@ class MixKernel implements NodeKernel {
   ): void {
     const output = portAt(outputs, 0);
     const gains = this.#gains;
-    const sources = this.#sources;
+    const sums = this.#sums;
     for (let channel = 0; channel < output.channels.length; channel += 1) {
-      for (let input = 0; input < sources.length; input += 1) {
-        sources[input] = channelAt(portAt(inputs, input), channel);
+      sums.fill(0, 0, frames);
+      for (let input = 0; input < gains.length; input += 1) {
+        const from = channelAt(portAt(inputs, input), channel);
+        const gain = gains[input] ?? 0;
+        for (let frame = 0; frame < frames; frame += 1) {
+          sums[frame] = (sums[frame] ?? 0) + (from[frame] ?? 0) * gain;
+        }
       }
       const to = channelAt(output, channel);
-      for (let frame = 0; frame < frames; frame += 1) {
-        let sum = 0;
-        for (let input = 0; input < sources.length; input += 1) {
-          sum += (sources[input]?.[frame] ?? 0) * (gains[input] ?? 0);
-        }
-        to[frame] = sum;
-      }
+      for (let frame = 0; frame < frames; frame += 1) to[frame] = sums[frame] ?? 0;
     }
   }
 
@@ -103,10 +104,10 @@ export const MIX_NODE: NodeImplementation = {
   role: NodeRole.Processor,
   check: (node) => problemsOf(readMix(node)),
   latency: () => ZERO_LATENCY,
-  createKernel: (step) => {
+  createKernel: (step, context) => {
     const shape = plannedShape(step);
     const reading = readMix(shape);
     if (!reading.ok) return kernelRefusal(shape, reading.problems);
-    return succeed(new MixKernel(reading.value));
+    return succeed(new MixKernel(reading.value, context.blockFrames));
   },
 };

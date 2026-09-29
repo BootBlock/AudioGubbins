@@ -97,6 +97,7 @@ Published paths
   readonly MeterReading.frames: number
   readonly MeterReading.peak: readonly number[]
   readonly MeterReading.rms: readonly number[]
+  readonly MeterReading.correlation: readonly number[]
   interface MeterTarget
   MeterTarget.receive: (reading: MeterReading) => void
   interface NodeImplementation extends NodeContract
@@ -104,7 +105,7 @@ Published paths
   readonly NodeImplementation.type: string
   readonly NodeImplementation.role: import("packages/audio-graph/src/node-contract").NodeRole
   NodeImplementation.check: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor) => readonly import("packages/audio-graph/src/diagnostic").GraphDiagnostic[]
-  NodeImplementation.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/audio-graph/src/node-contract").ProcessorLatency
+  NodeImplementation.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
   type NodeImplementations = ReadonlyMap<string, NodeImplementation>
   interface NodeKernel
   NodeKernel.process: (inputs: readonly AudioFrameBlock[], outputs: readonly AudioFrameBlock[], frames: number) => void
@@ -365,7 +366,6 @@ Published paths
   readonly ProcessingNodeDescriptor.inputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.outputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.settings: Readonly<Record<string, SettingValue>>
-  type ProcessorLatency = { readonly kind: "known"; readonly frames: SampleCount; } | { readonly kind: "unknown"; readonly reason: string; }
   type SettingValue = boolean | number | readonly number[] | string
   interface SubgraphInput
   readonly SubgraphInput.name: string
@@ -426,6 +426,7 @@ Published paths
   ContextLifecycle.#lastState: AudioContextState
   ContextLifecycle.#suspendedByUs: boolean
   ContextLifecycle.#suspendedBySystem: boolean
+  ContextLifecycle.#awaitingGesture: boolean
   ContextLifecycle.state: LifecycleState
   ContextLifecycle.report: DeviceReport | undefined
   ContextLifecycle.context: () => AudioContextPort
@@ -438,6 +439,7 @@ Published paths
   ContextLifecycle.#runs: (port: AudioContextPort) => void
   ContextLifecycle.#devicesChanged: (port: AudioContextPort) => void
   ContextLifecycle.#recoverAfterDeviceChange: (port: AudioContextPort) => Promise<void>
+  ContextLifecycle.#resume: (port: AudioContextPort) => Promise<DomainResult<undefined>>
   ContextLifecycle.#refreshReport: (port: AudioContextPort) => void
   ContextLifecycle.#detach: (attached: Attached) => void
   ContextLifecycle.#emit: (event: LifecycleEvent) => void
@@ -446,6 +448,7 @@ Published paths
   readonly ContextLifecycleOptions.watchDevices: (changed: () => void) => () => void
   readonly ContextLifecycleOptions.latencyHint: LatencyHint
   readonly ContextLifecycleOptions.sampleRate?: number
+  readonly ContextLifecycleOptions.schedule: Schedule
   readonly ContextLifecycleOptions.logger: Logger
   type CreateAudioContext = (options: AudioContextOptions) => AudioContextPort
   interface DeviceReport
@@ -464,8 +467,8 @@ Published paths
   const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; }
   type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "suspended-by-system"
   type LifecycleListener = (event: LifecycleEvent) => void
-  const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
-  type LifecycleState = "closed" | "idle" | "interrupted" | "running" | "suspended"
+  const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly AwaitingGesture: "awaiting-gesture"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
+  type LifecycleState = "awaiting-gesture" | "closed" | "idle" | "interrupted" | "running" | "suspended"
   interface MeterLevels
   readonly MeterLevels.peak: readonly number[]
   readonly MeterLevels.rms: readonly number[]
@@ -1277,7 +1280,7 @@ Published paths
   readonly ProcessorDescriptor.label: string
   readonly ProcessorDescriptor.implementationVersion: number
   readonly ProcessorDescriptor.parameters: readonly ParameterDescriptor[]
-  readonly ProcessorDescriptor.latency: SampleCount
+  readonly ProcessorDescriptor.latency: ProcessorLatency
   type ProcessorId = string & { readonly [BrandTag]: "ProcessorId"; }
   interface ProcessorInstance
   readonly ProcessorInstance.id: ProcessorId
@@ -1285,6 +1288,7 @@ Published paths
   readonly ProcessorInstance.enabled: boolean
   readonly ProcessorInstance.soloed: boolean
   readonly ProcessorInstance.values: ReadonlyMap<ParameterId, ParameterValue>
+  type ProcessorLatency = { readonly kind: "known"; readonly frames: SampleCount; } | { readonly kind: "unknown"; readonly reason: string; }
   interface Project
   readonly Project.id: ProjectId
   readonly Project.displayName: string
@@ -1347,7 +1351,7 @@ Published paths
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
-  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<SampleCount>
+  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
   function channelLabelOf(layout: ChannelLayout, index: number): string | undefined
@@ -1670,7 +1674,9 @@ packages/audio-runtime/src/context/audio-context-port.ts
   readonly AudioContextOptions.sampleRate?: number
   interface AudioDestinationPort
   readonly AudioDestinationPort.maxChannelCount: number
-  readonly AudioDestinationPort.channelCount: number
+  AudioDestinationPort.channelCount: number
+  AudioDestinationPort.channelCountMode: "clamped-max" | "explicit" | "max"
+  AudioDestinationPort.channelInterpretation: "discrete" | "speakers"
   interface WorkletMessagePort
   WorkletMessagePort.postMessage: (message: unknown, transfer?: Transferable[]) => void
   WorkletMessagePort.addEventListener: (type: WorkletPortEvent, listener: (event: MessageEvent) => void) => void
@@ -1678,7 +1684,7 @@ packages/audio-runtime/src/context/audio-context-port.ts
   WorkletMessagePort.start: () => void
   interface WorkletNodePort
   readonly WorkletNodePort.port: WorkletMessagePort
-  WorkletNodePort.connect: (destination: AudioDestinationPort) => void
+  WorkletNodePort.connect: (destination: AudioDestinationPort, outputChannelOf: readonly number[]) => void
   WorkletNodePort.disconnect: () => void
   interface WorkletNodeShape
   readonly WorkletNodeShape.outputChannelCount: readonly number[]
@@ -1691,6 +1697,11 @@ packages/audio-runtime/src/context/context-lifecycle.ts
   readonly Attached.port: AudioContextPort
   readonly Attached.onStateChange: () => void
   readonly Attached.stopWatchingDevices: () => void
+
+packages/audio-runtime/src/context/device-channels.ts
+  interface DeviceChannels
+  readonly DeviceChannels.count: number
+  readonly DeviceChannels.outputChannelOf: readonly number[]
 
 packages/audio-runtime/src/feed/feed-pump.ts
   interface FeedDestination
@@ -1860,6 +1871,7 @@ packages/audio-runtime/src/playback/playback-preparation.ts
   interface PreparedPlayback
   readonly PreparedPlayback.plan: ExecutionPlan
   readonly PreparedPlayback.sinkChannels: number
+  readonly PreparedPlayback.device: DeviceChannels
   readonly PreparedPlayback.feeds: PlaybackFeeds
   readonly PreparedPlayback.feedPlan: FeedPlan
 

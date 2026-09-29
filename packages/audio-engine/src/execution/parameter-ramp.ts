@@ -54,10 +54,26 @@ export class ParameterRamp {
     this.#step = 0;
   }
 
-  /** The value of the current frame, then advances one frame. */
-  next(): number {
-    const current = this.value;
-    if (!this.steady) this.#step += 1;
-    return current;
+  /**
+   * Writes the value of each of the next `frames` frames into `into`, and
+   * advances past them. A block at a time, into an array, because a double
+   * returned from a call a frame at a time is a heap number on the audio
+   * thread.
+   */
+  fill(into: Float64Array, frames: number): void {
+    const length = this.#length;
+    const start = this.#start;
+    const delta = this.#delta;
+    const target = this.#target;
+    let step = this.#step;
+    for (let frame = 0; frame < frames; frame += 1) {
+      if (step >= length) {
+        into[frame] = target;
+      } else {
+        into[frame] = start + (delta * step) / length;
+        step += 1;
+      }
+    }
+    this.#step = step;
   }
 }

@@ -19,12 +19,13 @@ import {
   ZERO_SAMPLES,
   addSamples,
   subtractSamples,
+  type ProcessorLatency,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
 
 import { refusalOf, type GraphDiagnostic, type GraphRefusal } from './diagnostic.js';
-import { NodeRole, type ProcessorLatency } from './node-contract.js';
+import { NodeRole } from './node-contract.js';
 import type { NodeId } from './node-id.js';
 import {
   causesOf,

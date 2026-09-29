@@ -33,8 +33,9 @@ export function workletDsp(
   } catch (error) {
     // A CompileError is bytes this engine refuses, damaged or truncated on
     // their way; a RangeError is an engine out of memory. Either leaves the
-    // reference path to run, which gives the same bits more slowly.
-    if (!(error instanceof Error)) throw error;
+    // reference path to run, which gives the same bits more slowly. Anything
+    // else is a fault, and surfaces as one.
+    if (!(error instanceof WebAssembly.CompileError || error instanceof RangeError)) throw error;
     return {
       dsp: REFERENCE_DSP,
       fallbackReason: `The DSP module could not be compiled in the audio thread: ${error.message}`,

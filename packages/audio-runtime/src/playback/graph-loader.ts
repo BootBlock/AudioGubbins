@@ -109,7 +109,7 @@ export class GraphLoader {
     this.#request = request;
     this.#lostRequest = undefined;
     const { port, clock } = state.timing();
-    const prepared = preparePlayback(request, clock.contextRate, this.#options);
+    const prepared = preparePlayback(request, clock.contextRate, port.destination, this.#options);
     if (!prepared.ok) {
       state.update(refusedStatus(state.status, summaries(prepared.failures)));
       return prepared;

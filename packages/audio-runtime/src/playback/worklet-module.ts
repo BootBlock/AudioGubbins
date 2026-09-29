@@ -11,6 +11,7 @@ import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogu
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import type { AudioContextPort } from '../context/audio-context-port.js';
+import { isDomException } from '../context/dom-exception.js';
 
 /** The processor's module, and the context it has been added to. */
 export class WorkletModule {
@@ -30,9 +31,14 @@ export class WorkletModule {
     const done = this.#register(port);
     const added = { port, done };
     this.#registration = added;
+    const forget = (): void => {
+      if (this.#registration === added) this.#registration = undefined;
+    };
+    // Whoever awaits the addition hears its failure or its fault through
+    // `done`; this only lets the next load try again after either.
     void done.then((result) => {
-      if (!result.ok && this.#registration === added) this.#registration = undefined;
-    });
+      if (!result.ok) forget();
+    }, forget);
     return done;
   }
 
@@ -45,9 +51,10 @@ export class WorkletModule {
     try {
       await port.audioWorklet.addModule(this.#url);
     } catch (error) {
-      // The browser rejects a module it could not fetch or evaluate
-      // (AbortError, a DOMException), which leaves nothing to play with.
-      if (!(error instanceof Error || error instanceof DOMException)) throw error;
+      // The browser refuses a module it could not fetch with an AbortError,
+      // which leaves nothing to play with. Anything else is a fault in the
+      // module or here, and surfaces as one.
+      if (!isDomException(error, 'AbortError')) throw error;
       this.#logger.error('The audio processor module could not be loaded.', {
         reason: error.message,
       });

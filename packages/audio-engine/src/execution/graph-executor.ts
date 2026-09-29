@@ -106,7 +106,11 @@ function bind(
     const slot = over(slotArrays(slots, input.slot), input.layout, context);
     if (input.delay === 0) return slot;
     const delayed = over(newSlot(slot.channels.length, context.blockFrames), input.layout, context);
-    alignments.push({ input: index, line: new DelayLine(slot.channels.length, input.delay), slot });
+    alignments.push({
+      input: index,
+      line: new DelayLine(slot.channels.map(() => input.delay)),
+      slot,
+    });
     return delayed;
   });
   const outputs = step.outputs.map((output) =>
