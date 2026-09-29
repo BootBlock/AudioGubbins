@@ -96,6 +96,14 @@
       ]
     },
     {
+      "name": "video-reference",
+      "root": "packages/video-reference",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",

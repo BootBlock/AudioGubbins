@@ -212,6 +212,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
+  '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
   '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
   '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
   '@audiogubbins/audio-runtime': [
@@ -685,6 +686,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'text',
     'timeline',
     'version',
+    'video-reference',
     'waveform',
   ] as const;
   const FRAMEWORK_FREE = productionSources(

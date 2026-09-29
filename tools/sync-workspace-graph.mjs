@@ -297,6 +297,22 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Picture as reference media: its binding to the shared media clock,
+    // frame arithmetic, calibration and the synchronisation policy (ADR-0040,
+    // ADR-0046). The video element belongs to the application.
+    dir: 'packages/video-reference',
+    name: '@audiogubbins/video-reference',
+    description:
+      'Video as reference media: its binding to the media clock, exact frame arithmetic, calibration and synchronisation.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/timeline'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

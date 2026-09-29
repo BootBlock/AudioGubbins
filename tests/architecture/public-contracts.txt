@@ -18,6 +18,7 @@ Published paths
   @audiogubbins/text
   @audiogubbins/timeline
   @audiogubbins/version
+  @audiogubbins/video-reference
   @audiogubbins/waveform
   @audiogubbins/waveform/threads/*
   @audiogubbins/workspace
@@ -1923,6 +1924,30 @@ Published paths
   const PRODUCT_VERSION: "0.1.0"
   const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly diagnosticBundle: 1; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+
+@audiogubbins/video-reference
+  type PictureCorrection = { readonly kind: "in-sync"; } | { readonly kind: "no-picture"; } | { readonly kind: "seek"; readonly to: number; }
+  interface PresentedPicture
+  readonly PresentedPicture.mediaTime: number
+  readonly PresentedPicture.duration: number
+  interface ReferenceMediaClockBinding
+  readonly ReferenceMediaClockBinding.timelineRate: SampleRate
+  readonly ReferenceMediaClockBinding.frames: FrameRate
+  readonly ReferenceMediaClockBinding.offset: number
+  readonly ReferenceMediaClockBinding.firstFrameLabel: number
+  type TransportMotion = "parked" | "playing"
+  function bindingAtStart(timelineRate: SampleRate, frames: FrameRate): ReferenceMediaClockBinding
+  function calibratedTo(binding: ReferenceMediaClockBinding, frame: number, position: number): ReferenceMediaClockBinding
+  function frameBoundariesWithin(binding: ReferenceMediaClockBinding, from: number, to: number, most: number): readonly number[]
+  function frameBoundary(binding: ReferenceMediaClockBinding, frame: number): number
+  function framePeriod(binding: ReferenceMediaClockBinding): number
+  function nudgedByFrames(binding: ReferenceMediaClockBinding, frames: number): ReferenceMediaClockBinding
+  function pictureCorrection(binding: ReferenceMediaClockBinding, position: number, presented: PresentedPicture, motion: TransportMotion): PictureCorrection
+  function pictureDrift(binding: ReferenceMediaClockBinding, position: number, presented: PresentedPicture): number
+  function pictureFrameAt(binding: ReferenceMediaClockBinding, position: number): number
+  function pictureTimeAt(binding: ReferenceMediaClockBinding, position: number): number
+  function pictureTimecodeAt(binding: ReferenceMediaClockBinding, position: number): string
+  function seekTimeFor(binding: ReferenceMediaClockBinding, frame: number): number
 
 @audiogubbins/waveform
   const BASE_BUCKET_FRAMES: 256

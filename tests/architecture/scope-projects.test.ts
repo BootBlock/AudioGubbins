@@ -25,6 +25,7 @@ const PORTABLE = [
   'packages/audio-graph',
   'packages/audio-engine',
   'packages/timeline',
+  'packages/video-reference',
   'packages/waveform',
 ];
 

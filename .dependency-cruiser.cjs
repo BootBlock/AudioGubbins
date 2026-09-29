@@ -31,6 +31,8 @@
  *                   (ADR-0043)
  *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
  *                   backends; depends on domain, reads no global (ADR-0044)
+ *   video-reference picture bound to the media clock, frame arithmetic and
+ *                   sync; depends on domain + timeline (ADR-0046)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -121,7 +123,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|domain|commands|input|renderer|text|timeline|version|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|domain|commands|input|renderer|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -202,6 +204,16 @@ module.exports = {
         'waveform, command or interface package.',
       from: { path: '^packages/renderer/' },
       to: { path: '^packages/(?!(renderer|domain)/)' },
+    },
+    {
+      name: 'video-reference-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Video is reference media bound to the media clock, never an editable video domain ' +
+        '(REQ-AUDIO-156, ADR-0046). The package depends on the domain and the timeline alone, ' +
+        'whose positions and frame rates it is written in.',
+      from: { path: '^packages/video-reference/' },
+      to: { path: '^packages/(?!(video-reference|timeline|domain)/)' },
     },
     {
       name: 'input-owns-nothing-else',

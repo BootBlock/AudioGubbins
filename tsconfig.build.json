@@ -60,6 +60,12 @@
       "path": "./packages/renderer"
     },
     {
+      "path": "./packages/video-reference"
+    },
+    {
+      "path": "./packages/video-reference/scopes/any"
+    },
+    {
       "path": "./packages/commands"
     },
     {
