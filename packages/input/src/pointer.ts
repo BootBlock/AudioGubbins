@@ -149,7 +149,10 @@ function midpoint(
  *
  * REQ-UX-067 sets the rules: one finger is the tool, two fingers pan and pinch
  * together, and a pen is always the tool however many fingers are also down,
- * because a hand resting on the screen must not turn drawing into panning.
+ * because a hand resting on the screen must not turn drawing into panning. The
+ * contact that is the tool, the pen or the one finger, held still for long
+ * enough is the context action, as a pen held still on a tablet is its right
+ * click; it is read against where that same contact started.
  */
 export function recogniseGesture(
   started: readonly PointerSample[],
@@ -158,24 +161,23 @@ export function recogniseGesture(
 ): Gesture {
   if (current.length === 0) return NO_GESTURE;
 
-  const pen = current.find((sample) => sample.kind === PointerKind.Pen);
-  if (pen !== undefined) return { kind: 'tool', at: pen };
-
   const [firstNow, secondNow] = current;
   if (firstNow === undefined) return NO_GESTURE;
 
-  if (current.length === 1) {
-    const [firstStart] = started;
-    if (firstStart === undefined) return { kind: 'tool', at: firstNow };
+  const pen = current.find((sample) => sample.kind === PointerKind.Pen);
+  const tool = pen ?? (current.length === 1 ? firstNow : undefined);
+  if (tool !== undefined) {
+    const start = started.find((sample) => sample.pointerId === tool.pointerId);
+    if (start === undefined) return { kind: 'tool', at: tool };
 
-    const held = firstNow.timestamp - firstStart.timestamp;
-    const moved = separation(firstStart, firstNow);
+    const held = tool.timestamp - start.timestamp;
+    const moved = separation(start, tool);
 
     if (held >= settings.longPressMs && moved <= settings.longPressTolerancePx) {
-      return { kind: 'context', at: firstNow };
+      return { kind: 'context', at: tool };
     }
 
-    return { kind: 'tool', at: firstNow };
+    return { kind: 'tool', at: tool };
   }
 
   // Two or more contacts: pan and zoom together, as a pinch always moves as

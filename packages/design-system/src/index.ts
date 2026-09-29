@@ -86,6 +86,7 @@ export { Button, type ButtonProps, ButtonTone } from './primitives/button.js';
 // explanation a later panel attaches to one of its controls.
 export {
   ContextActions,
+  type ContextActionsOpener,
   type ContextMenuProps,
   HintProvider,
   InfoPopover,

@@ -168,6 +168,28 @@ describe('recogniseGesture', () => {
     expect(recogniseGesture(started, current)).toEqual({ kind: 'tool', at: pen });
   });
 
+  it('treats a pen held still as the context action, with fingers resting or not', () => {
+    // A pen held still is a tablet's right click. Read as the tool whatever it
+    // did, the long press the editor opens its context actions with could
+    // never be a pen's.
+    const { longPressMs } = DEFAULT_GESTURE_SETTINGS;
+    const down = sample({ pointerId: 3, kind: PointerKind.Pen, x: 40, y: 40, pressure: 0.4 });
+    const held = { ...down, x: 41, pressure: 0.6, timestamp: longPressMs };
+    const palm = sample({ pointerId: 1, x: 200, y: 90 });
+
+    expect(recogniseGesture([down], [held]).kind).toBe('context');
+    expect(recogniseGesture([palm, down], [palm, held]).kind).toBe('context');
+    expect(recogniseGesture([down], [{ ...held, x: 60 }]).kind).toBe('tool');
+  });
+
+  it('reads a long press against where the same contact started', () => {
+    const { longPressMs } = DEFAULT_GESTURE_SETTINGS;
+    const other = sample({ pointerId: 2, x: 10, y: 10 });
+    const now = sample({ pointerId: 1, x: 10, y: 10, timestamp: longPressMs });
+
+    expect(recogniseGesture([other], [now]).kind).toBe('tool');
+  });
+
   it('treats a mouse as the tool, never as a pan', () => {
     const mouse = sample({ kind: PointerKind.Mouse, x: 5, y: 5 });
     expect(recogniseGesture([mouse], [mouse]).kind).toBe('tool');

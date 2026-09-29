@@ -45,6 +45,8 @@ export interface SurfaceOptions {
   readonly report: (report: RendererReport) => void;
   /** Told where the peaks of the asset shown are, as that changes. */
   readonly peaksChanged: (status: PeakStatus) => void;
+  /** Opens the context actions at a point of the page, where a press was held still. */
+  readonly contextActions: (clientX: number, clientY: number) => void;
   readonly logger: Logger;
 }
 
@@ -133,7 +135,7 @@ export class EditorSurface {
   }
 
   #listenToPointers(): void {
-    const { host, panel, run, logger } = this.#options;
+    const { host, panel, run, logger, contextActions } = this.#options;
     const tool = new ToolPointer({
       panel,
       snapshot: () => {
@@ -152,8 +154,8 @@ export class EditorSurface {
           reason: error instanceof Error ? error.message : String(error),
         });
       },
-      zeroCrossing: (position, within, channels) =>
-        this.#audio?.view.zeroCrossings.nearest(position, within, channels) ??
+      zeroCrossing: (position, within, channels, signal) =>
+        this.#audio?.view.zeroCrossings.nearest(position, within, channels, signal) ??
         Promise.resolve(undefined),
     });
     this.#stops.push(
@@ -164,6 +166,7 @@ export class EditorSurface {
         focus: () => {
           host.focus({ preventScroll: true });
         },
+        contextActions,
       }),
     );
   }

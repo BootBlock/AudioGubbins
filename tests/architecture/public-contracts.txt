@@ -971,10 +971,13 @@ Published paths
   type CategoryPalette = { readonly [x: string]: Oklch; }
   type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
   function ContextActions(props: ContextMenuProps): ReactNode
+  interface ContextActionsOpener
+  readonly ContextActionsOpener.openAt: (clientX: number, clientY: number) => void
   interface ContextMenuProps
   readonly ContextMenuProps.children: ReactNode
   readonly ContextMenuProps.groups: readonly MenuGroup[]
   readonly ContextMenuProps.label: string
+  readonly ContextMenuProps.opener?: Ref<ContextActionsOpener>
   const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
   type ContrastLevel = "high" | "standard"
   interface ContrastShortfall

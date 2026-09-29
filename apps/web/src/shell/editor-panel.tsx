@@ -4,8 +4,8 @@
  * the view is waiting for; or, where it shows no asset, the assets it can open.
  *
  * The surface is a canvas the renderer draws (`editor-surface.ts`), mounted
- * once per panel and fed from the stores, so React draws the controls around
- * it and never a sample or a peak (the packet's rule against a DOM element per
+ * once per panel and fed from the stores, so React draws the controls around it
+ * and never a sample or a peak (the packet's rule against a DOM element per
  * sample). It is the view's one focusable region, an application to assistive
  * technology, whose state the toolbar and the readouts beside it say. A right
  * click or a long press on it opens the editor's context actions (REQ-UX-067).
@@ -20,7 +20,13 @@ import {
   type RefObject,
 } from 'react';
 
-import { Button, ContextActions, useTheme, type MenuGroup } from '@audiogubbins/design-system';
+import {
+  Button,
+  ContextActions,
+  useTheme,
+  type ContextActionsOpener,
+  type MenuGroup,
+} from '@audiogubbins/design-system';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
@@ -110,13 +116,16 @@ function contextGroups(parts: EditorPanelParts, panel: string): readonly MenuGro
 
 /**
  * Mounts the surface in `host` for panel `panel`, once, and hands it the
- * theme's colours as they change: a change of theme reaches its next frame.
+ * theme's colours as they change: a change of theme reaches its next frame. A
+ * press it recognises as held still opens the context actions through
+ * `actions`.
  */
 function useEditorSurface(
   host: RefObject<HTMLDivElement | null>,
   panel: string,
   parts: EditorPanelParts,
   onPeaks: (status: PeakStatus) => void,
+  actions: RefObject<ContextActionsOpener | null>,
 ): void {
   const theme = useTheme();
   const look = useRef({ palette: editorPaletteOf(theme), type: editorTypeOf(theme) });
@@ -144,6 +153,9 @@ function useEditorSurface(
         parts.rendererReports.report(panel, report);
       },
       peaksChanged: onPeaks,
+      contextActions: (clientX, clientY) => {
+        actions.current?.openAt(clientX, clientY);
+      },
       logger: parts.logger,
     });
     surface.current = made;
@@ -152,7 +164,7 @@ function useEditorSurface(
       surface.current = undefined;
       parts.rendererReports.forget(panel);
     };
-  }, [host, panel, parts, onPeaks]);
+  }, [host, panel, parts, onPeaks, actions]);
 }
 
 /** The waveform surface, mounted once for the panel. */
@@ -168,9 +180,10 @@ function Surface({
   readonly onPeaks: (status: PeakStatus) => void;
 }): ReactNode {
   const host = useRef<HTMLDivElement>(null);
-  useEditorSurface(host, panel, parts, onPeaks);
+  const actions = useRef<ContextActionsOpener>(null);
+  useEditorSurface(host, panel, parts, onPeaks, actions);
   return (
-    <ContextActions label="Editor actions" groups={contextGroups(parts, panel)}>
+    <ContextActions label="Editor actions" groups={contextGroups(parts, panel)} opener={actions}>
       <div
         ref={host}
         className="ag-editor-surface"

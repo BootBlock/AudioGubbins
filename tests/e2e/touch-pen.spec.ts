@@ -20,8 +20,8 @@ import { test } from './test.js';
  * without doing what the tool would (Phase 01's F-188).
  *
  * The touches and the pen are the browser's own events, sent through the
- * DevTools protocol, so the page receives what a touch screen and a pen
- * tablet send it.
+ * DevTools protocol, so the page receives what a touch screen and a pen tablet
+ * send it.
  */
 
 /** A point of contact the protocol takes. */
@@ -66,11 +66,69 @@ async function middleOf(panel: Locator): Promise<{ x: number; y: number }> {
   return { x: box.x + box.width / 2, y: box.y + 42 + (box.height - 42) / 4 };
 }
 
+/** The boundary under the page's `x` on `panel`'s surface, as the panel writes it in samples. */
+async function boundaryUnder(panel: Locator, x: number): Promise<number> {
+  const box = await surfaceOf(panel).boundingBox();
+  if (box === null) throw new Error('The surface is not on screen.');
+  const { start } = await shownOf(panel);
+  return start + (x - box.x - 1) * (await samplesInPixelOf(panel));
+}
+
+/** Where on the page boundary `position` is drawn on `panel`'s surface. */
+async function pageXOf(panel: Locator, position: number): Promise<number> {
+  return (await pointAt(panel, position)).x;
+}
+
+/** A pen pressed at `at`, held there as a hand holds one, for `ms`, and lifted. */
+async function holdPen(page: Page, at: { x: number; y: number }, ms: number): Promise<void> {
+  const session = await page.context().newCDPSession(page);
+  const pen = { button: 'left' as const, clickCount: 1, pointerType: 'pen' as const };
+  await session.send('Input.dispatchMouseEvent', {
+    ...pen,
+    ...at,
+    type: 'mousePressed',
+    force: 0.4,
+  });
+  // A pen held still reports its pressure changing, and a pixel of drift.
+  for (const [dx, force] of [
+    [0, 0.5],
+    [1, 0.6],
+    [1, 0.55],
+  ] as const) {
+    await page.waitForTimeout(ms / 4);
+    await session.send('Input.dispatchMouseEvent', {
+      ...pen,
+      x: at.x + dx,
+      y: at.y,
+      type: 'mouseMoved',
+      force,
+    });
+  }
+  await page.waitForTimeout(ms / 4);
+  await session.send('Input.dispatchMouseEvent', {
+    ...pen,
+    ...at,
+    type: 'mouseReleased',
+    force: 0,
+  });
+  await session.detach();
+}
+
+/** Checks the context actions are open, and chooses Zoom in from them with a finger. */
+async function expectContextActions(page: Page): Promise<void> {
+  const actions = page.getByRole('menu', { name: 'Editor actions' });
+  await expect(actions).toBeVisible();
+  await actions.getByRole('menuitem', { name: 'Zoom in' }).tap();
+  await expect(actions).toBeHidden();
+}
+
 test.describe('the editor under a finger and a pen', () => {
   test('zooms in with a pinch, about the fingers', async ({ page }) => {
     const panel = await openAsset(page, 'Tone bursts');
+    await writeTimesAs(page, panel, 'Samples');
     const before = await samplesInPixelOf(panel);
     const { x, y } = await middleOf(panel);
+    const under = await boundaryUnder(panel, x);
 
     await twoFingers(
       page,
@@ -85,6 +143,9 @@ test.describe('the editor under a finger and a pen', () => {
     );
 
     await expect.poll(async () => await samplesInPixelOf(panel)).toBeLessThan(before / 2);
+    // The fingers spread evenly about `x`, so the audio between them stays
+    // there: a zoom about the left edge would carry it hundreds of pixels off.
+    expect(Math.abs((await pageXOf(panel, under)) - x)).toBeLessThanOrEqual(1);
   });
 
   test('pans with two fingers, the view following them', async ({ page }) => {
@@ -169,5 +230,45 @@ test.describe('the editor under a finger and a pen', () => {
 
     await actions.getByRole('menuitem', { name: 'Zoom in' }).tap();
     await expect(actions).toBeHidden();
+  });
+
+  test('opens the context actions for a finger held 600 ms that shifts a little', async ({
+    page,
+  }) => {
+    // The menu's own long press waited 700 ms and was given up at the first
+    // move, so a hold of 600 ms, or one that moved by two pixels, dropped the
+    // tool's press at 500 ms and opened nothing: the gesture did nothing.
+    const panel = await openAsset(page, 'Tone bursts');
+    const playhead = await readingOf(panel, 'Playhead').innerText();
+    const scope = await scopeOf(panel).innerText();
+    const at = await middleOf(panel);
+
+    const session = await page.context().newCDPSession(page);
+    await touches(session, 'touchStart', [{ id: 0, ...at }]);
+    await page.waitForTimeout(200);
+    await touches(session, 'touchMove', [{ id: 0, x: at.x + 2, y: at.y + 1 }]);
+    await page.waitForTimeout(400);
+    await touches(session, 'touchEnd', []);
+    await session.detach();
+
+    await expect(readingOf(panel, 'Playhead')).toHaveText(playhead);
+    await expect(scopeOf(panel)).toHaveText(scope);
+    await expectContextActions(page);
+  });
+
+  test('opens the context actions for a pen held still, and does not act as the tool', async ({
+    page,
+  }) => {
+    const panel = await openAsset(page, 'Tone bursts');
+    const playhead = await readingOf(panel, 'Playhead').innerText();
+    const scope = await scopeOf(panel).innerText();
+    const kinds = await recordPointerKinds(page);
+
+    await holdPen(page, await middleOf(panel), 800);
+
+    await expect(readingOf(panel, 'Playhead')).toHaveText(playhead);
+    await expect(scopeOf(panel)).toHaveText(scope);
+    expect(await kinds()).toContain('pen');
+    await expectContextActions(page);
   });
 });
