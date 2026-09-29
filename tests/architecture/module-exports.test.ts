@@ -194,6 +194,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/state-storage.ts: textsSetAside'],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
+  'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':
+    ['packages/audio-runtime/src/context/context-resume.ts: GESTURE_WAIT_MILLISECONDS'],
   'How long a notice stays, which the announcement tests wait out.': [
     'packages/design-system/src/primitives/announcement.tsx: NOTICE_DURATION',
   ],

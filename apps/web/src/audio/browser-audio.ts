@@ -19,6 +19,7 @@ import { PRESET_SETTINGS, type PresetProfile } from '@audiogubbins/audio-engine'
 import { ContextLifecycle, browserAudioContext } from '@audiogubbins/audio-runtime';
 
 import type { BrowserEngine } from './browser-engine.js';
+import { browserSchedule } from './browser-schedule.js';
 import type { OpenPlayback } from './playback-control.js';
 import type { RenderParts } from './render-control.js';
 
@@ -61,6 +62,7 @@ export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
       createContext: browserAudioContext(capabilities),
       watchDevices: watchAudioDevices,
       latencyHint: PRESET_SETTINGS[profile].latencyHint,
+      schedule: browserSchedule,
       logger,
     });
     return {

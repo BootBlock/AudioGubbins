@@ -169,6 +169,7 @@ export class PlaybackRig {
       },
       watchDevices: this.devices.watch,
       latencyHint: PRESET_SETTINGS[profile].latencyHint,
+      schedule: this.schedule.schedule,
       logger,
     });
     const capabilities: AudioRuntimeCapabilities = {

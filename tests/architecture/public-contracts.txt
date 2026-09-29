@@ -425,6 +425,7 @@ Published paths
   ContextLifecycle.#lastState: AudioContextState
   ContextLifecycle.#suspendedByUs: boolean
   ContextLifecycle.#suspendedBySystem: boolean
+  ContextLifecycle.#awaitingGesture: boolean
   ContextLifecycle.state: LifecycleState
   ContextLifecycle.report: DeviceReport | undefined
   ContextLifecycle.context: () => AudioContextPort
@@ -437,6 +438,7 @@ Published paths
   ContextLifecycle.#runs: (port: AudioContextPort) => void
   ContextLifecycle.#devicesChanged: (port: AudioContextPort) => void
   ContextLifecycle.#recoverAfterDeviceChange: (port: AudioContextPort) => Promise<void>
+  ContextLifecycle.#resume: (port: AudioContextPort) => Promise<DomainResult<undefined>>
   ContextLifecycle.#refreshReport: (port: AudioContextPort) => void
   ContextLifecycle.#detach: (attached: Attached) => void
   ContextLifecycle.#emit: (event: LifecycleEvent) => void
@@ -445,6 +447,7 @@ Published paths
   readonly ContextLifecycleOptions.watchDevices: (changed: () => void) => () => void
   readonly ContextLifecycleOptions.latencyHint: LatencyHint
   readonly ContextLifecycleOptions.sampleRate?: number
+  readonly ContextLifecycleOptions.schedule: Schedule
   readonly ContextLifecycleOptions.logger: Logger
   type CreateAudioContext = (options: AudioContextOptions) => AudioContextPort
   interface DeviceReport
@@ -463,8 +466,8 @@ Published paths
   const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; }
   type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "suspended-by-system"
   type LifecycleListener = (event: LifecycleEvent) => void
-  const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
-  type LifecycleState = "closed" | "idle" | "interrupted" | "running" | "suspended"
+  const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly AwaitingGesture: "awaiting-gesture"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
+  type LifecycleState = "awaiting-gesture" | "closed" | "idle" | "interrupted" | "running" | "suspended"
   interface MeterLevels
   readonly MeterLevels.peak: readonly number[]
   readonly MeterLevels.rms: readonly number[]
@@ -1670,7 +1673,9 @@ packages/audio-runtime/src/context/audio-context-port.ts
   readonly AudioContextOptions.sampleRate?: number
   interface AudioDestinationPort
   readonly AudioDestinationPort.maxChannelCount: number
-  readonly AudioDestinationPort.channelCount: number
+  AudioDestinationPort.channelCount: number
+  AudioDestinationPort.channelCountMode: "clamped-max" | "explicit" | "max"
+  AudioDestinationPort.channelInterpretation: "discrete" | "speakers"
   interface WorkletMessagePort
   WorkletMessagePort.postMessage: (message: unknown, transfer?: Transferable[]) => void
   WorkletMessagePort.addEventListener: (type: WorkletPortEvent, listener: (event: MessageEvent) => void) => void
@@ -1678,7 +1683,7 @@ packages/audio-runtime/src/context/audio-context-port.ts
   WorkletMessagePort.start: () => void
   interface WorkletNodePort
   readonly WorkletNodePort.port: WorkletMessagePort
-  WorkletNodePort.connect: (destination: AudioDestinationPort) => void
+  WorkletNodePort.connect: (destination: AudioDestinationPort, outputChannelOf: readonly number[]) => void
   WorkletNodePort.disconnect: () => void
   interface WorkletNodeShape
   readonly WorkletNodeShape.outputChannelCount: readonly number[]
@@ -1691,6 +1696,11 @@ packages/audio-runtime/src/context/context-lifecycle.ts
   readonly Attached.port: AudioContextPort
   readonly Attached.onStateChange: () => void
   readonly Attached.stopWatchingDevices: () => void
+
+packages/audio-runtime/src/context/device-channels.ts
+  interface DeviceChannels
+  readonly DeviceChannels.count: number
+  readonly DeviceChannels.outputChannelOf: readonly number[]
 
 packages/audio-runtime/src/feed/feed-pump.ts
   interface FeedDestination
@@ -1860,6 +1870,7 @@ packages/audio-runtime/src/playback/playback-preparation.ts
   interface PreparedPlayback
   readonly PreparedPlayback.plan: ExecutionPlan
   readonly PreparedPlayback.sinkChannels: number
+  readonly PreparedPlayback.device: DeviceChannels
   readonly PreparedPlayback.feeds: PlaybackFeeds
   readonly PreparedPlayback.feedPlan: FeedPlan
 

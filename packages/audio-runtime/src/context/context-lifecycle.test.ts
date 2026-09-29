@@ -15,7 +15,9 @@ import {
   LifecycleState,
   type LifecycleEvent,
 } from './context-lifecycle.js';
+import { GESTURE_WAIT_MILLISECONDS } from './context-resume.js';
 import { FakeAudioContext } from '../testing/fake-audio-context.js';
+import { FakeSchedule } from '../testing/playback-rig.js';
 
 /** Audio devices that change on the test's word. */
 class FakeDevices {
@@ -40,6 +42,7 @@ class FakeDevices {
 interface Harness {
   readonly lifecycle: ContextLifecycle;
   readonly devices: FakeDevices;
+  readonly timers: FakeSchedule;
   readonly events: LifecycleEvent[];
   readonly store: LogStore;
   /** Every context made, in order, with what it was made with. */
@@ -51,6 +54,7 @@ function harness(start: () => FakeAudioContext = () => new FakeAudioContext()): 
   const events: LifecycleEvent[] = [];
   const store = createLogStore();
   const made: Harness['made'] = [];
+  const timers = new FakeSchedule();
   const lifecycle = new ContextLifecycle({
     createContext: (options) => {
       const context = start();
@@ -59,6 +63,7 @@ function harness(start: () => FakeAudioContext = () => new FakeAudioContext()): 
     },
     watchDevices: devices.watch,
     latencyHint: 'balanced',
+    schedule: timers.schedule,
     logger: createDiagnosticCentre(
       store,
       { now: () => 0 },
@@ -68,7 +73,7 @@ function harness(start: () => FakeAudioContext = () => new FakeAudioContext()): 
   lifecycle.subscribe((event) => {
     events.push(event);
   });
-  return { lifecycle, devices, events, store, made };
+  return { lifecycle, devices, timers, events, store, made };
 }
 
 /** The one context a harness has made. */
@@ -77,6 +82,27 @@ function onlyContext({ made }: Harness): FakeAudioContext {
   const [first] = made;
   if (first === undefined) throw new Error('No context was made.');
   return first.context;
+}
+
+/** Whether `promise` has settled once every pending callback has run. */
+async function hasSettled(promise: Promise<unknown>): Promise<boolean> {
+  let settled = false;
+  void promise.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+  return settled;
+}
+
+function messages({ store }: Harness): string[] {
+  return store.snapshot().map((record) => record.message);
 }
 
 /** A harness whose context has been started from a gesture, with no events yet. */
@@ -129,21 +155,84 @@ describe('ContextLifecycle', () => {
       expect(context.resumeCalls).toBe(1);
     });
 
-    it('answers a refused resume with a failure that asks for a click or a key press', async () => {
-      const started = harness();
-      started.lifecycle.context();
-      onlyContext(started).refuseResume = new DOMException(
-        'Not allowed to start.',
-        'NotAllowedError',
+    it('waits a bounded time on a resume the browser holds for a gesture, then says it waits for one', async () => {
+      const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
+
+      const result = started.lifecycle.ensureRunning();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS - 1);
+      expect(await hasSettled(result)).toBe(false);
+      started.timers.advance(1);
+
+      const settled = await result;
+      expect(settled.ok ? undefined : settled.failures[0].code).toBe(
+        'audio.context-awaiting-gesture',
       );
+      expect(settled.ok ? '' : settled.failures[0].summary).toMatch(/click or a key press/);
+      expect(started.lifecycle.state).toBe(LifecycleState.AwaitingGesture);
+    });
 
-      const result = await started.lifecycle.ensureRunning();
+    it('lets the resume it stopped waiting on start the context at the next gesture', async () => {
+      const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
+      const result = started.lifecycle.ensureRunning();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS);
+      await result;
+      const context = onlyContext(started);
+      expect(context.pendingResumeCount).toBe(1);
 
-      expect(result.ok).toBe(false);
-      const failure = result.ok ? undefined : result.failures[0];
-      expect(failure?.code).toBe('audio.context-resume-refused');
-      expect(failure?.summary).toMatch(/click or a key press/);
-      expect(started.lifecycle.state).toBe(LifecycleState.Suspended);
+      context.gesture();
+
+      expect(context.state).toBe(AudioContextState.Running);
+      expect(started.lifecycle.state).toBe(LifecycleState.Running);
+      expect(context.resumeCalls).toBe(1);
+    });
+
+    it('succeeds once the context runs, though the browser has not yet settled the resume', async () => {
+      const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
+      const context = started.lifecycle.context();
+      // A resume whose promise never settles, so only the state change can end the wait.
+      vi.spyOn(context, 'resume').mockReturnValueOnce(new Promise(() => undefined));
+      const result = started.lifecycle.ensureRunning();
+
+      onlyContext(started).becomes(AudioContextState.Running);
+
+      expectSuccess(await result);
+      expect(started.timers.pending).toBe(0);
+    });
+
+    it('says the system holds a context whose resume it keeps waiting', async () => {
+      const started = await running();
+      const context = onlyContext(started);
+      context.becomes(AudioContextState.Interrupted);
+
+      const result = started.lifecycle.ensureRunning();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS);
+
+      const settled = await result;
+      expect(settled.ok ? undefined : settled.failures[0].code).toBe('audio.context-not-running');
+      expect(started.lifecycle.state).toBe(LifecycleState.Interrupted);
+    });
+
+    it('answers a resume the closing of the context cancels with a refusal', async () => {
+      const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
+      const result = started.lifecycle.ensureRunning();
+
+      onlyContext(started).becomes(AudioContextState.Closed);
+
+      const settled = await result;
+      expect(settled.ok ? undefined : settled.failures[0].code).toBe(
+        'audio.context-resume-refused',
+      );
+      expect(started.timers.pending).toBe(0);
+    });
+
+    it('lets a fault in a resume surface as itself', async () => {
+      const started = harness();
+      const context = started.lifecycle.context();
+      const fault = new TypeError('Illegal invocation.');
+      vi.spyOn(context, 'resume').mockRejectedValueOnce(fault);
+
+      await expect(started.lifecycle.ensureRunning()).rejects.toBe(fault);
+      expect(started.timers.pending).toBe(0);
     });
 
     it('reports the output latency the device gives once audio flows', async () => {
@@ -216,6 +305,23 @@ describe('ContextLifecycle', () => {
       ]);
     });
 
+    it('answers a suspension a closed context refuses with a failure, and lets a fault surface', async () => {
+      const started = await running();
+      const context = onlyContext(started);
+      vi.spyOn(context, 'suspend').mockRejectedValueOnce(
+        new DOMException('Cannot suspend a closed AudioContext.', 'InvalidStateError'),
+      );
+
+      const refused = await started.lifecycle.suspend();
+      expect(refused.ok ? undefined : refused.failures[0].code).toBe(
+        'audio.context-suspend-failed',
+      );
+
+      const fault = new TypeError('Illegal invocation.');
+      vi.spyOn(context, 'suspend').mockRejectedValueOnce(fault);
+      await expect(started.lifecycle.suspend()).rejects.toBe(fault);
+    });
+
     it('reports no system suspension of a context the runtime had already suspended', async () => {
       const started = await running();
       expectSuccess(await started.lifecycle.suspend());
@@ -284,16 +390,43 @@ describe('ContextLifecycle', () => {
       ]);
     });
 
-    it('logs a recovery the browser refuses, and tries no more until the next change', async () => {
+    it('logs a recovery that waits for a gesture, and completes it at the gesture', async () => {
+      const started = await running();
+      const context = onlyContext(started);
+      context.currentTime = 1;
+      context.becomes(AudioContextState.Suspended);
+      context.allowedToStart = false;
+
+      started.devices.change();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS);
+
+      await vi.waitFor(() => {
+        expect(messages(started)).toContain(
+          'The audio context could not resume after the audio devices changed.',
+        );
+      });
+      expect(context.resumeCalls).toBe(2);
+      expect(started.lifecycle.state).toBe(LifecycleState.AwaitingGesture);
+
+      context.gesture();
+
+      expect(started.lifecycle.state).toBe(LifecycleState.Running);
+      expect(started.events).toEqual([
+        { kind: LifecycleEventKind.SuspendedBySystem, contextFrame: 48_000 },
+        { kind: LifecycleEventKind.Resumed, contextFrame: 48_000 },
+      ]);
+    });
+
+    it('logs a recovery the system still holds, and tries no more until the next change', async () => {
       const started = await running();
       const context = onlyContext(started);
       context.becomes(AudioContextState.Interrupted);
-      context.refuseResume = new DOMException('The device is in use.', 'InvalidStateError');
 
       started.devices.change();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS);
 
       await vi.waitFor(() => {
-        expect(started.store.snapshot().map((record) => record.message)).toContain(
+        expect(messages(started)).toContain(
           'The audio context could not resume after the audio devices changed.',
         );
       });
@@ -350,6 +483,20 @@ describe('ContextLifecycle', () => {
       expect(started.store.snapshot().map((record) => record.message)).not.toContain(
         'The audio context closed without being asked to.',
       );
+    });
+
+    it('takes a close a context already closed refuses as done, and lets a fault surface', async () => {
+      const refusing = await running();
+      vi.spyOn(onlyContext(refusing), 'close').mockRejectedValueOnce(
+        new DOMException('Cannot close a closed AudioContext.', 'InvalidStateError'),
+      );
+      await refusing.lifecycle.close();
+      expect(messages(refusing)).toContain('The audio context had already closed.');
+
+      const faulting = await running();
+      const fault = new TypeError('Illegal invocation.');
+      vi.spyOn(onlyContext(faulting), 'close').mockRejectedValueOnce(fault);
+      await expect(faulting.lifecycle.close()).rejects.toBe(fault);
     });
 
     it('hands out no context afterwards', async () => {

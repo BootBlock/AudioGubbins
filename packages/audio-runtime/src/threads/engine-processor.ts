@@ -6,7 +6,9 @@
  * the processor does, so that behaviour is tested without a worklet, which a
  * test cannot make. The package is compiled with the DOM's types, which have
  * none for the worklet's scope, so the names this module reads from it are
- * declared here.
+ * declared here. It is compiled again, with everything it imports, by
+ * `scopes/audio-worklet`, against the scope's own globals alone, so a module
+ * that reaches for one the scope lacks fails to compile.
  */
 
 import { EngineProcessorCore } from '../processor/engine-processor-core.js';

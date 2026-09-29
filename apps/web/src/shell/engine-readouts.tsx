@@ -37,6 +37,7 @@ const AUDIO_FEATURES = [AUDIO_PLAYBACK, CANONICAL_DSP, OFFLINE_RENDERING, OUTPUT
 const CONTEXT_STATES: Readonly<Record<LifecycleState, string>> = {
   [LifecycleState.Idle]: 'Not started; it starts when you press Play',
   [LifecycleState.Suspended]: 'Suspended',
+  [LifecycleState.AwaitingGesture]: 'Waiting for a click or a key press to start',
   [LifecycleState.Running]: 'Running',
   [LifecycleState.Interrupted]: 'Held by the system',
   [LifecycleState.Closed]: 'Closed',

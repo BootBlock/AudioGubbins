@@ -132,6 +132,30 @@ export class RenderWorkerCore {
     }
   }
 
+  /**
+   * Says that a message arrived and could not be received: a `render` that
+   * carries a compiled module and every source's audio can fail to
+   * deserialise, and then nothing else ever reaches the host, which would wait
+   * on the job, holding its slot of the scheduler, until the person cancelled.
+   * Which job the message was for cannot be read, and a worker serves one, so
+   * the host fails that one.
+   */
+  messageFailed(): void {
+    this.#host.post(
+      {
+        kind: FromRenderWorkerKind.Refused,
+        failures: [
+          failure(
+            'protocol.render-message-unreceivable',
+            FailureKind.Unrecoverable,
+            'A message from the main thread could not be received by the render worker, so the render cannot go on.',
+          ),
+        ],
+      },
+      [],
+    );
+  }
+
   #runningAs(jobId: string): RunningJob | undefined {
     return this.#running?.jobId === jobId ? this.#running : undefined;
   }
