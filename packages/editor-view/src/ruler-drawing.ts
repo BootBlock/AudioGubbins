@@ -90,7 +90,6 @@ export function drawRuler(
   });
 }
 
-/** Draws the strip: region spans with their names, and marker flags with theirs. */
 /**
  * How wide a label of `text` is taken to be in CSS pixels: its length at an
  * average glyph width for the font's size. The view has no canvas to measure
@@ -118,6 +117,7 @@ function spacedLabels(labels: readonly TextLabel[]): TextLabel[] {
   return kept;
 }
 
+/** Draws the strip: region spans with their names, and marker flags with theirs. */
 export function drawStrip(
   pool: BuilderPool,
   layout: ViewLayout,
