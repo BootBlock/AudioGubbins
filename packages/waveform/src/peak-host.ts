@@ -13,7 +13,7 @@
 
 import { describedBuffers, type CancellationSignal } from '@audiogubbins/audio-engine';
 
-import type { SampleWindow } from './peak-columns.js';
+import type { BucketWindow, SampleWindow } from './peak-columns.js';
 import { PeakJob, type PeakEvent, type PeakStatus } from './peak-job.js';
 import { ToPeakWorkerKind, type FrameRange, type ToPeakWorker } from './peak-messages.js';
 import { readFromPeakWorker } from './peak-message-reading.js';
@@ -43,6 +43,7 @@ export interface PeakHandle {
   subscribe(listener: () => void): () => void;
   focus(range: FrameRange): void;
   samples(range: FrameRange, signal?: CancellationSignal): Promise<SampleWindow>;
+  buckets(range: FrameRange, signal?: CancellationSignal): Promise<BucketWindow>;
   readonly zeroCrossings: ZeroCrossingSearch;
   /** Lets go; the job closes when the last handle to it does. */
   release(): void;
@@ -103,6 +104,7 @@ export class PeakHost {
         job.focus(range);
       },
       samples: (range, signal) => job.samples(range, signal),
+      buckets: (range, signal) => job.buckets(range, signal),
       zeroCrossings: {
         nearest: (position, within, channels, signal) =>
           job.nearestZeroCrossing(position, within, channels, signal),

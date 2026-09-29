@@ -2,25 +2,27 @@
  * Drawing one channel's waveform into a lane, from what is known of it.
  *
  * Where a device column holds many samples it is drawn as the column's peak
- * envelope, with its root mean square inside, read from the pyramid or, below a
- * level-zero bucket, from the samples (REQ-ARCH-037); a column whose peaks are
- * not yet known is drawn as pending, so a view of a long file fills in as the
- * worker reaches it. Where a sample is wider than a pixel, the samples are
- * drawn as points joined by lines, so each one can be seen, placed and selected
- * (REQ-EDIT-012). Nothing is drawn per sample or per peak as an element of the
- * page (the packet's forbidden shortcut): all of it is rectangles and segments
- * for the renderer.
+ * envelope, with its root mean square inside, read from the pyramid and, below
+ * a level-zero bucket, over it from a window of detail buckets or of samples
+ * (REQ-ARCH-037); a column whose peaks are not yet known is drawn as pending,
+ * so a view of a long file fills in as the worker reaches it. Where a sample is
+ * wider than a pixel, the samples are drawn as points joined by lines, so each
+ * one can be seen, placed and selected (REQ-EDIT-012). Nothing is drawn per
+ * sample or per peak as an element of the page (the packet's forbidden
+ * shortcut): all of it is rectangles and segments for the renderer.
  */
 
 import type { RenderBatch } from '@audiogubbins/renderer';
 import { pixelOf, sampleAt, type ViewportState } from '@audiogubbins/timeline';
 import {
+  DetailKind,
   columnPeaks,
+  detailFor,
+  readBucketColumns,
   readPyramidColumns,
   readSampleColumns,
-  readsPyramid,
-  windowCovers,
   windowFrames,
+  type BucketWindow,
   type ColumnPeaks,
   type ColumnSpan,
   type SampleWindow,
@@ -32,9 +34,13 @@ import type { BuilderPool } from './batch-buffers.js';
 import type { EditorPalette } from './editor-palette.js';
 import type { Lane } from './lane-layout.js';
 
-/** What is known of a view's audio: the shared pyramid, and the samples of a window around the view. */
+/**
+ * What is known of a view's audio: the shared pyramid, and the window of detail
+ * buckets or of samples around the view that its zoom reads.
+ */
 export interface KnownAudio {
   readonly pyramid: WaveformPeakPyramid | undefined;
+  readonly buckets: BucketWindow | undefined;
   readonly samples: SampleWindow | undefined;
   readonly length: SampleCount;
 }
@@ -55,6 +61,20 @@ const POINT = 3;
 /** Draws waveforms, keeping its column arrays from frame to frame. */
 export class WaveformPainter {
   #columns: ColumnPeaks = columnPeaks(2048);
+  #waiting = false;
+
+  /**
+   * Whether a lane drawn since `begin` has a column whose peaks are not yet
+   * known: until one does, peaks made elsewhere change nothing drawn.
+   */
+  get waiting(): boolean {
+    return this.#waiting;
+  }
+
+  /** Starts a frame's lanes. */
+  begin(): void {
+    this.#waiting = false;
+  }
 
   #columnsFor(count: number): ColumnPeaks {
     if (this.#columns.minimum.length < count) this.#columns = columnPeaks(count * 2);
@@ -106,13 +126,17 @@ export class WaveformPainter {
       columns: Math.ceil(area.width * ratio),
     };
     const columns = this.#columnsFor(span.columns);
-    if (audio.pyramid !== undefined && readsPyramid(audio.pyramid, span)) {
-      readPyramidColumns(audio.pyramid, lane.channel, span, columns);
-    } else if (audio.samples !== undefined && windowCovers(audio.samples, span)) {
-      readSampleColumns(audio.samples, lane.channel, span, columns);
-    } else {
+    if (audio.pyramid === undefined) {
       columns.columns = span.columns;
       columns.known.fill(0, 0, span.columns);
+    } else {
+      readPyramidColumns(audio.pyramid, lane.channel, span, columns);
+    }
+    const detail = detailFor(span.framesPerColumn);
+    if (detail === DetailKind.Buckets && audio.buckets !== undefined) {
+      readBucketColumns(audio.buckets, lane.channel, span, columns);
+    } else if (detail === DetailKind.Samples && audio.samples !== undefined) {
+      readSampleColumns(audio.samples, lane.channel, span, columns);
     }
     this.#drawKnown(pool, lane, columns, span, audio.length, style, middle, scale, out);
   }
@@ -143,6 +167,7 @@ export class WaveformPainter {
       if (span.start + column * span.framesPerColumn >= length) break;
       if (columns.known[column] !== 1) {
         pending.add(x, area.y, width, area.height);
+        this.#waiting = true;
         continue;
       }
       const high = clamp(middle - (columns.maximum[column] ?? 0) * scale);
@@ -185,6 +210,7 @@ export class WaveformPainter {
       const pending = pool.rectangles(style.palette.pending);
       pending.add(area.x, area.y, area.width, area.height);
       out.push(pending.batch());
+      this.#waiting = true;
       return;
     }
     const zoom = style.viewport.zoom;

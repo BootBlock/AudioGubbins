@@ -3,8 +3,8 @@
  *
  * It only connects the worker's global scope to `PeakWorkerCore`, which holds
  * everything the worker does, so that behaviour is tested without a worker. The
- * package is compiled without any browser's type definitions, so the two parts
- * of the scope this module uses are declared here by their shape; the build
+ * package is compiled without any browser's type definitions, so the parts of
+ * the scope this module uses are declared here by their shape; the build
  * compiles it again, with everything it imports, by `scopes/dedicated-worker`,
  * against a worker's definitions. It summarises with the reference DSP, which
  * gives the canonical bits without the WebAssembly module a render worker is
@@ -34,6 +34,7 @@ interface TurnChannel {
 
 declare const self: PeakWorkerScope;
 declare const MessageChannel: new () => TurnChannel;
+declare const performance: { now(): number };
 
 /**
  * A yield to the worker's event loop between chunks, so a request that arrived
@@ -64,6 +65,7 @@ const core = new PeakWorkerCore({
   reportFault: (error) => {
     self.reportError(error);
   },
+  now: () => performance.now(),
 });
 
 self.addEventListener('message', (event) => {

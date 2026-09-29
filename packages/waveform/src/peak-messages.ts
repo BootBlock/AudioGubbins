@@ -5,13 +5,14 @@
  * field on arrival (REQ-EXEC-136.12), so a malformed one is refused with the
  * field that was wrong rather than acted on. A job is one source's pyramid,
  * named by the page; the worker keeps the source for as long as the job is
- * open, and answers requests for its samples and its zero crossings between the
- * chunks it summarises.
+ * open, and answers requests for its samples, its detail buckets and its zero
+ * crossings between the chunks it summarises, one at a time, dropping one the
+ * page cancels.
  */
 
 import type { PcmDescription } from '@audiogubbins/audio-engine';
 
-import type { PeakRun } from './peak-pyramid.js';
+import type { PeakChannel, PeakRun } from './peak-pyramid.js';
 
 /** What the page asks of the worker. */
 export const ToPeakWorkerKind = {
@@ -19,10 +20,14 @@ export const ToPeakWorkerKind = {
   Open: 'open',
   /** Summarise the chunks around a range first, where a view has moved to. */
   Focus: 'focus',
-  /** Send the samples of a range, for a view zoomed past the pyramid. */
+  /** Send the samples of a range, for a view zoomed past the detail buckets. */
   Samples: 'samples',
+  /** Send the detail buckets of a range, for a view zoomed past the pyramid. */
+  Buckets: 'buckets',
   /** Find the zero crossing nearest a position. */
   ZeroCrossing: 'zero-crossing',
+  /** Abandon a request the page no longer waits on, and send nothing for it. */
+  Cancel: 'cancel',
   /** Close a job and release its source. */
   Close: 'close',
 } as const;
@@ -51,12 +56,23 @@ export type ToPeakWorker =
       readonly range: FrameRange;
     }
   | {
+      readonly kind: typeof ToPeakWorkerKind.Buckets;
+      readonly job: string;
+      readonly request: number;
+      readonly range: FrameRange;
+    }
+  | {
       readonly kind: typeof ToPeakWorkerKind.ZeroCrossing;
       readonly job: string;
       readonly request: number;
       readonly position: number;
       readonly within: number;
       readonly channels: readonly number[];
+    }
+  | {
+      readonly kind: typeof ToPeakWorkerKind.Cancel;
+      readonly job: string;
+      readonly request: number;
     }
   | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string };
 
@@ -69,6 +85,7 @@ export const FromPeakWorkerKind = {
   /** Every bucket is known; the bytes of the cache to keep. */
   Complete: 'complete',
   Samples: 'samples',
+  Buckets: 'buckets',
   ZeroCrossing: 'zero-crossing',
   /** The job cannot go on, and why. */
   Failed: 'failed',
@@ -98,6 +115,15 @@ export type FromPeakWorker =
       readonly request: number;
       readonly start: number;
       readonly channels: readonly Float32Array[];
+    }
+  | {
+      readonly kind: typeof FromPeakWorkerKind.Buckets;
+      readonly job: string;
+      readonly request: number;
+      readonly start: number;
+      readonly frames: number;
+      readonly bucketFrames: number;
+      readonly channels: readonly PeakChannel[];
     }
   | {
       readonly kind: typeof FromPeakWorkerKind.ZeroCrossing;
@@ -136,6 +162,10 @@ export function peakTransferables(message: FromPeakWorker): readonly ArrayBuffer
       break;
     case FromPeakWorkerKind.Samples:
       message.channels.forEach(add);
+      break;
+    case FromPeakWorkerKind.Buckets:
+      for (const channel of message.channels)
+        [channel.minimum, channel.maximum, channel.rms, channel.clipped].forEach(add);
       break;
     default:
       break;

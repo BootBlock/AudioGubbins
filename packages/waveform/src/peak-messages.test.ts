@@ -46,6 +46,8 @@ describe('the messages to the peak worker', () => {
       OPEN,
       { kind: ToPeakWorkerKind.Focus, job: 'peaks-1', range: { start: 5, end: 9 } },
       { kind: ToPeakWorkerKind.Samples, job: 'peaks-1', request: 3, range: { start: 0, end: 2 } },
+      { kind: ToPeakWorkerKind.Buckets, job: 'peaks-1', request: 5, range: { start: 0, end: 64 } },
+      { kind: ToPeakWorkerKind.Cancel, job: 'peaks-1', request: 5 },
       {
         kind: ToPeakWorkerKind.ZeroCrossing,
         job: 'peaks-1',
@@ -102,6 +104,22 @@ describe('the messages from the peak worker', () => {
         start: 10,
         channels: [new Float32Array([0.5])],
       },
+      {
+        kind: FromPeakWorkerKind.Buckets,
+        job: 'a',
+        request: 3,
+        start: 32,
+        frames: 20,
+        bucketFrames: 16,
+        channels: [
+          {
+            minimum: new Int16Array([-4, -2]),
+            maximum: new Int16Array([4, 2]),
+            rms: new Int16Array([3, 1]),
+            clipped: new Uint8Array([0, 1]),
+          },
+        ],
+      },
       { kind: FromPeakWorkerKind.ZeroCrossing, job: 'a', request: 2, position: undefined },
       { kind: FromPeakWorkerKind.Failed, job: 'a', reason: 'Gone.' },
     ];
@@ -143,6 +161,7 @@ describe('the peak worker', () => {
       reportFault: (error) => {
         throw error;
       },
+      now: () => 0,
     });
     core.receive({ ...OPEN, channels: 2 });
     expect(said).toEqual([
@@ -157,6 +176,7 @@ describe('the peak worker', () => {
       yieldToHost: () => Promise.resolve(),
       dsp: REFERENCE_DSP,
       reportFault: (error) => faults.push(error),
+      now: () => 0,
     });
     core.receive({ kind: 'paint' });
     expect(faults).toHaveLength(1);
@@ -185,6 +205,8 @@ describe('the page never builds peaks', () => {
     const modules = reached('peak-host.ts');
     expect(modules.has('peak-job.ts')).toBe(true);
     expect(modules.has('peak-builder.ts')).toBe(false);
+    expect(modules.has('bucket-summary.ts')).toBe(false);
+    expect(modules.has('peak-requests.ts')).toBe(false);
     expect(modules.has('zero-crossings.ts')).toBe(false);
     expect(modules.has('peak-worker-core.ts')).toBe(false);
   });

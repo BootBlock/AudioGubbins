@@ -63,6 +63,39 @@ export interface SceneSources {
   readonly type: EditorType;
 }
 
+/**
+ * The values of `sources` a frame is drawn from, in a fixed order, each to be
+ * compared by identity: a store gives the same value for what has not changed,
+ * so a view whose own values are all the same as its last frame's has nothing
+ * new to draw, whatever else in the stores changed. The peaks made since count
+ * only while the last frame was `waiting` on some, since a frame whose columns
+ * were all known shows none of them.
+ */
+export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly unknown[] {
+  const { audio } = sources;
+  return [
+    sources.state,
+    sources.asset,
+    sources.content,
+    sources.selection,
+    sources.playhead,
+    sources.picture,
+    sources.palette,
+    sources.type,
+    sources.preview,
+    sources.snap,
+    audio.pyramid,
+    waiting ? audio.pyramid?.version : undefined,
+    audio.buckets,
+    audio.samples,
+  ];
+}
+
+/** Whether two lists of a frame's inputs hold the same values. */
+export function sameInputs(one: readonly unknown[], other: readonly unknown[]): boolean {
+  return one.length === other.length && one.every((input, index) => input === other[index]);
+}
+
 /** Each asset's channel names, worked out once. */
 const NAMES = new WeakMap<EditorAsset, readonly string[]>();
 

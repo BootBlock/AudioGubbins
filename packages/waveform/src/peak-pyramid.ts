@@ -35,20 +35,42 @@ export interface PeakRun {
   readonly channels: readonly PeakChannel[];
 }
 
-function emptyChannel(buckets: number): PeakChannel {
-  return {
-    minimum: new Int16Array(buckets),
-    maximum: new Int16Array(buckets),
-    rms: new Int16Array(buckets),
-    clipped: new Uint8Array(buckets),
-  };
+/**
+ * `channels` channels of `buckets` buckets each, all views of one buffer, so a
+ * message carrying them transfers one buffer rather than four a channel. The
+ * 16-bit arrays come first, so each starts on a whole number of their values.
+ */
+export function packedChannels(channels: number, buckets: number): PeakChannel[] {
+  const wide = Int16Array.BYTES_PER_ELEMENT * buckets;
+  const buffer = new ArrayBuffer(channels * (3 * wide + buckets));
+  const bytes = channels * 3 * wide;
+  return Array.from({ length: channels }, (_, channel) => ({
+    minimum: new Int16Array(buffer, (channel * 3 + 0) * wide, buckets),
+    maximum: new Int16Array(buffer, (channel * 3 + 1) * wide, buckets),
+    rms: new Int16Array(buffer, (channel * 3 + 2) * wide, buckets),
+    clipped: new Uint8Array(buffer, bytes + channel * buckets, buckets),
+  }));
+}
+
+/** Copies `count` buckets of `from` from bucket `first` into `into` from bucket `at`. */
+export function copyBuckets(
+  from: PeakChannel,
+  first: number,
+  count: number,
+  into: PeakChannel,
+  at: number,
+): void {
+  into.minimum.set(from.minimum.subarray(first, first + count), at);
+  into.maximum.set(from.maximum.subarray(first, first + count), at);
+  into.rms.set(from.rms.subarray(first, first + count), at);
+  into.clipped.set(from.clipped.subarray(first, first + count), at);
 }
 
 /** A pyramid's levels, empty, for a source of `geometry`. */
 export function emptyLevels(geometry: PeakGeometry): readonly PeakLevel[] {
   return geometry.levels.map((level) => ({
     ...level,
-    channels: Array.from({ length: geometry.channels }, () => emptyChannel(level.buckets)),
+    channels: packedChannels(geometry.channels, level.buckets),
     known: new Uint8Array(level.buckets),
   }));
 }
@@ -103,11 +125,7 @@ export class WaveformPeakPyramid {
     }
     run.channels.forEach((values, index) => {
       const into = level.channels[index];
-      if (into === undefined) return;
-      into.minimum.set(values.minimum, run.first);
-      into.maximum.set(values.maximum, run.first);
-      into.rms.set(values.rms, run.first);
-      into.clipped.set(values.clipped, run.first);
+      if (into !== undefined) copyBuckets(values, 0, count, into, run.first);
     });
     let newlyKnown = 0;
     for (let bucket = run.first; bucket < run.first + count; bucket += 1) {

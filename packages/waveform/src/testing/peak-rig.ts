@@ -26,11 +26,14 @@ export function turn(): Promise<void> {
 /** The peak worker, run in this thread behind a cloning port. */
 export class LocalPeakWorker implements PeakWorkerPort {
   readonly sent: ToPeakWorker[] = [];
+  /** The kinds of the messages the worker posted, in order. */
+  readonly posted: string[] = [];
   terminated = false;
   #onMessage: ((value: unknown) => void) | undefined;
   #onFault: ((reason: string) => void) | undefined;
   readonly #core = new PeakWorkerCore({
     post: (message, transfer) => {
+      this.posted.push(message.kind);
       const cloned: unknown = structuredClone(message, { transfer: [...transfer] });
       setTimeout(() => this.#onMessage?.(cloned), 0);
     },
@@ -39,7 +42,10 @@ export class LocalPeakWorker implements PeakWorkerPort {
     reportFault: (error) => {
       throw error;
     },
+    now: () => this.clock,
   });
+  /** The worker's clock, which a test moves to make a batch of runs due. */
+  clock = 0;
 
   post(message: ToPeakWorker, transfer: readonly ArrayBuffer[]): void {
     this.sent.push(message);
@@ -52,6 +58,11 @@ export class LocalPeakWorker implements PeakWorkerPort {
   listen(onMessage: (value: unknown) => void, onFault: (reason: string) => void): void {
     this.#onMessage = onMessage;
     this.#onFault = onFault;
+  }
+
+  /** How many messages of `kind` the worker posted. */
+  answered(kind: string): number {
+    return this.posted.filter((one) => one === kind).length;
   }
 
   /** The worker failing, as an error event reports it. */

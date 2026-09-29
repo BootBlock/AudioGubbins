@@ -74,21 +74,49 @@ describe('what a tool intent runs', () => {
 });
 
 describe("a view's audio", () => {
+  /** Lets the windows asked for be answered, and the view told. */
+  function answered(): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  }
+
   /** A peak host whose one handle records what it is asked, answering windows at once. */
   function recordingHost() {
     const asked: { start: number; end: number }[] = [];
     const focused: { start: number; end: number }[] = [];
+    const abandoned: { start: number; end: number }[] = [];
     let released = 0;
     const handle: PeakHandle = {
       pyramid: new WaveformPeakPyramid(peakGeometry(TONES.length, 2)),
       status: { kind: 'complete' },
       subscribe: () => () => undefined,
       focus: (range) => focused.push(range),
-      samples: (range) => {
+      samples: (range, signal) => {
         asked.push(range);
+        signal?.addEventListener('abort', () => abandoned.push(range));
         return Promise.resolve({
           start: range.start,
           channels: [new Float32Array(range.end - range.start)],
+        });
+      },
+      buckets: (range, signal) => {
+        asked.push(range);
+        signal?.addEventListener('abort', () => abandoned.push(range));
+        const frames = range.end - range.start;
+        const buckets = Math.ceil(frames / 16);
+        return Promise.resolve({
+          start: range.start,
+          frames,
+          bucketFrames: 16,
+          channels: [
+            {
+              minimum: new Int16Array(buckets),
+              maximum: new Int16Array(buckets),
+              rms: new Int16Array(buckets),
+              clipped: new Uint8Array(buckets),
+            },
+          ],
         });
       },
       zeroCrossings: { nearest: () => Promise.resolve(undefined) },
@@ -97,7 +125,7 @@ describe("a view's audio", () => {
       },
     };
     const host: Pick<PeakHost, 'open'> = { open: () => handle };
-    return { host, asked, focused, released: () => released };
+    return { host, asked, focused, abandoned, released: () => released };
   }
 
   it('reads the pyramid alone where a pixel holds many buckets', () => {
@@ -106,6 +134,7 @@ describe("a view's audio", () => {
       peaks: host,
       asset: TONES,
       changed: () => undefined,
+      progressed: () => undefined,
       failed: () => undefined,
     });
 
@@ -124,6 +153,7 @@ describe("a view's audio", () => {
       changed: () => {
         changes += 1;
       },
+      progressed: () => undefined,
       failed: () => undefined,
     });
     const viewport: ViewportState = {
@@ -135,12 +165,102 @@ describe("a view's audio", () => {
 
     audio.known(viewport, 1);
     audio.known(viewport, 1);
-    await Promise.resolve();
+    await answered();
     const known = audio.known(viewport, 1);
 
-    expect(asked).toEqual([{ start: 99_875, end: 100_375 }]);
-    expect(known.samples?.start).toBe(99_875);
+    expect(asked).toEqual([{ start: 99_750, end: 100_500 }]);
+    expect(known.samples?.start).toBe(99_750);
     expect(changes).toBe(1);
+    audio.release();
+  });
+
+  it('asks once for the widest window a view wider than any window can have, and not again', async () => {
+    const long = expectSuccess(testAssets()).find((asset) => asset.id === 'test:long-session');
+    if (long === undefined) throw new Error('No long session.');
+    for (const samples of [15, 255]) {
+      const { host, asked } = recordingHost();
+      let changes = 0;
+      const audio = new ViewAudio({
+        peaks: host,
+        asset: long,
+        changed: () => {
+          changes += 1;
+        },
+        progressed: () => undefined,
+        failed: () => undefined,
+      });
+      const viewport: ViewportState = {
+        start: at(10_000_000),
+        offset: 0,
+        zoom: samplesPerPixel(samples),
+        width: 60_000,
+      };
+
+      for (let frame = 0; frame < 5; frame += 1) {
+        audio.known(viewport, 1);
+        await answered();
+      }
+
+      expect(asked).toHaveLength(1);
+      expect(changes).toBe(1);
+      audio.release();
+    }
+  });
+
+  it('reads detail buckets, not samples, where a column holds sixteen samples or more', async () => {
+    const { host, asked } = recordingHost();
+    const audio = new ViewAudio({
+      peaks: host,
+      asset: TONES,
+      changed: () => undefined,
+      progressed: () => undefined,
+      failed: () => undefined,
+    });
+    const viewport: ViewportState = {
+      start: at(100_000),
+      offset: 0,
+      zoom: samplesPerPixel(100),
+      width: 1000,
+    };
+
+    audio.known(viewport, 2);
+    await answered();
+    const known = audio.known(viewport, 2);
+
+    expect(known.buckets?.start).toBe(0);
+    expect(known.samples).toBeUndefined();
+    expect(asked).toEqual([{ start: 0, end: 300_000 }]);
+    audio.release();
+  });
+
+  it('keeps drawing from its window while it scrolls within half a span of it, then asks for the next and drops the last ask', async () => {
+    const { host, asked, abandoned } = recordingHost();
+    const audio = new ViewAudio({
+      peaks: host,
+      asset: TONES,
+      changed: () => undefined,
+      progressed: () => undefined,
+      failed: () => undefined,
+    });
+    const view = (start: number): ViewportState => ({
+      start: at(start),
+      offset: 0,
+      zoom: samplesPerPixel(4),
+      width: 1000,
+    });
+
+    audio.known(view(100_000), 1);
+    await answered();
+    audio.known(view(101_500), 1);
+    audio.known(view(103_000), 1);
+    audio.known(view(106_000), 1);
+
+    expect(asked).toEqual([
+      { start: 96_000, end: 108_000 },
+      { start: 99_000, end: 111_000 },
+      { start: 102_000, end: 114_000 },
+    ]);
+    expect(abandoned).toEqual([{ start: 99_000, end: 111_000 }]);
     audio.release();
   });
 });

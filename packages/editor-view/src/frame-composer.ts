@@ -70,8 +70,18 @@ export class FrameComposer {
   readonly #pool = new BuilderPool();
   readonly #waveform = new WaveformPainter();
 
+  /**
+   * Whether the last frame composed drew a column whose peaks were not yet
+   * known, so the peaks made since may change it; a frame with none cannot be
+   * changed by them, since a known bucket never changes.
+   */
+  get waiting(): boolean {
+    return this.#waveform.waiting;
+  }
+
   compose(scene: ViewScene): RenderFrame {
     this.#pool.reset();
+    this.#waveform.begin();
     const { layout, palette } = scene;
     const style: OverlayStyle = {
       viewport: scene.state.viewport,

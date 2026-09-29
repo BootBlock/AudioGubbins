@@ -271,17 +271,26 @@ export function EditorPanel({
   readonly title: string;
   readonly parts: EditorPanelParts;
 }): ReactNode {
-  const views = useSyncExternalStore(
-    parts.stores.editorViews.subscribe,
-    parts.stores.editorViews.get,
+  // Each reading is this view's own part of its store, so a change to another
+  // view, or to another asset, does not render this one again.
+  const { stores } = parts;
+  const entry = useSyncExternalStore(stores.editorViews.subscribe, () =>
+    stores.editorViews.entry(panel),
   );
   useSyncExternalStore(parts.assets.subscribe, parts.assets.get);
-  useSyncExternalStore(parts.stores.selections.subscribe, parts.stores.selections.get);
-  useSyncExternalStore(parts.stores.content.subscribe, parts.stores.content.get);
-  useSyncExternalStore(parts.stores.cues.subscribe, parts.stores.cues.get);
-  useSyncExternalStore(parts.stores.audio.subscribe, parts.stores.audio.get);
-  const entry = views.views.get(panel);
   const asset = entry === undefined ? undefined : parts.assets.find(entry.asset);
+  useSyncExternalStore(stores.selections.subscribe, () =>
+    asset === undefined ? undefined : stores.selections.of(asset.id),
+  );
+  useSyncExternalStore(stores.content.subscribe, () =>
+    asset === undefined ? undefined : stores.content.of(asset),
+  );
+  useSyncExternalStore(stores.cues.subscribe, () =>
+    asset === undefined ? undefined : stores.playhead(asset),
+  );
+  useSyncExternalStore(stores.audio.subscribe, () =>
+    asset === undefined ? false : stores.playing(asset.id),
+  );
   if (entry !== undefined && asset !== undefined) {
     return (
       <EditorView panel={panel} title={title} asset={asset} state={entry.state} parts={parts} />

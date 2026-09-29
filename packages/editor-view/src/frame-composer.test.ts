@@ -43,9 +43,14 @@ function texts(frame: RenderFrame): readonly string[] {
 describe('composing a frame', () => {
   it('draws each lane of a pyramid not yet known as pending, one column a device pixel', () => {
     const pyramid = new WaveformPeakPyramid(peakGeometry(100_000, 2));
-    const composed = new FrameComposer().compose(
-      scene({ pixelRatio: 2, audio: { pyramid, samples: undefined, length: at(100_000) } }),
+    const composer = new FrameComposer();
+    const composed = composer.compose(
+      scene({
+        pixelRatio: 2,
+        audio: { pyramid, buckets: undefined, samples: undefined, length: at(100_000) },
+      }),
     );
+    expect(composer.waiting).toBe(true);
     for (const batches of laneBatches(composed, 2)) {
       expect(rectanglesOf(batches, PALETTE.pending)).toBe(2000);
       expect(rectanglesOf(batches, PALETTE.peak)).toBe(0);
@@ -71,14 +76,16 @@ describe('composing a frame', () => {
         ],
       });
     }
-    const composed = new FrameComposer().compose(
+    const composer = new FrameComposer();
+    const composed = composer.compose(
       scene({
         channels: 1,
         length: 1_000_000,
-        audio: { pyramid, samples: undefined, length: at(1_000_000) },
+        audio: { pyramid, buckets: undefined, samples: undefined, length: at(1_000_000) },
       }),
     );
     const [batches] = laneBatches(composed, 1);
+    expect(composer.waiting).toBe(false);
     expect(rectanglesOf(batches!, PALETTE.peak)).toBe(1000);
     expect(rectanglesOf(batches!, PALETTE.rms)).toBe(1000);
     expect(rectanglesOf(batches!, PALETTE.pending)).toBe(0);
@@ -93,7 +100,7 @@ describe('composing a frame', () => {
       scene({
         channels: 1,
         state: (state) => ({ ...state, viewport: viewportAtStart(pixelsPerSample(10), 1000) }),
-        audio: { pyramid: undefined, samples, length: at(100_000) },
+        audio: { pyramid: undefined, buckets: undefined, samples, length: at(100_000) },
       }),
     );
     const [batches] = laneBatches(composed, 1);

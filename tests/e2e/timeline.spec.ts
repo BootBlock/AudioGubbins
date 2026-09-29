@@ -137,3 +137,54 @@ test.describe('the editor timeline', () => {
     });
   });
 });
+
+test.describe('the editor timeline on a wide display', () => {
+  // A view wide enough that at 256 samples a pixel, which a zoom step reaches,
+  // it shows more than the widest window a view reading samples could once
+  // have, so a view that asked again for a window it cannot get would never
+  // rest.
+  test.use({ viewport: { width: 7600, height: 900 }, deviceScaleFactor: 2 });
+
+  test('zooms and scrolls a three-hour session through every level, and rests when still', async ({
+    page,
+  }) => {
+    // Every level of a three-hour session, each waited on until it rests.
+    test.setTimeout(300_000);
+    await page.addInitScript(() => {
+      const counted = window.requestAnimationFrame.bind(window);
+      Object.assign(window, { framesAsked: 0 });
+      window.requestAnimationFrame = (callback) => {
+        Object.assign(window, { framesAsked: Number(Reflect.get(window, 'framesAsked')) + 1 });
+        return counted(callback);
+      };
+    });
+    const panel = await openAsset(page, 'Three-hour session');
+    const surface = surfaceOf(panel);
+    const width = (await surface.boundingBox())?.width ?? 0;
+    expect(width * 256).toBeGreaterThan(1_048_576);
+    /**
+     * Whether the page comes to rest: asks for no more than a frame or two in
+     * a second, within half a minute, as the peaks of what it shows arrive.
+     */
+    const rests = async (): Promise<boolean> => {
+      const asked = () => page.evaluate(() => Number(Reflect.get(window, 'framesAsked')));
+      for (const started = Date.now(); Date.now() - started < 30_000;) {
+        const before = await asked();
+        await page.waitForTimeout(1000);
+        if ((await asked()) - before <= 2) return true;
+      }
+      return false;
+    };
+
+    await surface.focus();
+    for (let step = 0; (await samplesInPixelOf(panel)) > 1 / 16; step += 1) {
+      expect(step).toBeLessThan(80);
+      await surface.press('ArrowUp');
+      const zoom = await samplesInPixelOf(panel);
+      if (zoom < 2 ** 11) {
+        await surface.press('PageDown');
+        expect(await rests(), `at ${String(zoom)} samples a pixel`).toBe(true);
+      }
+    }
+  });
+});

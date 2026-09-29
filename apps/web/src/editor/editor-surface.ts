@@ -12,8 +12,11 @@
  *
  * A frame is drawn when something it shows has changed, and every display frame
  * while the transport plays the asset, when the view also follows the playhead
- * as its follow mode says. A right click or a long press on it is the context
- * actions', which the panel wraps it in.
+ * as its follow mode says. A change to a store is only a reason to look: the
+ * frame is composed again only where a value it is drawn from is not the one
+ * the last frame was, so a view is not redrawn for another view's scroll. A
+ * right click or a long press on it is the context actions', which the panel
+ * wraps it in.
  */
 
 import type { GraphicsPlatform } from '@audiogubbins/capabilities';
@@ -23,13 +26,15 @@ import { Renderer, browserBackends, type RendererReport } from '@audiogubbins/re
 import type { SnapTarget } from '@audiogubbins/timeline';
 import type { PeakHost, PeakStatus } from '@audiogubbins/waveform';
 
+import type { Filmstrip } from '../picture/filmstrip.js';
+
 import { EditorCanvases } from './editor-canvases.js';
 import type { IntentCommand } from './intent-commands.js';
 import { listenToPointers } from './pointer-input.js';
 import { ToolPointer } from './tool-pointer.js';
 import { followingScroll, viewSources, type SurfaceStores } from './view-sources.js';
 import { ViewAudio } from './view-audio.js';
-import { sceneOf, type SceneSources } from './view-scene.js';
+import { frameInputsOf, sameInputs, sceneOf, type SceneSources } from './view-scene.js';
 import type { EditorPalette, EditorType } from '@audiogubbins/editor-view';
 
 /** What a surface is made with. */
@@ -63,6 +68,13 @@ export class EditorSurface {
   #panning = false;
   #disposed = false;
   #lastReport = '';
+  /** The values the last frame was drawn from, in `#inputsOf`'s order. */
+  #drawn: readonly unknown[] = [];
+  /** The filmstrip listened to, and how many thumbnails it has made since. */
+  #filmstrip: { readonly strip: Filmstrip; readonly stop: () => void } | undefined;
+  #thumbnails = 0;
+  /** What the panel was last told of the peaks, as its words would change. */
+  #toldPeaks = '';
 
   constructor(options: SurfaceOptions) {
     this.#options = options;
@@ -117,6 +129,9 @@ export class EditorSurface {
       this.#stops.push(store.subscribe(this.redraw));
     }
     this.#stops.push(graphics.watchPixelRatio(this.redraw));
+    this.#stops.push(stores.picture.subscribe(this.#watchFilmstrip));
+    this.#stops.push(() => this.#filmstrip?.stop());
+    this.#watchFilmstrip();
     const resizing = new ResizeObserver(([entry]) => {
       if (entry === undefined) return;
       this.#size = { width: entry.contentRect.width, height: entry.contentRect.height };
@@ -130,6 +145,34 @@ export class EditorSurface {
     this.#stops.push(() => {
       resizing.disconnect();
     });
+  }
+
+  /** Listens to the picture's filmstrip, which makes thumbnails the frame shows as they come. */
+  readonly #watchFilmstrip = (): void => {
+    const strip = this.#options.stores.picture.filmstrip;
+    if (strip === this.#filmstrip?.strip) return;
+    this.#filmstrip?.stop();
+    this.#filmstrip =
+      strip === undefined
+        ? undefined
+        : {
+            strip,
+            stop: strip.subscribe(() => {
+              this.#thumbnails += 1;
+              this.redraw();
+            }),
+          };
+  };
+
+  /** Tells the panel where the peaks are, where that changes what it says. */
+  #tellPeaks(status: PeakStatus): void {
+    const said =
+      status.kind === 'generating'
+        ? `${status.kind}:${String(Math.floor(status.progress * 100))}`
+        : status.kind;
+    if (said === this.#toldPeaks) return;
+    this.#toldPeaks = said;
+    this.#options.peaksChanged(status);
   }
 
   #listenToPointers(): void {
@@ -203,16 +246,18 @@ export class EditorSurface {
       const view: ViewAudio = new ViewAudio({
         peaks,
         asset: sources.asset,
-        changed: () => {
-          this.#options.peaksChanged(view.status);
-          this.redraw();
+        changed: this.redraw,
+        progressed: () => {
+          this.#tellPeaks(view.status);
+          // A frame whose columns were all known shows none of what came.
+          if (this.#composer.waiting) this.redraw();
         },
         failed: (reason) => {
           logger.warning('Samples for the editor could not be read.', { reason });
         },
       });
       this.#audio = { asset: sources.asset.id, view };
-      this.#options.peaksChanged(view.status);
+      this.#tellPeaks(view.status);
     }
     const ratio = this.#options.graphics.pixelRatio();
     return {
@@ -232,10 +277,26 @@ export class EditorSurface {
     );
   }
 
+  /** The values a frame of `sources` is drawn from, each compared by identity. */
+  #inputsOf(sources: SceneSources): readonly unknown[] {
+    return [
+      ...frameInputsOf(sources, this.#composer.waiting),
+      this.#options.stores.picture.get(),
+      this.#thumbnails,
+      this.#size.width,
+      this.#size.height,
+      this.#options.graphics.pixelRatio(),
+    ];
+  }
+
   #draw(): void {
     const sources = this.#sources();
     if (sources === undefined || this.#size.width <= 0 || this.#size.height <= 0) return;
-    this.#renderer.draw(this.#composer.compose(this.#scene(sources)));
+    const inputs = this.#inputsOf(sources);
+    if (!sameInputs(inputs, this.#drawn)) {
+      this.#drawn = inputs;
+      this.#renderer.draw(this.#composer.compose(this.#scene(sources)));
+    }
     const { stores, panel, run } = this.#options;
     if (!stores.playing(sources.asset.id)) return;
     if (sources.state.follow !== FollowMode.Off) {

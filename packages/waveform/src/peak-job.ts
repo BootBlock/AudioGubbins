@@ -6,7 +6,8 @@
  * (`peak-host.ts`). The job reads the kept cache first and sends it to the
  * worker, which checks it; the answer is either the cache, adopted whole, or
  * runs of buckets as the worker makes them, then the bytes to keep. A request
- * for samples or a zero crossing is answered by number; a window of samples
+ * for a window or a zero crossing is answered by number, and one the view
+ * abandons is cancelled in the worker too, so it reads no more of it; a window
  * already fetched is answered again from the few kept, so a view that redraws
  * in place asks the worker nothing (the packet's "without rebuilding peaks from
  * raw PCM per frame").
@@ -24,7 +25,7 @@ import {
   type ToPeakWorker,
 } from './peak-messages.js';
 import { WaveformPeakPyramid } from './peak-pyramid.js';
-import type { SampleWindow } from './peak-columns.js';
+import type { BucketWindow, SampleWindow } from './peak-columns.js';
 import type { PeakSubject } from './peak-subject.js';
 
 /** Where a source's peaks are. */
@@ -41,8 +42,18 @@ export type PeakEvent =
   | { readonly kind: 'cache-unwritten'; readonly identity: string; readonly reason: string }
   | { readonly kind: 'failed'; readonly identity: string; readonly reason: string };
 
-/** How many windows of samples a job keeps. */
-const KEPT_WINDOWS = 4;
+/** How many windows of each kind a job keeps, for a second view of the source. */
+const KEPT_WINDOWS = 2;
+
+/** The frames a window holds. */
+interface HeldWindow {
+  readonly start: number;
+  readonly frames: number;
+}
+
+function holds(held: HeldWindow, range: FrameRange): boolean {
+  return held.start <= range.start && held.start + held.frames >= range.end;
+}
 
 interface Pending<T> {
   readonly resolve: (value: T) => void;
@@ -66,8 +77,10 @@ export class PeakJob {
   #focus: FrameRange | undefined;
   #requests = 0;
   readonly #samples = new Map<number, Pending<SampleWindow>>();
+  readonly #buckets = new Map<number, Pending<BucketWindow>>();
   readonly #crossings = new Map<number, Pending<number | undefined>>();
-  #windows: SampleWindow[] = [];
+  #sampleWindows: (SampleWindow & HeldWindow)[] = [];
+  #bucketWindows: BucketWindow[] = [];
   #closed = false;
   /** Whether the worker was told of the job, and must be told when it closes. */
   #started = false;
@@ -140,13 +153,22 @@ export class PeakJob {
 
   /** The samples of `range`, from a window kept or from the worker. */
   samples(range: FrameRange, signal?: CancellationSignal): Promise<SampleWindow> {
-    const kept = this.#windows.find(
-      (held) =>
-        held.start <= range.start && held.start + (held.channels[0]?.length ?? 0) >= range.end,
-    );
+    const kept = this.#sampleWindows.find((held) => holds(held, range));
     if (kept !== undefined) return Promise.resolve(kept);
     return this.#ask(this.#samples, signal, (request) => ({
       kind: ToPeakWorkerKind.Samples,
+      job: this.#name,
+      request,
+      range,
+    }));
+  }
+
+  /** The detail buckets of `range`, from a window kept or from the worker. */
+  buckets(range: FrameRange, signal?: CancellationSignal): Promise<BucketWindow> {
+    const kept = this.#bucketWindows.find((held) => holds(held, range));
+    if (kept !== undefined) return Promise.resolve(kept);
+    return this.#ask(this.#buckets, signal, (request) => ({
+      kind: ToPeakWorkerKind.Buckets,
       job: this.#name,
       request,
       range,
@@ -183,6 +205,7 @@ export class PeakJob {
     return new Promise<T>((resolve, reject) => {
       const abort = (): void => {
         pending.delete(request);
+        this.#send({ kind: ToPeakWorkerKind.Cancel, job: this.#name, request });
         if (signal !== undefined) reject(cancellationReason(signal));
       };
       signal?.addEventListener('abort', abort, { once: true });
@@ -200,10 +223,20 @@ export class PeakJob {
     });
   }
 
-  /** Sends a request, or holds it until the worker has been told of the job. */
+  /**
+   * Sends a request, or holds it until the worker has been told of the job; a
+   * cancel of one still held removes it instead.
+   */
   #send(message: ToPeakWorker): void {
-    if (this.#started) this.#post(message);
-    else this.#queued.push(message);
+    if (this.#started) {
+      this.#post(message);
+    } else if (message.kind === ToPeakWorkerKind.Cancel) {
+      this.#queued = this.#queued.filter(
+        (each) => !('request' in each) || each.request !== message.request,
+      );
+    } else {
+      this.#queued.push(message);
+    }
   }
 
   /** Handles a message from the worker for this job. */
@@ -221,9 +254,25 @@ export class PeakJob {
       case FromPeakWorkerKind.Complete:
         this.#complete(message.bytes, message.refusedCache);
         break;
-      case FromPeakWorkerKind.Samples:
-        this.#answerSamples(message.request, { start: message.start, channels: message.channels });
+      case FromPeakWorkerKind.Samples: {
+        const held = {
+          start: message.start,
+          frames: message.channels[0]?.length ?? 0,
+          channels: message.channels,
+        };
+        this.#sampleWindows = [held, ...this.#sampleWindows].slice(0, KEPT_WINDOWS);
+        this.#samples.get(message.request)?.resolve(held);
+        this.#samples.delete(message.request);
         break;
+      }
+      case FromPeakWorkerKind.Buckets: {
+        const { start, frames, bucketFrames, channels } = message;
+        const held: BucketWindow = { start, frames, bucketFrames, channels };
+        this.#bucketWindows = [held, ...this.#bucketWindows].slice(0, KEPT_WINDOWS);
+        this.#buckets.get(message.request)?.resolve(held);
+        this.#buckets.delete(message.request);
+        break;
+      }
       case FromPeakWorkerKind.ZeroCrossing:
         this.#crossings.get(message.request)?.resolve(message.position);
         this.#crossings.delete(message.request);
@@ -264,12 +313,6 @@ export class PeakJob {
     });
   }
 
-  #answerSamples(request: number, held: SampleWindow): void {
-    this.#windows = [held, ...this.#windows].slice(0, KEPT_WINDOWS);
-    this.#samples.get(request)?.resolve(held);
-    this.#samples.delete(request);
-  }
-
   /** Ends the job with `reason`, refusing every request still waiting. */
   fail(reason: string): void {
     if (this.#closed || this.#status.kind === 'failed') return;
@@ -280,9 +323,14 @@ export class PeakJob {
   }
 
   #rejectAll(error: Error): void {
-    for (const pending of [...this.#samples.values(), ...this.#crossings.values()])
+    for (const pending of [
+      ...this.#samples.values(),
+      ...this.#buckets.values(),
+      ...this.#crossings.values(),
+    ])
       pending.reject(error);
     this.#samples.clear();
+    this.#buckets.clear();
     this.#crossings.clear();
   }
 
@@ -293,7 +341,8 @@ export class PeakJob {
     if (this.#started) this.#post({ kind: ToPeakWorkerKind.Close, job: this.#name });
     this.#rejectAll(new Cancelled('The peaks were closed.'));
     this.#queued = [];
-    this.#windows = [];
+    this.#sampleWindows = [];
+    this.#bucketWindows = [];
     this.#listeners.clear();
   }
 }

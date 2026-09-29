@@ -10,7 +10,7 @@ import { PcmDescriptionKind, REFERENCE_DSP, describedSource } from '@audiogubbin
 import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
-import { CHUNK_FRAMES } from './peak-geometry.js';
+import { CHUNK_FRAMES, DETAIL_BUCKET_FRAMES } from './peak-geometry.js';
 import { PeakHost, type PeakHandle } from './peak-host.js';
 import type { PeakEvent } from './peak-job.js';
 import { ToPeakWorkerKind } from './peak-messages.js';
@@ -139,6 +139,50 @@ describe('the peak host', () => {
     // The ramp crosses zero half way along.
     expect(await handle.zeroCrossings.nearest(4_000, 2_000, [0])).toBe(5_000);
     expect(await handle.zeroCrossings.nearest(1_000, 100, [0])).toBeUndefined();
+  });
+
+  it('answers a view with detail buckets, each the envelope of its sixteen samples', async () => {
+    const { host } = rig();
+    const audio = ramp(3 * CHUNK_FRAMES);
+    const handle = host.open(memorySubject('ramp', [audio]));
+    const held = await handle.buckets({ start: 70_000, end: 140_000 });
+    expect(held).toMatchObject({
+      start: 70_000,
+      frames: 70_000,
+      bucketFrames: DETAIL_BUCKET_FRAMES,
+    });
+    const values = held.channels[0]!;
+    expect(values.minimum).toHaveLength(Math.ceil(70_000 / DETAIL_BUCKET_FRAMES));
+    for (const bucket of [0, 4095, values.minimum.length - 1]) {
+      const from = 70_000 + bucket * DETAIL_BUCKET_FRAMES;
+      const samples = audio.subarray(from, Math.min(140_000, from + DETAIL_BUCKET_FRAMES));
+      expect(values.minimum[bucket]! / 8192).toBeLessThanOrEqual(Math.min(...samples));
+      expect(values.maximum[bucket]! / 8192).toBeGreaterThanOrEqual(Math.max(...samples));
+      expect(Math.max(...samples) - values.maximum[bucket]! / 8192).toBeGreaterThan(-1 / 8192);
+    }
+  });
+
+  it('stops reading a window the view has cancelled, and answers nothing for it', async () => {
+    const { host, workers } = rig();
+    const handle = host.open(memorySubject('long', [ramp(12 * CHUNK_FRAMES)]));
+    await settled(handle);
+    const controller = new AbortController();
+    const abandoned = handle.samples({ start: 0, end: 12 * CHUNK_FRAMES }, controller.signal);
+    await turn();
+    controller.abort();
+    await expect(abandoned).rejects.toThrow();
+    const after = await handle.samples({ start: 5, end: 10 });
+    expect(after.start).toBe(5);
+    expect(workers[0]!.answered(ToPeakWorkerKind.Samples)).toBe(1);
+    expect(workers[0]!.sent.map((sent) => sent.kind)).toContain(ToPeakWorkerKind.Cancel);
+  });
+
+  it('sends the runs of a long build in a few batches rather than one a chunk', async () => {
+    const { host, workers } = rig();
+    const handle = host.open(memorySubject('long', [ramp(40 * CHUNK_FRAMES)]));
+    await settled(handle);
+    expect(handle.pyramid.complete).toBe(true);
+    expect(workers[0]!.answered('runs')).toBeLessThanOrEqual(2);
   });
 
   it('fails every job with the reason when the worker fails, refuses what was waiting, and starts a new worker next', async () => {

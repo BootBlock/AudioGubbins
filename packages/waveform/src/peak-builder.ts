@@ -21,8 +21,15 @@ import {
   framesInBucket,
   type PeakGeometry,
 } from './peak-geometry.js';
-import { emptyLevels, type PeakChannel, type PeakLevel, type PeakRun } from './peak-pyramid.js';
-import { highStep, lowStep, rmsStep } from './quantisation.js';
+import {
+  copyBuckets,
+  emptyLevels,
+  packedChannels,
+  type PeakLevel,
+  type PeakRun,
+} from './peak-pyramid.js';
+import { summariseBucket } from './bucket-summary.js';
+import { rmsStep } from './quantisation.js';
 
 /** A run of buckets finished at one level, `[first, end)`. */
 interface Finished {
@@ -75,27 +82,7 @@ export class PeakBuilder {
       for (let bucket = first; bucket < end; bucket += 1) {
         const offset = (bucket - first) * BASE_BUCKET_FRAMES;
         const count = framesInBucket(geometry, level, bucket);
-        let low = Infinity;
-        let high = -Infinity;
-        let sum = 0;
-        let clipped = 0;
-        for (let index = offset; index < offset + count; index += 1) {
-          const sample = samples[index] ?? 0;
-          if (!Number.isFinite(sample)) {
-            clipped = 1;
-            continue;
-          }
-          if (sample < low) low = sample;
-          if (sample > high) high = sample;
-          sum += sample * sample;
-          if (sample >= 1 || sample <= -1) clipped = 1;
-        }
-        const meanSquare = count > 0 ? sum / count : 0;
-        squares[bucket] = meanSquare;
-        into.minimum[bucket] = low === Infinity ? 0 : lowStep(low);
-        into.maximum[bucket] = high === -Infinity ? 0 : highStep(high);
-        into.rms[bucket] = rmsStep(Math.sqrt(meanSquare));
-        into.clipped[bucket] = clipped;
+        squares[bucket] = summariseBucket(samples, offset, count, into, bucket);
       }
     });
     level.known.fill(1, first, end);
@@ -164,12 +151,12 @@ export class PeakBuilder {
   /** A run's values, copied out so the builder's arrays are never transferred away. */
   #runOf(finished: Finished): PeakRun {
     const level = this.levels[finished.level];
-    const channels: PeakChannel[] = (level?.channels ?? []).map((channel) => ({
-      minimum: channel.minimum.slice(finished.first, finished.end),
-      maximum: channel.maximum.slice(finished.first, finished.end),
-      rms: channel.rms.slice(finished.first, finished.end),
-      clipped: channel.clipped.slice(finished.first, finished.end),
-    }));
+    const count = finished.end - finished.first;
+    const channels = packedChannels(level?.channels.length ?? 0, count);
+    level?.channels.forEach((from, index) => {
+      const into = channels[index];
+      if (into !== undefined) copyBuckets(from, finished.first, count, into, 0);
+    });
     return { level: finished.level, first: finished.first, channels };
   }
 }

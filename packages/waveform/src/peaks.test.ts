@@ -12,14 +12,23 @@ import { frameBlock } from '@audiogubbins/audio-engine';
 
 import { PeakBuilder } from './peak-builder.js';
 import { decodePeaks, encodePeaks, crc32 } from './peak-codec.js';
+import { summariseBucket } from './bucket-summary.js';
 import {
   columnPeaks,
+  readBucketColumns,
   readPyramidColumns,
   readSampleColumns,
-  readsPyramid,
 } from './peak-columns.js';
-import { CHUNK_FRAMES, chunkCount, levelFor, peakGeometry } from './peak-geometry.js';
-import { WaveformPeakPyramid } from './peak-pyramid.js';
+import {
+  CHUNK_FRAMES,
+  DETAIL_BUCKET_FRAMES,
+  DetailKind,
+  chunkCount,
+  detailFor,
+  levelFor,
+  peakGeometry,
+} from './peak-geometry.js';
+import { WaveformPeakPyramid, packedChannels } from './peak-pyramid.js';
 import { fromSteps } from './quantisation.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
@@ -67,8 +76,14 @@ describe('the shape of a pyramid', () => {
     ]);
     expect(geometry.levels.at(-1)?.buckets).toBe(1);
     expect(chunkCount(geometry)).toBe(16);
-    expect(levelFor(geometry, 255)).toBeUndefined();
+    expect(levelFor(geometry, 255)).toBe(0);
     expect(levelFor(geometry, 5000)).toBe(2);
+    expect([4, 16, 255, 256].map(detailFor)).toEqual([
+      DetailKind.Samples,
+      DetailKind.Buckets,
+      DetailKind.Buckets,
+      DetailKind.Pyramid,
+    ]);
   });
 });
 
@@ -198,7 +213,6 @@ describe('reading columns', () => {
 
   it('draws a column from the pyramid no narrower than the samples it covers, and no wider than a bucket either side', () => {
     const span = { start: 1000.5, framesPerColumn: 1234.25, columns: 100 };
-    expect(readsPyramid(pyramid, span)).toBe(true);
     const into = columnPeaks(128);
     readPyramidColumns(pyramid, 0, span, into);
     expect(into.columns).toBe(100);
@@ -209,15 +223,57 @@ describe('reading columns', () => {
     });
   });
 
-  it('draws a column from the samples exactly where it is narrower than a bucket', () => {
+  it('draws a column from the samples exactly where it is narrower than a detail bucket', () => {
     const span = { start: 500, framesPerColumn: 3, columns: 50 };
-    expect(readsPyramid(pyramid, span)).toBe(false);
     const into = columnPeaks(64);
+    readPyramidColumns(pyramid, 0, span, into);
     readSampleColumns({ start: 400, channels: [signal[0]!.slice(400, 800)] }, 0, span, into);
     bruteForce(500, 3, 50).forEach(([low, high], column) => {
       expect(into.minimum[column]).toBe(low);
       expect(into.maximum[column]).toBe(high);
     });
+  });
+
+  it('draws a column from detail buckets no narrower than its samples and no wider than a detail bucket either side', () => {
+    const start = 4096;
+    const count = 8192;
+    const [window] = packedChannels(1, count / DETAIL_BUCKET_FRAMES);
+    for (let bucket = 0; bucket < count / DETAIL_BUCKET_FRAMES; bucket += 1) {
+      summariseBucket(signal[0]!, start + bucket * DETAIL_BUCKET_FRAMES, 16, window!, bucket);
+    }
+    const span = { start: 5000.5, framesPerColumn: 37.25, columns: 150 };
+    const into = columnPeaks(160);
+    readPyramidColumns(pyramid, 0, span, into);
+    readBucketColumns(
+      { start, frames: count, bucketFrames: DETAIL_BUCKET_FRAMES, channels: [window!] },
+      0,
+      span,
+      into,
+    );
+    bruteForce(span.start, span.framesPerColumn, 150).forEach(([low, high], column) => {
+      expect(into.minimum[column]).toBeLessThanOrEqual(low);
+      expect(into.maximum[column]).toBeGreaterThanOrEqual(high);
+      const from = Math.floor(span.start + column * span.framesPerColumn);
+      const to = Math.floor(span.start + (column + 1) * span.framesPerColumn);
+      const wider = signal[0]!.subarray(
+        Math.floor(from / DETAIL_BUCKET_FRAMES) * DETAIL_BUCKET_FRAMES,
+        Math.ceil(to / DETAIL_BUCKET_FRAMES) * DETAIL_BUCKET_FRAMES,
+      );
+      expect(into.minimum[column]).toBeGreaterThanOrEqual(Math.min(...wider) - 1 / 8192);
+      expect(into.maximum[column]).toBeLessThanOrEqual(Math.max(...wider) + 1 / 8192);
+    });
+  });
+
+  it('leaves a column a window does not hold whole as the pyramid drew it', () => {
+    const span = { start: 0, framesPerColumn: 100, columns: 40 };
+    const into = columnPeaks(40);
+    readPyramidColumns(pyramid, 0, span, into);
+    const coarse = [...into.maximum];
+    readSampleColumns({ start: 1000, channels: [signal[0]!.slice(1000, 2000)] }, 0, span, into);
+    expect(into.known.every((known, column) => column >= 40 || known === 1)).toBe(true);
+    expect([...into.maximum.slice(0, 10)]).toEqual(coarse.slice(0, 10));
+    expect([...into.maximum.slice(20, 40)]).toEqual(coarse.slice(20, 40));
+    expect(into.maximum[10]).toBe(Math.max(...signal[0]!.subarray(1000, 1100)));
   });
 
   it('marks a column pending until every bucket it reads is known', () => {

@@ -88,7 +88,7 @@ export function scene(
       markers: [],
       regions: [],
     },
-    audio: options.audio ?? { pyramid: undefined, samples: undefined, length },
+    audio: options.audio ?? { pyramid: undefined, buckets: undefined, samples: undefined, length },
     selection: options.selection ?? EMPTY_SELECTION,
     playhead: options.playhead,
     preview: options.preview,

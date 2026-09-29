@@ -4,12 +4,13 @@
  * Each job is one source: the worker makes it from its description, checks a
  * cache the page sent, and otherwise summarises it a chunk at a time, nearest
  * first to the range a view last showed, sending each finished run as it goes
- * (ADR-0043). It gives the host a turn between chunks, so a request for a
- * view's samples, a zero crossing, a new focus or a close is answered within
- * one chunk's work. Once every chunk is in, it encodes the pyramid for the page
- * to keep, drops its own copy, and keeps the source for the requests that still
- * come. One pyramid is built at a time: the job focused last goes first, which
- * bounds the work in flight to one chunk (G4).
+ * (ADR-0043), in batches at most once a display frame (`run-batches.ts`). It
+ * gives the host a turn between chunks, so a view's request, a new focus, a
+ * cancel or a close is read within one chunk's work; requests are answered one
+ * at a time by `PeakRequests`. Once every chunk is in, it encodes the pyramid
+ * for the page to keep, drops its own copy, and keeps the source for the
+ * requests that still come. One pyramid is built at a time: the job focused
+ * last goes first, which bounds the work in flight to one chunk (G4).
  */
 
 import {
@@ -34,10 +35,8 @@ import {
   type ToPeakWorker,
 } from './peak-messages.js';
 import { readToPeakWorker } from './peak-message-reading.js';
-import { nearestZeroCrossing } from './zero-crossings.js';
-
-/** The most frames one request for samples is answered with. */
-const MAXIMUM_SAMPLE_REQUEST = 1_048_576;
+import { PeakRequests } from './peak-requests.js';
+import { RunBatches } from './run-batches.js';
 
 /** What the worker's scope gives the core. */
 export interface PeakWorkerHost {
@@ -47,6 +46,8 @@ export interface PeakWorkerHost {
   readonly dsp: CanonicalDsp;
   /** Reports a message that could not be read, which the page sent wrongly. */
   readonly reportFault: (error: Error) => void;
+  /** Milliseconds from any fixed origin, which spaces the batches of runs. */
+  readonly now: () => number;
 }
 
 /** One source's job. */
@@ -82,9 +83,24 @@ export class PeakWorkerCore {
   /** Jobs still building, the one focused last first. */
   #order: string[] = [];
   #pumping = false;
+  readonly #requests: PeakRequests;
+  readonly #batches: RunBatches;
 
   constructor(host: PeakWorkerHost) {
     this.#host = host;
+    this.#requests = new PeakRequests({
+      source: (job) => this.#jobs.get(job)?.source,
+      post: (message) => {
+        this.#post(message);
+      },
+      yieldToHost: host.yieldToHost,
+      fail: (job, reason) => {
+        this.#fail(job, reason);
+      },
+    });
+    this.#batches = new RunBatches((job, runs) => {
+      this.#post({ kind: FromPeakWorkerKind.Runs, job, runs });
+    }, host.now);
   }
 
   /** Handles one message from the page. */
@@ -103,10 +119,12 @@ export class PeakWorkerCore {
         this.#focus(message.job, message.range);
         break;
       case ToPeakWorkerKind.Samples:
-        void this.#samples(message.job, message.request, message.range);
-        break;
+      case ToPeakWorkerKind.Buckets:
       case ToPeakWorkerKind.ZeroCrossing:
-        void this.#zeroCrossing(message);
+        if (this.#jobs.has(message.job)) this.#requests.add(message);
+        break;
+      case ToPeakWorkerKind.Cancel:
+        this.#requests.cancel(message.job, message.request);
         break;
       case ToPeakWorkerKind.Close:
         this.#close(message.job);
@@ -246,6 +264,7 @@ export class PeakWorkerCore {
       }
     } finally {
       this.#pumping = false;
+      this.#batches.flushAll();
     }
   }
 
@@ -263,8 +282,7 @@ export class PeakWorkerCore {
       if (this.#jobs.get(job.name) !== job) return;
       building.done[chunk] = 1;
       building.remaining -= 1;
-      const runs = building.builder.addChunk(chunk, block, read);
-      this.#post({ kind: FromPeakWorkerKind.Runs, job: job.name, runs });
+      this.#batches.add(job.name, building.builder.addChunk(chunk, block, read));
       if (building.remaining === 0) this.#finish(job, building.builder, building.refusedCache);
     } catch (error) {
       if (this.#jobs.get(job.name) === job)
@@ -280,57 +298,8 @@ export class PeakWorkerCore {
     });
     job.building = undefined;
     this.#order = this.#order.filter((name) => name !== job.name);
+    this.#batches.flush(job.name);
     this.#post({ kind: FromPeakWorkerKind.Complete, job: job.name, bytes, refusedCache });
-  }
-
-  async #samples(name: string, request: number, range: FrameRange): Promise<void> {
-    const job = this.#jobs.get(name);
-    if (job === undefined) return;
-    const end = Math.min(range.end, job.geometry.frames, range.start + MAXIMUM_SAMPLE_REQUEST);
-    const frames = Math.max(0, end - range.start);
-    const start = sampleCount(range.start);
-    try {
-      if (!start.ok) throw new RangeError(start.failures[0].summary);
-      const block = allocateBlock(job.source.layout, job.source.sampleRate, Math.max(1, frames));
-      const read = frames === 0 ? 0 : await job.source.read(start.value, block);
-      if (this.#jobs.get(name) !== job) return;
-      this.#post({
-        kind: FromPeakWorkerKind.Samples,
-        job: name,
-        request,
-        start: range.start,
-        channels: block.channels.map((channel) => channel.slice(0, read)),
-      });
-    } catch (error) {
-      if (this.#jobs.get(name) === job)
-        this.#fail(name, `The audio could not be read: ${messageOf(error)}`);
-    }
-  }
-
-  async #zeroCrossing(
-    message: Extract<ToPeakWorker, { kind: typeof ToPeakWorkerKind.ZeroCrossing }>,
-  ): Promise<void> {
-    const job = this.#jobs.get(message.job);
-    if (job === undefined) return;
-    const channels = message.channels.filter((channel) => channel < job.geometry.channels);
-    try {
-      const position = await nearestZeroCrossing(
-        job.source,
-        message.position,
-        message.within,
-        channels,
-      );
-      if (this.#jobs.get(message.job) !== job) return;
-      this.#post({
-        kind: FromPeakWorkerKind.ZeroCrossing,
-        job: message.job,
-        request: message.request,
-        position,
-      });
-    } catch (error) {
-      if (this.#jobs.get(message.job) === job)
-        this.#fail(message.job, `The audio could not be read: ${messageOf(error)}`);
-    }
   }
 
   #close(name: string): void {
@@ -338,6 +307,8 @@ export class PeakWorkerCore {
     if (job === undefined) return;
     this.#jobs.delete(name);
     this.#order = this.#order.filter((each) => each !== name);
+    this.#requests.forget(name);
+    this.#batches.drop(name);
     job.source.release();
   }
 }

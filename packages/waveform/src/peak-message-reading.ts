@@ -134,6 +134,18 @@ function runOf(value: unknown, field: string): PeakRun {
   };
 }
 
+function runsAt(fields: Fields, field: string): readonly PeakRun[] {
+  const value = fields[field];
+  if (!Array.isArray(value)) throw new Malformed(field, 'a list');
+  return value.map((run: unknown, index) => runOf(run, `${field}[${String(index)}]`));
+}
+
+function peakChannelsAt(fields: Fields, field: string): readonly PeakChannel[] {
+  const value = fields[field];
+  if (!Array.isArray(value)) throw new Malformed(field, 'a list');
+  return value.map((channel: unknown, index) => channelOf(channel, `${field}[${String(index)}]`));
+}
+
 function samplesAt(fields: Fields, field: string): readonly Float32Array[] {
   const value = fields[field];
   if (!Array.isArray(value)) throw new Malformed(field, 'a list');
@@ -169,6 +181,15 @@ function readToWorker(fields: Fields): ToPeakWorker {
         request: countAt(fields, 'request'),
         range: rangeAt(fields, 'range'),
       };
+    case ToPeakWorkerKind.Buckets:
+      return {
+        kind: ToPeakWorkerKind.Buckets,
+        job,
+        request: countAt(fields, 'request'),
+        range: rangeAt(fields, 'range'),
+      };
+    case ToPeakWorkerKind.Cancel:
+      return { kind: ToPeakWorkerKind.Cancel, job, request: countAt(fields, 'request') };
     case ToPeakWorkerKind.ZeroCrossing:
       return {
         kind: ToPeakWorkerKind.ZeroCrossing,
@@ -185,20 +206,46 @@ function readToWorker(fields: Fields): ToPeakWorker {
   }
 }
 
+/** The worker's answer to a request of a view's. */
+function readAnswer(fields: Fields, job: string): FromPeakWorker {
+  switch (fields['kind']) {
+    case FromPeakWorkerKind.Samples:
+      return {
+        kind: FromPeakWorkerKind.Samples,
+        job,
+        request: countAt(fields, 'request'),
+        start: countAt(fields, 'start'),
+        channels: samplesAt(fields, 'channels'),
+      };
+    case FromPeakWorkerKind.Buckets:
+      return {
+        kind: FromPeakWorkerKind.Buckets,
+        job,
+        request: countAt(fields, 'request'),
+        start: countAt(fields, 'start'),
+        frames: countAt(fields, 'frames'),
+        bucketFrames: countAt(fields, 'bucketFrames'),
+        channels: peakChannelsAt(fields, 'channels'),
+      };
+    case FromPeakWorkerKind.ZeroCrossing:
+      return {
+        kind: FromPeakWorkerKind.ZeroCrossing,
+        job,
+        request: countAt(fields, 'request'),
+        position: fields['position'] === undefined ? undefined : countAt(fields, 'position'),
+      };
+    default:
+      throw new Malformed('kind', 'an answer to a request');
+  }
+}
+
 function readFromWorker(fields: Fields): FromPeakWorker {
   const job = textAt(fields, 'job');
   switch (fields['kind']) {
     case FromPeakWorkerKind.Adopted:
       return { kind: FromPeakWorkerKind.Adopted, job, bytes: bytesAt(fields, 'bytes') };
-    case FromPeakWorkerKind.Runs: {
-      const runs = fields['runs'];
-      if (!Array.isArray(runs)) throw new Malformed('runs', 'a list');
-      return {
-        kind: FromPeakWorkerKind.Runs,
-        job,
-        runs: runs.map((run: unknown, index) => runOf(run, `runs[${String(index)}]`)),
-      };
-    }
+    case FromPeakWorkerKind.Runs:
+      return { kind: FromPeakWorkerKind.Runs, job, runs: runsAt(fields, 'runs') };
     case FromPeakWorkerKind.Complete: {
       const refusedCache = fields['refusedCache'];
       if (refusedCache !== undefined && typeof refusedCache !== 'string') {
@@ -212,20 +259,9 @@ function readFromWorker(fields: Fields): FromPeakWorker {
       };
     }
     case FromPeakWorkerKind.Samples:
-      return {
-        kind: FromPeakWorkerKind.Samples,
-        job,
-        request: countAt(fields, 'request'),
-        start: countAt(fields, 'start'),
-        channels: samplesAt(fields, 'channels'),
-      };
+    case FromPeakWorkerKind.Buckets:
     case FromPeakWorkerKind.ZeroCrossing:
-      return {
-        kind: FromPeakWorkerKind.ZeroCrossing,
-        job,
-        request: countAt(fields, 'request'),
-        position: fields['position'] === undefined ? undefined : countAt(fields, 'position'),
-      };
+      return readAnswer(fields, job);
     case FromPeakWorkerKind.Failed:
       return { kind: FromPeakWorkerKind.Failed, job, reason: textAt(fields, 'reason') };
     default:

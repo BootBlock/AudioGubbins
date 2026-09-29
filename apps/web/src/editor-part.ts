@@ -25,6 +25,7 @@ import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
+import { holdShownPeaks } from './editor/shown-peaks.js';
 import { NO_PEAK_CACHE, indexedDbPeakCache } from './io/peak-cache-store.js';
 import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
@@ -145,6 +146,7 @@ export function startEditor(
     logger,
   });
   const peaks = peakHost(capabilities, logger);
+  const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {
@@ -170,6 +172,7 @@ export function startEditor(
     dispose: () => {
       document.removeEventListener('visibilitychange', flushViews);
       editorViews.flush();
+      letShownPeaksGo();
       peaks.dispose();
       picture.dispose();
     },
