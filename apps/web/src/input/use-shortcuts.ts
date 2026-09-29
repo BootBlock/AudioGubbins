@@ -182,11 +182,11 @@ function ownerOf(
 /**
  * What the keyboard layout makes of every key event read, typing included.
  *
- * One option, because both halves are the layout's: what it learns the reader's
- * layout types from a press (see `keyboard-layout-store.ts`), and whether the
- * application asked the reader for that press to learn from, so the browser is
- * kept from acting on it. Asked before the press is read, which may settle what
- * made the request.
+ * One option, because both halves are the layout's: what it learns the
+ * reader's layout types from a press (see `keyboard-layout-store.ts`), and
+ * whether the application asked the reader for that press to learn from, so
+ * the browser is kept from acting on it. Asked before the press is read,
+ * which may settle what made the request.
  */
 export interface KeyReader {
   readonly read: (reading: KeyEventReading) => void;
@@ -213,8 +213,8 @@ export interface ShortcutBindingOptions {
   readonly onAnnounce: Announce;
 
   /**
-   * Called when a chord in progress is given up without running: by Escape, or
-   * by typing into a field. The prefix was said, so its end is said too.
+   * Called when a chord in progress is given up without running: by Escape,
+   * or by typing into a field. The prefix was said, so its end is said too.
    */
   readonly onChordCancelled: () => void;
 
@@ -299,8 +299,8 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
 
       // A modifier, a dead key, a key an input method is composing with, and
       // anything typed with the layout's third-level modifier are the user
-      // typing rather than a shortcut, and must not abandon a chord in progress
-      // either.
+      // typing rather than a shortcut, and must not abandon a chord in
+      // progress either.
       if (!isShortcutPress(reading)) return;
 
       if (event.key === 'Escape' && tracker.pending().length > 0) {

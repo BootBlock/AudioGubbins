@@ -317,8 +317,8 @@ describe('running the shell commands', () => {
   it('says a panel is closed when an arrangement drops it, as the close command does', () => {
     // The docking engine closes the panel whose tab has focus when Delete or
     // Backspace is pressed on it, and that arrives as an arrangement with a
-    // panel missing. A screen-reader user lost the panel in silence, while the
-    // same user choosing Close this panel was told.
+    // panel missing. A screen-reader user lost the panel in silence, while
+    // the same user choosing Close this panel was told.
     const before = context.workspace.get().layout;
     const dropped = before.groups[0]?.panels[0];
     expect(dropped).toBeDefined();
@@ -571,10 +571,11 @@ describe('the default shortcut profile', () => {
     // Latin letters types each with no modifier, and on the Russian layout each
     // goes to its US key, where the browser reads it. A character reached only
     // with Shift is outside the model, and a default written as one would wait
-    // for a key nobody can press. Every convention, not the one that never asks
-    // the Command layer. A default may wait for that reading, and only for
-    // that: read on Windows alone, no Apple wait could ever have been seen
-    // here.
+    // for a key nobody can press.
+    //
+    // Every convention, not the one that never asks the Command layer. A
+    // default may wait for that reading, and only for that: read on Windows
+    // alone, no Apple wait could ever have been seen here.
     const forTheLayer: string[] = [];
     for (const convention of CONVENTIONS) {
       for (const [name, layout] of NAMED_LAYOUTS) {
@@ -589,8 +590,8 @@ describe('the default shortcut profile', () => {
 
     // The other wait, which only the Apple conventions can have and which no
     // key press ends. Read on Windows alone, an Apple wait could never have
-    // been seen here at all. A default waits where its character sits away from
-    // its US key and no Command press has shown how the system reads the
+    // been seen here at all. A default waits where its character sits away
+    // from its US key and no Command press has shown how the system reads the
     // layout: Dvorak moves the prefix's and the editor's D, AZERTY moves the
     // comma and the editor's A, and the two settled readings of Dvorak place
     // them all.
@@ -713,8 +714,8 @@ describe('finding the shell commands in the palette', () => {
   const REPEATABLE: ReadonlySet<string> = new Set([
     'shortcuts.export',
     'help.export-diagnostics',
-    // Full screen is the browser's to grant, outside every store, and asked for
-    // again is asked again.
+    // Full screen is the browser's to grant, outside every store, and asked
+    // for again is asked again.
     'picture.full-screen',
   ]);
 
@@ -829,8 +830,8 @@ describe('finding the shell commands in the palette', () => {
   const SCENARIOS: Readonly<Record<string, Scenario | readonly Scenario[]>> = {
     'view.theme-dark': { before: (run) => run('view.theme-light') },
     'view.set-brightness': {
-      // Inside the range, so the second run meets the value itself rather than
-      // one the range has clamped.
+      // Inside the range, so the second run meets the value itself rather
+      // than one the range has clamped.
       arguments: (context) => ({
         brightness: context.preferences.get().brightness === 0.5 ? -0.5 : 0.5,
       }),
@@ -865,8 +866,8 @@ describe('finding the shell commands in the palette', () => {
     'workspace.nudge-panel-down': { before: (run) => run('workspace.move-panel-floating') },
 
     // A panel needs a neighbour in its group to pass. Moved to the left group
-    // it joins the panel there and is last, so it can go earlier; taken earlier
-    // first, it can then go later.
+    // it joins the panel there and is last, so it can go earlier; taken
+    // earlier first, it can then go later.
     'workspace.move-tab-earlier': { before: (run) => run('workspace.move-panel-left') },
     'workspace.move-tab-later': {
       before: (run) => {
@@ -1119,12 +1120,12 @@ describe('finding the shell commands in the palette', () => {
       if (scenario.settles === true) await playbackSettled(context.audio);
       const args = scenario.arguments?.(context);
 
-      // The first run is asserted, so a scenario that fails to make the command
-      // available fails here rather than passing with nothing checked.
+      // The first run is asserted, so a scenario that fails to make the
+      // command available fails here rather than passing with nothing checked.
       expect(run(id, args).kind).toBe('applied');
 
-      // Applied a second time, it must have changed something; otherwise it is
-      // refused, or says it found nothing to do.
+      // Applied a second time, it must have changed something; otherwise it
+      // is refused, or says it found nothing to do.
       const before = everything(context);
       const second = run(id, args);
       expect(second.kind !== 'applied' || everything(context) !== before).toBe(true);

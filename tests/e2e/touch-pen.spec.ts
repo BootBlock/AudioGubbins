@@ -20,8 +20,8 @@ import { test } from './test.js';
  * without doing what the tool would (Phase 01's F-188).
  *
  * The touches and the pen are the browser's own events, sent through the
- * DevTools protocol, so the page receives what a touch screen and a pen tablet
- * send it.
+ * DevTools protocol, so the page receives what a touch screen and a pen
+ * tablet send it.
  */
 
 /** A point of contact the protocol takes. */

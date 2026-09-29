@@ -1,11 +1,13 @@
 /**
- * The selection commands (ADR-0042): the one way a selection changes, whether a
- * tool's drag, a click on a marker, a key or the palette asked for it
- * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the editor
- * last in use, and every view of that asset shows the result (REQ-EDIT-061).
- * The editor's selection scope, a live region, says what is selected after
- * each, so none of them speaks as well. Those that select time with the
- * playhead are `selection-playhead-commands.ts`.
+ * The selection commands (ADR-0042): the one way a selection changes, whether
+ * a tool's drag, a click on a marker, a key or the palette asked for it
+ * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the
+ * editor last in use, and every view of that asset shows the result
+ * (REQ-EDIT-061). The editor's selection scope, a live region, says what is
+ * selected after each, so none of them speaks as well.
+ *
+ * The commands that select time with the playhead are
+ * `selection-playhead-commands.ts`.
  *
  * None is undoable: a selection is not project content, and Undo is kept for
  * what is (REQ-EDIT-073).
@@ -81,8 +83,8 @@ function boundary(value: number): SampleCount | undefined {
 }
 
 /**
- * The marker identities an argument names, as a list separated by commas, each
- * checked for the shape an identifier has before it is taken as one.
+ * The marker identities an argument names, as a list separated by commas,
+ * each checked for the shape an identifier has before it is taken as one.
  */
 export function markerIdsOf(text: string | undefined): readonly MarkerId[] {
   return (text ?? '')

@@ -4,8 +4,8 @@
  * the view is waiting for; or, where it shows no asset, the assets it can open.
  *
  * The surface is a canvas the renderer draws (`editor-surface.ts`), mounted
- * once per panel and fed from the stores, so React draws the controls around it
- * and never a sample or a peak (the packet's rule against a DOM element per
+ * once per panel and fed from the stores, so React draws the controls around
+ * it and never a sample or a peak (the packet's rule against a DOM element per
  * sample). It is the view's one focusable region, an application to assistive
  * technology, whose state the toolbar and the readouts beside it say. A right
  * click or a long press on it opens the editor's context actions (REQ-UX-067).
@@ -116,8 +116,9 @@ function contextGroups(parts: EditorPanelParts, panel: string): readonly MenuGro
 
 /**
  * Mounts the surface in `host` for panel `panel`, once, and hands it the
- * theme's colours as they change: a change of theme reaches its next frame. A
- * press it recognises as held still opens the context actions through
+ * theme's colours as they change: a change of theme reaches its next frame.
+ *
+ * A press it recognises as held still opens the context actions through
  * `actions`.
  */
 function useEditorSurface(

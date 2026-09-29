@@ -53,8 +53,8 @@ export interface ModalDialogProps {
 }
 
 /**
- * A modal dialogue: its title, then what it holds, which scrolls, then a footer
- * that does not.
+ * A modal dialogue: its title, then what it holds, which scrolls, then a
+ * footer that does not.
  *
  * A notice raised while it is open is shown in the footer, above its actions,
  * and not over the page: see `NoticeProvider`. The footer stays in sight

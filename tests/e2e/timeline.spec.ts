@@ -19,8 +19,9 @@ import { test } from './test.js';
 /**
  * The editor's timeline, driven as a person drives it (the packet's
  * `test:e2e:timeline`): zooming to single samples and selecting one, snapping
- * to a marker, and two views of one asset keeping their own zoom while sharing
- * a marker added in either (REQ-EDIT-012, REQ-EDIT-013, REQ-EDIT-061).
+ * to a marker, and two views of one asset keeping their own zoom while
+ * sharing a marker added in either (REQ-EDIT-012, REQ-EDIT-013,
+ * REQ-EDIT-061).
  */
 
 /** Presses a key in `panel`'s surface until `done` holds, at most `most` times. */
