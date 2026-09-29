@@ -2,7 +2,7 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 03 reaching `PASS`.
+`READY` — Phases 01 and 03, its hard dependencies, have reached `PASS`; see `traceability/handoffs/phase-01.md` and `traceability/handoffs/phase-03.md`.
 
 ## Objective
 

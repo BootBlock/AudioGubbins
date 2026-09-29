@@ -620,18 +620,22 @@
   margin-block-start: var(--ag-space-tiny);
 }
 
+/*
+ * One grid for every row of a meter, so the name column is as wide as the
+ * longest name, a surround role or "Correlation", and every bar starts at the
+ * same place. A row lays out no box of its own; subgrid would, but it is newer
+ * than the browsers the build supports.
+ */
 .ag-meters {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ag-space-tiny);
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) 5em;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  font-size: var(--ag-text-small);
 }
 
 .ag-meter {
-  display: grid;
-  grid-template-columns: 4em minmax(0, 1fr) 5em;
-  align-items: center;
-  gap: var(--ag-space-small);
-  font-size: var(--ag-text-small);
+  display: contents;
 }
 
 .ag-meter-scale {

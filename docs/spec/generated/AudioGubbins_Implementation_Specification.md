@@ -8049,7 +8049,7 @@ Create `traceability/handoffs/phase-02.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`READY` — Phase 01, its one hard dependency, has reached `PASS`; see `traceability/handoffs/phase-01.md`.
+`PASS` — completed on 2026-09-29; see `reviews/phase-03-evidence.md`, `reviews/phase-03-review.md` and `traceability/handoffs/phase-03.md`.
 
 ## Objective
 
@@ -8259,7 +8259,7 @@ Create `traceability/handoffs/phase-03.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 01, 03 reaching `PASS`.
+`READY` — Phases 01 and 03, its hard dependencies, have reached `PASS`; see `traceability/handoffs/phase-01.md` and `traceability/handoffs/phase-03.md`.
 
 ## Objective
 
@@ -11098,4 +11098,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:5b0a5e1c957933b3a5623bb4c1e77fab64edb0d4ba13a5c0d96273168f6187be`
+`sha256:8cef7624c51ce09f17c8a34efbbbf38f413c31cbcf7ee44d0962b6d9b41541d4`

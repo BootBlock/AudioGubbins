@@ -1,6 +1,11 @@
-> **Status:** In progress. Phase 03 is being implemented on the branch
-> `phase-03-audio-engine`, concurrently with Phase 02 on its own branch. The
-> ledger keeps the phase `READY` until its gate passes.
+> **Status:** Done. 2026-09-29: the one review pass of the seven lenses found
+> thirty-eight findings, every one fixed or accepted with tracking and written
+> into the review record, and Phase 03 is closed at `PASS`: the ledger gives it
+> `PASS` and Phase 04 `READY`, and its handoff capsule is
+> `docs/spec/traceability/handoffs/phase-03.md`. The fixes changed the golden
+> tone, conversion and render and the test signal's fingerprint, now
+> `0xe576a76257ddb259`; the values below are those of the time they were
+> written.
 
 # Phase 03 — Audio Engine Foundation
 
@@ -10,11 +15,10 @@ shape the work are `ADR-0030` to `ADR-0033`.
 
 ## Where the work is
 
-|          |                                                             |
-| -------- | ----------------------------------------------------------- |
-| Worktree | `../AudioGubbins-phase-03`, beside the primary checkout     |
-| Branch   | `phase-03-audio-engine`                                     |
-| Shared   | Phase 02 takes `ADR-0020` to `ADR-0029`, Phase 03 from 0030 |
+|        |                                                             |
+| ------ | ----------------------------------------------------------- |
+| Branch | `phase-03-audio-engine`                                     |
+| Shared | Phase 02 takes `ADR-0020` to `ADR-0029`, Phase 03 from 0030 |
 
 ## Checking the state
 
@@ -57,42 +61,22 @@ panel, commands, composition, Vite wiring, `'wasm-unsafe-eval'`). At
 `a9ea715` `pnpm run verify:commit` passes: 3085 tests, lint, both type-checks,
 the record check and the dependency cruise.
 
-Verified in a real Chromium on the built app (the sub-agent's run, before the
-last commits; repeat it once more before landing): Play reaches Playing on the
-WebAssembly module with no fallback reason, the position advances, both meters
-read −12.0 dB, Pause holds and Play resumes, Stop returns to 0:00.000, and the
-offline render of 480,000 frames gives the fingerprint `0x0ed5ce5b65bfb45d`
-on both DSP paths. With `WebAssembly` removed, the reference path plays and
-says why. The console shows no policy or worklet error.
+Verified in a real Chromium on the built app, before the review: Play reaches
+Playing on the WebAssembly module with no fallback reason, the position
+advances, both meters read −12.0 dB, Pause holds and Play resumes, Stop returns
+to 0:00.000, and the offline render of 480,000 frames gives the fingerprint
+`0x0ed5ce5b65bfb45d` on both DSP paths. With `WebAssembly` removed, the
+reference path plays and says why. The console shows no policy or worklet
+error.
 
-Next steps, in order:
-
-1. One review pass with the packet's seven lenses (Audio/DSP correctness,
-   Architecture, Performance/Scalability, Testing/Regression, Browser
-   Compatibility, Code Quality/Maintainability, Adversarial Agent-Quality),
-   run as parallel sub-agents over `git diff 2d9f195..HEAD`, each verifying
-   its findings. Fix the verified findings; commit.
-2. Known points for the review to weigh: the engine's processing-mode
-   selection and chunk plan have no consumer yet (their export-list reason
-   says so); the processor posts nothing when a posted feed overflows but
-   faults; the WASM module is compiled on every worklet `load`.
-3. `docs/spec/reviews/phase-03-evidence.md` and `phase-03-review.md` in
-   Phase 01's form (requirement-to-evidence mapping for all 15 owned
-   requirements, commands, results, browser results, commits, findings);
-   check `tests/evidence-commands.test.ts` for what it reads.
-4. The ledger's Phase 03 entry to `PASS` with its evidence and handoff, the
-   handoff capsule `docs/spec/traceability/handoffs/phase-03.md` from
-   `docs/spec/contracts/handoff-capsule-template.md`, the packet's status
-   line, `pnpm run spec:verify`, then this note to `docs/todo/done/`.
-5. Merge `main` in if it moved (Phase 02 shares the files listed in the
-   task), `verify:commit`, merge to `main` from the primary checkout, push,
-   remove the worktree, and record the Transport panel with
-   `gambit_record_change` (a screenshot of the panel while playing).
+What followed: one review pass with the packet's seven lenses over
+`2d9f195..e980832`, its fixes (`89c3e1a` to `375a2c5`), the evidence package
+and the review record under `docs/spec/reviews/`, the handoff capsule, and the
+ledger at `PASS`. The built application was driven again in Chromium on both
+DSP paths before it landed.
 
 Lessons: run `cargo fmt -p <crate>`, never `--all` (it rewrote the version
-crate). Give sub-agents their own scratch directory and a timeout on every
-mutation run: two shared `/tmp/mutate.py`, and a looping mutant hung a run.
-Check a realm-sensitive `instanceof` in anything the jsdom projects read. The engine is compiled with `lib: ES2023` only, so it names no
+crate). Check a realm-sensitive `instanceof` in anything the jsdom projects read. The engine is compiled with `lib: ES2023` only, so it names no
 `AbortSignal` (use `CancellationSignal`) and reaches `WebAssembly` through
 `Reflect` in test support.
 
