@@ -30,11 +30,32 @@ export interface BackendEvents {
   readonly failed: (reason: string) => void;
 }
 
+/**
+ * What became of one draw: drawn; not drawn because the device or context is
+ * away, which the backend's `lost` and `restored` events say of it; or failed,
+ * with the reason, by a backend that cannot draw until it is made again.
+ */
+export type DrawOutcome =
+  | { readonly kind: 'drawn' }
+  | { readonly kind: 'away' }
+  | { readonly kind: 'failed'; readonly reason: string };
+
+/** A draw that was made. */
+export const DRAWN: DrawOutcome = { kind: 'drawn' };
+
+/** A draw that waits on a device or context that is away. */
+export const AWAY: DrawOutcome = { kind: 'away' };
+
+/** A draw its backend cannot make, and why. */
+export function drawFailed(reason: string): DrawOutcome {
+  return { kind: 'failed', reason };
+}
+
 /** Draws a frame's rectangles and segments on its canvas. */
 export interface RendererBackend {
   readonly kind: RendererKind;
-  /** Draws `frame`, sizing the canvas to it; answers whether it drew. */
-  draw(frame: RenderFrame): boolean;
+  /** Draws `frame`, sizing the canvas to it, and answers what became of it. */
+  draw(frame: RenderFrame): DrawOutcome;
   /** Frees its resources; the canvas is its renderer's to remove. */
   dispose(): void;
 }

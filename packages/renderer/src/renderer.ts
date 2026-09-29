@@ -17,7 +17,13 @@
 import type { Painter } from './canvas-painting.js';
 import { paintOverlay } from './canvas-painting.js';
 import type { RenderFrame } from './render-frame.js';
-import type { BackendFactory, RendererBackend, RendererKind } from './renderer-backend.js';
+import {
+  DRAWN,
+  type BackendFactory,
+  type DrawOutcome,
+  type RendererBackend,
+  type RendererKind,
+} from './renderer-backend.js';
 
 /** Where a renderer draws: a geometry canvas it may replace, and the overlay above it. */
 export interface RenderSurface {
@@ -67,7 +73,7 @@ export class Renderer {
     losses: 0,
     recoveries: 0,
   };
-  #backend: RendererBackend | undefined;
+  #backend: { readonly made: RendererBackend; readonly index: number } | undefined;
   #latest: RenderFrame | undefined;
   #disposed = false;
 
@@ -99,7 +105,11 @@ export class Renderer {
     this.#update({ attempts: [...this.#report.attempts, attempt] });
   }
 
-  /** Makes the first backend it can, from `from` in its order on. */
+  /**
+   * Makes the first backend it can, from `from` in its order on, and draws the
+   * latest frame with it. A backend that is made and cannot draw that frame is
+   * not taken: it is reported as failed, and the next is tried.
+   */
   async start(from = 0): Promise<void> {
     for (let index = from; index < this.#backends.length; index += 1) {
       const factory = this.#backends[index];
@@ -112,7 +122,7 @@ export class Renderer {
           this.#restored(factory.kind);
         },
         failed: (reason) => {
-          void this.#failed(factory.kind, index, reason);
+          void this.#failed(factory.kind, reason);
         },
       });
       // Disposed while the backend was being made, by a view that went away.
@@ -120,14 +130,24 @@ export class Renderer {
         if (made.ok) made.value.dispose();
         return;
       }
-      if (made.ok) {
-        this.#backend = made.value;
-        this.#attempt({ kind: factory.kind, outcome: 'active' });
-        this.#update({ state: RendererState.Drawing, active: factory.kind });
-        this.#redraw();
-        return;
+      if (!made.ok) {
+        this.#attempt({ kind: factory.kind, outcome: 'refused', reason: made.failures[0].summary });
+        continue;
       }
-      this.#attempt({ kind: factory.kind, outcome: 'refused', reason: made.failures[0].summary });
+      this.#backend = { made: made.value, index };
+      const outcome = this.#paint();
+      if (outcome.kind === 'failed') {
+        this.#backend = undefined;
+        made.value.dispose();
+        this.#attempt({ kind: factory.kind, outcome: 'failed', reason: outcome.reason });
+        continue;
+      }
+      this.#attempt({ kind: factory.kind, outcome: 'active' });
+      this.#update({
+        state: outcome.kind === 'away' ? RendererState.Recovering : RendererState.Drawing,
+        active: factory.kind,
+      });
+      return;
     }
     this.#update({ state: RendererState.Unavailable, active: undefined });
   }
@@ -142,42 +162,68 @@ export class Renderer {
     this.#update({ state: RendererState.Recovering, losses: this.#report.losses + 1 });
   }
 
+  /**
+   * A backend back from a loss: recovered once it has drawn the latest frame
+   * again, and failed, as any backend that cannot draw is, if it cannot.
+   */
   #restored(kind: RendererKind): void {
     if (this.#report.active !== kind) return;
+    const outcome = this.#paint();
+    if (outcome.kind === 'failed') {
+      void this.#failed(kind, outcome.reason);
+      return;
+    }
+    // Lost again before it drew: its backend says so, and says when it is back.
+    if (outcome.kind === 'away') return;
     this.#update({ state: RendererState.Drawing, recoveries: this.#report.recoveries + 1 });
-    this.#redraw();
   }
 
   /** A backend gone for good: the next kind takes over, and draws the latest frame. */
-  async #failed(kind: RendererKind, index: number, reason: string): Promise<void> {
-    if (this.#report.active !== kind) return;
-    this.#backend?.dispose();
+  async #failed(kind: RendererKind, reason: string): Promise<void> {
+    const current = this.#backend;
+    if (this.#report.active !== kind || current === undefined) return;
+    current.made.dispose();
     this.#backend = undefined;
     this.#attempt({ kind, outcome: 'failed', reason });
     this.#update({ state: RendererState.Recovering, active: undefined });
-    await this.start(index + 1);
+    await this.start(current.index + 1);
     if (this.#report.state === RendererState.Drawing) {
       this.#update({ recoveries: this.#report.recoveries + 1 });
     }
   }
 
-  /** Draws `frame`, and keeps it to draw again after a recovery. */
+  /**
+   * Draws `frame`, and keeps it to draw again after a recovery. While the
+   * device is away it is only kept; a backend that cannot draw it is replaced
+   * by the next kind, which draws it.
+   */
   draw(frame: RenderFrame): void {
     this.#latest = frame;
-    this.#redraw();
+    const kind = this.#report.active;
+    if (this.#report.state !== RendererState.Drawing || kind === undefined) return;
+    const outcome = this.#paint();
+    if (outcome.kind === 'failed') void this.#failed(kind, outcome.reason);
   }
 
-  #redraw(): void {
+  /**
+   * Draws the latest frame's geometry with the backend, and its text and images
+   * on the overlay once the geometry is drawn; answers what became of the
+   * geometry. Nothing to draw, or nothing to draw it with, fails nothing.
+   */
+  #paint(): DrawOutcome {
     const frame = this.#latest;
-    if (frame === undefined || this.#backend === undefined) return;
-    if (!this.#backend.draw(frame)) return;
+    const backend = this.#backend;
+    if (frame === undefined || backend === undefined) return DRAWN;
+    const outcome = backend.made.draw(frame);
+    if (outcome.kind !== 'drawn') return outcome;
     const overlay = this.#surface.overlay();
     if (overlay !== undefined) paintOverlay(overlay, frame);
+    return outcome;
   }
 
   dispose(): void {
     this.#disposed = true;
-    this.#backend?.dispose();
+    this.#backend?.made.dispose();
     this.#backend = undefined;
     this.#listeners.clear();
   }

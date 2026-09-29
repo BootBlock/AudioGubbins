@@ -18,8 +18,12 @@ import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogu
 
 import { backingSize, type Rectangle, type RenderFrame } from './render-frame.js';
 import {
+  AWAY,
+  DRAWN,
   RendererKind,
+  drawFailed,
   type BackendFactory,
+  type DrawOutcome,
   type RendererBackend,
   type Schedule,
 } from './renderer-backend.js';
@@ -150,10 +154,17 @@ class WebGl2Backend implements RendererBackend {
   readonly #gl: WebGL2RenderingContext;
   readonly #data = new InstanceData();
   #resources: Resources | undefined;
+  /** Whether the next draw is the first with the resources last built. */
+  #unproven = true;
+  #disposed = false;
 
   constructor(gl: WebGL2RenderingContext, resources: Resources) {
     this.#gl = gl;
     this.#resources = resources;
+  }
+
+  get disposed(): boolean {
+    return this.#disposed;
   }
 
   lose(): void {
@@ -165,6 +176,7 @@ class WebGl2Backend implements RendererBackend {
     const rebuilt = build(this.#gl);
     if (typeof rebuilt === 'string') return rebuilt;
     this.#resources = rebuilt;
+    this.#unproven = true;
     return undefined;
   }
 
@@ -186,10 +198,32 @@ class WebGl2Backend implements RendererBackend {
     );
   }
 
-  draw(frame: RenderFrame): boolean {
+  draw(frame: RenderFrame): DrawOutcome {
     const gl = this.#gl;
+    if (gl.isContextLost()) return AWAY;
     const resources = this.#resources;
-    if (resources === undefined || gl.isContextLost()) return false;
+    if (resources === undefined) {
+      return drawFailed('The WebGL2 context is back, and the backend has nothing to draw with.');
+    }
+    this.#encode(gl, resources, frame);
+    return this.#unproven ? this.#prove(gl) : DRAWN;
+  }
+
+  /**
+   * The first draw with newly built resources, checked for an error. Asking is
+   * a round trip to the GPU process, so it is asked once for each build, which
+   * is where a program or buffer that cannot draw shows itself; the loss the
+   * context was restored from may still be reported, and is not a failure.
+   */
+  #prove(gl: WebGL2RenderingContext): DrawOutcome {
+    this.#unproven = false;
+    const error = gl.getError();
+    if (error === gl.NO_ERROR || error === gl.CONTEXT_LOST_WEBGL) return DRAWN;
+    if (gl.isContextLost()) return AWAY;
+    return drawFailed(`The first WebGL2 draw raised error ${String(error)}.`);
+  }
+
+  #encode(gl: WebGL2RenderingContext, resources: Resources, frame: RenderFrame): void {
     const size = backingSize(frame);
     const canvas = gl.canvas;
     if (canvas.width !== size.width) canvas.width = size.width;
@@ -229,10 +263,10 @@ class WebGl2Backend implements RendererBackend {
       }
     }
     gl.bindVertexArray(null);
-    return true;
   }
 
   dispose(): void {
+    this.#disposed = true;
     this.#gl.getExtension('WEBGL_lose_context')?.loseContext();
     this.#resources = undefined;
   }
@@ -259,6 +293,8 @@ export function webGl2Backend(schedule: Schedule): BackendFactory {
       const backend = new WebGl2Backend(gl, resources);
       let giveUp: (() => void) | undefined;
       canvas.addEventListener('webglcontextlost', (event) => {
+        // A disposed backend takes its own context away, and says nothing of it.
+        if (backend.disposed) return;
         // Prevented, or the browser never gives the context back.
         event.preventDefault();
         backend.lose();
@@ -270,6 +306,7 @@ export function webGl2Backend(schedule: Schedule): BackendFactory {
         }, RESTORE_WAIT_MS);
       });
       canvas.addEventListener('webglcontextrestored', () => {
+        if (backend.disposed) return;
         giveUp?.();
         giveUp = undefined;
         const problem = backend.restore();

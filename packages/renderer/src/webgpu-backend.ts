@@ -34,9 +34,13 @@ import {
   type Resources,
 } from './webgpu-resources.js';
 import {
+  AWAY,
+  DRAWN,
   RendererKind,
+  drawFailed,
   type BackendEvents,
   type BackendFactory,
+  type DrawOutcome,
   type RendererBackend,
 } from './renderer-backend.js';
 
@@ -139,9 +143,11 @@ class WebGpuBackend implements RendererBackend {
     );
   }
 
-  draw(frame: RenderFrame): boolean {
+  draw(frame: RenderFrame): DrawOutcome {
+    if (this.#disposed) return drawFailed('The WebGPU backend was disposed.');
     const resources = this.#resources;
-    if (resources === undefined || this.#disposed) return false;
+    // Between a lost device and the next, which its loss watch asks for.
+    if (resources === undefined) return AWAY;
     const size = backingSize(frame);
     const canvas = this.#context.canvas;
     if (canvas.width !== size.width) canvas.width = size.width;
@@ -152,8 +158,16 @@ class WebGpuBackend implements RendererBackend {
       ),
     );
     const firsts = this.#upload(resources, frame, drawn);
-    this.#encode(resources, frame, drawn, firsts);
-    return true;
+    try {
+      this.#encode(resources, frame, drawn, firsts);
+    } catch (error) {
+      // A context that is not configured for a live device throws on
+      // `getCurrentTexture`, which is a backend that cannot draw.
+      return drawFailed(
+        `The WebGPU draw was refused: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return DRAWN;
   }
 
   /** Writes every batch's instances and uniforms, and answers each batch's first instance. */
@@ -248,13 +262,39 @@ async function validated(
   return resources;
 }
 
-function watchLoss(
+/**
+ * The validation draw: a frame of one rectangle, drawn and submitted inside an
+ * error scope, so a device that accepts a pipeline and then refuses to draw
+ * with it, or a canvas not configured for it, is refused here and not on
+ * screen. Answers why it was refused, or nothing.
+ */
+async function refusesToDraw(
+  backend: WebGpuBackend,
+  device: GPUDevice,
+): Promise<string | undefined> {
+  device.pushErrorScope('validation');
+  const drawn = backend.draw(VALIDATION_FRAME);
+  const refused = await device.popErrorScope();
+  if (drawn.kind === 'failed') return drawn.reason;
+  return refused === null ? undefined : refused.message;
+}
+
+/**
+ * Watches `device` for as long as the backend draws with it: a loss asks the
+ * adapter for another, which must pass the validation draw before it is used;
+ * an error no scope caught means a draw was not made, and the backend fails.
+ */
+function watch(
   gpu: GPU,
   backend: WebGpuBackend,
   format: GPUTextureFormat,
   device: GPUDevice,
   events: BackendEvents,
 ): void {
+  device.addEventListener('uncapturederror', (event) => {
+    if (backend.disposed) return;
+    events.failed(`The GPU device refused a draw: ${event.error.message}`);
+  });
   void device.lost.then(async (info) => {
     if (backend.disposed) return;
     backend.use(undefined);
@@ -269,7 +309,12 @@ function watchLoss(
       return;
     }
     backend.use(rebuilt);
-    watchLoss(gpu, backend, format, rebuilt.device, events);
+    const refused = await refusesToDraw(backend, rebuilt.device);
+    if (refused !== undefined) {
+      events.failed(`The new GPU device refused a validation draw: ${refused}`);
+      return;
+    }
+    watch(gpu, backend, format, rebuilt.device, events);
     events.restored();
   });
 }
@@ -288,17 +333,12 @@ export function webGpuBackend(gpu: GPU): BackendFactory {
         const resources = await validated(adapter, format);
         if (typeof resources === 'string') return unavailable(resources);
         const backend = new WebGpuBackend(context, format, resources);
-        // The validation draw: a frame of one rectangle, drawn and submitted
-        // inside an error scope, so a device that accepts a pipeline and then
-        // refuses to draw with it is refused here and not on screen.
-        resources.device.pushErrorScope('validation');
-        backend.draw(VALIDATION_FRAME);
-        const refused = await resources.device.popErrorScope();
-        if (refused !== null) {
+        const refused = await refusesToDraw(backend, resources.device);
+        if (refused !== undefined) {
           backend.dispose();
-          return unavailable(`The device refused a validation draw: ${refused.message}`);
+          return unavailable(`The device refused a validation draw: ${refused}`);
         }
-        watchLoss(gpu, backend, format, resources.device, events);
+        watch(gpu, backend, format, resources.device, events);
         return succeed(backend);
       } catch (error) {
         // A browser's WebGPU refuses by throwing as well as by answering null:

@@ -8,8 +8,36 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { BackendEvents, RendererBackend, Schedule } from './renderer-backend.js';
+import type { RenderFrame } from './render-frame.js';
+import {
+  AWAY,
+  DRAWN,
+  drawFailed,
+  type BackendEvents,
+  type RendererBackend,
+  type Schedule,
+} from './renderer-backend.js';
 import { webGl2Backend } from './webgl2-backend.js';
+
+/** One rectangle, on a canvas four pixels by two. */
+const FRAME: RenderFrame = {
+  width: 4,
+  height: 2,
+  pixelRatio: 1,
+  clear: [0, 0, 0, 1],
+  layers: [
+    {
+      batches: [
+        {
+          kind: 'rectangles',
+          colour: [1, 1, 1, 1],
+          values: new Float32Array([0, 0, 1, 1]),
+          count: 1,
+        },
+      ],
+    },
+  ],
+};
 
 /**
  * The state of a WebGL2 context: whether it is lost, whether its shaders
@@ -162,5 +190,36 @@ describe('the WebGL2 backend losing its context', () => {
     expect(said.at(-1)).toBe(
       'failed: The WebGL2 context came back and could not be rebuilt: The shader did not compile.',
     );
+  });
+});
+
+describe('the WebGL2 backend drawing', () => {
+  it('draws nothing, and says the context is away, while it is lost', async () => {
+    const { canvas, state, events } = glCanvas();
+    const backend = await made(canvas, events, manualSchedule().schedule);
+
+    lose(canvas, state);
+
+    expect(backend.draw(FRAME)).toEqual(AWAY);
+    expect(state.draws).toBe(0);
+  });
+
+  it('draws with what it rebuilt once the context is given back', async () => {
+    const { canvas, state, events } = glCanvas();
+    const backend = await made(canvas, events, manualSchedule().schedule);
+    lose(canvas, state);
+    restore(canvas, state);
+
+    expect(backend.draw(FRAME)).toEqual(DRAWN);
+    expect(state.draws).toBe(1);
+  });
+
+  it('fails the first draw with new resources that raises an error, and asks only once', async () => {
+    const { canvas, state, events } = glCanvas();
+    const backend = await made(canvas, events, manualSchedule().schedule);
+    state.error = 1282;
+
+    expect(backend.draw(FRAME)).toEqual(drawFailed('The first WebGL2 draw raised error 1282.'));
+    expect(backend.draw(FRAME)).toEqual(DRAWN);
   });
 });

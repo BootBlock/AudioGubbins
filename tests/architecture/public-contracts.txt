@@ -1816,7 +1816,7 @@ Published paths
   readonly Renderer.#backends: readonly BackendFactory[]
   readonly Renderer.#listeners: Set<(report: RendererReport) => void>
   Renderer.#report: RendererReport
-  Renderer.#backend: RendererBackend | undefined
+  Renderer.#backend: undefined | { readonly made: RendererBackend; readonly index: number; }
   Renderer.#latest: RenderFrame | undefined
   Renderer.#disposed: boolean
   Renderer.report: RendererReport
@@ -1827,9 +1827,9 @@ Published paths
   Renderer.#stopped: () => boolean
   Renderer.#lost: (kind: RendererKind, reason: string) => void
   Renderer.#restored: (kind: RendererKind) => void
-  Renderer.#failed: (kind: RendererKind, index: number, reason: string) => Promise<void>
+  Renderer.#failed: (kind: RendererKind, reason: string) => Promise<void>
   Renderer.draw: (frame: RenderFrame) => void
-  Renderer.#redraw: () => void
+  Renderer.#paint: () => DrawOutcome
   Renderer.dispose: () => void
   interface RendererAttempt
   readonly RendererAttempt.kind: RendererKind
@@ -1837,7 +1837,7 @@ Published paths
   readonly RendererAttempt.reason?: string
   interface RendererBackend
   readonly RendererBackend.kind: RendererKind
-  RendererBackend.draw: (frame: RenderFrame) => boolean
+  RendererBackend.draw: (frame: RenderFrame) => DrawOutcome
   RendererBackend.dispose: () => void
   const RendererKind: { readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly Canvas2d: "canvas-2d"; }
   type RendererKind = "canvas-2d" | "webgl2" | "webgpu"
@@ -2726,6 +2726,7 @@ packages/editor-view/src/waveform-drawing.ts
   readonly WaveformStyle.palette: EditorPalette
 
 packages/renderer/src/renderer-backend.ts
+  type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
   type Schedule = (callback: () => void, delayMs: number) => () => void
 
 packages/waveform/src/peak-host.ts

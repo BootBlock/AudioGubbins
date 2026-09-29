@@ -11,13 +11,13 @@ import type { BackendEvents, RendererBackend } from './renderer-backend.js';
 import { webGpuBackend } from './webgpu-backend.js';
 
 /** A device that records its buffers and submissions, and is lost on demand. */
-class FakeDevice {
+class FakeDevice extends EventTarget {
   readonly usages: number[] = [];
   readonly visibilities: number[] = [];
   submitted = 0;
   destroyed = false;
-  /** The validation error the next error scope pops, if any. */
-  refusal: string | undefined;
+  /** The validation error each error scope pops, in order, where it pops one. */
+  readonly refusals: (string | undefined)[] = [];
   #lose: (info: { reason: string; message: string }) => void = () => undefined;
   readonly lost = new Promise<{ reason: string; message: string }>((resolve) => {
     this.#lose = resolve;
@@ -76,7 +76,7 @@ class FakeDevice {
   }
 
   popErrorScope(): Promise<{ message: string } | null> {
-    const refusal = this.refusal;
+    const refusal = this.refusals.shift();
     return Promise.resolve(refusal === undefined ? null : { message: refusal });
   }
 
@@ -91,10 +91,15 @@ function fakeGpu(devices: FakeDevice[]) {
   const canvas = document.createElement('canvas');
   const context = {
     canvas,
+    /** Why the canvas refuses a texture, where it does. */
+    refusal: undefined as string | undefined,
     configure: (configuration: { device: unknown }) => {
       configured.push(configuration.device);
     },
-    getCurrentTexture: () => ({ createView: () => ({}) }),
+    getCurrentTexture: () => {
+      if (context.refusal !== undefined) throw new Error(context.refusal);
+      return { createView: () => ({}) };
+    },
   };
   canvas.getContext = ((kind: string) =>
     kind === 'webgpu' ? context : null) as HTMLCanvasElement['getContext'];
@@ -110,7 +115,7 @@ function fakeGpu(devices: FakeDevice[]) {
     restored: () => said.push('restored'),
     failed: (reason) => said.push(`failed: ${reason}`),
   };
-  return { gpu, canvas, configured, events, said };
+  return { gpu, canvas, context, configured, events, said };
 }
 
 /** Lets every promise the backend is waiting on settle. */
@@ -165,5 +170,49 @@ describe('the WebGPU backend', () => {
     await settled();
 
     expect(said.at(-1)).toBe('failed: The browser gave no adapter after the loss.');
+  });
+});
+
+describe('the WebGPU backend failing to draw', () => {
+  it('fails, rather than saying it is restored, when the new device refuses the validation draw', async () => {
+    const first = new FakeDevice();
+    const second = new FakeDevice();
+    // The pipeline passes; the draw with it does not.
+    second.refusals.push(undefined, 'The texture belongs to a destroyed device.');
+    const { gpu, canvas, events, said } = fakeGpu([first, second]);
+    await made(gpu, canvas, events);
+
+    first.lose('The device was destroyed.');
+    await settled();
+
+    expect(said).toEqual([
+      'lost: The GPU device was lost: The device was destroyed.',
+      'failed: The new GPU device refused a validation draw: The texture belongs to a destroyed device.',
+    ]);
+  });
+
+  it('fails when its device reports an error no scope caught', async () => {
+    const device = new FakeDevice();
+    const { gpu, canvas, events, said } = fakeGpu([device]);
+    await made(gpu, canvas, events);
+
+    device.dispatchEvent(
+      Object.assign(new Event('uncapturederror'), { error: { message: 'Invalid buffer.' } }),
+    );
+
+    expect(said).toEqual(['failed: The GPU device refused a draw: Invalid buffer.']);
+  });
+
+  it('answers a failed draw with the reason when the canvas gives it no texture', async () => {
+    const { gpu, canvas, context, events } = fakeGpu([new FakeDevice()]);
+    const backend = await made(gpu, canvas, events);
+    context.refusal = 'The context is not configured.';
+
+    expect(
+      backend.draw({ width: 1, height: 1, pixelRatio: 1, clear: [0, 0, 0, 1], layers: [] }),
+    ).toEqual({
+      kind: 'failed',
+      reason: 'The WebGPU draw was refused: The context is not configured.',
+    });
   });
 });
