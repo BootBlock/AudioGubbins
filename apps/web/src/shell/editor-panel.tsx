@@ -28,6 +28,7 @@ import {
   type ContextActionsOpener,
   type MenuGroup,
 } from '@audiogubbins/design-system';
+import { KEYBOARD_HOME } from '@audiogubbins/workspace';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
@@ -182,6 +183,9 @@ function Surface({
         aria-roledescription="waveform editor"
         aria-label={`Waveform of ${asset.name}`}
         aria-describedby={describedBy}
+        // Where the keyboard goes when a command makes this view the one in
+        // use: the arrow keys are the surface's own, and nowhere else's.
+        {...{ [KEYBOARD_HOME]: '' }}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- an application region takes the keyboard for its own keys, the held space bar among them, so it must be reachable by Tab
         tabIndex={0}
       />

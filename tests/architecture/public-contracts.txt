@@ -2236,9 +2236,11 @@ Published paths
   readonly DockHostProps.memory: DockMemory
   interface DockMemory
   readonly DockMemory.scrolls: Map<string, Scrolled>
+  DockMemory.focus: FocusPlace | undefined
   DockMemory.mounts: number
   const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
   type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
+  const KEYBOARD_HOME: "data-ag-keyboard-home"
   const LONGEST_WORKSPACE_NAME: 120
   interface LayoutProblem
   readonly LayoutProblem.kind: "invalid" | "nothing-docked"
@@ -2779,6 +2781,10 @@ packages/waveform/src/peak-messages.ts
   type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
 
 packages/workspace/src/adapter/dock-memory.ts
+  interface FocusPlace
+  readonly FocusPlace.panel: string
+  readonly FocusPlace.what: string
+  readonly FocusPlace.which: number
   interface Scrolled
   readonly Scrolled.top: number
   readonly Scrolled.left: number

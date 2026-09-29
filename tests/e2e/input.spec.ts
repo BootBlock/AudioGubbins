@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 
 import { KeyboardConvention } from '@audiogubbins/commands';
 
-import { openAsset, readingOf, scopeOf, surfaceOf } from './editor.js';
+import { editorPanels, openAsset, readingOf, scopeOf, surfaceOf } from './editor.js';
 import { conventionOf, openPalette, openSettings, pressPrimary, writtenPress } from './platform.js';
 import { centreOf, menuBarMenu, openFresh, recordPresses } from './shell.js';
 import { test } from './test.js';
@@ -305,5 +305,36 @@ test.describe('the dock built again by a command', () => {
     await page.getByRole('option', { name: /^Move this panel to the right/u }).click();
 
     await expect(transportContents(page)).toBeFocused();
+  });
+
+  test('gives the keyboard to a new view of an asset, and back to a view moved', async ({
+    page,
+  }) => {
+    // Opening another view left the keyboard on the new group's contents,
+    // where the arrow keys scroll it, so ArrowUp left the new view's zoom as
+    // it was until the reader tabbed back into a surface.
+    const first = await openAsset(page, 'Tone bursts');
+    await surfaceOf(first).focus();
+    await page.keyboard.press('Shift+F10');
+    await page.getByRole('menuitem', { name: 'Open another view of this asset' }).click();
+    await expect(editorPanels(page)).toHaveCount(2);
+    const second = editorPanels(page).last();
+    await expect(surfaceOf(second)).toBeFocused();
+
+    const zoom = await readingOf(second, 'Zoom').innerText();
+    await page.keyboard.press('ArrowUp');
+    await expect(readingOf(second, 'Zoom')).not.toHaveText(zoom);
+
+    await openPalette(page);
+    await page
+      .getByRole('combobox', { name: 'Search commands' })
+      .fill('Move this panel to the left');
+    await page.getByRole('option', { name: /^Move this panel to the left/u }).click();
+    // The view moved is drawn again, and the keyboard is back on its surface.
+    const moved = editorPanels(page).filter({ has: page.locator(':focus') });
+    await expect(surfaceOf(moved)).toBeFocused();
+    const zoomed = await readingOf(moved, 'Zoom').innerText();
+    await page.keyboard.press('ArrowDown');
+    await expect(readingOf(moved, 'Zoom')).not.toHaveText(zoomed);
   });
 });
