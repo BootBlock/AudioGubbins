@@ -23,31 +23,33 @@
  *   design-system   React/Radix presentation; depends on version, knows nothing
  *                   of the domain
  *   workspace       docking; depends on diagnostics + text + version
- *   project-format  the authoritative, versioned project and the forms it is
- *                   written in; depends on domain + version (ADR-0020)
- *   project-commands
- *                   the commands that change a project; depends on domain +
- *                   commands + project-format
- *   history         branching history as values; depends on domain + commands
- *                   + project-format
- *   media-store     content-addressed source media; depends on domain +
- *                   project-format
- *   storage         keeping projects over a backend port; depends on domain +
- *                   commands + diagnostics + history + media-store +
- *                   project-format + version, and on no browser API
- *   browser-storage the browser beneath the storage ports; depends on
- *                   diagnostics + media-store + project-format + storage
  *   test-fixtures   deterministic fixtures and the measures of a cost; depends
  *                   on domain; never shipped
  *   apps/web        composition root; may depend on every public entry point
  *
- * The tests of the text and diagnostics packages may take the fixtures package,
- * which their own rules below leave out of what they refuse, and so may the
- * tests of every package no such rule governs (ADR-0019): what a test runs with
- * reaches no one who uses the package, and `fixtures-are-test-only` keeps it
- * out of every production file. The tests of the input and version packages may
- * not, and the domain package's cannot, since the fixtures package depends on
- * it.
+ * Phase 02's packages sit between the domain and the application (ADR-0020):
+ *
+ * - project-format: the authoritative, versioned project and the forms it is
+ *   written in; depends on domain + version.
+ * - project-commands: the commands that change a project; depends on domain +
+ *   commands + project-format.
+ * - history: branching history as values; depends on domain + commands +
+ *   project-format.
+ * - media-store: content-addressed source media; depends on domain +
+ *   project-format.
+ * - storage: keeping projects over a backend port; depends on domain +
+ *   commands + diagnostics + history + media-store + project-format + version,
+ *   and on no browser API.
+ * - browser-storage: the browser beneath the storage ports; depends on
+ *   diagnostics + media-store + project-format + storage.
+ *
+ * The tests of the text and diagnostics packages, and of each Phase 02 package,
+ * may take the fixtures package, which their own rules below leave out of what
+ * they refuse, and so may the tests of every package no such rule governs
+ * (ADR-0019): what a test runs with reaches no one who uses the package, and
+ * `fixtures-are-test-only` keeps it out of every production file. The tests of
+ * the input and version packages may not, and the domain package's cannot,
+ * since the fixtures package depends on it.
  */
 
 /** Packages that are allowed to hold React components. */
