@@ -9,11 +9,11 @@
  * root and lives as long as the page, so the element and its decoded state
  * outlast the panel that shows it, which the dock may remount.
  *
- * The picture follows the audio, never the reverse: each display frame, or
- * each presented video frame where the browser says when that is, the Picture
- * panel hands `follow` the audible position, and the binding's policy says
- * whether to seek. Playing, the element plays muted beside the transport and
- * is corrected when it drifts by more than a frame; parked, it shows exactly
+ * The picture follows the audio, never the reverse: each display frame while
+ * the transport plays, and each move of the playhead while it is parked, the
+ * Picture panel hands `follow` the audible position, and the binding's policy
+ * says whether to seek. Playing, the element plays muted beside the transport
+ * and is corrected when it is more than a frame out; parked, it shows exactly
  * the frame that holds the position. A file the browser cannot decode, picture
  * track included, is reported with the reason, and nothing about the audio
  * changes.
