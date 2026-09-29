@@ -240,6 +240,7 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
           framesRendered={context.framesRendered}
           run={context.run}
           unavailableReason={context.unavailableReason}
+          editorViews={context.editor.stores.editorViews}
         />
       );
 

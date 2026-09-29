@@ -826,3 +826,16 @@
   margin: 0;
   font-weight: 600;
 }
+
+.ag-editor-readings {
+  margin: 0;
+}
+
+.ag-editor-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

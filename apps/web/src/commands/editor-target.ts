@@ -109,7 +109,7 @@ export function channelsArgument(
  */
 export function playheadOf(context: ShellContext, asset: EditorAsset): SampleCount {
   if (context.playback.programme() === asset.id) {
-    const heard = context.playback.audiblePosition();
+    const heard = context.playback.playheadPosition();
     const read = heard === undefined ? undefined : sampleCount(Math.min(heard, asset.length));
     if (read?.ok === true) return read.value;
   }
@@ -124,7 +124,7 @@ export function parkHeld(context: ShellContext): void {
   const key = context.playback.programme();
   const asset = key === undefined ? undefined : context.assets.find(key);
   if (asset === undefined) return;
-  const heard = context.playback.audiblePosition();
+  const heard = context.playback.playheadPosition();
   const at = heard === undefined ? undefined : sampleCount(Math.min(heard, asset.length));
   if (at?.ok === true) context.cues.park(asset.id, at.value);
 }

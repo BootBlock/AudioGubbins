@@ -166,6 +166,12 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-accessibility': ['accessibility'],
   'chromium-input': ['input', 'touch'],
   'chromium-transport': ['transport'],
+  'chromium-timeline': ['timeline'],
+  'chromium-renderer': ['renderer-loss'],
+  'chromium-renderer-webgpu': ['renderer-webgpu'],
+  'chromium-renderer-reduced': ['renderer-reduced'],
+  'chromium-touch-pen': ['touch-pen'],
+  'chromium-video-reference': ['video-reference'],
   firefox: ['accessibility', 'smoke'],
   webkit: ['accessibility', 'smoke'],
   'chromium-scaled': ['accessibility', 'smoke'],
@@ -316,9 +322,15 @@ describe('the browser matrix', () => {
       'tests/e2e/accessibility.spec.ts',
       'tests/e2e/input.spec.ts',
       'tests/e2e/pages.spec.ts',
+      'tests/e2e/renderer-loss.spec.ts',
+      'tests/e2e/renderer-reduced.spec.ts',
+      'tests/e2e/renderer-webgpu.spec.ts',
       'tests/e2e/smoke.spec.ts',
+      'tests/e2e/timeline.spec.ts',
+      'tests/e2e/touch-pen.spec.ts',
       'tests/e2e/touch.spec.ts',
       'tests/e2e/transport.spec.ts',
+      'tests/e2e/video-reference.spec.ts',
     ]);
     expect(SPECS.flatMap((path) => tagsOf(path))).toContain('@scale');
   });

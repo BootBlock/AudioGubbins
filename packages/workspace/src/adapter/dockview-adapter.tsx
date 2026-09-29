@@ -316,6 +316,7 @@ function firstPanelPlacement(
   api: DockviewApi,
   group: WorkspaceLayout['groups'][number],
   anchor: string | undefined,
+  beside: boolean,
 ) {
   if (group.region === DockRegion.Floating) {
     const placement = group.placement;
@@ -329,6 +330,13 @@ function firstPanelPlacement(
             height: placement.height * api.height,
           },
         };
+  }
+
+  if (beside && anchor !== undefined) {
+    return {
+      initialWidth: group.proportion * api.width,
+      position: { referencePanel: anchor, direction: 'right' as const },
+    };
   }
 
   const size =
@@ -359,6 +367,7 @@ function mountLayout(
   const addGroup = (
     group: WorkspaceLayout['groups'][number],
     anchor: string | undefined,
+    beside = false,
   ): string | undefined => {
     let firstInGroup: string | undefined;
 
@@ -380,7 +389,7 @@ function mountLayout(
         // The first panel of a group opens the group. Every panel after it
         // joins that group as another tab.
         ...(firstInGroup === undefined
-          ? firstPanelPlacement(api, group, anchor)
+          ? firstPanelPlacement(api, group, anchor, beside)
           : { position: { referencePanel: firstInGroup, direction: 'within' as const } }),
       });
 
@@ -408,9 +417,15 @@ function mountLayout(
   );
   const floating = layout.groups.filter((group) => group.region === DockRegion.Floating);
 
+  // A second group in the main area goes beside the one before it, at its own
+  // width, so a split main area comes back split rather than as one stack of
+  // tabs; the first is the anchor every other region is placed against.
   let anchor: string | undefined;
+  let previous: string | undefined;
   for (const group of centre) {
-    anchor = addGroup(group, anchor) ?? anchor;
+    const first = addGroup(group, previous, previous !== undefined);
+    anchor ??= first;
+    previous = first ?? previous;
   }
 
   for (const group of surrounding) {

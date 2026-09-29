@@ -183,8 +183,11 @@ export interface WorkspaceStore extends Observable<WorkspaceState> {
    */
   readonly openingProblem: (kind: PanelKind) => string | undefined;
 
-  /** Opens a panel of a kind, or brings the open one forward. */
-  readonly openPanel: (kind: PanelKind) => string | undefined;
+  /**
+   * Opens a panel of a kind, or brings the open one forward; beside panel
+   * `beside` in a group of its own, where it is given.
+   */
+  readonly openPanel: (kind: PanelKind, beside?: PanelId) => string | undefined;
 
   /**
    * Why moving a panel into a region would be refused, or `undefined`.
@@ -518,11 +521,11 @@ export function createWorkspaceStore(
       return typeof found === 'string' ? found : undefined;
     },
 
-    openPanel: (kind) => {
+    openPanel: (kind, beside) => {
       const found = opening(kind);
       if (typeof found === 'string') return found;
 
-      commit(withPanel(state.get().layout, found));
+      commit(withPanel(state.get().layout, found, beside));
       return undefined;
     },
 

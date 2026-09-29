@@ -32,6 +32,7 @@ import {
   createRenderStrategyStore,
   type RenderStrategyStore,
 } from '../state/render-strategy-store.js';
+import { observable, type Observable } from '../state/observable.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_DEVICE, FakeSession, UNLOADED } from '../testing/audio-fakes.js';
@@ -59,6 +60,8 @@ function draw(
     readonly unavailable?: Readonly<Record<string, string>>;
     readonly settings?: AudioSettingsStore;
     readonly strategy?: RenderStrategyStore;
+    readonly unavailableNow?: (id: string) => string | undefined;
+    readonly editorViews?: Observable<unknown>;
   } = {},
 ) {
   const run = vi.fn<(id: string) => void>();
@@ -77,7 +80,8 @@ function draw(
       meters={options.meters ?? (() => NO_METERS)}
       framesRendered={options.framesRendered ?? (() => 0)}
       run={run}
-      unavailableReason={(id) => options.unavailable?.[id]}
+      unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
+      editorViews={options.editorViews ?? observable(undefined)}
     />,
   );
   return { run };
@@ -151,6 +155,23 @@ describe('the Transport panel before anything plays', () => {
       ['transport.play-test-signal'],
       ['transport.render-test-signal'],
     ]);
+  });
+
+  it('offers Play once the editor in use shows an asset, as the editor views change', () => {
+    const views = observable(0);
+    let reason: string | undefined = 'No editor view shows an asset.';
+    draw(undefined, {
+      unavailableNow: (id) => (id === 'transport.play' ? reason : undefined),
+      editorViews: views,
+    });
+    expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled();
+
+    reason = undefined;
+    act(() => {
+      views.set(1);
+    });
+
+    expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled();
   });
 
   it('greys a button whose command cannot run, with the command’s own reason', () => {

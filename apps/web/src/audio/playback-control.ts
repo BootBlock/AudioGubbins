@@ -208,6 +208,21 @@ export class PlaybackControl {
     return heard?.ok === true ? heard.value : undefined;
   }
 
+  /**
+   * Where the transport is, as a playhead shows it: the frame heard while it
+   * plays, and the frame it stands at otherwise, which a seek while paused or
+   * stopped moves at once. `undefined` with no session.
+   */
+  playheadPosition(): number | undefined {
+    const session = this.#opened?.session;
+    if (session === undefined) return undefined;
+    const read =
+      session.status.transport.mode === TransportMode.Playing
+        ? session.audiblePosition()
+        : session.position();
+    return read.ok ? read.value : undefined;
+  }
+
   /** Each meter's latest levels, read once a display frame, or none with no session. */
   meters(): ReadonlyMap<NodeId, MeterLevels> {
     return this.#opened?.session?.meters() ?? NO_METERS;

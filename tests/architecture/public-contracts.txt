@@ -2311,7 +2311,7 @@ Published paths
   function titleOf(panel: OpenPanel, descriptors: ReadonlyMap<string, PanelDescriptor>): string
   function withGroupNudged(layout: WorkspaceLayout, id: string, x: number, y: number): WorkspaceLayout | string
   function withGroupResized(layout: WorkspaceLayout, id: string, steps: number): WorkspaceLayout | string
-  function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor): WorkspaceLayout
+  function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor, beside?: string | undefined): WorkspaceLayout
   function withPanelMoved(layout: WorkspaceLayout, id: string, region: DockRegion): WorkspaceLayout | string
   function withPanelReordered(layout: WorkspaceLayout, id: string, places: number): WorkspaceLayout | string
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout

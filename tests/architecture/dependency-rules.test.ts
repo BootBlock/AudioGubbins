@@ -2514,8 +2514,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it. The finding of each is elsewhere \u2014 credentials in `credentials.ts` and every location in `path-finding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
     ],
     'packages/workspace/src/adapter/dockview-adapter.tsx': [
-      317,
-      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
+      328,
+      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
   };
 

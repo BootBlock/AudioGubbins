@@ -337,6 +337,29 @@ describe('openingProblem', () => {
  * keyboard cannot reach and a touch screen does not produce, so without these a
  * tablet user could look at the workspace and not arrange it.
  */
+describe('withPanel beside another', () => {
+  const editor = descriptor(PanelKinds.Editor, 'Editor', DockRegion.Centre, true);
+
+  it('opens a panel in a group of its own beside the one given, the two sharing its width', () => {
+    const after = withPanel(layout(), editor, 'editor-a');
+
+    expect(
+      after.groups.map((group) => [group.region, group.proportion, group.activePanelId]),
+    ).toEqual([
+      [DockRegion.Centre, 0.35, 'editor-b'],
+      [DockRegion.Centre, 0.35, 'editor'],
+      [DockRegion.Left, 0.3, 'assets'],
+    ]);
+    expect(after.activePanelId).toBe('editor');
+  });
+
+  it('opens it where any panel opens beside one docked at an edge', () => {
+    const after = withPanel(layout(), editor, 'assets');
+
+    expect(after).toEqual(withPanel(layout(), editor));
+  });
+});
+
 describe('withPanelMoved', () => {
   it('moves a panel into a region that already has a group', () => {
     const after = withPanelMoved(layout(), 'editor-a', DockRegion.Left);

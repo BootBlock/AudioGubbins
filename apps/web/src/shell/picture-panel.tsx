@@ -16,7 +16,7 @@ import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, OptionSelect } from '@audiogubbins/design-system';
 import { formatPosition, frameRatesEqual, TimeFormatKind } from '@audiogubbins/timeline';
-import { pictureFrameAt, pictureTimecodeAt } from '@audiogubbins/video-reference';
+import { pictureFrameAt, pictureTimeAt, pictureTimecodeAt } from '@audiogubbins/video-reference';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { FRAME_RATES } from '../commands/picture-commands.js';
@@ -72,23 +72,35 @@ function Readouts({
     () => parts.stores.playhead(asset),
     parts.stores.playing(asset.id),
   );
-  const { binding } = state;
+  const { binding, media } = state;
   if (binding === undefined) return null;
+  const time = pictureTimeAt(binding, playhead);
+  const outside =
+    time < 0
+      ? 'The playhead is before the picture starts.'
+      : media.kind === 'ready' && time >= media.duration
+        ? 'The playhead is past the end of the picture.'
+        : undefined;
   return (
-    <dl className="ag-readings">
-      <div className="ag-reading">
-        <dt>Timecode</dt>
-        <dd role="timer">{pictureTimecodeAt(binding, playhead)}</dd>
-      </div>
-      <div className="ag-reading">
-        <dt>Frame</dt>
-        <dd>{FRAMES.format(pictureFrameAt(binding, playhead))}</dd>
-      </div>
-      <div className="ag-reading">
-        <dt>Picture starts at</dt>
-        <dd>{formatPosition(binding.offset, asset.sampleRate, { kind: TimeFormatKind.Clock })}</dd>
-      </div>
-    </dl>
+    <>
+      {outside !== undefined && <p className="ag-panel-note">{outside}</p>}
+      <dl className="ag-readings">
+        <div className="ag-reading">
+          <dt>Timecode</dt>
+          <dd role="timer">{pictureTimecodeAt(binding, playhead)}</dd>
+        </div>
+        <div className="ag-reading">
+          <dt>Frame</dt>
+          <dd>{FRAMES.format(pictureFrameAt(binding, playhead))}</dd>
+        </div>
+        <div className="ag-reading">
+          <dt>Picture starts at</dt>
+          <dd>
+            {formatPosition(binding.offset, asset.sampleRate, { kind: TimeFormatKind.Clock })}
+          </dd>
+        </div>
+      </dl>
+    </>
   );
 }
 
@@ -199,6 +211,8 @@ export function PicturePanel({
 }): ReactNode {
   const state = useSyncExternalStore(parts.picture.subscribe, parts.picture.get);
   useSyncExternalStore(parts.stores.audio.subscribe, parts.stores.audio.get);
+  // Binding and marking a frame read the editor in use.
+  useSyncExternalStore(parts.stores.editorViews.subscribe, parts.stores.editorViews.get);
   const asset = state.asset === undefined ? undefined : parts.assets.find(state.asset);
   useFollowing(parts, state.media.kind === 'ready' ? asset : undefined);
   const { media } = state;

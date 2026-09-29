@@ -444,8 +444,16 @@ export function openingProblem(
  * A panel already open is never opened twice unless its kind allows several. An
  * Inspector in two places would show one selection in two panels, and neither
  * would be the authoritative one (REQ-EDIT-072).
+ *
+ * Given `beside`, a panel of a kind the user may have several of opens in a
+ * group of its own beside the group holding it, where that is the main area.
  */
-export function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor): WorkspaceLayout {
+export function withPanel(
+  layout: WorkspaceLayout,
+  descriptor: PanelDescriptor,
+  beside?: PanelId,
+): WorkspaceLayout {
+  if (beside !== undefined) return withPanelBeside(layout, descriptor, beside);
   const open = descriptor.allowsMultiple ? undefined : openPanelOfKind(layout, descriptor.kind);
 
   if (open !== undefined) {
@@ -467,6 +475,36 @@ export function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor):
     groups: withPanelPlacedIn(layout.groups, panel, descriptor.defaultRegion),
     activePanelId: panel.id,
   };
+}
+
+/**
+ * Opens a panel of a kind in a group of its own beside the group holding
+ * `beside`, the two sharing the width that group had, so both are on screen
+ * at once: a second view of an asset beside the first (REQ-EDIT-061). Only
+ * the main area splits so, and only for a kind the user may have several of;
+ * otherwise the panel opens as {@link withPanel} opens it without `beside`.
+ */
+function withPanelBeside(
+  layout: WorkspaceLayout,
+  descriptor: PanelDescriptor,
+  beside: PanelId,
+): WorkspaceLayout {
+  const index = layout.groups.findIndex((group) =>
+    group.panels.some((panel) => panel.id === beside),
+  );
+  const group = layout.groups[index];
+  if (group?.region !== DockRegion.Centre || !descriptor.allowsMultiple) {
+    return withPanel(layout, descriptor);
+  }
+  const panel: OpenPanel = { id: freePanelId(layout, descriptor.kind), kind: descriptor.kind };
+  const half = group.proportion / 2;
+  const groups = [
+    ...layout.groups.slice(0, index),
+    { ...group, proportion: half },
+    { region: DockRegion.Centre, proportion: half, panels: [panel], activePanelId: panel.id },
+    ...layout.groups.slice(index + 1),
+  ];
+  return { ...layout, groups, activePanelId: panel.id };
 }
 
 /** How each region is named in a sentence about a panel being there. */

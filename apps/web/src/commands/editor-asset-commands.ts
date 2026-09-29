@@ -44,7 +44,7 @@ function newView(): Command<ShellContext> {
     (context) => {
       const target = focusedEditor(context);
       if (typeof target === 'string') return target;
-      const refused = context.workspace.openPanel(PanelKinds.Editor);
+      const refused = context.workspace.openPanel(PanelKinds.Editor, target.panel);
       if (refused !== undefined) return refused;
       const opened = activePanelOf(context.workspace.get().layout);
       if (opened?.kind !== PanelKinds.Editor) return 'The new editor panel could not be found.';
@@ -56,7 +56,7 @@ function newView(): Command<ShellContext> {
     {
       keywords: ['view', 'editor', 'another', 'second', 'split', 'duplicate', 'window'],
       description:
-        'Opens the asset in use in a new editor panel, with its own zoom, scroll and tool, sharing its markers and selection.',
+        'Opens the asset in use in a new editor panel beside it, with its own zoom, scroll and tool, sharing its markers and selection.',
       availability: needsEditor,
     },
   );

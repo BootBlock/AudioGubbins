@@ -153,8 +153,11 @@ export class FakeSession implements PlaybackSessionPort {
     return transportPosition(this.status.transport, CLOCK, this.contextFrame);
   }
 
+  /** The frame last heard, where a test holds it apart from the transport's position. */
+  heard: SampleCount | undefined;
+
   audiblePosition(): DomainResult<SampleCount> {
-    return this.position();
+    return this.heard === undefined ? this.position() : succeed(this.heard);
   }
 
   meters(): ReadonlyMap<NodeId, MeterLevels> {

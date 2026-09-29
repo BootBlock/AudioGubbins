@@ -276,7 +276,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   },
   '@audiogubbins/video-reference': {
     "The picture binding the application's picture panel and the editor view of this phase use, which reach it in the commits that follow (ADR-0046).":
-      ['framePeriod', 'pictureDrift', 'pictureTimeAt'],
+      ['framePeriod', 'pictureDrift'],
   },
   '@audiogubbins/editor-view': {
     "The editor view the application's editor panel mounts, which reaches it in the commits that follow (ADR-0040).":

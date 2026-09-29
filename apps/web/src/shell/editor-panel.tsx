@@ -29,6 +29,7 @@ import type { EditorAsset } from '../assets/editor-asset.js';
 import { EditorSurface } from '../editor/editor-surface.js';
 import { editorPaletteOf, editorTypeOf } from '../editor/theme-palette.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
+import { EditorReadouts, MarkerList } from './editor-readouts.js';
 import { EditorToolbar } from './editor-toolbar.js';
 import { SelectionScope } from './selection-scope.js';
 
@@ -228,6 +229,7 @@ function EditorView({
 }): ReactNode {
   const [peaks, setPeaks] = useState<PeakStatus | undefined>(undefined);
   const waiting = peaksText(peaks);
+  const selection = parts.stores.selections.of(asset.id);
   return (
     <section className="ag-panel ag-editor">
       <h2 className="ag-panel-title">{title}</h2>
@@ -242,13 +244,18 @@ function EditorView({
         state={state}
         commands={{ run: parts.run, shortcutFor: parts.shortcutFor }}
       />
-      <SelectionScope
-        selection={parts.stores.selections.of(asset.id)}
-        asset={asset}
-        state={state}
-      />
+      <SelectionScope selection={selection} asset={asset} state={state} />
       <Surface panel={panel} asset={asset} parts={parts} onPeaks={setPeaks} />
       <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
+      <EditorReadouts asset={asset} state={state} parts={parts} />
+      <MarkerList
+        panel={panel}
+        asset={asset}
+        state={state}
+        markers={parts.stores.content.of(asset).markers}
+        selection={selection}
+        parts={parts}
+      />
       {waiting !== undefined && <p className="ag-panel-note">{waiting}</p>}
     </section>
   );
@@ -270,6 +277,9 @@ export function EditorPanel({
   );
   useSyncExternalStore(parts.assets.subscribe, parts.assets.get);
   useSyncExternalStore(parts.stores.selections.subscribe, parts.stores.selections.get);
+  useSyncExternalStore(parts.stores.content.subscribe, parts.stores.content.get);
+  useSyncExternalStore(parts.stores.cues.subscribe, parts.stores.cues.get);
+  useSyncExternalStore(parts.stores.audio.subscribe, parts.stores.audio.get);
   const entry = views.views.get(panel);
   const asset = entry === undefined ? undefined : parts.assets.find(entry.asset);
   if (entry !== undefined && asset !== undefined) {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FailureKind, fail, failure } from '@audiogubbins/domain';
+import { FailureKind, fail, failure, sampleCount } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
 import { PlaybackPhase } from '@audiogubbins/audio-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
@@ -199,6 +200,35 @@ describe('playing the test signal', () => {
     parts.latest().contextFrame = 4_800;
 
     expect(control.audiblePosition()).toBe(4_800);
+  });
+});
+
+describe('the playhead of a programme', () => {
+  it('is the frame heard while playing, and where the transport stands once it is sought paused', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    const session = parts.latest();
+    session.contextFrame = 4_800;
+    session.heard = expectSuccess(sampleCount(4_700));
+    expect(control.playheadPosition()).toBe(4_700);
+
+    control.pause();
+    expect(control.seek(TEST_SIGNAL_PROGRAMME.key, expectSuccess(sampleCount(1_000)))).toBe(true);
+    await Promise.resolve();
+
+    // The audio thread has heard nothing new, and the playhead is where it was put.
+    expect(control.audiblePosition()).toBe(4_700);
+    expect(control.playheadPosition()).toBe(1_000);
+  });
+
+  it('is moved only where the transport holds the programme named', async () => {
+    const { control, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    expect(control.seek('test:loop', expectSuccess(sampleCount(10)))).toBe(false);
+    expect(control.programme()).toBe(TEST_SIGNAL_PROGRAMME.key);
   });
 });
 

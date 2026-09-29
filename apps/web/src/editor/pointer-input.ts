@@ -123,7 +123,10 @@ class Pointers {
       this.#fingers = { started: [...this.#touches.values()].slice(0, 2), lastDx: 0, lastScale: 1 };
       return;
     }
-    event.preventDefault();
+    // A mouse press is kept from selecting the page's text. A finger's or a
+    // pen's is left unhandled: the surface takes no touch gesture of the page
+    // already, and the context actions' long press ignores a handled press.
+    if (sample.kind === PointerKind.Mouse) event.preventDefault();
     this.#routes.tool.down(sample, modifiersOf(event));
   };
 

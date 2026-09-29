@@ -53,6 +53,11 @@ export interface TransportPanelProps {
   readonly run: (id: string) => void;
   /** Why a command cannot run now, or `undefined`, as the menus say it. */
   readonly unavailableReason: (id: string) => string | undefined;
+  /**
+   * The editor views, which Play reads: it plays the asset of the editor in
+   * use, so the button is drawn again as that changes.
+   */
+  readonly editorViews: Observable<unknown>;
 }
 
 type Commands = Pick<TransportPanelProps, 'run' | 'unavailableReason'>;
@@ -227,6 +232,7 @@ function Levels({
 export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead, meters } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
+  useSyncExternalStore(props.editorViews.subscribe, props.editorViews.get);
   const { chosen } = useSyncExternalStore(props.audioSettings.subscribe, props.audioSettings.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
