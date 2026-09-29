@@ -1,0 +1,87 @@
+/**
+ * A project's header: what the list of projects shows without opening one, its
+ * name, when it was made, and whether it has been deleted (REQ-STOR-102).
+ *
+ * The name is the catalogue's copy of the name the project's state holds, which
+ * is authoritative: the session writes the header again whenever the state's
+ * name changes, so the list agrees with the project. Deleting is soft: the flag
+ * hides the project, and everything it holds stays until an explicit purge. The
+ * header changes in place, so it is a pair (`generational-pair.ts`).
+ */
+
+import type { ProjectId } from '@audiogubbins/domain';
+import {
+  asId,
+  objectOf,
+  optional,
+  pathOf,
+  presentMembers,
+  required,
+  textConverter,
+  type Converter,
+  type JsonObject,
+} from '@audiogubbins/project-format';
+
+import { RecordKind } from './checked-records.js';
+import type { Generational, PairFiles } from './generational-pair.js';
+import { asCountingNumber, asWholeNumber } from './record-values.js';
+import type { ProjectPaths } from './storage-layout.js';
+
+/** A project's header. */
+export interface ProjectHeader extends Generational {
+  readonly id: ProjectId;
+  readonly name: string;
+
+  /** When the project was made, in milliseconds since the epoch. */
+  readonly created: number;
+
+  /** When the project was deleted, where it has been and not restored. */
+  readonly deleted?: number;
+}
+
+const HEADER_MEMBERS: ReadonlySet<string> = new Set([
+  'generation',
+  'id',
+  'name',
+  'created',
+  'deleted',
+]);
+
+/** The longest name, as the project document holds one. */
+const asName = textConverter({ maximumLength: 1_024 });
+
+/** Writes a header. */
+export function writeHeader(header: ProjectHeader): JsonObject {
+  return presentMembers({
+    generation: header.generation,
+    id: header.id,
+    name: header.name,
+    created: header.created,
+    deleted: header.deleted,
+  });
+}
+
+/** Reads a header. */
+const readHeader: Converter<ProjectHeader> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, HEADER_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const generation = required(reading, object, at, 'generation', asCountingNumber);
+  const id = required(reading, object, at, 'id', asId<'ProjectId'>);
+  const name = required(reading, object, at, 'name', asName);
+  const created = required(reading, object, at, 'created', asWholeNumber);
+  const deleted = optional(reading, object, at, 'deleted', asWholeNumber);
+  if (generation === undefined || id === undefined || name === undefined || created === undefined) {
+    return undefined;
+  }
+  return { generation, id, name, created, ...(deleted === undefined ? {} : { deleted }) };
+};
+
+/** The two files a project's header is kept in. */
+export function headerFiles(paths: ProjectPaths): PairFiles<ProjectHeader> {
+  return {
+    path: (slot) => paths.header(slot),
+    kind: RecordKind.ProjectHeader,
+    convert: readHeader,
+  };
+}
