@@ -4,9 +4,12 @@
  * the asset's markers, each a button that selects it. The canvas is drawn for
  * the eye; these are what a screen reader, a keyboard and a test read
  * (REQ-UX-005), and they read the same stores the canvas is drawn from.
+ *
+ * The surface is described by the readings, and what a key pressed in it
+ * changed of them is said once the keys stop (`use-readings-said.ts`).
  */
 
-import type { ReactNode } from 'react';
+import type { ReactNode, RefObject } from 'react';
 
 import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { Marker } from '@audiogubbins/domain';
@@ -16,6 +19,7 @@ import { formatPosition, visibleRange, type SelectionSet, type Zoom } from '@aud
 import type { EditorAsset } from '../assets/editor-asset.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { useDisplayFrame } from './use-display-frame.js';
+import { useReadingsSaid } from './use-readings-said.js';
 
 const WHOLE = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
@@ -26,12 +30,20 @@ function zoomText(zoom: Zoom): string {
     : `${WHOLE.format(zoom.pixels)} pixels a sample`;
 }
 
-/** Where the playhead is, the zoom and the stretch shown. */
+/**
+ * Where the playhead is, the zoom and the stretch shown, under `id`, which
+ * the surface is described by; what a key pressed in `surface` changed of
+ * them is said.
+ */
 export function EditorReadouts({
+  id,
+  surface,
   asset,
   state,
   parts,
 }: {
+  readonly id: string;
+  readonly surface: RefObject<HTMLElement | null>;
   readonly asset: EditorAsset;
   readonly state: EditorViewState;
   readonly parts: EditorPanelParts;
@@ -43,21 +55,27 @@ export function EditorReadouts({
   const write = (position: number): string =>
     formatPosition(position, asset.sampleRate, state.timeFormat);
   const shown = visibleRange(state.viewport, asset.length);
+  const readings = {
+    playhead: write(playhead),
+    zoom: zoomText(state.viewport.zoom),
+    showing: `${write(shown.start)} to ${write(shown.end)}`,
+  };
+  useReadingsSaid(surface, readings, parts.announce);
   return (
-    <dl className="ag-readings ag-editor-readings">
+    <dl id={id} className="ag-readings ag-editor-readings">
       <div className="ag-reading">
         <dt>Playhead</dt>
         <dd role="timer" aria-label="Playhead">
-          {write(playhead)}
+          {readings.playhead}
         </dd>
       </div>
       <div className="ag-reading">
         <dt>Zoom</dt>
-        <dd>{zoomText(state.viewport.zoom)}</dd>
+        <dd>{readings.zoom}</dd>
       </div>
       <div className="ag-reading">
         <dt>Showing</dt>
-        <dd>{`${write(shown.start)} to ${write(shown.end)}`}</dd>
+        <dd>{readings.showing}</dd>
       </div>
     </dl>
   );

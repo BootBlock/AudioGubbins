@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 
 import { KeyboardConvention } from '@audiogubbins/commands';
 
-import { openAsset, scopeOf, surfaceOf } from './editor.js';
+import { openAsset, readingOf, scopeOf, surfaceOf } from './editor.js';
 import { conventionOf, openPalette, openSettings, pressPrimary, writtenPress } from './platform.js';
 import { centreOf, menuBarMenu, openFresh, recordPresses } from './shell.js';
 import { test } from './test.js';
@@ -100,6 +100,25 @@ test.describe('the keyboard', () => {
     await page.keyboard.press(apple ? 'Alt+ArrowLeft' : 'Control+ArrowLeft');
     await page.keyboard.type('Z');
     await expect(field).toHaveValue('open another Zview');
+  });
+
+  test('says what the keys changed in the editor, once they stop', async ({ page }) => {
+    // The surface is an application region, so a screen reader passes its keys
+    // through; the playhead and the zoom moved and nothing was said.
+    const panel = await openAsset(page, 'Tone bursts');
+    const surface = surfaceOf(panel);
+    await expect(surface).toHaveAccessibleDescription(/Playhead.*Zoom.*Showing/u);
+    await surface.focus();
+
+    await surface.press('ArrowRight');
+    await surface.press('ArrowRight');
+    await surface.press('ArrowUp');
+
+    const playhead = await readingOf(panel, 'Playhead').innerText();
+    const zoom = await readingOf(panel, 'Zoom').innerText();
+    await expect(
+      page.locator('.ag-live-regions', { hasText: `Playhead at ${playhead}. Zoom ${zoom},` }),
+    ).toHaveCount(1);
   });
 
   test('changes nothing behind a modal dialogue', async ({ page }) => {

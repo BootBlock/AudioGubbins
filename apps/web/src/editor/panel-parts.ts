@@ -31,6 +31,8 @@ export interface EditorPanelParts {
   readonly rendererReports: RendererReports;
   readonly logger: Logger;
   readonly run: (id: string, args?: ControlArguments) => void;
+  /** Says a sentence politely, where what it reports is shown in its own place already. */
+  readonly announce: (text: string) => void;
   readonly unavailableReason: (id: string) => string | undefined;
   readonly labelFor: (id: string) => string;
   readonly shortcutFor: (id: string) => string | undefined;

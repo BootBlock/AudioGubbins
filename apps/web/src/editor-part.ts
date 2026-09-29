@@ -100,6 +100,9 @@ export function panelPartsOf(
   return {
     ...controls,
     ...services,
+    announce: (text) => {
+      context.interaction.announce(text, false, { shown: false });
+    },
     stores: {
       editorViews: context.editorViews,
       selections: context.selections,
