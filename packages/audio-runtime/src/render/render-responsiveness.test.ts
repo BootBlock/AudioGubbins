@@ -51,6 +51,14 @@ const RENDER_FRAMES = SECONDS * RENDER_RATE;
 const CHUNKS = RENDER_FRAMES / CHUNK_FRAMES;
 const JOB = 'render-1';
 
+/**
+ * The time the test that renders the whole recording is allowed. Converting
+ * thirty seconds at maximum quality takes about three seconds of processor
+ * time on its own, past the default of five on a busy machine. The test holds
+ * the shape of the work, never its speed, so the bound only stops a hang.
+ */
+const WHOLE_RENDER_MS = 60_000;
+
 const IN = named('in');
 const OUT = named('out');
 
@@ -145,45 +153,49 @@ describe('a representative offline render leaves the interface responsive', () =
     },
   );
 
-  it('the worker yields between every chunk, and no chunk exceeds the frames asked for', async () => {
-    const worker = workerUnderTest();
-    worker.core.receive(representativeRender(await WebAssembly.compile(dspModuleBytes())));
+  it(
+    'the worker yields between every chunk, and no chunk exceeds the frames asked for',
+    async () => {
+      const worker = workerUnderTest();
+      worker.core.receive(representativeRender(await WebAssembly.compile(dspModuleBytes())));
 
-    // The chunks rendered each time the worker hands its thread back.
-    const renderedAtEachYield: number[] = [];
-    while (worker.count(FromRenderWorkerKind.Done) === 0) {
-      await idle();
-      const taken = worker.count(FromRenderWorkerKind.Chunk);
-      for (let one = 0; one < taken; one += 1) {
-        worker.core.receive({ kind: ToRenderWorkerKind.ChunkTaken, jobId: JOB });
+      // The chunks rendered each time the worker hands its thread back.
+      const renderedAtEachYield: number[] = [];
+      while (worker.count(FromRenderWorkerKind.Done) === 0) {
+        await idle();
+        const taken = worker.count(FromRenderWorkerKind.Chunk);
+        for (let one = 0; one < taken; one += 1) {
+          worker.core.receive({ kind: ToRenderWorkerKind.ChunkTaken, jobId: JOB });
+        }
+        if (worker.yields.length > 0) {
+          renderedAtEachYield.push(worker.count(FromRenderWorkerKind.Progress));
+          worker.yields.shift()?.();
+        }
       }
-      if (worker.yields.length > 0) {
-        renderedAtEachYield.push(worker.count(FromRenderWorkerKind.Progress));
-        worker.yields.shift()?.();
-      }
-    }
 
-    expect(renderedAtEachYield).toEqual(Array.from({ length: CHUNKS }, (_, index) => index + 1));
-    const chunks = worker.posted.flatMap((message) =>
-      message.kind === FromRenderWorkerKind.Chunk ? [message] : [],
-    );
-    expect(chunks).toHaveLength(CHUNKS);
-    for (const chunk of chunks) {
-      expect(chunk.channels).toHaveLength(2);
-      for (const channel of chunk.channels)
-        expect(channel.length).toBeLessThanOrEqual(CHUNK_FRAMES);
-    }
-    expect(chunks.reduce((total, chunk) => total + (chunk.channels[0]?.length ?? 0), 0)).toBe(
-      RENDER_FRAMES,
-    );
-    expect(worker.posted.at(-1)).toMatchObject({
-      kind: FromRenderWorkerKind.Done,
-      dsp: DspImplementation.WebAssembly,
-      conversions: [
-        { node: IN, from: RECORDED_RATE, to: RENDER_RATE, quality: ResamplingQuality.Maximum },
-      ],
-    });
-  });
+      expect(renderedAtEachYield).toEqual(Array.from({ length: CHUNKS }, (_, index) => index + 1));
+      const chunks = worker.posted.flatMap((message) =>
+        message.kind === FromRenderWorkerKind.Chunk ? [message] : [],
+      );
+      expect(chunks).toHaveLength(CHUNKS);
+      for (const chunk of chunks) {
+        expect(chunk.channels).toHaveLength(2);
+        for (const channel of chunk.channels)
+          expect(channel.length).toBeLessThanOrEqual(CHUNK_FRAMES);
+      }
+      expect(chunks.reduce((total, chunk) => total + (chunk.channels[0]?.length ?? 0), 0)).toBe(
+        RENDER_FRAMES,
+      );
+      expect(worker.posted.at(-1)).toMatchObject({
+        kind: FromRenderWorkerKind.Done,
+        dsp: DspImplementation.WebAssembly,
+        conversions: [
+          { node: IN, from: RECORDED_RATE, to: RENDER_RATE, quality: ResamplingQuality.Maximum },
+        ],
+      });
+    },
+    WHOLE_RENDER_MS,
+  );
 
   it('the main thread writes each posted chunk as it came and answers once, running no DSP', async () => {
     const scheduler = expectSuccess(

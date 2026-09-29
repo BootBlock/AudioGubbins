@@ -2,8 +2,8 @@
  * The resampler's frequency response, held to what each quality promises in
  * `ResamplingQuality`: flat to its passband edge, and at least its floor down
  * at and above the lower Nyquist frequency, where an alias or an image would
- * otherwise land. Both paths are measured, though they give the same bits,
- * so a promise broken on either fails here.
+ * otherwise land. Both paths are measured, though they give the same bits, so
+ * a promise broken on either fails here.
  *
  * A level is measured by fitting sines and cosines at the frequencies
  * expected in the output by least squares over its middle, away from the

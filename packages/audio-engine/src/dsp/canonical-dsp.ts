@@ -66,8 +66,8 @@ export interface CanonicalOscillator {
 
   /**
    * Moves to frame `frame` of its run, a whole number, so the next sample is
-   * that frame's, with the bits a run from the first frame gives it. Throws
-   * on a frame that is not a whole number from 0 to `Number.MAX_SAFE_INTEGER`.
+   * that frame's, with the bits a run from the first frame gives it. Throws on
+   * a frame that is not a whole number from 0 to `Number.MAX_SAFE_INTEGER`.
    */
   seek(frame: number): void;
   release(): void;
@@ -83,9 +83,9 @@ export interface ResamplerSettings {
   /**
    * The bytes of memory the caller measured it can give the filter's table of
    * coefficients, or `undefined` where it could not tell. The table is kept
-   * where it fits and can be allocated; otherwise the taps are computed as
-   * each sample is written, far slower and with the same bits
-   * (REQ-ARCH-087). It changes no bit of the output.
+   * where it fits and can be allocated; otherwise the taps are computed as each
+   * sample is written, far slower and with the same bits (REQ-ARCH-087). It
+   * changes no bit of the output.
    */
   readonly coefficientBudgetBytes?: number;
 }

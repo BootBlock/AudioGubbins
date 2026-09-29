@@ -43,8 +43,8 @@ function bytesOfTable(taps: number, phases: number): number {
 /**
  * The interpolation filter for one conversion, as `Kernel` in `kernel.rs`:
  * the design, and either a table each phase fills the first time it is used,
- * where the table fits in the budget and can be allocated, or one phase's taps
- * computed for each output sample.
+ * where the table fits in the budget and can be allocated, or one phase's
+ * taps computed for each output sample.
  */
 class Kernel {
   readonly outputStep: number;

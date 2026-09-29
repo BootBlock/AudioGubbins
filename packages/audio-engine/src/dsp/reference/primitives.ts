@@ -94,16 +94,16 @@ const AMPLITUDE = 4;
  * A sine oscillator whose phase is a 64-bit fixed-point count of turns, as
  * `oscillator.rs`: frame `n`'s phase is `(start + n · increment) mod 2⁶⁴`.
  *
- * The phase is held as two 32-bit halves in doubles, each exact, added with
- * a carry. The turns a sample is the sine of are `hi · 2⁻³² + lo · 2⁻⁶⁴`: two
+ * The phase is held as two 32-bit halves in doubles, each exact, added with a
+ * carry. The turns a sample is the sine of are `hi · 2⁻³² + lo · 2⁻⁶⁴`: two
  * exact products and one correctly rounded sum, which is the phase rounded to
  * the nearest double, the number the crate's `phase as f64 · 2⁻⁶⁴` gives.
  */
 export class ReferenceOscillator {
   /**
-   * The phase and increment halves and the amplitude, in one f64 array
-   * rather than fields: V8 boxes a double it writes to an object field, which
-   * on the fallback path of the audio thread was a heap number every sample.
+   * The phase and increment halves and the amplitude, in one f64 array rather
+   * than fields: V8 boxes a double it writes to an object field, which on the
+   * fallback path of the audio thread was a heap number every sample.
    */
   readonly #state = new Float64Array(5);
   readonly #start: bigint;
