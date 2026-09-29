@@ -33,13 +33,12 @@ import {
 
 import {
   FromRenderWorkerKind,
-  SourceKind,
   ToRenderWorkerKind,
   readFromRenderWorker,
   type FromRenderWorker,
-  type SourceDescription,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
+import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { RenderRequest, RenderRunOptions, WorkerRenderSummary } from './render-request.js';
 import type { Schedule } from '../schedule.js';
 
@@ -115,20 +114,6 @@ function workerFailed(summary: string, cause?: DomainFailure): DomainResult<neve
   );
 }
 
-/** Each distinct buffer behind the sources' arrays that can be transferred. */
-function transferablesOf(sources: readonly SourceDescription[]): Transferable[] {
-  const buffers = new Set<ArrayBuffer>();
-  for (const source of sources) {
-    if (source.kind !== SourceKind.Pcm) continue;
-    // A shared buffer is not transferred but shared, and two channels that
-    // view one buffer must list it once, or the post is refused.
-    for (const channel of source.channels) {
-      if (channel.buffer instanceof ArrayBuffer) buffers.add(channel.buffer);
-    }
-  }
-  return [...buffers];
-}
-
 class WorkerRender {
   readonly #worker: RenderWorkerPort;
   readonly #job: WorkerRenderJob;
@@ -171,7 +156,7 @@ class WorkerRender {
         dspModule: dsp.module,
         dspUnavailable: dsp.unavailable,
       },
-      transferablesOf(request.sources),
+      sourceTransferables(request.sources),
     );
   }
 

@@ -12,7 +12,7 @@ import {
   type PcmSource,
 } from '@audiogubbins/audio-engine';
 
-import { ToProcessorKind, type ToProcessor } from '../protocol/processor-messages.js';
+import { ToProcessorFeedKind, type ToProcessorFeed } from '../protocol/feed-messages.js';
 import {
   PostedDestination,
   RingDestination,
@@ -31,6 +31,9 @@ const NODE = expectSuccess(nodeId('in'));
 const AHEAD_MILLISECONDS = 10;
 const AHEAD_FRAMES = 480;
 const CHUNK = 128;
+
+/** How long a full queue waits before it looks again. */
+const WAKE_MILLISECONDS = 2.5;
 
 /** A signal whose channels differ, exact in f32. */
 function audio(frames: number): AudioFrameBlock {
@@ -102,6 +105,7 @@ function pumpOf(
       destination,
       feedAheadMilliseconds: AHEAD_MILLISECONDS,
       chunkFrames: CHUNK,
+      wakeMilliseconds: WAKE_MILLISECONDS,
       schedule,
       signal,
     }),
@@ -109,13 +113,13 @@ function pumpOf(
 }
 
 interface Posted {
-  readonly message: ToProcessor;
-  readonly transfer: Transferable[];
+  readonly message: ToProcessorFeed;
+  readonly transfer: ArrayBuffer[];
 }
 
 function postedChannels(posts: readonly Posted[]): Float32Array[] {
   const blocks = posts.flatMap(({ message }) =>
-    message.kind === ToProcessorKind.FeedBlock ? [message.channels] : [],
+    message.kind === ToProcessorFeedKind.Block ? [message.channels] : [],
   );
   return [0, 1].map((channel) => {
     const parts = blocks.map((block) => block[channel] ?? new Float32Array(0));
@@ -141,7 +145,7 @@ describe('the feed pump into a ring', () => {
     // Three chunks fit in the 480 frames ahead; a fourth would pass them.
     expect(writer.queued).toBe(384);
     expect(scheduler.pending()).toBe(1);
-    expect(scheduler.delays[0]).toBe(AHEAD_MILLISECONDS / 4);
+    expect(scheduler.delays[0]).toBe(WAKE_MILLISECONDS);
 
     const collected = [new Float32Array(1_000), new Float32Array(1_000)];
     let read = 0;
@@ -185,7 +189,7 @@ describe('the feed pump into a ring', () => {
 });
 
 describe('the feed pump by message', () => {
-  it('counts what it sent against what the processor consumed, and never sends past its time ahead', async () => {
+  it('counts what it sent against what the processor read, and never sends past its time ahead', async () => {
     const posts: Posted[] = [];
     const scheduler = fakeScheduler();
     const destination = new PostedDestination(NODE, STEREO, RATE, (message, transfer) => {
@@ -195,9 +199,18 @@ describe('the feed pump by message', () => {
     await settle();
     expect(posts).toHaveLength(3);
     let consumed = 0;
-    while (posts.at(-1)?.message.kind !== ToProcessorKind.FeedEnd) {
-      consumed += 100;
-      pump.tick(consumed);
+    while (posts.at(-1)?.message.kind !== ToProcessorFeedKind.End) {
+      // The processor says it read each block whole, one at a time.
+      const read = posts.filter(({ message }) => message.kind === ToProcessorFeedKind.Block)[
+        consumed / CHUNK
+      ];
+      const frames =
+        read?.message.kind === ToProcessorFeedKind.Block
+          ? (read.message.channels[0]?.length ?? 0)
+          : 0;
+      consumed += frames;
+      destination.consumed(frames);
+      pump.wake();
       await settle();
       const sent = postedChannels(posts)[0]?.length ?? 0;
       expect(sent - consumed).toBeLessThanOrEqual(AHEAD_FRAMES);
@@ -205,27 +218,27 @@ describe('the feed pump by message', () => {
     await pump.done;
     expect(postedChannels(posts)).toEqual(audio(1_000).channels);
     for (const { message, transfer } of posts) {
-      if (message.kind !== ToProcessorKind.FeedBlock) continue;
+      if (message.kind !== ToProcessorFeedKind.Block) continue;
       // Each block's memory is transferred, never copied.
       expect(transfer).toEqual(message.channels.map((channel) => channel.buffer));
       expect(message.node).toBe(NODE);
     }
   });
 
-  it('counts a quantum that ran short as consuming only what was queued', async () => {
+  it('tops up at once when woken with room, without waiting for its timer', async () => {
     const posts: Posted[] = [];
+    const scheduler = fakeScheduler();
     const destination = new PostedDestination(NODE, STEREO, RATE, (message, transfer) => {
       posts.push({ message, transfer });
     });
-    const pump = pumpOf(counted(audio(10_000)).source, destination, fakeScheduler().schedule);
-    await settle();
-    // Far more elapsed than was sent: the feed ran dry, and is now empty, not owed.
-    pump.tick(5_000);
+    const pump = pumpOf(counted(audio(10_000)).source, destination, scheduler.schedule);
     await settle();
     expect(destination.queued).toBe(384);
-    expect(() => {
-      pump.tick(4_000);
-    }).toThrow(/cannot go down/u);
+    destination.consumed(CHUNK);
+    pump.wake();
+    await settle();
+    expect(destination.queued).toBe(384);
+    expect(posts).toHaveLength(4);
   });
 
   it('refuses a time ahead that would need more blocks queued than a posted feed holds', () => {
@@ -236,6 +249,7 @@ describe('the feed pump by message', () => {
       destination,
       feedAheadMilliseconds: 1_000,
       chunkFrames: CHUNK,
+      wakeMilliseconds: WAKE_MILLISECONDS,
       schedule: fakeScheduler().schedule,
       signal: createCancellationSource().signal,
     };
@@ -249,7 +263,7 @@ describe('the feed pump by message', () => {
 
 describe('stopping the feed pump', () => {
   it('stops on cancellation, rejecting with Cancelled and leaving no timer behind', async () => {
-    const posts: ToProcessor[] = [];
+    const posts: ToProcessorFeed[] = [];
     const scheduler = fakeScheduler();
     const cancellation = createCancellationSource();
     const destination = new PostedDestination(NODE, STEREO, RATE, (message) => {
@@ -267,14 +281,15 @@ describe('stopping the feed pump', () => {
     await expect(pump.done).rejects.toBeInstanceOf(Cancelled);
     expect(scheduler.pending()).toBe(0);
     const sent = posts.length;
-    pump.tick(10_000);
+    destination.consumed(384);
+    pump.wake();
     scheduler.fire();
     await settle();
     expect(posts).toHaveLength(sent);
   });
 
   it('rejects with the error of a read that failed, and says no end', async () => {
-    const posts: ToProcessor[] = [];
+    const posts: ToProcessorFeed[] = [];
     const failing: PcmSource = {
       ...counted(audio(10)).source,
       read: () => Promise.reject(new Error('The disk went away.')),

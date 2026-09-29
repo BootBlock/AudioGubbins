@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import {
   createDiagnosticCentre,
   createLogStore,
@@ -43,7 +43,10 @@ interface Harness {
   readonly lifecycle: ContextLifecycle;
   readonly devices: FakeDevices;
   readonly timers: FakeSchedule;
+  /** Every event but a change of state, which {@link Harness.states} keeps. */
   readonly events: LifecycleEvent[];
+  /** Each state the lifecycle said it moved to, in order. */
+  readonly states: LifecycleState[];
   readonly store: LogStore;
   /** Every context made, in order, with what it was made with. */
   readonly made: { readonly context: FakeAudioContext; readonly options: AudioContextOptions }[];
@@ -52,6 +55,7 @@ interface Harness {
 function harness(start: () => FakeAudioContext = () => new FakeAudioContext()): Harness {
   const devices = new FakeDevices();
   const events: LifecycleEvent[] = [];
+  const states: LifecycleState[] = [];
   const store = createLogStore();
   const made: Harness['made'] = [];
   const timers = new FakeSchedule();
@@ -71,9 +75,10 @@ function harness(start: () => FakeAudioContext = () => new FakeAudioContext()): 
     ).loggerFor('audio-runtime'),
   });
   lifecycle.subscribe((event) => {
-    events.push(event);
+    if (event.kind === LifecycleEventKind.StateChanged) states.push(event.state);
+    else events.push(event);
   });
-  return { lifecycle, devices, timers, events, store, made };
+  return { lifecycle, devices, timers, events, states, store, made };
 }
 
 /** The one context a harness has made. */
@@ -110,6 +115,7 @@ async function running(): Promise<Harness> {
   const started = harness();
   expectSuccess(await started.lifecycle.ensureRunning());
   started.events.length = 0;
+  started.states.length = 0;
   return started;
 }
 
@@ -415,6 +421,12 @@ describe('ContextLifecycle', () => {
         { kind: LifecycleEventKind.SuspendedBySystem, contextFrame: 48_000 },
         { kind: LifecycleEventKind.Resumed, contextFrame: 48_000 },
       ]);
+      // The wait for a gesture, which no statechange announces, is told too.
+      expect(started.states).toEqual([
+        LifecycleState.Suspended,
+        LifecycleState.AwaitingGesture,
+        LifecycleState.Running,
+      ]);
     });
 
     it('logs a recovery the system still holds, and tries no more until the next change', async () => {
@@ -521,5 +533,42 @@ describe('ContextLifecycle', () => {
 
     expect(heard).toEqual([]);
     expect(started.events).toHaveLength(1);
+  });
+
+  describe('telling every change of its state', () => {
+    it('tells each state once, as the context is made, started, suspended and lost', async () => {
+      const started = harness();
+
+      expectSuccess(await started.lifecycle.ensureRunning());
+      expectSuccess(await started.lifecycle.suspend());
+      onlyContext(started).becomes(AudioContextState.Closed);
+
+      expect(started.states).toEqual([
+        LifecycleState.Suspended,
+        LifecycleState.Running,
+        LifecycleState.Suspended,
+        LifecycleState.Closed,
+      ]);
+    });
+
+    it('tells a Play left waiting for a gesture, and the context running once it comes', async () => {
+      const started = harness(() => new FakeAudioContext({ allowedToStart: false }));
+
+      const resumed = started.lifecycle.ensureRunning();
+      started.timers.advance(GESTURE_WAIT_MILLISECONDS);
+      expect(expectFailureCode(await resumed)).toBe('audio.context-awaiting-gesture');
+      expect(started.states.at(-1)).toBe(LifecycleState.AwaitingGesture);
+
+      onlyContext(started).gesture();
+      expect(started.states.at(-1)).toBe(LifecycleState.Running);
+    });
+
+    it('tells nothing more once closed for good', async () => {
+      const started = await running();
+
+      await started.lifecycle.close();
+
+      expect(started.states).toEqual([]);
+    });
   });
 });

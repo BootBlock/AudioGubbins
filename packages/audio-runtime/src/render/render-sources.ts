@@ -28,7 +28,7 @@ import {
   type PcmSource,
 } from '@audiogubbins/audio-engine';
 
-import { SourceKind, type SourceDescription } from '../protocol/render-messages.js';
+import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
 
 function sourceOf(
   description: SourceDescription,

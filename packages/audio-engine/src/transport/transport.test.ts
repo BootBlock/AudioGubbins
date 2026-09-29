@@ -74,41 +74,80 @@ describe('the media clock', () => {
 });
 
 describe('the transport', () => {
-  it('plays from where it stands and reports its position as the context runs', () => {
+  /** The audio thread started with timeline frame `position` reaching the output at `contextFrame`. */
+  const play = (contextFrame: number, position: number): TransportEvent => ({
+    kind: 'play',
+    contextFrame,
+    position: frames(position),
+  });
+
+  it('plays from where the audio thread says it started, and interpolates as the context runs', () => {
     const playing = run([
       { kind: 'seek', to: frames(1_000), contextFrame: 0 },
-      { kind: 'play', contextFrame: 48_000 },
+      play(48_000, 1_000),
     ]);
     expect(playing.mode).toBe(TransportMode.Playing);
     expect(at(playing, 96_000)).toBe(45_100);
   });
 
-  it('pauses where it was and plays on from there', () => {
-    const paused = run([
-      { kind: 'play', contextFrame: 0 },
-      { kind: 'pause', contextFrame: 48_000 },
+  it('holds a start whose first frame is still passing through the graph’s latency', () => {
+    // Timeline frame 1 000 reaches the output 4 800 context frames after the start.
+    const playing = run([play(4_800, 1_000)]);
+    expect(at(playing, 0)).toBe(1_000);
+    expect(at(playing, 4_800)).toBe(1_000);
+    expect(at(playing, 4_800 + 48_000)).toBe(45_100);
+  });
+
+  it('takes each report of the audio thread’s count as the new anchor, keeping where the play began', () => {
+    const playing = run([
+      { kind: 'seek', to: frames(300), contextFrame: 0 },
+      play(0, 300),
+      // An underrun held the audio back: the count is behind the context's clock.
+      { kind: 'clock', contextFrame: 48_000, position: frames(40_000) },
     ]);
+    expect(at(playing, 48_000)).toBe(40_000);
+    expect(at(playing, 96_000)).toBe(84_100);
+    expect(run([{ kind: 'stop' }], playing)).toEqual({
+      mode: TransportMode.Stopped,
+      position: 300,
+    });
+  });
+
+  it('ignores a report when not playing', () => {
+    const paused = run([play(0, 0), { kind: 'pause', contextFrame: 4_800 }]);
+    expect(run([{ kind: 'clock', contextFrame: 9_600, position: frames(9_000) }], paused)).toEqual(
+      paused,
+    );
+  });
+
+  it('pauses where the clock puts it, and settles where the audio thread halted', () => {
+    const paused = run([play(0, 0), { kind: 'pause', contextFrame: 48_000 }]);
     expect(paused).toEqual({ mode: TransportMode.Paused, position: 44_100, origin: 0 });
-    const resumed = run([{ kind: 'play', contextFrame: 200_000 }], paused);
-    expect(at(resumed, 248_000)).toBe(88_200);
+    // The halt landed two quanta after the pause was asked for.
+    const settled = run([{ kind: 'halted', position: frames(44_335) }], paused);
+    expect(settled).toEqual({ mode: TransportMode.Paused, position: 44_335, origin: 0 });
+    const resumed = run([play(200_000, 44_335)], settled);
+    expect(at(resumed, 248_000)).toBe(88_435);
+  });
+
+  it('ignores a halt when not paused, since a seek or a stop has moved it since', () => {
+    const stopped = run([play(0, 0), { kind: 'stop' }]);
+    expect(run([{ kind: 'halted', position: frames(4_000) }], stopped)).toEqual(stopped);
   });
 
   it('returns to where the last play started when stopped', () => {
     const stopped = run([
       { kind: 'seek', to: frames(300), contextFrame: 0 },
-      { kind: 'play', contextFrame: 0 },
+      play(0, 300),
       { kind: 'pause', contextFrame: 4_800 },
-      { kind: 'play', contextFrame: 9_000 },
+      play(9_000, 4_710),
       { kind: 'stop' },
     ]);
     expect(stopped).toEqual({ mode: TransportMode.Stopped, position: 300 });
   });
 
   it('freezes the position while the system holds the context, and plays on from it', () => {
-    const suspended = run([
-      { kind: 'play', contextFrame: 0 },
-      { kind: 'context-suspended', contextFrame: 48_000 },
-    ]);
+    const suspended = run([play(0, 0), { kind: 'context-suspended', contextFrame: 48_000 }]);
     expect(suspended.mode).toBe(TransportMode.Suspended);
     // The context was away for a minute; the position did not move.
     expect(at(suspended, 48_000 * 61)).toBe(44_100);
@@ -116,13 +155,12 @@ describe('the transport', () => {
     const resumed = run([{ kind: 'context-resumed', contextFrame: 48_000 * 61 }], suspended);
     expect(resumed.mode).toBe(TransportMode.Playing);
     expect(at(resumed, 48_000 * 62)).toBe(88_200);
+    // A start the audio thread reports while the system holds the context waits for it.
+    expect(run([play(48_000 * 2, 44_100)], suspended)).toEqual(suspended);
   });
 
   it('leaves a stopped or paused transport where it is when the context comes and goes', () => {
-    const paused = run([
-      { kind: 'play', contextFrame: 0 },
-      { kind: 'pause', contextFrame: 4_800 },
-    ]);
+    const paused = run([play(0, 0), { kind: 'pause', contextFrame: 4_800 }]);
     for (const state of [TRANSPORT_AT_START, paused]) {
       const after = run(
         [
@@ -137,7 +175,7 @@ describe('the transport', () => {
 
   it('stays paused through a resumption when paused while the context was away', () => {
     const state = run([
-      { kind: 'play', contextFrame: 0 },
+      play(0, 0),
       { kind: 'context-suspended', contextFrame: 4_800 },
       { kind: 'pause', contextFrame: 5_000 },
       { kind: 'context-resumed', contextFrame: 9_000 },
@@ -146,10 +184,7 @@ describe('the transport', () => {
   });
 
   it('seeks while playing, so playback and Stop both go from the new place', () => {
-    const state = run([
-      { kind: 'play', contextFrame: 0 },
-      { kind: 'seek', to: frames(10_000), contextFrame: 4_800 },
-    ]);
+    const state = run([play(0, 0), { kind: 'seek', to: frames(10_000), contextFrame: 4_800 }]);
     expect(at(state, 4_800 + 48_000)).toBe(54_100);
     expect(run([{ kind: 'stop' }], state)).toEqual({
       mode: TransportMode.Stopped,
@@ -157,12 +192,9 @@ describe('the transport', () => {
     });
   });
 
-  it('stops where the material ran out', () => {
-    const state = run([
-      { kind: 'play', contextFrame: 0 },
-      { kind: 'reached-end', contextFrame: 96_000 },
-    ]);
-    expect(state).toEqual({ mode: TransportMode.Stopped, position: 88_200 });
+  it('stops at the end the audio thread counted, whatever the context’s clock says', () => {
+    const state = run([play(0, 0), { kind: 'reached-end', position: frames(88_000) }]);
+    expect(state).toEqual({ mode: TransportMode.Stopped, position: 88_000 });
   });
 
   it('refuses a pause while stopped, which would say it had paused something', () => {

@@ -8,8 +8,9 @@
  * compiler, the scheduler or the render host. The bytes come through the
  * bundle rather than a request, since the page makes none (REQ-PRIV-161), and
  * the bundler builds each thread module on its own, as the worklet and the
- * worker load it (ADR-0030). The DSP module is compiled here once, on the main
- * thread, and posted to each render worker; the worklet is given its bytes.
+ * workers load it (ADR-0030). The DSP module is compiled here once, on the
+ * main thread, and posted to the feeder worker and each render worker; the
+ * worklet is given its bytes.
  */
 
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
@@ -22,14 +23,17 @@ import {
 } from '@audiogubbins/audio-engine';
 import {
   DspModuleAvailabilityKind,
+  PlaybackDspKind,
   PlaybackSession,
   compileDspModule,
   createRenderHost,
   type ContextLifecycle,
   type DspModuleAvailability,
-  type PlaybackSessionOptions,
+  type PlaybackDsp,
+  type PlaybackThreads,
 } from '@audiogubbins/audio-runtime';
 import engineProcessorUrl from '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&url';
+import feederWorkerUrl from '@audiogubbins/audio-runtime/threads/feeder-worker.ts?worker&url';
 import renderWorkerUrl from '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url';
 import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 
@@ -55,16 +59,26 @@ function renderDsp(
 }
 
 /**
- * The DSP as the worklet is given it: the module's bytes, which the processor
- * compiles in its own scope, since a browser may refuse a compiled module
- * posted to a worklet; or, where this page could not compile them, why not,
- * so the worklet reports the same reason rather than failing on its own.
+ * The DSP as playback is given it: the module's bytes for the worklet, which
+ * compiles them in its own scope, since a browser may refuse a compiled module
+ * posted to a worklet, and the compiled module for the feeder worker; or,
+ * where this page could not compile it, why not, so both threads report the
+ * same reason rather than failing on their own.
  */
-function workletDsp(availability: DspModuleAvailability): PlaybackSessionOptions['dsp'] {
+function playbackDsp(availability: DspModuleAvailability): PlaybackDsp {
   return availability.kind === DspModuleAvailabilityKind.Compiled
-    ? { kind: 'bytes', bytes: DSP_MODULE_BYTES }
-    : { kind: 'unavailable', reason: availability.reason };
+    ? { kind: PlaybackDspKind.Compiled, bytes: DSP_MODULE_BYTES, module: availability.module }
+    : { kind: PlaybackDspKind.Unavailable, reason: availability.reason };
 }
+
+/**
+ * The feeder worker, a module worker as the render worker is, and the
+ * channel it feeds the worklet on.
+ */
+const PLAYBACK_THREADS: PlaybackThreads = {
+  createFeeder: () => new Worker(feederWorkerUrl, { type: 'module' }),
+  createChannel: () => new MessageChannel(),
+};
 
 /** What a session is made with, beside what the engine brings. */
 export interface SessionOptions {
@@ -89,10 +103,11 @@ export async function browserEngine(
       new PlaybackSession({
         lifecycle,
         capabilities,
-        dsp: workletDsp(dspModule),
+        dsp: playbackDsp(dspModule),
         profile,
         settings: PRESET_SETTINGS[profile],
         workletModuleUrl: engineProcessorUrl,
+        threads: PLAYBACK_THREADS,
         schedule: browserSchedule,
         logger,
       }),

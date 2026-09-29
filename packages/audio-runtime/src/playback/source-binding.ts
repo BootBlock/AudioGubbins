@@ -1,13 +1,14 @@
 /**
  * Which source feeds which graph input, checked before anything is made.
  *
- * Every graph input needs a source, every source a graph input, and each
- * source must already be what its input's port carries: the same channel
- * layout, at the context's rate. Real-time playback converts nothing
+ * A source is described rather than handed over, since the feeder worker
+ * makes it (`feeder/feeder-sources.ts`), in the layout of its input's port.
+ * Every graph input needs a source, every source a graph input, and each must
+ * already be at the context's rate. Real-time playback converts nothing
  * implicitly (REQ-ARCH-085): a source at another rate would play at the wrong
  * pitch, and converting it here would be a resampling nobody chose, so the
- * caller converts it explicitly, with the engine's `resampledSource`, and
- * decides the quality. Every problem is reported at once.
+ * caller converts it explicitly and decides the quality. Recorded audio must
+ * have as many channels as the port. Every problem is reported at once.
  */
 
 import {
@@ -15,19 +16,20 @@ import {
   failure,
   FailureKind,
   fail,
-  layoutsMatch,
   succeed,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { ExecutionPlan, NodeId } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, type PcmSource } from '@audiogubbins/audio-engine';
+import { BuiltInNodeType } from '@audiogubbins/audio-engine';
 
-/** A graph input and the source that feeds it, in the layout of the input's port. */
+import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+
+/** A graph input and the description of the source that feeds it, in the layout of the input's port. */
 export interface BoundSource {
   readonly node: NodeId;
-  readonly source: PcmSource;
+  readonly description: SourceDescription;
   readonly layout: ChannelLayout;
 }
 
@@ -38,15 +40,15 @@ function refusal(code: string, summary: string, node: NodeId): DomainFailure {
 /** Why `source` cannot feed an input whose port carries `layout`, or `undefined` where it can. */
 function mismatch(
   node: NodeId,
-  source: PcmSource,
+  source: SourceDescription,
   layout: ChannelLayout,
   rate: number,
 ): DomainFailure | undefined {
-  if (!layoutsMatch(source.layout, layout)) {
+  if (source.kind === SourceKind.Pcm && source.channels.length !== channelCount(layout)) {
     return refusal(
       'playback.source-layout-mismatch',
-      `The source for ${node} has ${String(channelCount(source.layout))} channels in its layout, ` +
-        `and the graph input's port ${String(channelCount(layout))} in its own; map the channels ` +
+      `The source for ${node} has ${String(source.channels.length)} channels, ` +
+        `and the graph input's port ${String(channelCount(layout))}; map the channels ` +
         'explicitly in the graph.',
       node,
     );
@@ -63,15 +65,38 @@ function mismatch(
   return undefined;
 }
 
+/** Each source by the graph input it names, with a problem for each input named twice. */
+function byNode(
+  descriptions: readonly SourceDescription[],
+  problems: DomainFailure[],
+): ReadonlyMap<NodeId, SourceDescription> {
+  const sources = new Map<NodeId, SourceDescription>();
+  for (const description of descriptions) {
+    if (!sources.has(description.node)) {
+      sources.set(description.node, description);
+      continue;
+    }
+    problems.push(
+      refusal(
+        'playback.source-duplicated',
+        `Two sources are given for ${description.node}; a graph input reads one.`,
+        description.node,
+      ),
+    );
+  }
+  return sources;
+}
+
 /** Each graph input of `plan` with its source, or every reason they do not pair up. */
 export function bindSources(
   plan: ExecutionPlan,
-  sources: ReadonlyMap<NodeId, PcmSource>,
+  descriptions: readonly SourceDescription[],
   rate: number,
 ): DomainResult<readonly BoundSource[]> {
   const bound: BoundSource[] = [];
   const problems: DomainFailure[] = [];
   const inputs = new Set<NodeId>();
+  const sources = byNode(descriptions, problems);
   for (const step of plan.steps) {
     if (step.type !== BuiltInNodeType.GraphInput) continue;
     inputs.add(step.node);
@@ -95,7 +120,7 @@ export function bindSources(
       );
     } else {
       const problem = mismatch(step.node, source, layout, rate);
-      if (problem === undefined) bound.push({ node: step.node, source, layout });
+      if (problem === undefined) bound.push({ node: step.node, description: source, layout });
       else problems.push(problem);
     }
   }

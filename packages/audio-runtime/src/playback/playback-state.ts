@@ -1,14 +1,20 @@
 /**
- * The status playback publishes, and the transport inside it moved on the
- * context's clock.
+ * The status playback publishes, the transport inside it, and the meters'
+ * latest levels.
  *
  * The transport's rules are the engine's `nextTransportState`; what is kept
- * here is where its frames come from. They are context frames of the
- * lifecycle's context, and the timeline runs at the context's rate, since
- * every source must already be at it (REQ-ARCH-085: a conversion is the
- * caller's, explicit). The context is taken when a command first needs one,
- * and the last is kept after a loss, since a transport that is not playing
- * reads no frame from it.
+ * here is where its frames come from. Its positions are the processor's
+ * count, and between the processor's reports the clock interpolates on the
+ * context frames of the lifecycle's context; the timeline runs at the
+ * context's rate, since every source must already be at it (REQ-ARCH-085: a
+ * conversion is the caller's, explicit). The context is taken when a command
+ * first needs one, and the last is kept after a loss, since a transport that
+ * is not playing reads no frame from it.
+ *
+ * A status is published only when it differs from the last, and a report that
+ * only moves the playing clock's anchor, or the meters, publishes nothing:
+ * both are read where they are shown, once a display frame, rather than
+ * pushed at every reader thirty times a second.
  */
 
 import {
@@ -20,6 +26,7 @@ import {
   type SampleCount,
 } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
+import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   TransportMode,
   audibleFrame,
@@ -32,10 +39,29 @@ import {
 import type { AudioContextPort } from '../context/audio-context-port.js';
 import type { ContextLifecycle } from '../context/context-lifecycle.js';
 import { outputLatencyFrames } from '../context/device-report.js';
-import { initialStatus, type PlaybackStatus } from './playback-status.js';
+import { initialStatus, type MeterLevels, type PlaybackStatus } from './playback-status.js';
 
 /** Hears every new status. */
 export type PlaybackListener = (status: PlaybackStatus) => void;
+
+/** The fields of a status, each compared by identity to tell a new status from the same one. */
+const STATUS_FIELDS = [
+  'phase',
+  'transport',
+  'processorDsp',
+  'feederDsp',
+  'latencyFrames',
+  'device',
+  'contextState',
+  'stability',
+  'problems',
+] as const satisfies readonly (keyof PlaybackStatus)[];
+
+function sameStatus(one: PlaybackStatus, other: PlaybackStatus): boolean {
+  return STATUS_FIELDS.every((field) => Object.is(one[field], other[field]));
+}
+
+const NO_METERS: ReadonlyMap<NodeId, MeterLevels> = new Map();
 
 /** The context the transport's frames are counted on, and its clock. */
 export interface Timing {
@@ -44,7 +70,7 @@ export interface Timing {
 }
 
 /** The context frame a context has reached: `currentTime` is frames over the rate. */
-export function frameOf(port: AudioContextPort): number {
+function frameOf(port: AudioContextPort): number {
   return Math.round(port.currentTime * port.sampleRate);
 }
 
@@ -55,6 +81,7 @@ export class PlaybackState {
   readonly #listeners = new Set<PlaybackListener>();
   #status: PlaybackStatus;
   #timing: Timing | undefined;
+  #meters: ReadonlyMap<NodeId, MeterLevels> = NO_METERS;
 
   constructor(lifecycle: ContextLifecycle, logger: Logger) {
     this.#lifecycle = lifecycle;
@@ -74,10 +101,27 @@ export class PlaybackState {
     };
   }
 
-  /** Publishes `status`, with the context's state as it is now. */
+  /** Publishes `status`, with the context's state as it is now, unless nothing in it changed. */
   update(status: PlaybackStatus): void {
-    this.#status = { ...status, contextState: this.#lifecycle.state };
+    const next = { ...status, contextState: this.#lifecycle.state };
+    if (sameStatus(this.#status, next)) return;
+    this.#status = next;
     for (const listener of [...this.#listeners]) listener(this.#status);
+  }
+
+  /** Each meter's latest levels, a new map whenever any changes, for a display to read. */
+  get meters(): ReadonlyMap<NodeId, MeterLevels> {
+    return this.#meters;
+  }
+
+  /** Takes the meters' latest levels, publishing nothing. */
+  showMeters(meters: ReadonlyMap<NodeId, MeterLevels>): void {
+    this.#meters = meters;
+  }
+
+  /** Forgets every meter's levels, for a graph that has gone. */
+  clearMeters(): void {
+    this.#meters = NO_METERS;
   }
 
   /** Drops every listener. */
@@ -121,6 +165,22 @@ export class PlaybackState {
   }
 
   /**
+   * Anchors the playing clock at the processor's count, `position` reaching
+   * the output at `contextFrame`, publishing nothing: the mode and every field
+   * a reader shows are as they were, and the position is read, not pushed.
+   */
+  reanchor(contextFrame: number, position: SampleCount): void {
+    if (this.#status.transport.mode !== TransportMode.Playing) return;
+    const clock = (this.#timing ?? this.timing()).clock;
+    const next = nextTransportState(
+      this.#status.transport,
+      { kind: 'clock', contextFrame, position },
+      clock,
+    );
+    if (next.ok) this.#status = { ...this.#status, transport: next.value };
+  }
+
+  /**
    * Moves the transport by what happened on the audio thread or to the
    * context. Such an event is a fact, not a request, so the transport's
    * refusal of one, a position past the largest count, is logged rather than
@@ -140,7 +200,10 @@ export class PlaybackState {
     if (this.isPlaying()) this.follow({ kind: 'pause', contextFrame: this.frame() });
   }
 
-  /** The timeline frame playback has reached, as the engine has rendered it. */
+  /**
+   * The timeline frame playback has reached: the processor's count, carried
+   * on by the context's clock while playing.
+   */
   position(): DomainResult<SampleCount> {
     // No command has needed a context yet, so the transport is where it began.
     if (this.#timing === undefined) return succeed(ZERO_SAMPLES);
@@ -148,14 +211,14 @@ export class PlaybackState {
   }
 
   /**
-   * The timeline frame the listener hears now: the position less what the
-   * graph adds, `graphLatencyFrames`, and what the device adds after it.
+   * The timeline frame the listener hears now: the position, which the
+   * processor counts at the graph's output, less what the device adds after it.
    */
-  audiblePosition(graphLatencyFrames: number): DomainResult<SampleCount> {
+  audiblePosition(): DomainResult<SampleCount> {
     const timing = this.#timing;
     if (timing === undefined) return succeed(ZERO_SAMPLES);
     const report = this.#lifecycle.report;
-    const behind = (report === undefined ? 0 : outputLatencyFrames(report)) + graphLatencyFrames;
+    const behind = report === undefined ? 0 : outputLatencyFrames(report);
     return flatMapResult(this.position(), (position) =>
       audibleFrame(timing.clock, position, behind),
     );

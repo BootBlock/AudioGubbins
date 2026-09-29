@@ -219,9 +219,9 @@ const PACKAGES = [
   },
   {
     // The browser host of the audio engine: the audio context and its
-    // lifecycle, the AudioWorklet processor and the render worker with their
-    // typed messages, and the feed of source frames into the worklet
-    // (ADR-0030). Given what the device offers, never probing it.
+    // lifecycle, the AudioWorklet processor, the feeder worker and the render
+    // worker with their typed messages, and the feed of source frames into the
+    // worklet (ADR-0030). Given what the device offers, never probing it.
     dir: 'packages/audio-runtime',
     name: '@audiogubbins/audio-runtime',
     description:
@@ -230,6 +230,7 @@ const PACKAGES = [
     jsx: false,
     threads: {
       'engine-processor.ts': 'audio-worklet',
+      'feeder-worker.ts': 'dedicated-worker',
       'render-worker.ts': 'dedicated-worker',
     },
     deps: [

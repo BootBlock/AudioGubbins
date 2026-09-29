@@ -6,9 +6,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubbins/capabilities';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { nodeId } from '@audiogubbins/audio-graph';
+import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation, PerformanceProfile } from '@audiogubbins/audio-engine';
-import { LifecycleState, PlaybackPhase, type PlaybackStatus } from '@audiogubbins/audio-runtime';
+import {
+  LifecycleState,
+  PlaybackPhase,
+  type MeterLevels,
+  type PlaybackStatus,
+} from '@audiogubbins/audio-runtime';
 
 import { createAudioViewStore, type AudioViewStore } from '../state/audio-view-store.js';
 import { FAKE_DEVICE, FakeSession, UNLOADED } from '../testing/audio-fakes.js';
@@ -21,6 +26,7 @@ function draw(
   options: {
     readonly environment?: CapabilityEnvironment;
     readonly playhead?: () => number | undefined;
+    readonly meters?: () => ReadonlyMap<NodeId, MeterLevels>;
     readonly unavailable?: Readonly<Record<string, string>>;
   } = {},
 ) {
@@ -35,6 +41,7 @@ function draw(
       audio={audio}
       capabilities={capabilities}
       playhead={options.playhead ?? (() => undefined)}
+      meters={options.meters ?? (() => NO_METERS)}
       run={run}
       unavailableReason={(id) => options.unavailable?.[id]}
     />,
@@ -48,16 +55,33 @@ function reading(term: string): string {
   return title.nextElementSibling?.textContent ?? '';
 }
 
-/** A graph loaded and playing on the WebAssembly module, through the fake device. */
+const NO_METERS: ReadonlyMap<NodeId, MeterLevels> = new Map();
+
+/** The test signal's meter, stereo, one channel clipped, with the pair's correlation. */
+const METER = expectSuccess(nodeId('meter'));
+const LEVELS: ReadonlyMap<NodeId, MeterLevels> = new Map([
+  [METER, { peak: [0.25, 1.5], rms: [0.17, 0.5], correlation: [0.98] }],
+]);
+
+/** A graph loaded and playing: its tone made on the feeder's module, its graph calling none. */
 function playingStatus(): PlaybackStatus {
   const session = new FakeSession();
-  session.move({ kind: 'play', contextFrame: 0 });
+  expectSuccess(session.startPlaying());
   return {
     ...UNLOADED,
     phase: PlaybackPhase.Ready,
     transport: session.status.transport,
     contextState: LifecycleState.Running,
-    dsp: { implementation: DspImplementation.WebAssembly, fallbackReason: undefined },
+    processorDsp: {
+      implementation: DspImplementation.WebAssembly,
+      fallbackReason: undefined,
+      inUse: false,
+    },
+    feederDsp: {
+      implementation: DspImplementation.WebAssembly,
+      fallbackReason: undefined,
+      inUse: true,
+    },
     latencyFrames: 128,
     device: FAKE_DEVICE,
     stability: {
@@ -65,7 +89,6 @@ function playingStatus(): PlaybackStatus {
       underrunsInWindow: 0,
       explanation: 'No underruns in the last 10 seconds.',
     },
-    meters: new Map([[expectSuccess(nodeId('meter')), { peak: [0.25, 1.5], rms: [0.17, 0.5] }]]),
   };
 }
 
@@ -114,14 +137,18 @@ describe('the Transport panel before anything plays', () => {
 });
 
 describe('the Transport panel while the test signal plays', () => {
-  it('shows the context, the transport, the DSP path, the device rate and each latency in milliseconds and frames', () => {
+  it('shows the context, the transport, each thread’s DSP path, the device rate and each latency in milliseconds and frames', () => {
     const audio = createAudioViewStore();
     audio.showPlayback(playingStatus());
     draw(audio);
 
     expect(reading('Audio context')).toBe('Running');
     expect(reading('Transport')).toBe('Playing');
-    expect(reading('Processing')).toBe('WebAssembly module');
+    // The truth of each thread: the tone is made on the module, and no node of the graph calls it.
+    expect(reading('Sources in the feeder thread')).toBe('WebAssembly module');
+    expect(reading('Graph on the audio thread')).toBe(
+      'WebAssembly moduleLoaded; no node of this graph calls it.',
+    );
     expect(reading('Device rate')).toBe('48000 Hz');
     expect(reading('Base latency')).toBe('10.0 ms (480 frames)');
     expect(reading('Output latency')).toBe('20.0 ms (960 frames)');
@@ -131,7 +158,7 @@ describe('the Transport panel while the test signal plays', () => {
 
   it('says there are no levels while a loaded graph has reported none', () => {
     const audio = createAudioViewStore();
-    audio.showPlayback({ ...playingStatus(), meters: new Map() });
+    audio.showPlayback(playingStatus());
     draw(audio);
 
     expect(screen.getByText('No levels until something plays.')).toBeInTheDocument();
@@ -141,7 +168,7 @@ describe('the Transport panel while the test signal plays', () => {
   it('meters each channel’s peak, in decibels, and holds a clipped one at the top of the scale', () => {
     const audio = createAudioViewStore();
     audio.showPlayback(playingStatus());
-    draw(audio);
+    draw(audio, { meters: () => LEVELS });
 
     const levels = screen.getByRole('group', { name: 'Levels at meter' });
     const left = within(levels).getByRole('meter', { name: 'Left peak' });
@@ -149,6 +176,55 @@ describe('the Transport panel while the test signal plays', () => {
     expect(left).toHaveAttribute('aria-valuetext', '−12.0 dB');
     expect(right).toHaveAttribute('aria-valuenow', '1');
     expect(right).toHaveAttribute('aria-valuetext', '3.5 dB');
+  });
+
+  it('shows the stereo pair’s correlation, signed, on a scale from −1 to 1', () => {
+    const audio = createAudioViewStore();
+    audio.showPlayback(playingStatus());
+    const reported = new Map([[METER, { peak: [0.5, 0.5], rms: [0.3, 0.3], correlation: [-0.5] }]]);
+    draw(audio, { meters: () => reported });
+
+    const levels = screen.getByRole('group', { name: 'Levels at meter' });
+    const correlation = within(levels).getByRole('meter', { name: 'Left and right correlation' });
+    expect(correlation).toHaveAttribute('aria-valuemin', '-1');
+    expect(correlation).toHaveAttribute('aria-valuemax', '1');
+    expect(correlation).toHaveAttribute('aria-valuenow', '-0.5');
+    expect(correlation).toHaveAttribute('aria-valuetext', '−0.50');
+  });
+
+  it('shows no correlation for a meter that names no pair', () => {
+    const audio = createAudioViewStore();
+    audio.showPlayback(playingStatus());
+    const levels = new Map([[METER, { peak: [0.5, 0.5], rms: [0.3, 0.3], correlation: [] }]]);
+    draw(audio, { meters: () => levels });
+
+    expect(screen.queryByRole('meter', { name: /correlation/u })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('meter')).toHaveLength(2);
+  });
+
+  it('moves the meters once a display frame, reading the latest report, and redraws nothing for them otherwise', () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] });
+    try {
+      const audio = createAudioViewStore();
+      audio.showPlayback(playingStatus());
+      let levels = LEVELS;
+      draw(audio, { meters: () => levels });
+      const left = () => screen.getByRole('meter', { name: 'Left peak' });
+      expect(left()).toHaveAttribute('aria-valuetext', '−12.0 dB');
+
+      levels = new Map([[METER, { peak: [0.5, 0.5], rms: [0.3, 0.3], correlation: [1] }]]);
+      expect(left()).toHaveAttribute('aria-valuetext', '−12.0 dB');
+      act(() => {
+        vi.advanceTimersToNextFrame();
+      });
+      expect(left()).toHaveAttribute('aria-valuetext', '−6.0 dB');
+      expect(screen.getByRole('meter', { name: 'Left and right correlation' })).toHaveAttribute(
+        'aria-valuetext',
+        '+1.00',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('moves the position with the playhead, as minutes, seconds and milliseconds', () => {
@@ -177,22 +253,25 @@ describe('the Transport panel where the engine is degraded', () => {
   it('names the reference path and why it runs, and what the browser does not report', () => {
     const audio = createAudioViewStore();
     const status = playingStatus();
+    const reference = {
+      implementation: DspImplementation.Reference,
+      fallbackReason: 'This page cannot compile WebAssembly.',
+    };
     audio.showPlayback({
       ...status,
-      dsp: {
-        implementation: DspImplementation.Reference,
-        fallbackReason: 'This page cannot compile WebAssembly.',
-      },
+      processorDsp: { ...reference, inUse: true },
+      feederDsp: { ...reference, inUse: true },
       latencyFrames: undefined,
       device: { ...FAKE_DEVICE, outputLatencySeconds: undefined },
     });
     draw(audio);
 
-    expect(reading('Processing')).toBe('Reference pathThis page cannot compile WebAssembly.');
-    expect(screen.getByText('This page cannot compile WebAssembly.')).toHaveAttribute(
-      'data-ag-status',
-      'reduced',
-    );
+    for (const term of ['Graph on the audio thread', 'Sources in the feeder thread']) {
+      expect(reading(term)).toBe('Reference pathThis page cannot compile WebAssembly.');
+    }
+    for (const note of screen.getAllByText('This page cannot compile WebAssembly.')) {
+      expect(note).toHaveAttribute('data-ag-status', 'reduced');
+    }
     expect(reading('Output latency')).toContain('Not reported by this browser');
     expect(reading('Graph latency')).toBe('Not known: a node on the way cannot say its own');
   });

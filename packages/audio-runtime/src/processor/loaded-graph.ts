@@ -23,6 +23,7 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import type { ScopeDsp } from '../dsp/dsp-instance.js';
+import { watchDspUse } from '../dsp/dsp-use.js';
 import { PostedFeed } from '../feed/posted-feed.js';
 import type { ProcessorFeed } from '../feed/processor-feed.js';
 import { RingFeed } from '../feed/ring-feed.js';
@@ -56,6 +57,9 @@ export interface LoadedGraph {
   readonly context: KernelContext;
   readonly dsp: ScopeDsp;
 
+  /** Whether a kernel of the graph has called the DSP, which only some nodes do. */
+  readonly dspUsed: () => boolean;
+
   /** Every feed, in the order of the bindings. */
   readonly feeds: readonly ProcessorFeed[];
 
@@ -64,8 +68,8 @@ export interface LoadedGraph {
   readonly output: QuantumOutput;
   readonly meters: readonly WatchedMeter[];
 
-  /** Blocks between two meter reports; zero for none. */
-  readonly meterEveryBlocks: number;
+  /** Quanta between two reports; zero for none. */
+  readonly reportEveryBlocks: number;
 
   /** The graph's latency in frames, where every node on the way can say it. */
   readonly latencyFrames: number | undefined;
@@ -137,15 +141,20 @@ function bindFeeds(message: LoadMessage, plan: ExecutionPlan, reasons: string[])
 }
 
 /** A window for each meter node, where reports are asked for. */
-function watchMeters(plan: ExecutionPlan, meterEveryBlocks: number): readonly WatchedMeter[] {
-  if (meterEveryBlocks === 0) return [];
+function watchMeters(plan: ExecutionPlan, reportEveryBlocks: number): readonly WatchedMeter[] {
+  if (reportEveryBlocks === 0) return [];
   return plan.steps
     .filter((step) => step.type === BuiltInNodeType.Meter)
     .map((step) => {
       const layout = step.inputs[0]?.layout;
+      // The pairs are written flat, and the graph's checks have held them to pairs.
+      const pairs = step.settings['correlate'];
       return {
         node: step.node,
-        window: new MeterWindow(layout === undefined ? 0 : channelCount(layout)),
+        window: new MeterWindow(
+          layout === undefined ? 0 : channelCount(layout),
+          Array.isArray(pairs) ? pairs.length / 2 : 0,
+        ),
       };
     });
 }
@@ -185,14 +194,15 @@ function makeExecutor(
   implementations: NodeImplementations,
 ): GraphLoading {
   const dsp = workletDsp(message.dspModuleBytes, message.dspUnavailable);
+  const watched = watchDspUse(dsp.dsp);
   const output = new QuantumOutput();
-  const meters = watchMeters(plan, message.meterEveryBlocks);
+  const meters = watchMeters(plan, message.reportEveryBlocks);
   const windows = new Map(meters.map((meter) => [meter.node, meter.window]));
   const sink = plan.sinks[0]?.node;
   const context: KernelContext = {
     sampleRate: rate,
     blockFrames: RENDER_QUANTUM_FRAMES,
-    dsp: dsp.dsp,
+    dsp: watched.dsp,
     feedFor: (node) => bound.byNode.get(node),
     sinkFor: (node) => (node === sink ? output : undefined),
     meterFor: (node) => windows.get(node),
@@ -209,11 +219,12 @@ function makeExecutor(
       plan,
       context,
       dsp,
+      dspUsed: watched.used,
       feeds: bound.feeds,
       posted: bound.posted,
       output,
       meters,
-      meterEveryBlocks: message.meterEveryBlocks,
+      reportEveryBlocks: message.reportEveryBlocks,
       latencyFrames: latency.kind === 'known' ? latency.frames : undefined,
       tailFrames: latency.kind === 'known' ? latency.frames : latency.knownFrames,
     },

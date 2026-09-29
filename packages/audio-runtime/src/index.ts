@@ -5,8 +5,8 @@
  * lifecycle, the compilation of the canonical DSP module, real-time playback
  * through the engine's AudioWorklet processor, and offline renders in
  * workers. It is given what the device offers and never probes it; the
- * modules the browser loads by URL, the worklet processor and the render
- * worker, are its `./threads/*` entry points.
+ * modules the browser loads by URL, the worklet processor, the feeder worker
+ * that feeds it and the render worker, are its `./threads/*` entry points.
  */
 
 export {
@@ -33,12 +33,22 @@ export {
   compileDspModule,
 } from './dsp/dsp-module.js';
 
+export { type PlaybackThreads } from './playback/graph-loader.js';
+
+export { type FeederWorkerEvents, type FeederWorkerPort } from './playback/feeder-link.js';
+
+export { type ChannelEnds } from './playback/loaded-processor.js';
+
+export { type PlaybackDsp, PlaybackDspKind } from './playback/playback-dsp.js';
+
 export {
   type PlaybackListener,
   type PlaybackRequest,
   PlaybackSession,
   type PlaybackSessionOptions,
 } from './playback/playback-session.js';
+
+export { PLAYBACK_SUPERSEDED } from './playback/superseded.js';
 
 export {
   type DspStatus,
@@ -47,7 +57,7 @@ export {
   type PlaybackStatus,
 } from './playback/playback-status.js';
 
-export { type SourceDescription, SourceKind } from './protocol/render-messages.js';
+export { type SourceDescription, SourceKind } from './protocol/source-descriptions.js';
 
 export {
   type RenderRequest,

@@ -9,28 +9,29 @@
  * derived data, and the descriptor already has a reader that trusts nothing.
  *
  * The transport's state machine stays on the main thread, where the person's
- * commands arrive. The processor is told only to run or halt, and says the
- * context frame at which it started, which is what the main thread anchors
- * the media clock to.
+ * commands arrive. The processor is told only to run or halt; it counts where
+ * playback is, the timeline frames that have left the graph for the output,
+ * and says so when it starts, in each periodic report and when it halts or
+ * reaches the end, which is what the main thread anchors the media clock to.
+ *
+ * The audio itself does not come this way. The feeder worker sends it, or the
+ * rewinds of shared rings, through a channel of its own
+ * (`feed-messages.ts`), whose far end crosses here in the `load`.
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
-import {
-  nodeId,
-  readGraphDescriptor,
-  type GraphDescriptor,
-  type NodeId,
-} from '@audiogubbins/audio-graph';
+import { readGraphDescriptor, type GraphDescriptor, type NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 
 import {
   MalformedMessage,
-  channelsAt,
   countAt,
   fieldsOf,
+  nodeAt,
   numberAt,
   numbersAt,
   oneOf,
+  optionalPortAt,
   optionalTextAt,
   readMessage,
   sharedMemoryAt,
@@ -76,11 +77,8 @@ export interface ParameterRefusal {
 /** The kinds of message the processor is sent. */
 export const ToProcessorKind = {
   Load: 'load',
-  FeedBlock: 'feed-block',
-  FeedEnd: 'feed-end',
   Start: 'start',
   Halt: 'halt',
-  Reset: 'reset',
   SetParameter: 'set-parameter',
 } as const;
 
@@ -101,19 +99,13 @@ export type ToProcessor =
       /** Why there are no bytes, when there are none, for the processor to report. */
       readonly dspUnavailable: string | undefined;
       readonly feeds: readonly FeedBinding[];
-      /** Blocks between two meter reports: the reports' rate, not what they measure. */
-      readonly meterEveryBlocks: number;
-    }
-  | {
-      /** The next block of a posted feed. */
-      readonly kind: typeof ToProcessorKind.FeedBlock;
-      readonly node: NodeId;
-      readonly channels: readonly Float32Array[];
-    }
-  | {
-      /** A feed has no more audio after what it has sent. */
-      readonly kind: typeof ToProcessorKind.FeedEnd;
-      readonly node: NodeId;
+      /** Quanta between two reports: the rate the main thread hears the count and the meters at. */
+      readonly reportEveryBlocks: number;
+      /**
+       * The processor's end of the channel to the feeder, transferred, where the
+       * graph has feeds: the posted blocks and every feed's rewinds arrive on it.
+       */
+      readonly feeder: MessagePort | undefined;
     }
   | {
       /**
@@ -121,14 +113,22 @@ export type ToProcessor =
        * with each run, and every reply about the run carries it back, so a
        * reply about an earlier run that arrives after a later one began is
        * told apart rather than taken for the new run's.
+       *
+       * `epoch` names the audio the run plays: the run whose rewind of the
+       * feeds it follows. Where it is the audio the processor already holds, a
+       * pause is being resumed, and the graph goes on with its history and its
+       * count. Otherwise the processor waits for the feeds' rewind to `epoch`,
+       * which the feeder sends on its own channel, and then starts afresh, its
+       * graph made again and its count at timeline frame `from`.
        */
       readonly kind: typeof ToProcessorKind.Start;
       readonly run: number;
+      readonly epoch: number;
+      readonly from: number;
     }
-  | { readonly kind: typeof ToProcessorKind.Halt }
   | {
-      /** Discards every feed's queued audio and the graph's history, as a seek needs. */
-      readonly kind: typeof ToProcessorKind.Reset;
+      /** Halts where it is, keeping the graph's history and the feeds' audio, and says where. */
+      readonly kind: typeof ToProcessorKind.Halt;
     }
   | {
       readonly kind: typeof ToProcessorKind.SetParameter;
@@ -142,12 +142,31 @@ export const FromProcessorKind = {
   Loaded: 'loaded',
   Refused: 'refused',
   Started: 'started',
-  Underrun: 'underrun',
+  Report: 'report',
+  Halted: 'halted',
   FeedsEnded: 'feeds-ended',
-  Meter: 'meter',
   ParameterRefused: 'parameter-refused',
   Fault: 'fault',
 } as const;
+
+/** One meter's readings over the quanta since the last report, one value per channel or pair. */
+export interface MeterReport {
+  readonly node: NodeId;
+  readonly peak: readonly number[];
+  readonly rms: readonly number[];
+  /** The phase correlation of each pair the meter's `correlate` setting names, in its order. */
+  readonly correlation: readonly number[];
+}
+
+/**
+ * Where playback is, as the processor counts it: timeline frame `position`
+ * reaches the output at context frame `contextFrame`. Ahead of the context
+ * while a start's first frame is still passing through the graph's latency.
+ */
+export interface CountedPosition {
+  readonly contextFrame: number;
+  readonly position: number;
+}
 
 /** A message the processor sends. */
 export type FromProcessor =
@@ -157,6 +176,8 @@ export type FromProcessor =
       readonly dsp: DspImplementation;
       /** Why the reference path runs, when it does. */
       readonly dspFallbackReason: string | undefined;
+      /** Whether a node of the graph calls the canonical DSP at all. */
+      readonly dspInUse: boolean;
       /** The graph's latency in frames at the context's rate, where it is known. */
       readonly latencyFrames: number | undefined;
     }
@@ -165,31 +186,34 @@ export type FromProcessor =
       readonly kind: typeof FromProcessorKind.Refused;
       readonly reasons: readonly string[];
     }
-  | {
-      /** Processing of run `run` began with the block at this context frame. */
+  | ({
+      /** Processing of run `run` began, at the count given. */
       readonly kind: typeof FromProcessorKind.Started;
       readonly run: number;
-      readonly contextFrame: number;
-    }
-  | {
-      /** A feed ran short while running: the device played silence it did not mean to. */
-      readonly kind: typeof FromProcessorKind.Underrun;
+    } & CountedPosition)
+  | ({
+      /**
+       * The count while run `run` plays, the underruns since the last report,
+       * and every meter's readings, in one message a report.
+       */
+      readonly kind: typeof FromProcessorKind.Report;
       readonly run: number;
-      readonly contextFrame: number;
-      readonly frames: number;
-    }
-  | {
-      /** Every feed of run `run` has ended and been played. */
+      /** The frames the device played as silence because a feed had not a whole quantum ready. */
+      readonly underrunFrames: number;
+      /** The quanta that ran short, each an underrun. */
+      readonly underruns: number;
+      readonly meters: readonly MeterReport[];
+    } & CountedPosition)
+  | ({
+      /** Run `run` halted, at the count given, which is where it goes on from. */
+      readonly kind: typeof FromProcessorKind.Halted;
+      readonly run: number;
+    } & CountedPosition)
+  | ({
+      /** Every feed of run `run` has ended and its last frame reached the output, at the count given. */
       readonly kind: typeof FromProcessorKind.FeedsEnded;
       readonly run: number;
-      readonly contextFrame: number;
-    }
-  | {
-      readonly kind: typeof FromProcessorKind.Meter;
-      readonly node: NodeId;
-      readonly peak: readonly number[];
-      readonly rms: readonly number[];
-    }
+    } & CountedPosition)
   | {
       /** A node refused a parameter, which keeps the value it had; playing goes on. */
       readonly kind: typeof FromProcessorKind.ParameterRefused;
@@ -203,12 +227,6 @@ export type FromProcessor =
       readonly kind: typeof FromProcessorKind.Fault;
       readonly message: string;
     };
-
-function nodeAt(fields: Fields, field: string): NodeId {
-  const read = nodeId(textAt(fields, field));
-  if (!read.ok) throw new MalformedMessage(field, 'a node identifier');
-  return read.value;
-}
 
 function feedAt(value: unknown, index: number): FeedBinding {
   const fields = fieldsOf(value, `feeds[${String(index)}]`);
@@ -264,6 +282,32 @@ function refusalsAt(fields: Fields): readonly [ParameterRefusal, ...ParameterRef
   return [first, ...rest];
 }
 
+function meterAt(value: unknown, index: number): MeterReport {
+  const fields = fieldsOf(value, `meters[${String(index)}]`);
+  return {
+    node: nodeAt(fields, 'node'),
+    peak: numbersAt(fields, 'peak'),
+    rms: numbersAt(fields, 'rms'),
+    correlation: numbersAt(fields, 'correlation'),
+  };
+}
+
+function metersAt(fields: Fields): readonly MeterReport[] {
+  const value: unknown = fields['meters'];
+  if (!Array.isArray(value)) throw new MalformedMessage('meters', 'a list');
+  return value.map(meterAt);
+}
+
+function countedAt(fields: Fields): CountedPosition {
+  return { contextFrame: countAt(fields, 'contextFrame'), position: countAt(fields, 'position') };
+}
+
+function flagAt(fields: Fields, field: string): boolean {
+  const value = fields[field];
+  if (typeof value !== 'boolean') throw new MalformedMessage(field, 'true or false');
+  return value;
+}
+
 function toProcessorFrom(fields: Fields): ToProcessor {
   const kind = oneOf(fields, 'kind', ToProcessorKind);
   switch (kind) {
@@ -274,16 +318,17 @@ function toProcessorFrom(fields: Fields): ToProcessor {
         dspModuleBytes: optionalBytesAt(fields, 'dspModuleBytes'),
         dspUnavailable: optionalTextAt(fields, 'dspUnavailable'),
         feeds: feedsAt(fields),
-        meterEveryBlocks: countAt(fields, 'meterEveryBlocks'),
+        reportEveryBlocks: countAt(fields, 'reportEveryBlocks'),
+        feeder: optionalPortAt(fields, 'feeder'),
       };
-    case ToProcessorKind.FeedBlock:
-      return { kind, node: nodeAt(fields, 'node'), channels: channelsAt(fields, 'channels') };
-    case ToProcessorKind.FeedEnd:
-      return { kind, node: nodeAt(fields, 'node') };
     case ToProcessorKind.Start:
-      return { kind, run: countAt(fields, 'run') };
+      return {
+        kind,
+        run: countAt(fields, 'run'),
+        epoch: countAt(fields, 'epoch'),
+        from: countAt(fields, 'from'),
+      };
     case ToProcessorKind.Halt:
-    case ToProcessorKind.Reset:
       return { kind };
     case ToProcessorKind.SetParameter:
       return {
@@ -303,6 +348,7 @@ function fromProcessorFrom(fields: Fields): FromProcessor {
         kind,
         dsp: oneOf(fields, 'dsp', DspImplementation),
         dspFallbackReason: optionalTextAt(fields, 'dspFallbackReason'),
+        dspInUse: flagAt(fields, 'dspInUse'),
         latencyFrames:
           fields['latencyFrames'] === undefined ? undefined : countAt(fields, 'latencyFrames'),
       };
@@ -315,21 +361,17 @@ function fromProcessorFrom(fields: Fields): FromProcessor {
       return { kind, reasons };
     }
     case FromProcessorKind.Started:
+    case FromProcessorKind.Halted:
     case FromProcessorKind.FeedsEnded:
-      return { kind, run: countAt(fields, 'run'), contextFrame: countAt(fields, 'contextFrame') };
-    case FromProcessorKind.Underrun:
+      return { kind, run: countAt(fields, 'run'), ...countedAt(fields) };
+    case FromProcessorKind.Report:
       return {
         kind,
         run: countAt(fields, 'run'),
-        contextFrame: countAt(fields, 'contextFrame'),
-        frames: countAt(fields, 'frames'),
-      };
-    case FromProcessorKind.Meter:
-      return {
-        kind,
-        node: nodeAt(fields, 'node'),
-        peak: numbersAt(fields, 'peak'),
-        rms: numbersAt(fields, 'rms'),
+        ...countedAt(fields),
+        underrunFrames: countAt(fields, 'underrunFrames'),
+        underruns: countAt(fields, 'underruns'),
+        meters: metersAt(fields),
       };
     case FromProcessorKind.ParameterRefused:
       return {

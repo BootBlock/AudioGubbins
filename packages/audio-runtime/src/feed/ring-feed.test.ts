@@ -32,32 +32,39 @@ describe('a feed over a ring', () => {
     expect(feed.fill(into)).toBe(128);
     expect(into.channels[1]?.every((sample) => sample === 0.5)).toBe(true);
     expect(feed.suppliedFrames).toBe(128);
-    expect(feed.shortFrames).toBe(0);
     expect(feed.layout).toBe(STEREO);
   });
 
-  it('counts the frames it could not supply before the end as an underrun, per quantum', () => {
+  it('is ready for a quantum only with a whole one written, or once its writer has ended', () => {
     const { writer, feed } = feedOverRing();
     writer.write(constant(100, 0.5));
+    expect(feed.ready(128)).toBe(false);
+    writer.write(constant(28, 0.5));
+    expect(feed.ready(128)).toBe(true);
     const into = allocateBlock(STEREO, RATE, 128);
-    feed.beginQuantum();
-    expect(feed.fill(into)).toBe(100);
-    expect(feed.shortFrames).toBe(28);
-    expect(feed.finished).toBe(false);
-    feed.beginQuantum();
     feed.fill(into);
-    expect(feed.shortFrames).toBe(128);
-    expect(feed.suppliedFrames).toBe(0);
+    expect(feed.ready(128)).toBe(false);
+    writer.end();
+    expect(feed.ready(128)).toBe(true);
   });
 
-  it('is finished, not short, when it runs out after its writer ended', () => {
+  it('is not ready for audio written past a discard mark until it is cleared', () => {
+    const { writer, feed } = feedOverRing();
+    writer.write(constant(64, 0.5));
+    writer.discard();
+    writer.write(constant(128, 0.25));
+    expect(feed.ready(128)).toBe(false);
+    feed.clear();
+    expect(feed.ready(128)).toBe(true);
+  });
+
+  it('is finished when it runs out after its writer ended', () => {
     const { writer, feed } = feedOverRing();
     writer.write(constant(100, 0.5));
     writer.end();
     const into = allocateBlock(STEREO, RATE, 128);
     feed.beginQuantum();
     expect(feed.fill(into)).toBe(100);
-    expect(feed.shortFrames).toBe(0);
     expect(feed.finished).toBe(true);
   });
 

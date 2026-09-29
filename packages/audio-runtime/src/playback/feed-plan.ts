@@ -10,9 +10,10 @@
  *   nine blocks queued, well inside what the processor holds, and a read is
  *   large enough that a posted feed sends a message every few quanta rather
  *   than every one.
- * - The pumps are ticked once per chunk's duration, which is how often a chunk
- *   of room opens, so the queue never falls more than two chunks below the time
- *   ahead before it is topped up.
+ * - A pump whose queue is full looks again after a chunk's duration, which is
+ *   how often a chunk of room opens, so a ring's queue never falls more than
+ *   two chunks below the time ahead before it is topped up. A posted feed's
+ *   pump is woken sooner, as each of its blocks is read.
  * - A ring holds the time ahead plus one chunk. The pump's bound, not the ring,
  *   limits what is queued, and the chunk more is room for the next run's first
  *   chunk while the old run's audio still waits behind its discard mark for the
@@ -37,8 +38,8 @@ export interface FeedPlan {
   readonly chunkFrames: number;
   /** The frames each shared ring holds. */
   readonly ringFrames: number;
-  /** How often the pumps are told what the processor has consumed. */
-  readonly tickMilliseconds: number;
+  /** How long a pump whose queue is full waits before it looks again. */
+  readonly wakeMilliseconds: number;
 }
 
 /** The feed sizes for a profile's settings at a context rate, or why it keeps no frame ahead. */
@@ -62,6 +63,6 @@ export function feedPlanFor(settings: PerformanceSettings, rate: number): Domain
     aheadFrames,
     chunkFrames,
     ringFrames: aheadFrames + chunkFrames,
-    tickMilliseconds: (chunkFrames * 1000) / rate,
+    wakeMilliseconds: (chunkFrames * 1000) / rate,
   });
 }

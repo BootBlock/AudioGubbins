@@ -12,11 +12,18 @@
  */
 
 import { succeed, type DomainResult, type SampleCount } from '@audiogubbins/domain';
-import { TransportMode, type PcmSource, type PresetProfile } from '@audiogubbins/audio-engine';
-import { PlaybackPhase, type PlaybackSession } from '@audiogubbins/audio-runtime';
+import type { NodeId } from '@audiogubbins/audio-graph';
+import { TransportMode, type PresetProfile } from '@audiogubbins/audio-engine';
+import {
+  PLAYBACK_SUPERSEDED,
+  PlaybackPhase,
+  type MeterLevels,
+  type PlaybackSession,
+} from '@audiogubbins/audio-runtime';
 
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import { reasonsOf, type Reasons } from '../state/reasons.js';
+import { testSignalPlayback } from './test-signal.js';
 
 /** The part of a playback session the control drives. */
 export type PlaybackSessionPort = Pick<
@@ -30,6 +37,7 @@ export type PlaybackSessionPort = Pick<
   | 'seek'
   | 'position'
   | 'audiblePosition'
+  | 'meters'
   | 'dispose'
 >;
 
@@ -58,15 +66,14 @@ interface Opened {
   readonly parts: PlaybackParts;
   session: PlaybackSessionPort | undefined;
   stopListening: (() => void) | undefined;
-  /** The tone the graph reads, made at the context's rate once the context exists. */
-  source: PcmSource | undefined;
+  /** Whether the test signal was given to the session, which keeps it through a lost context. */
+  requested: boolean;
 }
 
 /** Why Pause or Stop finds nothing to act on; their availability says so first. */
 const NOTHING_PLAYING: Reasons = ['Nothing is playing.'];
 
-/** A failure that only means a later command came first, which the later one reports. */
-const SUPERSEDED = 'playback.superseded';
+const NO_METERS: ReadonlyMap<NodeId, MeterLevels> = new Map();
 
 function reasonsFor(outcome: DomainResult<void>): Reasons | undefined {
   return outcome.ok ? undefined : reasonsOf(outcome.failures);
@@ -135,6 +142,11 @@ export class PlaybackControl {
     return heard?.ok === true ? heard.value : undefined;
   }
 
+  /** Each meter's latest levels, read once a display frame, or none with no session. */
+  meters(): ReadonlyMap<NodeId, MeterLevels> {
+    return this.#opened?.session?.meters() ?? NO_METERS;
+  }
+
   /** Lets go of the session and closes the context. */
   dispose(): void {
     if (this.#opened !== undefined) this.#close(this.#opened);
@@ -146,7 +158,7 @@ export class PlaybackControl {
       parts: this.#open(profile),
       session: undefined,
       stopListening: undefined,
-      source: undefined,
+      requested: false,
     };
     this.#opened = opened;
     return opened;
@@ -158,7 +170,6 @@ export class PlaybackControl {
     // A session still on its way is disposed by the Play awaiting it, which
     // finds its parts closed.
     current.session?.dispose();
-    current.source?.release();
     void current.parts.close();
     this.#view.showPlayback(undefined);
   }
@@ -201,26 +212,21 @@ export class PlaybackControl {
     return true;
   }
 
-  /** Loads the test signal, unless the session has it or will load it again itself. */
-  async #loaded(current: Opened, session: PlaybackSessionPort): Promise<DomainResult<void>> {
+  /**
+   * Loads the test signal, unless the session has it or will load it again
+   * itself. The tone is described, at the context's rate, and the feeder
+   * worker makes it: the page makes no audio of its own.
+   */
+  #loaded(current: Opened, session: PlaybackSessionPort): Promise<DomainResult<void>> {
     const { phase } = session.status;
     // Lost with its context, the graph is loaded again by the session's Play.
-    if (
-      phase === PlaybackPhase.Ready ||
-      (phase === PlaybackPhase.Unloaded && current.source !== undefined)
-    ) {
-      return succeed(undefined);
+    if (phase === PlaybackPhase.Ready || (phase === PlaybackPhase.Unloaded && current.requested)) {
+      return Promise.resolve(succeed(undefined));
     }
-    const { testSignalPlayback } = await import('./test-signal-tone.js');
-    const made = testSignalPlayback(current.parts.contextRate());
-    if (!made.ok) return made;
-    // A refused or faulted graph is loaded again with a new tone, and the old
-    // one released once the session has let go of it.
-    const previous = current.source;
-    current.source = made.value.source;
-    const loaded = await session.load(made.value.request);
-    previous?.release();
-    return loaded;
+    const request = testSignalPlayback(current.parts.contextRate());
+    if (!request.ok) return Promise.resolve(request);
+    current.requested = true;
+    return session.load(request.value);
   }
 
   /** Says how the Play ended. */
@@ -228,7 +234,7 @@ export class PlaybackControl {
     if (result.ok) {
       this.#view.playbackSettled([]);
       this.#announce('The test signal is playing.');
-    } else if (result.failures.every((one) => one.code === SUPERSEDED)) {
+    } else if (result.failures.every((one) => one.code === PLAYBACK_SUPERSEDED)) {
       // Overtaken by a later command, which says what it did.
       this.#view.playbackSettled([]);
     } else {

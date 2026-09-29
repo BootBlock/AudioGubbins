@@ -1,6 +1,6 @@
 /**
- * A graph input's audio read from a ring the main thread writes, where memory
- * can be shared.
+ * A graph input's audio read from a ring the feeder worker writes, where
+ * memory can be shared.
  *
  * The quickest way audio crosses into the worklet: no message per block, and
  * nothing allocated to read one. The ring's reader is taken once, when the
@@ -24,16 +24,16 @@ export class RingFeed implements ProcessorFeed {
     this.layout = layout;
   }
 
-  get shortFrames(): number {
-    return this.#tally.shortFrames;
-  }
-
   get suppliedFrames(): number {
     return this.#tally.suppliedFrames;
   }
 
   get finished(): boolean {
     return this.#tally.finished;
+  }
+
+  ready(frames: number): boolean {
+    return this.#reader.ready(frames);
   }
 
   fill(into: AudioFrameBlock): number {

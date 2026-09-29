@@ -56,6 +56,20 @@ export function peakText(peak: number): string {
   return `${TENTHS.format(20 * Math.log10(peak)).replace('-', '−')} dB`;
 }
 
+const HUNDREDTHS = new Intl.NumberFormat('en-GB', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  signDisplay: 'exceptZero',
+});
+
+/**
+ * A phase correlation, signed, to two places: `+0.98`, `0.00`, `−1.00`, with
+ * the typographic minus, which a screen reader says as "minus".
+ */
+export function correlationText(correlation: number): string {
+  return HUNDREDTHS.format(correlation).replace('-', '−');
+}
+
 /** Where a peak sits on a meter's scale, for its colour. */
 export const MeterZone = {
   Low: 'low',

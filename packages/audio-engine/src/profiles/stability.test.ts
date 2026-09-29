@@ -8,51 +8,56 @@ import {
   PRESET_SETTINGS,
   type PerformanceSettings,
 } from './performance-profile.js';
-import {
-  STABILITY_WINDOW_SECONDS,
-  assessStability,
-  createUnderrunHistory,
-  recordUnderruns,
-  type UnderrunHistory,
-} from './stability.js';
+import { STABILITY_WINDOW_SECONDS, UnderrunHistory, assessStability } from './stability.js';
 
 const RATE: SampleRate = expectSuccess(sampleRate(48_000));
 const WINDOW = STABILITY_WINDOW_SECONDS * 48_000;
 const BALANCED = PRESET_SETTINGS[PerformanceProfile.Balanced];
 
 function withUnderruns(frames: readonly number[]): UnderrunHistory {
-  return frames.reduce(
-    (history, frame) => expectSuccess(recordUnderruns(history, frame)),
-    createUnderrunHistory(RATE),
-  );
+  const history = new UnderrunHistory(RATE);
+  for (const frame of frames) expectSuccess(history.record(frame));
+  return history;
 }
 
 describe('recording underruns', () => {
-  it('keeps the events in the window, oldest first', () => {
+  it('counts the events in the window ending at a frame', () => {
     const history = withUnderruns([100, 200, 300]);
-    expect(history.events.map((event) => event.contextFrame)).toEqual([100, 200, 300]);
+    expect(history.size).toBe(3);
+    expect(history.underrunsAt(300)).toBe(3);
+    expect(history.underrunsAt(250)).toBe(2);
   });
 
-  it('drops events that have left the window, so memory stays bounded', () => {
+  it('lets go of events that have left the window, so memory stays bounded', () => {
     const history = withUnderruns([0, 1_000, WINDOW, WINDOW + 1_000, 3 * WINDOW]);
-    expect(history.events).toEqual([{ contextFrame: 3 * WINDOW, count: 1 }]);
+    expect(history.size).toBe(1);
+    expect(history.underrunsAt(3 * WINDOW)).toBe(1);
   });
 
   it('stays as small as the window however long the session runs', () => {
     // An underrun every second for an hour.
     const frames = Array.from({ length: 3_600 }, (_, second) => second * 48_000);
-    expect(withUnderruns(frames).events).toHaveLength(STABILITY_WINDOW_SECONDS);
+    const history = withUnderruns(frames);
+    expect(history.size).toBe(STABILITY_WINDOW_SECONDS);
+    expect(history.underrunsAt(3_599 * 48_000)).toBe(STABILITY_WINDOW_SECONDS);
+  });
+
+  it('keeps every event in order when it grows past its first places', () => {
+    // Thirty reports a second for the whole window: far more than the ring starts with.
+    const frames = Array.from({ length: 300 }, (_, report) => report * 1_600);
+    const history = withUnderruns(frames);
+    expect(history.size).toBe(300);
+    expect(history.underrunsAt(299 * 1_600)).toBe(300);
+    expect(history.underrunsAt(150 * 1_600)).toBe(151);
+    expectSuccess(history.record(WINDOW + 1_600));
+    // The first two reports, at 0 and 1 600, have left the window.
+    expect(history.underrunsAt(WINDOW + 1_600)).toBe(299);
   });
 
   it('records a batch the feed counted together', () => {
-    const history = expectSuccess(recordUnderruns(createUnderrunHistory(RATE), 500, 7));
-    expect(history.events).toEqual([{ contextFrame: 500, count: 7 }]);
-  });
-
-  it('leaves the history it was given unchanged', () => {
-    const before = withUnderruns([10]);
-    expectSuccess(recordUnderruns(before, 20));
-    expect(before.events).toHaveLength(1);
+    const history = new UnderrunHistory(RATE);
+    expectSuccess(history.record(500, 7));
+    expect(history.underrunsAt(500)).toBe(7);
   });
 
   it.each([
@@ -62,26 +67,24 @@ describe('recording underruns', () => {
     [10, 0, 'stability.count-invalid'],
     [10, 2.5, 'stability.count-invalid'],
   ])('refuses a report at frame %s counting %s', (frame, count, code) => {
-    expect(expectFailureCode(recordUnderruns(createUnderrunHistory(RATE), frame, count))).toBe(
-      code,
-    );
+    expect(expectFailureCode(new UnderrunHistory(RATE).record(frame, count))).toBe(code);
   });
 
   it('refuses a frame before the latest, which belongs to a replaced context', () => {
-    expect(expectFailureCode(recordUnderruns(withUnderruns([1_000]), 999))).toBe(
+    expect(expectFailureCode(withUnderruns([1_000]).record(999))).toBe(
       'stability.context-frame-out-of-order',
     );
   });
 
   it('accepts two reports at the same frame', () => {
-    expect(withUnderruns([1_000, 1_000]).events).toHaveLength(2);
+    expect(withUnderruns([1_000, 1_000]).underrunsAt(1_000)).toBe(2);
   });
 });
 
 describe('assessing stability', () => {
   it('is stable with no underruns, and recommends nothing', () => {
     const assessment = assessStability(
-      createUnderrunHistory(RATE),
+      new UnderrunHistory(RATE),
       5 * WINDOW,
       PerformanceProfile.Balanced,
       BALANCED,
@@ -94,7 +97,8 @@ describe('assessing stability', () => {
   });
 
   it('warns of underruns in the window and recommends the next more stable preset', () => {
-    const history = expectSuccess(recordUnderruns(withUnderruns([1_000]), 2_000, 2));
+    const history = withUnderruns([1_000]);
+    expectSuccess(history.record(2_000, 2));
     const assessment = assessStability(
       history,
       3_000,

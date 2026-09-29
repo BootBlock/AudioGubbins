@@ -33,20 +33,43 @@ describe('a posted feed', () => {
     expect(collected).toEqual(posted(0, 512));
   });
 
-  it('counts an underrun while it has not ended, and the end once it has', () => {
+  it('is ready for a quantum only with a whole one queued, or once it has ended', () => {
     const feed = new PostedFeed(STEREO);
     expectSuccess(feed.push(posted(0, 100)));
+    expect(feed.ready(128)).toBe(false);
+    expectSuccess(feed.push(posted(100, 50)));
+    expect(feed.ready(128)).toBe(true);
     const into = allocateBlock(STEREO, RATE, 128);
     feed.beginQuantum();
-    expect(feed.fill(into)).toBe(100);
-    expect(feed.shortFrames).toBe(28);
-    feed.beginQuantum();
-    expectSuccess(feed.push(posted(100, 50)));
+    expect(feed.fill(into)).toBe(128);
+    expect(feed.ready(128)).toBe(false);
     feed.end();
-    expect(feed.fill(into)).toBe(50);
-    expect(feed.shortFrames).toBe(0);
-    expect(feed.suppliedFrames).toBe(50);
+    expect(feed.ready(128)).toBe(true);
+    feed.beginQuantum();
+    expect(feed.fill(into)).toBe(22);
+    expect(feed.suppliedFrames).toBe(22);
     expect(feed.finished).toBe(true);
+  });
+
+  it('counts the frames of each block read whole, once, for the feeder to hear of', () => {
+    const feed = new PostedFeed(STEREO);
+    for (const [start, frames] of [
+      [0, 100],
+      [100, 100],
+      [200, 100],
+    ] as const) {
+      expectSuccess(feed.push(posted(start, frames)));
+    }
+    const into = allocateBlock(STEREO, RATE, 128);
+    feed.fill(into);
+    expect(feed.takeConsumed()).toBe(100);
+    expect(feed.takeConsumed()).toBe(0);
+    feed.fill(into);
+    expect(feed.takeConsumed()).toBe(100);
+    // A block dropped by a rewind was not consumed.
+    feed.clear();
+    expect(feed.takeConsumed()).toBe(0);
+    expect(feed.ready(1)).toBe(false);
   });
 
   it('refuses a block of another channel count, of ragged channels, or after the end', () => {

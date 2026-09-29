@@ -1,8 +1,8 @@
 /**
  * Reading a message that crossed into another global scope.
  *
- * A message between the main thread, the AudioWorklet and a render worker
- * arrives as a structured clone, which the receiver cannot trust to have the
+ * A message between the main thread, the AudioWorklet, the feeder and a
+ * render worker arrives as a structured clone, which the receiver cannot trust to have the
  * shape its type claims (REQ-EXEC-136.12, and the packet's "no stringly typed
  * AudioWorklet message protocol"). Each protocol names its messages in one
  * discriminated union and reads a received value into it here, field by
@@ -14,7 +14,18 @@
  * is small and wrong as a whole, so its first problem is the one to report.
  */
 
-import { failure, FailureKind, fail, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  failure,
+  FailureKind,
+  fail,
+  sampleCount,
+  sampleRate,
+  succeed,
+  type DomainResult,
+  type SampleCount,
+  type SampleRate,
+} from '@audiogubbins/domain';
+import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
 
 /** A field of a received message that is not what the protocol says. */
 export class MalformedMessage extends Error {
@@ -44,6 +55,13 @@ export function textAt(fields: Fields, field: string): string {
   return value;
 }
 
+/** A node's identifier. */
+export function nodeAt(fields: Fields, field: string): NodeId {
+  const read = nodeId(textAt(fields, field));
+  if (!read.ok) throw new MalformedMessage(field, 'a node identifier');
+  return read.value;
+}
+
 /** Text, or `undefined` where the field is absent. */
 export function optionalTextAt(fields: Fields, field: string): string | undefined {
   return fields[field] === undefined ? undefined : textAt(fields, field);
@@ -55,6 +73,20 @@ export function numberAt(fields: Fields, field: string): number {
     throw new MalformedMessage(field, 'a finite number');
   }
   return value;
+}
+
+/** A sample rate. */
+export function rateAt(fields: Fields, field: string): SampleRate {
+  const read = sampleRate(numberAt(fields, field));
+  if (!read.ok) throw new MalformedMessage(field, 'a sample rate');
+  return read.value;
+}
+
+/** A count of samples. */
+export function samplesAt(fields: Fields, field: string): SampleCount {
+  const read = sampleCount(countAt(fields, field));
+  if (!read.ok) throw new MalformedMessage(field, 'a count of samples');
+  return read.value;
 }
 
 /** A whole number of frames or a count, zero or more. */
@@ -105,6 +137,18 @@ export function optionalModuleAt(fields: Fields, field: string): WebAssembly.Mod
   if (value === undefined) return undefined;
   const isModule = (one: unknown): one is WebAssembly.Module => taggedAs(one, 'WebAssembly.Module');
   if (!isModule(value)) throw new MalformedMessage(field, 'a compiled WebAssembly module');
+  return value;
+}
+
+/**
+ * The end of a message channel, transferred with the message, or `undefined`
+ * where the field is absent.
+ */
+export function optionalPortAt(fields: Fields, field: string): MessagePort | undefined {
+  const value: unknown = fields[field];
+  if (value === undefined) return undefined;
+  const isPort = (one: unknown): one is MessagePort => taggedAs(one, 'MessagePort');
+  if (!isPort(value)) throw new MalformedMessage(field, 'the end of a message channel');
   return value;
 }
 

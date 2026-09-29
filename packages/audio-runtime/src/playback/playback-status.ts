@@ -6,9 +6,12 @@
  * watching fields. The transitions that are more than setting a field are
  * written here as functions of a snapshot, so the session only says what
  * happened.
+ *
+ * What changes many times a second is not in it: the position and the
+ * meters' levels are read where they are shown, once a display frame, so a
+ * report from the audio thread does not redraw every reader of the status.
  */
 
-import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   TRANSPORT_AT_START,
   type DspImplementation,
@@ -36,48 +39,57 @@ export const PlaybackPhase = {
 /** Where the loaded graph stands. */
 export type PlaybackPhase = (typeof PlaybackPhase)[keyof typeof PlaybackPhase];
 
-/** Which canonical DSP the processor runs, and why the reference path, when it does. */
+/** Which canonical DSP a thread runs, why the reference path, when it does, and whether it is used. */
 export interface DspStatus {
   readonly implementation: DspImplementation;
   readonly fallbackReason: string | undefined;
+  /**
+   * Whether anything the thread runs calls it: a node of the graph on the
+   * audio thread, a source such as a tone in the feeder.
+   */
+  readonly inUse: boolean;
 }
 
-/** A meter's last reading, one value per channel. */
+/** A meter's last reading: one value per channel, and one per pair it correlates. */
 export interface MeterLevels {
   readonly peak: readonly number[];
   readonly rms: readonly number[];
+  /** The phase correlation of each pair the meter names, from -1 to 1, in its order. */
+  readonly correlation: readonly number[];
 }
 
 /** What playback is doing. */
 export interface PlaybackStatus {
   readonly phase: PlaybackPhase;
   readonly transport: TransportState;
-  /** The loaded graph's DSP, once the processor has said. */
-  readonly dsp: DspStatus | undefined;
+  /** The DSP of the audio thread, which runs the graph, once the processor has said. */
+  readonly processorDsp: DspStatus | undefined;
+  /**
+   * The DSP of the feeder worker, which makes the sources, once it has said;
+   * none for a graph without a graph input, which the feeder does not feed.
+   */
+  readonly feederDsp: DspStatus | undefined;
   /** The loaded graph's latency in context frames, where every node on the way can say it. */
   readonly latencyFrames: number | undefined;
   readonly device: DeviceReport | undefined;
   readonly contextState: LifecycleState;
   /** Whether the device is being kept fed, once a graph has loaded on a context. */
   readonly stability: StabilityAssessment | undefined;
-  readonly meters: ReadonlyMap<NodeId, MeterLevels>;
   /** What the person should know is wrong, worded for them. */
   readonly problems: readonly string[];
 }
-
-const NO_METERS: ReadonlyMap<NodeId, MeterLevels> = new Map();
 
 /** Playback before anything is loaded. */
 export function initialStatus(contextState: LifecycleState): PlaybackStatus {
   return {
     phase: PlaybackPhase.Unloaded,
     transport: TRANSPORT_AT_START,
-    dsp: undefined,
+    processorDsp: undefined,
+    feederDsp: undefined,
     latencyFrames: undefined,
     device: undefined,
     contextState,
     stability: undefined,
-    meters: NO_METERS,
     problems: [],
   };
 }
@@ -90,21 +102,29 @@ export function loadingStatus(
   return {
     ...status,
     phase: PlaybackPhase.Loading,
-    dsp: undefined,
+    processorDsp: undefined,
+    feederDsp: undefined,
     latencyFrames: undefined,
     stability,
-    meters: NO_METERS,
     problems: [],
   };
 }
 
-/** The processor has the graph and says how it runs it. */
+/** The processor has the graph and says how it runs it, beside the feeder's DSP. */
 export function readyStatus(
   status: PlaybackStatus,
-  dsp: DspStatus,
+  processorDsp: DspStatus,
+  feederDsp: DspStatus | undefined,
   latencyFrames: number | undefined,
 ): PlaybackStatus {
-  return { ...status, phase: PlaybackPhase.Ready, dsp, latencyFrames, problems: [] };
+  return {
+    ...status,
+    phase: PlaybackPhase.Ready,
+    processorDsp,
+    feederDsp,
+    latencyFrames,
+    problems: [],
+  };
 }
 
 /** The graph cannot play, for `reasons`. */
@@ -122,9 +142,9 @@ export function unloadedStatus(status: PlaybackStatus, problem: string): Playbac
   return {
     ...status,
     phase: PlaybackPhase.Unloaded,
-    dsp: undefined,
+    processorDsp: undefined,
+    feederDsp: undefined,
     latencyFrames: undefined,
-    meters: NO_METERS,
     problems: [problem],
   };
 }
@@ -132,15 +152,4 @@ export function unloadedStatus(status: PlaybackStatus, problem: string): Playbac
 /** Something the person should know about that leaves playback as it was. */
 export function withProblem(status: PlaybackStatus, problem: string): PlaybackStatus {
   return { ...status, problems: [...status.problems, problem] };
-}
-
-/** A meter's new reading. */
-export function withMeter(
-  status: PlaybackStatus,
-  node: NodeId,
-  levels: MeterLevels,
-): PlaybackStatus {
-  const meters = new Map(status.meters);
-  meters.set(node, levels);
-  return { ...status, meters };
 }

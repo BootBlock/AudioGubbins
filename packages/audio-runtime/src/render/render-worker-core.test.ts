@@ -29,12 +29,11 @@ import {
 import { scopeDsp } from '../dsp/dsp-instance.js';
 import {
   FromRenderWorkerKind,
-  SourceKind,
   ToRenderWorkerKind,
   type FromRenderWorker,
-  type SourceDescription,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
+import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
 import { countingDsp } from '../testing/counting-dsp.js';
 import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { distinctChannels, graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';

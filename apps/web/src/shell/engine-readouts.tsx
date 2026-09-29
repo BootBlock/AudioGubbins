@@ -1,7 +1,12 @@
 /**
  * What the Transport panel reports of the engine: the context and the device,
- * the DSP path, every latency on the way to the listener, the stability of
- * the feed, the levels, and each audio feature this browser reduces.
+ * the DSP path of each thread, every latency on the way to the listener, the
+ * stability of the feed, the levels and the correlation of a pair, and each
+ * audio feature this browser reduces.
+ *
+ * Each thread's DSP is said as it is: which path it has, and whether anything
+ * it runs calls it. A graph of gains and meters calls no DSP whatever the
+ * audio thread has loaded, and the test signal's tone is made on the feeder's.
  *
  * Every degradation says its reason where it is shown (WU-03.E): the
  * reference path with the reason it runs, a feature with the capability it
@@ -19,11 +24,18 @@ import {
   OUTPUT_DEVICE_CHOICE,
   type CapabilityRegistry,
 } from '@audiogubbins/capabilities';
+import type { NodeId } from '@audiogubbins/audio-graph';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
-import { LifecycleState, type MeterLevels, type PlaybackStatus } from '@audiogubbins/audio-runtime';
+import {
+  LifecycleState,
+  type DspStatus,
+  type MeterLevels,
+  type PlaybackStatus,
+} from '@audiogubbins/audio-runtime';
 
 import { PROFILE_NAMES } from '../commands/audio-commands.js';
 import {
+  correlationText,
   dspText,
   latencyFramesText,
   latencySecondsText,
@@ -82,7 +94,34 @@ function Latencies({ status }: { readonly status: PlaybackStatus }): ReactNode {
   );
 }
 
-/** The context, the transport, the DSP path, the device and the stability of the feed. */
+/**
+ * A thread's DSP: its path, a note where nothing it runs calls it, and why
+ * the reference path runs, where it does.
+ */
+function DspReading({
+  term,
+  dsp,
+  unused,
+}: {
+  readonly term: string;
+  readonly dsp: DspStatus;
+  /** What is said where nothing the thread runs calls the DSP. */
+  readonly unused: string;
+}): ReactNode {
+  return (
+    <Reading term={term}>
+      {dspText(dsp.implementation)}
+      {!dsp.inUse && <span className="ag-reading-note">{unused}</span>}
+      {dsp.fallbackReason !== undefined && (
+        <span className="ag-reading-note" data-ag-status="reduced">
+          {dsp.fallbackReason}
+        </span>
+      )}
+    </Reading>
+  );
+}
+
+/** The context, the transport, each thread's DSP path, the device and the stability of the feed. */
 export function EngineState({
   status,
 }: {
@@ -95,19 +134,27 @@ export function EngineState({
       </dl>
     );
   }
-  const { dsp, device, stability } = status;
+  const { processorDsp, feederDsp, device, stability } = status;
   return (
     <dl className="ag-readings">
       <Reading term="Audio context">{CONTEXT_STATES[status.contextState]}</Reading>
       <Reading term="Transport">{TRANSPORT_MODES[status.transport.mode]}</Reading>
-      <Reading term="Processing">
-        {dsp === undefined ? 'Not loaded yet' : dspText(dsp.implementation)}
-        {dsp?.fallbackReason !== undefined && (
-          <span className="ag-reading-note" data-ag-status="reduced">
-            {dsp.fallbackReason}
-          </span>
-        )}
-      </Reading>
+      {processorDsp === undefined ? (
+        <Reading term="Graph on the audio thread">Not loaded yet</Reading>
+      ) : (
+        <DspReading
+          term="Graph on the audio thread"
+          dsp={processorDsp}
+          unused="Loaded; no node of this graph calls it."
+        />
+      )}
+      {feederDsp !== undefined && (
+        <DspReading
+          term="Sources in the feeder thread"
+          dsp={feederDsp}
+          unused="Loaded; the sources are recorded audio, which calls none of it."
+        />
+      )}
       {device !== undefined && (
         <Reading term="Device rate">{`${String(device.sampleRate)} Hz`}</Reading>
       )}
@@ -161,18 +208,63 @@ function ChannelPeaks({ levels }: { readonly levels: MeterLevels }): ReactNode {
   });
 }
 
-/** The peak of each channel at each meter of the graph, as the processor last reported it. */
+/** What a correlated pair is called: left and right for a stereo meter, a number otherwise. */
+function pairName(pair: number, channels: number): string {
+  return channels === 2 ? 'Left and right' : `Pair ${String(pair + 1)}`;
+}
+
+/**
+ * Each correlated pair's phase correlation, on a scale from −1, one channel
+ * the inverse of the other, through 0, unrelated, to 1, in phase: a bar from
+ * the middle, towards the end the reading is nearer.
+ */
+function PairCorrelations({ levels }: { readonly levels: MeterLevels }): ReactNode {
+  return levels.correlation.map((correlation, pair) => {
+    const name = pairName(pair, levels.peak.length);
+    const reach = Math.min(1, Math.abs(correlation)) * 50;
+    return (
+      <div key={name} className="ag-meter">
+        <span className="ag-meter-name">Correlation</span>
+        <div
+          className="ag-meter-scale"
+          role="meter"
+          aria-label={`${name} correlation`}
+          aria-valuemin={-1}
+          aria-valuemax={1}
+          aria-valuenow={correlation}
+          aria-valuetext={correlationText(correlation)}
+        >
+          <div
+            className="ag-meter-fill"
+            data-ag-zone={correlation < 0 ? 'high' : 'low'}
+            style={{
+              marginInlineStart: `${String(correlation < 0 ? 50 - reach : 50)}%`,
+              inlineSize: `${String(reach)}%`,
+            }}
+          />
+        </div>
+        <span className="ag-meter-value">{correlationText(correlation)}</span>
+      </div>
+    );
+  });
+}
+
+/**
+ * The peak of each channel at each meter of the graph, and the correlation of
+ * each pair it names, as the processor last reported them.
+ */
 export function LevelMeters({
-  status,
+  meters,
 }: {
-  readonly status: PlaybackStatus | undefined;
+  readonly meters: ReadonlyMap<NodeId, MeterLevels>;
 }): ReactNode {
-  if (status === undefined || status.meters.size === 0) {
+  if (meters.size === 0) {
     return <p className="ag-panel-note">No levels until something plays.</p>;
   }
-  return [...status.meters].map(([node, levels]) => (
+  return [...meters].map(([node, levels]) => (
     <div key={node} className="ag-meters" role="group" aria-label={`Levels at ${node}`}>
       <ChannelPeaks levels={levels} />
+      <PairCorrelations levels={levels} />
     </div>
   ));
 }

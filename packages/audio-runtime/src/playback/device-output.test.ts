@@ -10,8 +10,9 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { GraphDescriptor } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, frameBlock, memorySource } from '@audiogubbins/audio-engine';
+import { BuiltInNodeType } from '@audiogubbins/audio-engine';
 
+import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
 import { PlaybackRig } from '../testing/playback-rig.js';
 import { distinctChannels, graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';
 import { PlaybackPhase } from './playback-status.js';
@@ -36,13 +37,23 @@ function sourceChannelOf(sample: number | undefined): number {
   return Math.floor(((sample ?? 0) * 65_536) / 1000) - 1;
 }
 
+/** Recorded audio of `frames` frames whose channels differ, in `layout`. */
+function recorded(layout: ChannelLayout, frames: number): SourceDescription {
+  return {
+    node: named('in'),
+    kind: SourceKind.Pcm,
+    sampleRate: RATE,
+    channels: distinctChannels(layout, frames),
+  };
+}
+
 async function playing(layout: ChannelLayout, maxChannelCount: number): Promise<PlaybackRig> {
   const rig = new PlaybackRig({ context: { maxChannelCount } });
-  const source = expectSuccess(
-    memorySource(expectSuccess(frameBlock(layout, RATE, distinctChannels(layout, SOURCE_FRAMES)))),
-  );
   expectSuccess(
-    await rig.session.load({ graph: straight(layout), sources: new Map([[named('in'), source]]) }),
+    await rig.session.load({
+      graph: straight(layout),
+      sources: [recorded(layout, SOURCE_FRAMES)],
+    }),
   );
   expectSuccess(await rig.session.play());
   await rig.render(8);
@@ -83,13 +94,10 @@ describe('the device a graph plays to', () => {
   it('refuses an output of more channels than the device takes, before any node is made', async () => {
     const rig = new PlaybackRig({ context: { maxChannelCount: 2 } });
     const layout = StandardLayouts.surround5_1;
-    const source = expectSuccess(
-      memorySource(expectSuccess(frameBlock(layout, RATE, distinctChannels(layout, 128)))),
-    );
 
     const refused = await rig.session.load({
       graph: straight(layout),
-      sources: new Map([[named('in'), source]]),
+      sources: [recorded(layout, 128)],
     });
 
     expect(expectFailureCode(refused)).toBe('playback.device-channels-exceeded');

@@ -5,7 +5,9 @@
  * Every message crosses as a structured clone, each way, with its transfers,
  * as a `MessagePort` carries it: the processor reads what arrives with its
  * reader, the main thread with its own, and a message that relied on sharing
- * an object with the other side would fail here as it would in a browser.
+ * an object with the other side would fail here as it would in a browser. The
+ * end of the feeder's channel a load brings is listened to as the worklet's
+ * shell listens to it.
  * Delivery is a microtask later, not at once, since a port delivers a message
  * as a task of the receiving side, never inside `postMessage`. The processor
  * renders only when the test says, one render quantum at a time, and keeps
@@ -13,6 +15,7 @@
  */
 
 import { EngineProcessorCore } from '../processor/engine-processor-core.js';
+import { cloneAcross } from './fake-message-channel.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import type {
   AudioDestinationPort,
@@ -49,6 +52,8 @@ export class FakeWorkletNode implements WorkletNodePort {
   /** Replies that arrived before the main thread started the port, which a port holds. */
   readonly #held: unknown[] = [];
   #started = false;
+  /** The processor's end of the channel to the feeder, while a graph with feeds is loaded. */
+  #feeder: MessagePort | undefined;
 
   /**
    * `lost` says which of the main thread's messages never arrive, as a
@@ -68,12 +73,29 @@ export class FakeWorkletNode implements WorkletNodePort {
       post: (message) => {
         this.reply(structuredClone(message));
       },
+      connectFeeder: (port) => {
+        if (this.#feeder !== undefined) {
+          this.#feeder.onmessage = null;
+          this.#feeder.onmessageerror = null;
+        }
+        this.#feeder = port;
+        if (port === undefined) return;
+        port.onmessage = (event: MessageEvent<unknown>) => {
+          this.#core.receiveFeed(event.data);
+        };
+        port.onmessageerror = () => {
+          this.#core.feedMessageFailed();
+        };
+      },
+      postToFeeder: (message) => {
+        this.#feeder?.postMessage(message);
+      },
     });
     this.port = {
       postMessage: (message, transfer = []) => {
         this.sent.push(message);
         if (lost(message)) return;
-        const data: unknown = structuredClone(message, { transfer });
+        const data = cloneAcross(message, transfer);
         queueMicrotask(() => {
           this.#core.receive(data);
         });

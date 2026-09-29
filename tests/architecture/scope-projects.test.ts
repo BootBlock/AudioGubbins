@@ -29,6 +29,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       scope: 'audio-worklet',
       lib: ['lib.es2023.d.ts'],
     },
+    'packages/audio-runtime/src/threads/feeder-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
     'packages/audio-runtime/src/threads/render-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],

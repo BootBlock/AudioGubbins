@@ -1,8 +1,8 @@
 /**
- * A ring of planar samples in memory the main thread and the audio thread
+ * A ring of planar samples in memory the feeder worker and the audio thread
  * share, so a feed crosses into the AudioWorklet without a message per block.
  *
- * One writer, on the main thread, and one reader, on the audio thread. The
+ * One writer, in the feeder worker, and one reader, on the audio thread. The
  * memory is an `Int32Array` header and then `channels × capacity` floats, one
  * run of `capacity` per channel. Each side owns the position it moves and only
  * reads the other's, through `Atomics`: a side writes its samples, then stores
@@ -189,7 +189,7 @@ function assertChannels(block: AudioFrameBlock, channels: number): void {
   }
 }
 
-/** The main thread's side of a ring: it writes the audio. */
+/** The feeder's side of a ring: it writes the audio. */
 export class RingWriter {
   readonly #header: Int32Array;
   readonly #channels: readonly Float32Array[];
@@ -304,11 +304,30 @@ export class RingReader {
     return this.#ended;
   }
 
+  /**
+   * Whether a read of `frames` frames would find them all, or the writer has
+   * ended, so a shorter read finds the true end. The ended flag is loaded
+   * first, for the reason {@link ended} gives.
+   */
+  ready(frames: number): boolean {
+    if (Atomics.load(this.#header, Header.Ended) === 1) return true;
+    return this.#readable(Atomics.load(this.#header, Header.Read)) >= frames;
+  }
+
   /** Reads up to `into.frames` frames into the start of `into`, and answers how many. */
   read(into: AudioFrameBlock): number {
     assertChannels(into, this.#channels.length);
     this.#ended = Atomics.load(this.#header, Header.Ended) === 1;
     const read = Atomics.load(this.#header, Header.Read);
+    const frames = Math.min(into.frames, this.#readable(read));
+    if (frames === 0) return 0;
+    copyFrames(this.#channels, into.channels, read, frames, false);
+    Atomics.store(this.#header, Header.Read, advancePosition(read, frames, this.#capacity));
+    return frames;
+  }
+
+  /** The frames from the read position `read` the reader may read now. */
+  #readable(read: number): number {
     const write = Atomics.load(this.#header, Header.Write);
     // Loaded after the write position: audio past a mark was written after
     // the mark was counted, so a read that found it finds the mark too.
@@ -316,16 +335,12 @@ export class RingReader {
       Atomics.load(this.#header, Header.Discards) === this.#skipped
         ? write
         : Atomics.load(this.#header, Header.Mark);
-    const frames = Math.min(into.frames, framesBetween(read, until, this.#capacity));
-    if (frames === 0) return 0;
-    copyFrames(this.#channels, into.channels, read, frames, false);
-    Atomics.store(this.#header, Header.Read, advancePosition(read, frames, this.#capacity));
-    return frames;
+    return framesBetween(read, until, this.#capacity);
   }
 
   /**
    * Skips the audio the writer marked with {@link RingWriter.discard}, as a
-   * reset for a seek needs. The reader's to call: it moves only the read
+   * rewind for a seek needs. The reader's to call: it moves only the read
    * position, which is the reader's alone, and only forward, to a mark the
    * reader has not read past. Without a new mark it discards nothing, since
    * only the writer knows which of the audio belongs to the old position.

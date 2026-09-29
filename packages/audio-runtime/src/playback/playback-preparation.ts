@@ -12,11 +12,11 @@
 
 import {
   FailureKind,
-  channelCount,
   fail,
   failure,
   flatMapResult,
   succeed,
+  type ChannelLayout,
   type DomainFailure,
   type DomainResult,
   type SampleRate,
@@ -27,16 +27,12 @@ import {
   type ExecutionPlan,
   type GraphDescriptor,
   type GraphDiagnostic,
-  type NodeId,
 } from '@audiogubbins/audio-graph';
-import {
-  BUILT_IN_NODES,
-  type PcmSource,
-  type PerformanceSettings,
-} from '@audiogubbins/audio-engine';
+import { BUILT_IN_NODES, type PerformanceSettings } from '@audiogubbins/audio-engine';
 
 import type { AudioDestinationPort } from '../context/audio-context-port.js';
 import { deviceChannelsFor, type DeviceChannels } from '../context/device-channels.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import { PlaybackFeeds } from './feed-bindings.js';
 import { feedPlanFor, type FeedPlan } from './feed-plan.js';
 import { bindSources } from './source-binding.js';
@@ -44,15 +40,19 @@ import { bindSources } from './source-binding.js';
 /** A graph to play, and the audio of each of its graph inputs. */
 export interface PlaybackRequest {
   readonly graph: GraphDescriptor;
-  /** The caller's, at the context's rate; playback never releases them. */
-  readonly sources: ReadonlyMap<NodeId, PcmSource>;
+  /**
+   * The audio of each graph input, at the context's rate, described for the
+   * feeder worker that makes it: a tone, or recorded audio whose arrays are
+   * transferred to the feeder, and so detached here, when the request loads.
+   */
+  readonly sources: readonly SourceDescription[];
 }
 
 /** A graph that can play here, and what playing it needs. */
 export interface PreparedPlayback {
   readonly plan: ExecutionPlan;
-  /** The channels of the one sink, which the worklet node's output carries. */
-  readonly sinkChannels: number;
+  /** The layout of the one sink, whose channels the worklet node's output carries. */
+  readonly sinkLayout: ChannelLayout;
   /** The device channel each of the sink's channels plays on. */
   readonly device: DeviceChannels;
   readonly feeds: PlaybackFeeds;
@@ -115,12 +115,10 @@ export function preparePlayback(
         flatMapResult(
           PlaybackFeeds.create({
             sources,
-            rate,
             plan: feedPlan,
             sharedMemory: options.capabilities.sharedMemory,
           }),
-          (feeds) =>
-            succeed({ plan, sinkChannels: channelCount(sinkLayout), device, feeds, feedPlan }),
+          (feeds) => succeed({ plan, sinkLayout, device, feeds, feedPlan }),
         ),
       ),
     ),

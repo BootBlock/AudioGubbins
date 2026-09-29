@@ -1,15 +1,16 @@
 /**
  * A playback session wired end to end without a browser, for the session's
- * tests: a fake context whose worklet nodes run the real processor, a
- * lifecycle over it, a timer that runs on the test's clock, and a log store to
- * read what was logged.
+ * tests: a fake context whose worklet nodes run the real processor, fake
+ * feeder workers that run the real feeder, joined by fake channels, a
+ * lifecycle over the context, a timer that runs on the test's clock, and a
+ * log store to read what was logged.
  *
  * Time moves only when the test renders. Each render quantum advances the
  * context's clock by 128 frames while it runs, and the timer's clock by the
- * same time whether it runs or not, as the main thread's timers go on while a
- * context is suspended. Between quanta every pending read and message
- * settles, which is the most generous a browser could be to the main thread;
- * a test that starves a feed does so with a source that does not answer.
+ * same time whether it runs or not, as timers go on while a context is
+ * suspended. Between quanta every pending read and message settles, which is
+ * the most generous a browser could be to the feeder; a test that starves a
+ * feed does so with a source that does not answer.
  */
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -20,9 +21,11 @@ import {
   type LogStore,
 } from '@audiogubbins/diagnostics';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
+import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   PRESET_SETTINGS,
   PerformanceProfile,
+  type PcmSource,
   type PresetProfile,
 } from '@audiogubbins/audio-engine';
 
@@ -30,9 +33,11 @@ import { AudioContextState, type WorkletNodeShape } from '../context/audio-conte
 import { ContextLifecycle } from '../context/context-lifecycle.js';
 import type { Schedule } from '../schedule.js';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
-import { WorkletDspKind, type WorkletDsp } from '../playback/loaded-processor.js';
+import { PlaybackDspKind, type PlaybackDsp } from '../playback/playback-dsp.js';
 import { PlaybackSession } from '../playback/playback-session.js';
 import { FakeAudioContext, type FakeAudioContextSettings } from './fake-audio-context.js';
+import { FakeFeederWorker } from './fake-feeder-worker.js';
+import { fakeChannel } from './fake-message-channel.js';
 import { FakeWorkletNode } from './fake-worklet-node.js';
 
 /** The URL the rig says the processor's module is at. */
@@ -43,6 +48,11 @@ export class FakeSchedule {
   #now = 0;
   #nextId = 0;
   readonly #pending = new Map<number, { readonly due: number; readonly callback: () => void }>();
+
+  /** The clock's time now, in milliseconds since the rig was made. */
+  get now(): number {
+    return this.#now;
+  }
 
   readonly schedule: Schedule = (callback, delayMs) => {
     const id = this.#nextId;
@@ -108,10 +118,30 @@ function playbackContext(
   return { context, nodes, modules };
 }
 
-/** Lets every pending read, message and reply settle. */
+/**
+ * Node's `setImmediate`, which the page's definitions this package compiles
+ * against do not declare, or `setTimeout` where there is none.
+ */
+const nextTurn: (callback: () => void) => void = ((): ((callback: () => void) => void) => {
+  const immediate: unknown = Reflect.get(globalThis, 'setImmediate');
+  if (typeof immediate === 'function') {
+    return (callback) => {
+      Reflect.apply(immediate, globalThis, [callback]);
+    };
+  }
+  return (callback) => {
+    setTimeout(callback, 0);
+  };
+})();
+
+/**
+ * Lets every pending read, message and reply settle. The fakes deliver on
+ * microtasks alone, which one turn of the event loop drains however deep they
+ * go, and an immediate is that turn without the millisecond a timer waits.
+ */
 export function settle(): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, 0);
+    nextTurn(resolve);
   });
 }
 
@@ -138,10 +168,12 @@ export interface PlaybackRigOptions {
   readonly webAssembly?: boolean;
   readonly profile?: PresetProfile;
   readonly context?: FakeAudioContextSettings;
-  /** Where the worklet's DSP comes from; no module, by default. */
-  readonly dsp?: WorkletDsp;
+  /** The DSP module for the worklet and the feeder; none, by default. */
+  readonly dsp?: PlaybackDsp;
   /** Which of the main thread's messages to the processor never arrive. */
   readonly lost?: (message: unknown) => boolean;
+  /** Puts a test's reads in front of each source the feeder makes, a read that stalls or fails. */
+  readonly readThrough?: (node: NodeId, source: PcmSource) => PcmSource;
 }
 
 /** A session and everything it runs on. */
@@ -153,6 +185,8 @@ export class PlaybackRig {
   readonly store: LogStore = createLogStore();
   /** Every context the lifecycle made, in order. */
   readonly contexts: PlaybackContext[] = [];
+  /** Every feeder worker the session started, in order. */
+  readonly feeders: FakeFeederWorker[] = [];
 
   constructor(options: PlaybackRigOptions = {}) {
     const profile = options.profile ?? PerformanceProfile.Balanced;
@@ -184,12 +218,23 @@ export class PlaybackRig {
       lifecycle: this.lifecycle,
       capabilities,
       dsp: options.dsp ?? {
-        kind: WorkletDspKind.Unavailable,
+        kind: PlaybackDspKind.Unavailable,
         reason: 'This test compiles no DSP module.',
       },
       profile,
       settings: PRESET_SETTINGS[profile],
       workletModuleUrl: WORKLET_MODULE_URL,
+      threads: {
+        createFeeder: () => {
+          const feeder = new FakeFeederWorker({
+            schedule: this.schedule.schedule,
+            ...(options.readThrough === undefined ? {} : { readThrough: options.readThrough }),
+          });
+          this.feeders.push(feeder);
+          return feeder;
+        },
+        createChannel: fakeChannel,
+      },
       schedule: this.schedule.schedule,
       logger,
     });
@@ -200,6 +245,13 @@ export class PlaybackRig {
     const made = this.contexts.at(-1);
     if (made === undefined) throw new Error('No context has been made yet.');
     return made;
+  }
+
+  /** The feeder worker the session started last. */
+  get feeder(): FakeFeederWorker {
+    const feeder = this.feeders.at(-1);
+    if (feeder === undefined) throw new Error('No feeder worker has been started yet.');
+    return feeder;
   }
 
   /** The node the current context made last. */

@@ -139,7 +139,7 @@ describe('rendering the test signal offline', () => {
     const session = new FakeSession();
     view.showPlayback(session.status);
     expect(host.interactive.at(-1)).toBe(false);
-    session.move({ kind: 'play', contextFrame: 0 });
+    expectSuccess(session.startPlaying());
     view.showPlayback(session.status);
     expect(host.interactive.at(-1)).toBe(true);
 

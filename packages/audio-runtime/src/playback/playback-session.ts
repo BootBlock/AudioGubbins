@@ -3,13 +3,17 @@
  * processor: the main thread's side, which the interface's Play, Pause, Stop
  * and seek reach.
  *
+ * The main thread holds no audio. The feeder worker reads the sources and
+ * feeds the processor directly, and the processor counts where playback is;
+ * what is left here is the person's commands and what the threads report.
+ *
  * It wires parts that each keep one rule and decides none of theirs. The
  * graph in the processor, its loading and its loss, is `GraphLoader`'s, and
- * what each reply means `ProcessorReplies`'; the runs are `ProcessorRuns'`;
- * the published status and the transport's clock are `PlaybackState`'s, whose
- * rules are the engine's `nextTransportState`; the context's life is the
- * lifecycle's. What is left is the order of things: what each command does,
- * and which transport event each lifecycle event is.
+ * what each reply means is `ProcessorReplies`'s; the runs are
+ * `ProcessorRuns`'s; the published status and the transport's clock are
+ * `PlaybackState`'s, whose rules are the engine's `nextTransportState`; the
+ * context's life is the lifecycle's. What is left is the order of things:
+ * what each command does, and which transport event each lifecycle event is.
  *
  * Real-time playback is not canonical (ADR-0032): what the browser does after
  * the processor's output, its resampling and mixing to the device, is outside
@@ -38,18 +42,23 @@ import {
   type ContextLifecycle,
   type LifecycleEvent,
 } from '../context/context-lifecycle.js';
+import { deviceChannelsFor } from '../context/device-channels.js';
+import type { DeviceReport } from '../context/device-report.js';
 import { ToProcessorKind } from '../protocol/processor-messages.js';
 import type { Schedule } from '../schedule.js';
-import { GraphLoader, summaries } from './graph-loader.js';
-import type { LoadedProcessor, WorkletDsp } from './loaded-processor.js';
+import { GraphLoader, summaries, type PlaybackThreads } from './graph-loader.js';
+import type { LoadedProcessor } from './loaded-processor.js';
+import type { PlaybackDsp } from './playback-dsp.js';
 import type { PlaybackRequest } from './playback-preparation.js';
 import { PlaybackState, type PlaybackListener } from './playback-state.js';
 import {
   PlaybackPhase,
   faultedStatus,
   unloadedStatus,
+  type MeterLevels,
   type PlaybackStatus,
 } from './playback-status.js';
+import { superseded } from './superseded.js';
 
 // The request a session loads and the listener it takes are part of its
 // contract, whichever module defines them.
@@ -63,14 +72,16 @@ const LOST_PROBLEM =
 export interface PlaybackSessionOptions {
   readonly lifecycle: ContextLifecycle;
   readonly capabilities: AudioRuntimeCapabilities;
-  /** The canonical DSP module's bytes, which the worklet compiles, or why there are none. */
-  readonly dsp: WorkletDsp;
+  /** The canonical DSP module, for the worklet and the feeder, or why there is none. */
+  readonly dsp: PlaybackDsp;
   /** The profile the person chose, which the stability verdict recommends from. */
   readonly profile: PerformanceProfile;
   /** The profile's settings, which set how far ahead the feeds keep. */
   readonly settings: PerformanceSettings;
   /** Where the bundler put the processor's module (`threads/engine-processor.ts`). */
   readonly workletModuleUrl: string;
+  /** Starts the feeder worker and makes the channel between it and the processor. */
+  readonly threads: PlaybackThreads;
   /** Calls a callback after a delay, and answers how to cancel it; `setTimeout` in production. */
   readonly schedule: Schedule;
   readonly logger: Logger;
@@ -123,6 +134,7 @@ export class PlaybackSession {
     this.#assertLive();
     this.#commands += 1;
     this.#state.pauseTransport();
+    this.#state.clearMeters();
     return await this.#graph.load(request);
   }
 
@@ -154,16 +166,25 @@ export class PlaybackSession {
       return succeed(undefined);
     }
     if (loaded.runs.starting) return succeed(undefined);
+    // Paused, the processor holds the audio and the graph's history, and goes
+    // on with the very next frame.
+    if (transport.mode === TransportMode.Paused && loaded.runs.resume(transport.position)) {
+      return succeed(undefined);
+    }
     return await this.#startFrom(loaded, command, transport.position);
   }
 
-  /** Pauses where playback is, or cancels a play on its way. */
+  /**
+   * Pauses where playback is, or cancels a play on its way. The transport
+   * pauses where the clock puts it now, and settles where the processor says
+   * it halted once it has.
+   */
   pause(): DomainResult<void> {
     this.#assertLive();
     this.#commands += 1;
     const runs = this.#graph.current?.runs;
     const wasStarting = runs?.starting ?? false;
-    runs?.halt();
+    runs?.pause();
     if (wasStarting && !this.#state.isPlaying()) return succeed(undefined);
     return this.#state.apply({ kind: 'pause', contextFrame: this.#state.frame() });
   }
@@ -172,13 +193,13 @@ export class PlaybackSession {
   stop(): DomainResult<void> {
     this.#assertLive();
     this.#commands += 1;
-    this.#graph.current?.runs.halt();
+    this.#graph.current?.runs.stop();
     return this.#state.apply({ kind: 'stop' });
   }
 
   /**
    * Moves to timeline frame `to`. Playback that was running, or on its way,
-   * goes on from there once the processor has been reset and fed afresh.
+   * goes on from there once the feeds are rewound and fed afresh.
    */
   async seek(to: SampleCount): Promise<DomainResult<void>> {
     this.#assertLive();
@@ -186,7 +207,7 @@ export class PlaybackSession {
     const command = this.#commands;
     const loaded = this.#graph.current;
     const resume = this.#state.isPlaying() || (loaded?.runs.starting ?? false);
-    loaded?.runs.halt();
+    loaded?.runs.stop();
     // Paused first, so the play the processor's `started` brings anchors the
     // clock where the new audio begins rather than where the seek was asked.
     if (this.status.transport.mode === TransportMode.Playing) {
@@ -211,24 +232,33 @@ export class PlaybackSession {
     return succeed(undefined);
   }
 
-  /** The timeline frame playback has reached, as the engine has rendered it. */
+  /**
+   * The timeline frame playback has reached: the processor's count when
+   * paused or stopped, and while playing its last count carried on by the
+   * context's clock, which is good for a playhead and nothing else.
+   */
   position(): DomainResult<SampleCount> {
     return this.#state.position();
   }
 
   /**
    * The timeline frame the listener hears now: the position less what the
-   * graph and the device add after it, for a playhead (REQ-ARCH-144).
+   * device adds after the output, for a playhead (REQ-ARCH-144).
    */
   audiblePosition(): DomainResult<SampleCount> {
-    return this.#state.audiblePosition(this.#graph.current?.graphLatencyFrames ?? 0);
+    return this.#state.audiblePosition();
   }
 
-  /** Releases everything the session made; the sources stay the caller's. */
+  /** Each meter's latest levels, read where they are shown rather than published. */
+  meters(): ReadonlyMap<NodeId, MeterLevels> {
+    return this.#state.meters;
+  }
+
+  /** Releases everything the session made, the feeder worker with it. */
   dispose(): void {
     if (this.#disposed) return;
     this.#commands += 1;
-    this.#graph.unload();
+    this.#graph.dispose();
     this.#disposed = true;
     this.#stopListening();
     this.#state.clear();
@@ -260,8 +290,9 @@ export class PlaybackSession {
   /** Processing cannot go on: the run ends, the transport pauses where it was, and the person is told. */
   #fault(problem: string): void {
     const loaded = this.#graph.current;
-    loaded?.runs.halt();
+    loaded?.runs.stop();
     this.#state.pauseTransport();
+    this.#state.clearMeters();
     this.#state.update(faultedStatus(this.status, problem));
     loaded?.abandon(fail(failure('playback.processor-fault', FailureKind.Rejected, problem)));
   }
@@ -276,6 +307,11 @@ export class PlaybackSession {
         return;
       case LifecycleEventKind.DeviceChanged:
         this.#state.update({ ...this.status, device: event.report });
+        this.#checkDevice(event.report);
+        return;
+      case LifecycleEventKind.StateChanged:
+        // The status carries the lifecycle's state as it is when published.
+        this.#state.update(this.status);
         return;
       case LifecycleEventKind.Lost:
         // The node and its feeds went with the context. The transport pauses
@@ -284,10 +320,22 @@ export class PlaybackSession {
         this.#commands += 1;
         this.#state.pauseTransport();
         this.#graph.lost(LOST_PROBLEM);
+        this.#state.clearMeters();
         this.#state.update(unloadedStatus(this.status, LOST_PROBLEM));
         return;
     }
   };
+
+  /**
+   * Stops with the reason where the device the context now plays to cannot
+   * take every channel of the loaded graph's output, which it would drop.
+   */
+  #checkDevice(report: DeviceReport): void {
+    const loaded = this.#graph.current;
+    if (loaded === undefined || this.status.phase === PlaybackPhase.Faulted) return;
+    const fits = deviceChannelsFor(loaded.prepared.sinkLayout, report.maxChannelCount);
+    if (!fits.ok) this.#fault(fits.failures[0].summary);
+  }
 
   #notReady(): DomainResult<never> {
     return playbackFailure(
@@ -298,11 +346,7 @@ export class PlaybackSession {
   }
 
   #superseded(): DomainResult<never> {
-    return playbackFailure(
-      'playback.superseded',
-      FailureKind.Conflict,
-      'Another playback command came first, so this one stood down.',
-    );
+    return superseded('Another playback command came first, so this one stood down.');
   }
 
   #assertLive(): void {

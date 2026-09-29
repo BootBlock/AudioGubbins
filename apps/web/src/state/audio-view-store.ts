@@ -115,7 +115,9 @@ export function createAudioViewStore(): AudioViewStore {
     },
 
     showPlayback: (playback) => {
-      state.update((view) => ({ ...view, playback }));
+      // The session publishes only a status that changed, and the same one
+      // shown again redraws nothing.
+      state.update((view) => (view.playback === playback ? view : { ...view, playback }));
     },
 
     playbackStarting: () => {

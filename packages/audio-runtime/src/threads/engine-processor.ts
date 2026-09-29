@@ -2,9 +2,10 @@
  * The engine's AudioWorklet processor: a module the browser loads into the
  * audio context's AudioWorkletGlobalScope.
  *
- * It only connects the scope to `EngineProcessorCore`, which holds everything
- * the processor does, so that behaviour is tested without a worklet, which a
- * test cannot make. The package is compiled with the DOM's types, which have
+ * It only connects the scope, and the channel to the feeder worker each load
+ * brings, to `EngineProcessorCore`, which holds everything the processor
+ * does, so that behaviour is tested without a worklet, which a test cannot
+ * make. The package is compiled with the DOM's types, which have
  * none for the worklet's scope, so the names this module reads from it are
  * declared here. It is compiled again, with everything it imports, by
  * `scopes/audio-worklet`, against the scope's own globals alone, so a module
@@ -31,10 +32,32 @@ declare const currentFrame: number;
 const NO_OUTPUT: readonly Float32Array[] = [];
 
 class EngineProcessor extends AudioWorkletProcessor {
-  readonly #core = new EngineProcessorCore({
+  /** The processor's end of the channel to the feeder, while a graph with feeds is loaded. */
+  #feeder: MessagePort | undefined;
+
+  readonly #core: EngineProcessorCore = new EngineProcessorCore({
     sampleRate,
     post: (message) => {
       this.port.postMessage(message);
+    },
+    connectFeeder: (port) => {
+      if (this.#feeder !== undefined) {
+        this.#feeder.onmessage = null;
+        this.#feeder.onmessageerror = null;
+      }
+      this.#feeder = port;
+      if (port === undefined) return;
+      port.onmessage = (event: MessageEvent<unknown>) => {
+        this.#core.receiveFeed(event.data);
+      };
+      // Audio that could not be received is audio lost, which the processor
+      // would otherwise play on without.
+      port.onmessageerror = () => {
+        this.#core.feedMessageFailed();
+      };
+    },
+    postToFeeder: (message) => {
+      this.#feeder?.postMessage(message);
     },
   });
 

@@ -18,6 +18,12 @@
  * `context-resumed`. Suspensions the runtime asked for are its own and reported
  * to no one.
  *
+ * Every change of {@link ContextLifecycle.state} is reported as it happens,
+ * whatever brought it about: the person's Play, the system, a recovery after
+ * the devices changed, or a resume left waiting for a gesture, which no
+ * `statechange` announces. A listener showing the state is never left with a
+ * stale one.
+ *
  * It decides nothing about playback and holds no graph: what to do about a
  * lost context or a new device is its listeners' to decide.
  */
@@ -63,6 +69,8 @@ export const LifecycleEventKind = {
   Lost: 'lost',
   /** What the device reports changed: another device, or its latency once it runs. */
   DeviceChanged: 'device-changed',
+  /** {@link ContextLifecycle.state} is now `state`. */
+  StateChanged: 'state-changed',
 } as const;
 
 /** What happened to the context that its listeners did not ask for. */
@@ -76,7 +84,8 @@ export type LifecycleEvent =
     }
   | { readonly kind: typeof LifecycleEventKind.Resumed; readonly contextFrame: number }
   | { readonly kind: typeof LifecycleEventKind.Lost }
-  | { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport };
+  | { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport }
+  | { readonly kind: typeof LifecycleEventKind.StateChanged; readonly state: LifecycleState };
 
 /** Hears what happens to the context. */
 export type LifecycleListener = (event: LifecycleEvent) => void;
@@ -125,6 +134,8 @@ export class ContextLifecycle {
   #suspendedBySystem = false;
   /** Whether a resume outlasted its wait on a suspended context, which then waits for a gesture. */
   #awaitingGesture = false;
+  /** The state listeners were last told of. */
+  #reportedState: LifecycleState = LifecycleState.Idle;
 
   constructor(options: ContextLifecycleOptions) {
     this.#options = options;
@@ -187,6 +198,7 @@ export class ContextLifecycle {
     this.#suspendedByUs = true;
     this.#suspendedBySystem = false;
     this.#awaitingGesture = false;
+    this.#noteState();
     try {
       await port.suspend();
     } catch (error) {
@@ -268,10 +280,16 @@ export class ContextLifecycle {
       sampleRate: port.sampleRate,
       latencyHint,
     });
+    this.#noteState();
     return attached;
   }
 
   #stateChanged(port: AudioContextPort): void {
+    this.#followState(port);
+    this.#noteState();
+  }
+
+  #followState(port: AudioContextPort): void {
     const previous = this.#lastState;
     const state = port.state;
     this.#lastState = state;
@@ -340,6 +358,7 @@ export class ContextLifecycle {
     const stillWaiting =
       this.#attached?.port === port && port.state === AudioContextState.Suspended;
     if (outcome.kind === 'awaiting-gesture' && stillWaiting) this.#awaitingGesture = true;
+    this.#noteState();
     return resumeFailure(outcome);
   }
 
@@ -356,6 +375,14 @@ export class ContextLifecycle {
     attached.stopWatchingDevices();
     if (this.#attached === attached) this.#attached = undefined;
     this.#ended = true;
+  }
+
+  /** Tells the listeners of a change of {@link state}, once for each change. */
+  #noteState(): void {
+    const state = this.state;
+    if (state === this.#reportedState) return;
+    this.#reportedState = state;
+    this.#emit({ kind: LifecycleEventKind.StateChanged, state });
   }
 
   #emit(event: LifecycleEvent): void {

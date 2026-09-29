@@ -124,11 +124,8 @@ export {
 export {
   STABILITY_WINDOW_SECONDS,
   type StabilityAssessment,
-  type UnderrunEvent,
-  type UnderrunHistory,
+  UnderrunHistory,
   assessStability,
-  createUnderrunHistory,
-  recordUnderruns,
 } from './profiles/stability.js';
 
 export {

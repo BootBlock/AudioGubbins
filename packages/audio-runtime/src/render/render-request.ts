@@ -19,7 +19,7 @@ import type {
   RenderSummary,
 } from '@audiogubbins/audio-engine';
 
-import type { SourceDescription } from '../protocol/render-messages.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 
 /** A render the main thread asks for: a render job, with its sources described. */
 export interface RenderRequest {

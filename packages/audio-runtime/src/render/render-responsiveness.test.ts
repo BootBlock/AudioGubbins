@@ -31,11 +31,11 @@ import {
 
 import {
   FromRenderWorkerKind,
-  SourceKind,
   ToRenderWorkerKind,
   type FromRenderWorker,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
+import { SourceKind } from '../protocol/source-descriptions.js';
 import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';
 import { graphOf, named, nodeOf, wire } from '../testing/render-graphs.js';

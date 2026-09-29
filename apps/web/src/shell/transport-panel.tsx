@@ -13,7 +13,9 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, ButtonTone, OptionSelect } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
+import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
+import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import { TEST_SIGNAL } from '../audio/test-signal.js';
 import { PRESET_PROFILES, PROFILE_NAMES, profileCommandId } from '../commands/audio-commands.js';
@@ -36,7 +38,7 @@ import {
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
-import { usePlayhead } from './use-playhead.js';
+import { useDisplayFrame } from './use-display-frame.js';
 
 /** What the panel reads, and how it runs a command. */
 export interface TransportPanelProps {
@@ -45,6 +47,8 @@ export interface TransportPanelProps {
   readonly capabilities: CapabilityRegistry;
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;
+  /** Each meter's latest levels, the same map until the next report. */
+  readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
   readonly run: (id: string) => void;
   /** Why a command cannot run now, or `undefined`, as the menus say it. */
   readonly unavailableReason: (id: string) => string | undefined;
@@ -90,7 +94,7 @@ function TransportControls({
   readonly commands: Commands;
 }): ReactNode {
   const mode = view.playback?.transport.mode;
-  const frame = usePlayhead(playhead, mode === TransportMode.Playing);
+  const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
   const rate = view.playback?.device?.sampleRate;
   return (
     <div className="ag-transport-controls" role="group" aria-label="Transport">
@@ -214,9 +218,21 @@ function OfflineRender({
   );
 }
 
+/** The levels, read once a display frame while playback moves, as the position is. */
+function Levels({
+  view,
+  meters,
+}: {
+  readonly view: AudioView;
+  readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
+}): ReactNode {
+  const levels = useDisplayFrame(meters, view.playback?.transport.mode === TransportMode.Playing);
+  return <LevelMeters meters={levels} />;
+}
+
 /** The Transport panel. */
 export function TransportPanel(props: TransportPanelProps): ReactNode {
-  const { title, audio, capabilities, playhead } = props;
+  const { title, audio, capabilities, playhead, meters } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
@@ -227,7 +243,7 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
       </p>
       <TransportControls view={view} playhead={playhead} commands={props} />
       <PlaybackProblems problems={problems} />
-      <LevelMeters status={view.playback} />
+      <Levels view={view} meters={meters} />
       <ProfileChoice view={view} commands={props} />
       <EngineState status={view.playback} />
       <OfflineRender view={view} commands={props} />

@@ -7,6 +7,16 @@
  * running state holds the clock anchor that turns the audio thread's frame
  * count into one.
  *
+ * Where playback is comes from the audio thread, which counts the timeline
+ * frames that have left the graph for the output: a start, a periodic report,
+ * a halt and the end each carry that count, and the transport takes it as it
+ * is. Between two reports the clock interpolates from the last anchor, which
+ * is good enough for a playhead and for nothing else: a pause is settled by
+ * the count the audio thread gives when it halts (`halted`), and the end by
+ * the count at the end, because the main thread's clock lags the audio
+ * thread's and does not see an underrun, which delays the audio and not the
+ * context's clock.
+ *
  * The system can suspend the audio context at any time: an autoplay rule, a
  * phone call on iOS, a device unplugged. The packet requires suspension and
  * resumption to preserve transport correctness. Only playback is affected, so
@@ -65,14 +75,20 @@ export type TransportState =
 
 /** Something that happened to the transport, at the audio thread's frame. */
 export type TransportEvent =
-  | { readonly kind: 'play'; readonly contextFrame: number }
+  /** The audio thread started: timeline frame `position` reaches the output at `contextFrame`. */
+  | { readonly kind: 'play'; readonly contextFrame: number; readonly position: SampleCount }
+  /** The audio thread's count while playing: `position` reaches the output at `contextFrame`. */
+  | { readonly kind: 'clock'; readonly contextFrame: number; readonly position: SampleCount }
+  /** Paused where the clock puts it at `contextFrame`, until the audio thread says where it halted. */
   | { readonly kind: 'pause'; readonly contextFrame: number }
+  /** The audio thread halted with `position` the next frame it would have output. */
+  | { readonly kind: 'halted'; readonly position: SampleCount }
   | { readonly kind: 'stop' }
   | { readonly kind: 'seek'; readonly to: SampleCount; readonly contextFrame: number }
   | { readonly kind: 'context-suspended'; readonly contextFrame: number }
   | { readonly kind: 'context-resumed'; readonly contextFrame: number }
-  /** The material ran out; the transport stops where it ended. */
-  | { readonly kind: 'reached-end'; readonly contextFrame: number };
+  /** The material ran out, its last frame output; the transport stops at `position`, its end. */
+  | { readonly kind: 'reached-end'; readonly position: SampleCount };
 
 /** A stopped transport at the start. */
 export const TRANSPORT_AT_START: TransportState = {
@@ -91,17 +107,9 @@ export function transportPosition(
     : succeed(state.position);
 }
 
-/** Where a play starts from each state, and what Stop will return to. */
-function startOf(state: TransportState): { position: SampleCount; origin: SampleCount } {
-  switch (state.mode) {
-    case TransportMode.Stopped:
-      return { position: state.position, origin: state.position };
-    case TransportMode.Paused:
-    case TransportMode.Suspended:
-      return { position: state.position, origin: state.origin };
-    case TransportMode.Playing:
-      return { position: state.anchor.timelineFrame, origin: state.origin };
-  }
+/** What Stop returns to from each state: where the last play started, or where a stop left it. */
+function originOf(state: TransportState): SampleCount {
+  return state.mode === TransportMode.Stopped ? state.position : state.origin;
 }
 
 function playingFrom(
@@ -124,11 +132,21 @@ export function nextTransportState(
 ): DomainResult<TransportState> {
   switch (event.kind) {
     case 'play':
-      return fromPlay(state, event.contextFrame);
+      return succeed(fromPlay(state, event.contextFrame, event.position));
+    case 'clock':
+      return succeed(
+        state.mode === TransportMode.Playing
+          ? playingFrom(event.position, state.origin, event.contextFrame)
+          : state,
+      );
+    case 'halted':
+      return succeed(
+        state.mode === TransportMode.Paused ? { ...state, position: event.position } : state,
+      );
     case 'pause':
       return fromPause(state, event.contextFrame, clock);
     case 'stop':
-      return succeed({ mode: TransportMode.Stopped, position: startOf(state).origin });
+      return succeed({ mode: TransportMode.Stopped, position: originOf(state) });
     case 'seek':
       return succeed(seekTo(state, event.to, event.contextFrame));
     case 'context-suspended':
@@ -136,19 +154,22 @@ export function nextTransportState(
     case 'context-resumed':
       return succeed(fromResumption(state, event.contextFrame));
     case 'reached-end':
-      return flatMapResult(transportPosition(state, clock, event.contextFrame), (position) =>
-        succeed({ mode: TransportMode.Stopped, position }),
-      );
+      return succeed({ mode: TransportMode.Stopped, position: event.position });
   }
 }
 
-function fromPlay(state: TransportState, contextFrame: number): DomainResult<TransportState> {
-  // Already playing, or held by the system until the context resumes it.
-  if (state.mode === TransportMode.Playing || state.mode === TransportMode.Suspended) {
-    return succeed(state);
-  }
-  const { position, origin } = startOf(state);
-  return succeed(playingFrom(position, origin, contextFrame));
+/**
+ * Playing from `position`, the audio thread's count, which is where the
+ * transport stood unless a halt landed after the estimate a pause made.
+ */
+function fromPlay(
+  state: TransportState,
+  contextFrame: number,
+  position: SampleCount,
+): TransportState {
+  // Held by the system until the context resumes it.
+  if (state.mode === TransportMode.Suspended) return state;
+  return playingFrom(position, originOf(state), contextFrame);
 }
 
 function fromPause(

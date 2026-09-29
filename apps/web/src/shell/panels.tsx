@@ -27,6 +27,8 @@ import {
   type LogStore,
 } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
+import type { NodeId } from '@audiogubbins/audio-graph';
+import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { ShellContext } from '../commands/shell-context.js';
 import { logCategoryName } from '../log-categories.js';
@@ -250,6 +252,9 @@ export interface PanelContext {
   /** The frame the listener hears now, at the context's rate. */
   readonly playhead: () => number | undefined;
 
+  /** Each meter's latest levels, which the Transport panel reads once a display frame. */
+  readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
+
   /** Runs a command a panel's control names. */
   readonly run: (id: string) => void;
 
@@ -274,6 +279,7 @@ export function panelContextOf(
     diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
     audio: context.audio,
     playhead: () => context.playback.audiblePosition(),
+    meters: () => context.playback.meters(),
     run,
     unavailableReason,
   };
@@ -327,6 +333,7 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
           audio={context.audio}
           capabilities={context.capabilities}
           playhead={context.playhead}
+          meters={context.meters}
           run={context.run}
           unavailableReason={context.unavailableReason}
         />

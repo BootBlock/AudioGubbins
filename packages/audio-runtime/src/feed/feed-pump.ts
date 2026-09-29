@@ -1,23 +1,22 @@
 /**
- * The main thread's side of a feed: it keeps a graph input's audio a bounded
- * time ahead of the play position.
+ * The feeder worker's side of a feed: it keeps a graph input's audio a
+ * bounded time ahead of the play position.
  *
  * A source reads asynchronously, from storage or a decoder, and the audio
  * thread may not wait, so the pump reads the source a chunk at a time, one
  * read in flight at most, and hands each chunk to the feed's destination: the
- * ring the processor reads, or a `feed-block` message. It keeps at most the
- * performance profile's feed-ahead time queued, so a long file is never held
- * whole (REQ-PROD-009), and it wakes to top the queue up on a timer the host
- * injects, so a test drives it without waiting.
+ * ring the processor reads, or a `feed-block` message on the channel to it. It
+ * keeps at most the performance profile's feed-ahead time queued, so a long
+ * file is never held whole (REQ-PROD-009). It runs in a worker of its own, so
+ * nothing the page's main thread does, a long render of the interface or a
+ * collection of its garbage, keeps it from topping the queue up.
  *
- * A ring says how much of it is queued. A posted feed cannot, and the pump
- * counts it instead: what it sent, less what the processor has consumed. The
- * processor consumes one quantum each quantum it runs, all of it or all it
- * has, so the frames consumed are the context frames since it said `started`,
- * which the main thread reads off its own audio context's clock and passes to
- * {@link FeedPump.tick}. That needs no message from the processor per block,
- * and it lags the processor, never leads it, so the count it gives is never
- * less than what is truly queued and the pump never sends past its bound.
+ * A ring says how much of it is queued, and the pump looks again on a timer
+ * the host injects, so a test drives it without waiting. A posted feed cannot
+ * say, and the pump counts it instead: what it sent, less what the processor
+ * says it has read whole, block by block, which also wakes the pump at once.
+ * The count is never less than what is truly queued, so the pump never sends
+ * past its bound.
  */
 
 import {
@@ -43,7 +42,7 @@ import {
   type PcmSource,
 } from '@audiogubbins/audio-engine';
 
-import { ToProcessorKind, type ToProcessor } from '../protocol/processor-messages.js';
+import { ToProcessorFeedKind, type ToProcessorFeed } from '../protocol/feed-messages.js';
 import { POSTED_FEED_BLOCKS } from './posted-feed.js';
 import type { Schedule } from '../schedule.js';
 import type { RingWriter } from './sample-ring.js';
@@ -68,16 +67,27 @@ export interface FeedDestination {
   /** Says the audio delivered so far is all there is. */
   end(): void;
 
-  /** Takes the frames the processor has consumed since it started, in total. */
+  /** Takes `frames` more frames the processor has read. */
   consumed(frames: number): void;
 }
 
-/** A destination that writes a ring the processor reads. */
+/**
+ * A destination that writes a ring the processor reads.
+ *
+ * What it counts as queued is the audio of the current position alone. After
+ * a rewind the old audio may still wait behind its mark until the processor
+ * skips it, and counting it would hold the new position's first chunks back
+ * for a wake of the pump; the ring has a chunk of room beyond the time ahead
+ * for them (`playback/feed-plan.ts`). The processor reads nothing written
+ * after the mark before it skips to the mark, so the new audio still queued is
+ * the lesser of what the ring holds and what was written since the rewind.
+ */
 export class RingDestination implements FeedDestination {
   readonly blockLimit = undefined;
   readonly #writer: RingWriter;
   readonly #layout: ChannelLayout;
   readonly #rate: SampleRate;
+  #writtenSinceRewind = 0;
 
   /** The block every chunk is read into, made at the first chunk's size and reused. */
   #staging: AudioFrameBlock | undefined;
@@ -89,7 +99,13 @@ export class RingDestination implements FeedDestination {
   }
 
   get queued(): number {
-    return this.#writer.queued;
+    return Math.min(this.#writer.queued, this.#writtenSinceRewind);
+  }
+
+  /** Marks the audio written so far as the old position's, for the processor to skip. */
+  rewind(): void {
+    this.#writer.discard();
+    this.#writtenSinceRewind = 0;
   }
 
   get room(): number {
@@ -104,7 +120,9 @@ export class RingDestination implements FeedDestination {
   }
 
   deliver(block: AudioFrameBlock): number {
-    return this.#writer.write(block);
+    const written = this.#writer.write(block);
+    this.#writtenSinceRewind += written;
+    return written;
   }
 
   end(): void {
@@ -116,8 +134,8 @@ export class RingDestination implements FeedDestination {
   }
 }
 
-/** Posts a message to the processor, transferring the memory named. */
-export type PostToProcessor = (message: ToProcessor, transfer: Transferable[]) => void;
+/** Posts a message to the processor on the feeder's channel, transferring the memory named. */
+export type PostToProcessor = (message: ToProcessorFeed, transfer: ArrayBuffer[]) => void;
 
 /** A destination that posts each chunk to the processor as a `feed-block`. */
 export class PostedDestination implements FeedDestination {
@@ -128,7 +146,6 @@ export class PostedDestination implements FeedDestination {
   readonly #rate: SampleRate;
   readonly #post: PostToProcessor;
   #queued = 0;
-  #consumed = 0;
 
   /** The memory of the block last made, to transfer when it is delivered. */
   #buffers: ArrayBuffer[] = [];
@@ -153,7 +170,7 @@ export class PostedDestination implements FeedDestination {
 
   deliver(block: AudioFrameBlock): number {
     this.#post(
-      { kind: ToProcessorKind.FeedBlock, node: this.#node, channels: block.channels },
+      { kind: ToProcessorFeedKind.Block, node: this.#node, channels: block.channels },
       this.#buffers,
     );
     this.#buffers = [];
@@ -162,17 +179,12 @@ export class PostedDestination implements FeedDestination {
   }
 
   end(): void {
-    this.#post({ kind: ToProcessorKind.FeedEnd, node: this.#node }, []);
+    this.#post({ kind: ToProcessorFeedKind.End, node: this.#node }, []);
   }
 
+  /** The processor read `frames` frames of blocks this destination sent, and they are gone. */
   consumed(frames: number): void {
-    if (frames < this.#consumed) {
-      throw new Error('The frames a processor has consumed cannot go down.');
-    }
-    // A quantum the feed ran short in consumed only what was queued, so the
-    // count stops at empty rather than going below it.
-    this.#queued = Math.max(0, this.#queued - (frames - this.#consumed));
-    this.#consumed = frames;
+    this.#queued -= frames;
   }
 }
 
@@ -189,14 +201,17 @@ export interface FeedPumpOptions {
 
   /** The frames of one read, at most. */
   readonly chunkFrames: number;
+
+  /** How long it waits, when the queue has no room for a chunk, before it looks again. */
+  readonly wakeMilliseconds: number;
   readonly schedule: Schedule;
   readonly signal: CancellationSignal;
 }
 
 /** A running pump. */
 export interface FeedPump {
-  /** Takes the frames the processor has consumed since it started, in total, and tops up. */
-  tick(consumedFrames: number): void;
+  /** Tops the queue up now, as room has opened. */
+  wake(): void;
 
   /**
    * Settles when the source's last frame has been delivered and the end said,
@@ -214,9 +229,6 @@ class RunningPump implements FeedPump {
   readonly #options: FeedPumpOptions;
   readonly #aheadFrames: number;
   readonly #chunkFrames: number;
-
-  /** How long it sleeps when the queue is full: a quarter of the time ahead, so it tops up often. */
-  readonly #sleepMilliseconds: number;
   #position: SampleCount;
   #reading = false;
   #settled = false;
@@ -228,7 +240,6 @@ class RunningPump implements FeedPump {
     this.#options = options;
     this.#aheadFrames = aheadFrames;
     this.#chunkFrames = chunkFrames;
-    this.#sleepMilliseconds = options.feedAheadMilliseconds / 4;
     this.#position = options.start;
     this.done = new Promise<void>((resolve, reject) => {
       this.#resolve = resolve;
@@ -237,8 +248,7 @@ class RunningPump implements FeedPump {
     options.signal.addEventListener('abort', this.#abandon, { once: true });
   }
 
-  tick(consumedFrames: number): void {
-    this.#options.destination.consumed(consumedFrames);
+  wake(): void {
     this.step();
   }
 
@@ -256,7 +266,7 @@ class RunningPump implements FeedPump {
       this.#cancelSleep = this.#options.schedule(() => {
         this.#cancelSleep = undefined;
         this.step();
-      }, this.#sleepMilliseconds);
+      }, this.#options.wakeMilliseconds);
       return;
     }
     this.#reading = true;

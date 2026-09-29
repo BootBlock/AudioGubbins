@@ -4,12 +4,13 @@
  *
  * The packet forbids a hard requirement on `SharedArrayBuffer`, which a page
  * that is not cross-origin isolated lacks, so this is the path every browser
- * has. Each block arrives as its own arrays, transferred rather than copied,
- * and is held in a queue of a fixed number of places until the graph input has
- * read it. The queue is bounded because the main thread keeps a bounded time
- * of audio ahead of the play position; a block past the bound is refused
- * rather than stored, since storing it would grow the audio thread's memory
- * without limit.
+ * has. Each block arrives from the feeder worker as its own arrays,
+ * transferred rather than copied, and is held in a queue of a fixed number of
+ * places until the graph input has read it; then the feeder is told the
+ * block's frames were consumed, which is how it knows the room it has. The
+ * queue is bounded because the feeder keeps a bounded time of audio ahead of
+ * the play position; a block past the bound is refused rather than stored,
+ * since storing it would grow the audio thread's memory without limit.
  */
 
 import {
@@ -48,6 +49,12 @@ export class PostedFeed implements ProcessorFeed {
 
   /** The frames of the block at the head the graph input has already read. */
   #taken = 0;
+
+  /** The frames queued and not yet read. */
+  #queuedFrames = 0;
+
+  /** The frames of the blocks read whole since {@link takeConsumed}, for the feeder to hear of. */
+  #consumed = 0;
   #ended = false;
 
   constructor(layout: ChannelLayout) {
@@ -57,16 +64,23 @@ export class PostedFeed implements ProcessorFeed {
     );
   }
 
-  get shortFrames(): number {
-    return this.#tally.shortFrames;
-  }
-
   get suppliedFrames(): number {
     return this.#tally.suppliedFrames;
   }
 
   get finished(): boolean {
     return this.#tally.finished;
+  }
+
+  ready(frames: number): boolean {
+    return this.#ended || this.#queuedFrames >= frames;
+  }
+
+  /** The frames of the blocks read whole since the last call, and none from then. */
+  takeConsumed(): number {
+    const consumed = this.#consumed;
+    this.#consumed = 0;
+    return consumed;
   }
 
   /** Queues the next block, one array per channel, or says why it cannot be. */
@@ -90,6 +104,7 @@ export class PostedFeed implements ProcessorFeed {
     }
     this.#blocks[(this.#head + this.#count) % this.#blocks.length] = channels;
     this.#count += 1;
+    this.#queuedFrames += frames;
     return succeed(undefined);
   }
 
@@ -115,7 +130,11 @@ export class PostedFeed implements ProcessorFeed {
       }
       got += frames;
       this.#taken += frames;
-      if (this.#taken === length) this.#release();
+      this.#queuedFrames -= frames;
+      if (this.#taken === length) {
+        this.#consumed += length;
+        this.#release();
+      }
     }
     this.#tally.record(into.frames, got, this.#ended);
     return got;
@@ -125,8 +144,11 @@ export class PostedFeed implements ProcessorFeed {
     this.#tally.beginQuantum();
   }
 
+  /** Drops every block: the feeder rewound, so it counts none of them as consumed. */
   clear(): void {
     while (this.#count > 0) this.#release();
+    this.#queuedFrames = 0;
+    this.#consumed = 0;
     this.#ended = false;
     this.#tally.clear();
   }

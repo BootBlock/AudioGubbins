@@ -68,12 +68,16 @@ function bareEnvironment(): CapabilityEnvironment {
   };
 }
 
+/** No meter's levels: one map, as a display's read wants the same value until it changes. */
+const NO_METERS = new Map();
+
 /**
  * No panel is a landmark of its own. The dock's tab names a panel and its
  * heading says it again, so a region named by the heading would make a screen
  * reader give the title three times. Asked of one panel only, the others could
  * each get their region back unseen.
  */
+
 describe('every panel', () => {
   it.each([...Object.values(PanelKinds), 'a-kind-this-build-does-not-have'])(
     'draws %s with its heading and no region',
@@ -90,6 +94,7 @@ describe('every panel', () => {
             diagnosticModeActive: false,
             audio: createAudioViewStore(),
             playhead: () => undefined,
+            meters: () => NO_METERS,
             run: () => undefined,
             unavailableReason: () => undefined,
           })}

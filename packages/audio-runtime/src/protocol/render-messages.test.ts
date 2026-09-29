@@ -15,13 +15,13 @@ import { dspModuleBytes } from '../testing/dsp-module-bytes.js';
 import { graphOf, nodeOf, wire } from '../testing/render-graphs.js';
 import {
   FromRenderWorkerKind,
-  SourceKind,
   ToRenderWorkerKind,
   readFromRenderWorker,
   readToRenderWorker,
   type FromRenderWorker,
   type ToRenderWorker,
 } from './render-messages.js';
+import { SourceKind } from './source-descriptions.js';
 
 const INPUT = expectSuccess(nodeId('in'));
 const OUTPUT = expectSuccess(nodeId('out'));

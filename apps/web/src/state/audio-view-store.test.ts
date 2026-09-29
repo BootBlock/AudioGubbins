@@ -37,6 +37,18 @@ describe('the audio engine view', () => {
     expect(heard).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the session’s status, and tells nobody when the same one is shown again', () => {
+    const store = createAudioViewStore();
+    const heard = vi.fn();
+    store.subscribe(heard);
+
+    store.showPlayback(UNLOADED);
+    store.showPlayback(UNLOADED);
+
+    expect(store.get().playback).toBe(UNLOADED);
+    expect(heard).toHaveBeenCalledTimes(1);
+  });
+
   it('clears what the last Play reported when another is asked for', () => {
     const store = createAudioViewStore();
     store.playbackStarting();

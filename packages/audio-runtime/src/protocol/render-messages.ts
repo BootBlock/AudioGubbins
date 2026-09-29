@@ -4,12 +4,8 @@
  * One discriminated union each way, each message read field by field on
  * arrival (`message-reading.ts`), as the processor's protocol is. A render is
  * one `render` message holding the whole job: the graph as its descriptor, the
- * span and rate, and each graph input's audio described rather than bound,
- * since a source object cannot cross a thread. Recorded audio crosses as its
- * planar arrays, transferred rather than copied, so a long clip is never held
- * twice (the packet's "large media processing must avoid whole-file
- * duplication"); its layout is the graph input's port's, which the worker
- * reads from the graph, so no layout crosses the wire to disagree with it.
+ * span and rate, and each graph input's audio described rather than bound
+ * (`source-descriptions.ts`), since a source object cannot cross a thread.
  *
  * The rendered audio comes back a chunk at a time, and the worker sends no
  * more than it may hold unacknowledged (`render/chunk-window.ts`): each chunk
@@ -21,19 +17,12 @@
 import {
   FailureKind,
   failure,
-  sampleCount,
-  sampleRate,
   type DomainFailure,
   type DomainResult,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
-import {
-  nodeId,
-  readGraphDescriptor,
-  type GraphDescriptor,
-  type NodeId,
-} from '@audiogubbins/audio-graph';
+import { readGraphDescriptor, type GraphDescriptor, type NodeId } from '@audiogubbins/audio-graph';
 import {
   DspImplementation,
   ResamplingQuality,
@@ -46,45 +35,17 @@ import {
   channelsAt,
   countAt,
   fieldsOf,
-  numberAt,
+  nodeAt,
   oneOf,
   optionalModuleAt,
   optionalTextAt,
+  rateAt,
   readMessage,
+  samplesAt,
   textAt,
   type Fields,
 } from './message-reading.js';
-
-/** How a graph input's audio is described to the worker. */
-export const SourceKind = {
-  /** Audio in memory: a decoded clip's planar samples. */
-  Pcm: 'pcm',
-  /** A test tone the worker makes itself from the canonical oscillator. */
-  Tone: 'tone',
-} as const;
-
-export type SourceKind = (typeof SourceKind)[keyof typeof SourceKind];
-
-/** The audio one graph input reads, as it crosses to the worker. */
-export type SourceDescription =
-  | {
-      readonly node: NodeId;
-      readonly kind: typeof SourceKind.Pcm;
-      readonly sampleRate: SampleRate;
-      /**
-       * One array per channel of the input's port, in its order, all the same
-       * length. Transferred: the sender's arrays are detached once posted.
-       */
-      readonly channels: readonly Float32Array[];
-    }
-  | {
-      readonly node: NodeId;
-      readonly kind: typeof SourceKind.Tone;
-      readonly sampleRate: SampleRate;
-      readonly frequency: number;
-      readonly amplitude: number;
-      readonly frames: SampleCount;
-    };
+import { sourceFrom, type SourceDescription } from './source-descriptions.js';
 
 /** The kinds of message a render worker is sent. */
 export const ToRenderWorkerKind = {
@@ -182,24 +143,6 @@ export type FromRenderWorker =
       readonly failures: RenderFailures;
     };
 
-function nodeAt(fields: Fields, field: string): NodeId {
-  const read = nodeId(textAt(fields, field));
-  if (!read.ok) throw new MalformedMessage(field, 'a node identifier');
-  return read.value;
-}
-
-function rateAt(fields: Fields, field: string): SampleRate {
-  const read = sampleRate(numberAt(fields, field));
-  if (!read.ok) throw new MalformedMessage(field, 'a sample rate');
-  return read.value;
-}
-
-function samplesAt(fields: Fields, field: string): SampleCount {
-  const read = sampleCount(countAt(fields, field));
-  if (!read.ok) throw new MalformedMessage(field, 'a count of samples');
-  return read.value;
-}
-
 function graphAt(fields: Fields): GraphDescriptor {
   const graph = readGraphDescriptor(fields['graph']);
   if (!graph.ok) throw new MalformedMessage('graph', 'a graph descriptor');
@@ -266,25 +209,6 @@ function listAt<TItem>(
 function rangeAt(fields: Fields): RenderRange {
   const range = fieldsOf(fields['range'], 'range');
   return { start: samplesAt(range, 'start'), length: samplesAt(range, 'length') };
-}
-
-function sourceFrom(fields: Fields): SourceDescription {
-  const node = nodeAt(fields, 'node');
-  const rate = rateAt(fields, 'sampleRate');
-  const kind = oneOf(fields, 'kind', SourceKind);
-  switch (kind) {
-    case SourceKind.Pcm:
-      return { node, kind, sampleRate: rate, channels: channelsAt(fields, 'channels') };
-    case SourceKind.Tone:
-      return {
-        node,
-        kind,
-        sampleRate: rate,
-        frequency: numberAt(fields, 'frequency'),
-        amplitude: numberAt(fields, 'amplitude'),
-        frames: samplesAt(fields, 'frames'),
-      };
-  }
 }
 
 function trimFrom(value: unknown, index: number): readonly [NodeId, SampleCount] {

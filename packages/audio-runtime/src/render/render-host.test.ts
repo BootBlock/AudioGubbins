@@ -26,10 +26,10 @@ import {
 
 import {
   FromRenderWorkerKind,
-  SourceKind,
   ToRenderWorkerKind,
   type FromRenderWorker,
 } from '../protocol/render-messages.js';
+import { SourceKind } from '../protocol/source-descriptions.js';
 import { createRenderHost, type RenderHost } from './render-host.js';
 import type { RenderRequest, WorkerRenderSummary } from './render-request.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';

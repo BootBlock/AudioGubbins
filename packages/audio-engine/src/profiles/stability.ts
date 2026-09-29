@@ -9,9 +9,11 @@
  * timeline exactly and the worklet, a worker and Node all read it alike.
  *
  * Only the last {@link STABILITY_WINDOW_SECONDS} matter: a burst an hour ago
- * says nothing about the settings now. Recording drops what has left the
- * window, so the history of a long session stays as small as its worst ten
- * seconds.
+ * says nothing about the settings now. The history is a ring of the events in
+ * the window with their running sum, so recording one and assessing are each
+ * a few steps whatever the session's length, and neither copies the history:
+ * the runtime records a report's underruns up to thirty times a second while
+ * a feed is starved.
  */
 
 import {
@@ -33,18 +35,6 @@ import {
 /** How far back an assessment looks. */
 export const STABILITY_WINDOW_SECONDS = 10;
 
-/** Underruns seen at one context frame, as the feed reports them. */
-export interface UnderrunEvent {
-  readonly contextFrame: number;
-  readonly count: number;
-}
-
-/** The underruns still inside the window, oldest first, at one context's rate. */
-export interface UnderrunHistory {
-  readonly contextRate: SampleRate;
-  readonly events: readonly UnderrunEvent[];
-}
-
 /** What an assessment found, worded for the person who chose the profile. */
 export interface StabilityAssessment {
   readonly stable: boolean;
@@ -54,67 +44,128 @@ export interface StabilityAssessment {
   readonly explanation: string;
 }
 
-/** An empty history for a context running at `contextRate`. */
-export function createUnderrunHistory(contextRate: SampleRate): UnderrunHistory {
-  return { contextRate, events: [] };
-}
-
-function windowFrames(history: UnderrunHistory): number {
-  return STABILITY_WINDOW_SECONDS * history.contextRate;
-}
-
-/** The recorded events inside the window that ends at `contextFrame`. */
-function inWindow(history: UnderrunHistory, contextFrame: number): readonly UnderrunEvent[] {
-  const earliest = contextFrame - windowFrames(history);
-  return history.events.filter(
-    (event) => event.contextFrame > earliest && event.contextFrame <= contextFrame,
-  );
-}
+/** The ring's places before it first grows: a few seconds of reports. */
+const INITIAL_PLACES = 64;
 
 /**
- * Records `count` underruns seen at `contextFrame`.
- *
- * Context frames only move forward within one context, so a frame before the
- * latest one recorded is a report from a context that has since been replaced;
- * the caller starts a new history for the new context rather than mixing two
- * timelines in one.
+ * The underruns of one audio context still inside the window, oldest first,
+ * at the context's rate.
  */
-export function recordUnderruns(
-  history: UnderrunHistory,
-  contextFrame: number,
-  count = 1,
-): DomainResult<UnderrunHistory> {
-  if (!Number.isSafeInteger(contextFrame) || contextFrame < 0) {
-    return fail(
-      failure(
-        'stability.context-frame-invalid',
-        FailureKind.Rejected,
-        `An underrun's context frame must be a whole number of at least zero; ${String(contextFrame)} was given.`,
-      ),
-    );
+export class UnderrunHistory {
+  readonly contextRate: SampleRate;
+  readonly #windowFrames: number;
+  #frames = new Float64Array(INITIAL_PLACES);
+  #counts = new Float64Array(INITIAL_PLACES);
+  #head = 0;
+  #size = 0;
+
+  /** The counts of every event held, kept as events come and go. */
+  #sum = 0;
+
+  constructor(contextRate: SampleRate) {
+    this.contextRate = contextRate;
+    this.#windowFrames = STABILITY_WINDOW_SECONDS * contextRate;
   }
-  if (!Number.isSafeInteger(count) || count < 1) {
-    return fail(
-      failure(
-        'stability.count-invalid',
-        FailureKind.Rejected,
-        `An underrun report must count at least one whole underrun; ${String(count)} was given.`,
-      ),
-    );
+
+  /** How many events it holds: those of the window ending at the latest one. */
+  get size(): number {
+    return this.#size;
   }
-  const latest = history.events.at(-1);
-  if (latest !== undefined && contextFrame < latest.contextFrame) {
-    return fail(
-      failure(
-        'stability.context-frame-out-of-order',
-        FailureKind.Rejected,
-        `An underrun at context frame ${String(contextFrame)} arrived after one at ` +
-          `${String(latest.contextFrame)}; a new audio context needs a new history.`,
-      ),
-    );
+
+  /**
+   * Records `count` underruns seen at `contextFrame`, and lets go of every
+   * event that has left the window ending there.
+   *
+   * Context frames only move forward within one context, so a frame before
+   * the latest one recorded is a report from a context that has since been
+   * replaced; the caller starts a new history for the new context rather than
+   * mixing two timelines in one.
+   */
+  record(contextFrame: number, count = 1): DomainResult<void> {
+    if (!Number.isSafeInteger(contextFrame) || contextFrame < 0) {
+      return fail(
+        failure(
+          'stability.context-frame-invalid',
+          FailureKind.Rejected,
+          `An underrun's context frame must be a whole number of at least zero; ${String(contextFrame)} was given.`,
+        ),
+      );
+    }
+    if (!Number.isSafeInteger(count) || count < 1) {
+      return fail(
+        failure(
+          'stability.count-invalid',
+          FailureKind.Rejected,
+          `An underrun report must count at least one whole underrun; ${String(count)} was given.`,
+        ),
+      );
+    }
+    const latest = this.#size === 0 ? undefined : this.#frameAt(this.#size - 1);
+    if (latest !== undefined && contextFrame < latest) {
+      return fail(
+        failure(
+          'stability.context-frame-out-of-order',
+          FailureKind.Rejected,
+          `An underrun at context frame ${String(contextFrame)} arrived after one at ` +
+            `${String(latest)}; a new audio context needs a new history.`,
+        ),
+      );
+    }
+    const earliest = contextFrame - this.#windowFrames;
+    while (this.#size > 0 && this.#frameAt(0) <= earliest) {
+      this.#sum -= this.#countAt(0);
+      this.#head = (this.#head + 1) % this.#frames.length;
+      this.#size -= 1;
+    }
+    if (this.#size === this.#frames.length) this.#grow();
+    const place = (this.#head + this.#size) % this.#frames.length;
+    this.#frames[place] = contextFrame;
+    this.#counts[place] = count;
+    this.#size += 1;
+    this.#sum += count;
+    return succeed(undefined);
   }
-  const events = [...inWindow(history, contextFrame), { contextFrame, count }];
-  return succeed({ contextRate: history.contextRate, events });
+
+  /** The underruns inside the window that ends at `contextFrame`, that frame included. */
+  underrunsAt(contextFrame: number): number {
+    const earliest = contextFrame - this.#windowFrames;
+    let sum = this.#sum;
+    // Only the events at either end can fall outside, and each scan stops at
+    // the first inside: the history is in frame order.
+    let first = 0;
+    for (; first < this.#size && this.#frameAt(first) <= earliest; first += 1) {
+      sum -= this.#countAt(first);
+    }
+    for (
+      let last = this.#size - 1;
+      last >= first && this.#frameAt(last) > contextFrame;
+      last -= 1
+    ) {
+      sum -= this.#countAt(last);
+    }
+    return sum;
+  }
+
+  #frameAt(index: number): number {
+    return this.#frames[(this.#head + index) % this.#frames.length] ?? 0;
+  }
+
+  #countAt(index: number): number {
+    return this.#counts[(this.#head + index) % this.#frames.length] ?? 0;
+  }
+
+  /** Doubles the ring's places, the events kept in order from the first place. */
+  #grow(): void {
+    const frames = new Float64Array(this.#frames.length * 2);
+    const counts = new Float64Array(this.#frames.length * 2);
+    for (let index = 0; index < this.#size; index += 1) {
+      frames[index] = this.#frameAt(index);
+      counts[index] = this.#countAt(index);
+    }
+    this.#frames = frames;
+    this.#counts = counts;
+    this.#head = 0;
+  }
 }
 
 /**
@@ -174,7 +225,7 @@ export function assessStability(
   profile: PerformanceProfile,
   settings: PerformanceSettings,
 ): StabilityAssessment {
-  const underruns = inWindow(history, contextFrame).reduce((sum, event) => sum + event.count, 0);
+  const underruns = history.underrunsAt(contextFrame);
   if (underruns === 0) {
     return {
       stable: true,

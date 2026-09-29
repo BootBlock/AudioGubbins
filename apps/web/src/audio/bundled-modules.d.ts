@@ -15,6 +15,12 @@ declare module '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&u
   export default url;
 }
 
+/** Where the bundler put the feeder worker, built on its own. */
+declare module '@audiogubbins/audio-runtime/threads/feeder-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
 /** Where the bundler put the render worker, built on its own. */
 declare module '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url' {
   const url: string;

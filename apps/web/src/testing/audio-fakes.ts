@@ -12,6 +12,7 @@
 import {
   StandardLayouts,
   fail,
+  flatMapResult,
   failure,
   FailureKind,
   sampleRate,
@@ -30,10 +31,13 @@ import {
   type RenderProgress,
   type TransportEvent,
 } from '@audiogubbins/audio-engine';
+import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   LifecycleState,
   PlaybackPhase,
   type DeviceReport,
+  type DspStatus,
+  type MeterLevels,
   type PlaybackListener,
   type PlaybackRequest,
   type PlaybackStatus,
@@ -71,14 +75,19 @@ export const FAKE_DEVICE: DeviceReport = {
 export const UNLOADED: PlaybackStatus = {
   phase: PlaybackPhase.Unloaded,
   transport: TRANSPORT_AT_START,
-  dsp: undefined,
+  processorDsp: undefined,
+  feederDsp: undefined,
   latencyFrames: undefined,
   device: undefined,
   contextState: LifecycleState.Idle,
   stability: undefined,
-  meters: new Map(),
   problems: [],
 };
+
+/** A DSP on the WebAssembly module, used by what runs on it or not. */
+function onTheModule(inUse: boolean): DspStatus {
+  return { implementation: DspImplementation.WebAssembly, fallbackReason: undefined, inUse };
+}
 
 /** A session that loads at once and moves its transport as the engine's rules say. */
 export class FakeSession implements PlaybackSessionPort {
@@ -89,6 +98,8 @@ export class FakeSession implements PlaybackSessionPort {
   contextFrame = 0;
   /** What the next Play answers, where a test wants it refused. */
   playResult: DomainResult<void> = succeed(undefined);
+  /** Each meter's levels, as the processor last reported them. */
+  levels: ReadonlyMap<NodeId, MeterLevels> = new Map();
   disposed = false;
   readonly #listeners = new Set<PlaybackListener>();
 
@@ -104,7 +115,8 @@ export class FakeSession implements PlaybackSessionPort {
     this.show({
       ...this.status,
       phase: PlaybackPhase.Ready,
-      dsp: { implementation: DspImplementation.WebAssembly, fallbackReason: undefined },
+      processorDsp: onTheModule(false),
+      feederDsp: onTheModule(true),
       latencyFrames: 0,
       device: FAKE_DEVICE,
       contextState: LifecycleState.Suspended,
@@ -115,7 +127,7 @@ export class FakeSession implements PlaybackSessionPort {
   play(): Promise<DomainResult<void>> {
     if (!this.playResult.ok) return Promise.resolve(this.playResult);
     this.show({ ...this.status, contextState: LifecycleState.Running });
-    return Promise.resolve(this.move({ kind: 'play', contextFrame: this.contextFrame }));
+    return Promise.resolve(this.startPlaying());
   }
 
   pause(): DomainResult<void> {
@@ -137,6 +149,17 @@ export class FakeSession implements PlaybackSessionPort {
 
   audiblePosition(): DomainResult<SampleCount> {
     return this.position();
+  }
+
+  meters(): ReadonlyMap<NodeId, MeterLevels> {
+    return this.levels;
+  }
+
+  /** Plays from where the transport is, as the processor says when it starts. */
+  startPlaying(): DomainResult<void> {
+    return flatMapResult(this.position(), (position) =>
+      this.move({ kind: 'play', contextFrame: this.contextFrame, position }),
+    );
   }
 
   dispose(): void {

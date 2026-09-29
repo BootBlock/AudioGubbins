@@ -15,7 +15,7 @@ describe('feedPlanFor', () => {
       aheadFrames: 9_600,
       chunkFrames: 1_280,
       ringFrames: 10_880,
-      tickMilliseconds: (1_280 * 1000) / 48_000,
+      wakeMilliseconds: (1_280 * 1000) / 48_000,
     });
   });
 

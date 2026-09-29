@@ -7,6 +7,10 @@
  * the other from an anchor, a context frame and the timeline frame that played
  * at it, in whole frames and exact integer arithmetic, so a position read an
  * hour into playback is where it would be read a second in (REQ-ARCH-011).
+ *
+ * The anchor is the audio thread's own count, taken afresh at each of its
+ * reports, so the clock only interpolates between two of them: it cannot see
+ * an underrun, which delays the audio without delaying the context.
  */
 
 import {
@@ -46,7 +50,9 @@ function scaledFloor(value: number, multiplier: number, divisor: number): number
  *
  * Rounded down, so the position reported never runs ahead of what has
  * played. A context frame before the anchor is the anchor's own frame: the
- * clock is not asked about the past of a segment it did not play.
+ * clock is not asked about the past of a segment it did not play, and an
+ * anchor ahead of the context, a start whose first frame is still passing
+ * through the graph's latency, holds the position until it is reached.
  */
 export function timelineFrameAt(
   clock: MediaClock,

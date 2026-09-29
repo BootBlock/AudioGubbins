@@ -222,16 +222,25 @@ Published paths
   readonly ToneSettings.frequency: number
   readonly ToneSettings.amplitude: number
   readonly ToneSettings.length: SampleCount | undefined
-  type TransportEvent = { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; } | { readonly kind: "reached-end"; readonly contextFrame: number; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
+  type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
   type TransportMode = "paused" | "playing" | "stopped" | "suspended"
   type TransportState = { readonly mode: typeof TransportMode.Paused; readonly position: SampleCount; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Playing; readonly anchor: ClockAnchor; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Stopped; readonly position: SampleCount; } | { readonly mode: typeof TransportMode.Suspended; readonly position: SampleCount; readonly origin: SampleCount; }
-  interface UnderrunEvent
-  readonly UnderrunEvent.contextFrame: number
-  readonly UnderrunEvent.count: number
-  interface UnderrunHistory
+  class UnderrunHistory
+  new UnderrunHistory(contextRate: SampleRate): UnderrunHistory
   readonly UnderrunHistory.contextRate: SampleRate
-  readonly UnderrunHistory.events: readonly UnderrunEvent[]
+  readonly UnderrunHistory.#windowFrames: number
+  UnderrunHistory.#frames: Float64Array<ArrayBuffer>
+  UnderrunHistory.#counts: Float64Array<ArrayBuffer>
+  UnderrunHistory.#head: number
+  UnderrunHistory.#size: number
+  UnderrunHistory.#sum: number
+  UnderrunHistory.size: number
+  UnderrunHistory.record: (contextFrame: number, count?: number) => DomainResult<void>
+  UnderrunHistory.underrunsAt: (contextFrame: number) => number
+  UnderrunHistory.#frameAt: (index: number) => number
+  UnderrunHistory.#countAt: (index: number) => number
+  UnderrunHistory.#grow: () => void
   interface WorkloadEstimate
   readonly WorkloadEstimate.bytesHeldWhole: number
   readonly WorkloadEstimate.audioSeconds: number
@@ -250,7 +259,6 @@ Published paths
   function createCancellationSource(): CancellationSource
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
-  function createUnderrunHistory(contextRate: SampleRate): UnderrunHistory
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
@@ -258,7 +266,6 @@ Published paths
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
   function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan>
-  function recordUnderruns(history: UnderrunHistory, contextFrame: number, count?: number): DomainResult<UnderrunHistory>
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality): DomainResult<PcmSource>
   function selectProcessingMode(request: ProcessingModeRequest): DomainResult<ProcessingModeChoice>
@@ -414,6 +421,9 @@ Published paths
   readonly AudioContextPort.setSinkId?: (deviceId: string) => Promise<void>
   const AudioContextState: { readonly Suspended: "suspended"; readonly Running: "running"; readonly Closed: "closed"; readonly Interrupted: "interrupted"; }
   type AudioContextState = "closed" | "interrupted" | "running" | "suspended"
+  interface ChannelEnds
+  readonly ChannelEnds.port1: MessagePort
+  readonly ChannelEnds.port2: MessagePort
   class ContextLifecycle
   new ContextLifecycle(options: ContextLifecycleOptions): ContextLifecycle
   readonly ContextLifecycle.#options: ContextLifecycleOptions
@@ -426,6 +436,7 @@ Published paths
   ContextLifecycle.#suspendedByUs: boolean
   ContextLifecycle.#suspendedBySystem: boolean
   ContextLifecycle.#awaitingGesture: boolean
+  ContextLifecycle.#reportedState: LifecycleState
   ContextLifecycle.state: LifecycleState
   ContextLifecycle.report: DeviceReport | undefined
   ContextLifecycle.context: () => AudioContextPort
@@ -435,12 +446,14 @@ Published paths
   ContextLifecycle.close: () => Promise<void>
   ContextLifecycle.#open: () => Attached
   ContextLifecycle.#stateChanged: (port: AudioContextPort) => void
+  ContextLifecycle.#followState: (port: AudioContextPort) => void
   ContextLifecycle.#runs: (port: AudioContextPort) => void
   ContextLifecycle.#devicesChanged: (port: AudioContextPort) => void
   ContextLifecycle.#recoverAfterDeviceChange: (port: AudioContextPort) => Promise<void>
   ContextLifecycle.#resume: (port: AudioContextPort) => Promise<DomainResult<undefined>>
   ContextLifecycle.#refreshReport: (port: AudioContextPort) => void
   ContextLifecycle.#detach: (attached: Attached) => void
+  ContextLifecycle.#noteState: () => void
   ContextLifecycle.#emit: (event: LifecycleEvent) => void
   interface ContextLifecycleOptions
   readonly ContextLifecycleOptions.createContext: CreateAudioContext
@@ -462,21 +475,35 @@ Published paths
   interface DspStatus
   readonly DspStatus.implementation: DspImplementation
   readonly DspStatus.fallbackReason: string | undefined
-  type LifecycleEvent = { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport; } | { readonly kind: typeof LifecycleEventKind.Lost; } | { readonly kind: typeof LifecycleEventKind.Resumed; readonly contextFrame: number; } | { readonly kind: typeof LifecycleEventKind.SuspendedBySystem; readonly contextFrame: number; }
-  const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; }
-  type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "suspended-by-system"
+  readonly DspStatus.inUse: boolean
+  interface FeederWorkerEvents
+  readonly FeederWorkerEvents.message: MessageEvent<any>
+  readonly FeederWorkerEvents.messageerror: MessageEvent<any>
+  readonly FeederWorkerEvents.error: ErrorEvent
+  interface FeederWorkerPort
+  FeederWorkerPort.postMessage: (message: ToFeeder, transfer: Transferable[]) => void
+  FeederWorkerPort.addEventListener: <TType extends keyof FeederWorkerEvents>(type: TType, listener: (event: FeederWorkerEvents[TType]) => void) => void
+  FeederWorkerPort.removeEventListener: <TType extends keyof FeederWorkerEvents>(type: TType, listener: (event: FeederWorkerEvents[TType]) => void) => void
+  FeederWorkerPort.terminate: () => void
+  type LifecycleEvent = { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport; } | { readonly kind: typeof LifecycleEventKind.Lost; } | { readonly kind: typeof LifecycleEventKind.Resumed; readonly contextFrame: number; } | { readonly kind: typeof LifecycleEventKind.StateChanged; readonly state: LifecycleState; } | { readonly kind: typeof LifecycleEventKind.SuspendedBySystem; readonly contextFrame: number; }
+  const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; readonly StateChanged: "state-changed"; }
+  type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "state-changed" | "suspended-by-system"
   type LifecycleListener = (event: LifecycleEvent) => void
   const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly AwaitingGesture: "awaiting-gesture"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
   type LifecycleState = "awaiting-gesture" | "closed" | "idle" | "interrupted" | "running" | "suspended"
   interface MeterLevels
   readonly MeterLevels.peak: readonly number[]
   readonly MeterLevels.rms: readonly number[]
+  readonly MeterLevels.correlation: readonly number[]
+  const PLAYBACK_SUPERSEDED: "playback.superseded"
+  type PlaybackDsp = { readonly kind: typeof PlaybackDspKind.Compiled; readonly bytes: Uint8Array<ArrayBuffer>; readonly module: WebAssembly.Module; } | { readonly kind: typeof PlaybackDspKind.Unavailable; readonly reason: string; }
+  const PlaybackDspKind: { readonly Compiled: "compiled"; readonly Unavailable: "unavailable"; }
   type PlaybackListener = (status: PlaybackStatus) => void
   const PlaybackPhase: { readonly Unloaded: "unloaded"; readonly Loading: "loading"; readonly Ready: "ready"; readonly Refused: "refused"; readonly Faulted: "faulted"; }
   type PlaybackPhase = "faulted" | "loading" | "ready" | "refused" | "unloaded"
   interface PlaybackRequest
   readonly PlaybackRequest.graph: GraphDescriptor
-  readonly PlaybackRequest.sources: ReadonlyMap<NodeId, PcmSource>
+  readonly PlaybackRequest.sources: readonly SourceDescription[]
   class PlaybackSession
   new PlaybackSession(options: PlaybackSessionOptions): PlaybackSession
   readonly PlaybackSession.#lifecycle: ContextLifecycle
@@ -495,32 +522,38 @@ Published paths
   PlaybackSession.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>
   PlaybackSession.position: () => DomainResult<SampleCount>
   PlaybackSession.audiblePosition: () => DomainResult<SampleCount>
+  PlaybackSession.meters: () => ReadonlyMap<NodeId, MeterLevels>
   PlaybackSession.dispose: () => void
   PlaybackSession.#startFrom: (loaded: LoadedProcessor, command: number, from: SampleCount) => Promise<DomainResult<void>>
   PlaybackSession.#fault: (problem: string) => void
   readonly PlaybackSession.#lifecycleEvent: (event: LifecycleEvent) => void
+  PlaybackSession.#checkDevice: (report: DeviceReport) => void
   PlaybackSession.#notReady: () => DomainResult<never>
   PlaybackSession.#superseded: () => DomainResult<never>
   PlaybackSession.#assertLive: () => void
   interface PlaybackSessionOptions
   readonly PlaybackSessionOptions.lifecycle: ContextLifecycle
   readonly PlaybackSessionOptions.capabilities: AudioRuntimeCapabilities
-  readonly PlaybackSessionOptions.dsp: WorkletDsp
+  readonly PlaybackSessionOptions.dsp: PlaybackDsp
   readonly PlaybackSessionOptions.profile: PerformanceProfile
   readonly PlaybackSessionOptions.settings: PerformanceSettings
   readonly PlaybackSessionOptions.workletModuleUrl: string
+  readonly PlaybackSessionOptions.threads: PlaybackThreads
   readonly PlaybackSessionOptions.schedule: Schedule
   readonly PlaybackSessionOptions.logger: Logger
   interface PlaybackStatus
   readonly PlaybackStatus.phase: PlaybackPhase
   readonly PlaybackStatus.transport: TransportState
-  readonly PlaybackStatus.dsp: DspStatus | undefined
+  readonly PlaybackStatus.processorDsp: DspStatus | undefined
+  readonly PlaybackStatus.feederDsp: DspStatus | undefined
   readonly PlaybackStatus.latencyFrames: number | undefined
   readonly PlaybackStatus.device: DeviceReport | undefined
   readonly PlaybackStatus.contextState: LifecycleState
   readonly PlaybackStatus.stability: StabilityAssessment | undefined
-  readonly PlaybackStatus.meters: ReadonlyMap<NodeId, MeterLevels>
   readonly PlaybackStatus.problems: readonly string[]
+  interface PlaybackThreads
+  readonly PlaybackThreads.createFeeder: () => FeederWorkerPort
+  readonly PlaybackThreads.createChannel: () => ChannelEnds
   interface RenderHost
   RenderHost.render: (request: RenderRequest, options: RenderRunOptions) => Promise<DomainResult<WorkerRenderSummary>>
   interface RenderHostOptions
@@ -1702,66 +1735,6 @@ packages/audio-runtime/src/context/device-channels.ts
   readonly DeviceChannels.count: number
   readonly DeviceChannels.outputChannelOf: readonly number[]
 
-packages/audio-runtime/src/feed/feed-pump.ts
-  interface FeedDestination
-  readonly FeedDestination.queued: number
-  readonly FeedDestination.room: number
-  readonly FeedDestination.blockLimit: number | undefined
-  FeedDestination.blockFor: (frames: number) => AudioFrameBlock
-  FeedDestination.deliver: (block: AudioFrameBlock) => number
-  FeedDestination.end: () => void
-  FeedDestination.consumed: (frames: number) => void
-  interface FeedPump
-  FeedPump.tick: (consumedFrames: number) => void
-  readonly FeedPump.done: Promise<void>
-  type PostToProcessor = (message: ToProcessor, transfer: Transferable[]) => void
-  class RingDestination
-  new RingDestination(writer: RingWriter, layout: ChannelLayout, rate: SampleRate): RingDestination
-  readonly RingDestination.blockLimit: undefined
-  readonly RingDestination.#writer: RingWriter
-  readonly RingDestination.#layout: ChannelLayout
-  readonly RingDestination.#rate: SampleRate
-  RingDestination.#staging: AudioFrameBlock | undefined
-  RingDestination.queued: number
-  RingDestination.room: number
-  RingDestination.blockFor: (frames: number) => AudioFrameBlock
-  RingDestination.deliver: (block: AudioFrameBlock) => number
-  RingDestination.end: () => void
-  RingDestination.consumed: () => void
-
-packages/audio-runtime/src/feed/sample-ring.ts
-  interface RingShape
-  readonly RingShape.header: Int32Array<ArrayBufferLike>
-  readonly RingShape.channels: readonly Float32Array<ArrayBufferLike>[]
-  readonly RingShape.capacity: number
-  class RingWriter
-  new RingWriter(shape: RingShape): RingWriter
-  readonly RingWriter.#header: Int32Array<ArrayBufferLike>
-  readonly RingWriter.#channels: readonly Float32Array<ArrayBufferLike>[]
-  readonly RingWriter.#capacity: number
-  RingWriter.capacityFrames: number
-  RingWriter.available: number
-  RingWriter.queued: number
-  RingWriter.write: (block: AudioFrameBlock) => number
-  RingWriter.end: () => void
-  RingWriter.discard: () => void
-  RingWriter.#queued: () => number
-
-packages/audio-runtime/src/playback/consumption-ticker.ts
-  class ConsumptionTicker
-  new ConsumptionTicker(options: ConsumptionTickerOptions, startedAt: number): ConsumptionTicker
-  readonly ConsumptionTicker.#options: ConsumptionTickerOptions
-  readonly ConsumptionTicker.#startedAt: number
-  ConsumptionTicker.#cancel: (() => void) | undefined
-  ConsumptionTicker.#stopped: boolean
-  ConsumptionTicker.stop: () => void
-  ConsumptionTicker.#next: () => void
-  interface ConsumptionTickerOptions
-  readonly ConsumptionTickerOptions.schedule: Schedule
-  readonly ConsumptionTickerOptions.intervalMilliseconds: number
-  readonly ConsumptionTickerOptions.contextFrame: () => number
-  readonly ConsumptionTickerOptions.tick: (consumedFrames: number) => void
-
 packages/audio-runtime/src/playback/engine-link.ts
   class EngineLink
   new EngineLink(node: WorkletNodePort, logger: Logger): EngineLink
@@ -1779,28 +1752,13 @@ packages/audio-runtime/src/playback/engine-link.ts
 
 packages/audio-runtime/src/playback/feed-bindings.ts
   interface Feed
-  readonly Feed.bound: BoundSource
-  readonly Feed.binding: FeedBinding
-  readonly Feed.ring: undefined | { readonly writer: RingWriter; readonly destination: RingDestination; }
-  interface FeedRun
-  readonly FeedRun.pumps: readonly RunningPump[]
-  readonly FeedRun.primed: Promise<void>
+  readonly Feed.processor: FeedBinding
+  readonly Feed.feeder: FeederBinding
   class PlaybackFeeds
-  new PlaybackFeeds(feeds: readonly Feed[], options: PlaybackFeedsOptions): PlaybackFeeds
-  readonly PlaybackFeeds.bindings: readonly FeedBinding[]
-  readonly PlaybackFeeds.#feeds: readonly Feed[]
-  readonly PlaybackFeeds.#options: PlaybackFeedsOptions
-  PlaybackFeeds.discard: () => void
-  PlaybackFeeds.start: (from: SampleCount, post: PostToProcessor, schedule: Schedule, signal: CancellationSignal) => DomainResult<FeedRun>
-  PlaybackFeeds.#destinationOf: (feed: Feed, rate: SampleRate, post: PostToProcessor) => FeedDestination
-  interface PlaybackFeedsOptions
-  readonly PlaybackFeedsOptions.sources: readonly BoundSource[]
-  readonly PlaybackFeedsOptions.rate: SampleRate
-  readonly PlaybackFeedsOptions.plan: FeedPlan
-  readonly PlaybackFeedsOptions.sharedMemory: boolean
-  interface RunningPump
-  readonly RunningPump.node: NodeId
-  readonly RunningPump.pump: FeedPump
+  new PlaybackFeeds(feeds: readonly Feed[]): PlaybackFeeds
+  readonly PlaybackFeeds.processor: readonly FeedBinding[]
+  readonly PlaybackFeeds.feeder: readonly FeederBinding[]
+  PlaybackFeeds.any: boolean
 
 packages/audio-runtime/src/playback/feed-plan.ts
   interface FeedPlan
@@ -1808,45 +1766,76 @@ packages/audio-runtime/src/playback/feed-plan.ts
   readonly FeedPlan.aheadFrames: number
   readonly FeedPlan.chunkFrames: number
   readonly FeedPlan.ringFrames: number
-  readonly FeedPlan.tickMilliseconds: number
+  readonly FeedPlan.wakeMilliseconds: number
+
+packages/audio-runtime/src/playback/feeder-link.ts
+  class FeederLink
+  new FeederLink(worker: FeederWorkerPort, logger: Logger): FeederLink
+  readonly FeederLink.#worker: FeederWorkerPort
+  readonly FeederLink.#logger: Logger
+  readonly FeederLink.#listeners: Set<FeederListener>
+  FeederLink.#disposed: boolean
+  FeederLink.send: (message: ToFeeder, transfer?: Transferable[]) => void
+  FeederLink.subscribe: (listener: FeederListener) => () => void
+  FeederLink.dispose: () => void
+  readonly FeederLink.#received: (event: MessageEvent) => void
+  readonly FeederLink.#undeliverable: () => void
+  readonly FeederLink.#threw: (event: ErrorEvent) => void
+  FeederLink.#tell: (message: FromFeeder) => void
+  type FeederListener = (message: FromFeeder) => void
 
 packages/audio-runtime/src/playback/graph-loader.ts
   class GraphLoader
   new GraphLoader(options: GraphLoaderOptions): GraphLoader
   readonly GraphLoader.#options: GraphLoaderOptions
   readonly GraphLoader.#module: WorkletModule
+  readonly GraphLoader.#dsp: PlaybackDsp
   GraphLoader.#loaded: LoadedProcessor | undefined
+  GraphLoader.#replies: ProcessorReplies | undefined
   GraphLoader.#request: PlaybackRequest | undefined
   GraphLoader.#lostRequest: PlaybackRequest | undefined
   GraphLoader.#generation: number
+  GraphLoader.#feeder: FeederLink | undefined
+  GraphLoader.#sources: RequestSources | undefined
+  GraphLoader.#requests: number
   GraphLoader.current: LoadedProcessor | undefined
   GraphLoader.lostRequest: PlaybackRequest | undefined
   GraphLoader.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
   GraphLoader.unload: () => void
   GraphLoader.lost: (problem: string) => void
-  GraphLoader.#attach: (port: AudioContextPort, request: PlaybackRequest, prepared: PreparedPlayback, stability: StabilityWatch) => LoadedProcessor
-  GraphLoader.#answered: (loaded: LoadedProcessor, outcome: LoadOutcome) => DomainResult<void>
-  GraphLoader.#feedFailed: (node: NodeId, error: unknown) => void
+  GraphLoader.dispose: () => void
+  GraphLoader.#sourcesFor: (request: PlaybackRequest, prepared: PreparedPlayback) => RequestSources | undefined
+  GraphLoader.#feederLink: () => FeederLink
+  GraphLoader.#sourcesMade: (made: SourcesOutcome) => DomainResult<DspStatus>
+  GraphLoader.#attach: (port: AudioContextPort, request: PlaybackRequest, prepared: PreparedPlayback, stability: StabilityWatch, sources: RequestSources | undefined) => LoadedProcessor
+  GraphLoader.#answered: (loaded: LoadedProcessor, outcome: LoadOutcome, feederDsp: DspStatus | undefined) => DomainResult<void>
+  GraphLoader.#feedFailed: (node: NodeId, reason: string) => void
   interface GraphLoaderOptions
   readonly GraphLoaderOptions.lifecycle: ContextLifecycle
   readonly GraphLoaderOptions.capabilities: AudioRuntimeCapabilities
-  readonly GraphLoaderOptions.dsp: WorkletDsp
+  readonly GraphLoaderOptions.dsp: PlaybackDsp
   readonly GraphLoaderOptions.profile: PerformanceProfile
   readonly GraphLoaderOptions.settings: PerformanceSettings
   readonly GraphLoaderOptions.workletModuleUrl: string
+  readonly GraphLoaderOptions.threads: PlaybackThreads
   readonly GraphLoaderOptions.schedule: Schedule
   readonly GraphLoaderOptions.logger: Logger
   readonly GraphLoaderOptions.state: PlaybackState
   readonly GraphLoaderOptions.faulted: (problem: string) => void
 
 packages/audio-runtime/src/playback/loaded-processor.ts
+  interface GraphFeeder
+  readonly GraphFeeder.link: FeederLink
+  readonly GraphFeeder.request: number
+  readonly GraphFeeder.createChannel: () => ChannelEnds
   type LoadOutcome = { readonly kind: "abandoned"; readonly failure: DomainFailureResult; } | { readonly kind: "loaded"; readonly dsp: DspStatus; readonly latencyFrames: number | undefined; } | { readonly kind: "refused"; readonly reasons: readonly string[]; } | { readonly kind: "unanswered"; }
   class LoadedProcessor
   new LoadedProcessor(options: LoadedProcessorOptions): LoadedProcessor
   readonly LoadedProcessor.link: EngineLink
   readonly LoadedProcessor.runs: ProcessorRuns
-  readonly LoadedProcessor.graphLatencyFrames: number
+  readonly LoadedProcessor.prepared: PreparedPlayback
   readonly LoadedProcessor.outcome: Promise<LoadOutcome>
+  readonly LoadedProcessor.#feeder: FeederLink | undefined
   LoadedProcessor.#settle: (outcome: LoadOutcome) => void
   LoadedProcessor.#replied: (reply: FromProcessor) => void
   LoadedProcessor.#settled: boolean
@@ -1860,16 +1849,15 @@ packages/audio-runtime/src/playback/loaded-processor.ts
   readonly LoadedProcessorOptions.port: AudioContextPort
   readonly LoadedProcessorOptions.graph: GraphDescriptor
   readonly LoadedProcessorOptions.prepared: PreparedPlayback
-  readonly LoadedProcessorOptions.dsp: WorkletDsp
+  readonly LoadedProcessorOptions.dsp: PlaybackDsp
+  readonly LoadedProcessorOptions.feeder: GraphFeeder | undefined
   readonly LoadedProcessorOptions.schedule: Schedule
   readonly LoadedProcessorOptions.logger: Logger
-  readonly LoadedProcessorOptions.feedFailed: (node: NodeId, error: unknown) => void
-  type WorkletDsp = { readonly kind: typeof WorkletDspKind.Bytes; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof WorkletDspKind.Unavailable; readonly reason: string; }
 
 packages/audio-runtime/src/playback/playback-preparation.ts
   interface PreparedPlayback
   readonly PreparedPlayback.plan: ExecutionPlan
-  readonly PreparedPlayback.sinkChannels: number
+  readonly PreparedPlayback.sinkLayout: ChannelLayout
   readonly PreparedPlayback.device: DeviceChannels
   readonly PreparedPlayback.feeds: PlaybackFeeds
   readonly PreparedPlayback.feedPlan: FeedPlan
@@ -1882,21 +1870,42 @@ packages/audio-runtime/src/playback/playback-state.ts
   readonly PlaybackState.#listeners: Set<PlaybackListener>
   PlaybackState.#status: PlaybackStatus
   PlaybackState.#timing: Timing | undefined
+  PlaybackState.#meters: ReadonlyMap<NodeId, MeterLevels>
   PlaybackState.status: PlaybackStatus
   PlaybackState.subscribe: (listener: PlaybackListener) => () => void
   PlaybackState.update: (status: PlaybackStatus) => void
+  PlaybackState.meters: ReadonlyMap<NodeId, MeterLevels>
+  PlaybackState.showMeters: (meters: ReadonlyMap<NodeId, MeterLevels>) => void
+  PlaybackState.clearMeters: () => void
   PlaybackState.clear: () => void
   PlaybackState.timing: () => Timing
   PlaybackState.frame: () => number
   PlaybackState.isPlaying: () => boolean
   PlaybackState.apply: (event: TransportEvent) => DomainResult<void>
+  PlaybackState.reanchor: (contextFrame: number, position: SampleCount) => void
   PlaybackState.follow: (event: TransportEvent) => void
   PlaybackState.pauseTransport: () => void
   PlaybackState.position: () => DomainResult<SampleCount>
-  PlaybackState.audiblePosition: (graphLatencyFrames: number) => DomainResult<SampleCount>
+  PlaybackState.audiblePosition: () => DomainResult<SampleCount>
   interface Timing
   readonly Timing.port: AudioContextPort
   readonly Timing.clock: MediaClock
+
+packages/audio-runtime/src/playback/processor-replies.ts
+  class ProcessorReplies
+  new ProcessorReplies(options: ProcessorRepliesOptions): ProcessorReplies
+  readonly ProcessorReplies.#options: ProcessorRepliesOptions
+  readonly ProcessorReplies.apply: (reply: FromProcessor) => void
+  ProcessorReplies.#report: (reply: Extract<FromProcessor, { readonly kind: typeof FromProcessorKind.Report; }>) => void
+  readonly ProcessorReplies.applyFeeder: (reply: FromFeeder) => void
+  ProcessorReplies.#follow: (counted: number, event: (position: SampleCount) => TransportEvent) => void
+  interface ProcessorRepliesOptions
+  readonly ProcessorRepliesOptions.runs: ProcessorRuns
+  readonly ProcessorRepliesOptions.state: PlaybackState
+  readonly ProcessorRepliesOptions.stability: StabilityWatch
+  readonly ProcessorRepliesOptions.logger: Logger
+  readonly ProcessorRepliesOptions.faulted: (problem: string) => void
+  readonly ProcessorRepliesOptions.feedFailed: (node: NodeId, reason: string) => void
 
 packages/audio-runtime/src/playback/processor-runs.ts
   class ProcessorRuns
@@ -1904,41 +1913,62 @@ packages/audio-runtime/src/playback/processor-runs.ts
   readonly ProcessorRuns.#options: ProcessorRunsOptions
   ProcessorRuns.#run: Run | undefined
   ProcessorRuns.#lastRunId: number
+  ProcessorRuns.#held: number | undefined
+  ProcessorRuns.#paused: number | undefined
   ProcessorRuns.starting: boolean
   ProcessorRuns.start: (from: SampleCount) => Promise<DomainResult<boolean>>
-  ProcessorRuns.started: (runId: number, contextFrame: number) => boolean
+  ProcessorRuns.resume: (position: SampleCount) => boolean
+  ProcessorRuns.primed: (runId: number) => void
+  ProcessorRuns.started: (runId: number) => boolean
+  ProcessorRuns.isCurrent: (runId: number) => boolean
   ProcessorRuns.isRunning: (runId: number) => boolean
-  ProcessorRuns.halt: () => void
+  ProcessorRuns.halted: (runId: number) => boolean
+  ProcessorRuns.pause: () => void
+  ProcessorRuns.stop: () => void
   ProcessorRuns.abandon: () => void
   interface ProcessorRunsOptions
   readonly ProcessorRunsOptions.link: EngineLink
-  readonly ProcessorRunsOptions.feeds: PlaybackFeeds
-  readonly ProcessorRunsOptions.schedule: Schedule
-  readonly ProcessorRunsOptions.tickMilliseconds: number
-  readonly ProcessorRunsOptions.contextFrame: () => number
-  readonly ProcessorRunsOptions.feedFailed: (node: NodeId, error: unknown) => void
+  readonly ProcessorRunsOptions.feeder: FeederLink | undefined
   interface Run
   readonly Run.id: number
-  readonly Run.cancellation: CancellationSource
-  readonly Run.pumps: readonly RunningPump[]
   Run.stage: RunStage
-  Run.ticker: ConsumptionTicker | undefined
+  Run.primed: () => void
   const RunStage: { readonly Priming: "priming"; readonly Starting: "starting"; readonly Running: "running"; }
   type RunStage = "priming" | "running" | "starting"
 
-packages/audio-runtime/src/playback/source-binding.ts
-  interface BoundSource
-  readonly BoundSource.node: NodeId
-  readonly BoundSource.source: PcmSource
-  readonly BoundSource.layout: ChannelLayout
+packages/audio-runtime/src/playback/request-sources.ts
+  class RequestSources
+  new RequestSources(options: RequestSourcesOptions): RequestSources
+  readonly RequestSources.request: PlaybackRequest
+  readonly RequestSources.id: number
+  readonly RequestSources.feeder: FeederLink
+  readonly RequestSources.made: Promise<SourcesOutcome>
+  readonly RequestSources.#stopListening: () => void
+  readonly RequestSources.#cancelWait: () => void
+  RequestSources.#settle: (outcome: SourcesOutcome) => void
+  RequestSources.#settled: boolean
+  RequestSources.release: () => void
+  RequestSources.abandon: () => void
+  readonly RequestSources.#reply: (reply: FromFeeder) => void
+  RequestSources.#end: (outcome: SourcesOutcome) => void
+  interface RequestSourcesOptions
+  readonly RequestSourcesOptions.feeder: FeederLink
+  readonly RequestSourcesOptions.request: PlaybackRequest
+  readonly RequestSourcesOptions.id: number
+  readonly RequestSourcesOptions.dsp: PlaybackDsp
+  readonly RequestSourcesOptions.schedule: Schedule
+  readonly RequestSourcesOptions.logger: Logger
+  type SourcesOutcome = { readonly kind: "abandoned"; } | { readonly kind: "made"; readonly dsp: DspStatus; } | { readonly kind: "refused"; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; } | { readonly kind: "unanswered"; }
 
 packages/audio-runtime/src/playback/stability-watch.ts
   class StabilityWatch
   new StabilityWatch(contextRate: SampleRate, options: StabilityWatchOptions): StabilityWatch
   readonly StabilityWatch.#options: StabilityWatchOptions
-  StabilityWatch.#history: UnderrunHistory
+  readonly StabilityWatch.#history: UnderrunHistory
+  StabilityWatch.#assessment: StabilityAssessment | undefined
+  StabilityWatch.#starving: boolean
   StabilityWatch.assess: (contextFrame: number) => StabilityAssessment
-  StabilityWatch.underrun: (contextFrame: number, frames: number) => StabilityAssessment | undefined
+  StabilityWatch.report: (contextFrame: number, underruns: number, frames: number) => StabilityAssessment | undefined
   interface StabilityWatchOptions
   readonly StabilityWatchOptions.profile: PerformanceProfile
   readonly StabilityWatchOptions.settings: PerformanceSettings
@@ -1954,15 +1984,31 @@ packages/audio-runtime/src/playback/worklet-module.ts
   WorkletModule.forget: () => void
   WorkletModule.#register: (port: AudioContextPort) => Promise<DomainResult<void>>
 
+packages/audio-runtime/src/protocol/feeder-messages.ts
+  interface FailureSummary
+  readonly FailureSummary.code: string
+  readonly FailureSummary.summary: string
+  type FeederBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly ring: SharedArrayBuffer; }
+  type FromFeeder = { readonly kind: typeof FromFeederKind.Fault; readonly message: string; } | { readonly kind: typeof FromFeederKind.FeedFailed; readonly run: number; readonly node: NodeId; readonly reason: string; } | { readonly kind: typeof FromFeederKind.Primed; readonly run: number; } | { readonly kind: typeof FromFeederKind.SourcesMade; readonly request: number; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; } | { readonly kind: typeof FromFeederKind.SourcesRefused; readonly request: number; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; }
+  type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly dspModule: WebAssembly.Module | undefined; readonly dspUnavailable: string | undefined; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
+
 packages/audio-runtime/src/protocol/processor-messages.ts
+  interface CountedPosition
+  readonly CountedPosition.contextFrame: number
+  readonly CountedPosition.position: number
   type FeedBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; readonly channels: number; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly channels: number; readonly ring: SharedArrayBuffer; }
   const FeedTransport: { readonly SharedRing: "shared-ring"; readonly Posted: "posted"; }
   type FeedTransport = "posted" | "shared-ring"
-  type FromProcessor = { readonly kind: typeof FromProcessorKind.Fault; readonly message: string; } | { readonly kind: typeof FromProcessorKind.FeedsEnded; readonly run: number; readonly contextFrame: number; } | { readonly kind: typeof FromProcessorKind.Loaded; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly latencyFrames: number | undefined; } | { readonly kind: typeof FromProcessorKind.Meter; readonly node: NodeId; readonly peak: readonly number[]; readonly rms: readonly number[]; } | { readonly kind: typeof FromProcessorKind.ParameterRefused; readonly node: NodeId; readonly name: string; readonly failures: readonly [ParameterRefusal, ...ParameterRefusal[]]; } | { readonly kind: typeof FromProcessorKind.Refused; readonly reasons: readonly string[]; } | { readonly kind: typeof FromProcessorKind.Started; readonly run: number; readonly contextFrame: number; } | { readonly kind: typeof FromProcessorKind.Underrun; readonly run: number; readonly contextFrame: number; readonly frames: number; }
+  type FromProcessor = ({ readonly kind: typeof FromProcessorKind.FeedsEnded; readonly run: number; } & CountedPosition) | ({ readonly kind: typeof FromProcessorKind.Halted; readonly run: number; } & CountedPosition) | ({ readonly kind: typeof FromProcessorKind.Report; readonly run: number; readonly underrunFrames: number; readonly underruns: number; readonly meters: readonly MeterReport[]; } & CountedPosition) | ({ readonly kind: typeof FromProcessorKind.Started; readonly run: number; } & CountedPosition) | { readonly kind: typeof FromProcessorKind.Fault; readonly message: string; } | { readonly kind: typeof FromProcessorKind.Loaded; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; readonly latencyFrames: number | undefined; } | { readonly kind: typeof FromProcessorKind.ParameterRefused; readonly node: NodeId; readonly name: string; readonly failures: readonly [ParameterRefusal, ...ParameterRefusal[]]; } | { readonly kind: typeof FromProcessorKind.Refused; readonly reasons: readonly string[]; }
+  interface MeterReport
+  readonly MeterReport.node: NodeId
+  readonly MeterReport.peak: readonly number[]
+  readonly MeterReport.rms: readonly number[]
+  readonly MeterReport.correlation: readonly number[]
   interface ParameterRefusal
   readonly ParameterRefusal.code: string
   readonly ParameterRefusal.summary: string
-  type ToProcessor = { readonly kind: typeof ToProcessorKind.FeedBlock; readonly node: NodeId; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof ToProcessorKind.FeedEnd; readonly node: NodeId; } | { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dspModuleBytes: Uint8Array<ArrayBuffer> | undefined; readonly dspUnavailable: string | undefined; readonly feeds: readonly FeedBinding[]; readonly meterEveryBlocks: number; } | { readonly kind: typeof ToProcessorKind.Reset; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; }
+  type ToProcessor = { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dspModuleBytes: Uint8Array<ArrayBuffer> | undefined; readonly dspUnavailable: string | undefined; readonly feeds: readonly FeedBinding[]; readonly reportEveryBlocks: number; readonly feeder: MessagePort | undefined; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; readonly epoch: number; readonly from: number; }
 
 packages/audio-runtime/src/protocol/render-messages.ts
   type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly resamplingQuality: ResamplingQuality; readonly sources: readonly SourceDescription[]; readonly dspModule: WebAssembly.Module | undefined; readonly dspUnavailable: string | undefined; }
