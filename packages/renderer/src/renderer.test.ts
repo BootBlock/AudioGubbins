@@ -21,7 +21,7 @@ import {
   type BackendFactory,
   type RendererBackend,
 } from './renderer-backend.js';
-import { Renderer, RendererState, type RendererReport } from './renderer.js';
+import { Renderer, RendererState, type OverlayEvents, type RendererReport } from './renderer.js';
 
 /** A schedule that never runs what it is given, for backends these tests do not lose. */
 const NO_WAIT = (): (() => void) => () => undefined;
@@ -80,16 +80,55 @@ class FakeFactory implements BackendFactory {
   }
 }
 
+/**
+ * A surface whose overlay counts the frames painted on it, as a context does:
+ * one lost paints nothing, and one given back is blank. It hands out the events
+ * that say so, which the test sends with `lose` and `restore`.
+ */
 function surface() {
   const canvases: HTMLCanvasElement[] = [];
+  const overlay = {
+    paints: 0,
+    lost: false,
+    watching: 0,
+    events: undefined as OverlayEvents | undefined,
+    lose: () => {
+      overlay.lost = true;
+      overlay.events?.lost();
+    },
+    restore: () => {
+      overlay.lost = false;
+      overlay.events?.restored();
+    },
+  };
+  const painter = new Proxy(
+    {},
+    {
+      get: (_target, name): unknown =>
+        name === 'clearRect'
+          ? () => {
+              if (!overlay.lost) overlay.paints += 1;
+            }
+          : () => undefined,
+      set: () => true,
+    },
+  ) as Painter;
   return {
     canvases,
+    overlayState: overlay,
     freshCanvas: () => {
       const canvas = document.createElement('canvas');
       canvases.push(canvas);
       return canvas;
     },
-    overlay: (): Painter | undefined => undefined,
+    overlay: (): Painter | undefined => painter,
+    watchOverlay: (events: OverlayEvents) => {
+      overlay.events = events;
+      overlay.watching += 1;
+      return () => {
+        overlay.watching -= 1;
+      };
+    },
   };
 }
 
@@ -314,5 +353,53 @@ describe('a backend that cannot draw', () => {
     ]);
     expect(gl.disposed).toBe(1);
     expect(plain.drawn).toEqual([frame(5)]);
+  });
+});
+
+describe('the overlay above the geometry', () => {
+  it('paints the latest frame again when the overlay is given back after the geometry', async () => {
+    const gl = new FakeFactory(RendererKind.WebGl2);
+    const place = surface();
+    const renderer = new Renderer({ surface: place, backends: [gl] });
+    await renderer.start();
+    renderer.draw(frame(1));
+    expect(place.overlayState.paints).toBe(1);
+
+    // One GPU process crash takes both; the geometry comes back first.
+    place.overlayState.lose();
+    gl.events?.lost('The browser took the WebGL2 context away.');
+    renderer.draw(frame(2));
+    gl.events?.restored();
+    expect(gl.drawn).toEqual([frame(1), frame(2)]);
+
+    place.overlayState.restore();
+
+    expect(place.overlayState.paints).toBe(2);
+  });
+
+  it('leaves the overlay to the geometry’s recovery when the overlay is given back first', async () => {
+    const gl = new FakeFactory(RendererKind.WebGl2);
+    const place = surface();
+    const renderer = new Renderer({ surface: place, backends: [gl] });
+    await renderer.start();
+    renderer.draw(frame(1));
+    place.overlayState.lose();
+    gl.events?.lost('The browser took the WebGL2 context away.');
+
+    place.overlayState.restore();
+    expect(place.overlayState.paints).toBe(1);
+    gl.events?.restored();
+
+    expect(place.overlayState.paints).toBe(2);
+  });
+
+  it('stops watching the overlay when it is disposed', () => {
+    const place = surface();
+    const renderer = new Renderer({ surface: place, backends: [] });
+    expect(place.overlayState.watching).toBe(1);
+
+    renderer.dispose();
+
+    expect(place.overlayState.watching).toBe(0);
   });
 });

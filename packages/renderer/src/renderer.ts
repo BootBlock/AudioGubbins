@@ -25,12 +25,27 @@ import {
   type RendererKind,
 } from './renderer-backend.js';
 
-/** Where a renderer draws: a geometry canvas it may replace, and the overlay above it. */
+/** What a surface tells its renderer of the overlay's context. */
+export interface OverlayEvents {
+  /** The context is lost, and painting it does nothing until it is restored. */
+  readonly lost: () => void;
+  /** It is back, and blank. */
+  readonly restored: () => void;
+}
+
+/**
+ * Where a renderer draws: a geometry canvas it may replace, and the overlay
+ * above it. The overlay is a Canvas 2D context the browser can take away as it
+ * takes the geometry's, in the same GPU process crash and not necessarily in
+ * the same order, so the surface says when the overlay is lost and given back.
+ */
 export interface RenderSurface {
   /** A new canvas for the geometry, which takes the place of any before it. */
   freshCanvas(): HTMLCanvasElement;
   /** The Canvas 2D context of the overlay, or `undefined` where the browser gives none. */
   overlay(): Painter | undefined;
+  /** Tells `events` when the overlay's context is lost and given back, until the answer is called. */
+  watchOverlay(events: OverlayEvents): () => void;
 }
 
 /** What became of one backend the renderer tried. */
@@ -76,6 +91,8 @@ export class Renderer {
   #backend: { readonly made: RendererBackend; readonly index: number } | undefined;
   #latest: RenderFrame | undefined;
   #disposed = false;
+  #overlayLost = false;
+  readonly #stopWatchingOverlay: () => void;
 
   constructor(options: {
     readonly surface: RenderSurface;
@@ -83,6 +100,16 @@ export class Renderer {
   }) {
     this.#surface = options.surface;
     this.#backends = options.backends;
+    this.#stopWatchingOverlay = options.surface.watchOverlay({
+      lost: () => {
+        this.#overlayLost = true;
+      },
+      restored: () => {
+        this.#overlayLost = false;
+        // The geometry's own recovery paints the overlay with it.
+        if (this.#report.state === RendererState.Drawing) this.#paintOverlay();
+      },
+    });
   }
 
   get report(): RendererReport {
@@ -215,14 +242,20 @@ export class Renderer {
     const backend = this.#backend;
     if (frame === undefined || backend === undefined) return DRAWN;
     const outcome = backend.made.draw(frame);
-    if (outcome.kind !== 'drawn') return outcome;
-    const overlay = this.#surface.overlay();
-    if (overlay !== undefined) paintOverlay(overlay, frame);
+    if (outcome.kind === 'drawn') this.#paintOverlay();
     return outcome;
+  }
+
+  /** Paints the latest frame's text and images on the overlay, where it has its context. */
+  #paintOverlay(): void {
+    const frame = this.#latest;
+    const overlay = this.#overlayLost ? undefined : this.#surface.overlay();
+    if (frame !== undefined && overlay !== undefined) paintOverlay(overlay, frame);
   }
 
   dispose(): void {
     this.#disposed = true;
+    this.#stopWatchingOverlay();
     this.#backend?.made.dispose();
     this.#backend = undefined;
     this.#listeners.clear();

@@ -34,6 +34,7 @@ export { type Painter } from './canvas-painting.js';
 export { browserBackends } from './backends.js';
 
 export {
+  type OverlayEvents,
   type RenderSurface,
   Renderer,
   type RendererAttempt,
