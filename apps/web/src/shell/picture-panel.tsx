@@ -3,13 +3,16 @@
  * and able to fill the screen. It shows the picture the reference picture
  * holds, its timecode and frame at the playhead, the frame-rate interpretation,
  * the offset and its calibration, a marker at the frame shown, and the
- * picture's own sound where the browser could decode it.
+ * picture's own sound, extracted when the person asks and where the browser can
+ * decode it in the memory the page can spare.
  *
- * While it is open it keeps the picture on the transport: each display frame it
- * hands the reference picture the audible position of the asset the picture is
- * bound to, and the binding's policy corrects the picture within a frame while
- * playing and exactly while parked (ADR-0046). A file the browser cannot decode
- * is said with the reason, and the audio is untouched.
+ * While it is open it keeps the picture on the transport: it hands the
+ * reference picture the audible position of the asset the picture is bound to,
+ * each display frame while the asset plays and each time the playhead or the
+ * binding moves while it is parked, and the binding's policy corrects the
+ * picture within a frame while playing and exactly while parked (ADR-0046). A
+ * file the browser cannot decode is said with the reason, and the audio is
+ * untouched.
  */
 
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
@@ -21,7 +24,13 @@ import { pictureFrameAt, pictureTimeAt, pictureTimecodeAt } from '@audiogubbins/
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { FRAME_RATES } from '../commands/picture-commands.js';
 import type { PictureState } from '../picture/reference-picture.js';
-import { NotedFileButton } from './settings/reasoned-button.js';
+import {
+  NotedButton,
+  NotedFileButton,
+  ReasonedButton,
+  SharedReasonNotes,
+  useSharedReasons,
+} from './settings/reasoned-button.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
@@ -41,21 +50,41 @@ function PictureView({ parts }: { readonly parts: EditorPanelParts }): ReactNode
   return <div ref={holder} className="ag-picture-frame" />;
 }
 
-/** Keeps the picture on the transport's clock while the panel is open. */
-function useFollowing(parts: EditorPanelParts, asset: EditorAsset | undefined): void {
+/**
+ * Keeps the picture on the transport's clock while the panel is open: each
+ * display frame while the asset plays, since the position moves every frame,
+ * and parked, only when the playhead, the transport or the binding changes, so
+ * an idle page runs nothing.
+ */
+function useFollowing(
+  parts: EditorPanelParts,
+  asset: EditorAsset | undefined,
+  playing: boolean,
+): void {
   useEffect(() => {
     if (asset === undefined) return undefined;
-    let request = requestAnimationFrame(function follow() {
-      parts.picture.follow(
-        parts.stores.playhead(asset),
-        parts.stores.playing(asset.id) ? 'playing' : 'parked',
-      );
-      request = requestAnimationFrame(follow);
+    const follow = (): void => {
+      parts.picture.follow(parts.stores.playhead(asset), playing ? 'playing' : 'parked');
+    };
+    if (!playing) {
+      follow();
+      const stops = [
+        parts.stores.cues.subscribe(follow),
+        parts.stores.audio.subscribe(follow),
+        parts.picture.subscribe(follow),
+      ];
+      return () => {
+        for (const stop of stops) stop();
+      };
+    }
+    let request = requestAnimationFrame(function each() {
+      follow();
+      request = requestAnimationFrame(each);
     });
     return () => {
       cancelAnimationFrame(request);
     };
-  }, [parts, asset]);
+  }, [parts, asset, playing]);
 }
 
 /** The timecode and frame at the playhead, read each display frame while the asset plays. */
@@ -104,23 +133,61 @@ function Readouts({
   );
 }
 
-function command(parts: EditorPanelParts, id: string, label: string): ReactNode {
-  const reason = parts.unavailableReason(id);
+/** The picture's commands, by the label each has in the panel. */
+const ACTIONS: readonly { readonly id: string; readonly label: string }[] = [
+  { id: 'picture.nudge-earlier', label: 'A frame earlier' },
+  { id: 'picture.nudge-later', label: 'A frame later' },
+  { id: 'picture.align-with-playhead', label: 'Line up with the playhead' },
+  { id: 'picture.mark-frame', label: 'Marker at this frame' },
+  { id: 'picture.bind-to-editor', label: 'Follow the editor in use' },
+  { id: 'picture.full-screen', label: 'Full screen' },
+  { id: 'picture.close', label: 'Close' },
+];
+
+/**
+ * The picture's commands as buttons, each in the tab order while it cannot run,
+ * with the reason said once above them rather than hidden in a tooltip.
+ */
+function PictureActions({ parts }: { readonly parts: EditorPanelParts }): ReactNode {
+  const reasons = useSharedReasons(
+    Object.fromEntries(ACTIONS.map(({ id }) => [id, parts.unavailableReason(id)])),
+  );
   return (
-    <Button
-      compact
-      disabled={reason !== undefined}
-      title={reason}
-      onClick={() => {
-        parts.run(id);
-      }}
-    >
-      {label}
-    </Button>
+    <>
+      <SharedReasonNotes reasons={reasons} />
+      <div className="ag-picture-actions" role="group" aria-label="Picture">
+        {ACTIONS.map(({ id, label }) => (
+          <NotedButton
+            key={id}
+            compact
+            reasonId={reasons.idOf(id)}
+            onPress={() => {
+              parts.run(id);
+            }}
+          >
+            {label}
+          </NotedButton>
+        ))}
+      </div>
+    </>
   );
 }
 
-/** What the panel says of the picture's own sound. */
+/** The control that extracts the picture's sound, with why it cannot beside it. */
+function ExtractSound({ parts }: { readonly parts: EditorPanelParts }): ReactNode {
+  return (
+    <ReasonedButton
+      reason={parts.unavailableReason('picture.extract-sound')}
+      onPress={() => {
+        parts.run('picture.extract-sound');
+      }}
+    >
+      Open its sound as an asset
+    </ReasonedButton>
+  );
+}
+
+/** What the panel says of the picture's own sound, and the control that extracts it. */
 function SoundNote({
   parts,
   state,
@@ -131,11 +198,16 @@ function SoundNote({
   const { sound } = state;
   switch (sound.kind) {
     case 'none':
-      return null;
+      return <ExtractSound parts={parts} />;
     case 'decoding':
       return <p className="ag-panel-note">Decoding the picture’s sound…</p>;
     case 'unavailable':
-      return <p className="ag-panel-note">{sound.reason}</p>;
+      return (
+        <>
+          <p className="ag-panel-note">{sound.reason}</p>
+          <ExtractSound parts={parts} />
+        </>
+      );
     case 'decoded': {
       const view = parts.stores.editorViews.get().focused;
       return (
@@ -188,15 +260,8 @@ function ReadyPicture({
           parts.run(`picture.frame-rate-${key}`);
         }}
       />
-      <div className="ag-picture-actions" role="group" aria-label="Picture">
-        {command(parts, 'picture.nudge-earlier', 'A frame earlier')}
-        {command(parts, 'picture.nudge-later', 'A frame later')}
-        {command(parts, 'picture.align-with-playhead', 'Line up with the playhead')}
-        {command(parts, 'picture.mark-frame', 'Marker at this frame')}
-        {command(parts, 'picture.bind-to-editor', 'Follow the editor in use')}
-        {command(parts, 'picture.full-screen', 'Full screen')}
-        {command(parts, 'picture.close', 'Close')}
-      </div>
+      <PictureActions parts={parts} />
+      <SoundNote parts={parts} state={state} />
     </>
   );
 }
@@ -214,7 +279,11 @@ export function PicturePanel({
   // Binding and marking a frame read the editor in use.
   useSyncExternalStore(parts.stores.editorViews.subscribe, parts.stores.editorViews.get);
   const asset = state.asset === undefined ? undefined : parts.assets.find(state.asset);
-  useFollowing(parts, state.media.kind === 'ready' ? asset : undefined);
+  useFollowing(
+    parts,
+    state.media.kind === 'ready' ? asset : undefined,
+    asset !== undefined && parts.stores.playing(asset.id),
+  );
   const { media } = state;
   const chooser = (
     <NotedFileButton
@@ -241,7 +310,6 @@ export function PicturePanel({
         </p>
       )}
       {media.kind === 'ready' && <ReadyPicture parts={parts} asset={asset} state={state} />}
-      <SoundNote parts={parts} state={state} />
     </section>
   );
 }

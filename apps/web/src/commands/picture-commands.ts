@@ -2,7 +2,8 @@
  * The reference picture's commands (REQ-AUDIO-156, ADR-0046): opening a file
  * beside the audio, binding it to an asset's timeline, the frame-rate
  * interpretation, calibrating its offset by frames or by lining a frame up with
- * the playhead, a marker at the frame shown, and full screen.
+ * the playhead, a marker at the frame shown, full screen, and its own sound
+ * opened as an asset.
  *
  * None changes the audio or its content except the marker, which is the marker
  * commands' own step and reverses as they do. The picture is reference media:
@@ -31,7 +32,7 @@ import { frameBoundary, pictureFrameAt, pictureTimecodeAt } from '@audiogubbins/
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { focusedEditor, playheadOf } from './editor-target.js';
 import { addedMarker, markerCommand } from './marker-commands.js';
-import { shellCommand, textArgument } from './shell-command.js';
+import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The frame rates offered, by what a person calls them, in the order offered. */
@@ -75,6 +76,20 @@ function needsPicture(context: ShellContext): CommandAvailability {
     : AVAILABLE;
 }
 
+/**
+ * The file whose sound can be extracted now, or why none can: a picture opened,
+ * whose sound is neither on its way nor open already, and that fits in the
+ * memory the page can spare.
+ */
+function soundSource(context: ShellContext): File | string {
+  const { media, sound } = context.picture.get();
+  const { file } = context.picture;
+  if (media.kind !== 'ready' || file === undefined) return 'No reference picture is open.';
+  if (sound.kind === 'decoding') return 'The picture’s sound is being extracted.';
+  if (sound.kind === 'decoded') return 'The picture’s sound is open as an asset already.';
+  return context.pictureSound.refusal(file, media.duration) ?? file;
+}
+
 function openCommand(): Command<ShellContext> {
   return shellCommand(
     'picture.open',
@@ -85,8 +100,8 @@ function openCommand(): Command<ShellContext> {
       const file = token === undefined ? undefined : context.chosenFiles.take(token);
       if (file === undefined) return 'Choose a video file in the Picture panel to open it.';
       const target = focusedEditor(context);
+      context.pictureSound.abandon();
       context.picture.open(file, typeof target === 'string' ? undefined : target.asset);
-      context.pictureSound.decode(file);
       context.interaction.announce(`Opening ${file.name} as the reference picture.`);
       return undefined;
     },
@@ -197,6 +212,34 @@ function calibrationCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
+/**
+ * Extracts the picture's sound as an asset. Asked for rather than done on
+ * opening, because the file is read whole and its sound held whole: it is
+ * weighed against the memory the page can spare first, and refused with the
+ * reason past it.
+ */
+function extractSoundCommand(): Command<ShellContext> {
+  return shellCommand(
+    'picture.extract-sound',
+    'Open the picture’s sound as an asset',
+    CommandCategory.File,
+    (context) => {
+      const file = soundSource(context);
+      if (typeof file === 'string') return file;
+      context.pictureSound.decode(file);
+      context.interaction.announce(`Extracting the sound of ${file.name}.`);
+      return undefined;
+    },
+    {
+      keywords: ['picture', 'video', 'sound', 'audio', 'extract', 'asset'],
+      availability: (context) => {
+        const file = soundSource(context);
+        return availableUnless(typeof file === 'string' ? file : undefined);
+      },
+    },
+  );
+}
+
 function fullScreenCommand(): Command<ShellContext> {
   return shellCommand(
     'picture.full-screen',
@@ -254,6 +297,7 @@ export function pictureCommands(): readonly Command<ShellContext>[] {
     ...bindingCommands(),
     ...frameRateCommands(),
     ...calibrationCommands(),
+    extractSoundCommand(),
     fullScreenCommand(),
     markFrameCommand(),
   ];

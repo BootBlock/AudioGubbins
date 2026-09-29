@@ -795,7 +795,7 @@ describe('finding the shell commands in the palette', () => {
     context: ShellContext,
   ): void {
     run('picture.open', { file: context.chosenFiles.offer(new File([], 'reference.webm')) });
-    context.picture.element.dispatchEvent(new Event('loadedmetadata'));
+    context.picture.element.dispatchEvent(new Event('loadeddata'));
   }
 
   /** Leaves a render waiting on the person's decision, as a warning makes one. */

@@ -160,6 +160,7 @@ const EDITOR_GROUPS: readonly {
       'picture.nudge-earlier',
       'picture.nudge-later',
       'picture.mark-frame',
+      'picture.extract-sound',
       'picture.full-screen',
       'picture.close',
     ],

@@ -9,13 +9,14 @@
  * root and lives as long as the page, so the element and its decoded state
  * outlast the panel that shows it, which the dock may remount.
  *
- * The picture follows the audio, never the reverse: each display frame, or
- * each presented video frame where the browser says when that is, the Picture
- * panel hands `follow` the audible position, and the binding's policy says
- * whether to seek. Playing, the element plays muted beside the transport and
- * is corrected when it drifts by more than a frame; parked, it shows exactly
- * the frame that holds the position. A file the browser cannot decode is
- * reported with the reason, and nothing about the audio changes.
+ * The picture follows the audio, never the reverse: each display frame while
+ * the transport plays, and each move of the playhead while it is parked, the
+ * Picture panel hands `follow` the audible position, and the binding's policy
+ * says whether to seek. Playing, the element plays muted beside the transport
+ * and is corrected when it is more than a frame out; parked, it shows exactly
+ * the frame that holds the position. A file the browser cannot decode, picture
+ * track included, is reported with the reason, and nothing about the audio
+ * changes.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -95,6 +96,14 @@ const MEDIA_ERRORS: Readonly<Record<number, string>> = {
   4: 'This browser cannot play this kind of video.',
 };
 
+/**
+ * Why a file that loaded shows nothing: a browser that can read a container but
+ * not its video codec, ProRes or MPEG-4 Part 2 in Chromium, plays the sound and
+ * reports a picture of no size rather than an error, as it does for a file with
+ * no picture at all.
+ */
+const NO_PICTURE = 'The browser cannot decode a picture in this file.';
+
 /** The reference picture. */
 export class ReferencePicture implements Observable<PictureState> {
   readonly #platform: PicturePlatform;
@@ -102,11 +111,19 @@ export class ReferencePicture implements Observable<PictureState> {
   readonly #state = observable<PictureState>(NOTHING);
   readonly #video: HTMLVideoElement;
   #url: string | undefined;
+  #file: File | undefined;
   #filmstrip: Filmstrip | undefined;
-  /** The media time of the frame the browser last said it presented. */
+  /** The timestamp of the frame the browser last said it presented. */
   #presented: number | undefined;
-  /** Where the element was last sent, so a seek on its way is not asked for again. */
-  #seekingTo: number | undefined;
+  /** The browser's handle on the frame callback waiting, cancelled with the file. */
+  #frameRequest: number | undefined;
+  /**
+   * Where the element was last sent. A parked picture is not sent there again:
+   * whatever frame the file has for that time is the one it can show, so asking
+   * again would only seek for ever. Forgotten once the element plays, which
+   * moves it.
+   */
+  #sought: number | undefined;
 
   constructor(options: { readonly platform: PicturePlatform; readonly logger: Logger }) {
     this.#platform = options.platform;
@@ -115,11 +132,10 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#video.muted = true;
     this.#video.preload = 'auto';
     this.#video.playsInline = true;
-    this.#video.addEventListener('loadedmetadata', this.#loaded);
+    // Loaded data rather than metadata, because only with a frame to show has
+    // the browser found whether it can decode the picture.
+    this.#video.addEventListener('loadeddata', this.#loaded);
     this.#video.addEventListener('error', this.#failed);
-    this.#video.addEventListener('seeked', () => {
-      this.#seekingTo = undefined;
-    });
   }
 
   readonly get = (): PictureState => this.#state.get();
@@ -128,6 +144,11 @@ export class ReferencePicture implements Observable<PictureState> {
   /** The element the Picture panel shows. */
   get element(): HTMLVideoElement {
     return this.#video;
+  }
+
+  /** The file the picture was opened from, while it is open. */
+  get file(): File | undefined {
+    return this.#file;
   }
 
   /** The thumbnails of the picture open, for an editor view's picture strip. */
@@ -140,8 +161,9 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#release();
     const url = this.#platform.createUrl(file);
     this.#url = url;
+    this.#file = file;
     this.#presented = undefined;
-    this.#seekingTo = undefined;
+    this.#sought = undefined;
     this.#state.set({
       media: { kind: 'loading', name: file.name },
       sound: { kind: 'none' },
@@ -203,11 +225,16 @@ export class ReferencePicture implements Observable<PictureState> {
     );
   }
 
-  /** What the element presents now: its frame's media time, and the file's length. */
+  /**
+   * What the element presents now: its frame's timestamp, or its current time
+   * until the browser says which frame a seek presented, and the file's length.
+   */
   presented(): PresentedPicture | undefined {
     const { media } = this.#state.get();
     if (media.kind !== 'ready') return undefined;
-    return { mediaTime: this.#presented ?? this.#video.currentTime, duration: media.duration };
+    return this.#presented === undefined
+      ? { mediaTime: this.#video.currentTime, stamped: false, duration: media.duration }
+      : { mediaTime: this.#presented, stamped: true, duration: media.duration };
   }
 
   /**
@@ -221,10 +248,13 @@ export class ReferencePicture implements Observable<PictureState> {
     if (binding === undefined || presented === undefined) return;
     const correction = pictureCorrection(binding, position, presented, motion);
     const shouldPlay = motion === 'playing' && correction.kind !== 'no-picture';
-    if (shouldPlay && this.#video.paused) void this.#play();
+    if (shouldPlay && this.#video.paused) {
+      this.#sought = undefined;
+      void this.#play();
+    }
     if (!shouldPlay && !this.#video.paused) this.#video.pause();
-    if (correction.kind === 'seek' && this.#seekingTo !== correction.to) {
-      this.#seekingTo = correction.to;
+    if (correction.kind === 'seek' && this.#sought !== correction.to) {
+      this.#sought = correction.to;
       this.#presented = undefined;
       this.#video.currentTime = correction.to;
     }
@@ -268,58 +298,70 @@ export class ReferencePicture implements Observable<PictureState> {
     }
   }
 
+  /**
+   * Follows the frames the browser presents, one callback at a time: each asks
+   * for the next, and the one waiting is cancelled with the file, since a
+   * callback waiting on the element outlives a change of its source.
+   */
   #watchFrames(): void {
     const watch = (): void => {
-      this.#video.requestVideoFrameCallback((_now, metadata) => {
+      this.#frameRequest = this.#video.requestVideoFrameCallback((_now, metadata) => {
         this.#presented = metadata.mediaTime;
-        if (this.#url !== undefined) watch();
+        watch();
       });
     };
     watch();
   }
 
   readonly #loaded = (): void => {
-    this.#state.update((current) =>
-      current.media.kind === 'loading'
-        ? {
-            ...current,
-            media: {
-              kind: 'ready',
-              name: current.media.name,
-              duration: this.#video.duration,
-              width: this.#video.videoWidth,
-              height: this.#video.videoHeight,
-            },
-          }
-        : current,
-    );
+    const { media } = this.#state.get();
+    if (media.kind !== 'loading') return;
+    const { duration, videoWidth: width, videoHeight: height } = this.#video;
+    if (width === 0 || height === 0) {
+      this.#undecodable(media.name, NO_PICTURE);
+      return;
+    }
+    this.#state.update((current) => ({
+      ...current,
+      media: { kind: 'ready', name: media.name, duration, width, height },
+    }));
   };
 
   readonly #failed = (): void => {
     const { media } = this.#state.get();
     if (media.kind !== 'loading' && media.kind !== 'ready') return;
     const code = this.#video.error?.code;
-    const reason =
+    this.#undecodable(
+      media.name,
       (code === undefined ? undefined : MEDIA_ERRORS[code]) ??
-      'The browser could not open this video.';
+        'The browser could not open this video.',
+    );
+  };
+
+  #undecodable(name: string, reason: string): void {
     this.#logger.warning('A reference picture could not be decoded.', { reason });
     this.#release();
     this.#state.update((current) => ({
       ...current,
-      media: { kind: 'undecodable', name: media.name, reason },
+      media: { kind: 'undecodable', name, reason },
       binding: undefined,
     }));
-  };
+  }
 
   #release(): void {
     this.#filmstrip?.close();
     this.#filmstrip = undefined;
+    if (this.#frameRequest !== undefined) {
+      this.#video.cancelVideoFrameCallback(this.#frameRequest);
+      this.#frameRequest = undefined;
+    }
     if (this.#url === undefined) return;
     this.#video.pause();
     this.#video.removeAttribute('src');
     this.#video.load();
     this.#platform.revokeUrl(this.#url);
     this.#url = undefined;
+    this.#file = undefined;
   }
 
   /** Records what became of the picture's own sound. */

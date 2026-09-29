@@ -3,6 +3,10 @@
  * (REQ-AUDIO-156's extraction of embedded audio "where technically
  * practical"), so it can be opened in an editor view beside the picture.
  *
+ * Extracted only when the person asks, and only within the memory the page can
+ * spare ({@link soundRefusal}): the file is read whole and its sound held
+ * whole, so opening a picture never costs either.
+ *
  * The browser decodes it, at the rate it is asked for: a browser gives
  * decoded audio at its decoder's rate rather than the file's, so the rate is
  * stated, 48 kHz, and the asset says it was converted. Its audio is held in
@@ -11,6 +15,7 @@
  * browser cannot decode, is said with the reason; the picture is unaffected.
  */
 
+import type { ResourceFigures } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
 import {
   StandardLayouts,
@@ -26,6 +31,7 @@ import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import { revisionOf, type EditorAsset } from '../assets/editor-asset.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ReferencePicture } from './reference-picture.js';
+import { soundBound, soundRefusal } from './sound-bound.js';
 
 /** The rate the browser is asked to decode a picture's sound at. */
 export const PICTURE_SOUND_RATE = 48_000;
@@ -35,8 +41,45 @@ export interface DecodedSound {
   readonly channels: readonly Float32Array[];
 }
 
-/** Decodes a file's sound, or says why it could not. */
-export type DecodeSound = (bytes: ArrayBuffer) => Promise<DecodedSound | string>;
+/**
+ * Decodes a file's sound, or says why it could not, reading no further once
+ * `signal` abandons it.
+ */
+export type DecodeSound = (file: Blob, signal: AbortSignal) => Promise<DecodedSound | string>;
+
+/**
+ * Reads `stream`, of `size` bytes, into one buffer of that size, cancelling the
+ * read as soon as `signal` abandons it rather than reading the rest of a file
+ * nobody wants. Throws the signal's reason once abandoned.
+ */
+export async function readWhole(
+  stream: ReadableStream<Uint8Array>,
+  size: number,
+  signal: AbortSignal,
+): Promise<ArrayBuffer> {
+  signal.throwIfAborted();
+  const bytes = new Uint8Array(size);
+  const reader = stream.getReader();
+  const stop = (): void => {
+    void reader.cancel(signal.reason);
+  };
+  signal.addEventListener('abort', stop, { once: true });
+  try {
+    let at = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      signal.throwIfAborted();
+      if (done) break;
+      if (at + value.length > size) throw new Error('The file grew while it was read.');
+      bytes.set(value, at);
+      at += value.length;
+    }
+    if (at !== size) throw new Error('The file shrank while it was read.');
+    return bytes.buffer;
+  } finally {
+    signal.removeEventListener('abort', stop);
+  }
+}
 
 function layoutFor(channels: number): DomainResult<ChannelLayout> {
   if (channels === 1) return succeed(StandardLayouts.mono);
@@ -75,10 +118,11 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
 }
 
 /**
- * Decodes the sound of `file` and adds it to the catalogue, telling the
- * picture how it went. `signal` abandons it where another picture is opened.
+ * Decodes the sound of `file` and adds it to the catalogue, telling the picture
+ * how it went. `signal` abandons it where the picture is closed or another is
+ * opened.
  */
-export async function decodePictureSound(options: {
+async function decodePictureSound(options: {
   readonly file: File;
   readonly decode: DecodeSound;
   readonly picture: ReferencePicture;
@@ -90,9 +134,10 @@ export async function decodePictureSound(options: {
   picture.soundIs({ kind: 'decoding' });
   let decoded: DecodedSound | string;
   try {
-    decoded = await decode(await file.arrayBuffer());
+    decoded = await decode(file, signal);
   } catch (error) {
-    // A file removed after it was chosen, or one the browser will not read.
+    // A file removed after it was chosen, or one the browser will not read; or
+    // the read abandoned, which the signal says below.
     decoded = `The picture’s sound could not be read: ${error instanceof Error ? error.message : String(error)}`;
   }
   if (signal.aborted) return;
@@ -106,16 +151,35 @@ export async function decodePictureSound(options: {
   picture.soundIs({ kind: 'decoded', asset: asset.id });
 }
 
-/** Decodes each picture's sound as it is opened, abandoning the one before. */
+/** What the decoder of pictures' sound is made with. */
+type DecoderOptions = Omit<Parameters<typeof decodePictureSound>[0], 'file' | 'signal'> & {
+  /** What the page has left, measured when each extraction is weighed, since it moves. */
+  readonly resources: () => ResourceFigures;
+};
+
+/** Decodes a picture's sound when asked, within the page's memory, one at a time. */
 export class PictureSoundDecoder {
-  readonly #options: Omit<Parameters<typeof decodePictureSound>[0], 'file' | 'signal'>;
+  readonly #options: DecoderOptions;
   #current: AbortController | undefined;
 
-  constructor(options: Omit<Parameters<typeof decodePictureSound>[0], 'file' | 'signal'>) {
+  constructor(options: DecoderOptions) {
     this.#options = options;
   }
 
-  /** Decodes the sound of `file`. */
+  /**
+   * Why the sound of `file`, lasting `duration` seconds, cannot be extracted in
+   * the memory the page can spare now, or `undefined` when it can.
+   */
+  refusal(file: Blob, duration: number): string | undefined {
+    return soundRefusal(
+      file.size,
+      duration,
+      PICTURE_SOUND_RATE,
+      soundBound(this.#options.resources()),
+    );
+  }
+
+  /** Decodes the sound of `file`, abandoning any decoding before. */
   decode(file: File): void {
     this.#current?.abort();
     const controller = new AbortController();

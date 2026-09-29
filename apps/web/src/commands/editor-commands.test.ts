@@ -11,6 +11,7 @@ import {
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { SelectionFacet, activeFacet, pixelOf } from '@audiogubbins/timeline';
 
+import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import type { ShellContext } from './shell-context.js';
@@ -287,7 +288,7 @@ describe('the reference picture', () => {
   it('marks the frame the playhead is in, named by its timecode', () => {
     openView('editor', 'test:loop');
     run('picture.open', { file: context.chosenFiles.offer(new File([], 'reference.webm')) });
-    context.picture.element.dispatchEvent(new Event('loadedmetadata'));
+    context.picture.element.dispatchEvent(new Event('loadeddata'));
     run('editor.set-playhead', { position: 48_000 + 100 });
 
     run('picture.mark-frame');
@@ -314,5 +315,89 @@ describe('the reference picture', () => {
       reason: 'This browser cannot play this kind of video.',
     });
     expect(run('picture.mark-frame').kind).toBe('refused');
+  });
+});
+
+describe("the reference picture's sound (REQ-EXEC-216)", () => {
+  /** What the decoder was asked, and a sound of two channels it answers each time. */
+  const asked: { file: Blob; signal: AbortSignal }[] = [];
+
+  const decode: DecodeSound = (file, signal) => {
+    asked.push({ file, signal });
+    return Promise.resolve({ channels: [new Float32Array(480), new Float32Array(480)] });
+  };
+
+  /** The picture's sound decoded by `decode`, in a page with `available` bytes to spare. */
+  function soundIn(available: number | undefined): void {
+    asked.length = 0;
+    context = {
+      ...context,
+      pictureSound: new PictureSoundDecoder({
+        decode,
+        picture: context.picture,
+        catalogue: context.assets,
+        logger: createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor'),
+        resources: () => ({ availableMemoryBytes: available }),
+      }),
+    };
+  }
+
+  /** Opens a picture of ten seconds, as the fake element reports. */
+  function openPicture(): void {
+    openView('editor', 'test:loop');
+    run('picture.open', { file: context.chosenFiles.offer(new File([], 'reel.webm')) });
+    context.picture.element.dispatchEvent(new Event('loadeddata'));
+  }
+
+  it('reads nothing of the sound when a picture is opened', () => {
+    soundIn(undefined);
+    openPicture();
+
+    expect(asked).toEqual([]);
+    expect(context.picture.get().sound).toEqual({ kind: 'none' });
+  });
+
+  it('opens the sound as an asset when asked, within the memory the page can spare', async () => {
+    soundIn(undefined);
+    openPicture();
+
+    expect(run('picture.extract-sound').kind).toBe('applied');
+    expect(asked.map(({ file }) => file)).toEqual([context.picture.file]);
+    await Promise.resolve();
+
+    const { sound } = context.picture.get();
+    expect(sound.kind).toBe('decoded');
+    expect(sound.kind === 'decoded' && context.assets.find(sound.asset)?.name).toBe(
+      'Sound of reel.webm',
+    );
+  });
+
+  it('refuses before reading anything when the sound would need more than the page can spare', () => {
+    // Ten seconds in eight channels is 15 MB; a quarter of 40 MB is 10 MB.
+    soundIn(40e6);
+    openPicture();
+
+    const result = run('picture.extract-sound');
+
+    expect(result.kind).toBe('refused');
+    expect(result.kind === 'refused' && result.failures[0].summary).toContain(
+      'This page can spare 10 MB for it.',
+    );
+    expect(asked).toEqual([]);
+  });
+
+  it('abandons the sound being extracted when the picture is closed', async () => {
+    soundIn(undefined);
+    openPicture();
+    run('picture.extract-sound');
+
+    run('picture.close');
+    await Promise.resolve();
+
+    expect(asked[0]?.signal.aborted).toBe(true);
+    expect(context.assets.get().assets.map((asset) => asset.name)).not.toContain(
+      'Sound of reel.webm',
+    );
+    expect(context.picture.get().sound).toEqual({ kind: 'none' });
   });
 });

@@ -69,32 +69,85 @@ describe('binding picture to the media clock', () => {
 });
 
 describe('keeping the picture with the audio', () => {
-  const shown = (mediaTime: number) => ({ mediaTime, duration: 60 });
+  const THIRTY = bindingAtStart(RATE, StandardFrameRates.thirty);
+  const NTSC = bindingAtStart(RATE, StandardFrameRates.ntscNonDrop);
+  /** A frame the element presents, stamped with its timestamp as the frame callback gives it. */
+  const stamped = (mediaTime: number) => ({ mediaTime, stamped: true, duration: 60 });
+  /** The element's current time, where the browser has no frame callback. */
+  const current = (mediaTime: number) => ({ mediaTime, stamped: false, duration: 60 });
+  /** Frame `frame`'s timestamp as a container keeps it, in whole milliseconds. */
+  const stampOf = (frame: number, fps: number, keep: (ms: number) => number) =>
+    keep((frame / fps) * 1000) / 1000;
 
-  it('leaves playing picture alone within one frame of the audio, and seeks it beyond', () => {
-    const position = 48_000 * 10;
-    expect(pictureCorrection(PAL, position, shown(10.039), 'playing')).toEqual({ kind: 'in-sync' });
-    expect(pictureCorrection(PAL, position, shown(9.961), 'playing')).toEqual({ kind: 'in-sync' });
-    expect(pictureCorrection(PAL, position, shown(10.041), 'playing')).toEqual({
-      kind: 'seek',
-      to: 10,
-    });
-    expect(pictureDrift(PAL, position, shown(9.9))).toBeCloseTo(0.1, 10);
+  it('knows each frame by its millisecond timestamp, rounded either way, at 30 and 29.97', () => {
+    for (const [binding, fps] of [
+      [THIRTY, 30],
+      [NTSC, 30_000 / 1001],
+    ] as const) {
+      for (const keep of [Math.floor, Math.round]) {
+        for (let frame = 1; frame < 120; frame += 1) {
+          const shown = stamped(stampOf(frame, fps, keep));
+          const inside = frameBoundary(binding, frame) + 1;
+          expect(pictureCorrection(binding, inside, shown, 'parked')).toEqual({ kind: 'in-sync' });
+          expect(pictureCorrection(binding, inside - 2, shown, 'parked')).toEqual({
+            kind: 'seek',
+            to: seekTimeFor(binding, frame - 1),
+          });
+        }
+      }
+    }
   });
 
-  it('shows exactly the frame a parked position falls in', () => {
+  it('moves a parked picture back a frame, from a frame stamped before its start', () => {
+    // Frame 4 at 30 fps starts at 0.1333 s, and WebM keeps it as 0.133; 5,280
+    // is 0.11 s, in frame 3.
+    expect(pictureCorrection(THIRTY, 5280, stamped(0.133), 'parked')).toEqual({
+      kind: 'seek',
+      to: seekTimeFor(THIRTY, 3),
+    });
+    expect(pictureCorrection(THIRTY, frameBoundary(THIRTY, 4), stamped(0.133), 'parked')).toEqual({
+      kind: 'in-sync',
+    });
+  });
+
+  it('leaves playing picture alone within one frame of the frame that should show', () => {
+    // 7,997 is 0.1666 s, late in frame 4, which shows, stamped 0.133.
+    expect(pictureCorrection(THIRTY, 7997, stamped(0.133), 'playing')).toEqual({
+      kind: 'in-sync',
+    });
+    const position = frameBoundary(PAL, 250) + 1900;
+    expect(pictureCorrection(PAL, position, stamped(9.96), 'playing')).toEqual({ kind: 'in-sync' });
+    expect(pictureCorrection(PAL, position, stamped(10.04), 'playing')).toEqual({
+      kind: 'in-sync',
+    });
+    expect(pictureDrift(PAL, position, stamped(9.92))).toBe(2);
+    expect(pictureCorrection(PAL, position, stamped(9.92), 'playing')).toEqual({
+      kind: 'seek',
+      to: position / 48_000,
+    });
+    expect(pictureCorrection(PAL, position, stamped(10.08), 'playing')).toMatchObject({
+      kind: 'seek',
+    });
+  });
+
+  it('shows exactly the frame a parked position falls in, by the element time without a frame callback', () => {
     const position = frameBoundary(PAL, 250) + 10;
-    expect(pictureCorrection(PAL, position, shown(10.001), 'parked')).toEqual({ kind: 'in-sync' });
-    expect(pictureCorrection(PAL, position, shown(10.041), 'parked')).toEqual({
+    expect(pictureCorrection(PAL, position, current(seekTimeFor(PAL, 250)), 'parked')).toEqual({
+      kind: 'in-sync',
+    });
+    expect(pictureCorrection(PAL, position, current(10.041), 'parked')).toEqual({
       kind: 'seek',
       to: seekTimeFor(PAL, 250),
+    });
+    expect(pictureCorrection(PAL, position, current(10.039), 'playing')).toEqual({
+      kind: 'in-sync',
     });
   });
 
   it('shows no picture before its first frame or after its last', () => {
     const late = { ...PAL, offset: 48_000 };
-    expect(pictureCorrection(late, 100, shown(0), 'parked')).toEqual({ kind: 'no-picture' });
-    expect(pictureCorrection(PAL, 48_000 * 61, shown(0), 'playing')).toEqual({
+    expect(pictureCorrection(late, 100, stamped(0), 'parked')).toEqual({ kind: 'no-picture' });
+    expect(pictureCorrection(PAL, 48_000 * 61, stamped(0), 'playing')).toEqual({
       kind: 'no-picture',
     });
   });
