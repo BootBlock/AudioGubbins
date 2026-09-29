@@ -33,6 +33,9 @@
  *                   backends; depends on domain, reads no global (ADR-0044)
  *   video-reference picture bound to the media clock, frame arithmetic and
  *                   sync; depends on domain + timeline (ADR-0046)
+ *   editor-view     one view as values: state, lanes, tools, hit testing,
+ *                   snapping and frame composition; depends on domain, input,
+ *                   timeline, waveform and renderer (ADR-0040)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -123,7 +126,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|domain|commands|input|renderer|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|domain|commands|editor-view|input|renderer|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -214,6 +217,18 @@ module.exports = {
         'whose positions and frame rates it is written in.',
       from: { path: '^packages/video-reference/' },
       to: { path: '^packages/(?!(video-reference|timeline|domain)/)' },
+    },
+    {
+      name: 'editor-view-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'A view composes frames from state and turns pointer input into intents the application ' +
+        'carries out through commands (ADR-0040). It depends on the packages it is drawn from and ' +
+        'knows no command, storage or interface package.',
+      from: { path: '^packages/editor-view/' },
+      to: {
+        path: '^packages/(?!(editor-view|domain|input|timeline|waveform|renderer)/)',
+      },
     },
     {
       name: 'input-owns-nothing-else',

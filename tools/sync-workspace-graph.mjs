@@ -313,6 +313,27 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // One editor view as values: presentation state, lanes, hit testing, the
+    // tools' interpretation of a pointer, snap targets and the composition of
+    // a render frame (ADR-0040). No framework and no browser global.
+    dir: 'packages/editor-view',
+    name: '@audiogubbins/editor-view',
+    description:
+      'One editor view as values: its presentation state, lanes, tools, hit testing, snapping and the frames it draws.',
+    dom: true,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/input',
+      '@audiogubbins/timeline',
+      '@audiogubbins/waveform',
+      '@audiogubbins/renderer',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

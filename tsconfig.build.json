@@ -66,6 +66,9 @@
       "path": "./packages/video-reference/scopes/any"
     },
     {
+      "path": "./packages/editor-view"
+    },
+    {
       "path": "./packages/commands"
     },
     {

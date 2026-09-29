@@ -11,6 +11,7 @@ Published paths
   @audiogubbins/diagnostics
   @audiogubbins/domain
   @audiogubbins/domain/testing
+  @audiogubbins/editor-view
   @audiogubbins/input
   @audiogubbins/input/testing
   @audiogubbins/renderer
@@ -1516,6 +1517,160 @@ Published paths
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
 
+@audiogubbins/editor-view
+  const AMPLITUDES: readonly number[]
+  const DEFAULT_OVERLAYS: Overlays
+  const DisplayMode: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Stacked: "stacked"; readonly Overlay: "overlay"; }
+  type DisplayMode = "overlay" | "spectrogram" | "stacked" | "waveform"
+  interface EditorPalette
+  readonly EditorPalette.background: Colour
+  readonly EditorPalette.laneSeparator: Colour
+  readonly EditorPalette.centreLine: Colour
+  readonly EditorPalette.peak: Colour
+  readonly EditorPalette.rms: Colour
+  readonly EditorPalette.clipped: Colour
+  readonly EditorPalette.pending: Colour
+  readonly EditorPalette.grid: Colour
+  readonly EditorPalette.rulerBackground: Colour
+  readonly EditorPalette.rulerTick: Colour
+  readonly EditorPalette.text: Colour
+  readonly EditorPalette.quietText: Colour
+  readonly EditorPalette.selectionFill: Colour
+  readonly EditorPalette.inactiveSelectionFill: Colour
+  readonly EditorPalette.selectionBorder: Colour
+  readonly EditorPalette.playhead: Colour
+  readonly EditorPalette.marker: Colour
+  readonly EditorPalette.selectedMarker: Colour
+  readonly EditorPalette.region: Colour
+  readonly EditorPalette.loop: Colour
+  readonly EditorPalette.snap: Colour
+  readonly EditorPalette.spectrogramBackground: Colour
+  interface EditorType
+  readonly EditorType.label: string
+  readonly EditorType.small: string
+  interface EditorViewState
+  readonly EditorViewState.viewport: ViewportState
+  readonly EditorViewState.displayMode: DisplayMode
+  readonly EditorViewState.tool: ToolId
+  readonly EditorViewState.hiddenChannels: readonly number[]
+  readonly EditorViewState.amplitude: number
+  readonly EditorViewState.overlays: Overlays
+  readonly EditorViewState.snapping: SnapSettings
+  readonly EditorViewState.timeFormat: TimeFormat
+  readonly EditorViewState.follow: FollowMode
+  readonly EditorViewState.spectral: SpectralSettings
+  const FollowMode: { readonly Off: "off"; readonly Page: "page"; readonly Centre: "centre"; }
+  type FollowMode = "centre" | "off" | "page"
+  class FrameComposer
+  new FrameComposer(): FrameComposer
+  readonly FrameComposer.#pool: BuilderPool
+  readonly FrameComposer.#waveform: WaveformPainter
+  FrameComposer.compose: (scene: ViewScene) => RenderFrame
+  FrameComposer.#above: (scene: ViewScene, style: OverlayStyle) => RenderLayer[]
+  FrameComposer.#lane: (lane: Lane, scene: ViewScene, style: OverlayStyle) => RenderBatch[]
+  FrameComposer.#spectrogramShell: (lane: Lane, scene: ViewScene, out: RenderBatch[]) => void
+  interface HitScene
+  readonly HitScene.layout: ViewLayout
+  readonly HitScene.viewport: ViewportState
+  readonly HitScene.markers: readonly Marker[]
+  readonly HitScene.selection: BoundaryRange | undefined
+  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
+  const IDLE: Interaction
+  type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; }
+  interface KnownAudio
+  readonly KnownAudio.pyramid: WaveformPeakPyramid | undefined
+  readonly KnownAudio.samples: SampleWindow | undefined
+  readonly KnownAudio.length: SampleCount
+  interface Lane
+  readonly Lane.channel: number
+  readonly Lane.kind: LaneKind
+  readonly Lane.area: Rectangle
+  const LaneKind: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Overlay: "overlay"; }
+  type LaneKind = "overlay" | "spectrogram" | "waveform"
+  interface Overlays
+  readonly Overlays.grid: boolean
+  readonly Overlays.rms: boolean
+  readonly Overlays.clipping: boolean
+  readonly Overlays.markers: boolean
+  readonly Overlays.regions: boolean
+  readonly Overlays.filmstrip: boolean
+  const REACH: Readonly<Record<PointerKind, number>>
+  const SPECTROGRAM_SHELL_NOTE: "The spectrogram is drawn by spectral analysis, which arrives with spectral editing."
+  interface SnapSources
+  readonly SnapSources.markers: readonly Marker[]
+  readonly SnapSources.regions: readonly Region[]
+  readonly SnapSources.playhead: SampleCount | undefined
+  readonly SnapSources.selection: BoundaryRange | undefined
+  readonly SnapSources.grid: readonly SampleCount[]
+  readonly SnapSources.frames: readonly number[]
+  readonly SnapSources.zeroCrossing: SampleCount | undefined
+  interface SpectralSettings
+  readonly SpectralSettings.frequencyScale: "linear" | "logarithmic"
+  readonly SpectralSettings.lowest: number
+  readonly SpectralSettings.highest: number
+  interface ToolContext
+  readonly ToolContext.tool: ToolId
+  readonly ToolContext.panning: boolean
+  readonly ToolContext.hit: HitTarget
+  readonly ToolContext.selection: BoundaryRange | undefined
+  readonly ToolContext.visibleChannels: readonly number[]
+  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; }
+  type ToolId = "hand" | "marker" | "razor" | "select" | "time-select" | "zoom"
+  interface ToolInput
+  readonly ToolInput.x: number
+  readonly ToolInput.y: number
+  readonly ToolInput.pointer: PointerKind
+  readonly ToolInput.boundary: SampleCount
+  readonly ToolInput.channel: number | undefined
+  readonly ToolInput.shift: boolean
+  readonly ToolInput.alt: boolean
+  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
+  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
+  interface ToolStep
+  readonly ToolStep.interaction: Interaction
+  readonly ToolStep.preview: ToolPreview | undefined
+  readonly ToolStep.intents: readonly ToolIntent[]
+  interface ViewContent
+  readonly ViewContent.length: SampleCount
+  readonly ViewContent.channelNames: readonly string[]
+  readonly ViewContent.markers: readonly Marker[]
+  readonly ViewContent.regions: readonly Region[]
+  interface ViewLayout
+  readonly ViewLayout.width: number
+  readonly ViewLayout.height: number
+  readonly ViewLayout.ruler: Rectangle
+  readonly ViewLayout.strip: Rectangle
+  readonly ViewLayout.picture: Rectangle | undefined
+  readonly ViewLayout.lanes: readonly Lane[]
+  interface ViewScene
+  readonly ViewScene.layout: ViewLayout
+  readonly ViewScene.state: EditorViewState
+  readonly ViewScene.pixelRatio: number
+  readonly ViewScene.content: ViewContent
+  readonly ViewScene.audio: KnownAudio
+  readonly ViewScene.selection: SelectionSet
+  readonly ViewScene.playhead: SampleCount | undefined
+  readonly ViewScene.preview: ToolPreview | undefined
+  readonly ViewScene.snap: SnapTarget | undefined
+  readonly ViewScene.ruler: RulerTicks
+  readonly ViewScene.grid: readonly SampleCount[] | undefined
+  readonly ViewScene.picture: readonly PlacedImage[]
+  readonly ViewScene.palette: EditorPalette
+  readonly ViewScene.type: EditorType
+  function effectiveTool(context: ToolContext): ToolId
+  function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
+  function laneAt(layout: ViewLayout, y: number): Lane | undefined
+  function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
+  function move(interaction: Interaction, input: ToolInput): ToolStep
+  function newViewState(length: SampleCount, width: number): EditorViewState
+  function press(context: ToolContext, input: ToolInput): ToolStep
+  function release(interaction: Interaction, input: ToolInput): ToolStep
+  function snapInView(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, viewport: ViewportState): SnapResult
+  function snapTargetsOf(sources: SnapSources): readonly SnapTarget[]
+  function visibleChannels(state: EditorViewState, channelCount: number): readonly number[]
+  function withAmplitudeStep(state: EditorViewState, steps: number): EditorViewState
+  function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState
+
 @audiogubbins/input
   const DEFAULT_GESTURE_SETTINGS: GestureSettings
   type Gesture = { readonly kind: "context"; readonly at: PointerSample; } | { readonly kind: "idle"; } | { readonly kind: "pan"; readonly dx: number; readonly dy: number; } | { readonly kind: "tool"; readonly at: PointerSample; } | { readonly kind: "zoom"; readonly scale: number; readonly centreX: number; readonly centreY: number; }
@@ -2491,6 +2646,64 @@ packages/design-system/src/primitives/overlays.tsx
   readonly DropdownMenuProps.trigger: ReactNode
   readonly DropdownMenuProps.groups: readonly MenuGroup[]
   readonly DropdownMenuProps.label: string
+
+packages/editor-view/src/batch-buffers.ts
+  class BuilderPool
+  new BuilderPool(): BuilderPool
+  readonly BuilderPool.#rectangles: RectangleBuilder[]
+  readonly BuilderPool.#segments: SegmentBuilder[]
+  BuilderPool.#nextRectangle: number
+  BuilderPool.#nextSegment: number
+  BuilderPool.reset: () => void
+  BuilderPool.rectangles: (colour: Colour) => RectangleBuilder
+  BuilderPool.segments: (colour: Colour, width: number) => SegmentBuilder
+  class Quads
+  new Quads(): Quads
+  Quads.#values: Float32Array<ArrayBuffer>
+  Quads.#count: number
+  Quads.count: number
+  Quads.values: Float32Array<ArrayBufferLike>
+  Quads.reset: () => void
+  Quads.push: (a: number, b: number, c: number, d: number) => void
+  class RectangleBuilder
+  new RectangleBuilder(colour: Colour): RectangleBuilder
+  readonly RectangleBuilder.#quads: Quads
+  RectangleBuilder.colour: Colour
+  RectangleBuilder.reset: (colour: Colour) => void
+  RectangleBuilder.add: (x: number, y: number, width: number, height: number) => void
+  RectangleBuilder.batch: () => RectangleBatch
+  class SegmentBuilder
+  new SegmentBuilder(colour: Colour, width: number): SegmentBuilder
+  readonly SegmentBuilder.#quads: Quads
+  SegmentBuilder.colour: Colour
+  SegmentBuilder.width: number
+  SegmentBuilder.reset: (colour: Colour, width: number) => void
+  SegmentBuilder.add: (x0: number, y0: number, x1: number, y1: number) => void
+  SegmentBuilder.batch: () => SegmentBatch
+
+packages/editor-view/src/ruler-drawing.ts
+  interface OverlayStyle
+  readonly OverlayStyle.viewport: ViewportState
+  readonly OverlayStyle.pixelRatio: number
+  readonly OverlayStyle.palette: EditorPalette
+  readonly OverlayStyle.type: EditorType
+
+packages/editor-view/src/waveform-drawing.ts
+  class WaveformPainter
+  new WaveformPainter(): WaveformPainter
+  WaveformPainter.#columns: ColumnPeaks
+  WaveformPainter.#columnsFor: (count: number) => ColumnPeaks
+  WaveformPainter.draw: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, out: RenderBatch[]) => void
+  WaveformPainter.#drawColumns: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  WaveformPainter.#drawKnown: (pool: BuilderPool, lane: Lane, columns: ColumnPeaks, span: ColumnSpan, length: number, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  WaveformPainter.#drawSamples: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  interface WaveformStyle
+  readonly WaveformStyle.viewport: ViewportState
+  readonly WaveformStyle.pixelRatio: number
+  readonly WaveformStyle.amplitude: number
+  readonly WaveformStyle.rms: boolean
+  readonly WaveformStyle.clipping: boolean
+  readonly WaveformStyle.palette: EditorPalette
 
 packages/waveform/src/peak-host.ts
   interface Shared
