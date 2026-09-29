@@ -26,6 +26,20 @@ function exists(host: object | undefined, name: string): boolean {
 }
 
 /**
+ * Whether the page can open an IndexedDB database. A browser with IndexedDB
+ * turned off still names it, as `null`, which the DOM's types do not allow
+ * for, so it is read as a value of no type.
+ */
+function opensDatabases(): boolean {
+  const factory: unknown = Reflect.get(window, 'indexedDB');
+  return (
+    typeof factory === 'object' &&
+    factory !== null &&
+    typeof Reflect.get(factory, 'open') === 'function'
+  );
+}
+
+/**
  * Asks a question of the browser that may throw instead of answering.
  *
  * A hardened or privacy-focused browser may make reading a property raise
@@ -160,7 +174,7 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     // Safari on an iPhone has the method on no element but a video, and a
     // frame without the permission refuses every request.
     hasFullscreen: safely(() => document.fullscreenEnabled),
-    hasIndexedDb: safely(() => typeof indexedDB === 'object'),
+    hasIndexedDb: safely(opensDatabases),
   };
 }
 

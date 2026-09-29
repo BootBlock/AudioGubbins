@@ -4,6 +4,7 @@ import {
   indexedDbPeakCache,
   type PeakDatabase,
   type PeakDatabaseFactory,
+  type PeakTransaction,
   type Requested,
 } from './peak-cache-store.js';
 
@@ -32,27 +33,65 @@ class Request<T> extends EventTarget implements Requested<T> {
   }
 }
 
+/** A transaction that commits, or aborts at its commit, once a request of it has answered. */
+class Transaction extends EventTarget implements PeakTransaction {
+  error: DOMException | null = null;
+  readonly #store: Map<string, unknown>;
+  readonly #abortsAtCommit: boolean;
+
+  constructor(store: Map<string, unknown>, abortsAtCommit: boolean) {
+    super();
+    this.#store = store;
+    this.#abortsAtCommit = abortsAtCommit;
+  }
+
+  objectStore() {
+    const store = this.#store;
+    const commit = (): void => {
+      this.#commit();
+    };
+    return {
+      get: (key: string) => new Request(() => store.get(key), false, commit),
+      put: (value: unknown, key: string) =>
+        new Request(
+          () => {
+            if (!this.#abortsAtCommit) store.set(key, value);
+            return key;
+          },
+          false,
+          commit,
+        ),
+    };
+  }
+
+  #commit(): void {
+    setTimeout(() => {
+      if (this.#abortsAtCommit) {
+        this.error = new DOMException('Over the quota.', 'QuotaExceededError');
+        this.dispatchEvent(new Event('abort'));
+      } else {
+        this.dispatchEvent(new Event('complete'));
+      }
+    }, 0);
+  }
+}
+
 /** The part of IndexedDB the cache uses, over a map of object stores. */
-function fakeIndexedDb(options: { readonly refuseOpen?: boolean } = {}) {
+function fakeIndexedDb(
+  options: { readonly refuseOpen?: boolean; readonly abortsAtCommit?: boolean } = {},
+) {
   const stores = new Map<string, Map<string, unknown>>();
   let opens = 0;
-  const database: PeakDatabase = {
-    objectStoreNames: { contains: (name) => stores.has(name) },
-    createObjectStore: (name) => stores.set(name, new Map()),
-    transaction: (name) => ({
-      objectStore: () => {
-        const store = stores.get(name) ?? new Map<string, unknown>();
-        return {
-          get: (key) => new Request(() => store.get(key)),
-          put: (value, key) =>
-            new Request(() => {
-              store.set(key, value);
-              return key;
-            }),
-        };
-      },
-    }),
-  };
+  const database: PeakDatabase = Object.assign(new EventTarget(), {
+    objectStoreNames: { contains: (name: string) => stores.has(name) },
+    createObjectStore: (name: string) => stores.set(name, new Map()),
+    transaction: (name: string) =>
+      new Transaction(
+        stores.get(name) ?? new Map<string, unknown>(),
+        options.abortsAtCommit === true,
+      ),
+    close: () => undefined,
+  });
   const factory: PeakDatabaseFactory = {
     open: () => {
       opens += 1;
@@ -64,7 +103,7 @@ function fakeIndexedDb(options: { readonly refuseOpen?: boolean } = {}) {
       );
     },
   };
-  return { factory, stores, opens: () => opens };
+  return { factory, stores, database, opens: () => opens };
 }
 
 const bytes = (values: readonly number[]): Uint8Array<ArrayBuffer> => new Uint8Array(values);
@@ -108,6 +147,24 @@ describe('the peak cache in IndexedDB', () => {
 
     await expect(cache.read('one', 'a')).rejects.toThrow('Refused.');
     await expect(cache.read('one', 'a')).rejects.toThrow('Refused.');
+    expect(opens()).toBe(2);
+  });
+
+  it('refuses a write whose transaction does not commit, though its request succeeded', async () => {
+    const { factory } = fakeIndexedDb({ abortsAtCommit: true });
+    const cache = indexedDbPeakCache(factory);
+
+    await expect(cache.write('one', 'a', bytes([1]))).rejects.toThrow('Over the quota.');
+  });
+
+  it('opens the database again once the browser has closed it', async () => {
+    const { factory, database, opens } = fakeIndexedDb();
+    const cache = indexedDbPeakCache(factory);
+    await cache.write('one', 'a', bytes([1]));
+
+    database.dispatchEvent(new Event('close'));
+    await cache.read('one', 'a');
+
     expect(opens()).toBe(2);
   });
 });

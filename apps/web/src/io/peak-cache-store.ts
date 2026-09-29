@@ -24,19 +24,27 @@ export interface Requested<T> extends EventTarget {
   readonly error: DOMException | null;
 }
 
-/** The part of an IndexedDB database the cache uses. */
-export interface PeakDatabase {
+/**
+ * The part of an IndexedDB transaction the cache uses: its store, and the
+ * `complete`, `abort` and `error` events that say whether it was kept.
+ */
+export interface PeakTransaction extends EventTarget {
+  readonly error: DOMException | null;
+  objectStore(name: string): {
+    get(key: string): Requested<unknown>;
+    put(value: unknown, key: string): Requested<unknown>;
+  };
+}
+
+/**
+ * The part of an IndexedDB database the cache uses, with the `close` and
+ * `versionchange` events that end a connection.
+ */
+export interface PeakDatabase extends EventTarget {
   readonly objectStoreNames: { contains(name: string): boolean };
   createObjectStore(name: string): unknown;
-  transaction(
-    name: string,
-    mode: 'readonly' | 'readwrite',
-  ): {
-    objectStore(name: string): {
-      get(key: string): Requested<unknown>;
-      put(value: unknown, key: string): Requested<unknown>;
-    };
-  };
+  transaction(name: string, mode: 'readonly' | 'readwrite'): PeakTransaction;
+  close(): void;
 }
 
 /** The part of IndexedDB's factory the cache uses; the browser's `indexedDB` is one. */
@@ -70,7 +78,28 @@ function settled<T>(request: Requested<T>): Promise<T> {
   });
 }
 
-/** The database, opened once and shared by every read and write after it. */
+/**
+ * Whether a transaction's writes were kept: a request succeeds before its
+ * transaction commits, and the commit can still fail, over the quota for one.
+ */
+function committed(transaction: PeakTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const refused = (): void => {
+      reject(transaction.error ?? new Error('The waveform cache did not keep the peaks.'));
+    };
+    transaction.addEventListener('complete', () => {
+      resolve();
+    });
+    transaction.addEventListener('abort', refused);
+    transaction.addEventListener('error', refused);
+  });
+}
+
+/**
+ * The database, opened once and shared by every read and write after it, and
+ * opened again once the browser closes it, as it does when the site's data is
+ * cleared or another page upgrades it.
+ */
 function opener(factory: PeakDatabaseFactory): () => Promise<PeakDatabase> {
   let opening: Promise<PeakDatabase> | undefined;
   return () => {
@@ -83,10 +112,20 @@ function opener(factory: PeakDatabaseFactory): () => Promise<PeakDatabase> {
     });
     const attempt = settled(request);
     opening = attempt;
-    // A database the browser would not open this time may open the next.
-    attempt.catch(() => {
+    const forget = (): void => {
       if (opening === attempt) opening = undefined;
-    });
+    };
+    attempt.then(
+      (database) => {
+        database.addEventListener('close', forget);
+        database.addEventListener('versionchange', () => {
+          database.close();
+          forget();
+        });
+      },
+      // A database the browser would not open this time may open the next.
+      forget,
+    );
     return attempt;
   };
 }
@@ -101,9 +140,11 @@ export function indexedDbPeakCache(factory: PeakDatabaseFactory): PeakCacheStore
       return isKept(kept) && kept.revision === revision ? kept.bytes : undefined;
     },
     async write(identity, revision, bytes) {
-      const store = (await database()).transaction(PEAKS, 'readwrite').objectStore(PEAKS);
+      const transaction = (await database()).transaction(PEAKS, 'readwrite');
       const kept: KeptPeaks = { revision, bytes };
-      await settled(store.put(kept, identity));
+      const done = committed(transaction);
+      await settled(transaction.objectStore(PEAKS).put(kept, identity));
+      await done;
     },
   };
 }
