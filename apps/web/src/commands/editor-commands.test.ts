@@ -9,7 +9,7 @@ import {
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
-import { SelectionFacet, activeFacet, pixelOf } from '@audiogubbins/timeline';
+import { SelectionFacet, activeFacet, boundaryAt, pixelOf } from '@audiogubbins/timeline';
 
 import { playbackSettled } from '../testing/audio-fakes.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
@@ -224,6 +224,40 @@ describe('zooming (ADR-0041)', () => {
     for (let step = 0; step < steps; step += 1) run('editor.zoom-out');
 
     expect(view('editor').viewport).toEqual(start);
+  });
+});
+
+describe('zooming about a point (ADR-0041)', () => {
+  /** The boundary under pixel `x` of the view, before and after running `id` about it. */
+  function aboutAnchor(id: string, x: number, args: Arguments = {}, rungsIn = 1) {
+    openView('editor', 'test:tone-bursts');
+    const tones = context.assets.find('test:tone-bursts');
+    if (tones === undefined) throw new Error('No tone bursts.');
+    // Onto a rung first, and away from the playhead at the start, which a zoom
+    // that names no point keeps where it is, and far enough in that a zoom out
+    // is not stopped by either end of the asset.
+    for (let rung = 0; rung < rungsIn; rung += 1) run('editor.zoom-in');
+    run('editor.scroll', { pixels: 300 });
+    const before = view('editor').viewport;
+    const under = boundaryAt(before, x, tones.length);
+    const result = run(id, { anchor: x, ...args });
+    return { result, moved: pixelOf(view('editor').viewport, under) - x, before };
+  }
+
+  it('keeps the audio under the fingers, the wheel or the pointer where it was', () => {
+    // A pinch, a Ctrl+wheel and a zoom-tool click each name the pixel they zoom
+    // about, and a zoom that dropped it zoomed about the left edge, so the
+    // audio under the person's fingers left the view; every suite passed.
+    const { result, moved, before } = aboutAnchor('editor.zoom-by', 700, { factor: 0.5 });
+
+    expect(result.kind).toBe('applied');
+    expect(view('editor').viewport.zoom).not.toEqual(before.zoom);
+    expect(Math.abs(moved)).toBeLessThan(1);
+  });
+
+  it('keeps it for a step in and a step out about a point, as the zoom tool takes them', () => {
+    expect(Math.abs(aboutAnchor('editor.zoom-in', 640).moved)).toBeLessThan(1);
+    expect(Math.abs(aboutAnchor('editor.zoom-out', 130, {}, 3).moved)).toBeLessThan(1);
   });
 });
 
