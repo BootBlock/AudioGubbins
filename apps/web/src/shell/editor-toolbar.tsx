@@ -86,8 +86,10 @@ function ChannelButtons({
         <Button
           compact
           tone={ButtonTone.Quiet}
+          // Named by the channel alone, with pressed as shown: named by what a
+          // press would do as well, it read "Hide Left, pressed", and a reader
+          // could not tell whether the channel was shown or had been hidden.
           aria-pressed={shown}
-          label={`${shown ? 'Hide' : 'Show'} ${name}`}
           onClick={() => {
             commands.run('editor.toggle-channel', { view: panel, channel });
           }}
@@ -200,7 +202,7 @@ export function EditorToolbar({
       </ControlBar>
       <ZoomBar panel={panel} state={state} commands={commands} />
       <Choices panel={panel} state={state} commands={commands} />
-      <ControlBar label="Channels">
+      <ControlBar label="Channels shown">
         <ChannelButtons panel={panel} asset={asset} state={state} commands={commands} />
       </ControlBar>
     </div>
