@@ -13,6 +13,7 @@ Published paths
   @audiogubbins/domain/testing
   @audiogubbins/input
   @audiogubbins/input/testing
+  @audiogubbins/renderer
   @audiogubbins/test-fixtures
   @audiogubbins/text
   @audiogubbins/timeline
@@ -1598,6 +1599,103 @@ Published paths
 
 @audiogubbins/input/testing
   function keyEventOf(code: string, key: string, held?: Partial<KeyEventReading>): KeyEventReading
+
+@audiogubbins/renderer
+  interface BackendEvents
+  readonly BackendEvents.lost: (reason: string) => void
+  readonly BackendEvents.restored: () => void
+  readonly BackendEvents.failed: (reason: string) => void
+  interface BackendFactory
+  readonly BackendFactory.kind: RendererKind
+  BackendFactory.create: (canvas: HTMLCanvasElement, events: BackendEvents) => Promise<DomainResult<RendererBackend>>
+  type Colour = readonly [number, number, number, number]
+  interface ImageBatch
+  readonly ImageBatch.kind: "images"
+  readonly ImageBatch.images: readonly PlacedImage[]
+  type Painter = { moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; rect: (x: number, y: number, w: number, h: number) => void; font: string; stroke: { (): void; (path: Path2D): void; }; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; save: () => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
+  interface PlacedImage
+  readonly PlacedImage.image: CanvasImageSource
+  readonly PlacedImage.at: Rectangle
+  interface Rectangle
+  readonly Rectangle.x: number
+  readonly Rectangle.y: number
+  readonly Rectangle.width: number
+  readonly Rectangle.height: number
+  interface RectangleBatch
+  readonly RectangleBatch.kind: "rectangles"
+  readonly RectangleBatch.colour: Colour
+  readonly RectangleBatch.values: Float32Array<ArrayBufferLike>
+  readonly RectangleBatch.count: number
+  type RenderBatch = ImageBatch | RectangleBatch | SegmentBatch | TextBatch
+  interface RenderFrame
+  readonly RenderFrame.width: number
+  readonly RenderFrame.height: number
+  readonly RenderFrame.pixelRatio: number
+  readonly RenderFrame.clear: Colour
+  readonly RenderFrame.layers: readonly RenderLayer[]
+  interface RenderLayer
+  readonly RenderLayer.clip?: Rectangle
+  readonly RenderLayer.batches: readonly RenderBatch[]
+  interface RenderSurface
+  RenderSurface.freshCanvas: () => HTMLCanvasElement
+  RenderSurface.overlay: () => Painter | undefined
+  class Renderer
+  new Renderer(options: { readonly surface: RenderSurface; readonly backends: readonly BackendFactory[]; }): Renderer
+  readonly Renderer.#surface: RenderSurface
+  readonly Renderer.#backends: readonly BackendFactory[]
+  readonly Renderer.#listeners: Set<(report: RendererReport) => void>
+  Renderer.#report: RendererReport
+  Renderer.#backend: RendererBackend | undefined
+  Renderer.#latest: RenderFrame | undefined
+  Renderer.#disposed: boolean
+  Renderer.report: RendererReport
+  Renderer.subscribe: (listener: (report: RendererReport) => void) => () => void
+  Renderer.#update: (change: Partial<RendererReport>) => void
+  Renderer.#attempt: (attempt: RendererAttempt) => void
+  Renderer.start: (from?: number) => Promise<void>
+  Renderer.#stopped: () => boolean
+  Renderer.#lost: (kind: RendererKind, reason: string) => void
+  Renderer.#restored: (kind: RendererKind) => void
+  Renderer.#failed: (kind: RendererKind, index: number, reason: string) => Promise<void>
+  Renderer.draw: (frame: RenderFrame) => void
+  Renderer.#redraw: () => void
+  Renderer.dispose: () => void
+  interface RendererAttempt
+  readonly RendererAttempt.kind: RendererKind
+  readonly RendererAttempt.outcome: "active" | "failed" | "lost" | "refused"
+  readonly RendererAttempt.reason?: string
+  interface RendererBackend
+  readonly RendererBackend.kind: RendererKind
+  RendererBackend.draw: (frame: RenderFrame) => boolean
+  RendererBackend.dispose: () => void
+  const RendererKind: { readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly Canvas2d: "canvas-2d"; }
+  type RendererKind = "canvas-2d" | "webgl2" | "webgpu"
+  interface RendererReport
+  readonly RendererReport.state: RendererState
+  readonly RendererReport.active: RendererKind | undefined
+  readonly RendererReport.attempts: readonly RendererAttempt[]
+  readonly RendererReport.losses: number
+  readonly RendererReport.recoveries: number
+  const RendererState: { readonly Starting: "starting"; readonly Drawing: "drawing"; readonly Recovering: "recovering"; readonly Unavailable: "unavailable"; }
+  type RendererState = "drawing" | "recovering" | "starting" | "unavailable"
+  interface SegmentBatch
+  readonly SegmentBatch.kind: "segments"
+  readonly SegmentBatch.colour: Colour
+  readonly SegmentBatch.width: number
+  readonly SegmentBatch.values: Float32Array<ArrayBufferLike>
+  readonly SegmentBatch.count: number
+  interface TextBatch
+  readonly TextBatch.kind: "text"
+  readonly TextBatch.labels: readonly TextLabel[]
+  interface TextLabel
+  readonly TextLabel.text: string
+  readonly TextLabel.x: number
+  readonly TextLabel.y: number
+  readonly TextLabel.colour: Colour
+  readonly TextLabel.font: string
+  readonly TextLabel.align: "centre" | "left" | "right"
+  readonly TextLabel.baseline: "bottom" | "middle" | "top"
+  function browserBackends(gpu: unknown): readonly BackendFactory[]
 
 @audiogubbins/test-fixtures
   const FIXTURE_LENGTH: 48000

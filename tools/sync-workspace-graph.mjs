@@ -280,6 +280,23 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The renderer contract and its WebGPU, WebGL2 and Canvas 2D backends,
+    // with the choice among them and recovery from a lost device (ADR-0040,
+    // ADR-0044). Given its canvases and the GPU object; it reads no global.
+    dir: 'packages/renderer',
+    name: '@audiogubbins/renderer',
+    description:
+      'The editor renderer: frames as values, WebGPU, WebGL2 and Canvas 2D backends, and recovery from a lost device.',
+    dom: true,
+    jsx: false,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    // The WebGPU definitions the backend compiles against, which the DOM's
+    // lack; types alone, so nothing of it reaches the bundle.
+    external: { '@webgpu/types': '0.1.74' },
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:

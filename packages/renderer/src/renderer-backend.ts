@@ -1,0 +1,46 @@
+/**
+ * What a backend is: something that draws a frame's geometry on a canvas it was
+ * given, and says when it has lost the device or context it draws with.
+ *
+ * A backend keeps GPU resources between frames and no content (ADR-0044). A
+ * canvas takes one kind of context for life, so the renderer gives each backend
+ * a canvas of its own and makes a new one when it steps down to another kind.
+ */
+
+import type { DomainResult } from '@audiogubbins/domain';
+
+import type { RenderFrame } from './render-frame.js';
+
+/** The kinds of backend, in the order the renderer tries them. */
+export const RendererKind = {
+  WebGpu: 'webgpu',
+  WebGl2: 'webgl2',
+  Canvas2d: 'canvas-2d',
+} as const;
+
+export type RendererKind = (typeof RendererKind)[keyof typeof RendererKind];
+
+/** What a backend tells the renderer about its device or context. */
+export interface BackendEvents {
+  /** The device or context is lost; drawing does nothing until it is restored. */
+  readonly lost: (reason: string) => void;
+  /** It is back and rebuilt; the latest frame should be drawn again. */
+  readonly restored: () => void;
+  /** It is gone for good, and the renderer should step down to the next kind. */
+  readonly failed: (reason: string) => void;
+}
+
+/** Draws a frame's rectangles and segments on its canvas. */
+export interface RendererBackend {
+  readonly kind: RendererKind;
+  /** Draws `frame`, sizing the canvas to it; answers whether it drew. */
+  draw(frame: RenderFrame): boolean;
+  /** Frees its resources; the canvas is its renderer's to remove. */
+  dispose(): void;
+}
+
+/** Makes a backend of one kind on a canvas, or says why it cannot. */
+export interface BackendFactory {
+  readonly kind: RendererKind;
+  create(canvas: HTMLCanvasElement, events: BackendEvents): Promise<DomainResult<RendererBackend>>;
+}

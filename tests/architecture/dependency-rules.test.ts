@@ -128,11 +128,23 @@ function specifiersIn(code: string): readonly string[] {
 /** Each file's module specifiers, kept as {@link CODE} keeps its code. */
 const IMPORTS = new Map<string, readonly string[]>();
 
-/** Every module specifier a source file imports, comments excluded, read once for every rule. */
+/**
+ * A triple-slash directive that names a package of type definitions, such as
+ * the WebGPU definitions the renderer compiles against. It is a comment to
+ * the code reader and a dependency to the compiler, so it is read from the
+ * file's text, where it can only stand at the top.
+ */
+const TYPES_REFERENCE = /^\/\/\/\s*<reference\s+types\s*=\s*['"]([^'"]+)['"]\s*\/>/gmu;
+
+/**
+ * Every module specifier a source file imports, comments excluded, with the
+ * type packages it references, read once for every rule.
+ */
 function importsOf(path: string): readonly string[] {
   let specifiers = IMPORTS.get(path);
   if (specifiers === undefined) {
-    specifiers = specifiersIn(readCode(path));
+    const referenced = [...read(path).matchAll(TYPES_REFERENCE)].map((match) => match[1] ?? '');
+    specifiers = [...specifiersIn(readCode(path)), ...referenced];
     IMPORTS.set(path, specifiers);
   }
   return specifiers;
@@ -199,6 +211,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
+  '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
   '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
   '@audiogubbins/audio-runtime': [
@@ -668,6 +681,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'commands',
     'domain',
     'input',
+    'renderer',
     'text',
     'timeline',
     'version',

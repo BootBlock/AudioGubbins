@@ -391,6 +391,33 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'windowFrames',
       ],
   },
+  '@audiogubbins/renderer': {
+    'The renderer the editor view composes frames for and the application draws them with, which reach it in the commits that follow (ADR-0044).':
+      [
+        'BackendEvents',
+        'BackendFactory',
+        'Colour',
+        'ImageBatch',
+        'Painter',
+        'PlacedImage',
+        'Rectangle',
+        'RectangleBatch',
+        'RenderBatch',
+        'RenderFrame',
+        'RenderLayer',
+        'RenderSurface',
+        'Renderer',
+        'RendererAttempt',
+        'RendererBackend',
+        'RendererKind',
+        'RendererReport',
+        'RendererState',
+        'SegmentBatch',
+        'TextBatch',
+        'TextLabel',
+        'browserBackends',
+      ],
+  },
   '@audiogubbins/audio-graph': {
     "The steps `compileGraph` composes, for a host that needs one alone: validation, for an editor that shows a graph's diagnostics as it is drawn, and latency analysis and planning, for a view of each node's latency before a graph runs (ADR-0030, REQ-ARCH-144). Every host in this phase compiles a graph whole; the phase that edits processor graphs is their first consumer.":
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],

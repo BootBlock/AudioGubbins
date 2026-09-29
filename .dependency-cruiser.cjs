@@ -29,6 +29,8 @@
  *   waveform        the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
+ *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
+ *                   backends; depends on domain, reads no global (ADR-0044)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -119,7 +121,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|domain|commands|input|text|timeline|version|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|domain|commands|input|renderer|text|timeline|version|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -190,6 +192,16 @@ module.exports = {
         'interface or storage: the cache is kept through a port the application implements.',
       from: { path: '^packages/waveform/' },
       to: { path: '^packages/(?!(waveform|audio-engine|domain)/)' },
+    },
+    {
+      name: 'renderer-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The renderer draws the frames views compose and holds no editor state (ADR-0044, ' +
+        'REQ-AUDIO-152). It depends on the domain alone, for its results, and knows no timeline, ' +
+        'waveform, command or interface package.',
+      from: { path: '^packages/renderer/' },
+      to: { path: '^packages/(?!(renderer|domain)/)' },
     },
     {
       name: 'input-owns-nothing-else',

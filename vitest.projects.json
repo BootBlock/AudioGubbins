@@ -85,6 +85,17 @@
       ]
     },
     {
+      "name": "renderer",
+      "root": "packages/renderer",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",
