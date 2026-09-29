@@ -17,8 +17,10 @@ import { useState, type ReactNode } from 'react';
 import { ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
 import { LONGEST_WORKSPACE_NAME, listedName, type WorkspaceLayout } from '@audiogubbins/workspace';
 
+import type { UnreadText } from '../../state/text-custody.js';
 import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
+import { UnreadTexts } from './unread-text.js';
 
 /** What the workspace controls need. */
 export interface WorkspacesProps {
@@ -27,6 +29,12 @@ export interface WorkspacesProps {
 
   /** Every layout they can switch to. */
   readonly available: readonly WorkspaceLayout[];
+
+  /** The workspaces deleted since AudioGubbins started, the newest last. */
+  readonly deleted: readonly WorkspaceLayout[];
+
+  /** What there is of the workspaces' text that could not be read. */
+  readonly unread: readonly UnreadText[];
 
   readonly run: RunCommand;
 
@@ -41,6 +49,8 @@ export interface WorkspacesProps {
 export function Workspaces({
   layout,
   available,
+  deleted,
+  unread,
   run,
   unavailableReason,
 }: WorkspacesProps): ReactNode {
@@ -174,6 +184,40 @@ export function Workspaces({
           Delete
         </ReasonedButton>
       </div>
+
+      <RestoreDeleted deleted={deleted} run={run} unavailableReason={unavailableReason} />
+
+      <UnreadTexts unread={unread} run={run} />
+    </div>
+  );
+}
+
+/**
+ * Putting back the workspace deleted last, named on its button, while any
+ * deleted since AudioGubbins started can be: a deletion is one press, and this
+ * is its way back.
+ */
+function RestoreDeleted({
+  deleted,
+  run,
+  unavailableReason,
+}: {
+  readonly deleted: readonly WorkspaceLayout[];
+  readonly run: RunCommand;
+  readonly unavailableReason: (id: string) => string | undefined;
+}): ReactNode {
+  const newest = deleted.at(-1);
+  if (newest === undefined) return null;
+  return (
+    <div className="ag-settings-row">
+      <ReasonedButton
+        reason={unavailableReason('workspace.restore')}
+        onPress={() => {
+          run('workspace.restore', { layoutId: newest.id });
+        }}
+      >
+        {`Restore "${newest.displayName}"`}
+      </ReasonedButton>
     </div>
   );
 }

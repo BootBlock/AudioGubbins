@@ -243,8 +243,11 @@ describe('useRecoveryAnnouncement', () => {
 
   it("says the fact of every notice first, the layout's, the whole collection's and the profiles', where every text is set aside", () => {
     // Said a notice at a time, the layout's and the collection's took the
-    // words, and the profiles' was left out whole.
-    expect(announcedOver(everythingUnreadable())).toBe(`${EVERY_FACT} ${KEPT_ASIDE}`);
+    // words, and the profiles' was left out whole. Where the text can be
+    // exported is past the words the facts leave, and in the status bar.
+    expect(announcedOver(everythingUnreadable())).toBe(
+      `${EVERY_FACT} ${KEPT_ASIDE} The status bar has the rest.`,
+    );
   });
 
   it("says the collection's and the profiles' facts while the layout's text waits for room", () => {

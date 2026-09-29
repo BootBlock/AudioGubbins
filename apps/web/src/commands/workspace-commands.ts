@@ -43,6 +43,9 @@ function current(context: ShellContext) {
 /** Why there is no workspace to switch to. */
 const ONLY_ONE_WORKSPACE = 'There is only one workspace.';
 
+/** What the command that undoes a deletion is called, as the deletion names it. */
+const RESTORE_LABEL = 'Restore a deleted workspace';
+
 /**
  * Says what an operation did, through {@link report}, worded from the
  * workspace the store answers with, or answers why it was refused.
@@ -228,18 +231,58 @@ function layoutCommands(): readonly Command<ShellContext>[] {
         return announced(
           context,
           context.workspace.remove(target),
-          (removed) => `"${removed.displayName}" is deleted.`,
+          (removed) =>
+            `"${removed.displayName}" is deleted. ${RESTORE_LABEL} brings it back until AudioGubbins closes.`,
         );
       },
       {
         keywords: ['layout', 'workspace', 'delete', 'remove'],
         description:
-          'Deletes a workspace you made. The arrangement goes; nothing in your project changes.',
+          'Deletes a workspace you made. The arrangement goes; nothing in your project changes. Until AudioGubbins closes, it can be restored.',
         availability: (context) =>
           availableUnless(context.workspace.removalProblem(current(context).id)),
       },
     ),
+
+    restoreCommand(),
   ];
+}
+
+/**
+ * Undoing a deletion: the workspace put back as it was, the newest deleted or
+ * the one named, and on screen again where it was when it was deleted.
+ *
+ * A command of its own rather than Undo. Undo is kept for changes to the
+ * project, and a user pressing it after a mistaken edit must not find it
+ * bringing back a workspace instead (see `shell-command.ts`); a deleted
+ * workspace is brought back by name, from the palette, the Workspace menu or
+ * the settings.
+ */
+function restoreCommand(): Command<ShellContext> {
+  return shellCommand(
+    'workspace.restore',
+    RESTORE_LABEL,
+    CommandCategory.Workspace,
+    (context, invocation) => {
+      const restoring = context.workspace.restore(textArgument(invocation, 'layoutId'));
+      if (typeof restoring === 'string') return restoring;
+      const { deleted, restored } = restoring;
+      const where = context.workspace.get().layout.id === restored.id ? ', on screen again' : '';
+      return report(
+        context,
+        undefined,
+        restored.displayName === deleted.displayName
+          ? `"${restored.displayName}" is back${where}.`
+          : `"${deleted.displayName}" is back${where}, as "${restored.displayName}", since another workspace has its name now.`,
+      );
+    },
+    {
+      keywords: ['layout', 'workspace', 'restore', 'undelete', 'undo', 'deleted', 'back'],
+      description:
+        'Puts back a workspace deleted since AudioGubbins started: the newest, or the one the Workspace settings name.',
+      availability: (context) => availableUnless(context.workspace.restorationProblem()),
+    },
+  );
 }
 
 /**

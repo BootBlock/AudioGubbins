@@ -94,6 +94,7 @@ describe('importing a shortcut profile', () => {
 
     render(
       <Shortcuts
+        unread={[]}
         askFor={() => undefined}
         profile={shortcuts.profile}
         available={shortcuts.available}
@@ -181,6 +182,59 @@ describe('importing a shortcut profile', () => {
 });
 
 describe('the shortcut settings', () => {
+  it("offers the profiles' text that could not be read to export and discard, through the commands", async () => {
+    // Set aside, the text was reachable by nothing.
+    const { context } = buildShellContext();
+    const shortcuts = context.shortcuts.get();
+    const run = vi.fn(() => true);
+
+    render(
+      <Shortcuts
+        unread={[{ about: 'profiles', setAside: 3, leftInPlace: 0 }]}
+        askFor={() => undefined}
+        profile={shortcuts.profile}
+        available={shortcuts.available}
+        conflicts={shortcuts.conflicts}
+        reserved={shortcuts.reserved}
+        waiting={shortcuts.waiting}
+        convention={context.convention}
+        layout={UNKNOWN_LAYOUT}
+        learnKey={() => undefined}
+        commands={[]}
+        labelFor={(id) => id}
+        run={run}
+        announce={() => undefined}
+        unavailableReason={() => undefined}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        '3 texts about your shortcut profiles that could not be read are set aside.',
+      ),
+    ).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Export the text about your shortcut profiles that could not be read',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard the text about your shortcut profiles that could not be read',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard for good the text about your shortcut profiles that could not be read',
+      }),
+    );
+
+    expect(run.mock.calls).toEqual([
+      ['settings.export-unread-text', { about: 'profiles' }],
+      ['settings.discard-unread-text', { about: 'profiles' }],
+    ]);
+  });
+
   it('gives each profile action the reason its command gives, and runs nothing it refuses', async () => {
     // Reset and Delete were disabled whenever the profile was built in, a rule
     // of the section's own: they left the tab order and said nothing.
@@ -194,6 +248,7 @@ describe('the shortcut settings', () => {
 
     render(
       <Shortcuts
+        unread={[]}
         askFor={() => undefined}
         profile={shortcuts.profile}
         available={shortcuts.available}
@@ -244,6 +299,7 @@ describe('the shortcut settings where names cannot be compared', () => {
 
     render(
       <Shortcuts
+        unread={[]}
         askFor={() => undefined}
         profile={{
           ...profile,
@@ -841,6 +897,7 @@ describe('where focus goes in the shortcut table', () => {
     const run = vi.fn();
     const element = (current: typeof profile) => (
       <Shortcuts
+        unread={[]}
         askFor={() => undefined}
         profile={current}
         available={[current]}

@@ -65,7 +65,7 @@ function propsWith(overrides: Partial<StatusBarProps> = {}): StatusBarProps {
     workspaceName: 'Editing',
     pendingChord: undefined,
     diagnosticModeActive: false,
-    unsaved: [],
+    persistence: { unsaved: [], cause: undefined },
     recovery: standing({}),
     missingCapabilities: 0,
     run: vi.fn(),
@@ -177,6 +177,21 @@ async function tabFromTheTop(): Promise<void> {
 }
 
 describe('StatusBar', () => {
+  it('says why the browser refuses to keep a part, and what the user can do, beside the part', () => {
+    // It said what was not being saved, and neither why nor what to do.
+    render(
+      <StatusBar
+        {...propsWith({ persistence: { unsaved: ['workspace', 'shortcuts'], cause: 'refused' } })}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Not being saved: workspaces, shortcut profiles. The browser is refusing this site any storage, as it does where its settings block site data or a private window keeps none. Allowing this site to keep data, in the browser's settings, lets AudioGubbins save again; it tries with your next change.",
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('says nothing about capabilities on a browser that has them all', () => {
     statusBar({ missingCapabilities: 0 });
 
@@ -276,7 +291,7 @@ describe('StatusBar', () => {
     expect(screen.getByRole('contentinfo', { name: 'Status' })).toHaveFocus();
   });
 
-  it('says once, as an item of its own with no dismissal, that nothing makes room safely, while any text waits for room', () => {
+  it('says once, as an item of its own with no dismissal, how to make room safely, while any text waits for room', () => {
     // Said in each notice whose text waited, the paragraph was read once for
     // the workspace and again for the profiles.
     const props = propsWith({
@@ -296,11 +311,11 @@ describe('StatusBar', () => {
     const { rerender } = render(<StatusBar {...props} />);
     const bar = screen.getByRole('contentinfo', { name: 'Status' });
     const advice =
-      "Nothing in AudioGubbins makes room yet without losing something: clearing this site's data in your browser would delete every workspace, shortcut profile and setting kept here, the text that could not be read among them, and the data of any other site at the same address.";
+      "To make room without losing anything, export the text that could not be read from the Workspaces or Shortcuts settings, then discard it there. Clearing this site's data in your browser instead would delete every workspace, shortcut profile and setting kept here, the text that could not be read among them, and the data of any other site at the same address.";
 
-    expect(bar.textContent.split('Nothing in AudioGubbins makes room')).toHaveLength(2);
+    expect(bar.textContent.split('To make room without losing anything')).toHaveLength(2);
     expect(screen.getByText(advice).closest('.ag-status-notice')).toBeNull();
-    expect(noticesShown().join(' ')).not.toContain('Nothing in AudioGubbins makes room');
+    expect(noticesShown().join(' ')).not.toContain('To make room without losing anything');
     // The only buttons are the two notices' dismissals.
     expect(screen.getAllByRole('button')).toEqual([
       screen.getByRole('button', { name: 'Dismiss the notice about the workspace on screen' }),
@@ -316,7 +331,7 @@ describe('StatusBar', () => {
 
     // And goes once none does.
     rerender(<StatusBar {...props} recovery={standing({})} />);
-    expect(screen.queryByText(/Nothing in AudioGubbins makes room/)).toBeNull();
+    expect(screen.queryByText(/To make room without losing anything/)).toBeNull();
   });
 
   it('is reached by Tab while what it holds reaches past what it shows, and only then', async () => {

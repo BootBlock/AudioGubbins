@@ -279,3 +279,33 @@ export function addTo(
   layouts.set(id, added);
   return added;
 }
+
+/**
+ * Puts a user layout removed from `layouts` back among them, and answers it as
+ * it is held now: under its own identifier where no layout has taken it since,
+ * and otherwise under a free one derived from its name; and under its own name
+ * where no other layout has it, and otherwise numbered beside the others, as a
+ * name that reaches the list unheld is (see `nameBesideTheOthers`).
+ *
+ * Its own identifier is kept where it can be, so what named the workspace
+ * before it was removed names it again. Its name is kept as it is where this
+ * runtime cannot compare names, as the workspace on screen's is (see
+ * {@link nameOnScreen}): it was held to the list once, and a workspace the
+ * user deleted by mistake is not kept from them for want of a comparison.
+ */
+export function putBack(
+  layouts: Map<string, WorkspaceLayout>,
+  removed: WorkspaceLayout,
+): WorkspaceLayout {
+  const displayName = namesCanBeCompared()
+    ? nameBesideTheOthers(removed.displayName, namesIn(layouts).taken)
+    : removed.displayName;
+  const id = layouts.has(removed.id)
+    ? LAYOUT_IDENTIFIERS.identifiersHeldBy(layouts.values(), NO_IDENTIFIER_IN_THE_NAME).forName(
+        displayName,
+      )
+    : removed.id;
+  const restored: WorkspaceLayout = { ...removed, id, displayName, builtIn: false };
+  layouts.set(id, restored);
+  return restored;
+}

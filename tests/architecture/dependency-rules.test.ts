@@ -2507,6 +2507,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       313,
       'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open.',
     ],
+    'apps/web/src/state/workspace-store.ts': [
+      361,
+      "The workspace partition's one owner of state: every operation on the layout on screen and the saved workspaces, the restore of a deleted one and the discard of text that could not be read among them, updates the layout, the list, the notices, the wait for room, the unread text and the deletions in one observable update. Each rule it applies is a module of its own — the custody of unread text, the reading of a stored layout, the naming of a workspace — so what is left is the state and the methods that change it together; split, two halves would each need the whole state to publish one update.",
+    ],
     'packages/diagnostics/src/path-finding.ts': [
       324,
       'Where a location starts and where it stops, for every form one is written in: a root of any kind, a path in quotes, a path without them, an address, and a file name written with no path at all. It is one algorithm read from both ends, and almost every line is a rule about a character a name can hold. Split by form, each part would need the others: a quoted path ends by the quote index the unquoted rules also read, an address ends where a path ends, and a file name ends before the name after it.',
@@ -2684,7 +2688,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Factories: private state closed over, with each returned method a unit.
     'apps/web/src/state/workspace-store.ts: createWorkspaceStore': [
-      188,
+      235,
       "Twenty-six small methods over one layout store and one state, beside the state's own `get` and `subscribe`, the largest about fifteen lines. The panel operations are each a line or two over the model and share `commit`; taken out, they would take the state, the store and `commit` with them. What it writes of the collection, and the text nobody has read that it keeps aside, are decided by `workspace-custody.ts`, and the reset and removal refusals are functions of the module beside it.",
     ],
     'packages/commands/src/registry.ts: createCommandBus': [
@@ -2692,7 +2696,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Three methods sharing a private run step and the logger; the largest, running a group, is about 45 lines.',
     ],
     'apps/web/src/state/shortcut-store.ts: createShortcutStore': [
-      130,
+      151,
       "Small methods over one profile in force, those that change it going through the shared `adopt` and `editable` helpers, and the subscription that places the defaults again as more of the keyboard layout is known. The largest, `editable`, is about a dozen lines. What identifier and name a profile is held under is the command package's, handed every profile the store holds. The profiles the user made are `user-profiles.ts`, and the defaults as placed are `shortcut-layout.ts`. The profiles as stored are `stored-profiles.ts`, and where a text that cannot be read is kept, and whether the profiles are written meanwhile, is `profile-custody.ts`, on the `text-custody.ts` the workspace's custody shares.",
     ],
     'packages/workspace/src/layout-store.ts: createLayoutStore': [
@@ -2722,7 +2726,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      194,
+      200,
       "Puts together six independent surfaces, each given only what it needs. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [

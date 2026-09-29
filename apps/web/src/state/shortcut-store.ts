@@ -43,7 +43,15 @@ import {
   type WaitingDefault,
 } from './shortcut-layout.js';
 import { readStoredProfiles, storedProfilesText } from './stored-profiles.js';
-import type { StateStorage } from './state-storage.js';
+import { PersistedPart, type StateStorage } from './state-storage.js';
+import {
+  notDiscarded,
+  nothingUnreadAbout,
+  unreadNow,
+  type Discarded,
+  type UnreadCopy,
+  type UnreadText,
+} from './text-custody.js';
 import { createUserProfiles } from './user-profiles.js';
 
 /** What the shortcut store holds. */
@@ -98,6 +106,14 @@ export interface ShortcutState {
    * because it holds after the user has dismissed it.
    */
   readonly waitsForRoom: boolean;
+
+  /**
+   * How much there is of the text that could not be read, where there is any:
+   * set aside in this session or an earlier one, or held where it was found.
+   * Apart from the notice, because it is there to export or discard whether
+   * or not the notice still stands.
+   */
+  readonly unread: readonly UnreadText[];
 }
 
 /** Holds the shortcut profiles and writes them back. */
@@ -144,6 +160,20 @@ export interface ShortcutStore extends Observable<ShortcutState> {
    * or says why not: a notice that is not showing cannot be dismissed.
    */
   readonly acknowledgeRecovery: () => string | undefined;
+
+  /** Why there is nothing of the profiles' text that could not be read, or `undefined`. */
+  readonly unreadProblem: () => string | undefined;
+
+  /** Every text of the profiles' that could not be read, as it is exported. */
+  readonly unreadCopies: () => readonly UnreadCopy[];
+
+  /**
+   * Discards every text of the profiles' that could not be read, puts away
+   * the notice, which speaks of text that is gone, and writes the profiles,
+   * which the text may have kept back: what the user is told comes of it, or
+   * why it was refused.
+   */
+  readonly discardUnread: () => Discarded | string;
 }
 
 /**
@@ -200,6 +230,7 @@ export function createShortcutStore(
   const stored = readStoredProfiles(storage, defaults.profile(), logger);
   const custody = takeProfileCustody(storage, stored.damaged, logger);
   let recovery = custody.notice();
+  let unread = unreadNow([], [custody.unread()]);
 
   const userProfiles = createUserProfiles(stored.profiles);
 
@@ -219,6 +250,7 @@ export function createShortcutStore(
     waiting: defaults.waitingIn(profile, (id) => userProfiles.follows(profile.id, id)),
     recovery,
     waitsForRoom: custody.waitsForRoom(),
+    unread,
   });
 
   const state = observable<ShortcutState>(stateOf(initial));
@@ -230,7 +262,11 @@ export function createShortcutStore(
   const persist = (inForce: string): void => {
     custody.save(storedProfilesText(userProfiles.all(), userProfiles.followingOf, inForce));
     if (recovery !== undefined) recovery = custody.notice();
+    unread = unreadNow(unread, [custody.unread()]);
   };
+
+  const unreadProblem = (): string | undefined =>
+    unread.length === 0 ? nothingUnreadAbout('profiles') : undefined;
 
   // The store lives as long as the application, so the subscription does too.
   layout.subscribe(() => {
@@ -394,6 +430,27 @@ export function createShortcutStore(
       recovery = undefined;
       state.set({ ...state.get(), recovery });
       return undefined;
+    },
+
+    unreadProblem,
+
+    unreadCopies: custody.copies,
+
+    discardUnread: () => {
+      const problem = unreadProblem();
+      if (problem !== undefined) return problem;
+      const discarded = custody.discard();
+      if (discarded === undefined) return notDiscarded('profiles');
+
+      recovery = undefined;
+      const { profile } = state.get();
+      persist(profile.id);
+      state.set(stateOf(profile));
+
+      // Said to be kept again only where the write that follows was kept: one
+      // refused has told the user so already.
+      const kept = !storage.get().unsaved.includes(PersistedPart.Shortcuts);
+      return { keptAgain: kept ? discarded.keptAgain : undefined };
     },
   };
 }

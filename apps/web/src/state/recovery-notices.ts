@@ -61,6 +61,11 @@ export function isRecoveryPart(value: string): value is RecoveryPart {
 /** What a notice is about: a part of the workspace, or the shortcut profiles. */
 export type NoticeAbout = RecoveryPart | 'profiles';
 
+/** Whether a value names what a notice can be about. */
+export function isNoticeAbout(value: string): value is NoticeAbout {
+  return value === 'profiles' || isRecoveryPart(value);
+}
+
 /**
  * What each notice is about, to finish "the notice about …". Several can stand
  * at once, and named alike, each would have a button called "Dismiss notice":
@@ -121,22 +126,21 @@ export function recoveriesNow(
 
 /**
  * The advice that stands while text nobody has read waits for room to be set
- * aside: that nothing in AudioGubbins makes that room yet without a loss.
+ * aside: that exporting it and then discarding it makes that room, and where.
  *
- * Clearing this site's data is not advised: it deletes far more than the text
- * in question, every workspace, setting and shortcut profile kept here and the
- * text that could not be read, which the notice says is kept. A build served
- * from a folder of a shared address shares its storage with every other site
- * there, and clearing it clears theirs. A way to export or discard what was
- * set aside, which makes room without a loss, is to come.
+ * Clearing this site's data is warned against: it deletes far more than the
+ * text in question, every workspace, setting and shortcut profile kept here
+ * and the text that could not be read, which the notice says is kept. A build
+ * served from a folder of a shared address shares its storage with every
+ * other site there, and clearing it clears theirs.
  *
  * Shown once, as an item of its own, however many stores' text waits: said in
  * each notice, it would be read once for each. It stands while any text waits,
  * offers no dismissal, because it is advice for as long as that holds, and
  * dismissing a notice leaves the text waiting.
  */
-export const NOTHING_MAKES_ROOM_SAFELY =
-  "Nothing in AudioGubbins makes room yet without losing something: clearing this site's data in your browser would delete every workspace, shortcut profile and setting kept here, the text that could not be read among them, and the data of any other site at the same address.";
+export const MAKING_ROOM_SAFELY =
+  "To make room without losing anything, export the text that could not be read from the Workspaces or Shortcuts settings, then discard it there. Clearing this site's data in your browser instead would delete every workspace, shortcut profile and setting kept here, the text that could not be read among them, and the data of any other site at the same address.";
 
 /** A notice standing, and what it is about. */
 export interface StandingNotice {
@@ -151,7 +155,7 @@ export interface StandingRecovery {
 
   /**
    * Whether any store's text waits for room to be set aside, so that
-   * {@link NOTHING_MAKES_ROOM_SAFELY} stands, whether its notice does or not.
+   * {@link MAKING_ROOM_SAFELY} stands, whether its notice does or not.
    */
   readonly waitsForRoom: boolean;
 }

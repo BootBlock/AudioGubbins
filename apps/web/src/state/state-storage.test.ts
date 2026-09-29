@@ -13,11 +13,11 @@ import { shellCommands } from '../commands/shell-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
+import { textsSetAside } from './set-aside-texts.js';
 import {
   PersistedPart,
   createStateStorage,
   describeUnsaved,
-  textsSetAside,
   type KeyValueStorage,
 } from './state-storage.js';
 
@@ -62,6 +62,27 @@ function verboseLogs(): {
   };
 }
 
+/** What the notice adds where the browser threw an error that says nothing of why. */
+const NO_CAUSE = 'The browser did not say why. AudioGubbins tries again with your next change.';
+
+/** What the notice adds where the browser's storage for the site is full. */
+const FULL =
+  "The browser's storage for this site is full. Deleting workspaces or shortcut profiles you no longer need makes room, as does exporting and then discarding any text that could not be read, in the Workspaces and Shortcuts settings. AudioGubbins tries again with your next change.";
+
+/** What the notice adds where the browser refuses the site any storage. */
+const REFUSED =
+  "The browser is refusing this site any storage, as it does where its settings block site data or a private window keeps none. Allowing this site to keep data, in the browser's settings, lets AudioGubbins save again; it tries with your next change.";
+
+/** Storage whose every write throws `error`, as a browser throws it. */
+function throwing(error: unknown): KeyValueStorage {
+  return {
+    ...ephemeralStorage(),
+    write: () => {
+      throw error;
+    },
+  };
+}
+
 describe('state storage', () => {
   it('tells the user once when a part starts failing, and lists it', () => {
     const { logger } = verboseLogs();
@@ -72,9 +93,87 @@ describe('state storage', () => {
     storage.save(PersistedPart.Preferences, { a: '2' });
 
     expect(told).toEqual([
-      'Your appearance settings could not be saved, so your changes will not survive a reload.',
+      `Your appearance settings could not be saved, so your changes will not survive a reload. ${FULL}`,
     ]);
     expect(storage.get().unsaved).toEqual([PersistedPart.Preferences]);
+  });
+
+  it.each([
+    ['a full quota', new DOMException('Full.', 'QuotaExceededError'), 'full', FULL],
+    [
+      'the name Firefox gave a full quota',
+      Object.assign(new Error('Full.'), { name: 'NS_ERROR_DOM_QUOTA_REACHED' }),
+      'full',
+      FULL,
+    ],
+    [
+      'storage the browser refuses',
+      new DOMException('Blocked.', 'SecurityError'),
+      'refused',
+      REFUSED,
+    ],
+    ['an error that says neither', new Error('Something else.'), 'unknown', NO_CAUSE],
+    ['something thrown that is not an error', 'a string', 'unknown', NO_CAUSE],
+  ])(
+    'says the cause and the remedy of %s, told and in the status bar',
+    (_label, error, cause, said) => {
+      // The notice said the change would not survive a reload, and neither why
+      // nor what the user could do about it.
+      const told: string[] = [];
+      const storage = createStateStorage(throwing(error), verboseLogs().logger, (text) =>
+        told.push(text),
+      );
+
+      storage.save(PersistedPart.Workspace, { a: '1' });
+
+      expect(told).toEqual([
+        `Your workspaces could not be saved, so your changes will not survive a reload. ${said}`,
+      ]);
+      expect(storage.get()).toEqual({ unsaved: [PersistedPart.Workspace], cause });
+      expect(describeUnsaved(storage.get())).toBe(`Not being saved: workspaces. ${said}`);
+    },
+  );
+
+  it('keeps the cause while any part is not kept, and drops it once every part is', () => {
+    const raw = ephemeralStorage();
+    let refusing = true;
+    const storage = createStateStorage(
+      {
+        ...raw,
+        write: (key, value) => {
+          if (refusing) throw new DOMException('Full.', 'QuotaExceededError');
+          raw.write(key, value);
+        },
+      },
+      verboseLogs().logger,
+      () => undefined,
+    );
+
+    storage.save(PersistedPart.Workspace, { a: '1' });
+    storage.save(PersistedPart.Shortcuts, { b: '1' });
+    refusing = false;
+    storage.save(PersistedPart.Workspace, { a: '2' });
+    expect(storage.get()).toEqual({ unsaved: [PersistedPart.Shortcuts], cause: 'full' });
+
+    storage.save(PersistedPart.Shortcuts, { b: '2' });
+    expect(storage.get()).toEqual({ unsaved: [], cause: undefined });
+  });
+
+  it('says no cause for a part its caller keeps back, which says why itself', () => {
+    const told: string[] = [];
+    const storage = createStateStorage(ephemeralStorage(), verboseLogs().logger, (text) =>
+      told.push(text),
+    );
+
+    storage.save(
+      PersistedPart.Workspace,
+      { kept: '1' },
+      { withheld: { reason: 'nowhere', told: 'Kept back.' } },
+    );
+
+    expect(told).toEqual(['Kept back.']);
+    expect(storage.get()).toEqual({ unsaved: [PersistedPart.Workspace], cause: undefined });
+    expect(describeUnsaved(storage.get())).toBe('Not being saved: workspaces');
   });
 
   it('says nothing to the user about a part AudioGubbins learned for itself', () => {
@@ -205,7 +304,7 @@ describe('state storage', () => {
     );
 
     expect(told).toEqual([
-      'Your workspaces could not be saved, so your changes will not survive a reload.',
+      `Your workspaces could not be saved, so your changes will not survive a reload. ${NO_CAUSE}`,
     ]);
   });
 
@@ -264,7 +363,7 @@ describe('state storage', () => {
     );
 
     expect(told).toEqual([
-      'Your workspaces could not be saved, so your changes will not survive a reload.',
+      `Your workspaces could not be saved, so your changes will not survive a reload. ${NO_CAUSE}`,
     ]);
   });
 
@@ -275,11 +374,96 @@ describe('state storage', () => {
     const raw = ephemeralStorage();
     const storage = createStateStorage(raw, logger, () => undefined);
 
-    expect(storage.keepAside('aside', 'first')).toBe(true);
-    expect(storage.keepAside('aside', 'second')).toBe(true);
-    expect(storage.keepAside('aside', 'first')).toBe(true);
+    expect(storage.keepAside('aside', 'first')).toEqual({ kept: true, dropped: 0, count: 1 });
+    expect(storage.keepAside('aside', 'second')).toEqual({ kept: true, dropped: 0, count: 2 });
+    expect(storage.keepAside('aside', 'first')).toEqual({ kept: true, dropped: 0, count: 2 });
 
     expect(textsSetAside(raw.read('aside'))).toEqual(['first', 'second']);
+  });
+
+  it('drops the oldest texts to keep a list within its bound, and says how many it dropped', () => {
+    // The lists only grew, one entry for each distinct damaged text, until
+    // the room they took withheld every write.
+    const { logs, logger } = verboseLogs();
+    const raw = ephemeralStorage();
+    const storage = createStateStorage(raw, logger, () => undefined);
+    const [first, second, third] = ['a', 'b', 'c'].map((letter) => letter.repeat(200_000));
+    if (first === undefined || second === undefined || third === undefined) {
+      throw new Error('three texts were made');
+    }
+
+    storage.keepAside('aside', first);
+    expect(storage.keepAside('aside', second)).toEqual({ kept: true, dropped: 0, count: 2 });
+    expect(storage.keepAside('aside', third)).toEqual({ kept: true, dropped: 1, count: 2 });
+
+    expect(textsSetAside(raw.read('aside'))).toEqual([second, third]);
+    expect(raw.read('aside')?.length).toBeLessThanOrEqual(500_000);
+    const dropping = logs
+      .snapshot()
+      .filter((record) => record.message.startsWith('Older text that could not be read'));
+    expect(dropping.map((record) => record.fields)).toEqual([{ count: 1 }]);
+  });
+
+  it('sets aside a text larger than the bound alone, dropping every older one', () => {
+    // Kept out, it would be left where it was found, and every write of its
+    // store withheld until the user discarded it.
+    const raw = ephemeralStorage();
+    const storage = createStateStorage(raw, verboseLogs().logger, () => undefined);
+    storage.keepAside('aside', 'small');
+    storage.keepAside('aside', 'smaller');
+    const large = 'x'.repeat(600_000);
+
+    expect(storage.keepAside('aside', large)).toEqual({ kept: true, dropped: 2, count: 1 });
+    expect(textsSetAside(raw.read('aside'))).toEqual([large]);
+  });
+
+  it('drops nothing where the write that would drop it is refused', () => {
+    const raw = ephemeralStorage();
+    raw.write('aside', JSON.stringify(['a'.repeat(300_000)]));
+    const storage = createStateStorage(
+      {
+        ...raw,
+        write: () => {
+          throw new DOMException('Full.', 'QuotaExceededError');
+        },
+      },
+      verboseLogs().logger,
+      () => undefined,
+    );
+
+    expect(storage.keepAside('aside', 'b'.repeat(300_000))).toEqual({
+      kept: false,
+      dropped: 0,
+      count: 1,
+    });
+    expect(textsSetAside(raw.read('aside'))).toEqual(['a'.repeat(300_000)]);
+  });
+
+  it('discards every text set aside under a key, and answers whether they are gone', () => {
+    const { logs, logger } = verboseLogs();
+    const raw = ephemeralStorage();
+    const storage = createStateStorage(raw, logger, () => undefined);
+    storage.keepAside('aside', 'first');
+
+    expect(storage.discardAside('aside')).toBe(true);
+    expect(raw.read('aside')).toBeNull();
+
+    storage.keepAside('aside', 'second');
+    const refusing = createStateStorage(
+      {
+        ...raw,
+        remove: () => {
+          throw new DOMException('Blocked.', 'SecurityError');
+        },
+      },
+      logger,
+      () => undefined,
+    );
+    expect(refusing.discardAside('aside')).toBe(false);
+    expect(textsSetAside(raw.read('aside'))).toEqual(['second']);
+    expect(logs.snapshot().map((record) => record.message)).toContain(
+      'Text set aside could not be discarded.',
+    );
   });
 
   it('keeps text it did not write under a set-aside key, when it adds another', () => {
@@ -294,9 +478,12 @@ describe('state storage', () => {
   });
 
   it('writes in words a user uses', () => {
-    expect(describeUnsaved([PersistedPart.Workspace, PersistedPart.Shortcuts])).toBe(
-      'Not being saved: workspaces, shortcut profiles',
-    );
+    expect(
+      describeUnsaved({
+        unsaved: [PersistedPart.Workspace, PersistedPart.Shortcuts],
+        cause: undefined,
+      }),
+    ).toBe('Not being saved: workspaces, shortcut profiles');
   });
 });
 
@@ -318,7 +505,7 @@ describe('a store whose writes are refused', () => {
     // root's choice, which this context's own storage stands in for, so that
     // is held where the application is built.
     expect(context.interaction.get().announcement?.text).toBe(
-      'Your appearance settings could not be saved, so your changes will not survive a reload.',
+      `Your appearance settings could not be saved, so your changes will not survive a reload. ${FULL}`,
     );
   });
 });

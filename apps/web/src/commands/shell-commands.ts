@@ -22,6 +22,7 @@ import { shortcutCommands } from './shortcut-commands.js';
 import type { ShellContext } from './shell-context.js';
 import { viewCommands } from './view-commands.js';
 import { panelCommands } from './panel-commands.js';
+import { unreadTextCommands } from './unread-text-commands.js';
 import { workspaceCommands } from './workspace-commands.js';
 
 /**
@@ -117,6 +118,7 @@ export function shellCommands(
     ...panelCommands(descriptors),
     ...surfaceCommands(),
     ...shortcutCommands(),
+    ...unreadTextCommands(),
     ...diagnosticCommands(),
   ];
 }

@@ -20,6 +20,7 @@ import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
 import { Accessibility, Appearance } from './settings/appearance.js';
 import { Diagnostics } from './settings/diagnostics.js';
+import type { UnreadText } from '../state/text-custody.js';
 import type { RunCommand } from './settings/section.js';
 import { Shortcuts, type ShortcutsProps } from './settings/shortcuts.js';
 import { Workspaces } from './settings/workspaces.js';
@@ -53,9 +54,15 @@ export interface SettingsDialogProps {
   readonly verbosity: VerbosityConfiguration;
   readonly logCategories: readonly string[];
 
-  /** The workspace the user is looking at, and the ones they can switch to. */
+  /**
+   * The workspace the user is looking at, the ones they can switch to, the
+   * ones deleted since AudioGubbins started, and what there is of their text
+   * that could not be read.
+   */
   readonly layout: WorkspaceLayout;
   readonly available: readonly WorkspaceLayout[];
+  readonly deleted: readonly WorkspaceLayout[];
+  readonly workspaceUnread: readonly UnreadText[];
 
   /** Which section is showing. */
   readonly section: string;
@@ -95,6 +102,8 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
               <Workspaces
                 layout={props.layout}
                 available={props.available}
+                deleted={props.deleted}
+                unread={props.workspaceUnread}
                 run={props.run}
                 unavailableReason={props.unavailableReason}
               />

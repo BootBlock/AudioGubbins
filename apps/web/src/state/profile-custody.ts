@@ -8,7 +8,8 @@
  * over it, as the workspaces' is. One that cannot be, at the quota, is left
  * where it is, the profiles are written nowhere over it, and every write of
  * them tries again to set it aside, as the next start does (see
- * `text-custody.ts`).
+ * `text-custody.ts`). The text, set aside or held, is the user's to export and
+ * discard.
  *
  * Apart from the shortcut store, which hands it the text to write and asks
  * what the notice says, and knows nothing of setting text aside.
@@ -21,10 +22,15 @@ import { PersistedPart, type StateStorage, type Withheld } from './state-storage
 import { PROFILES_KEY, type ProfilesDamage, type ReadProfiles } from './stored-profiles.js';
 import {
   NO_ROOM,
+  droppedForIt,
   factWithNoRoom,
   holdTexts,
   triesAgain,
   whereTheTextIs,
+  whereToExport,
+  type Discarded,
+  type UnreadCopy,
+  type UnreadText,
   type Unread,
 } from './text-custody.js';
 
@@ -37,10 +43,19 @@ const PROFILES_SET_ASIDE_KEY = 'audiogubbins.shortcuts.unreadable';
 /** That AudioGubbins tries again to set the profiles' text aside, and when. */
 const TRIES_AGAIN = triesAgain('you change your shortcuts');
 
+/** Where the user can export or discard the profiles' text. */
+const EXPORT_IT = whereToExport('Shortcuts');
+
+/**
+ * What the user is told once a discard lets a write keep the profiles again:
+ * no room was made, so it is said as the discard's doing.
+ */
+const KEPT_AGAIN_BY_DISCARD = 'Changes to your shortcuts are kept again.';
+
 /**
  * Why the profiles are written nowhere, and what the user is told: over the
  * change they have just made, so the fact and that AudioGubbins tries again,
- * and no more (see `NOTHING_MAKES_ROOM_SAFELY`).
+ * and no more (see `MAKING_ROOM_SAFELY`).
  */
 const NOT_KEPT: Withheld = {
   reason: 'there is no room to set the unreadable shortcut profiles aside',
@@ -72,12 +87,12 @@ function damageSaid(damage: ProfilesDamage): string {
 }
 
 /** What the user is told about the profiles' text, set aside or not. */
-function profilesNotice(damage: ProfilesDamage, setAside: boolean): Notice {
-  const where = whereTheTextIs(setAside, NO_ROOM);
+function profilesNotice(damage: ProfilesDamage, setAside: boolean, dropped: number): Notice {
+  const where = whereTheTextIs(setAside, NO_ROOM) + droppedForIt(dropped);
   const fact = damageSaid(damage);
   return {
     fact: setAside ? fact : factWithNoRoom(fact, 'Changes to your shortcuts'),
-    consequences: setAside ? where : `${where} ${TRIES_AGAIN}`,
+    consequences: `${setAside ? where : `${where} ${TRIES_AGAIN}`} ${EXPORT_IT}`,
     waitsForRoom: !setAside,
   };
 }
@@ -100,6 +115,20 @@ export interface ProfileCustody {
    * user is told why.
    */
   readonly save: (text: string) => void;
+
+  /** How much there is of the profiles' text that could not be read. */
+  readonly unread: () => UnreadText;
+
+  /** Every text of the profiles' that could not be read, as it is exported. */
+  readonly copies: () => readonly UnreadCopy[];
+
+  /**
+   * Discards every text of the profiles' that could not be read, and answers
+   * what the user is told the next write keeps again, where it keeps the
+   * profiles the text kept back; or `undefined` where the browser would not
+   * discard it.
+   */
+  readonly discard: () => Discarded | undefined;
 }
 
 /** The one text of the profiles that can be held, and the one part it keeps back. */
@@ -116,17 +145,25 @@ export function takeProfileCustody(
 ): ProfileCustody {
   const texts = new Map<TextName, Unread>();
   if (damaged !== undefined) {
-    texts.set('profiles', { key: PROFILES_SET_ASIDE_KEY, text: damaged.text });
+    texts.set('profiles', { found: PROFILES_KEY, key: PROFILES_SET_ASIDE_KEY, text: damaged.text });
   }
-  const held = holdTexts(storage, logger, texts, {
-    withheld: (isHeld) => new Set<TextName>(isHeld('profiles') ? ['profiles'] : []),
-    notKept: (parts) => (parts.size === 0 ? undefined : NOT_KEPT),
-    keptAgain: (parts) => (parts.size === 0 ? undefined : KEPT_AGAIN),
-  });
+  const held = holdTexts(
+    storage,
+    logger,
+    texts,
+    {
+      withheld: (isHeld) => new Set<TextName>(isHeld('profiles') ? ['profiles'] : []),
+      notKept: (parts) => (parts.size === 0 ? undefined : NOT_KEPT),
+      keptAgain: (parts) => (parts.size === 0 ? undefined : KEPT_AGAIN),
+    },
+    { profiles: { about: 'profiles', key: PROFILES_SET_ASIDE_KEY, names: ['profiles'] } },
+  );
 
   return {
     notice: () =>
-      damaged === undefined ? undefined : profilesNotice(damaged.damage, !held.isHeld('profiles')),
+      damaged === undefined
+        ? undefined
+        : profilesNotice(damaged.damage, !held.isHeld('profiles'), held.dropped('profiles')),
 
     waitsForRoom: held.waitsForRoom,
 
@@ -134,6 +171,15 @@ export function takeProfileCustody(
       const account = held.beforeWrite();
       const entries = held.isHeld('profiles') ? {} : { [PROFILES_KEY]: text };
       held.written(storage.save(PersistedPart.Shortcuts, entries, account));
+    },
+
+    unread: () => held.unread('profiles'),
+    copies: () => held.copies('profiles'),
+
+    discard: () => {
+      const freed = held.discard('profiles');
+      if (freed === undefined) return undefined;
+      return { keptAgain: freed.size === 0 ? undefined : KEPT_AGAIN_BY_DISCARD };
     },
   };
 }

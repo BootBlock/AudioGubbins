@@ -190,8 +190,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'apps/web/src/shell/panels.tsx: DiagnosticsPanel',
       'apps/web/src/shell/panels.tsx: recordsPassing',
     ],
-  'The texts set aside, read back from what is stored by the storage and workspace tests; the storage itself reads them only to add to them.':
-    ['apps/web/src/state/state-storage.ts: textsSetAside'],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
   'How long a notice stays, which the announcement tests wait out.': [

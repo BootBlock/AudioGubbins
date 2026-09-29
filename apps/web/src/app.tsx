@@ -211,7 +211,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               workspaceName={workspace.layout.displayName}
               pendingChord={pendingChordText}
               diagnosticModeActive={context.diagnostics.isDiagnosticModeActive()}
-              unsaved={persistence.unsaved}
+              persistence={persistence}
               recovery={recovery}
               missingCapabilities={missingCapabilities.length}
               run={run}
@@ -259,6 +259,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                 askFor: context.interaction.askForCommandPress,
                 labelFor,
                 announce,
+                unread: shortcuts.unread,
               }}
               unavailableReason={unavailableReason}
               diagnosticModeActive={context.diagnostics.isDiagnosticModeActive()}
@@ -271,6 +272,8 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               logCategories={logCategories}
               layout={workspace.layout}
               available={workspace.available}
+              deleted={workspace.deleted}
+              workspaceUnread={workspace.unread}
               section={settingsSection}
               onSectionChange={setSettingsSection}
               run={runNamed}

@@ -696,7 +696,11 @@ describe('finding the shell commands in the palette', () => {
    * Commands that do something every time, so a second run that changes no
    * store is still a change: each writes a file the user asked for.
    */
-  const REPEATABLE: ReadonlySet<string> = new Set(['shortcuts.export', 'help.export-diagnostics']);
+  const REPEATABLE: ReadonlySet<string> = new Set([
+    'shortcuts.export',
+    'help.export-diagnostics',
+    'settings.export-unread-text',
+  ]);
 
   /** What a command is given, as an invocation carries it. */
   type Arguments = Readonly<Record<string, string | number | boolean>>;
@@ -764,6 +768,20 @@ describe('finding the shell commands in the palette', () => {
     },
     'workspace.reset': { before: (run) => run('workspace.move-panel-left') },
     'workspace.delete': { before: (run) => run('workspace.save-as', { displayName: 'Mine' }) },
+    'workspace.restore': {
+      before: (run) => {
+        run('workspace.save-as', { displayName: 'Mine' });
+        run('workspace.delete');
+      },
+    },
+    'settings.discard-unread-text': {
+      storage: () => {
+        const raw = ephemeralStorage();
+        raw.write('audiogubbins.workspaces.unreadable', JSON.stringify(['[{"id": "mine",']));
+        return raw;
+      },
+      arguments: () => ({ about: 'collection' }),
+    },
     'workspace.dismiss-notice': {
       storage: () => {
         const raw = ephemeralStorage();

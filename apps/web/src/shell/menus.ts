@@ -241,6 +241,7 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
           'workspace.duplicate',
           'workspace.reset',
           'workspace.delete',
+          'workspace.restore',
         ]),
       ],
     },

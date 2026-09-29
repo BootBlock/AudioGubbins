@@ -238,6 +238,8 @@ describe('making a workspace of your own', () => {
       createElement(Workspaces, {
         layout,
         available,
+        deleted: [],
+        unread: [],
         run: (id, args) => execute(commandId(id), args).kind !== 'refused',
         unavailableReason: () => undefined,
       }),
@@ -276,7 +278,9 @@ describe('making a workspace of your own', () => {
       '"Before" is now called "Answered".',
     );
     expect(said('workspace.reset')).toBe('"Answered" is back to how it ships.');
-    expect(said('workspace.delete')).toBe('"Answered" is deleted.');
+    expect(said('workspace.delete')).toBe(
+      '"Answered" is deleted. Restore a deleted workspace brings it back until AudioGubbins closes.',
+    );
     expect(context.workspace.get().layout.displayName).toBe('Editing');
   });
 
@@ -1018,5 +1022,132 @@ describe('rearranging the panels', () => {
     expect(found('rearrange')).not.toContain(commandId('workspace.rearrange'));
     expect(found('move')).toContain(commandId('workspace.move-panel-left'));
     expect(registry.get(commandId('workspace.rearrange'))).toBeDefined();
+  });
+});
+
+describe('restoring a deleted workspace', () => {
+  /** What the last command said. */
+  const said = (): string | undefined => context.interaction.get().announcement?.text;
+
+  /** The names of the workspaces the user made, as the list shows them. */
+  const stored = (of: ShellContext): readonly string[] =>
+    of.workspace
+      .get()
+      .available.filter((one) => !one.builtIn)
+      .map((one) => one.displayName);
+
+  it('puts back the one deleted, as it was, and on screen where it was when it was deleted', () => {
+    // A deletion was one press with no way back.
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.move-panel-left');
+    const before = context.workspace.get().layout;
+    run('workspace.delete');
+    expect(context.workspace.get().layout.id).not.toBe('mixing');
+
+    expect(run('workspace.restore').kind).toBe('applied');
+
+    expect(context.workspace.get().layout).toEqual(before);
+    expect(stored(context)).toEqual(['Mixing']);
+    expect(context.workspace.get().deleted).toEqual([]);
+    expect(said()).toBe('"Mixing" is back, on screen again.');
+  });
+
+  it('puts back one deleted while another was on screen, and leaves the user where they are', () => {
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.save-as', { displayName: 'Mastering' });
+    run('workspace.delete', { layoutId: 'mixing' });
+    expect(context.workspace.get().layout.id).toBe('mastering');
+
+    run('workspace.restore');
+
+    expect(context.workspace.get().layout.id).toBe('mastering');
+    expect(stored(context)).toEqual(['Mastering', 'Mixing']);
+    expect(said()).toBe('"Mixing" is back.');
+  });
+
+  it('keeps what it puts back across a reload', () => {
+    const { context: first, storage } = buildShellContext();
+    context = first;
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.delete');
+    run('workspace.restore');
+
+    expect(storage.get().unsaved).toEqual([]);
+    const raw = JSON.parse(storage.read('audiogubbins.workspaces') ?? '[]') as { id: string }[];
+    expect(raw.map((one) => one.id)).toEqual(['mixing']);
+  });
+
+  it('puts back the newest first, or the one named, and each once', () => {
+    run('workspace.save-as', { displayName: 'First' });
+    run('workspace.save-as', { displayName: 'Second' });
+    run('workspace.delete', { layoutId: 'first' });
+    run('workspace.delete', { layoutId: 'second' });
+
+    run('workspace.restore', { layoutId: 'first' });
+    expect(stored(context)).toEqual(['First']);
+    expect(context.workspace.get().deleted.map((one) => one.id)).toEqual(['second']);
+
+    run('workspace.restore');
+    expect(stored(context)).toEqual(['First', 'Second']);
+    expect(refusalOf(run('workspace.restore'))).toBe(
+      'No workspace has been deleted since AudioGubbins started.',
+    );
+  });
+
+  it('numbers the name of one put back where a workspace saved since has it, and says so', () => {
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.delete');
+    run('workspace.save-as', { displayName: 'Mixing' });
+
+    run('workspace.restore');
+
+    expect(stored(context)).toEqual(['Mixing', 'Mixing 2']);
+    expect(said()).toBe(
+      '"Mixing" is back, on screen again, as "Mixing 2", since another workspace has its name now.',
+    );
+  });
+
+  it('is unavailable, and says why, with nothing deleted, and refuses a workspace never deleted', () => {
+    expect(bus.availability(context, commandId('workspace.restore'))).toEqual({
+      available: false,
+      reason: 'No workspace has been deleted since AudioGubbins started.',
+    });
+
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.delete');
+    expect(refusalOf(run('workspace.restore', { layoutId: 'editing' }))).toBe(
+      'No workspace deleted since AudioGubbins started had the identifier "editing".',
+    );
+    expect(stored(context)).toEqual([]);
+  });
+
+  it('puts back a workspace where this browser cannot compare names', () => {
+    // Refused there, a workspace deleted by mistake would be kept from the
+    // user for want of a comparison.
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.delete');
+    context = withoutNaming(context);
+
+    expect(run('workspace.restore').kind).toBe('applied');
+    expect(stored(context)).toEqual(['Mixing']);
+  });
+
+  it('is offered in the Workspace menu beside Delete', () => {
+    const menus = shellMenus({
+      registry,
+      context,
+      profile: context.shortcuts.get().profile,
+      convention: context.convention,
+      layout: context.keyboardLayout.get(),
+      descriptors: DESCRIPTORS,
+      workspace: context.workspace.get(),
+      run: () => undefined,
+    });
+    const labels = menus
+      .flatMap((menu) => menu.groups)
+      .flatMap((group) => group.items)
+      .map((item) => item.label);
+
+    expect(labels).toContain('Restore a deleted workspace');
   });
 });

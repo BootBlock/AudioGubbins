@@ -91,7 +91,7 @@ describe('the command palette', () => {
         await Promise.resolve();
       });
 
-      expect(region?.textContent).toBe('7 commands match.');
+      expect(region?.textContent).toBe('8 commands match.');
     } finally {
       vi.useRealTimers();
     }

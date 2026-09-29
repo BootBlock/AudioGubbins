@@ -98,6 +98,48 @@ describe('the composition root', () => {
     );
   });
 
+  it('hands the settings the deleted workspaces and the text that could not be read, each where it belongs', async () => {
+    // Each section was tested with what a test gave it, so an application
+    // that passed it nothing would offer no way back from a deletion and no
+    // export of what could not be read.
+    window.localStorage.setItem('audiogubbins.workspaces.unreadable', JSON.stringify(['[{']));
+    window.localStorage.setItem('audiogubbins.shortcuts.unreadable', JSON.stringify(['{"a"']));
+    const { mount } = await import('./app.js');
+    const container = document.createElement('div');
+    document.body.append(container);
+    await act(async () => {
+      unmount = mount(container);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.keyDown(document.body, { code: 'Comma', key: ',', ctrlKey: true });
+      await Promise.resolve();
+    });
+
+    await userEvent.click(await screen.findByRole('tab', { name: 'Workspaces' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.getByRole('button', { name: 'Restore "Editing copy"' })).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard the text about your saved workspaces that could not be read',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard for good the text about your saved workspaces that could not be read',
+      }),
+    );
+    expect(window.localStorage.getItem('audiogubbins.workspaces.unreadable')).toBeNull();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Shortcuts' }));
+    expect(
+      screen.getByRole('button', {
+        name: 'Export the text about your shortcut profiles that could not be read',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('takes the application down with it, which React unmounting does not', async () => {
     // `root.unmount()` removes no `visibilitychange` listener and no `focus`
     // listener, so an application left listening reads the browser's layout
