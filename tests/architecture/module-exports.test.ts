@@ -218,7 +218,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/design-system/src/tokens/colour.ts: meetsContrast',
       'packages/design-system/src/tokens/colour.ts: relativeLuminance',
       'packages/design-system/src/tokens/colour.ts: solveContrast',
-      'packages/design-system/src/tokens/colour.ts: srgbToOklch',
     ],
   'The custom properties and data attributes a theme writes, which the theme tests read; the shell writes both through `applyTheme`.':
     [

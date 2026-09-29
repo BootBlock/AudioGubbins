@@ -23,8 +23,8 @@
 
 import {
   ContrastRequirement,
-  contrastRatio,
   contrastSolver,
+  hardestFor,
   oklch,
   scaleChroma,
   type Oklch,
@@ -190,6 +190,19 @@ const REQUIREMENTS = {
   },
 } as const;
 
+/**
+ * The contrast body text and supporting text must reach at `level`, which text
+ * holds wherever it is written: on the chrome, and on the editing palettes' own
+ * surfaces.
+ */
+export function textRequirements(level: ContrastLevel): {
+  readonly primary: number;
+  readonly secondary: number;
+} {
+  const requirement = REQUIREMENTS[level];
+  return { primary: requirement.primaryText, secondary: requirement.secondaryText };
+}
+
 /** How much high-contrast mode reduces colour, which impedes reading. */
 const HIGH_CONTRAST_CHROMA_FACTOR = 0.6;
 
@@ -200,20 +213,6 @@ function positionInBand(brightness: number): number {
 
 /** How opaque the dialogue scrim is, by contrast level. */
 const SCRIM_ALPHA = { [ContrastLevel.Standard]: 0.5, [ContrastLevel.High]: 0.7 } as const;
-
-/**
- * The surface a colour is hardest to be seen on: the one it has the least
- * contrast with, which is the one nearest its own lightness.
- *
- * Solving against it makes the answer hold on every surface in the list, which
- * is what a focus ring needs: it is drawn on a control, in a dialogue, on a
- * menu and on the entry the keyboard is on, and those are four surfaces.
- */
-function hardestFor(colour: Oklch, surfaces: readonly Oklch[]): Oklch {
-  return surfaces.reduce((hardest, one) =>
-    contrastRatio(colour, one) < contrastRatio(colour, hardest) ? one : hardest,
-  );
-}
 
 /**
  * Builds the chrome palette.

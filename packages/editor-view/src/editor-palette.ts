@@ -18,7 +18,11 @@ export interface EditorPalette {
   readonly grid: Colour;
   readonly rulerBackground: Colour;
   readonly rulerTick: Colour;
+  /** The ruler's labels, on its own background. */
+  readonly rulerText: Colour;
+  /** Names written on the display: a marker's, a region's. */
   readonly text: Colour;
+  /** Supporting text on the display: a channel's name, a frequency, a note. */
   readonly quietText: Colour;
   readonly selectionFill: Colour;
   /** A kept selection that is not the active facet. */

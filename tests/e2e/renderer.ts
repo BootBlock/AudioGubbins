@@ -226,7 +226,7 @@ export async function expectDrawnAsShown(page: Page, panel: Locator): Promise<vo
  * of a lane's labels, where the geometry alone draws none of that colour.
  */
 export async function expectLabelled(page: Page, panel: Locator): Promise<void> {
-  const label = await themeColour(page, '--ag-chrome-text-secondary');
+  const label = await themeColour(page, '--ag-waveform-label-secondary');
   await expect(async () => {
     const shown = await shownOver(page, panel);
     const { start } = await shownOf(panel);

@@ -1,9 +1,9 @@
 /**
  * The colours and type an editor view draws with, taken from the theme
- * (REQ-UX-155, ADR-0012): the waveform, selection and analysis palettes, and
- * the chrome's text and borders, as the sRGB channels the renderer takes. A
- * view has no colour of its own, so a change of theme, brightness or contrast
- * reaches the next frame it draws.
+ * (REQ-UX-155, ADR-0012): the waveform, selection and analysis palettes, the
+ * text written on the display, and the chrome's ruler, as the sRGB channels the
+ * renderer takes. A view has no colour of its own, so a change of theme,
+ * brightness or contrast reaches the next frame it draws.
  */
 
 import { oklchToSrgb, type Oklch, type Theme } from '@audiogubbins/design-system';
@@ -34,12 +34,15 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     peak: colour(waveform.peak),
     rms: colour(waveform.rms),
     clipped: colour(waveform.clipped),
-    pending: colour(chrome.surfaceHover),
+    pending: colour(waveform.pending),
     grid: colour(analysisGrid, 0.5),
     rulerBackground: colour(chrome.surfaceRaised),
     rulerTick: colour(chrome.borderStrong),
-    text: colour(chrome.textPrimary),
-    quietText: colour(chrome.textSecondary),
+    rulerText: colour(chrome.textPrimary),
+    // Written on the waveform display, which is dark in both themes, so taken
+    // from its palette rather than from the chrome's.
+    text: colour(waveform.label),
+    quietText: colour(waveform.labelSecondary),
     selectionFill: colour(selection.fill),
     // A kept selection that is not the one a command acts on is drawn fainter,
     // so the active scope is the one that stands out (REQ-EDIT-063).

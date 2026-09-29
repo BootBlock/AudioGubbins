@@ -977,6 +977,8 @@ Published paths
   readonly ContextMenuProps.label: string
   const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
   type ContrastLevel = "high" | "standard"
+  const ContrastRequirement: { readonly BodyText: 4.5; readonly LargeText: 3; readonly Enhanced: 7; }
+  type ContrastRequirement = 3 | 4.5 | 7
   interface ContrastShortfall
   readonly ContrastShortfall.token: string
   readonly ContrastShortfall.ratio: number
@@ -1155,14 +1157,16 @@ Published paths
   readonly ValueSliderProps.displayValue?: string
   readonly ValueSliderProps.disabled?: boolean
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
-  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; }
+  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
   function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
   function clampBrightness(value: number): number
+  function contrastRatio(foreground: Oklch, background: Oklch): number
   function fixedSystemAppearance(appearance: SystemAppearance): SystemAppearanceSource
   function isAccentName(value: unknown): boolean
   function oklchToHex(colour: Oklch): string
   function oklchToSrgb(colour: Oklch): Srgb
   function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
+  function srgbToOklch(colour: Srgb): Oklch
   function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
   function useTheme(): Theme
 
@@ -1548,6 +1552,7 @@ Published paths
   readonly EditorPalette.grid: Colour
   readonly EditorPalette.rulerBackground: Colour
   readonly EditorPalette.rulerTick: Colour
+  readonly EditorPalette.rulerText: Colour
   readonly EditorPalette.text: Colour
   readonly EditorPalette.quietText: Colour
   readonly EditorPalette.selectionFill: Colour

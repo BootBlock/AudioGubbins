@@ -439,6 +439,40 @@ describe('contrast across every theme, accent and brightness', () => {
     expect(collapsed).toEqual([]);
   });
 
+  it.each([ContrastLevel.Standard, ContrastLevel.High])(
+    'keeps the text written on the waveform display readable on each of its surfaces at %s contrast',
+    (contrast) => {
+      // The display is dark in both themes. Its names were once the chrome's
+      // text, dark in the light theme, and measured 1.04 to 1 on its background
+      // there; high contrast, which darkens both, made them worse.
+      const needed =
+        contrast === ContrastLevel.High
+          ? ContrastRequirement.Enhanced
+          : ContrastRequirement.BodyText;
+      const failures: string[] = [];
+      for (const combination of combinations) {
+        const { waveform, spectrogram } = paletteFor(combination, contrast);
+        const surfaces = {
+          background: waveform.background,
+          pending: waveform.pending,
+          spectrogramFloor: spectrogram[0],
+        };
+        for (const token of ['label', 'labelSecondary'] as const) {
+          for (const [surfaceName, surface] of Object.entries(surfaces)) {
+            const ratio = contrastRatio(waveform[token], surface);
+            if (ratio < needed) {
+              failures.push(
+                `${combination.dark ? 'dark' : 'light'}/${combination.accent}/` +
+                  `${combination.brightness.toFixed(1)}: ${token} on ${surfaceName} is ${ratio.toFixed(2)}`,
+              );
+            }
+          }
+        }
+      }
+      expect(failures).toEqual([]);
+    },
+  );
+
   it('meets every contrast requirement it solves for, so no palette falls short', () => {
     // A requirement the solver cannot meet is recorded rather than handed out
     // as a readable colour. Every palette AudioGubbins ships must record none,
