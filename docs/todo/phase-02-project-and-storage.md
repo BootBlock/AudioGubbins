@@ -1,0 +1,171 @@
+> **Status:** In progress. 2026-09-29: context loaded, worktree made, baseline
+> `verify:commit` green, design below decided; no package written yet.
+
+# Phase 02 — Project and Storage System
+
+Resume note and design record. The packet is
+`docs/spec/phases/phase-02-project-and-storage-system.md`; its context pack is
+`docs/spec/generated/context/phase-02-context.md`.
+
+## Where the work is
+
+|                  |                                                              |
+| ---------------- | ------------------------------------------------------------ |
+| Primary checkout | the repository's own directory, on `main`, for reading only |
+| Worktree         | `../AudioGubbins-phase-02` — **do the work here**            |
+| Branch           | `phase-02-project-storage`                                   |
+
+## Coordination with Phase 03
+
+Phase 03 runs at the same time in `../AudioGubbins-phase-03` (branch
+`phase-03-audio-engine`). Agreed terms:
+
+- Phase 02 takes ADR-0020 to ADR-0029; Phase 03 takes ADR-0030 upward.
+- `packages/capabilities` belongs to Phase 03. Phase 02 adds its storage
+  capability checks as new files and new entries only.
+- Shared files: the ledger (own entry only), `tools/sync-workspace-graph.mjs`,
+  `tests/architecture/public-contracts.txt`, root `package.json` scripts,
+  `vitest.projects.json`, `pnpm-lock.yaml`, `.dependency-cruiser.cjs`. The
+  second to merge merges `main` in and runs `verify:commit` first.
+- Storage log categories are separate entries in `@audiogubbins/diagnostics`.
+
+## Gates
+
+Light gates (owner decision, 2026-09-28): whole Vitest, both tsc, lint
+(`pnpm run verify:commit`), one review pass with every lens the packet names,
+fix its findings, land. No mutation harness, no looped rounds. The packet's
+commands `test:recovery`, `test:project-roundtrip` and `test:storage-quota`
+are added as root scripts that run the named suites.
+
+## Checklist for a new package
+
+`tools/sync-workspace-graph.mjs` `PACKAGES`, then `pnpm graph:sync` and
+`pnpm install`; `ALLOWED`, `FRAMEWORK_FREE_PACKAGES`, the leaf rules and
+`TESTS_TAKE_THE_FIXTURES` in `tests/architecture/dependency-rules.test.ts`;
+the layering comment and rules in `.dependency-cruiser.cjs`; the ESLint globs
+(`eslint.config.js` lines 176 and 191); `OFFERED` in `package-exports.test.ts`
+and `FOR_TESTS` in `module-exports.test.ts` for exports with no consumer yet;
+`pnpm contracts:update`. Every declared dependency must be imported by a
+production file. Files of 300 to 400 logical lines need a `REVIEWED_IN_BAND`
+entry, and functions of 50 or more a `REVIEWED_FUNCTIONS` entry. Comments of
+two or more lines are at most 80 columns and filled greedily. No
+`navigator` member read outside `packages/capabilities/src/`. A new schema goes
+in `version.json`, then `pnpm version:sync`.
+
+## Design
+
+### Packages (ADR-0020 records this)
+
+- `packages/project-format` (framework-free; domain, version, text): the
+  authoritative project aggregate `ProjectState` (the domain `Project`, each
+  asset's media source and its import provenance), `ContentId`, the external
+  source identity record, source change policy, export provenance records and
+  their stripping, canonical JSON, the runtime-validated project document, the
+  pre-1.0 compatibility rule (one home), the chunked content digest, the ZIP
+  container (store method, ZIP64) over byte ports, the portable bundle manifest
+  and the unpacked Git-friendly tree.
+- `packages/project-commands` (framework-free; domain, commands,
+  project-format): the project commands. The packet's
+  `packages/commands/project` is realised as its own package, because a
+  package nested in `packages/commands` defeats the per-package cruise rules.
+  Every identifier and time a command uses is in its arguments, so replay is
+  deterministic.
+- `packages/history` (framework-free; domain, commands, project-format): the
+  branching history graph, cursor, path planning between nodes, branch names,
+  named snapshots, A/B comparison and the structural diff of two states,
+  affected entities per node, retention policy and compaction planning.
+- `packages/media-store` (framework-free; project-format): the
+  content-addressed media object store over a backend port, import by copy or
+  reference, the progressive fingerprint, the classification of an external
+  source (unchanged, modified, replaced, relinked identical, missing), and
+  reachability with deterministic collection.
+- `packages/storage` (framework-free; project-format, history, media-store,
+  diagnostics, version): the backend port and an in-memory backend, the storage
+  root and its compatibility and wipe, `ProjectRepository`, `CommandJournal`,
+  `SnapshotStore`, the checkpoint and double head protocol, the project session
+  (open, run, undo, redo, go to a node), `ProjectWriteLease` contract, autosave
+  and recovery, `BackupPolicy` and generations, usage by category, cleanup
+  priority and purge, forks, bundle and unpacked export and import.
+- `packages/browser-storage` (DOM): the origin-private file system through a
+  dedicated worker with sync access handles (Safari 16.4 has no
+  `createWritable`), Web Locks with `steal` and BroadcastChannel for the lease
+  and ownership transfer, IndexedDB for kept file handles, and the file and
+  directory pickers. The platform objects are read in new files of
+  `packages/capabilities` and passed in.
+- `apps/web`: project store (ADR-0011 style), shell commands for the project
+  menu, History panel, Storage panel with the purge flow, the blocking
+  compatibility screen, the ownership banner and transfer dialogue, the source
+  change prompt, backup and retention settings, bundle import and export.
+
+### Persistence protocol
+
+No rename or atomic replace is assumed. Every file but the heads is written
+once and carries a checksum; a torn file fails its check and is ignored.
+
+- `storage.json` at the root: format and schema version. Absent: initialise.
+  Other version: the blocking compatibility screen (export raw data as a ZIP,
+  cancel, or wipe after confirmation).
+- `projects/<id>/project.json`: header (name, created, deleted flag).
+- `projects/<id>/head-0.json`, `head-1.json`: generation, checkpoint, lease
+  epoch and journal position, checksummed. The valid head with the highest
+  generation wins; the other is written next.
+- `projects/<id>/checkpoints/<id>.json`: history graph, cursor, named
+  snapshots, branch names, export log, retention settings.
+- `projects/<id>/states/<fingerprint>.json`: canonical `ProjectState`,
+  content-addressed and immutable.
+- `projects/<id>/journal/e<epoch>/<seq>.json`: history events (apply with
+  forward and inverse invocations, move, name branch, snapshot, delete
+  snapshot, export record). Replay stops at the first missing or invalid
+  record; the tail is kept aside and reported, never deleted unseen.
+- Lease fencing: a new owner raises the epoch in `lease.json` and seals the old
+  epoch at its last sequence; later records of an older epoch are ignored.
+- `media/<content id>`: shared by every project. Roots are every project's
+  retained states, snapshots, checkpoints and backups. Nothing is collected
+  except by an explicit purge.
+- `backups/<project>/<generation>/`: a checkpoint copy and its states; media by
+  content id. An external backup directory, where offered, gets a bundle.
+- `cache/<category>/`: disposable, first to go under pressure.
+
+### Content identity
+
+`ContentId` is the SHA-256 of the byte length and the SHA-256 of each 1 MiB
+chunk, so hashing streams, runs in the platform's native digest through an
+injected port, and never holds a whole file.
+
+### Cross-phase limits to record in the evidence
+
+- Importing audio from the interface needs the audio shape of a file, which a
+  codec or engine phase reads; Phase 02 ships the import pipeline, the copy or
+  link choice and its explanation, and the commands, tested through a probe
+  port.
+- A/B audition needs the audio engine (Phase 03); Phase 02 ships the
+  comparison state, switching, the diff and promotion.
+
+## Phase 01 debt owned here
+
+From `traceability/handoffs/phase-01.md`: an inverse for deleting a workspace
+(F-123); export and discard of every text set aside as unreadable, and a bound
+on each list set aside with a notice when an old text is dropped (F-206, F-305,
+F-401, F-496, F-973, F-993, F-1021, F-1022, F-1038); a cause and a remedy in
+the storage-failure notice (F-209).
+
+## Work order
+
+1. ADR-0020 and the package skeletons with their architecture entries.
+2. project-format, then project-commands, history, media-store.
+3. storage, then browser-storage and the capability files.
+4. apps/web surfaces, then the Phase 01 debt.
+5. Browser checks (two tabs, reload), evidence, one review pass, fixes,
+   ledger, handoff, land.
+
+## Progress
+
+- Step 1: ADR-0020 written; six packages declared in the graph, linked, and
+  named in the cruise, the architecture tables and the lint globs; schema
+  versions `projectDocument`, `projectStorage` and `portableBundle` added.
+- Sub-agents build packages from the brief at
+  `../AudioGubbins-phase-02-brief.md` (outside the repository). Waves: format
+  core and the Phase 01 debt; then history, project commands, media store and
+  the `StorageTree` port; then storage core and the bundle and unpacked
+  modules; then storage safety, browser storage and the capability files; then
+  the interface.

@@ -32,3 +32,12 @@ pub const KEYBOARD_LAYOUT_SCHEMA_VERSION: u32 = 1;
 
 /// Version of the persisted `diagnosticBundle` schema.
 pub const DIAGNOSTIC_BUNDLE_SCHEMA_VERSION: u32 = 1;
+
+/// Version of the persisted `projectDocument` schema.
+pub const PROJECT_DOCUMENT_SCHEMA_VERSION: u32 = 1;
+
+/// Version of the persisted `projectStorage` schema.
+pub const PROJECT_STORAGE_SCHEMA_VERSION: u32 = 1;
+
+/// Version of the persisted `portableBundle` schema.
+pub const PORTABLE_BUNDLE_SCHEMA_VERSION: u32 = 1;

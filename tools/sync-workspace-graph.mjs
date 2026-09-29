@@ -212,6 +212,109 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The authoritative, versioned project and every form it is written in:
+    // the aggregate the history and the journal replay, its runtime-validated
+    // document, content identity, the portable bundle and the unpacked tree
+    // (ADR-0015, ADR-0020). Pure: bytes reach it through ports.
+    dir: 'packages/project-format',
+    name: '@audiogubbins/project-format',
+    description:
+      'The authoritative, versioned AudioGubbins project and the forms it is written in: its validated document, content identity, the portable bundle and the unpacked tree.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/version'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The commands that change a project, as the packet's
+    // `packages/commands/project` asks, in a package of their own so the
+    // architecture rules read it apart from the machinery (ADR-0020).
+    dir: 'packages/project-commands',
+    name: '@audiogubbins/project-commands',
+    description:
+      'The typed commands that change an AudioGubbins project, each with its inverse, deterministic under replay.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Branching history as values: the graph of changes, where the project
+    // stands in it, named snapshots, A/B comparison and what compaction may
+    // remove (ADR-0006, ADR-0020).
+    dir: 'packages/history',
+    name: '@audiogubbins/history',
+    description:
+      'The branching project history: its graph of changes, the current node, named snapshots, whole-project comparison and the planning of compaction.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Source media by content: the shared object store, how an external file
+    // is known again, and which objects anything still reaches (ADR-0020).
+    dir: 'packages/media-store',
+    name: '@audiogubbins/media-store',
+    description:
+      'Content-addressed source media: the shared object store, external source identity and reachability.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/project-format'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // Keeping projects: the journal, snapshots, sessions, leases, backups and
+    // cleanup, over a backend port, so no browser API is reached from here
+    // (ADR-0002, ADR-0020).
+    dir: 'packages/storage',
+    name: '@audiogubbins/storage',
+    description:
+      'Keeping AudioGubbins projects safe over a storage backend port: journal, snapshots, sessions, write leases, backups and cleanup.',
+    dom: false,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/history',
+      '@audiogubbins/media-store',
+      '@audiogubbins/project-format',
+      '@audiogubbins/version',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The browser beneath the storage ports: the origin-private file system
+    // through a worker, Web Locks, kept file handles and the pickers
+    // (ADR-0020).
+    dir: 'packages/browser-storage',
+    name: '@audiogubbins/browser-storage',
+    description:
+      'The browser implementations of the storage ports: the origin-private file system, Web Locks, kept file handles and the file pickers.',
+    dom: true,
+    jsx: false,
+    deps: [
+      '@audiogubbins/diagnostics',
+      '@audiogubbins/media-store',
+      '@audiogubbins/project-format',
+      '@audiogubbins/storage',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/test-fixtures',
     name: '@audiogubbins/test-fixtures',
     description:
@@ -244,6 +347,12 @@ const PACKAGES = [
       '@audiogubbins/input',
       '@audiogubbins/text',
       '@audiogubbins/version',
+      '@audiogubbins/project-format',
+      '@audiogubbins/project-commands',
+      '@audiogubbins/history',
+      '@audiogubbins/media-store',
+      '@audiogubbins/storage',
+      '@audiogubbins/browser-storage',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

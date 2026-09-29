@@ -30,6 +30,24 @@
       "path": "./packages/workspace"
     },
     {
+      "path": "./packages/project-format"
+    },
+    {
+      "path": "./packages/project-commands"
+    },
+    {
+      "path": "./packages/history"
+    },
+    {
+      "path": "./packages/media-store"
+    },
+    {
+      "path": "./packages/storage"
+    },
+    {
+      "path": "./packages/browser-storage"
+    },
+    {
       "path": "./packages/test-fixtures"
     },
     {

@@ -211,6 +211,33 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/text',
     '@audiogubbins/version',
   ],
+  '@audiogubbins/project-format': ['@audiogubbins/domain', '@audiogubbins/version'],
+  '@audiogubbins/project-commands': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/project-format',
+  ],
+  '@audiogubbins/history': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/project-format',
+  ],
+  '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/storage': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/history',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-format',
+    '@audiogubbins/version',
+  ],
+  '@audiogubbins/browser-storage': [
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-format',
+    '@audiogubbins/storage',
+  ],
   '@audiogubbins/test-fixtures': ['@audiogubbins/domain'],
 };
 
@@ -227,7 +254,16 @@ const FIXTURES = '@audiogubbins/test-fixtures';
  * package needs it, and the domain package's tests cannot take it, since the
  * fixtures package depends on the domain package.
  */
-const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set(['diagnostics', 'text']);
+const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
+  'browser-storage',
+  'diagnostics',
+  'history',
+  'media-store',
+  'project-commands',
+  'project-format',
+  'storage',
+  'text',
+]);
 
 /** A rule of the cruise, as much of it as the rules here read. */
 interface CruiserRule {
@@ -651,7 +687,18 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
    * import in it would reach every package that reads it. The cruise's
    * framework rule names the same set.
    */
-  const FRAMEWORK_FREE_PACKAGES = ['commands', 'domain', 'input', 'text', 'version'] as const;
+  const FRAMEWORK_FREE_PACKAGES = [
+    'commands',
+    'domain',
+    'history',
+    'input',
+    'media-store',
+    'project-commands',
+    'project-format',
+    'storage',
+    'text',
+    'version',
+  ] as const;
   const FRAMEWORK_FREE = productionSources(
     `packages/{${FRAMEWORK_FREE_PACKAGES.join(',')}}/src/**/*.ts`,
   );

@@ -83,6 +83,57 @@
       ]
     },
     {
+      "name": "project-format",
+      "root": "packages/project-format",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "project-commands",
+      "root": "packages/project-commands",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "history",
+      "root": "packages/history",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "media-store",
+      "root": "packages/media-store",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "storage",
+      "root": "packages/storage",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "browser-storage",
+      "root": "packages/browser-storage",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "test-fixtures",
       "root": "packages/test-fixtures",
       "environment": "node",

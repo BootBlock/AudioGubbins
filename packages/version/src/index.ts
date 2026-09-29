@@ -21,6 +21,9 @@ export const SCHEMA_VERSIONS = {
   logVerbosity: 1,
   keyboardLayout: 1,
   diagnosticBundle: 1,
+  projectDocument: 1,
+  projectStorage: 1,
+  portableBundle: 1,
 } as const satisfies Record<string, number>;
 
 /** Name of a persisted format with an independent compatibility version. */

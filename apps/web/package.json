@@ -20,6 +20,12 @@
     "@audiogubbins/input": "workspace:*",
     "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*",
+    "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/project-commands": "workspace:*",
+    "@audiogubbins/history": "workspace:*",
+    "@audiogubbins/media-store": "workspace:*",
+    "@audiogubbins/storage": "workspace:*",
+    "@audiogubbins/browser-storage": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

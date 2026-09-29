@@ -173,7 +173,9 @@ export default tseslint.config(
 
   // Domain and command packages: framework-agnostic, platform-agnostic.
   {
-    files: ['packages/{domain,commands,input,version}/**/*.ts'],
+    files: [
+      'packages/{domain,commands,input,version,project-format,project-commands,history,media-store,storage}/**/*.ts',
+    ],
     languageOptions: { globals: {} },
     rules: {
       'no-restricted-globals': [
@@ -188,7 +190,7 @@ export default tseslint.config(
   {
     files: [
       'apps/web/**/*.{ts,tsx}',
-      'packages/{design-system,workspace,capabilities}/**/*.{ts,tsx}',
+      'packages/{design-system,workspace,capabilities,browser-storage}/**/*.{ts,tsx}',
     ],
     languageOptions: {
       globals: globals.browser,
