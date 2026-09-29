@@ -4,24 +4,25 @@
  * A source object cannot cross a thread, so the main thread describes each
  * graph input's audio and the thread that reads it makes it: a render worker
  * for a render (`render-messages.ts`), and the feeder worker for real-time
- * playback (`feeder-messages.ts`). Recorded audio crosses as its planar
- * arrays, transferred rather than copied, so a long clip is never held twice
- * (the packet's "large media processing must avoid whole-file duplication");
- * its layout is the graph input's port's, which the receiving thread reads
- * from the graph, so no layout crosses the wire to disagree with it. A tone is
- * made by the receiving thread from its own canonical DSP.
+ * playback (`feeder-messages.ts`). Recorded audio crosses as its planar arrays,
+ * transferred rather than copied, so a long clip is never held twice (the
+ * packet's "large media processing must avoid whole-file duplication"); its
+ * layout is the graph input's port's, which the receiving thread reads from the
+ * graph, so no layout crosses the wire to disagree with it. Generated audio
+ * crosses as its signal recipe, and the receiving thread makes it from its own
+ * canonical DSP (ADR-0045).
  */
 
-import type { SampleCount, SampleRate } from '@audiogubbins/domain';
+import type { SampleRate } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
+import { signalRecipe, type SignalRecipe } from '@audiogubbins/audio-engine';
 
 import {
+  MalformedMessage,
   channelsAt,
   nodeAt,
-  numberAt,
   oneOf,
   rateAt,
-  samplesAt,
   type Fields,
 } from './message-reading.js';
 
@@ -29,8 +30,8 @@ import {
 export const SourceKind = {
   /** Audio in memory: a decoded clip's planar samples. */
   Pcm: 'pcm',
-  /** A test tone the worker makes itself from the canonical oscillator. */
-  Tone: 'tone',
+  /** Generated audio, which the worker makes itself from its recipe. */
+  Signal: 'signal',
 } as const;
 
 export type SourceKind = (typeof SourceKind)[keyof typeof SourceKind];
@@ -49,11 +50,9 @@ export type SourceDescription =
     }
   | {
       readonly node: NodeId;
-      readonly kind: typeof SourceKind.Tone;
+      readonly kind: typeof SourceKind.Signal;
       readonly sampleRate: SampleRate;
-      readonly frequency: number;
-      readonly amplitude: number;
-      readonly frames: SampleCount;
+      readonly recipe: SignalRecipe;
     };
 
 /**
@@ -80,14 +79,11 @@ export function sourceFrom(fields: Fields): SourceDescription {
   switch (kind) {
     case SourceKind.Pcm:
       return { node, kind, sampleRate: rate, channels: channelsAt(fields, 'channels') };
-    case SourceKind.Tone:
-      return {
-        node,
-        kind,
-        sampleRate: rate,
-        frequency: numberAt(fields, 'frequency'),
-        amplitude: numberAt(fields, 'amplitude'),
-        frames: samplesAt(fields, 'frames'),
-      };
+    case SourceKind.Signal: {
+      const recipe = signalRecipe(fields['recipe']);
+      if (!recipe.ok)
+        throw new MalformedMessage('recipe', `a signal recipe: ${recipe.failures[0].summary}`);
+      return { node, kind, sampleRate: rate, recipe: recipe.value };
+    }
   }
 }

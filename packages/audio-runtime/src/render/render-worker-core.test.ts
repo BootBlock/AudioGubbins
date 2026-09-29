@@ -21,10 +21,11 @@ import {
   frameBlock,
   memorySource,
   renderOffline,
-  toneSource,
+  signalSource,
   type CanonicalDsp,
   type PcmSource,
   type RenderSink,
+  toneRecipe,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -349,9 +350,9 @@ describe('a render worker', () => {
           [
             {
               node: named('in'),
-              kind: SourceKind.Tone,
-              ...tone,
-              frames: expectSuccess(sampleCount(2_000)),
+              kind: SourceKind.Signal,
+              sampleRate: tone.sampleRate,
+              recipe: expectSuccess(toneRecipe(2, 2_000, tone.frequency, tone.amplitude)),
             },
           ],
           { module },
@@ -361,7 +362,11 @@ describe('a render worker', () => {
       const engine = await engineRender(
         lookaheadGraph(STEREO),
         expectSuccess(
-          toneSource(dsp, { ...tone, layout: STEREO, length: expectSuccess(sampleCount(2_000)) }),
+          signalSource(dsp, {
+            layout: STEREO,
+            sampleRate: tone.sampleRate,
+            recipe: expectSuccess(toneRecipe(2, 2_000, tone.frequency, tone.amplitude)),
+          }),
         ),
         dsp,
       );
@@ -588,15 +593,13 @@ describe('a render worker', () => {
       ],
       [
         'a tone louder than full scale',
-        'pcm.tone-amplitude-out-of-range',
+        'dsp.oscillator-frequency-out-of-range',
         renderOf(lookaheadGraph(STEREO), [
           {
             node: named('in'),
-            kind: SourceKind.Tone,
+            kind: SourceKind.Signal,
             sampleRate: RATE,
-            frequency: 440,
-            amplitude: 2,
-            frames: expectSuccess(sampleCount(10)),
+            recipe: expectSuccess(toneRecipe(2, 10, 30_000, 0.5)),
           },
         ]),
       ],
@@ -726,11 +729,9 @@ describe('a render worker', () => {
     /** A tone at another rate than the render's: an oscillator of the worker's, and a resampler of the engine's. */
     const tone = {
       node: named('in'),
-      kind: SourceKind.Tone,
+      kind: SourceKind.Signal,
       sampleRate: CD_RATE,
-      frequency: 440,
-      amplitude: 0.5,
-      frames: expectSuccess(sampleCount(3_000)),
+      recipe: expectSuccess(toneRecipe(2, 3_000, 440, 0.5)),
     };
 
     it.each([
@@ -777,11 +778,9 @@ describe('a render worker whose render throws', () => {
   /** A tone at the render's rate, so its oscillator is the one DSP object the render calls. */
   const tone: SourceDescription = {
     node: named('in'),
-    kind: SourceKind.Tone,
+    kind: SourceKind.Signal,
     sampleRate: RATE,
-    frequency: 440,
-    amplitude: 0.5,
-    frames: expectSuccess(sampleCount(3_000)),
+    recipe: expectSuccess(toneRecipe(2, 3_000, 440, 0.5)),
   };
 
   /** A worker whose oscillators throw `error` as they render. */

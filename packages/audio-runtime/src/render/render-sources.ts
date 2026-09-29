@@ -2,11 +2,11 @@
  * The sources a render message describes, made in the worker.
  *
  * A source object cannot cross a thread, so the main thread describes each
- * graph input's audio and the worker makes it here: recorded audio as a
- * memory source over the arrays it was transferred, which are read in place
- * and never copied whole, and a tone from the canonical oscillator of the
- * worker's own DSP. Each is made in the layout of the input's port, which is
- * why the description carries none.
+ * graph input's audio and the worker makes it here: recorded audio as a memory
+ * source over the arrays it was transferred, which are read in place and never
+ * copied whole, and generated audio from its recipe with the worker's own DSP.
+ * Each is made in the layout of the input's port, which is why the description
+ * carries none.
  */
 
 import {
@@ -23,7 +23,7 @@ import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   frameBlock,
   memorySource,
-  toneSource,
+  signalSource,
   type CanonicalDsp,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
@@ -41,13 +41,11 @@ function sourceOf(
         frameBlock(layout, description.sampleRate, description.channels),
         memorySource,
       );
-    case SourceKind.Tone:
-      return toneSource(dsp, {
+    case SourceKind.Signal:
+      return signalSource(dsp, {
         layout,
         sampleRate: description.sampleRate,
-        frequency: description.frequency,
-        amplitude: description.amplitude,
-        length: description.frames,
+        recipe: description.recipe,
       });
   }
 }

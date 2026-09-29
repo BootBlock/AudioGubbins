@@ -40,7 +40,14 @@ export {
 } from './pcm/pcm-source.js';
 
 export { memorySource } from './pcm/memory-source.js';
-export { type ToneSettings, toneSource } from './pcm/tone-source.js';
+export {
+  type ChannelProgramme,
+  type SignalRecipe,
+  type SignalSegment,
+  signalRecipe,
+  toneRecipe,
+} from './pcm/signal-recipe.js';
+export { type SignalSettings, signalSource } from './pcm/signal-source.js';
 export { resampledSource } from './pcm/resampled-source.js';
 
 export {

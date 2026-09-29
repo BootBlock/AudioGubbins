@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, DspImplementation } from '@audiogubbins/audio-engine';
+import { BuiltInNodeType, DspImplementation, toneRecipe } from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
@@ -58,11 +58,9 @@ function everyToFeeder(): readonly ToFeeder[] {
       sources: [
         {
           node: IN,
-          kind: SourceKind.Tone,
+          kind: SourceKind.Signal,
           sampleRate: RATE,
-          frequency: 440,
-          amplitude: 0.25,
-          frames: expectSuccess(sampleCount(48_000)),
+          recipe: expectSuccess(toneRecipe(2, 48_000, 440, 0.25)),
         },
       ],
       dsp: { kind: DspDeliveryKind.Available, module: new WebAssembly.Module(dspModuleBytes()) },

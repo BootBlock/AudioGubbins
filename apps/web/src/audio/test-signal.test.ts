@@ -50,11 +50,15 @@ describe('the test signal', () => {
     expect(sources).toEqual([
       {
         node: graph.nodes[0]?.id,
-        kind: SourceKind.Tone,
+        kind: SourceKind.Signal,
         sampleRate: 44_100,
-        frequency: 440,
-        amplitude: 0.25,
-        frames: 441_000,
+        recipe: {
+          length: 441_000,
+          channels: [0, 1].map(() => ({
+            repeats: false,
+            segments: [{ kind: 'tone', length: 441_000, frequency: 440, amplitude: 0.25 }],
+          })),
+        },
       },
     ]);
   });
@@ -69,11 +73,15 @@ describe('the test signal', () => {
     expect(request.sources).toEqual([
       {
         node: request.graph.nodes[0]?.id,
-        kind: SourceKind.Tone,
+        kind: SourceKind.Signal,
         sampleRate: 48_000,
-        frequency: 440,
-        amplitude: 0.25,
-        frames: 480_000,
+        recipe: {
+          length: 480_000,
+          channels: [0, 1].map(() => ({
+            repeats: false,
+            segments: [{ kind: 'tone', length: 480_000, frequency: 440, amplitude: 0.25 }],
+          })),
+        },
       },
     ]);
     expect(request.graph.nodes.map((node) => node.id)).toContain(output);

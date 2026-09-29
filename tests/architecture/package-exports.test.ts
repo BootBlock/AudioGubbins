@@ -378,7 +378,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'planChunks',
         'resampledSource',
         'settingsFor',
-        'silence',
         'throwIfCancelled',
         'timelineFrameAt',
       ],

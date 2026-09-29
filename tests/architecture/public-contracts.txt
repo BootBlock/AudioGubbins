@@ -61,6 +61,9 @@ Published paths
   CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
+  interface ChannelProgramme
+  readonly ChannelProgramme.segments: readonly SignalSegment[]
+  readonly ChannelProgramme.repeats: boolean
   interface ChunkPlan
   readonly ChunkPlan.chunkFrames: number
   readonly ChunkPlan.chunks: number
@@ -249,6 +252,14 @@ Published paths
   readonly SchedulerCounts.queued: Readonly<Record<JobPriority, number>>
   const SchedulingPolicy: { readonly InteractiveFirst: "interactive-first"; readonly Throughput: "throughput"; }
   type SchedulingPolicy = "interactive-first" | "throughput"
+  interface SignalRecipe
+  readonly SignalRecipe.channels: readonly ChannelProgramme[]
+  readonly SignalRecipe.length: SampleCount
+  type SignalSegment = { readonly kind: "impulse"; readonly length: SampleCount; readonly amplitude: number; } | { readonly kind: "silence"; readonly length: SampleCount; } | { readonly kind: "tone"; readonly length: SampleCount; readonly frequency: number; readonly amplitude: number; }
+  interface SignalSettings
+  readonly SignalSettings.layout: ChannelLayout
+  readonly SignalSettings.sampleRate: SampleRate
+  readonly SignalSettings.recipe: SignalRecipe
   interface SinkTarget
   SinkTarget.receive: (block: AudioFrameBlock) => void
   interface StabilityAssessment
@@ -257,12 +268,6 @@ Published paths
   readonly StabilityAssessment.recommendation?: PerformanceProfile
   readonly StabilityAssessment.explanation: string
   const TRANSPORT_AT_START: TransportState
-  interface ToneSettings
-  readonly ToneSettings.layout: ChannelLayout
-  readonly ToneSettings.sampleRate: SampleRate
-  readonly ToneSettings.frequency: number
-  readonly ToneSettings.amplitude: number
-  readonly ToneSettings.length: SampleCount | undefined
   type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
   type TransportMode = "paused" | "playing" | "stopped" | "suspended"
@@ -319,10 +324,12 @@ Published paths
   function selectProcessingMode(request: ProcessingModeRequest): DomainResult<ProcessingModeChoice>
   function settingsFor(profile: PresetProfile): DomainResult<PerformanceSettings>
   function settingsFor(profile: "custom", custom: PerformanceSettings): DomainResult<PerformanceSettings>
+  function signalRecipe(value: unknown): DomainResult<SignalRecipe>
+  function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
-  function toneSource(dsp: CanonicalDsp, settings: ToneSettings): DomainResult<PcmSource>
+  function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
   function wasmDsp(exports: unknown): DomainResult<CanonicalDsp>
@@ -654,9 +661,9 @@ Published paths
   RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.terminate: () => void
-  type SourceDescription = { readonly node: NodeId; readonly kind: typeof SourceKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly node: NodeId; readonly kind: typeof SourceKind.Tone; readonly sampleRate: SampleRate; readonly frequency: number; readonly amplitude: number; readonly frames: SampleCount; }
-  const SourceKind: { readonly Pcm: "pcm"; readonly Tone: "tone"; }
-  type SourceKind = "pcm" | "tone"
+  type SourceDescription = { readonly node: NodeId; readonly kind: typeof SourceKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly node: NodeId; readonly kind: typeof SourceKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
+  const SourceKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; }
+  type SourceKind = "pcm" | "signal"
   interface WorkerRenderSummary extends RenderSummary
   readonly WorkerRenderSummary.dsp: DspImplementation
   readonly WorkerRenderSummary.dspFallbackReason: string | undefined

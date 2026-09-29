@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
@@ -9,6 +9,7 @@ import {
   REFERENCE_DSP,
   allocateBlock,
   type PcmSource,
+  toneRecipe,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -55,11 +56,9 @@ const GRAPH = graphOf(
 function tone(frames: number, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Tone,
+    kind: SourceKind.Signal,
     sampleRate: RATE,
-    frequency: 440,
-    amplitude,
-    frames: expectSuccess(sampleCount(frames)),
+    recipe: expectSuccess(toneRecipe(2, frames, 440, amplitude)),
   };
 }
 
@@ -177,7 +176,15 @@ describe('the feeder', () => {
   it('refuses sources it cannot make, with each failure’s code and summary', () => {
     const { core, said } = feeder();
 
-    core.receive(sources(1, tone(480, 2)));
+    // Above half the rate: a pitch the oscillator refuses to alias.
+    core.receive(
+      sources(1, {
+        node: IN,
+        kind: SourceKind.Signal,
+        sampleRate: RATE,
+        recipe: expectSuccess(toneRecipe(2, 480, 30_000, 0.5)),
+      }),
+    );
 
     expect(said).toEqual([
       {
@@ -185,8 +192,8 @@ describe('the feeder', () => {
         request: 1,
         failures: [
           {
-            code: 'pcm.tone-amplitude-out-of-range',
-            summary: 'A test tone peaks between silence and full scale.',
+            code: 'dsp.oscillator-frequency-out-of-range',
+            summary: 'An oscillator frequency must be above zero and at most half the sample rate.',
           },
         ],
       },

@@ -10,6 +10,7 @@ import {
   PerformanceProfile,
   TransportMode,
   type PcmSource,
+  toneRecipe,
 } from '@audiogubbins/audio-engine';
 import {
   distinctChannels,
@@ -106,12 +107,10 @@ function recorded(frames = SOURCE_FRAMES, rate = RATE): SourceDescription {
 function tone(frames: number | undefined, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Tone,
+    kind: SourceKind.Signal,
     sampleRate: RATE,
-    frequency: 440,
-    amplitude,
     // A tone as long as the largest count stands for one that never ends here.
-    frames: expectSuccess(sampleCount(frames ?? Number.MAX_SAFE_INTEGER)),
+    recipe: expectSuccess(toneRecipe(2, frames ?? Number.MAX_SAFE_INTEGER, 440, amplitude)),
   };
 }
 
@@ -427,12 +426,19 @@ describe('PlaybackSession', () => {
     it('refuses a request whose sources the feeder cannot make, with its reason', async () => {
       const rig = new PlaybackRig();
 
-      const refused = await rig.session.load({ graph: halving(), sources: [tone(100, 2)] });
+      // Above half the rate: a pitch the oscillator refuses to alias.
+      const shrill = {
+        node: IN,
+        kind: SourceKind.Signal,
+        sampleRate: RATE,
+        recipe: expectSuccess(toneRecipe(2, 100, 30_000, 0.5)),
+      } as const;
+      const refused = await rig.session.load({ graph: halving(), sources: [shrill] });
 
       expect(expectFailureCode(refused)).toBe('playback.sources-refused');
       expect(rig.session.status.phase).toBe(PlaybackPhase.Refused);
       expect(rig.session.status.problems).toEqual([
-        'A test tone peaks between silence and full scale.',
+        'An oscillator frequency must be above zero and at most half the sample rate.',
       ]);
       expect(rig.current.nodes).toEqual([]);
     });
