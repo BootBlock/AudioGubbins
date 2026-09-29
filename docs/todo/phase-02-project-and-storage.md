@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-09-29: every storage package is built and
-> committed on the branch; the interface, the shared-file entries, the browser
-> run, the review, the evidence and the landing remain (see Progress).
+> **Status:** In progress. 2026-09-29: implementation complete and green on
+> the branch; the review pass, the evidence, the ledger, the handoff and the
+> landing remain (see Progress, "Left to do").
 
 # Phase 02 — Project and Storage System
 
@@ -177,68 +177,35 @@ every agent), `-storage-brief.md`, `-safety-brief.md` (done), and
 
 ### Left to do, in order
 
-1. Done: the interface and wiring (`f98d326`). Its report left these to
-   fix, each a gap against a requirement:
-   - External backup directory not offered in the interface (REQ-STOR-105:
-     where the platform permits, the user may choose one).
-   - Exporting a bundle records no export record (decide against
-     REQ-STOR-197/198 whether a bundle export is an export event; record the
-     decision either way).
-   - No default Undo and Redo shortcuts, only menu entries (check the
-     shortcut defaults in `apps/web/src/state/default-shortcuts.ts`).
-   - The Assets panel still says it arrives with the project and storage
-     system; reword it to say audio import arrives with the codec phase, and
-     update the smoke test's expected text.
-   - Main chunk is 1287 kB (365 kB gzipped); consider splitting the storage
-     and project surfaces into a lazily loaded chunk.
-   - WebKit on Windows refuses Playwright's origin-private storage before any
-     application code runs; the spec runs in Chromium and Firefox.
-   - `tests/e2e/accessibility.spec.ts` "keeps a long refusal clear… focus at
-     the foot, 320 by 256" fails since the Phase 01 debt commit's notice
-     wording (`f563730`); fix the wording or the layout, not the test.
-2. Shared files, from the interface report:
-   - `tests/architecture/browser-suite.test.ts`: add `projects.spec.ts` to
-     `SPECS` and `SPECS_OF_EACH_PROJECT`; `playwright.config.ts`: give it a
-     project in Chromium and Firefox.
-   - `dependency-rules.test.ts` reviewed functions: `app.tsx: AudioGubbins`
-     200 → 221, `application.ts: createApplication` 86 → 98.
-   - `module-exports.test.ts` `FOR_TESTS`:
-     `packages/browser-storage/src/serve-tree.ts: serveTree`.
-   - `package-exports.test.ts` `OFFERED`: remove `SchemaName` from version
-     and the 48 domain names the app now uses; add reasons for storage
-     (`BackupPruning`, `CommandJournal`, `DEFAULT_CADENCE`, `SnapshotStore`,
-     `packUnpacked`, `planBackupPruning`, `retainedMedia`, `unpackBundle`),
-     project-format (`FormatHeader`, `PROJECT_DOCUMENT_FORMAT`, `asBoolean`,
-     `asContentId`, `entitiesOf`, `isStateFingerprint`, `listOf`,
-     `numberConverter`, `prettyCanonicalJson`, `readCompatibleHeader`,
-     `readExternalIdentity`, `readFormatHeader`, `serialiseProjectDocument`,
-     `stripAssetProvenance`, `stripExportRecords`), project-commands
-     (`addAssetInvocation`), media-store (`CompletionServices`,
-     `ImportChoice`, `ImportRequest`, `ImportServices`, `ImportedMedia`,
-     `completeIdentity`, `importMedia` — audio import is a later phase),
-     history (`AlternativeBranch`, `ContentRetention`, `alternativeBranches`,
-     `contentRetention`, `diffStates`, `promotion`), browser-storage
-     (`WritableDirectory`, `filesInDirectory`, `openFileSinkIn`,
-     `requestKeptFileAccess`). Prefer wiring a real consumer over a reason
-     where a requirement wants the feature (for example the external backup
-     directory uses `openFileSinkIn`).
-   - `pnpm contracts:update`.
-3. `pnpm run verify:commit` green; `pnpm build`; drive the built app in a
-   real browser (create, change, reload; two tabs with transfer and take
-   over, checking the loss names the taker; bundle export and import; the
-   compatibility screen); `tests/e2e/projects.spec.ts`.
-4. `pnpm run spec:verify` after any edit under `docs/spec/`, and
-   `sha256sum -c CHECKSUMS.sha256` from `docs/spec` (ADR-0020 is new; update
-   the checksums as the pack's tools require).
-5. One review pass with the packet's lenses (Architecture, Data Integrity /
+Done and committed through `0a699a8`: the interface and its gaps (external
+backup folder, exports recorded as provenance, Undo and Redo shortcuts, the
+Assets panel's wording, the refusal layout), every shared-file entry, the
+public contract record, the context packs and checksums. At that commit
+`pnpm run verify:commit` passes (216 files, 3837 tests; cruise clean),
+`spec:verify` and `sha256sum -c CHECKSUMS.sha256` pass, the three packet
+scripts pass, `pnpm build` passes, and Playwright `chromium-smoke`,
+`chromium-accessibility`, `chromium-projects` and `firefox-projects` pass.
+
+1. One review pass with the packet's lenses (Architecture, Data Integrity /
    Recovery, Security / Privacy, Testing / Regression, Performance / Storage,
    Code Quality / Maintainability, Adversarial Agent-Quality) as parallel
-   sub-agents over the committed branch; verify each finding; fix; commit.
-6. Evidence `docs/spec/reviews/phase-02-evidence.md` and review record
-   `docs/spec/reviews/phase-02-review.md` (see Phase 01's for form), ledger
-   entry for phase 2 only, handoff `traceability/handoffs/phase-02.md`, this
-   note to `docs/todo/done/`, merge `main` in (Phase 03 may have landed),
-   `verify:commit`, merge to `main`, push, remove the worktree.
+   sub-agents over the committed branch (`git diff 2d9f195..HEAD`); verify
+   each finding; fix the genuine ones; commit.
+2. Drive in a real browser what the automated run did not: the backups
+   folder through a real picker, the History panel's export rows, a real two
+   tabs' loss naming the taker.
+3. Evidence `docs/spec/reviews/phase-02-evidence.md` and review record
+   `docs/spec/reviews/phase-02-review.md` (Phase 01's are the model; keep
+   them within what `record:check` and the document-width rule accept), the
+   phase 2 ledger entry (`docs/spec/traceability/implementation-ledger.json`,
+   own entry only: status PASS, commits, evidence, handoff), the handoff
+   `docs/spec/traceability/handoffs/phase-02.md` from the template, the
+   README's readiness lines if the tools require, `spec:verify`, checksums.
+4. Move this note to `docs/todo/done/` with a Done banner; merge `main` in
+   (Phase 03 may have landed: conflicts expected in the graph tool, the
+   contract record, the lockfile, the capabilities index, the diagnostics
+   categories, the ledger); `verify:commit`; merge `--no-ff` into `main`
+   from the primary checkout; push; remove the worktree and the branch.
 
 ### Decisions to carry into the evidence
 
