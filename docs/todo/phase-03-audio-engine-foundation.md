@@ -50,36 +50,49 @@ pnpm test:worker-responsiveness
 ## Progress
 
 Committed on the branch: `054bae2` decisions, `3a4939b` channel layouts,
-`13e5159` Rust crates and `tools/build-wasm.mjs` (`cargo test --workspace`: 32
-tests pass, clippy clean), `832b055` capabilities, `0f1aff0`
-`packages/audio-graph`, `c104416` `packages/audio-engine` (nodes, executor,
-offline renderer, golden, latency and N-channel tests). At `c104416`
-`pnpm run verify:commit` passes: 2752 tests.
+`13e5159` Rust crates, `832b055` capabilities, `0f1aff0`
+`packages/audio-graph`, `c104416` `packages/audio-engine`, `4644b18`
+`packages/audio-runtime` and tooling, `a9ea715` the application (Transport
+panel, commands, composition, Vite wiring, `'wasm-unsafe-eval'`). At
+`a9ea715` `pnpm run verify:commit` passes: 3085 tests, lint, both type-checks,
+the record check and the dependency cruise.
 
-Engine facts a later step needs: the golden render hash is
-`0x797fca5300be6765` (`render/offline-render.golden.test.ts`); the delay's
-setting is `as-latency` (setting names are lower-case and hyphenated);
-`InputFeed` has a `layout`; `PcmSource` has `release()`; test support is in
-`src/testing/` (`render-harness.ts`, `kernel-harness.ts`, `counting-dsp.ts`,
-`pcm-fingerprint.ts`). The export lists in
-`tests/architecture/package-exports.test.ts` name the engine's, the graph's
-and the new capabilities' exports as waiting for `packages/audio-runtime`;
-remove each name there as the runtime imports it.
+Verified in a real Chromium on the built app (the sub-agent's run, before the
+last commits; repeat it once more before landing): Play reaches Playing on the
+WebAssembly module with no fallback reason, the position advances, both meters
+read −12.0 dB, Pause holds and Play resumes, Stop returns to 0:00.000, and the
+offline render of 480,000 frames gives the fingerprint `0x0ed5ce5b65bfb45d`
+on both DSP paths. With `WebAssembly` removed, the reference path plays and
+says why. The console shows no policy or worklet error.
 
 Next steps, in order:
 
-1. Write `packages/audio-runtime` to the design below, registered as the
-   engine was (graph tool, cruiser, `ALLOWED`, Vitest project, build).
-2. The application: the Audio engine panel, its commands,
-   `'wasm-unsafe-eval'` in the page policy, the module, worklet and worker
-   URLs in the Vite build.
-3. Add the scripts `test:audio-golden`, `test:audio-latency`,
-   `test:worker-responsiveness`; check `pnpm test --filter audio-engine`.
-4. Evidence package, one review pass with the packet's seven lenses, fixes,
-   ledger, handoff capsule, merge to `main` and push.
+1. One review pass with the packet's seven lenses (Audio/DSP correctness,
+   Architecture, Performance/Scalability, Testing/Regression, Browser
+   Compatibility, Code Quality/Maintainability, Adversarial Agent-Quality),
+   run as parallel sub-agents over `git diff 2d9f195..HEAD`, each verifying
+   its findings. Fix the verified findings; commit.
+2. Known points for the review to weigh: the engine's processing-mode
+   selection and chunk plan have no consumer yet (their export-list reason
+   says so); the processor posts nothing when a posted feed overflows but
+   faults; the WASM module is compiled on every worklet `load`.
+3. `docs/spec/reviews/phase-03-evidence.md` and `phase-03-review.md` in
+   Phase 01's form (requirement-to-evidence mapping for all 15 owned
+   requirements, commands, results, browser results, commits, findings);
+   check `tests/evidence-commands.test.ts` for what it reads.
+4. The ledger's Phase 03 entry to `PASS` with its evidence and handoff, the
+   handoff capsule `docs/spec/traceability/handoffs/phase-03.md` from
+   `docs/spec/contracts/handoff-capsule-template.md`, the packet's status
+   line, `pnpm run spec:verify`, then this note to `docs/todo/done/`.
+5. Merge `main` in if it moved (Phase 02 shares the files listed in the
+   task), `verify:commit`, merge to `main` from the primary checkout, push,
+   remove the worktree, and record the Transport panel with
+   `gambit_record_change` (a screenshot of the panel while playing).
 
 Lessons: run `cargo fmt -p <crate>`, never `--all` (it rewrote the version
-crate). The engine is compiled with `lib: ES2023` only, so it names no
+crate). Give sub-agents their own scratch directory and a timeout on every
+mutation run: two shared `/tmp/mutate.py`, and a looping mutant hung a run.
+Check a realm-sensitive `instanceof` in anything the jsdom projects read. The engine is compiled with `lib: ES2023` only, so it names no
 `AbortSignal` (use `CancellationSignal`) and reaches `WebAssembly` through
 `Reflect` in test support.
 
