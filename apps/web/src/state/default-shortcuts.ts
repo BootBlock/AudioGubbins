@@ -19,6 +19,13 @@
  * test reads every press of this profile on every platform, so the shipped
  * profile cannot quietly include a shortcut that never fires.
  *
+ * The editor's keys are pressed alone, or with Shift, as an audio editor's
+ * are: arrows move the playhead and zoom, and a letter chooses a tool. A key
+ * pressed alone is the shortcut's only outside a field one types in and a
+ * control that uses the key itself (`use-shortcuts.ts`), and a screen reader
+ * in browse mode keeps a letter for itself, which is why the editor's surface
+ * is an application region, where the reader passes keys through.
+ *
  * Every character here is a letter, or the comma. A layout that types Latin
  * letters types each of them with no modifier, and on one that types other
  * characters on those keys, as a Russian layout does, each goes to its US key,
@@ -39,7 +46,7 @@ import {
   type Shortcut,
   type ShortcutProfile,
 } from '@audiogubbins/commands';
-import { placeFor, type KeyPress, type KeyboardLayout } from '@audiogubbins/input';
+import { keyPress, placeFor, type KeyPress, type KeyboardLayout } from '@audiogubbins/input';
 
 /** The identifier of the profile AudioGubbins ships with. */
 export const DEFAULT_PROFILE_ID = 'default';
@@ -244,6 +251,7 @@ export function placeDefaults(
       commandId: commandId('help.start-diagnostic-mode'),
       shortcut: of(prefix, primaryOn('g')),
     },
+    ...editorBindings(of, layout, primaryOn, (key) => primaryPress(key, primary)),
   ];
 
   const waiting = new Map<CommandId, readonly string[]>();
@@ -270,6 +278,67 @@ export function placeDefaults(
     waiting,
     waitingForCommandLayer,
   };
+}
+
+/**
+ * The editor's defaults. Up and down zoom, as a vertical move of a timeline
+ * does in most editors; left and right move the playhead a pixel, a sample
+ * with the usual modifier, and extend the selection by a sample with Shift.
+ * The tools are the letters their names or their habits give: V selects, R
+ * selects a range of time, H is the hand, Z zooms, C cuts with the razor and N
+ * places markers; M adds a marker at the playhead, as in most editors.
+ */
+function editorBindings(
+  of: (
+    first: KeyPress | string,
+    ...rest: readonly (KeyPress | string)[]
+  ) => Shortcut | readonly string[],
+  layout: KeyboardLayout,
+  primaryOn: (character: string) => KeyPress | string,
+  withPrimary: (key: string) => KeyPress,
+): readonly { readonly commandId: CommandId; readonly shortcut: Shortcut | readonly string[] }[] {
+  /** The key typing a character pressed alone, or with Shift, or the character while it is not known. */
+  const alone = (character: string, shift = false): KeyPress | string => {
+    const place = placeFor(character, layout, 'nothing');
+    return place.key === undefined ? character : keyPress(place.key, { shift });
+  };
+  /** A named key, the same on every layout, pressed alone or with Shift. */
+  const named = (key: string, shift = false): KeyPress => keyPress(key, { shift });
+  const bind = (id: string, shortcut: Shortcut | readonly string[]) => ({
+    commandId: commandId(id),
+    shortcut,
+  });
+  return [
+    bind('editor.zoom-in', of(named('ArrowUp'))),
+    bind('editor.zoom-out', of(named('ArrowDown'))),
+    bind('editor.zoom-to-fit', of(alone('f'))),
+    bind('editor.zoom-to-selection', of(alone('f', true))),
+    bind('editor.playhead-back-pixel', of(named('ArrowLeft'))),
+    bind('editor.playhead-forward-pixel', of(named('ArrowRight'))),
+    bind('editor.playhead-back-sample', of(withPrimary('ArrowLeft'))),
+    bind('editor.playhead-forward-sample', of(withPrimary('ArrowRight'))),
+    bind('editor.extend-selection-back', of(named('ArrowLeft', true))),
+    bind('editor.extend-selection-forward', of(named('ArrowRight', true))),
+    bind('editor.playhead-to-start', of(named('Home'))),
+    bind('editor.playhead-to-end', of(named('End'))),
+    bind('editor.scroll-back', of(named('PageUp'))),
+    bind('editor.scroll-forward', of(named('PageDown'))),
+    bind('editor.tool-select', of(alone('v'))),
+    bind('editor.tool-time-select', of(alone('r'))),
+    bind('editor.tool-hand', of(alone('h'))),
+    bind('editor.tool-zoom', of(alone('z'))),
+    bind('editor.tool-razor', of(alone('c'))),
+    bind('editor.tool-marker', of(alone('n'))),
+    bind('editor.add-marker', of(alone('m'))),
+    bind('editor.remove-markers', of(named('Delete'))),
+    bind('editor.select-all', of(primaryOn('a'))),
+    // D, for deselect, as image and audio editors have it; the bookmark the
+    // browser makes with it is handed to the page first.
+    bind('editor.clear-selection', of(primaryOn('d'))),
+    bind('editor.toggle-snapping', of(alone('s'))),
+    bind('editor.next-display-mode', of(alone('d'))),
+    bind('editor.show-all-channels', of(alone('l'))),
+  ];
 }
 
 /** Whether a default was placed, rather than left waiting for characters. */

@@ -59,6 +59,7 @@ export {
   AUDIO_PLAYBACK,
   CANONICAL_DSP,
   DIRECT_FILE_ACCESS,
+  FULL_SCREEN_PICTURE,
   HARDWARE_CODECS,
   MULTI_THREADED_DSP,
   NAMING,
@@ -71,6 +72,9 @@ export {
   SETTINGS_STORAGE,
   SYSTEM_APPEARANCE,
 } from './features.js';
+
+// What the editor's renderer is handed: the GPU, and the pixel ratio as it changes.
+export { type GraphicsPlatform, readGraphicsPlatform } from './graphics-platform.js';
 
 // What the user's keyboard layout types on each key, where the browser says.
 export { readLayoutMap, type LayoutMapPairs } from './keyboard-layout-map.js';

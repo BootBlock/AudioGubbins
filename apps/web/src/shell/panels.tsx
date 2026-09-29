@@ -1,19 +1,20 @@
 /**
  * The panels the Phase 01 shell can show.
  *
- * The shell arrived before the editing, so the asset browser, the editor and
+ * The shell arrived before the rest of the editing, so the asset browser and
  * the inspector say what they are for and which phase brings them, rather than
- * showing a pretend waveform.
+ * pretending to be there.
  *
  * That is a deliberate distinction from the placeholder REQ-EXEC-181 forbids. A
  * placeholder pretends to be the real thing and fails silently; these state
  * what is not here yet. A user who opens AudioGubbins today should not be shown
  * a fake waveform and left to discover that nothing happens when they click it.
  *
- * Three panels are entirely real, because their subject exists now: the
- * capability surface, the diagnostic log (`diagnostics-panel.tsx`), and the
- * transport, which plays and renders the audio engine's test signal
- * (`transport-panel.tsx`).
+ * The rest are real, because their subject exists now: the capability surface,
+ * the diagnostic log (`diagnostics-panel.tsx`), the transport, which plays an
+ * asset or the test signal and renders the test signal (`transport-panel.tsx`),
+ * the editor, one view of an asset (`editor-panel.tsx`), and the reference
+ * picture (`picture-panel.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -32,6 +33,10 @@ import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
+import type { EditorPanelParts } from '../editor/panel-parts.js';
+import { EditorPanel } from './editor-panel.js';
+import { PicturePanel } from './picture-panel.js';
+import { RendererReportList } from './renderer-report-list.js';
 import { TransportPanel } from './transport-panel.js';
 
 /** A panel that describes what will live here, and when. */
@@ -57,9 +62,12 @@ function ComingInAPhase({
 export function CapabilitiesPanel({
   title,
   capabilities,
+  renderers,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
+  /** What each editor view's renderer tried and draws with. */
+  readonly renderers: EditorPanelParts['rendererReports'];
 }): ReactNode {
   // Subscribed, so an answer the browser gives late redraws the panel.
   useSyncExternalStore(capabilities.subscribe, capabilities.all);
@@ -95,6 +103,7 @@ export function CapabilitiesPanel({
           ))}
         </ul>
       )}
+      <RendererReportList reports={renderers} />
     </section>
   );
 }
@@ -132,19 +141,26 @@ export interface PanelContext {
 
   /** Why a command cannot run now, or `undefined`, as the menus say it. */
   readonly unavailableReason: (id: string) => string | undefined;
+
+  /** What the Editor and Picture panels are given. */
+  readonly editor: EditorPanelParts;
 }
 
 /**
  * What a panel reads, from the shell's context, and how its controls run a
- * command and ask why one cannot run: as every other surface does, so a
- * panel's button and the palette entry of the same name are one action.
+ * command and ask why one cannot run: as every other surface does, so a panel's
+ * button and the palette entry of the same name are one action.
  */
 export function panelContextOf(
-  context: ShellContext,
+  {
+    context,
+    editorPanels,
+  }: { readonly context: ShellContext; readonly editorPanels: EditorPanelParts },
   run: (id: string) => void,
   unavailableReason: (id: string) => string | undefined,
 ): PanelContext {
   return {
+    editor: editorPanels,
     capabilities: context.capabilities,
     logs: context.logs,
     logViews: context.logViews,
@@ -174,13 +190,6 @@ const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonl
       },
     ],
     [
-      PanelKinds.Editor,
-      {
-        purpose: 'The waveform, the selection and the editing tools.',
-        phase: 'the waveform and timeline foundation',
-      },
-    ],
-    [
       PanelKinds.Inspector,
       {
         purpose: 'The properties of whatever you have selected, editable in place.',
@@ -188,6 +197,26 @@ const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonl
       },
     ],
   ]);
+
+/** The capability surface, the Editor and the Picture panel, or `undefined` for another kind. */
+function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
+  switch (panel.kind) {
+    case PanelKinds.Capabilities:
+      return (
+        <CapabilitiesPanel
+          title={title}
+          capabilities={context.capabilities}
+          renderers={context.editor.rendererReports}
+        />
+      );
+    case PanelKinds.Editor:
+      return <EditorPanel panel={panel.id} title={title} parts={context.editor} />;
+    case PanelKinds.Picture:
+      return <PicturePanel title={title} parts={context.editor} />;
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Draws whichever panel the workspace asks for, under the title its tab shows.
@@ -198,9 +227,6 @@ const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonl
  */
 export function renderPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
-    case PanelKinds.Capabilities:
-      return <CapabilitiesPanel title={title} capabilities={context.capabilities} />;
-
     case PanelKinds.Transport:
       return (
         <TransportPanel
@@ -229,6 +255,8 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
       );
 
     default: {
+      const editing = editingPanel(panel, title, context);
+      if (editing !== undefined) return editing;
       const pending = PENDING_PANELS.get(panel.kind);
       if (pending !== undefined) return <ComingInAPhase title={title} {...pending} />;
 
@@ -256,8 +284,8 @@ export function QuickAction({
   readonly label: string;
 
   /**
-   * What is drawn, when that is shorter: the start of the label, so the name
-   * a voice user says is the one they see (WCAG 2.5.3).
+   * What is drawn, when that is shorter: the start of the label, so the name a
+   * voice user says is the one they see (WCAG 2.5.3).
    */
   readonly shown?: string;
 

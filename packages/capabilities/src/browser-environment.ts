@@ -150,6 +150,17 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     // The rule's own check rather than a second statement of it, so the
     // capability and every comparison of two names cannot disagree.
     comparesNames: safely(namesCanBeCompared),
+
+    hasVideoFrameCallback: safely(
+      () =>
+        exists(window, 'HTMLVideoElement') &&
+        'requestVideoFrameCallback' in HTMLVideoElement.prototype,
+    ),
+    // Whether the document allows it, not only whether the method is there:
+    // Safari on an iPhone has the method on no element but a video, and a
+    // frame without the permission refuses every request.
+    hasFullscreen: safely(() => document.fullscreenEnabled),
+    hasIndexedDb: safely(() => typeof indexedDB === 'object'),
   };
 }
 

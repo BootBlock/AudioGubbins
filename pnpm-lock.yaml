@@ -259,15 +259,30 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@audiogubbins/editor-view':
+        specifier: workspace:*
+        version: link:../../packages/editor-view
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:../../packages/input
+      '@audiogubbins/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       '@audiogubbins/text':
         specifier: workspace:*
         version: link:../../packages/text
+      '@audiogubbins/timeline':
+        specifier: workspace:*
+        version: link:../../packages/timeline
       '@audiogubbins/version':
         specifier: workspace:*
         version: link:../../packages/version
+      '@audiogubbins/video-reference':
+        specifier: workspace:*
+        version: link:../../packages/video-reference
+      '@audiogubbins/waveform':
+        specifier: workspace:*
+        version: link:../../packages/waveform
       '@audiogubbins/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace

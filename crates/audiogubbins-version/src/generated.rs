@@ -33,5 +33,8 @@ pub const KEYBOARD_LAYOUT_SCHEMA_VERSION: u32 = 1;
 /// Version of the persisted `audioSettings` schema.
 pub const AUDIO_SETTINGS_SCHEMA_VERSION: u32 = 1;
 
+/// Version of the persisted `editorViews` schema.
+pub const EDITOR_VIEWS_SCHEMA_VERSION: u32 = 1;
+
 /// Version of the persisted `diagnosticBundle` schema.
 pub const DIAGNOSTIC_BUNDLE_SCHEMA_VERSION: u32 = 1;

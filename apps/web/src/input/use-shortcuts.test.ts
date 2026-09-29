@@ -18,7 +18,7 @@ import { keyPress } from '@audiogubbins/input';
 
 import { buildLayoutStore } from '../testing/layout-store.js';
 import { buildShellContext } from '../testing/shell-context.js';
-import { isTextField, useShortcuts } from './use-shortcuts.js';
+import { isTextField, ownsItsKeys, useShortcuts } from './use-shortcuts.js';
 
 /**
  * The edge that turns a key event into a command.
@@ -371,5 +371,46 @@ describe('useShortcuts over the stores it is wired to', () => {
     }
 
     expect(ran).toEqual(['view.brighten', 'view.darken', 'view.theme-light', 'view.theme-dark']);
+  });
+});
+
+describe('a key a focused control uses itself', () => {
+  /** A reading of `code`, with the modifiers given. */
+  const reading = (code: string, modifiers: { readonly ctrlKey?: boolean } = {}) => ({
+    code,
+    key: code,
+    ctrlKey: modifiers.ctrlKey ?? false,
+    shiftKey: false,
+    altKey: false,
+    metaKey: false,
+    altGraph: false,
+    composing: false,
+    capsLock: false,
+  });
+
+  /** An element inside a new element of `role`, in the page. */
+  function inside(role: string): HTMLElement {
+    const holder = document.createElement('div');
+    holder.setAttribute('role', role);
+    const child = document.createElement('button');
+    holder.append(child);
+    document.body.append(holder);
+    return child;
+  }
+
+  afterEach(() => {
+    document.body.replaceChildren();
+  });
+
+  it('is the control’s: an arrow in a toolbar, a letter in a menu', () => {
+    expect(ownsItsKeys(inside('toolbar'), reading('ArrowLeft'))).toBe(true);
+    expect(ownsItsKeys(inside('menu'), reading('KeyM'))).toBe(true);
+    expect(ownsItsKeys(inside('slider'), reading('Home'))).toBe(true);
+  });
+
+  it('is a shortcut’s anywhere else, with a modifier, and for a letter in a toolbar', () => {
+    expect(ownsItsKeys(document.body, reading('ArrowLeft'))).toBe(false);
+    expect(ownsItsKeys(inside('menu'), reading('KeyA', { ctrlKey: true }))).toBe(false);
+    expect(ownsItsKeys(inside('toolbar'), reading('KeyV'))).toBe(false);
   });
 });

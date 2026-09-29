@@ -25,6 +25,11 @@
     "@audiogubbins/audio-graph": "workspace:*",
     "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/audio-runtime": "workspace:*",
+    "@audiogubbins/timeline": "workspace:*",
+    "@audiogubbins/waveform": "workspace:*",
+    "@audiogubbins/renderer": "workspace:*",
+    "@audiogubbins/editor-view": "workspace:*",
+    "@audiogubbins/video-reference": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

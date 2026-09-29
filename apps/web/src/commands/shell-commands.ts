@@ -19,6 +19,14 @@ import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
+import { editorAssetCommands } from './editor-asset-commands.js';
+import { editorNavigationCommands } from './editor-navigation-commands.js';
+import { editorOptionCommands } from './editor-option-commands.js';
+import { editorPresentationCommands } from './editor-presentation-commands.js';
+import { markerCommands } from './marker-commands.js';
+import { pictureCommands } from './picture-commands.js';
+import { playheadCommands } from './playhead-commands.js';
+import { selectionCommands } from './selection-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
 import type { ShellContext } from './shell-context.js';
@@ -122,5 +130,13 @@ export function shellCommands(
     ...diagnosticCommands(),
     ...audioCommands(),
     ...audioSettingsCommands(),
+    ...editorAssetCommands(),
+    ...editorNavigationCommands(),
+    ...editorPresentationCommands(),
+    ...editorOptionCommands(),
+    ...selectionCommands(),
+    ...markerCommands(),
+    ...playheadCommands(),
+    ...pictureCommands(),
   ];
 }

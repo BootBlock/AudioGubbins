@@ -184,8 +184,19 @@ function exportsNoFileTakes(
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
   'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
     ['packages/waveform/src/peak-codec.ts: crc32'],
-  'Which element is a text field, asked of every kind of element by the listener tests; the listener asks it of an event target alone.':
-    ['apps/web/src/input/use-shortcuts.ts: isTextField'],
+  'Which element is a text field, and which control keeps a key pressed alone, asked of every kind of element by the listener tests; the listener asks each of an event target alone.':
+    [
+      'apps/web/src/input/use-shortcuts.ts: isTextField',
+      'apps/web/src/input/use-shortcuts.ts: ownsItsKeys',
+    ],
+  "The test signal's request at a context rate the test names, whose graph and source its tests read; the transport reaches it through `TEST_SIGNAL_PROGRAMME`.":
+    ['apps/web/src/audio/test-signal.ts: testSignalPlayback'],
+  "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
+    ['apps/web/src/editor-part.ts: panelPartsOf'],
+  "The asset a picture's decoded sound makes, which its tests build from arrays they name; the application reaches it through `decodePictureSound`, which a test cannot hand a browser's decoder.":
+    ['apps/web/src/picture/picture-sound.ts: pictureSoundAsset'],
+  'The key the editor views are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/editor-view-store.ts: EDITOR_VIEWS_KEY'],
   'Each panel drawn on its own, and the log filter decided on its own, for the panel tests: the dock draws a panel through `renderPanel`, and the filter is chosen in a portalled listbox, which jsdom opens once per file.':
     [
       'apps/web/src/shell/diagnostics-panel.tsx: recordsPassing',
@@ -204,9 +215,7 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/design-system/src/primitives/announcement.tsx: LiveRegion'],
   'The colour arithmetic the tokens are solved with, which the colour and theme tests hold to published values and to the contrast each theme promises.':
     [
-      'packages/design-system/src/tokens/colour.ts: Srgb',
       'packages/design-system/src/tokens/colour.ts: meetsContrast',
-      'packages/design-system/src/tokens/colour.ts: oklchToSrgb',
       'packages/design-system/src/tokens/colour.ts: relativeLuminance',
       'packages/design-system/src/tokens/colour.ts: solveContrast',
       'packages/design-system/src/tokens/colour.ts: srgbToOklch',

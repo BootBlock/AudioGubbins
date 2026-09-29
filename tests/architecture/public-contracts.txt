@@ -732,8 +732,11 @@ Published paths
   readonly CapabilityEnvironment.hasMediaQueries: boolean
   readonly CapabilityEnvironment.hasKeyboardLayoutMap: boolean
   readonly CapabilityEnvironment.comparesNames: boolean
-  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; }
-  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
+  readonly CapabilityEnvironment.hasVideoFrameCallback: boolean
+  readonly CapabilityEnvironment.hasFullscreen: boolean
+  readonly CapabilityEnvironment.hasIndexedDb: boolean
+  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; readonly IndexedDb: "indexed-db"; }
+  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "indexed-db" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
   interface CapabilityPresent
   readonly CapabilityPresent.key: CapabilityKey
   readonly CapabilityPresent.available: true
@@ -747,6 +750,7 @@ Published paths
   readonly CapabilityRegistry.degradedFeatures: (requirements: readonly FeatureRequirement[]) => readonly FeatureAvailability[]
   type CapabilityState = CapabilityAbsent | CapabilityPresent
   const DIRECT_FILE_ACCESS: FeatureRequirement
+  const FULL_SCREEN_PICTURE: FeatureRequirement
   interface FeatureAvailability
   readonly FeatureAvailability.featureKey: string
   readonly FeatureAvailability.label: string
@@ -762,8 +766,12 @@ Published paths
   readonly FeatureRequirement.fallback: string
   const FeatureStatus: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Unavailable: "unavailable"; }
   type FeatureStatus = "full" | "reduced" | "unavailable"
+  interface GraphicsPlatform
+  readonly GraphicsPlatform.gpu: unknown
+  readonly GraphicsPlatform.pixelRatio: () => number
+  readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
-  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; }
+  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; readonly "indexed-db"?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
@@ -791,6 +799,7 @@ Published paths
   function detectBrowserEnvironment(): CapabilityEnvironment
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
+  function readGraphicsPlatform(): GraphicsPlatform
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
   function readPlatformSignals(): PlatformSignals
   function readResourceFigures(performanceLike: object): ResourceFigures
@@ -1069,6 +1078,11 @@ Published paths
   type SelectionPalette = { readonly fill: Oklch; readonly border: Oklch; readonly handle: Oklch; }
   type SpacingScale = { readonly none: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; }
   type SpectrogramRamp = readonly [Oklch, ...Oklch[]]
+  interface Srgb
+  readonly Srgb.red: number
+  readonly Srgb.green: number
+  readonly Srgb.blue: number
+  readonly Srgb.alpha: number
   interface SystemAppearance
   readonly SystemAppearance.prefersDark: boolean
   readonly SystemAppearance.prefersReducedMotion: boolean
@@ -1147,6 +1161,7 @@ Published paths
   function fixedSystemAppearance(appearance: SystemAppearance): SystemAppearanceSource
   function isAccentName(value: unknown): boolean
   function oklchToHex(colour: Oklch): string
+  function oklchToSrgb(colour: Oklch): Srgb
   function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
   function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
   function useTheme(): Theme
@@ -2077,8 +2092,8 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly diagnosticBundle: 1; }
-  type SchemaName = "audioSettings" | "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; }
+  type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
   type PictureCorrection = { readonly kind: "in-sync"; } | { readonly kind: "no-picture"; } | { readonly kind: "seek"; readonly to: number; }
@@ -2256,7 +2271,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]

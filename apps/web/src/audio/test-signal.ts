@@ -40,6 +40,8 @@ import {
 } from '@audiogubbins/audio-engine';
 import type { PlaybackRequest, RenderRequest } from '@audiogubbins/audio-runtime';
 
+import type { Programme } from './programme.js';
+
 /** The tone: A above middle C, twelve decibels below full scale, for ten seconds. */
 export const TEST_SIGNAL = { frequency: 440, amplitude: 0.25, seconds: 10 } as const;
 
@@ -123,6 +125,14 @@ export function testSignalPlayback(contextRate: number): DomainResult<PlaybackRe
     ),
   );
 }
+
+/** The test signal as the transport plays it, at whatever rate the context runs at. */
+export const TEST_SIGNAL_PROGRAMME: Programme = {
+  key: 'test-signal',
+  rate: undefined,
+  request: testSignalPlayback,
+  playing: 'The test signal is playing.',
+};
 
 /** An offline render of the test signal, and the node its audio is written from. */
 export interface TestSignalRender {

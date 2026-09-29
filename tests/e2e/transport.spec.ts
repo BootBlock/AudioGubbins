@@ -97,7 +97,7 @@ test.describe('the Transport panel', () => {
     await expect(positionTimer(page)).toHaveText(START);
 
     await test.step('Play starts the position moving', async () => {
-      await controls.getByRole('button', { name: 'Play', exact: true }).click();
+      await controls.getByRole('button', { name: 'Play the test signal', exact: true }).click();
 
       await expect(transport).toHaveText('Playing', { timeout: AUDIO_START });
       await expect
@@ -140,7 +140,7 @@ test.describe('the Transport panel', () => {
     });
 
     await test.step('Play resumes from where it paused', async () => {
-      await controls.getByRole('button', { name: 'Play', exact: true }).click();
+      await controls.getByRole('button', { name: 'Play the test signal', exact: true }).click();
 
       await expect(transport).toHaveText('Playing', { timeout: AUDIO_START });
       await expect

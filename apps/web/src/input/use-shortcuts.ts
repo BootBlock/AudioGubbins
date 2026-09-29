@@ -36,6 +36,55 @@ export function isTextField(target: EventTarget | null): boolean {
   );
 }
 
+const selectorOf = (roles: readonly string[], elements: readonly string[]): string =>
+  roles
+    .map((role) => `[role="${role}"]`)
+    .concat(elements)
+    .join(', ');
+
+/**
+ * Controls that move among their parts, or change their value, with the
+ * navigation keys pressed alone: an arrow in a tab list, a toolbar, a slider
+ * or a radio group is the control's, not a shortcut's.
+ */
+const NAVIGATES = selectorOf(
+  ['tablist', 'tab', 'toolbar', 'slider', 'spinbutton', 'radiogroup', 'radio'],
+  ['input[type="range"]'],
+);
+
+/** Controls that also take a letter pressed alone, to find the entry it starts. */
+const TYPES_AHEAD = selectorOf(
+  ['menu', 'menubar', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'listbox', 'option'],
+  ['select'],
+).concat(', ', selectorOf(['tree', 'treegrid', 'grid', 'combobox'], []));
+
+/** The keys a control moves with. */
+const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'ArrowDown',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+]);
+
+/**
+ * Whether a press made with no modifier but Shift is aimed at a control that
+ * uses it itself: a navigation key in a control that moves with it, or any
+ * such key in a list or a menu, which finds an entry by its letter. A shortcut
+ * on a key pressed alone gives way there, so the editor's keys never take a
+ * menu's, a toolbar's or a slider's.
+ */
+export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading): boolean {
+  if (reading.ctrlKey || reading.metaKey || reading.altKey || !(target instanceof Element)) {
+    return false;
+  }
+  if (target.closest(TYPES_AHEAD) !== null) return true;
+  return NAVIGATION_KEYS.has(reading.code) && target.closest(NAVIGATES) !== null;
+}
+
 /**
  * What the keyboard layout makes of every key event read, typing included.
  *
@@ -133,6 +182,9 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
         if (tracker.pending().length > 0) cancelChord();
         return;
       }
+
+      // A key a focused control uses itself is its, unless a chord is waiting.
+      if (tracker.pending().length === 0 && ownsItsKeys(event.target, reading)) return;
 
       const outcome = tracker.press(keyPressFromEvent(reading));
 

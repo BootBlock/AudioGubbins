@@ -2714,8 +2714,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      86,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page.',
+      96,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio and editor parts are each started by one (the editor\u2019s in `editor-part.ts`), so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.

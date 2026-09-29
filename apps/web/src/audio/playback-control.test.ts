@@ -11,6 +11,7 @@ import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_CONTEXT_RATE, FakePlayback, playbackSettled } from '../testing/audio-fakes.js';
 import { PlaybackControl } from './playback-control.js';
+import { TEST_SIGNAL_PROGRAMME } from './test-signal.js';
 
 /** A control over fake parts, and what it reports. */
 function rig() {
@@ -52,7 +53,7 @@ describe('playing the test signal', () => {
     // started after the first await could be refused.
     const { control, parts, view } = rig();
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
 
     expect(parts.opened).toHaveLength(1);
     expect(parts.opened[0]?.contextStarts).toBe(1);
@@ -62,7 +63,7 @@ describe('playing the test signal', () => {
   it('loads the test signal at the context’s rate and plays it, and says so', async () => {
     const { control, parts, view, announce, settled } = rig();
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     const session = parts.latest();
@@ -76,11 +77,11 @@ describe('playing the test signal', () => {
 
   it('plays the loaded graph again without loading it twice', async () => {
     const { control, parts, settled } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     control.pause();
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(parts.opened).toHaveLength(1);
@@ -90,12 +91,12 @@ describe('playing the test signal', () => {
 
   it('loads the signal again after the processor refused it', async () => {
     const { control, parts, settled } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     const session = parts.latest();
     session.show({ ...session.status, phase: PlaybackPhase.Faulted, problems: ['It stopped.'] });
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(session.loads).toHaveLength(2);
@@ -106,7 +107,7 @@ describe('playing the test signal', () => {
     expect(control.pause()).toEqual(['Nothing is playing.']);
     expect(control.stop()).toEqual(['Nothing is playing.']);
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     expect(control.pause()).toBeUndefined();
     expect(parts.latest().status.transport.mode).toBe(TransportMode.Paused);
@@ -120,7 +121,7 @@ describe('playing the test signal', () => {
       failure('audio.context-resume-refused', FailureKind.Retryable, 'Press Play again.'),
     );
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(view.get()).toMatchObject({ starting: false, problems: ['Press Play again.'] });
@@ -131,7 +132,7 @@ describe('playing the test signal', () => {
     const { control, parts, view, settled } = rig();
     parts.loadingFails = new Error('The chunk could not be fetched.');
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(view.get().problems).toEqual([
@@ -140,7 +141,7 @@ describe('playing the test signal', () => {
     expect(parts.opened[0]?.closed).toBe(true);
 
     parts.loadingFails = undefined;
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     expect(parts.opened).toHaveLength(2);
     expect(view.get().playback?.transport.mode).toBe(TransportMode.Playing);
@@ -153,7 +154,7 @@ describe('playing the test signal', () => {
       failure('audio.context-unavailable', FailureKind.Unrecoverable, reason),
     );
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(view.get()).toMatchObject({ starting: false, problems: [reason] });
@@ -163,7 +164,7 @@ describe('playing the test signal', () => {
 
   it('ends a Play that met a fault with the reason, and records it', async () => {
     const { control, parts, view, settled, logged } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     const fault = new TypeError('Cannot read properties of undefined.');
     vi.spyOn(parts.latest(), 'load').mockRejectedValueOnce(fault);
     await settled();
@@ -178,7 +179,7 @@ describe('playing the test signal', () => {
 
   it('records a context that could not be closed', async () => {
     const { control, parts, settled, logged } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     parts.closeFails = new TypeError('Illegal invocation.');
 
@@ -193,7 +194,7 @@ describe('playing the test signal', () => {
     const { control, parts, settled } = rig();
     expect(control.audiblePosition()).toBeUndefined();
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     parts.latest().contextFrame = 4_800;
 
@@ -214,7 +215,7 @@ describe('changing the performance profile', () => {
     const { control, parts, settled, choose } = rig();
     choose(PerformanceProfile.MaximumStability);
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     expect(parts.opened[0]?.profile.profile).toBe(PerformanceProfile.MaximumStability);
@@ -222,7 +223,7 @@ describe('changing the performance profile', () => {
 
   it('closes a playing context and goes on from the same place in a new one', async () => {
     const { control, parts, view, settled, choose } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     const first = parts.latest();
     first.contextFrame = 9_600;
@@ -242,7 +243,7 @@ describe('changing the performance profile', () => {
 
   it('keeps where a paused transport was for the next Play, and makes nothing until then', async () => {
     const { control, parts, settled, choose } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     parts.latest().contextFrame = 4_800;
     control.pause();
@@ -251,14 +252,14 @@ describe('changing the performance profile', () => {
     expect(parts.opened).toHaveLength(1);
     expect(parts.opened[0]?.closed).toBe(true);
 
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
     expect(parts.latest().seeks).toEqual([4_800]);
   });
 
   it('closes what it made when disposed, and shows no playback', async () => {
     const { control, parts, view, settled } = rig();
-    control.play();
+    control.play(TEST_SIGNAL_PROGRAMME);
     await settled();
 
     control.dispose();

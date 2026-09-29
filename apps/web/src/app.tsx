@@ -199,7 +199,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                     {renderPanel(
                       panel,
                       titleOf(panel, descriptors),
-                      panelContextOf(context, runNamed, unavailableReason),
+                      panelContextOf(application, runNamed, unavailableReason),
                     )}
                   </FailureBoundary>
                 )}

@@ -190,6 +190,8 @@ export class FakeSession implements PlaybackSessionPort {
 /** One profile's fake parts, and what was asked of them. */
 export interface FakeOpened {
   readonly profile: ChosenProfile;
+  /** The rate the context was asked for, or `undefined` for the device's. */
+  readonly rate: number | undefined;
   readonly session: FakeSession;
   contextStarts: number;
   closed: boolean;
@@ -207,9 +209,10 @@ export class FakePlayback {
   /** What closing each context throws, where a test wants it to fail. */
   closeFails: Error | undefined;
 
-  readonly open = (profile: ChosenProfile): PlaybackParts => {
+  readonly open = (profile: ChosenProfile, rate: number | undefined): PlaybackParts => {
     const made: FakeOpened = {
       profile,
+      rate,
       session: new FakeSession(),
       contextStarts: 0,
       closed: false,
@@ -222,7 +225,7 @@ export class FakePlayback {
       startContext: () => {
         made.contextStarts += 1;
       },
-      contextRate: () => refusal ?? succeed(FAKE_CONTEXT_RATE),
+      contextRate: () => refusal ?? succeed(rate ?? FAKE_CONTEXT_RATE),
       session: failing === undefined ? Promise.resolve(made.session) : Promise.reject(failing),
       close: () => {
         made.closed = true;

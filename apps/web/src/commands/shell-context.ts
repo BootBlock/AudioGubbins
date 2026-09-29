@@ -14,8 +14,10 @@
  * Note what is absent: no project. A shell command cannot mutate project state
  * because it has no route to it, which is the dependency direction
  * REQ-EXEC-136.4 asks for rather than a rule to remember. The audio engine is
- * here as the test signal's transport and renderer, which play and render a
- * signal of their own and no project's audio.
+ * here as the transport and the test signal's renderer. The editor's assets,
+ * their markers, selections and playheads, and the views of them, are the
+ * session's (ADR-0047), held in memory until Phase 02's project holds the
+ * content, and the reference picture is reference media, never project state.
  */
 
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
@@ -27,7 +29,17 @@ import type {
   LogStore,
 } from '@audiogubbins/diagnostics';
 
+import type { IdGenerator } from '@audiogubbins/domain';
+
 import type { PlaybackControl } from '../audio/playback-control.js';
+import type { PictureSoundDecoder } from '../picture/picture-sound.js';
+import type { ReferencePicture } from '../picture/reference-picture.js';
+import type { AssetCatalogue } from '../state/asset-catalogue.js';
+import type { ChosenFiles } from '../state/chosen-files.js';
+import type { CueStore } from '../state/cue-store.js';
+import type { EditorViewStore } from '../state/editor-view-store.js';
+import type { SelectionStore } from '../state/selection-store.js';
+import type { SessionContent } from '../state/session-content.js';
 import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
 import type { AudioSettingsStore } from '../state/audio-settings-store.js';
@@ -94,9 +106,34 @@ export interface ShellContext {
   /** How the latest render was planned, and what the last one measured. */
   readonly renderStrategy: RenderStrategyStore;
 
-  /** Plays, pauses and stops the test signal. */
+  /** Plays, pauses, stops and moves the transport, over an asset or the test signal. */
   readonly playback: PlaybackControl;
 
   /** Renders the test signal offline. */
   readonly rendering: RenderControl;
+
+  /** The assets an editor view can open this session. */
+  readonly assets: AssetCatalogue;
+
+  /** Each asset's markers and regions for the session. */
+  readonly content: SessionContent;
+
+  /** What is selected in each asset. */
+  readonly selections: SelectionStore;
+
+  /** Where each asset's playhead is parked. */
+  readonly cues: CueStore;
+
+  /** Each editor panel's asset and presentation. */
+  readonly editorViews: EditorViewStore;
+
+  /** New identities, for the markers a person adds. */
+  readonly ids: IdGenerator;
+
+  /** The reference picture, and the decoding of its sound. */
+  readonly picture: ReferencePicture;
+  readonly pictureSound: PictureSoundDecoder;
+
+  /** Files the person chose, held for the command that opens each. */
+  readonly chosenFiles: ChosenFiles;
 }

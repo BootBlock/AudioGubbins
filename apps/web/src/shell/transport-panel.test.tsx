@@ -143,9 +143,11 @@ describe('the Transport panel before anything plays', () => {
     const { run } = draw();
 
     await userEvent.click(screen.getByRole('button', { name: 'Play' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Play the test signal' }));
     await userEvent.click(screen.getByRole('button', { name: 'Render the test signal offline' }));
 
     expect(run.mock.calls).toEqual([
+      ['transport.play'],
       ['transport.play-test-signal'],
       ['transport.render-test-signal'],
     ]);
