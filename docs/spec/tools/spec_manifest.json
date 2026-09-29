@@ -48,7 +48,15 @@
       "adr/ADR-0030-audio-engine-package-topology.md",
       "adr/ADR-0031-narrow-wasm-boundary.md",
       "adr/ADR-0032-canonical-arithmetic.md",
-      "adr/ADR-0033-channel-layouts-in-the-domain.md"
+      "adr/ADR-0033-channel-layouts-in-the-domain.md",
+      "adr/ADR-0040-editor-package-topology.md",
+      "adr/ADR-0041-timeline-coordinates.md",
+      "adr/ADR-0042-selection-set.md",
+      "adr/ADR-0043-peak-pyramid.md",
+      "adr/ADR-0044-renderer-backends.md",
+      "adr/ADR-0045-signal-recipes.md",
+      "adr/ADR-0046-video-reference-binding.md",
+      "adr/ADR-0047-session-annotations.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",
