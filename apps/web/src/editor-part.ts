@@ -31,7 +31,7 @@ import { NO_PEAK_CACHE, indexedDbPeakCache } from './io/peak-cache-store.js';
 import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
 import { ReferencePicture } from './picture/reference-picture.js';
-import { createAssetCatalogue } from './state/asset-catalogue.js';
+import { createAssetCatalogue, type AssetCatalogue } from './state/asset-catalogue.js';
 import { createChosenFiles } from './state/chosen-files.js';
 import { createCueStore } from './state/cue-store.js';
 import { createEditorViewStore, type EditorViewStore } from './state/editor-view-store.js';
@@ -121,6 +121,27 @@ export function panelPartsOf(
   };
 }
 
+/** The reference picture, and what extracts its sound as an asset of `assets`. */
+function referencePicture(
+  capabilities: CapabilityRegistry,
+  assets: AssetCatalogue,
+  logger: Logger,
+): { readonly picture: ReferencePicture; readonly pictureSound: PictureSoundDecoder } {
+  const picture = new ReferencePicture({
+    platform: browserPicturePlatform(capabilities.has(CapabilityKey.VideoFrameCallback)),
+    logger,
+  });
+  const pictureSound = new PictureSoundDecoder({
+    decode: browserSoundDecoder(),
+    picture,
+    catalogue: assets,
+    logger,
+    // Measured when each extraction is weighed, since what the page holds moves.
+    resources: () => readResourceFigures(performance),
+  });
+  return { picture, pictureSound };
+}
+
 /** Builds the editor part. */
 export function startEditor(
   capabilities: CapabilityRegistry,
@@ -142,10 +163,7 @@ export function startEditor(
     if (document.visibilityState === 'hidden') editorViews.flush();
   };
   document.addEventListener('visibilitychange', flushViews);
-  const picture = new ReferencePicture({
-    platform: browserPicturePlatform(capabilities.has(CapabilityKey.VideoFrameCallback)),
-    logger,
-  });
+  const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
   const peaks = peakHost(capabilities, logger);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
   const graphics = readGraphicsPlatform();
@@ -159,14 +177,7 @@ export function startEditor(
       editorViews,
       ids: createIdGenerator((length) => crypto.getRandomValues(new Uint8Array(length))),
       picture,
-      pictureSound: new PictureSoundDecoder({
-        decode: browserSoundDecoder(),
-        picture,
-        catalogue: assets,
-        logger,
-        // Measured when each extraction is weighed, since what the page holds moves.
-        resources: () => readResourceFigures(performance),
-      }),
+      pictureSound,
       chosenFiles: createChosenFiles(),
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
