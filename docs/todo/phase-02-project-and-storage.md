@@ -1,5 +1,6 @@
-> **Status:** In progress. 2026-09-29: context loaded, worktree made, baseline
-> `verify:commit` green, design below decided; no package written yet.
+> **Status:** In progress. 2026-09-29: every storage package is built and
+> committed on the branch; the interface, the shared-file entries, the browser
+> run, the review, the evidence and the landing remain (see Progress).
 
 # Phase 02 — Project and Storage System
 
@@ -160,12 +161,66 @@ the storage-failure notice (F-209).
 
 ## Progress
 
-- Step 1: ADR-0020 written; six packages declared in the graph, linked, and
-  named in the cruise, the architecture tables and the lint globs; schema
-  versions `projectDocument`, `projectStorage` and `portableBundle` added.
-- Sub-agents build packages from the brief at
-  `../AudioGubbins-phase-02-brief.md` (outside the repository). Waves: format
-  core and the Phase 01 debt; then history, project commands, media store and
-  the `StorageTree` port; then storage core and the bundle and unpacked
-  modules; then storage safety, browser storage and the capability files; then
-  the interface.
+Committed on the branch, in order: the package layout and format core, the
+Phase 01 debt, the project commands, the media store, the history with the
+format's history and ZIP forms, the record-contract tidy, the browser
+adapters and capability files, the storage core, the packet's root test
+scripts, the Web Locks lease, storage safety and portability, and the gap
+fixes (`8d6599a`: lease port `unavailable`, `watchOwnership`,
+`requestTransfer` with a signal, per-epoch heads, storage-wide lock for
+purge, history compaction, backup restore, fork fingerprint, bundle carries
+the backup policy and an open comparison).
+
+Task files beside the tree: `../AudioGubbins-phase-02-brief.md` (rules for
+every agent), `-storage-brief.md`, `-safety-brief.md` (done), and
+`-interface-brief.md` (the interface and wiring).
+
+### Left to do, in order
+
+1. The interface and wiring (`../AudioGubbins-phase-02-interface-brief.md`).
+   Wiring notes from the adapters: the worker entry lives in `apps/web`
+   (`serveOriginPrivateTree(self, readOriginPrivateRoot(navigator))`), made
+   with `new Worker(new URL(...), { type: 'module' })`, and Vite's
+   `worker: { format: 'es' }`; the lease coordinator is
+   `createLeaseCoordinator({ locks, openChannel, instance, patience, logger })`
+   with a random instance token and a timer-based patience; consolidation
+   takes `setAssetMediaInvocation` from the app as its `setMedia` port
+   (storage must not depend on project-commands); `ReadOnlyProject.close()`
+   must be called; a `ReadOnlyServices` value is needed for watching.
+2. Shared files: `OFFERED` in `tests/architecture/package-exports.test.ts`
+   for every export still without a production consumer, `FOR_TESTS` for
+   `packages/browser-storage/src/serve-tree.ts: serveTree` if still unused,
+   `pnpm contracts:update`, storage log categories as separate entries.
+3. `pnpm run verify:commit` green; `pnpm build`; drive the built app in a
+   real browser (create, change, reload; two tabs with transfer and take
+   over, checking the loss names the taker; bundle export and import; the
+   compatibility screen); `tests/e2e/projects.spec.ts`.
+4. `pnpm run spec:verify` after any edit under `docs/spec/`, and
+   `sha256sum -c CHECKSUMS.sha256` from `docs/spec` (ADR-0020 is new; update
+   the checksums as the pack's tools require).
+5. One review pass with the packet's lenses (Architecture, Data Integrity /
+   Recovery, Security / Privacy, Testing / Regression, Performance / Storage,
+   Code Quality / Maintainability, Adversarial Agent-Quality) as parallel
+   sub-agents over the committed branch; verify each finding; fix; commit.
+6. Evidence `docs/spec/reviews/phase-02-evidence.md` and review record
+   `docs/spec/reviews/phase-02-review.md` (see Phase 01's for form), ledger
+   entry for phase 2 only, handoff `traceability/handoffs/phase-02.md`, this
+   note to `docs/todo/done/`, merge `main` in (Phase 03 may have landed),
+   `verify:commit`, merge to `main`, push, remove the worktree.
+
+### Decisions to carry into the evidence
+
+- Cross-phase limits: importing audio from the interface needs a file's
+  audio shape (a codec or engine phase); A/B audition needs the audio engine
+  (Phase 03). Phase 02 ships the pipeline, the commands, the comparison and
+  promotion.
+- The Phase 01 debt's bound on set-aside text drops the oldest unreadable
+  shell text with a notice (owner decision F-1022); it touches no project
+  data.
+- A deleted workspace is restorable for the session only (F-123).
+- Bundle import keeps the project id where it is free, else imports a copy.
+- Remaining bounded limits: the paired project header can be reverted by a
+  late writer's cached name; two openers could race to one epoch number when
+  one steals mid-open (holder token makes it narrow); a closed tab is not
+  announced to watchers.
+- No schema version bump: nothing has been persisted by a shipped build.
