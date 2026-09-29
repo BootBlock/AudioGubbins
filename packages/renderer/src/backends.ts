@@ -8,8 +8,8 @@
 import { FailureKind, fail, failure } from '@audiogubbins/domain';
 
 import { CANVAS_2D_BACKEND } from './canvas2d-backend.js';
-import { RendererKind, type BackendFactory } from './renderer-backend.js';
-import { WEBGL2_BACKEND } from './webgl2-backend.js';
+import { RendererKind, type BackendFactory, type Schedule } from './renderer-backend.js';
+import { webGl2Backend } from './webgl2-backend.js';
 import { isGpu, webGpuBackend } from './webgpu-backend.js';
 
 const NO_WEBGPU: BackendFactory = {
@@ -26,7 +26,10 @@ const NO_WEBGPU: BackendFactory = {
     ),
 };
 
-/** The backends to try, given what the browser offers as `navigator.gpu`. */
-export function browserBackends(gpu: unknown): readonly BackendFactory[] {
-  return [isGpu(gpu) ? webGpuBackend(gpu) : NO_WEBGPU, WEBGL2_BACKEND, CANVAS_2D_BACKEND];
+/**
+ * The backends to try, given what the browser offers as `navigator.gpu` and the
+ * page's timers as `schedule`.
+ */
+export function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[] {
+  return [isGpu(gpu) ? webGpuBackend(gpu) : NO_WEBGPU, webGl2Backend(schedule), CANVAS_2D_BACKEND];
 }

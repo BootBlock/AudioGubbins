@@ -17,7 +17,12 @@
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import { backingSize, type Rectangle, type RenderFrame } from './render-frame.js';
-import { RendererKind, type BackendFactory, type RendererBackend } from './renderer-backend.js';
+import {
+  RendererKind,
+  type BackendFactory,
+  type RendererBackend,
+  type Schedule,
+} from './renderer-backend.js';
 
 /** How long a lost context is waited for before the renderer steps down. */
 const RESTORE_WAIT_MS = 3000;
@@ -237,38 +242,41 @@ function unavailable(reason: string): DomainResult<never> {
   return fail(failure('renderer.webgl2-unavailable', FailureKind.Unrecoverable, reason));
 }
 
-/** The WebGL2 backend's factory. */
-export const WEBGL2_BACKEND: BackendFactory = {
-  kind: RendererKind.WebGl2,
-  create: (canvas, events) => {
-    const gl = canvas.getContext('webgl2', {
-      alpha: false,
-      antialias: false,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
-    });
-    if (gl === null) return Promise.resolve(unavailable('The browser gave no WebGL2 context.'));
-    const resources = build(gl);
-    if (typeof resources === 'string') return Promise.resolve(unavailable(resources));
-    const backend = new WebGl2Backend(gl, resources);
-    let waiting: ReturnType<typeof setTimeout> | undefined;
-    canvas.addEventListener('webglcontextlost', (event) => {
-      // Prevented, or the browser never gives the context back.
-      event.preventDefault();
-      backend.lose();
-      events.lost('The browser took the WebGL2 context away.');
-      waiting = setTimeout(() => {
-        events.failed(
-          `The WebGL2 context was not given back within ${String(RESTORE_WAIT_MS / 1000)} seconds.`,
-        );
-      }, RESTORE_WAIT_MS);
-    });
-    canvas.addEventListener('webglcontextrestored', () => {
-      clearTimeout(waiting);
-      const problem = backend.restore();
-      if (problem === undefined) events.restored();
-      else events.failed(`The WebGL2 context came back and could not be rebuilt: ${problem}`);
-    });
-    return Promise.resolve(succeed(backend));
-  },
-};
+/** The WebGL2 backend's factory, which waits for a lost context by `schedule`. */
+export function webGl2Backend(schedule: Schedule): BackendFactory {
+  return {
+    kind: RendererKind.WebGl2,
+    create: (canvas, events) => {
+      const gl = canvas.getContext('webgl2', {
+        alpha: false,
+        antialias: false,
+        premultipliedAlpha: false,
+        preserveDrawingBuffer: false,
+      });
+      if (gl === null) return Promise.resolve(unavailable('The browser gave no WebGL2 context.'));
+      const resources = build(gl);
+      if (typeof resources === 'string') return Promise.resolve(unavailable(resources));
+      const backend = new WebGl2Backend(gl, resources);
+      let giveUp: (() => void) | undefined;
+      canvas.addEventListener('webglcontextlost', (event) => {
+        // Prevented, or the browser never gives the context back.
+        event.preventDefault();
+        backend.lose();
+        events.lost('The browser took the WebGL2 context away.');
+        giveUp = schedule(() => {
+          events.failed(
+            `The WebGL2 context was not given back within ${String(RESTORE_WAIT_MS / 1000)} seconds.`,
+          );
+        }, RESTORE_WAIT_MS);
+      });
+      canvas.addEventListener('webglcontextrestored', () => {
+        giveUp?.();
+        giveUp = undefined;
+        const problem = backend.restore();
+        if (problem === undefined) events.restored();
+        else events.failed(`The WebGL2 context came back and could not be rebuilt: ${problem}`);
+      });
+      return Promise.resolve(succeed(backend));
+    },
+  };
+}

@@ -32,6 +32,18 @@ fn fragmentMain() -> @location(0) vec4f {
 /** Bytes between one batch's uniforms and the next: the smallest dynamic offset WebGPU allows. */
 export const UNIFORM_STRIDE = 256;
 
+/**
+ * The buffer usage flags the backend asks for, by the values the WebGPU
+ * specification fixes. The browser's `GPUBufferUsage` and `GPUShaderStage`
+ * namespaces are globals, which the renderer does not read (ADR-0044): it draws
+ * with the GPU object it is handed, and a device handed in from anywhere else
+ * takes the same numbers.
+ */
+const BufferUsage = { CopyDst: 0x08, Vertex: 0x20, Uniform: 0x40 } as const;
+
+/** The shader stage flags, by the specification's values, for the same reason. */
+const ShaderStage = { Vertex: 0x1, Fragment: 0x2 } as const;
+
 /** A device's pipeline and buffers, made again on a new device. */
 export interface Resources {
   readonly device: GPUDevice;
@@ -87,14 +99,14 @@ export function build(device: GPUDevice, format: GPUTextureFormat): Resources {
     entries: [
       {
         binding: 0,
-        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+        visibility: ShaderStage.Vertex | ShaderStage.Fragment,
         buffer: { type: 'uniform', hasDynamicOffset: true, minBindingSize: 32 },
       },
     ],
   });
   const corners = device.createBuffer({
     size: 32,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    usage: BufferUsage.Vertex | BufferUsage.CopyDst,
   });
   device.queue.writeBuffer(corners, 0, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]));
   const uniforms = uniformBuffer(device, 16);
@@ -105,18 +117,23 @@ export function build(device: GPUDevice, format: GPUTextureFormat): Resources {
     corners,
     uniforms,
     group: bindGroup(device, layout, uniforms),
-    instances: device.createBuffer({
-      size: 16 * 4096,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    }),
+    instances: instanceBuffer(device, 4096),
   };
+}
+
+/** A vertex buffer with room for `instances` instances of four floats. */
+export function instanceBuffer(device: GPUDevice, instances: number): GPUBuffer {
+  return device.createBuffer({
+    size: 16 * instances,
+    usage: BufferUsage.Vertex | BufferUsage.CopyDst,
+  });
 }
 
 /** A uniform buffer with a slot for each of `batches` batches. */
 export function uniformBuffer(device: GPUDevice, batches: number): GPUBuffer {
   return device.createBuffer({
     size: UNIFORM_STRIDE * batches,
-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    usage: BufferUsage.Uniform | BufferUsage.CopyDst,
   });
 }
 

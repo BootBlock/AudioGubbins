@@ -29,6 +29,7 @@ import {
   UNIFORM_STRIDE,
   bindGroup,
   build,
+  instanceBuffer,
   uniformBuffer,
   type Resources,
 } from './webgpu-resources.js';
@@ -109,10 +110,7 @@ class WebGpuBackend implements RendererBackend {
   #ensureCapacity(resources: Resources, instances: number, batches: number): void {
     if (resources.instances.size < instances * 16) {
       resources.instances.destroy();
-      resources.instances = resources.device.createBuffer({
-        size: instances * 32,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      });
+      resources.instances = instanceBuffer(resources.device, instances * 2);
     }
     if (resources.uniforms.size < batches * UNIFORM_STRIDE) {
       resources.uniforms.destroy();

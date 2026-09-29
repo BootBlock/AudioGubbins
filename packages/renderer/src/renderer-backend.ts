@@ -39,6 +39,13 @@ export interface RendererBackend {
   dispose(): void;
 }
 
+/**
+ * Calls `callback` after `delayMs`, and answers how to call it off. A backend
+ * that waits takes this rather than the page's timers, which the renderer does
+ * not read (ADR-0044), so a test decides when the wait is over.
+ */
+export type Schedule = (callback: () => void, delayMs: number) => () => void;
+
 /** Makes a backend of one kind on a canvas, or says why it cannot. */
 export interface BackendFactory {
   readonly kind: RendererKind;

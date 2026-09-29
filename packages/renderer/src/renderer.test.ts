@@ -20,6 +20,9 @@ import {
 } from './renderer-backend.js';
 import { Renderer, RendererState } from './renderer.js';
 
+/** A schedule that never runs what it is given, for backends these tests do not lose. */
+const NO_WAIT = (): (() => void) => () => undefined;
+
 function frame(width: number): RenderFrame {
   return { width, height: 10, pixelRatio: 1, clear: [0, 0, 0, 1], layers: [] };
 }
@@ -121,7 +124,7 @@ describe('choosing a backend', () => {
   });
 
   it('lists WebGPU as refused, with the reason, in a browser that does not offer it', async () => {
-    const [first] = browserBackends(undefined);
+    const [first] = browserBackends(undefined, NO_WAIT);
     const made = await first!.create(document.createElement('canvas'), {
       lost: () => undefined,
       restored: () => undefined,
@@ -131,11 +134,9 @@ describe('choosing a backend', () => {
     expect(made.ok ? undefined : made.failures[0].summary).toBe(
       'This browser does not offer WebGPU.',
     );
-    expect(browserBackends({ requestAdapter: 'no' }).map((factory) => factory.kind)).toEqual([
-      RendererKind.WebGpu,
-      RendererKind.WebGl2,
-      RendererKind.Canvas2d,
-    ]);
+    expect(
+      browserBackends({ requestAdapter: 'no' }, NO_WAIT).map((factory) => factory.kind),
+    ).toEqual([RendererKind.WebGpu, RendererKind.WebGl2, RendererKind.Canvas2d]);
   });
 });
 

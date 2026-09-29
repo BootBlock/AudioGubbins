@@ -1866,7 +1866,7 @@ Published paths
   readonly TextLabel.font: string
   readonly TextLabel.align: "centre" | "left" | "right"
   readonly TextLabel.baseline: "bottom" | "middle" | "top"
-  function browserBackends(gpu: unknown): readonly BackendFactory[]
+  function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
 
 @audiogubbins/test-fixtures
   const FIXTURE_LENGTH: 48000
@@ -2724,6 +2724,9 @@ packages/editor-view/src/waveform-drawing.ts
   readonly WaveformStyle.rms: boolean
   readonly WaveformStyle.clipping: boolean
   readonly WaveformStyle.palette: EditorPalette
+
+packages/renderer/src/renderer-backend.ts
+  type Schedule = (callback: () => void, delayMs: number) => () => void
 
 packages/waveform/src/peak-host.ts
   interface Shared
