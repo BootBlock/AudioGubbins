@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 
-import { openPalette, writtenPress } from './platform.js';
+import { KeyboardConvention } from '@audiogubbins/commands';
+
+import { openAsset, scopeOf, surfaceOf } from './editor.js';
+import { conventionOf, openPalette, openSettings, pressPrimary, writtenPress } from './platform.js';
 import { centreOf, menuBarMenu, openFresh, recordPresses } from './shell.js';
 import { test } from './test.js';
 
@@ -77,6 +80,54 @@ test.describe('the keyboard', () => {
     await page.keyboard.press('Enter');
 
     await expect(page.locator('.ag-theme-root')).toHaveAttribute('data-ag-theme', 'light');
+  });
+
+  test('leaves a text field its select-all and its word movement', async ({ page }) => {
+    // The editor's Ctrl+A and Ctrl+Left took the field's own: "zoom in",
+    // select all, "x" read "zoom inx", and the caret did not move by a word.
+    await openFresh(page);
+    await openPalette(page);
+    const field = page.getByRole('combobox', { name: 'Search commands' });
+
+    await field.fill('zoom in');
+    await pressPrimary(page, 'KeyA');
+    await page.keyboard.type('x');
+    await expect(field).toHaveValue('x');
+
+    await field.fill('open another view');
+    // A word back is Option with the arrow on Apple hardware, Control elsewhere.
+    const apple = (await conventionOf(page)) === KeyboardConvention.Apple;
+    await page.keyboard.press(apple ? 'Alt+ArrowLeft' : 'Control+ArrowLeft');
+    await page.keyboard.type('Z');
+    await expect(field).toHaveValue('open another Zview');
+  });
+
+  test('changes nothing behind a modal dialogue', async ({ page }) => {
+    // With the settings open on their first tab, M, Z and Ctrl+A added a
+    // marker, chose the Zoom tool and selected everything in the editor
+    // hidden behind them, and nothing was said until the dialogue closed.
+    const panel = await openAsset(page, 'Tone bursts');
+    await surfaceOf(panel).focus();
+    const scope = await scopeOf(panel).innerText();
+    await openSettings(page);
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
+
+    await page.keyboard.press('m');
+    await page.keyboard.press('z');
+    await pressPrimary(page, 'KeyA');
+    await expect(
+      page.locator('.ag-live-regions', { hasText: 'Close the dialogue to use that shortcut.' }),
+    ).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(settings).toBeHidden();
+
+    await expect(panel.getByRole('list', { name: 'Markers' })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: 'Zoom', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await expect(scopeOf(panel)).toHaveText(scope);
   });
 });
 

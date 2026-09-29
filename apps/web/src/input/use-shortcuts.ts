@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react';
-import type { ChordTracker, CommandId } from '@audiogubbins/commands';
+import type { ChordOutcome, ChordTracker, CommandId } from '@audiogubbins/commands';
 import {
   isShortcutPress,
   isTypingPress,
@@ -64,16 +64,70 @@ const NAVIGATION_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a press made with no modifier but Shift is aimed at something that
- * uses it itself. A navigation key pressed alone moves, scrolls or changes
- * whatever has the keyboard, a list, a toolbar, a slider, a scrolled panel or
- * a dialogue, so it is a shortcut only in the editor's surface and where
- * nothing has the keyboard; any other key pressed alone is a list's or a
- * menu's, which finds an entry by its letter. A shortcut on a key pressed
- * alone gives way there, so the editor's keys never take what a control or a
- * page does with them.
+ * A dialogue that makes the page behind it inert while it is open: the design
+ * system's modal dialogue says so of itself.
+ */
+const MODAL_DIALOGUE = ['dialog', 'alertdialog']
+  .map((role) => `[role="${role}"][aria-modal="true"]`)
+  .join(', ');
+
+/** The keys a text field moves its caret, and deletes, with, alone or with any modifier. */
+const CARET_KEYS: ReadonlySet<string> = new Set([...NAVIGATION_KEYS, 'Backspace', 'Delete']);
+
+/** The letters a text field selects all, undoes, redoes, cuts, copies and pastes with. */
+const FIELD_LETTERS: ReadonlySet<string> = new Set(['a', 'c', 'v', 'x', 'y', 'z']);
+
+/** A Latin letter alone, which is what a key typed on a Latin layout reads as. */
+const LATIN_LETTER = /^[a-z]$/iu;
+
+/**
+ * The letter a press is read as by a field's own editing: the one the layout
+ * types where it types a Latin letter, and the one at its US position where it
+ * does not, as a browser reads Ctrl+A on a Russian layout.
+ */
+function letterOf(reading: KeyEventReading): string | undefined {
+  if (LATIN_LETTER.test(reading.key)) return reading.key.toLowerCase();
+  return reading.code.startsWith('Key') ? reading.code.slice(3).toLowerCase() : undefined;
+}
+
+/**
+ * Whether a text field edits with a press made with a modifier: the caret keys
+ * with any of them, which move by a word, a line or the whole text and select
+ * as they go, and delete a word, on every system (Control on Windows and Linux,
+ * Option and Command on Apple hardware); and select all, undo, redo and the
+ * clipboard with Control or Command. Checked by what the keys are rather than
+ * by the platform's usual modifier, because each system's fields answer both:
+ * Command+A selects all on a Mac, and Control+A goes to the line's start.
+ */
+function fieldEditsWith(reading: KeyEventReading): boolean {
+  if (CARET_KEYS.has(reading.code)) return true;
+  const letter = letterOf(reading);
+  return (
+    (reading.ctrlKey || reading.metaKey) &&
+    !reading.altKey &&
+    letter !== undefined &&
+    FIELD_LETTERS.has(letter)
+  );
+}
+
+/**
+ * Whether a press is aimed at something that uses it itself.
+ *
+ * A text field keeps the chords it edits with, so a shortcut on Ctrl+A or
+ * Ctrl+Left gives way to selecting all or moving by a word while one has the
+ * keyboard, and is the editor's everywhere else. Its typing is read before
+ * this, by the listener, which also gives up a chord in progress for it.
+ *
+ * Elsewhere, a press made with no modifier but Shift. A navigation key pressed
+ * alone moves, scrolls or changes whatever has the keyboard, a list, a toolbar,
+ * a slider, a scrolled panel or a dialogue, so it is a shortcut only in the
+ * editor's surface and where nothing has the keyboard; any other key pressed
+ * alone is a list's or a menu's, which finds an entry by its letter. A shortcut
+ * on a key pressed alone gives way there, so the editor's keys never take what
+ * a control or a page does with them.
  */
 export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading): boolean {
+  if (isTextField(target)) return fieldEditsWith(reading);
   if (reading.ctrlKey || reading.metaKey || reading.altKey || !(target instanceof Element)) {
     return false;
   }
@@ -83,14 +137,56 @@ export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading
   return target.closest(TYPES_AHEAD) !== null;
 }
 
+/** What a shortcut press is, before the chord tracker reads it. */
+const PressOwner = {
+  /** Typed into a text field. */
+  Typing: 'typing',
+  /** Used by the control that has the keyboard. */
+  FocusedControl: 'focused-control',
+  /** Pressed alone in a modal dialogue. */
+  ModalDialogue: 'modal-dialogue',
+  /** The chord tracker's. */
+  Shortcuts: 'shortcuts',
+} as const;
+
+type PressOwner = (typeof PressOwner)[keyof typeof PressOwner];
+
+/**
+ * Whose a shortcut press is.
+ *
+ * Typing into a field is the field's, and gives up a chord in progress: were
+ * the chord to survive, a user who pressed the prefix, clicked into a field and
+ * typed a name would complete a shortcut with the next Ctrl+X they meant as
+ * cut. A key a focused control uses itself is its, unless a chord is waiting
+ * for it.
+ *
+ * A modal dialogue has the keyboard, and the page behind it is inert. Every
+ * shortcut acts on that page or opens something over it, the palette and the
+ * settings among them, so none runs while one is open: a key pressed alone is
+ * the dialogue's, and a chord is still read, so the browser does not act on it
+ * either, and is answered with how to use it.
+ */
+function ownerOf(
+  target: EventTarget | null,
+  reading: KeyEventReading,
+  platform: KeyboardPlatform,
+  state: { readonly waiting: boolean; readonly modal: boolean },
+): PressOwner {
+  if (isTextField(target) && isTypingPress(reading, platform)) return PressOwner.Typing;
+  if (state.waiting) return PressOwner.Shortcuts;
+  if (ownsItsKeys(target, reading)) return PressOwner.FocusedControl;
+  const alone = !reading.ctrlKey && !reading.metaKey && !reading.altKey;
+  return state.modal && alone ? PressOwner.ModalDialogue : PressOwner.Shortcuts;
+}
+
 /**
  * What the keyboard layout makes of every key event read, typing included.
  *
- * One option, because both halves are the layout's: what it learns the
- * reader's layout types from a press (see `keyboard-layout-store.ts`), and
- * whether the application asked the reader for that press to learn from, so
- * the browser is kept from acting on it. Asked before the press is read,
- * which may settle what made the request.
+ * One option, because both halves are the layout's: what it learns the reader's
+ * layout types from a press (see `keyboard-layout-store.ts`), and whether the
+ * application asked the reader for that press to learn from, so the browser is
+ * kept from acting on it. Asked before the press is read, which may settle what
+ * made the request.
  */
 export interface KeyReader {
   readonly read: (reading: KeyEventReading) => void;
@@ -117,8 +213,8 @@ export interface ShortcutBindingOptions {
   readonly onAnnounce: Announce;
 
   /**
-   * Called when a chord in progress is given up without running: by Escape,
-   * or by typing into a field. The prefix was said, so its end is said too.
+   * Called when a chord in progress is given up without running: by Escape, or
+   * by typing into a field. The prefix was said, so its end is said too.
    */
   readonly onChordCancelled: () => void;
 
@@ -129,6 +225,46 @@ export interface ShortcutBindingOptions {
   readonly reader: KeyReader;
 
   readonly logger: Logger;
+}
+
+/**
+ * Does what the chord tracker made of a press: shows a chord building, says one
+ * that is not a shortcut, and runs a completed one, each kept from the browser,
+ * which would otherwise act on it too.
+ */
+function answer(
+  outcome: ChordOutcome,
+  event: KeyboardEvent,
+  to: Pick<ShortcutBindingOptions, 'run' | 'onPendingChange' | 'onAnnounce'> & {
+    readonly modal: boolean;
+  },
+): void {
+  if (outcome.kind === 'pass-through') return;
+  event.preventDefault();
+  switch (outcome.kind) {
+    case 'waiting':
+      to.onPendingChange(outcome.presses);
+      return;
+
+    case 'abandoned':
+      to.onPendingChange([]);
+      to.onAnnounce('That key sequence is not a shortcut.', false);
+      return;
+
+    case 'run':
+      to.onPendingChange([]);
+      // A modal dialogue's page is inert, so its chord is answered with how to
+      // use it rather than run (see `ownerOf`).
+      if (to.modal) {
+        to.onAnnounce('Close the dialogue to use that shortcut.', false, { refusal: true });
+        return;
+      }
+      // A shortcut that appears to do nothing is how a user decides the
+      // application is unreliable, so a refusal is said out loud, through the
+      // one route every interface caller of the bus takes.
+      to.run(outcome.commandId);
+      return;
+  }
 }
 
 /** Listens for shortcuts while the component is mounted. */
@@ -163,8 +299,8 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
 
       // A modifier, a dead key, a key an input method is composing with, and
       // anything typed with the layout's third-level modifier are the user
-      // typing rather than a shortcut, and must not abandon a chord in
-      // progress either.
+      // typing rather than a shortcut, and must not abandon a chord in progress
+      // either.
       if (!isShortcutPress(reading)) return;
 
       if (event.key === 'Escape' && tracker.pending().length > 0) {
@@ -173,45 +309,18 @@ export function useShortcuts(options: ShortcutBindingOptions): void {
         return;
       }
 
-      if (isTextField(event.target) && isTypingPress(reading, platform)) {
-        // Typing gives up a chord in progress. Were the chord to survive, a
-        // user who pressed the prefix, clicked into a field and typed a name
-        // would complete a shortcut with the next Ctrl+X they meant as cut.
-        if (tracker.pending().length > 0) cancelChord();
-        return;
-      }
+      const waiting = tracker.pending().length > 0;
+      const modal = document.querySelector(MODAL_DIALOGUE) !== null;
+      const owner = ownerOf(event.target, reading, platform, { waiting, modal });
+      if (owner === PressOwner.Typing && waiting) cancelChord();
+      if (owner !== PressOwner.Shortcuts) return;
 
-      // A key a focused control uses itself is its, unless a chord is waiting.
-      if (tracker.pending().length === 0 && ownsItsKeys(event.target, reading)) return;
-
-      const outcome = tracker.press(keyPressFromEvent(reading));
-
-      switch (outcome.kind) {
-        case 'pass-through':
-          return;
-
-        case 'waiting':
-          onPendingChange(outcome.presses);
-          event.preventDefault();
-          return;
-
-        case 'abandoned':
-          onPendingChange([]);
-          onAnnounce('That key sequence is not a shortcut.', false);
-          event.preventDefault();
-          return;
-
-        case 'run': {
-          onPendingChange([]);
-          event.preventDefault();
-
-          // A shortcut that appears to do nothing is how a user decides the
-          // application is unreliable, so a refusal is said out loud, through
-          // the one route every interface caller of the bus takes.
-          run(outcome.commandId);
-          return;
-        }
-      }
+      answer(tracker.press(keyPressFromEvent(reading)), event, {
+        run,
+        onPendingChange,
+        onAnnounce,
+        modal,
+      });
     };
 
     /**

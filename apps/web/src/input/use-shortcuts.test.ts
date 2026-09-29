@@ -374,6 +374,117 @@ describe('useShortcuts over the stores it is wired to', () => {
   });
 });
 
+describe('useShortcuts over the default profile', () => {
+  /** A listener over the default profile on `convention`, answering what ran and what was said. */
+  function listeningToDefaults(convention: KeyboardConvention) {
+    const { context } = buildShellContext(undefined, convention);
+    const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('test');
+    const ran: string[] = [];
+    const said: string[] = [];
+    renderHook(() => {
+      useShortcuts({
+        tracker: createChordTracker(() => context.shortcuts.get().usable),
+        run: (id) => {
+          ran.push(id);
+        },
+        onPendingChange: vi.fn(),
+        onAnnounce: (text) => {
+          said.push(text);
+        },
+        onChordCancelled: vi.fn(),
+        platform: keyboardPlatformFor(convention),
+        reader: { read: vi.fn(), asked: () => false },
+        logger,
+      });
+    });
+    return { ran, said };
+  }
+
+  it('leaves a text field its select-all, word movement and line movement', () => {
+    // Ctrl+A and Ctrl+Left are the editor's, and they took the field's own:
+    // "zoom in", Ctrl+A, "x" read "zoom inx", and the caret never moved by a
+    // word, while the editor's selection and playhead changed behind it.
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+    const input = field();
+
+    const presses = [
+      press(input, { code: 'KeyA', key: 'a', ctrlKey: true }),
+      press(input, { code: 'ArrowLeft', key: 'ArrowLeft', ctrlKey: true }),
+      press(input, { code: 'ArrowRight', key: 'ArrowRight', ctrlKey: true, shiftKey: true }),
+      press(input, { code: 'Home', key: 'Home', ctrlKey: true }),
+      press(input, { code: 'KeyZ', key: 'z', ctrlKey: true }),
+    ];
+
+    expect(ran).toEqual([]);
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it('leaves a field on Apple hardware its Command and Option chords', () => {
+    const { ran } = listeningToDefaults(KeyboardConvention.Apple);
+    const input = field();
+
+    const all = press(input, { code: 'KeyA', key: 'a', metaKey: true });
+    const word = press(input, { code: 'ArrowLeft', key: 'ArrowLeft', altKey: true });
+
+    expect(ran).toEqual([]);
+    expect([all.defaultPrevented, word.defaultPrevented]).toEqual([false, false]);
+  });
+
+  it('runs the same chords as the editor’s outside a field', () => {
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+
+    const all = press(document.body, { code: 'KeyA', key: 'a', ctrlKey: true });
+    press(document.body, { code: 'ArrowLeft', key: 'ArrowLeft', ctrlKey: true });
+
+    expect(ran).toEqual(['editor.select-all', 'editor.playhead-back-sample']);
+    expect(all.defaultPrevented).toBe(true);
+  });
+
+  it('runs no shortcut behind a modal dialogue, and says why of a chord', () => {
+    // A tab of the settings let M, Z and Ctrl+A through: the editor hidden
+    // behind the dialogue gained a marker, changed tool and selected all, and
+    // nothing said so until the dialogue closed.
+    const { ran, said } = listeningToDefaults(KeyboardConvention.Windows);
+    const dialogue = document.createElement('div');
+    dialogue.setAttribute('role', 'dialog');
+    dialogue.setAttribute('aria-modal', 'true');
+    const tab = document.createElement('button');
+    dialogue.append(tab);
+    document.body.append(dialogue);
+
+    const letters = ['KeyM', 'KeyZ'].map((code) =>
+      press(tab, { code, key: code.slice(3).toLowerCase() }),
+    );
+    const all = press(tab, { code: 'KeyA', key: 'a', ctrlKey: true });
+
+    expect(ran).toEqual([]);
+    expect(letters.map((event) => event.defaultPrevented)).toEqual([false, false]);
+    expect(all.defaultPrevented).toBe(true);
+    expect(said).toEqual(['Close the dialogue to use that shortcut.']);
+
+    dialogue.remove();
+    press(document.body, { code: 'KeyM', key: 'm' });
+    expect(ran).toEqual(['editor.add-marker']);
+  });
+
+  it('runs shortcuts beside a dialogue that is not modal', () => {
+    const { ran } = listeningToDefaults(KeyboardConvention.Windows);
+    const popover = document.createElement('div');
+    popover.setAttribute('role', 'dialog');
+    document.body.append(popover);
+
+    press(document.body, { code: 'KeyM', key: 'm' });
+
+    expect(ran).toEqual(['editor.add-marker']);
+  });
+});
+
 describe('a key a focused control uses itself', () => {
   /** A reading of `code`, with the modifiers given. */
   const reading = (code: string, modifiers: { readonly ctrlKey?: boolean } = {}) => ({
@@ -411,6 +522,14 @@ describe('a key a focused control uses itself', () => {
   it('is the page’s when it scrolls a dialogue or a panel, pressed alone', () => {
     expect(ownsItsKeys(inside('dialog'), reading('PageDown'))).toBe(true);
     expect(ownsItsKeys(inside('tabpanel'), reading('End'))).toBe(true);
+  });
+
+  it('is a text field’s when it edits with it, and a shortcut’s when it does not', () => {
+    expect(ownsItsKeys(field(), reading('KeyA', { ctrlKey: true }))).toBe(true);
+    expect(ownsItsKeys(field(), reading('ArrowRight', { ctrlKey: true }))).toBe(true);
+    expect(ownsItsKeys(field(), reading('Backspace', { ctrlKey: true }))).toBe(true);
+    expect(ownsItsKeys(field(), reading('KeyK', { ctrlKey: true }))).toBe(false);
+    expect(ownsItsKeys(field(), reading('Comma', { ctrlKey: true }))).toBe(false);
   });
 
   it('is a shortcut’s in the editor, with nothing focused, with a modifier, and for a letter in a toolbar', () => {

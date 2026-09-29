@@ -80,6 +80,10 @@ export function ModalDialog({
         <Dialog.Content
           ref={content}
           className="ag-dialog"
+          // Said of itself, as Radix leaves unsaid: the page behind is inert
+          // while it is open, which assistive technology is told by this and
+          // the application's shortcuts read from it.
+          aria-modal="true"
           onEscapeKeyDown={(event) => {
             // A control that records key presses owns Escape while it listens.
             // The dialogue listens in the capture phase, so without this it

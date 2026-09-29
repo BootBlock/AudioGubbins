@@ -2771,14 +2771,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       62,
       'Nine subscriptions and what the shell derives from them; its two effects are hooks of their own.',
     ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts': [
-      60,
-      "One document listener deciding what a key press means for the chord tracker, and handing every press it reads to the keyboard layout's reader.",
-    ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts > useEffect callback': [
-      55,
-      'The listener itself, with its blur handler and its cleanup, reading one tracker.',
-    ],
 
     // Procedures: one algorithm, or one validation step by step.
     'packages/design-system/src/tokens/chrome.ts: buildChrome': [
