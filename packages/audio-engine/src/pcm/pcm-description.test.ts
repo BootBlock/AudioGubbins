@@ -8,7 +8,6 @@ import { allocateBlock } from './frame-block.js';
 import {
   PcmDescriptionKind,
   describedBuffers,
-  describedLength,
   describedSource,
   pcmDescription,
   type PcmDescription,
@@ -63,7 +62,6 @@ describe('what a description makes', () => {
     };
     const source = expectSuccess(describedSource(description, StandardLayouts.mono, REFERENCE_DSP));
     const block = allocateBlock(StandardLayouts.mono, RATE, 3);
-    expect(expectSuccess(describedLength(description))).toBe(3);
     expect(await source.read(ZERO_SAMPLES, block)).toBe(3);
     expect([...(block.channels[0] ?? [])]).toEqual([0.5, -0.5, 0.25]);
   });

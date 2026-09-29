@@ -35,7 +35,7 @@ export interface HitScene {
 }
 
 /** How far, in CSS pixels, an edge or a marker reaches for each kind of pointer. */
-export const REACH: Readonly<Record<PointerKind, number>> = {
+const REACH: Readonly<Record<PointerKind, number>> = {
   [PointerKind.Mouse]: 4,
   [PointerKind.Pen]: 6,
   [PointerKind.Touch]: 12,

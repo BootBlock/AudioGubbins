@@ -27,7 +27,7 @@ export {
 
 export { type Lane, LaneKind, type ViewLayout, laneAt, layoutView } from './lane-layout.js';
 
-export { type HitScene, type HitTarget, REACH, hitTest } from './hit-testing.js';
+export { type HitScene, type HitTarget, hitTest } from './hit-testing.js';
 
 export {
   IDLE,
@@ -37,7 +37,6 @@ export {
   type ToolIntent,
   type ToolPreview,
   type ToolStep,
-  effectiveTool,
   move,
   press,
   release,
@@ -49,9 +48,4 @@ export { type EditorPalette, type EditorType } from './editor-palette.js';
 
 export { type KnownAudio } from './waveform-drawing.js';
 
-export {
-  FrameComposer,
-  SPECTROGRAM_SHELL_NOTE,
-  type ViewContent,
-  type ViewScene,
-} from './frame-composer.js';
+export { FrameComposer, type ViewContent, type ViewScene } from './frame-composer.js';

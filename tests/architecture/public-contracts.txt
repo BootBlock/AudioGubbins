@@ -319,7 +319,6 @@ Published paths
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
-  function describedLength(description: PcmDescription): DomainResult<SampleCount>
   function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
@@ -1611,8 +1610,6 @@ Published paths
   readonly Overlays.markers: boolean
   readonly Overlays.regions: boolean
   readonly Overlays.filmstrip: boolean
-  const REACH: Readonly<Record<PointerKind, number>>
-  const SPECTROGRAM_SHELL_NOTE: "The spectrogram is drawn by spectral analysis, which arrives with spectral editing."
   interface SnapSources
   readonly SnapSources.markers: readonly Marker[]
   readonly SnapSources.regions: readonly Region[]
@@ -1674,7 +1671,6 @@ Published paths
   readonly ViewScene.picture: readonly PlacedImage[]
   readonly ViewScene.palette: EditorPalette
   readonly ViewScene.type: EditorType
-  function effectiveTool(context: ToolContext): ToolId
   function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
   function laneAt(layout: ViewLayout, y: number): Lane | undefined
   function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
@@ -1958,10 +1954,7 @@ Published paths
   interface FrequencyBand
   readonly FrequencyBand.low: number
   readonly FrequencyBand.high: number
-  const MAXIMUM_PIXELS_PER_SAMPLE: 256
-  const MAXIMUM_SAMPLES_PER_PIXEL: number
   type MadeFacet = "objects" | "spectral" | "time"
-  const ONE_SAMPLE_PER_PIXEL: Zoom
   type ObjectSelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
   interface PixelsPerSample
   readonly PixelsPerSample.kind: "pixels-per-sample"
@@ -1972,7 +1965,6 @@ Published paths
   interface RulerTicks
   readonly RulerTicks.major: readonly RulerTick[]
   readonly RulerTicks.minor: readonly SampleCount[]
-  const SNAP_PRECEDENCE: readonly SnapKind[]
   interface SamplesPerPixel
   readonly SamplesPerPixel.kind: "samples-per-pixel"
   readonly SamplesPerPixel.samples: number
@@ -2044,7 +2036,6 @@ Published paths
   function activeFacet(set: SelectionSet): SelectionFacet
   function boundaryAt(view: ViewportState, x: number, length: SampleCount): SampleCount
   function centredOn(view: ViewportState, position: SampleCount, length: SampleCount): ViewportState
-  function clampedView(view: ViewportState, length: SampleCount): ViewportState
   function describeTarget(target: SelectionTarget, writing: TargetWriting): string
   function formatPosition(position: number, rate: SampleRate, format: TimeFormat, precision?: TimePrecision): string
   function frameAt(position: number, sampleRate: SampleRate, frames: FrameRate): number
@@ -2054,18 +2045,14 @@ Published paths
   function framesPerSecond(frames: FrameRate): number
   function framing(view: ViewportState, range: BoundaryRange, margin: number, length: SampleCount): ViewportState
   function gridPositions(ticks: RulerTicks): readonly SampleCount[]
-  function nearestBoundary(view: ViewportState, x: number): number
-  function nominalFramesPerSecond(frames: FrameRate): number
   function pixelOf(view: ViewportState, position: number): number
   function pixelsPerSample(pixels: number): Zoom
   function placedAt(view: ViewportState, position: SampleCount, x: number, length: SampleCount): ViewportState
   function reconciled(set: SelectionSet, content: SelectableContent): SelectionSet
   function resized(view: ViewportState, width: number, length: SampleCount): ViewportState
   function resolveTarget(set: SelectionSet, request: TargetRequest, asset: TargetAsset): DomainResult<SelectionTarget>
-  function roundHalfAway(value: number): number
   function rulerTicks(view: ViewportState, length: SampleCount, rate: SampleRate, format: TimeFormat, minimumSpacing: number): RulerTicks
   function sampleAt(view: ViewportState, x: number, length: SampleCount): SampleCount | undefined
-  function samplesInPixel(zoom: Zoom): number
   function samplesPerPixel(samples: number): Zoom
   function samplesWithin(view: ViewportState, pixels: number): number
   function scrolledBy(view: ViewportState, dx: number, length: SampleCount): ViewportState
@@ -2073,7 +2060,6 @@ Published paths
   function snapped(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, within: number): SnapResult
   function targetOutside(target: SelectionTarget, shown: BoundaryRange): boolean
   function targetRange(target: SelectionTarget): BoundaryRange | undefined
-  function targetsWithin(targets: readonly SnapTarget[], span: BoundaryRange): readonly SnapTarget[]
   function timecodeOf(frame: number, frames: FrameRate): TimecodeLabel
   function timecodeText(label: TimecodeLabel): string
   function viewportAtStart(zoom: Zoom, width: number): ViewportState
@@ -2084,9 +2070,7 @@ Published paths
   function withSpectralArea(set: SelectionSet, area: SpectralArea): SelectionSet
   function withTimeRange(set: SelectionSet, time: BoundaryRange): SelectionSet
   function withoutFacet(set: SelectionSet, facet: SelectionFacet): SelectionSet
-  function zoomFitting(samples: number, width: number): Zoom
   function zoomScaled(zoom: Zoom, factor: number): Zoom
-  function zoomShowing(samples: number): Zoom
   function zoomedAround(view: ViewportState, zoom: Zoom, anchorX: number, length: SampleCount): ViewportState
   function zoomedIn(zoom: Zoom): Zoom
   function zoomedOut(zoom: Zoom): Zoom

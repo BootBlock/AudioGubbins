@@ -19,13 +19,11 @@ import {
   fail,
   failure,
   flatMapResult,
-  sampleCount,
   sampleRate,
   succeed,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
-  type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
 
@@ -118,13 +116,6 @@ export function pcmDescription(value: unknown): DomainResult<PcmDescription> {
     default:
       return fail(unreadable('kind', `one of ${Object.values(PcmDescriptionKind).join(', ')}`));
   }
-}
-
-/** The frames the described audio lasts. */
-export function describedLength(description: PcmDescription): DomainResult<SampleCount> {
-  return description.kind === PcmDescriptionKind.Signal
-    ? succeed(description.recipe.length)
-    : sampleCount(description.channels[0]?.length ?? 0);
 }
 
 /** The source of the described audio in `layout`, made with `dsp`, or why it cannot be made. */

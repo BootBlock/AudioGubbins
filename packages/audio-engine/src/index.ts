@@ -52,7 +52,6 @@ export {
   type PcmDescription,
   PcmDescriptionKind,
   describedBuffers,
-  describedLength,
   describedSource,
   pcmDescription,
 } from './pcm/pcm-description.js';

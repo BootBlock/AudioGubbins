@@ -182,6 +182,19 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":
+    ['packages/editor-view/src/frame-composer.ts: SPECTROGRAM_SHELL_NOTE'],
+  "The time axis's bounds and rounding, which its conversions use and its tests hold to ADR-0041's exactness: the zoom's limits and single-sample step, the zoom showing a span, rounding half away from zero, the unclamped nearest boundary and the view kept within the timeline, and the order snap targets win in.":
+    [
+      'packages/timeline/src/snapping.ts: SNAP_PRECEDENCE',
+      'packages/timeline/src/viewport.ts: clampedView',
+      'packages/timeline/src/viewport.ts: nearestBoundary',
+      'packages/timeline/src/viewport.ts: roundHalfAway',
+      'packages/timeline/src/zoom.ts: MAXIMUM_PIXELS_PER_SAMPLE',
+      'packages/timeline/src/zoom.ts: MAXIMUM_SAMPLES_PER_PIXEL',
+      'packages/timeline/src/zoom.ts: ONE_SAMPLE_PER_PIXEL',
+      'packages/timeline/src/zoom.ts: zoomShowing',
+    ],
   'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
     ['packages/waveform/src/peak-codec.ts: crc32'],
   'Which element is a text field, and which control keeps a key pressed alone, asked of every kind of element by the listener tests; the listener asks each of an event target alone.':

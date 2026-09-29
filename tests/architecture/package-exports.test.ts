@@ -251,43 +251,27 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/timeline': {
-    'The time axis the editor view and the application of this phase are built on, which reach it in the commits that follow (ADR-0040).':
-      [
-        'MAXIMUM_PIXELS_PER_SAMPLE',
-        'MAXIMUM_SAMPLES_PER_PIXEL',
-        'ONE_SAMPLE_PER_PIXEL',
-        'SNAP_PRECEDENCE',
-        'clampedView',
-        'nearestBoundary',
-        'nominalFramesPerSecond',
-        'roundHalfAway',
-        'samplesInPixel',
-        'targetsWithin',
-        'viewportAtStart',
-        'withSpectralArea',
-        'zoomFitting',
-        'zoomShowing',
-      ],
+    "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
+      ['viewportAtStart'],
+    "The spectral facet's builder, which the spectral marquee and lasso of Phase 08's spectral editing make a selection with (ADR-0042); this phase draws and keeps the facet and has no tool that makes one.":
+      ['withSpectralArea'],
   },
   '@audiogubbins/waveform': {
-    'The peaks the editor view and the application of this phase draw and share, which reach them in the commits that follow (ADR-0043).':
+    "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":
       ['peakGeometry'],
   },
   '@audiogubbins/video-reference': {
     "The picture binding the application's picture panel and the editor view of this phase use, which reach it in the commits that follow (ADR-0046).":
       ['framePeriod', 'pictureDrift'],
   },
-  '@audiogubbins/editor-view': {
-    "The editor view the application's editor panel mounts, which reaches it in the commits that follow (ADR-0040).":
-      ['REACH', 'SPECTROGRAM_SHELL_NOTE', 'effectiveTool'],
-  },
+  '@audiogubbins/editor-view': {},
   '@audiogubbins/audio-graph': {
     "The steps `compileGraph` composes, for a host that needs one alone: validation, for an editor that shows a graph's diagnostics as it is drawn, and latency analysis and planning, for a view of each node's latency before a graph runs (ADR-0030, REQ-ARCH-144). Every host in this phase compiles a graph whole; the phase that edits processor graphs is their first consumer.":
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
-    "The sources a description makes, which the runtime now reaches through `describedSource`, and the recipe reader and a description's length, which the peak worker and the application of this phase reach in the commits that follow (ADR-0045).":
-      ['SignalSettings', 'describedLength', 'memorySource', 'signalSource'],
+    "The sources a description makes, which the runtime and the peak worker reach through `describedSource`, and other packages' tests make audio from directly (ADR-0045).":
+      ['SignalSettings', 'memorySource', 'signalSource'],
     "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
       [
         'STABILITY_WINDOW_SECONDS',

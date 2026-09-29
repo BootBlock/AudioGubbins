@@ -10,18 +10,12 @@
  */
 
 export {
-  MAXIMUM_PIXELS_PER_SAMPLE,
-  MAXIMUM_SAMPLES_PER_PIXEL,
-  ONE_SAMPLE_PER_PIXEL,
   type PixelsPerSample,
   type SamplesPerPixel,
   type Zoom,
   pixelsPerSample,
-  samplesInPixel,
   samplesPerPixel,
-  zoomFitting,
   zoomScaled,
-  zoomShowing,
   zoomedIn,
   zoomedOut,
   zoomsEqual,
@@ -32,13 +26,10 @@ export {
   type ViewportState,
   boundaryAt,
   centredOn,
-  clampedView,
   framing,
-  nearestBoundary,
   pixelOf,
   placedAt,
   resized,
-  roundHalfAway,
   sampleAt,
   samplesWithin,
   scrolledBy,
@@ -56,7 +47,6 @@ export {
   frameRatesEqual,
   frameStart,
   framesPerSecond,
-  nominalFramesPerSecond,
 } from './frame-rate.js';
 
 export { type TimecodeLabel, timecodeOf, timecodeText } from './timecode.js';
@@ -99,11 +89,9 @@ export {
 
 export {
   DEFAULT_SNAP_SETTINGS,
-  SNAP_PRECEDENCE,
   SnapKind,
   type SnapResult,
   type SnapSettings,
   type SnapTarget,
   snapped,
-  targetsWithin,
 } from './snapping.js';

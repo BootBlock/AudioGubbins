@@ -120,7 +120,7 @@ function draggedChannels(
 }
 
 /** The tool a press uses: the hand while space is held, the tool chosen otherwise. */
-export function effectiveTool(context: ToolContext): ToolId {
+function effectiveTool(context: ToolContext): ToolId {
   return context.panning ? ToolId.Hand : context.tool;
 }
 

@@ -6,7 +6,6 @@ import {
   SNAP_PRECEDENCE,
   SnapKind,
   snapped,
-  targetsWithin,
   type SnapSettings,
   type SnapTarget,
 } from './snapping.js';
@@ -63,14 +62,5 @@ describe('snapping a position', () => {
     expect(snapped(at(100), targets, DEFAULT_SNAP_SETTINGS, 10).target?.kind).toBe(
       SnapKind.Playhead,
     );
-  });
-
-  it('keeps the targets inside a window', () => {
-    const targets = [
-      target(SnapKind.Marker, 5),
-      target(SnapKind.Marker, 10),
-      target(SnapKind.Marker, 20),
-    ];
-    expect(targetsWithin(targets, { start: at(10), end: at(20) })).toEqual(targets.slice(1));
   });
 });

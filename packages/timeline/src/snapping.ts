@@ -18,8 +18,6 @@
 
 import type { SampleCount } from '@audiogubbins/domain';
 
-import type { BoundaryRange } from './viewport.js';
-
 /** What a position can snap to. */
 export const SnapKind = {
   Marker: 'marker',
@@ -106,12 +104,4 @@ export function snapped(
     if (best === undefined || precedes(target, best, position)) best = target;
   }
   return best === undefined ? { position } : { position: best.position, target: best };
-}
-
-/** The targets of a set of candidates that fall within `span`. */
-export function targetsWithin(
-  targets: readonly SnapTarget[],
-  span: BoundaryRange,
-): readonly SnapTarget[] {
-  return targets.filter((target) => target.position >= span.start && target.position <= span.end);
 }
