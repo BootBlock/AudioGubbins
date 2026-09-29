@@ -25,14 +25,20 @@ export type DspImplementation = (typeof DspImplementation)[keyof typeof DspImple
 /**
  * How much the resampler spends on a flat passband and a deep stopband.
  *
- * The codes are the ABI's, in `crates/resampling/src/quality.rs`.
+ * Each level's stopband starts at the lower of the two Nyquist frequencies,
+ * so nothing above it folds back as an alias or survives as an image louder
+ * than the level's floor. The codes are the ABI's, in
+ * `crates/resampling/src/quality.rs`, which designs the filters.
  */
 export const ResamplingQuality = {
-  /** Beyond 140 dB, flat to 97 % of the lower Nyquist frequency; the default of a final render. */
+  /**
+   * Flat within 0.00001 dB to 97 % of the lower Nyquist frequency, and at
+   * least 140 dB down from it on; the default of a final render.
+   */
   Maximum: 0,
-  /** About 100 dB, flat to 95 %. */
+  /** Flat within 0.0001 dB to 95 %, and at least 100 dB down. */
   High: 1,
-  /** About 60 dB, flat to 90 %, for previews. */
+  /** Flat within 0.01 dB to 90 %, and at least 60 dB down, for previews. */
   Draft: 2,
 } as const;
 
@@ -88,8 +94,24 @@ export interface CanonicalResampler {
   /** Marks the end of the input; the rest of the output can then be pulled. */
   finish(): void;
 
-  /** Writes the frames that are ready, up to the arrays' length, and answers how many. */
+  /**
+   * Writes the frames that are ready, up to the arrays' length, and answers
+   * how many. The arrays, one per channel, are all of one length.
+   */
   pull(output: readonly Float32Array[]): number;
+
+  /**
+   * Moves the stream so the next frame pulled is output frame `frame`, a
+   * whole number, as if every earlier frame had been pulled from a stream run
+   * from its first, and answers the input frame the next push must start at.
+   *
+   * The frames pulled after it have the bits the same frames have in a stream
+   * run from zero, and reaching them costs nothing that grows with `frame`:
+   * the input it needs starts one filter length before the frame's position.
+   * An end marked by {@link finish} is forgotten. Throws on a frame that is
+   * not a whole number from 0 to `Number.MAX_SAFE_INTEGER`.
+   */
+  seek(frame: number): number;
 
   /** Whether every output frame has been pulled. */
   readonly drained: boolean;

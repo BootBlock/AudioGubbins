@@ -2,9 +2,10 @@
  * The canonical DSP port answered by the Rust module (ADR-0031).
  *
  * Every sample crosses into the module's memory and back through a buffer the
- * module owns, read and written by a view made just before it is used: a view
- * made earlier would be of the memory's old buffer if the module had grown
- * since, and would read nothing.
+ * module owns, read and written by a view that is checked just before it is
+ * used: a view made before the module's memory grew is of the old buffer, and
+ * would read nothing, so it is made again then. Otherwise the view is kept,
+ * so a call on the audio thread allocates nothing.
  */
 
 import {
@@ -25,22 +26,34 @@ import {
   type OscillatorSettings,
   type ResamplerSettings,
 } from '../canonical-dsp.js';
-import { checkOscillator, checkResampler } from '../settings.js';
-import { NO_ANSWER, STATUS_DONE, readDspExports, type DspExports } from './dsp-exports.js';
+import { assertSeekFrame, checkOscillator, checkResampler, framesOfPlanar } from '../settings.js';
+import {
+  COUNT_BAD_HANDLE,
+  COUNT_TOO_SMALL,
+  DspStatus,
+  readDspExports,
+  type DspExports,
+} from './dsp-exports.js';
 
 /** A buffer in the module's memory that grows to what it is asked to hold. */
 class ModuleBuffer {
   readonly #module: DspExports;
   #handle = 0;
   #floats = 0;
+  /** The last view made, and the memory buffer it is of: made again when either changes. */
+  #view = new Float32Array(0);
+  #viewOf: ArrayBuffer | undefined;
 
   constructor(module: DspExports) {
     this.#module = module;
   }
 
-  /** The buffer's handle, holding at least `floats` samples. */
+  /**
+   * The buffer's handle, holding at least `floats` samples: made on first use
+   * even for none, so a call of zero frames names a buffer the module knows.
+   */
   holding(floats: number): number {
-    if (floats > this.#floats) {
+    if (this.#handle === 0 || floats > this.#floats) {
       this.release();
       const handle = this.#module.bufferCreate(floats);
       if (handle === 0) {
@@ -48,20 +61,53 @@ class ModuleBuffer {
       }
       this.#handle = handle;
       this.#floats = floats;
+      this.#viewOf = undefined;
     }
     return this.#handle;
   }
 
-  /** A view of the first `floats` samples, made now, of the memory as it is now. */
+  /**
+   * A view of the first `floats` samples of the memory as it is now: the view
+   * last made, unless the memory has grown, the buffer been made again, or
+   * the length changed since.
+   */
   view(floats: number): Float32Array {
-    const address = this.#module.bufferAddress(this.#handle);
-    return new Float32Array(this.#module.memoryBuffer(), address, floats);
+    const memory = this.#module.memoryBuffer();
+    if (memory !== this.#viewOf || this.#view.length !== floats) {
+      const address = this.#module.bufferAddress(this.#handle);
+      this.#view = new Float32Array(memory, address, floats);
+      this.#viewOf = memory;
+    }
+    return this.#view;
   }
 
   release(): void {
     if (this.#handle !== 0) this.#module.bufferRelease(this.#handle);
     this.#handle = 0;
     this.#floats = 0;
+    this.#viewOf = undefined;
+  }
+}
+
+/**
+ * Throws what a status other than done says went wrong in a call on `object`.
+ * Each is a fault in the engine or the module, never in audio: the engine
+ * checked the call's shape before it was made.
+ */
+function throwUnlessDone(status: number, object: string): void {
+  switch (status) {
+    case DspStatus.Done:
+      return;
+    case DspStatus.BadHandle:
+      throw new Error(`The DSP module lost ${object} it made.`);
+    case DspStatus.TooSmall:
+      throw new Error(`The DSP module was given a buffer too small for a call on ${object}.`);
+    case DspStatus.Refused:
+      throw new Error(`The DSP module refused a call on ${object}: input after its end.`);
+    default:
+      throw new Error(
+        `The DSP module answered a status this engine does not know: ${String(status)}.`,
+      );
   }
 }
 
@@ -86,7 +132,7 @@ function oscillatorIn(
   return succeed({
     render: (into) => {
       const status = module.oscillatorRender(handle, buffer.holding(into.length), into.length);
-      if (status !== STATUS_DONE) throw new Error('The DSP module lost an oscillator it made.');
+      throwUnlessDone(status, 'an oscillator');
       into.set(buffer.view(into.length));
     },
     release: () => {
@@ -96,42 +142,44 @@ function oscillatorIn(
   });
 }
 
-/** Copies planar channels into the module and pushes them. */
+/** Copies planar channels, one per channel of the resampler, into the module and pushes them. */
 function pushInto(
   module: DspExports,
   handle: number,
   buffer: ModuleBuffer,
   input: readonly Float32Array[],
+  channels: number,
 ): void {
-  const frames = input[0]?.length ?? 0;
-  const id = buffer.holding(Math.max(1, frames * input.length));
-  const view = buffer.view(frames * input.length);
-  input.forEach((channel, index) => {
-    view.set(channel, index * frames);
-  });
-  if (module.resamplerPush(handle, id, frames) !== STATUS_DONE) {
-    throw new Error('The resampler was given input after its end, or of the wrong shape.');
+  const frames = framesOfPlanar(input, channels);
+  const id = buffer.holding(frames * channels);
+  const view = buffer.view(frames * channels);
+  for (let index = 0; index < channels; index += 1) {
+    const channel = input[index];
+    if (channel !== undefined) view.set(channel, index * frames);
   }
+  throwUnlessDone(module.resamplerPush(handle, id, frames), 'a resampler');
 }
 
-/** Pulls into the module and copies planar channels out. */
+/** Pulls into the module and copies planar channels, one per channel, out. */
 function pullFrom(
   module: DspExports,
   handle: number,
   buffer: ModuleBuffer,
   output: readonly Float32Array[],
+  channels: number,
 ): number {
-  const capacity = output[0]?.length ?? 0;
-  const written = module.resamplerPull(
-    handle,
-    buffer.holding(Math.max(1, capacity * output.length)),
-    capacity,
-  );
-  if (written === NO_ANSWER) throw new Error('The DSP module lost a resampler it made.');
-  const view = buffer.view(capacity * output.length);
-  output.forEach((channel, index) => {
-    channel.set(view.subarray(index * capacity, index * capacity + written));
-  });
+  const capacity = framesOfPlanar(output, channels);
+  const written = module.resamplerPull(handle, buffer.holding(capacity * channels), capacity);
+  if (written === COUNT_BAD_HANDLE) throwUnlessDone(DspStatus.BadHandle, 'a resampler');
+  if (written === COUNT_TOO_SMALL) throwUnlessDone(DspStatus.TooSmall, 'a resampler');
+  const view = buffer.view(capacity * channels);
+  for (let index = 0; index < channels; index += 1) {
+    const channel = output[index];
+    if (channel === undefined) continue;
+    // Element by element: a subarray to copy from would be an object a call.
+    const from = index * capacity;
+    for (let frame = 0; frame < written; frame += 1) channel[frame] = view[from + frame] ?? 0;
+  }
   return written;
 }
 
@@ -148,12 +196,21 @@ function resamplerIn(
     channels,
     lookahead: module.resamplerLookahead(handle),
     push: (samples) => {
-      pushInto(module, handle, input, samples);
+      pushInto(module, handle, input, samples, channels);
     },
     finish: () => {
-      module.resamplerFinish(handle);
+      throwUnlessDone(module.resamplerFinish(handle), 'a resampler');
     },
-    pull: (samples) => pullFrom(module, handle, output, samples),
+    pull: (samples) => pullFrom(module, handle, output, samples, channels),
+    seek: (frame) => {
+      assertSeekFrame(frame);
+      const start = module.resamplerSeek(handle, frame);
+      if (start < 0) {
+        // The frame was checked, so -1 means the handle or an input frame past 2^53.
+        throw new Error(`The DSP module could not seek a resampler to frame ${String(frame)}.`);
+      }
+      return start;
+    },
     get drained() {
       return module.resamplerDrained(handle) === 1;
     },

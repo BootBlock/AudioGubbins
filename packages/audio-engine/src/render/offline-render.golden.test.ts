@@ -29,8 +29,16 @@ const SURROUND = StandardLayouts.surround5_1;
 const STEREO = StandardLayouts.stereo;
 const FRAMES = 9_600;
 
-/** The pinned fingerprint of the golden render, left channel then right. */
-const GOLDEN = 0x797fca5300be6765n;
+/**
+ * The pinned fingerprint of the golden render, left channel then right.
+ *
+ * Was 0x797fca5300be6765 before each resampling quality's filter was designed
+ * from its passband edge and stopband floor (REQ-EXEC-180): the old cutoff put
+ * the transition band across the lower Nyquist frequency, so the promised
+ * stopband did not hold. The WebAssembly module and the reference path, each
+ * in several chunk sizes, agreed on every bit of the new value.
+ */
+const GOLDEN = 0x6b1d7f884c8844a1n;
 
 const GRAPH = graphOf(
   [

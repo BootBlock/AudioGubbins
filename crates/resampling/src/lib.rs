@@ -12,13 +12,15 @@
 //! The arithmetic follows ADR-0032, and the TypeScript reference path in
 //! `packages/audio-engine` repeats it operation for operation.
 
+mod error;
 mod kernel;
 mod quality;
 mod stream;
 
+pub use error::ResamplerError;
 pub use kernel::Kernel;
 pub use quality::ResamplingQuality;
-pub use stream::{ResamplerError, StreamingResampler};
+pub use stream::StreamingResampler;
 
 /// The greatest common divisor of two rates.
 #[must_use]

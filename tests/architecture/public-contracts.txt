@@ -51,6 +51,7 @@ Published paths
   CanonicalResampler.push: (input: readonly Float32Array[]) => void
   CanonicalResampler.finish: () => void
   CanonicalResampler.pull: (output: readonly Float32Array[]) => number
+  CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
   interface ChunkPlan

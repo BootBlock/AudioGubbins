@@ -2,14 +2,23 @@
 
 /// How much the resampler spends to keep the passband flat and the stopband
 /// deep. `Maximum` is the default for a final render (ADR-0003).
+///
+/// Each level names a passband edge and a stopband floor, and the filter is
+/// designed from them: its transition band runs from the passband edge to the
+/// lower of the two Nyquist frequencies, so nothing above that frequency can
+/// fold back as an alias or survive as an image louder than the floor.
+///
+/// - `Maximum`: flat within 0.00001 dB to 97 % of the lower Nyquist
+///   frequency, and at least 140 dB down from it on.
+/// - `High`: flat within 0.0001 dB to 95 %, at least 100 dB down.
+/// - `Draft`: flat within 0.01 dB to 90 %, at least 60 dB down, for previews.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResamplingQuality {
-    /// 64 zero crossings each side, a window of shape 14: a stopband beyond
-    /// 140 dB, flat to 97 % of the lower Nyquist frequency.
+    /// The default of a final render.
     Maximum,
-    /// 32 zero crossings, shape 10: about 100 dB, flat to 95 %.
+    /// Near the maximum, for less work.
     High,
-    /// 8 zero crossings, shape 6: about 60 dB, flat to 90 %, for previews.
+    /// For previews.
     Draft,
 }
 
@@ -25,33 +34,36 @@ impl ResamplingQuality {
         }
     }
 
-    /// Zero crossings of the sinc on each side of its centre.
-    #[must_use]
-    pub fn zero_crossings(self) -> u32 {
-        match self {
-            Self::Maximum => 64,
-            Self::High => 32,
-            Self::Draft => 8,
-        }
-    }
-
-    /// The Kaiser window's shape.
-    #[must_use]
-    pub fn beta(self) -> f64 {
-        match self {
-            Self::Maximum => 14.0,
-            Self::High => 10.0,
-            Self::Draft => 6.0,
-        }
-    }
-
     /// Where the passband ends, as a share of the lower Nyquist frequency.
     #[must_use]
-    pub fn rolloff(self) -> f64 {
+    pub fn passband_edge(self) -> f64 {
         match self {
             Self::Maximum => 0.97,
             Self::High => 0.95,
             Self::Draft => 0.9,
         }
+    }
+
+    /// The attenuation, in decibels, Kaiser's formulas are asked for.
+    ///
+    /// Above the floor each level promises, because the formulas are
+    /// empirical fits that fall a few decibels short of what they are asked
+    /// for, most of all above 120 dB. These margins put every level's
+    /// measured floor past its promise, which the tests of both paths hold.
+    #[must_use]
+    pub fn design_attenuation(self) -> f64 {
+        match self {
+            Self::Maximum => 146.0,
+            Self::High => 103.0,
+            Self::Draft => 63.0,
+        }
+    }
+
+    /// The Kaiser window's shape for [`Self::design_attenuation`]:
+    /// `0.1102 · (A − 8.7)`, Kaiser's formula for an attenuation above 50 dB,
+    /// which every level's is.
+    #[must_use]
+    pub fn beta(self) -> f64 {
+        0.1102 * (self.design_attenuation() - 8.7)
     }
 }

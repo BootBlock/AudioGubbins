@@ -17,6 +17,15 @@ export interface ScopeDsp {
   readonly fallbackReason: string | undefined;
 }
 
+/** Whether instantiation threw because it refuses the module here, not from a fault. */
+function isRefusal(error: unknown): error is Error {
+  return (
+    error instanceof WebAssembly.LinkError ||
+    error instanceof WebAssembly.RuntimeError ||
+    error instanceof RangeError
+  );
+}
+
 /**
  * The canonical DSP from a compiled module, or the reference path with the
  * reason: `unavailable` where the main thread had no module to send, or what
@@ -36,9 +45,11 @@ export function scopeDsp(
   try {
     exports = new WebAssembly.Instance(module, {}).exports;
   } catch (error) {
-    // Instantiation fails on a module this scope's engine refuses, or when
-    // memory cannot be reserved; either leaves the reference path to run.
-    if (!(error instanceof Error)) throw error;
+    // Instantiation refuses a module whose imports this scope cannot link
+    // (LinkError), whose start traps (RuntimeError), or whose memory cannot be
+    // reserved (RangeError); each leaves the reference path to run. Anything
+    // else, such as a TypeError from a malformed import object, is a fault.
+    if (!isRefusal(error)) throw error;
     return {
       dsp: REFERENCE_DSP,
       fallbackReason: `The DSP module could not start: ${error.message}`,

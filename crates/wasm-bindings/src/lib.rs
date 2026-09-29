@@ -8,10 +8,10 @@
 //! view; a buffer never reallocates, so the address holds until the buffer is
 //! released. Nothing here is `unsafe`.
 //!
-//! A creation refused answers handle 0, and a call on a handle that names
-//! nothing answers [`STATUS_BAD_HANDLE`], so no input from the other side can
-//! make the module panic, which in WebAssembly would trap and lose the
-//! instance.
+//! A creation refused answers handle 0, a call on a handle that names nothing
+//! answers [`STATUS_BAD_HANDLE`], and a call naming a buffer too small for it
+//! answers [`STATUS_TOO_SMALL`], so no input from the other side can make the
+//! module panic, which in WebAssembly would trap and lose the instance.
 //!
 //! The tables are the state of one module instance. The engine instantiates
 //! one per thread that runs DSP, so nothing is shared between threads.
@@ -30,14 +30,30 @@ use audiogubbins_resampling::{ResamplingQuality, StreamingResampler};
 use table::Table;
 
 /// The ABI's version. The TypeScript side refuses a module of another.
-pub const ABI_VERSION: u32 = 1;
+///
+/// 2 added `ag_resampler_seek`, and [`STATUS_TOO_SMALL`] and
+/// [`COUNT_TOO_SMALL`] where 1 answered a bad handle.
+pub const ABI_VERSION: u32 = 2;
 
 /// The call did what it was asked.
 pub const STATUS_DONE: u32 = 0;
-/// A handle named nothing, or named a buffer too small for the call.
+/// A handle named nothing.
 pub const STATUS_BAD_HANDLE: u32 = 1;
 /// The object refused the input.
 pub const STATUS_REFUSED: u32 = 2;
+/// The buffer named holds fewer samples than the call reads or writes.
+pub const STATUS_TOO_SMALL: u32 = 3;
+
+/// What a call that answers a count answers for a handle that names nothing.
+pub const COUNT_BAD_HANDLE: u32 = u32::MAX;
+/// What a call that answers a count answers for a buffer too small for it.
+/// No real count reaches it: that many frames would not fit in a 32-bit
+/// memory.
+pub const COUNT_TOO_SMALL: u32 = u32::MAX - 1;
+
+/// The largest frame a seek names or answers: every whole number up to it is
+/// exact in the `f64` the ABI carries it in.
+const LAST_EXACT_FRAME: f64 = 9_007_199_254_740_992.0;
 
 struct Objects {
     buffers: Table<Vec<f32>>,
@@ -129,7 +145,7 @@ pub extern "C" fn ag_oscillator_render(oscillator: u32, buffer: u32, frames: u32
             .ok()
             .and_then(|count| samples.get_mut(..count))
         else {
-            return STATUS_BAD_HANDLE;
+            return STATUS_TOO_SMALL;
         };
         generator.render(target);
         STATUS_DONE
@@ -186,7 +202,7 @@ pub extern "C" fn ag_resampler_push(resampler: u32, buffer: u32, frames: u32) ->
             return STATUS_BAD_HANDLE;
         };
         let Some(planes) = planes(samples, converter.channels(), frames) else {
-            return STATUS_BAD_HANDLE;
+            return STATUS_TOO_SMALL;
         };
         let input: Vec<&[f32]> = planes.iter().map(|plane| &**plane).collect();
         match converter.push(&input) {
@@ -209,7 +225,8 @@ pub extern "C" fn ag_resampler_finish(resampler: u32) -> u32 {
 }
 
 /// Writes up to `capacity` frames of planar output into `buffer`, channel `c`
-/// from `c · capacity`, and answers how many; `u32::MAX` for a bad handle.
+/// from `c · capacity`, and answers how many; [`COUNT_BAD_HANDLE`] for a bad
+/// handle and [`COUNT_TOO_SMALL`] for a buffer that cannot hold them.
 #[unsafe(no_mangle)]
 pub extern "C" fn ag_resampler_pull(resampler: u32, buffer: u32, capacity: u32) -> u32 {
     with_objects(|objects| {
@@ -221,13 +238,14 @@ pub extern "C" fn ag_resampler_pull(resampler: u32, buffer: u32, capacity: u32) 
         let (Some(converter), Some(samples)) =
             (resamplers.get_mut(resampler), buffers.get_mut(buffer))
         else {
-            return u32::MAX;
+            return COUNT_BAD_HANDLE;
         };
         let Some(mut planes) = planes(samples, converter.channels(), capacity) else {
-            return u32::MAX;
+            return COUNT_TOO_SMALL;
         };
         let written = converter.pull(&mut planes);
-        u32::try_from(written).unwrap_or(u32::MAX)
+        // At most `capacity`, a u32, so the fallback is never taken.
+        u32::try_from(written).unwrap_or(COUNT_TOO_SMALL)
     })
 }
 
@@ -239,6 +257,39 @@ pub extern "C" fn ag_resampler_drained(resampler: u32) -> u32 {
             .resamplers
             .get_mut(resampler)
             .map_or(u32::MAX, |r| u32::from(r.is_drained()))
+    })
+}
+
+/// Moves the resampler so the next frame pulled is output frame `frame`, and
+/// answers the input frame the next push must start at; -1 when the handle
+/// names nothing, when `frame` is not a whole number from 0 to 2⁵³, or when
+/// the input frame would be past 2⁵³.
+///
+/// Frames cross as `f64` because the engine counts them in JavaScript
+/// numbers, and an `f64` holds every whole number up to 2⁵³ exactly.
+#[unsafe(no_mangle)]
+pub extern "C" fn ag_resampler_seek(resampler: u32, frame: f64) -> f64 {
+    if !((0.0..=LAST_EXACT_FRAME).contains(&frame) && frame.fract() == 0.0) {
+        return -1.0;
+    }
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a whole number from 0 to 2^53, checked above"
+    )]
+    let whole = frame as u64;
+    with_objects(|objects| {
+        let Some(converter) = objects.resamplers.get_mut(resampler) else {
+            return -1.0;
+        };
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "compared with 2^53 at once, below which it is exact"
+        )]
+        match converter.seek(whole).map(|start| start as f64) {
+            Ok(start) if start <= LAST_EXACT_FRAME => start,
+            _ => -1.0,
+        }
     })
 }
 
@@ -280,7 +331,7 @@ mod tests {
         assert_eq!(ag_oscillator_render(oscillator, buffer, 64), STATUS_DONE);
         assert_eq!(
             ag_oscillator_render(oscillator, buffer, 65),
-            STATUS_BAD_HANDLE
+            STATUS_TOO_SMALL
         );
         assert_eq!(
             ag_oscillator_render(oscillator + 100, buffer, 8),
@@ -305,11 +356,44 @@ mod tests {
         let input = ag_buffer_create(200);
         let output = ag_buffer_create(400);
         assert_eq!(ag_resampler_push(resampler, input, 100), STATUS_DONE);
-        assert_eq!(ag_resampler_push(resampler, input, 101), STATUS_BAD_HANDLE);
+        assert_eq!(ag_resampler_push(resampler, input, 101), STATUS_TOO_SMALL);
+        assert_eq!(
+            ag_resampler_push(resampler + 100, input, 10),
+            STATUS_BAD_HANDLE
+        );
         assert_eq!(ag_resampler_finish(resampler), STATUS_DONE);
         assert_eq!(ag_resampler_push(resampler, input, 10), STATUS_REFUSED);
+        assert_eq!(ag_resampler_pull(resampler, output, 201), COUNT_TOO_SMALL);
+        assert_eq!(
+            ag_resampler_pull(resampler + 100, output, 1),
+            COUNT_BAD_HANDLE
+        );
         assert_eq!(ag_resampler_pull(resampler, output, 200), 50);
         assert_eq!(ag_resampler_drained(resampler), 1);
+        assert_eq!(ag_resampler_release(resampler), STATUS_DONE);
+    }
+
+    #[test]
+    fn renders_nothing_into_a_buffer_of_nothing() {
+        let buffer = ag_buffer_create(0);
+        let oscillator = ag_oscillator_create(1_000.0, 48_000, 0.0, 1.0);
+        assert_ne!(buffer, 0);
+        assert_eq!(ag_oscillator_render(oscillator, buffer, 0), STATUS_DONE);
+        assert_eq!(ag_oscillator_release(oscillator), STATUS_DONE);
+        assert_eq!(ag_buffer_release(buffer), STATUS_DONE);
+    }
+
+    #[test]
+    fn seeks_to_a_whole_frame_and_refuses_any_other() {
+        #![allow(clippy::float_cmp, reason = "whole numbers, exact in an f64")]
+        let resampler = ag_resampler_create(44_100, 48_000, 1, 2);
+        let half = f64::from(ag_resampler_lookahead(resampler));
+        assert_eq!(ag_resampler_seek(resampler, 160_000.0), 147_000.0 - half);
+        assert_eq!(ag_resampler_seek(resampler, 0.5), -1.0);
+        assert_eq!(ag_resampler_seek(resampler, -1.0), -1.0);
+        assert_eq!(ag_resampler_seek(resampler, f64::NAN), -1.0);
+        assert_eq!(ag_resampler_seek(resampler, 2.0_f64.powi(54)), -1.0);
+        assert_eq!(ag_resampler_seek(resampler + 100, 0.0), -1.0);
         assert_eq!(ag_resampler_release(resampler), STATUS_DONE);
     }
 }
