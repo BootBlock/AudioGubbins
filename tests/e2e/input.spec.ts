@@ -197,3 +197,43 @@ test.describe('a display with a notch and rounded corners', () => {
     expect(bar?.y).toBe(0);
   });
 });
+
+test.describe('the dock built again by a command', () => {
+  /** The contents of the group showing the Transport panel, which scroll. */
+  function transportContents(page: Page) {
+    return page.getByRole('tabpanel', { name: 'Transport' });
+  }
+
+  test('keeps how far a panel was scrolled', async ({ page }) => {
+    await openFresh(page);
+    const contents = transportContents(page);
+    await contents.evaluate((element) => {
+      element.scrollTop = 120;
+    });
+    const scrolled = await contents.evaluate((element) => element.scrollTop);
+    expect(scrolled).toBeGreaterThan(0);
+
+    // Opening a panel elsewhere builds the dock again.
+    await openPalette(page);
+    await page.getByRole('combobox', { name: 'Search commands' }).fill('Show the Picture panel');
+    await page.getByRole('option', { name: /^Show the Picture panel/u }).click();
+    await expect(page.getByRole('heading', { name: 'Picture', exact: true })).toBeVisible();
+
+    await expect
+      .poll(async () => await transportContents(page).evaluate((element) => element.scrollTop))
+      .toBe(scrolled);
+  });
+
+  test('takes the keyboard with the panel a command moved', async ({ page }) => {
+    await openFresh(page);
+    await transportContents(page).focus();
+
+    await openPalette(page);
+    await page
+      .getByRole('combobox', { name: 'Search commands' })
+      .fill('Move this panel to the right');
+    await page.getByRole('option', { name: /^Move this panel to the right/u }).click();
+
+    await expect(transportContents(page)).toBeFocused();
+  });
+});

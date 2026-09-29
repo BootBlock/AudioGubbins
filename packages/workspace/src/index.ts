@@ -57,3 +57,4 @@ export { type PlacedLayouts, placedLayouts } from './held-layouts.js';
 export { DEFAULT_PRESET_ID, PanelKinds, buildPresets } from './presets.js';
 
 export { DockHost, type DockHostProps, type PanelRenderer } from './adapter/dockview-adapter.js';
+export { type DockMemory, createDockMemory } from './adapter/dock-memory.js';

@@ -44,6 +44,7 @@ import type { KeyboardConvention } from '@audiogubbins/commands';
 import {
   DockRegion,
   PanelKinds,
+  createDockMemory,
   panelsIn,
   type PanelDescriptor,
   type PanelKind,
@@ -370,6 +371,7 @@ export function createApplication() {
     descriptors: PANEL_DESCRIPTORS,
     appearance: watchAppearanceSettings(),
     editorPanels,
+    dockMemory: createDockMemory(),
 
     /**
      * Stops everything the application put on the page.

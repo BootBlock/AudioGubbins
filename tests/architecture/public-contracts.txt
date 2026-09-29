@@ -2229,6 +2229,10 @@ Published paths
   readonly DockHostProps.renderPanel: PanelRenderer
   readonly DockHostProps.onArrangementChange: (arrangement: WorkspaceArrangement) => void
   readonly DockHostProps.dark: boolean
+  readonly DockHostProps.memory: DockMemory
+  interface DockMemory
+  readonly DockMemory.scrolls: Map<string, Scrolled>
+  DockMemory.mounts: number
   const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
   type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
   const LONGEST_WORKSPACE_NAME: 120
@@ -2293,6 +2297,7 @@ Published paths
   function activePanelOf(layout: WorkspaceLayout): OpenPanel | undefined
   function buildPresets(available: ReadonlySet<string>): readonly WorkspaceLayout[]
   function closureProblem(layout: WorkspaceLayout, id: string): string | undefined
+  function createDockMemory(): DockMemory
   function createLayoutStore(builtIn: readonly WorkspaceLayout[], userLayouts?: readonly WorkspaceLayout[]): LayoutStore
   function listedName(layout: WorkspaceLayout): string
   function movingProblem(layout: WorkspaceLayout, id: string, region: DockRegion): string | undefined
@@ -2768,6 +2773,11 @@ packages/waveform/src/peak-job.ts
 packages/waveform/src/peak-messages.ts
   type FromPeakWorker = { readonly kind: typeof FromPeakWorkerKind.Adopted; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof FromPeakWorkerKind.Complete; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; readonly refusedCache: string | undefined; } | { readonly kind: typeof FromPeakWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromPeakWorkerKind.Runs; readonly job: string; readonly runs: readonly PeakRun[]; } | { readonly kind: typeof FromPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly start: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof FromPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number | undefined; }
   type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
+
+packages/workspace/src/adapter/dock-memory.ts
+  interface Scrolled
+  readonly Scrolled.top: number
+  readonly Scrolled.left: number
 
 packages/workspace/src/layout-reading.ts
   interface RecoveredLayout

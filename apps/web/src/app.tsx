@@ -181,6 +181,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                 // differs is overridden by the workspace stylesheet today, so
                 // nothing would show; one engine upgrade and it would.
                 dark={resolvedTheme.dark}
+                memory={application.dockMemory}
                 onArrangementChange={rearrange}
                 renderPanel={(panel) => (
                   // One boundary per panel, so a panel that throws costs the

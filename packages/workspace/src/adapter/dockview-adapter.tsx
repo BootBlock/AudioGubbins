@@ -27,6 +27,7 @@ import {
   type WorkspaceLayout,
 } from '../panel.js';
 import { keepBaseline } from './baseline.js';
+import { remember, type DockMemory } from './dock-memory.js';
 import { createChangeCoalescer, type FrameScheduler } from './coalescer.js';
 import {
   arrangementFrom,
@@ -113,6 +114,9 @@ export interface DockHostProps {
 
   /** Whether the interface is dark, so the engine draws to match. */
   readonly dark: boolean;
+
+  /** What outlives this mount: each panel's scroll, and the keyboard's place. */
+  readonly memory: DockMemory;
 }
 
 /** Dockview's own name for each docked region. */
@@ -524,6 +528,7 @@ export function DockHost({
   renderPanel,
   onArrangementChange,
   dark,
+  memory,
 }: DockHostProps): ReactNode {
   /**
    * What this mount has to undo when it goes.
@@ -564,14 +569,21 @@ export function DockHost({
   const onReady = useCallback(
     (event: { api: DockviewApi }) => {
       mountLayout(event.api, layout, descriptors);
+      const forget = remember(event.api, memory, layout.activePanelId);
 
       running.current?.stop();
-      running.current = watchArrangement(event.api, layout, descriptors, onArrangementChange);
+      const watching = watchArrangement(event.api, layout, descriptors, onArrangementChange);
+      running.current = {
+        stop: () => {
+          watching.stop();
+          forget();
+        },
+      };
     },
     // Listed for the linter's sake and nothing else: the engine calls this
     // once, when it mounts, and never takes a new one. What makes the dock
     // follow a changed layout is the key the shell mounts it under, not these.
-    [layout, descriptors, onArrangementChange],
+    [layout, descriptors, onArrangementChange, memory],
   );
 
   return (
