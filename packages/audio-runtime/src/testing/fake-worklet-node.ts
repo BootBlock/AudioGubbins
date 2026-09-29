@@ -39,6 +39,8 @@ export class FakeWorkletNode implements WorkletNodePort {
   /** Every message the main thread posted, as it was read before cloning. */
   readonly sent: unknown[] = [];
   connectedTo: AudioDestinationPort | undefined;
+  /** For each device channel, the output channel it carries, as `connect` was given it. */
+  outputChannelOf: readonly number[] = [];
   disconnected = false;
 
   readonly #core: EngineProcessorCore;
@@ -94,8 +96,14 @@ export class FakeWorkletNode implements WorkletNodePort {
     return this.#listeners.size + this.#errorListeners.size;
   }
 
-  connect(destination: AudioDestinationPort): void {
+  connect(destination: AudioDestinationPort, outputChannelOf: readonly number[]): void {
     this.connectedTo = destination;
+    this.outputChannelOf = outputChannelOf;
+  }
+
+  /** What each device channel heard of a rendered quantum, in the device's order. */
+  atDevice(quantum: RenderedQuantum): readonly (Float32Array | undefined)[] {
+    return this.outputChannelOf.map((output) => quantum.channels[output]);
   }
 
   disconnect(): void {

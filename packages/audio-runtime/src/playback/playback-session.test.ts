@@ -17,6 +17,8 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import { AudioContextState } from '../context/audio-context-port.js';
+import { LifecycleState } from '../context/context-lifecycle.js';
+import { GESTURE_WAIT_MILLISECONDS } from '../context/context-resume.js';
 import { ENGINE_PROCESSOR_NAME } from '../processor/engine-processor-name.js';
 import {
   FeedTransport,
@@ -284,7 +286,7 @@ describe('PlaybackSession', () => {
       const rig = new PlaybackRig();
       rig.lifecycle.context();
       vi.spyOn(rig.current.context.audioWorklet, 'addModule').mockRejectedValueOnce(
-        new Error('The module could not be fetched.'),
+        new DOMException('Unable to load a worklet’s module.', 'AbortError'),
       );
 
       const refused = await rig.session.load({ graph: halving(), sources: sources() });
@@ -415,14 +417,16 @@ describe('PlaybackSession', () => {
       expect(rig.session.status.stability).toMatchObject({ stable: true });
     });
 
-    it('returns the browser’s refusal to start audio without a gesture', async () => {
-      const rig = new PlaybackRig();
+    it('says audio waits for a gesture when the browser holds the start for one', async () => {
+      const rig = new PlaybackRig({ context: { allowedToStart: false } });
       expectSuccess(await rig.session.load({ graph: halving(), sources: sources() }));
-      rig.current.context.refuseResume = new Error('The request is not allowed.');
 
-      const refused = await rig.session.play();
+      const played = rig.session.play();
+      rig.schedule.advance(GESTURE_WAIT_MILLISECONDS);
+      const refused = await played;
 
-      expect(expectFailureCode(refused)).toBe('audio.context-resume-refused');
+      expect(expectFailureCode(refused)).toBe('audio.context-awaiting-gesture');
+      expect(rig.session.status.contextState).toBe(LifecycleState.AwaitingGesture);
       expect(kindsSent(rig.node)).not.toContain(ToProcessorKind.Start);
     });
 

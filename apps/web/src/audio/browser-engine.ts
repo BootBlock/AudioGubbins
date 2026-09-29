@@ -33,6 +33,7 @@ import engineProcessorUrl from '@audiogubbins/audio-runtime/threads/engine-proce
 import renderWorkerUrl from '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url';
 import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 
+import { browserSchedule } from './browser-schedule.js';
 import type { PlaybackSessionPort } from './playback-control.js';
 import type { RenderParts } from './render-control.js';
 
@@ -43,14 +44,6 @@ import type { RenderParts } from './render-control.js';
  * a queue of them (REQ-ARCH-087).
  */
 const RENDER_CONCURRENCY = 2;
-
-/** Runs `callback` after `milliseconds`, answering how to call it off. */
-function schedule(callback: () => void, milliseconds: number): () => void {
-  const timer = setTimeout(callback, milliseconds);
-  return () => {
-    clearTimeout(timer);
-  };
-}
 
 /** The DSP as the render host is given it: the module, or why there is none. */
 function renderDsp(
@@ -100,7 +93,7 @@ export async function browserEngine(
         profile,
         settings: PRESET_SETTINGS[profile],
         workletModuleUrl: engineProcessorUrl,
-        schedule,
+        schedule: browserSchedule,
         logger,
       }),
     openRendering: (profile) =>
@@ -118,7 +111,7 @@ export async function browserEngine(
             createWorker: () => new Worker(renderWorkerUrl, { type: 'module' }),
             scheduler,
             dsp: renderDsp(dspModule),
-            schedule,
+            schedule: browserSchedule,
           }),
         }),
       ),

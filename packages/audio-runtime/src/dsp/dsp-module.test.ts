@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 
@@ -53,5 +53,33 @@ describe('compileDspModule', () => {
     expect(reason).toMatch(
       /^The DSP module could not be compiled: .+ Processing runs on the reference path/,
     );
+  });
+});
+
+describe('compileDspModule, when compiling fails', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('reports an engine out of memory as unavailable, with its reason', async () => {
+    vi.spyOn(WebAssembly, 'compile').mockRejectedValueOnce(
+      new RangeError('Out of memory: Cannot allocate Wasm memory.'),
+    );
+
+    const availability = await compileDspModule(dspModuleBytes(), EVERYTHING);
+
+    expect(availability).toEqual({
+      kind: DspModuleAvailabilityKind.Unavailable,
+      reason:
+        'The DSP module could not be compiled: Out of memory: Cannot allocate Wasm memory. ' +
+        'Processing runs on the reference path, which gives the same result more slowly.',
+    });
+  });
+
+  it('lets a fault that is no refusal surface as itself', async () => {
+    const fault = new TypeError('WebAssembly.compile(): Argument 0 must be a buffer source.');
+    vi.spyOn(WebAssembly, 'compile').mockRejectedValueOnce(fault);
+
+    await expect(compileDspModule(dspModuleBytes(), EVERYTHING)).rejects.toBe(fault);
   });
 });

@@ -686,6 +686,24 @@ describe('a render worker', () => {
     ]);
   });
 
+  it('refuses a message that could not be received, so the host fails the job it waits on', () => {
+    const worker = new WorkerUnderTest();
+
+    worker.core.messageFailed();
+
+    expect(worker.posted).toEqual([
+      {
+        kind: FromRenderWorkerKind.Refused,
+        failures: [
+          expect.objectContaining({
+            code: 'protocol.render-message-unreceivable',
+            kind: FailureKind.Unrecoverable,
+          }),
+        ],
+      },
+    ]);
+  });
+
   describe('releases every source it made', () => {
     /** A tone at another rate than the render's: an oscillator of the worker's, and a resampler of the engine's. */
     const tone = {

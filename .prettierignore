@@ -20,6 +20,7 @@ apps/*/package.json
 apps/*/tsconfig.json
 packages/*/package.json
 packages/*/tsconfig.json
+packages/*/scopes/*/tsconfig.json
 tsconfig.build.json
 vitest.projects.json
 packages/version/src/index.ts

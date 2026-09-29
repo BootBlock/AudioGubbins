@@ -4,14 +4,19 @@
  * or the device changes under it.
  *
  * Browsers start a context suspended until the page has been clicked or a key
- * pressed, so it is made lazily and resumed from Play, and a refusal is a
- * result the caller shows rather than an exception. A context the system
- * suspends, for a call, a lock screen or a device unplugged, has stopped the
- * media clock without the transport's word, so each such suspension and the
+ * pressed, so it is made lazily and resumed from Play. A browser does not
+ * refuse a resume made without a gesture: it keeps the promise pending until
+ * the page is clicked, perhaps for ever. So a resume is never awaited unbounded
+ * (`context-resume.ts`). It succeeds when the context runs, and after a bounded
+ * wait without that the lifecycle reports `awaiting-gesture`, a result the
+ * caller shows rather than an exception, while the pending resume stays with
+ * the browser, which completes it at the next click or key press. A context the
+ * system suspends, for a call, a lock screen or a device unplugged, has stopped
+ * the media clock without the transport's word, so each such suspension and the
  * return from it are reported with the context frame they happened at, which
  * the playback layer hands the transport as `context-suspended` and
- * `context-resumed`. Suspensions the runtime asked for are its own and
- * reported to no one.
+ * `context-resumed`. Suspensions the runtime asked for are its own and reported
+ * to no one.
  *
  * It decides nothing about playback and holds no graph: what to do about a
  * lost context or a new device is its listeners' to decide.
@@ -27,11 +32,19 @@ import {
   type CreateAudioContext,
 } from './audio-context-port.js';
 import { deviceReport, sameDeviceReport, type DeviceReport } from './device-report.js';
+import { resumeFailure, resumeWithin } from './context-resume.js';
+import { isDomException } from './dom-exception.js';
+import type { Schedule } from '../schedule.js';
 
 /** Where a context's life has reached. `idle` is before the first context is made. */
 export const LifecycleState = {
   Idle: 'idle',
   Suspended: AudioContextState.Suspended,
+  /**
+   * Suspended, with a resume the browser holds until the page is clicked or
+   * a key pressed, which then starts the context without being asked again.
+   */
+  AwaitingGesture: 'awaiting-gesture',
   Running: AudioContextState.Running,
   Interrupted: AudioContextState.Interrupted,
   Closed: AudioContextState.Closed,
@@ -77,6 +90,8 @@ export interface ContextLifecycleOptions {
   readonly latencyHint: LatencyHint;
   /** The rate to run at; the device's own where absent. */
   readonly sampleRate?: number;
+  /** Bounds the wait on a resume. */
+  readonly schedule: Schedule;
   readonly logger: Logger;
 }
 
@@ -86,49 +101,6 @@ export interface ContextLifecycleOptions {
  */
 function contextFrameOf(port: AudioContextPort): number {
   return Math.round(port.currentTime * port.sampleRate);
-}
-
-/**
- * What a context's refusal says, or `undefined` for a rejection that is not a
- * refusal at all. The browser rejects with a `DOMException`, which is an
- * `Error` in a browser but not in every host that stands in for one.
- */
-function refusalMessage(error: unknown): string | undefined {
-  return error instanceof Error || error instanceof DOMException ? error.message : undefined;
-}
-
-/** Resumes a context, or says why the browser would not. */
-async function resumeContext(port: AudioContextPort): Promise<DomainResult<undefined>> {
-  try {
-    await port.resume();
-  } catch (error) {
-    // The browser refuses without a gesture (NotAllowedError), and a context
-    // closed meanwhile refuses too (InvalidStateError); either is the
-    // person's to act on, not a fault here.
-    const reason = refusalMessage(error);
-    if (reason === undefined) throw error;
-    return fail(
-      failure(
-        'audio.context-resume-refused',
-        FailureKind.Retryable,
-        'The browser would not start audio. It starts only after a click or a key press on the ' +
-          'page, so press Play again.',
-        { details: { reason } },
-      ),
-    );
-  }
-  if (port.state === AudioContextState.Running) return succeed(undefined);
-  // Resumed on the browser's word but held by the system, as Safari holds
-  // an interrupted context until a call ends.
-  return fail(
-    failure(
-      'audio.context-not-running',
-      FailureKind.Retryable,
-      'The browser accepted the request to start audio, but the system is holding the output ' +
-        'device; playback starts when it is released.',
-      { details: { state: port.state } },
-    ),
-  );
 }
 
 /** A context and what was attached to it, released together. */
@@ -151,6 +123,8 @@ export class ContextLifecycle {
   #lastState: AudioContextState = AudioContextState.Suspended;
   #suspendedByUs = false;
   #suspendedBySystem = false;
+  /** Whether a resume outlasted its wait on a suspended context, which then waits for a gesture. */
+  #awaitingGesture = false;
 
   constructor(options: ContextLifecycleOptions) {
     this.#options = options;
@@ -158,7 +132,12 @@ export class ContextLifecycle {
 
   /** Where the context's life has reached. */
   get state(): LifecycleState {
-    if (this.#attached !== undefined) return this.#attached.port.state;
+    if (this.#attached !== undefined) {
+      const state = this.#attached.port.state;
+      return this.#awaitingGesture && state === AudioContextState.Suspended
+        ? LifecycleState.AwaitingGesture
+        : state;
+    }
     return this.#ended ? LifecycleState.Closed : LifecycleState.Idle;
   }
 
@@ -188,7 +167,7 @@ export class ContextLifecycle {
     const port = this.context();
     if (port.state === AudioContextState.Running) return succeed(port);
     this.#suspendedByUs = false;
-    const resumed = await resumeContext(port);
+    const resumed = await this.#resume(port);
     if (!resumed.ok) {
       this.#options.logger.warning('The audio context did not start.', {
         code: resumed.failures[0].code,
@@ -207,13 +186,14 @@ export class ContextLifecycle {
     // system suspension it replaces is not resumed from on a device change.
     this.#suspendedByUs = true;
     this.#suspendedBySystem = false;
+    this.#awaitingGesture = false;
     try {
       await port.suspend();
     } catch (error) {
       // Refused only by a context that closed meanwhile (InvalidStateError),
-      // whose loss the state change reports.
-      const reason = refusalMessage(error);
-      if (reason === undefined) throw error;
+      // whose loss the state change reports. Anything else is a fault.
+      if (!isDomException(error, 'InvalidStateError')) throw error;
+      const reason = error.message;
       return fail(
         failure(
           'audio.context-suspend-failed',
@@ -247,10 +227,12 @@ export class ContextLifecycle {
       await attached.port.close();
     } catch (error) {
       // Refused only by a context the browser closed first
-      // (InvalidStateError), which leaves it as closed as asked.
-      const reason = refusalMessage(error);
-      if (reason === undefined) throw error;
-      this.#options.logger.debug('The audio context had already closed.', { reason });
+      // (InvalidStateError), which leaves it as closed as asked. Anything
+      // else is a fault.
+      if (!isDomException(error, 'InvalidStateError')) throw error;
+      this.#options.logger.debug('The audio context had already closed.', {
+        reason: error.message,
+      });
     }
   }
 
@@ -263,6 +245,7 @@ export class ContextLifecycle {
     this.#lastState = port.state;
     this.#suspendedByUs = false;
     this.#suspendedBySystem = false;
+    this.#awaitingGesture = false;
     this.#ended = false;
     this.#report = deviceReport(port);
 
@@ -317,6 +300,7 @@ export class ContextLifecycle {
 
   #runs(port: AudioContextPort): void {
     this.#suspendedByUs = false;
+    this.#awaitingGesture = false;
     if (this.#suspendedBySystem) {
       this.#suspendedBySystem = false;
       this.#options.logger.info('The audio context runs again after the system suspended it.');
@@ -336,7 +320,7 @@ export class ContextLifecycle {
   async #recoverAfterDeviceChange(port: AudioContextPort): Promise<void> {
     const { logger } = this.#options;
     logger.info('Resuming the audio context after the audio devices changed.');
-    const resumed = await resumeContext(port);
+    const resumed = await this.#resume(port);
     if (resumed.ok) {
       logger.info('The audio context resumed after the audio devices changed.');
       return;
@@ -347,6 +331,18 @@ export class ContextLifecycle {
     });
   }
 
+  /** Resumes `port`, waiting a bounded time, and says why where it did not run. */
+  async #resume(port: AudioContextPort): Promise<DomainResult<undefined>> {
+    const outcome = await resumeWithin(port, this.#options.schedule);
+    if (outcome.kind === 'running') return succeed(undefined);
+    // Waiting for a gesture from now until the context runs, unless it ran,
+    // closed or was replaced while this was on its way here.
+    const stillWaiting =
+      this.#attached?.port === port && port.state === AudioContextState.Suspended;
+    if (outcome.kind === 'awaiting-gesture' && stillWaiting) this.#awaitingGesture = true;
+    return resumeFailure(outcome);
+  }
+
   #refreshReport(port: AudioContextPort): void {
     const next = deviceReport(port);
     if (this.#report !== undefined && sameDeviceReport(this.#report, next)) return;
@@ -355,6 +351,7 @@ export class ContextLifecycle {
   }
 
   #detach(attached: Attached): void {
+    this.#awaitingGesture = false;
     attached.port.removeEventListener('statechange', attached.onStateChange);
     attached.stopWatchingDevices();
     if (this.#attached === attached) this.#attached = undefined;

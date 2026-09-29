@@ -1,10 +1,12 @@
 /**
  * The render worker: a module the browser loads as a dedicated worker.
  *
- * It only connects the worker's global scope to `RenderWorkerCore`, which
- * holds everything the worker does, so that behaviour is tested without a
- * worker. The package is compiled with the DOM's types rather than a
- * worker's, so the scope is typed here by the part of it the worker uses.
+ * It only connects the worker's global scope to `RenderWorkerCore`, which holds
+ * everything the worker does, so that behaviour is tested without a worker. The
+ * package is compiled with the DOM's types rather than a worker's, so the scope
+ * is typed here by the part of it the worker uses. It is compiled again, with
+ * everything it imports, by `scopes/dedicated-worker`, against a worker's
+ * definitions alone.
  */
 
 import type { FromRenderWorker } from '../protocol/render-messages.js';
@@ -13,7 +15,7 @@ import { RenderWorkerCore } from '../render/render-worker-core.js';
 /** The part of a dedicated worker's global scope this module uses. */
 interface RenderWorkerScope {
   postMessage(message: FromRenderWorker, options: { transfer: Transferable[] }): void;
-  addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
+  addEventListener(type: 'message' | 'messageerror', listener: (event: MessageEvent) => void): void;
 }
 
 const scope: RenderWorkerScope = self;
@@ -50,4 +52,9 @@ const core = new RenderWorkerCore({
 
 scope.addEventListener('message', (event) => {
   core.receive(event.data);
+});
+// A message that could not be deserialised arrives as this rather than as a
+// message, and the host would otherwise wait on its job for ever.
+scope.addEventListener('messageerror', () => {
+  core.messageFailed();
 });
