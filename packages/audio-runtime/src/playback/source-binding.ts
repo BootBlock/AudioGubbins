@@ -22,9 +22,9 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { ExecutionPlan, NodeId } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType } from '@audiogubbins/audio-engine';
+import { BuiltInNodeType, PcmDescriptionKind } from '@audiogubbins/audio-engine';
 
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 
 /** A graph input and the description of the source that feeds it, in the layout of the input's port. */
 export interface BoundSource {
@@ -44,7 +44,7 @@ function mismatch(
   layout: ChannelLayout,
   rate: number,
 ): DomainFailure | undefined {
-  if (source.kind === SourceKind.Pcm && source.channels.length !== channelCount(layout)) {
+  if (source.kind === PcmDescriptionKind.Pcm && source.channels.length !== channelCount(layout)) {
     return refusal(
       'playback.source-layout-mismatch',
       `The source for ${node} has ${String(source.channels.length)} channels, ` +

@@ -13,42 +13,15 @@ import {
   FailureKind,
   fail,
   failure,
-  flatMapResult,
   succeed,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import {
-  frameBlock,
-  memorySource,
-  signalSource,
-  type CanonicalDsp,
-  type PcmSource,
-} from '@audiogubbins/audio-engine';
+import { describedSource, type CanonicalDsp, type PcmSource } from '@audiogubbins/audio-engine';
 
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
-
-function sourceOf(
-  description: SourceDescription,
-  layout: ChannelLayout,
-  dsp: CanonicalDsp,
-): DomainResult<PcmSource> {
-  switch (description.kind) {
-    case SourceKind.Pcm:
-      return flatMapResult(
-        frameBlock(layout, description.sampleRate, description.channels),
-        memorySource,
-      );
-    case SourceKind.Signal:
-      return signalSource(dsp, {
-        layout,
-        sampleRate: description.sampleRate,
-        recipe: description.recipe,
-      });
-  }
-}
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 
 function unplaced(node: NodeId): DomainFailure {
   return failure(
@@ -86,7 +59,7 @@ export function makeSources(
     } else if (made.has(description.node)) {
       problems.push(duplicated(description.node));
     } else {
-      const source = sourceOf(description, layout, dsp);
+      const source = describedSource(description, layout, dsp);
       if (source.ok) made.set(description.node, source.value);
       else problems.push(...source.failures);
     }

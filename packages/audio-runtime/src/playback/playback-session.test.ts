@@ -11,6 +11,7 @@ import {
   TransportMode,
   type PcmSource,
   toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import {
   distinctChannels,
@@ -34,7 +35,7 @@ import {
   type ToProcessor,
 } from '../protocol/processor-messages.js';
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import type { FakeWorkletNode } from '../testing/fake-worklet-node.js';
 import { PlaybackRig, WORKLET_MODULE_URL, settle } from '../testing/playback-rig.js';
 import { GpuUseKind } from './gpu-use.js';
@@ -97,7 +98,7 @@ function sourceSample(channel: number, frame: number): number {
 function recorded(frames = SOURCE_FRAMES, rate = RATE): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Pcm,
+    kind: PcmDescriptionKind.Pcm,
     sampleRate: rate,
     channels: distinctChannels(STEREO, frames),
   };
@@ -107,7 +108,7 @@ function recorded(frames = SOURCE_FRAMES, rate = RATE): SourceDescription {
 function tone(frames: number | undefined, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Signal,
+    kind: PcmDescriptionKind.Signal,
     sampleRate: RATE,
     // A tone as long as the largest count stands for one that never ends here.
     recipe: expectSuccess(toneRecipe(2, frames ?? Number.MAX_SAFE_INTEGER, 440, amplitude)),
@@ -317,7 +318,7 @@ describe('PlaybackSession', () => {
 
       expectSuccess(await rig.session.load({ graph: halving(), sources: [source] }));
 
-      expect(source.kind === SourceKind.Pcm && source.channels[0]?.length).toBe(0);
+      expect(source.kind === PcmDescriptionKind.Pcm && source.channels[0]?.length).toBe(0);
     });
 
     it('adds the processor module to a context once, and makes the sources once, however often it loads them', async () => {
@@ -429,7 +430,7 @@ describe('PlaybackSession', () => {
       // Above half the rate: a pitch the oscillator refuses to alias.
       const shrill = {
         node: IN,
-        kind: SourceKind.Signal,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: RATE,
         recipe: expectSuccess(toneRecipe(2, 100, 30_000, 0.5)),
       } as const;

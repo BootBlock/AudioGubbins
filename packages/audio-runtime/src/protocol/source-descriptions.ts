@@ -1,6 +1,9 @@
 /**
  * The audio of a graph input, described for another thread to make.
  *
+ * The description itself is the engine's (`PcmDescription`, ADR-0045); a graph
+ * input's names the node it feeds.
+ *
  * A source object cannot cross a thread, so the main thread describes each
  * graph input's audio and the thread that reads it makes it: a render worker
  * for a render (`render-messages.ts`), and the feeder worker for real-time
@@ -13,77 +16,26 @@
  * canonical DSP (ADR-0045).
  */
 
-import type { SampleRate } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { signalRecipe, type SignalRecipe } from '@audiogubbins/audio-engine';
+import { describedBuffers, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
 
-import {
-  MalformedMessage,
-  channelsAt,
-  nodeAt,
-  oneOf,
-  rateAt,
-  type Fields,
-} from './message-reading.js';
-
-/** How a graph input's audio is described. */
-export const SourceKind = {
-  /** Audio in memory: a decoded clip's planar samples. */
-  Pcm: 'pcm',
-  /** Generated audio, which the worker makes itself from its recipe. */
-  Signal: 'signal',
-} as const;
-
-export type SourceKind = (typeof SourceKind)[keyof typeof SourceKind];
+import { MalformedMessage, nodeAt, type Fields } from './message-reading.js';
 
 /** The audio one graph input reads, as it crosses to the worker. */
-export type SourceDescription =
-  | {
-      readonly node: NodeId;
-      readonly kind: typeof SourceKind.Pcm;
-      readonly sampleRate: SampleRate;
-      /**
-       * One array per channel of the input's port, in its order, all the same
-       * length. Transferred: the sender's arrays are detached once posted.
-       */
-      readonly channels: readonly Float32Array[];
-    }
-  | {
-      readonly node: NodeId;
-      readonly kind: typeof SourceKind.Signal;
-      readonly sampleRate: SampleRate;
-      readonly recipe: SignalRecipe;
-    };
+export type SourceDescription = PcmDescription & { readonly node: NodeId };
 
-/**
- * Each distinct buffer behind the recorded audio's arrays, to transfer rather
- * than copy. A shared buffer is not transferred but shared, and two channels
- * that view one buffer must list it once, or the post is refused.
- */
+/** Each distinct buffer behind the recorded audio's arrays, to transfer rather than copy. */
 export function sourceTransferables(sources: readonly SourceDescription[]): Transferable[] {
-  const buffers = new Set<ArrayBuffer>();
-  for (const source of sources) {
-    if (source.kind !== SourceKind.Pcm) continue;
-    for (const channel of source.channels) {
-      if (channel.buffer instanceof ArrayBuffer) buffers.add(channel.buffer);
-    }
-  }
-  return [...buffers];
+  return [...describedBuffers(sources)];
 }
 
 /** A source's description, read field by field. */
 export function sourceFrom(fields: Fields): SourceDescription {
   const node = nodeAt(fields, 'node');
-  const rate = rateAt(fields, 'sampleRate');
-  const kind = oneOf(fields, 'kind', SourceKind);
-  switch (kind) {
-    case SourceKind.Pcm:
-      return { node, kind, sampleRate: rate, channels: channelsAt(fields, 'channels') };
-    case SourceKind.Signal: {
-      const recipe = signalRecipe(fields['recipe']);
-      if (!recipe.ok)
-        throw new MalformedMessage('recipe', `a signal recipe: ${recipe.failures[0].summary}`);
-      return { node, kind, sampleRate: rate, recipe: recipe.value };
-    }
+  const described = pcmDescription(fields);
+  if (!described.ok) {
+    const details = described.failures[0].details;
+    throw new MalformedMessage(String(details?.['part']), String(details?.['expected']));
   }
+  return { ...described.value, node };
 }

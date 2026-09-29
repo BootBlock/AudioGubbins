@@ -10,10 +10,10 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import type { GraphDescriptor } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType } from '@audiogubbins/audio-engine';
+import { BuiltInNodeType, PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import { distinctChannels, graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import { PlaybackRig } from '../testing/playback-rig.js';
 import { PlaybackPhase } from './playback-status.js';
 
@@ -41,7 +41,7 @@ function sourceChannelOf(sample: number | undefined): number {
 function recorded(layout: ChannelLayout, frames: number): SourceDescription {
   return {
     node: named('in'),
-    kind: SourceKind.Pcm,
+    kind: PcmDescriptionKind.Pcm,
     sampleRate: RATE,
     channels: distinctChannels(layout, frames),
   };

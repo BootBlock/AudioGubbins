@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, DspImplementation, toneRecipe } from '@audiogubbins/audio-engine';
+import {
+  BuiltInNodeType,
+  DspImplementation,
+  toneRecipe,
+  PcmDescriptionKind,
+} from '@audiogubbins/audio-engine';
 import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
@@ -18,7 +23,6 @@ import {
   type ToFeeder,
 } from './feeder-messages.js';
 import { FeedTransport } from './processor-messages.js';
-import { SourceKind } from './source-descriptions.js';
 
 const IN = expectSuccess(nodeId('in'));
 const OUT = expectSuccess(nodeId('out'));
@@ -58,7 +62,7 @@ function everyToFeeder(): readonly ToFeeder[] {
       sources: [
         {
           node: IN,
-          kind: SourceKind.Signal,
+          kind: PcmDescriptionKind.Signal,
           sampleRate: RATE,
           recipe: expectSuccess(toneRecipe(2, 48_000, 440, 0.25)),
         },
@@ -70,7 +74,12 @@ function everyToFeeder(): readonly ToFeeder[] {
       request: 3,
       graph: GRAPH,
       sources: [
-        { node: IN, kind: SourceKind.Pcm, sampleRate: RATE, channels: [Float32Array.of(0.5)] },
+        {
+          node: IN,
+          kind: PcmDescriptionKind.Pcm,
+          sampleRate: RATE,
+          channels: [Float32Array.of(0.5)],
+        },
       ],
       dsp: { kind: DspDeliveryKind.Unavailable, reason: 'WebAssembly is switched off.' },
     },
@@ -127,7 +136,7 @@ function comparable(message: ToFeeder): unknown {
   return {
     ...message,
     sources: message.sources.map((source) =>
-      source.kind === SourceKind.Pcm
+      source.kind === PcmDescriptionKind.Pcm
         ? { ...source, channels: source.channels.map((channel) => Array.from(channel)) }
         : source,
     ),

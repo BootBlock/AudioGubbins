@@ -137,6 +137,9 @@ Published paths
   const PRESET_SETTINGS: Readonly<Record<PresetProfile, PerformanceSettings>>
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
+  type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
+  const PcmDescriptionKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; }
+  type PcmDescriptionKind = "pcm" | "signal"
   interface PcmSource
   readonly PcmSource.layout: ChannelLayout
   readonly PcmSource.sampleRate: SampleRate
@@ -310,6 +313,9 @@ Published paths
   function createCancellationSource(): CancellationSource
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
+  function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
+  function describedLength(description: PcmDescription): DomainResult<SampleCount>
+  function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
@@ -317,6 +323,7 @@ Published paths
   function memorySource(block: AudioFrameBlock): DomainResult<PcmSource>
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
+  function pcmDescription(value: unknown): DomainResult<PcmDescription>
   function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan>
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
@@ -661,9 +668,7 @@ Published paths
   RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.terminate: () => void
-  type SourceDescription = { readonly node: NodeId; readonly kind: typeof SourceKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly node: NodeId; readonly kind: typeof SourceKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
-  const SourceKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; }
-  type SourceKind = "pcm" | "signal"
+  type SourceDescription = PcmDescription & { readonly node: NodeId; }
   interface WorkerRenderSummary extends RenderSummary
   readonly WorkerRenderSummary.dsp: DspImplementation
   readonly WorkerRenderSummary.dspFallbackReason: string | undefined

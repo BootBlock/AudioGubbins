@@ -10,6 +10,7 @@ import {
   allocateBlock,
   type PcmSource,
   toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -36,7 +37,7 @@ import {
   type ToProcessorFeed,
 } from '../protocol/feed-messages.js';
 import { FeedTransport } from '../protocol/processor-messages.js';
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import { FakeSchedule, settle } from '../testing/playback-rig.js';
 import { FeederCore } from './feeder-core.js';
@@ -56,7 +57,7 @@ const GRAPH = graphOf(
 function tone(frames: number, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Signal,
+    kind: PcmDescriptionKind.Signal,
     sampleRate: RATE,
     recipe: expectSuccess(toneRecipe(2, frames, 440, amplitude)),
   };
@@ -65,7 +66,7 @@ function tone(frames: number, amplitude = 0.5): SourceDescription {
 function recorded(frames: number): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Pcm,
+    kind: PcmDescriptionKind.Pcm,
     sampleRate: RATE,
     channels: [new Float32Array(frames).fill(0.25), new Float32Array(frames).fill(-0.25)],
   };
@@ -180,7 +181,7 @@ describe('the feeder', () => {
     core.receive(
       sources(1, {
         node: IN,
-        kind: SourceKind.Signal,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: RATE,
         recipe: expectSuccess(toneRecipe(2, 480, 30_000, 0.5)),
       }),

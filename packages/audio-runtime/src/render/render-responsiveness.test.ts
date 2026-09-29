@@ -27,6 +27,7 @@ import {
   ResamplingQuality,
   createPriorityScheduler,
   type AudioFrameBlock,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import { dspModuleBytes, graphOf, named, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
@@ -37,7 +38,6 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
-import { SourceKind } from '../protocol/source-descriptions.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';
 import { createRenderHost } from './render-host.js';
 import { RenderWorkerCore } from './render-worker-core.js';
@@ -93,7 +93,9 @@ function representativeRender(module: WebAssembly.Module | undefined): ToRenderW
     },
     chunkFrames: CHUNK_FRAMES,
     resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
-    sources: [{ node: IN, kind: SourceKind.Pcm, sampleRate: RECORDED_RATE, channels: recording() }],
+    sources: [
+      { node: IN, kind: PcmDescriptionKind.Pcm, sampleRate: RECORDED_RATE, channels: recording() },
+    ],
     coefficientBudgetBytes: undefined,
     dsp:
       module === undefined
@@ -237,7 +239,12 @@ describe('a representative offline render leaves the interface responsive', () =
         chunkFrames: CHUNK_FRAMES,
         quality: MAXIMUM_RENDER_QUALITY,
         sources: [
-          { node: IN, kind: SourceKind.Pcm, sampleRate: RECORDED_RATE, channels: recording() },
+          {
+            node: IN,
+            kind: PcmDescriptionKind.Pcm,
+            sampleRate: RECORDED_RATE,
+            channels: recording(),
+          },
         ],
       },
       {

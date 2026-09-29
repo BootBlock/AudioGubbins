@@ -26,6 +26,7 @@ import {
   type PcmSource,
   type RenderSink,
   toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -45,7 +46,7 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from '../protocol/render-messages.js';
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import { RenderWorkerCore } from './render-worker-core.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
@@ -282,7 +283,7 @@ async function engineRender(
 }
 
 function pcmAt(rate: SampleRate, channels: readonly Float32Array[]): SourceDescription {
-  return { node: named('in'), kind: SourceKind.Pcm, sampleRate: rate, channels };
+  return { node: named('in'), kind: PcmDescriptionKind.Pcm, sampleRate: rate, channels };
 }
 
 function memoryAt(rate: SampleRate, layout: ChannelLayout, channels: Float32Array[]): PcmSource {
@@ -350,7 +351,7 @@ describe('a render worker', () => {
           [
             {
               node: named('in'),
-              kind: SourceKind.Signal,
+              kind: PcmDescriptionKind.Signal,
               sampleRate: tone.sampleRate,
               recipe: expectSuccess(toneRecipe(2, 2_000, tone.frequency, tone.amplitude)),
             },
@@ -597,7 +598,7 @@ describe('a render worker', () => {
         renderOf(lookaheadGraph(STEREO), [
           {
             node: named('in'),
-            kind: SourceKind.Signal,
+            kind: PcmDescriptionKind.Signal,
             sampleRate: RATE,
             recipe: expectSuccess(toneRecipe(2, 10, 30_000, 0.5)),
           },
@@ -729,7 +730,7 @@ describe('a render worker', () => {
     /** A tone at another rate than the render's: an oscillator of the worker's, and a resampler of the engine's. */
     const tone = {
       node: named('in'),
-      kind: SourceKind.Signal,
+      kind: PcmDescriptionKind.Signal,
       sampleRate: CD_RATE,
       recipe: expectSuccess(toneRecipe(2, 3_000, 440, 0.5)),
     };
@@ -778,7 +779,7 @@ describe('a render worker whose render throws', () => {
   /** A tone at the render's rate, so its oscillator is the one DSP object the render calls. */
   const tone: SourceDescription = {
     node: named('in'),
-    kind: SourceKind.Signal,
+    kind: PcmDescriptionKind.Signal,
     sampleRate: RATE,
     recipe: expectSuccess(toneRecipe(2, 3_000, 440, 0.5)),
   };

@@ -14,6 +14,7 @@ import {
   DspImplementation,
   ResamplingQuality,
   toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import { dspModuleBytes, graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
@@ -26,7 +27,6 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from './render-messages.js';
-import { SourceKind } from './source-descriptions.js';
 
 const INPUT = expectSuccess(nodeId('in'));
 const OUTPUT = expectSuccess(nodeId('out'));
@@ -54,13 +54,13 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
     sources: [
       {
         node: INPUT,
-        kind: SourceKind.Pcm,
+        kind: PcmDescriptionKind.Pcm,
         sampleRate: CD_RATE,
         channels: [new Float32Array([0.25, -0.5]), new Float32Array([0.125, 1])],
       },
       {
         node: expectSuccess(nodeId('tone')),
-        kind: SourceKind.Signal,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: RATE,
         recipe: expectSuccess(toneRecipe(2, 48_000, 1_000, 0.5)),
       },

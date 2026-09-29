@@ -48,6 +48,14 @@ export {
   toneRecipe,
 } from './pcm/signal-recipe.js';
 export { type SignalSettings, signalSource } from './pcm/signal-source.js';
+export {
+  type PcmDescription,
+  PcmDescriptionKind,
+  describedBuffers,
+  describedLength,
+  describedSource,
+  pcmDescription,
+} from './pcm/pcm-description.js';
 export { resampledSource } from './pcm/resampled-source.js';
 
 export {

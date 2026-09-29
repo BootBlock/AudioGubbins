@@ -7,8 +7,8 @@ import {
   BUILT_IN_NODES,
   BuiltInNodeType,
   MAXIMUM_RENDER_QUALITY,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
-import { SourceKind } from '@audiogubbins/audio-runtime';
 
 import { RENDER_SAMPLE_RATE, testSignalPlayback, testSignalRender } from './test-signal.js';
 
@@ -50,7 +50,7 @@ describe('the test signal', () => {
     expect(sources).toEqual([
       {
         node: graph.nodes[0]?.id,
-        kind: SourceKind.Signal,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: 44_100,
         recipe: {
           length: 441_000,
@@ -73,7 +73,7 @@ describe('the test signal', () => {
     expect(request.sources).toEqual([
       {
         node: request.graph.nodes[0]?.id,
-        kind: SourceKind.Signal,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: 48_000,
         recipe: {
           length: 480_000,

@@ -366,6 +366,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
+    "The sources a description makes, which the runtime now reaches through `describedSource`, and the recipe reader and a description's length, which the peak worker and the application of this phase reach in the commits that follow (ADR-0045).":
+      ['SignalSettings', 'describedLength', 'memorySource', 'signalRecipe', 'signalSource'],
     "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
       [
         'STABILITY_WINDOW_SECONDS',
