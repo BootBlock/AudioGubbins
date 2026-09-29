@@ -7,8 +7,6 @@ pub enum ResamplerError {
     RateZero,
     /// There are no channels.
     NoChannels,
-    /// The filter's table of coefficients cannot be allocated.
-    OutOfMemory,
     /// Input was given after the stream was finished, or with the wrong
     /// number of channels or of different lengths.
     InputRefused,

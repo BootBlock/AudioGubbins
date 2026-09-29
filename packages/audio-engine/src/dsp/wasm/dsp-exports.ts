@@ -11,7 +11,7 @@
 import { failure, FailureKind, fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
 /** The ABI version this binding speaks; `ABI_VERSION` in `wasm-bindings`. */
-const DSP_ABI_VERSION = 2;
+const DSP_ABI_VERSION = 3;
 
 /** What a call that answers a status answers; `STATUS_*` in `wasm-bindings`. */
 export const DspStatus = {
@@ -43,8 +43,18 @@ export interface DspExports {
     amplitude: number,
   ) => number;
   readonly oscillatorRender: (oscillator: number, buffer: number, frames: number) => number;
+  readonly oscillatorSeek: (oscillator: number, frame: number) => number;
   readonly oscillatorRelease: (oscillator: number) => number;
-  readonly resamplerCreate: (from: number, to: number, channels: number, quality: number) => number;
+  /** The budget is bytes, an f64, `Infinity` for no bound. */
+  readonly resamplerCreate: (
+    from: number,
+    to: number,
+    channels: number,
+    quality: number,
+    budget: number,
+  ) => number;
+  /** Bytes of the coefficient table, 0 where taps are computed, -1 for a bad handle; an f64. */
+  readonly resamplerTableBytes: (resampler: number) => number;
   readonly resamplerLookahead: (resampler: number) => number;
   readonly resamplerPush: (resampler: number, buffer: number, frames: number) => number;
   readonly resamplerFinish: (resampler: number) => number;
@@ -55,8 +65,14 @@ export interface DspExports {
   readonly resamplerRelease: (resampler: number) => number;
 }
 
-/** A call into the module: no export takes more than four arguments. */
-type Call = (first?: number, second?: number, third?: number, fourth?: number) => number;
+/** A call into the module: no export takes more than five arguments. */
+type Call = (
+  first?: number,
+  second?: number,
+  third?: number,
+  fourth?: number,
+  fifth?: number,
+) => number;
 
 /** An exported function, called with the arguments the ABI gives it. */
 type ExportedFunction = (
@@ -64,6 +80,7 @@ type ExportedFunction = (
   second: number | undefined,
   third: number | undefined,
   fourth: number | undefined,
+  fifth: number | undefined,
 ) => unknown;
 
 function isFunction(value: unknown): value is ExportedFunction {
@@ -75,7 +92,7 @@ function isFunction(value: unknown): value is ExportedFunction {
  *
  * A WebAssembly `i32` reaches JavaScript signed, so an unsigned answer is read
  * back with `>>> 0`; the functions that answer an `f64` are read as they are.
- * The call passes four arguments rather than spreading an array, so a call on
+ * The call passes five arguments rather than spreading an array, so a call on
  * the audio thread allocates nothing: an exported function ignores arguments
  * past its own, and each is given all of its own.
  */
@@ -86,8 +103,9 @@ function exported(exports: object, name: string, missing: string[], unsigned = t
     return () => COUNT_BAD_HANDLE;
   }
   return unsigned
-    ? (first, second, third, fourth) => Number(found(first, second, third, fourth)) >>> 0
-    : (first, second, third, fourth) => Number(found(first, second, third, fourth));
+    ? (first, second, third, fourth, fifth) =>
+        Number(found(first, second, third, fourth, fifth)) >>> 0
+    : (first, second, third, fourth, fifth) => Number(found(first, second, third, fourth, fifth));
 }
 
 /**
@@ -144,6 +162,7 @@ export function readDspExports(exports: unknown): DomainResult<DspExports> {
     sineOfTurns: exported(exports, 'ag_sine_of_turns', missing, false),
     oscillatorCreate: call('ag_oscillator_create'),
     oscillatorRender: call('ag_oscillator_render'),
+    oscillatorSeek: call('ag_oscillator_seek'),
     oscillatorRelease: call('ag_oscillator_release'),
     resamplerCreate: call('ag_resampler_create'),
     resamplerLookahead: call('ag_resampler_lookahead'),
@@ -152,6 +171,7 @@ export function readDspExports(exports: unknown): DomainResult<DspExports> {
     resamplerPull: call('ag_resampler_pull'),
     resamplerDrained: call('ag_resampler_drained'),
     resamplerSeek: exported(exports, 'ag_resampler_seek', missing, false),
+    resamplerTableBytes: exported(exports, 'ag_resampler_table_bytes', missing, false),
     resamplerRelease: call('ag_resampler_release'),
   };
   if (missing.length > 0) {

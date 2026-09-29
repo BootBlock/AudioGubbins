@@ -3,32 +3,10 @@
  *
  * A kernel runs on the audio thread, where a collection pauses the quantum
  * that triggered it, so everything a kernel touches is made when it is
- * created (`node-implementation.ts`). An allocation per sample or per call is
- * not an error the output shows: only measuring what the heap gained finds it.
- *
- * How it is measured, and why this way. Each new object is bump-allocated in
- * V8's young generation, so the bytes in use there, read before and after a
- * run of quanta, differ by exactly what the run allocated, as long as no
- * collection ran between the reads: `GCProfiler` says whether one did, and
- * such a trial is discarded. Both reads are of this thread's own isolate, so
- * other processes and other test workers on a busy machine cannot move them.
- * Three other measures were tried and refused. The isolate's
- * `total_allocated_bytes` advances only when an allocation buffer is retired,
- * so it moves in steps of hundreds of kilobytes whatever the code does. The
- * old generation's sizes shrink at any moment as the concurrent sweeper runs.
- * Counting collections, or timing, over a long run depends on heap limits and
- * machine load. The reading itself allocates a few objects, the same in every
- * trial, which the baseline of an empty run removes.
- *
- * A run is warmed first, so what runs is the optimised code the audio thread
- * runs once it is warm. On a loaded machine the optimiser can finish late,
- * after a kernel meets a branch its first compilation never saw, and code
- * awaiting it allocates a little: so warming and measuring repeat, up to
- * {@link ROUNDS} times, until a round finds nothing. An allocation in the
- * kernel itself is in every round, and still fails.
+ * created (`node-implementation.ts`). How an allocation is measured, and why
+ * that way, is in `testing/allocation.ts`.
  */
 
-import { GCProfiler, getHeapSpaceStatistics } from 'node:v8';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -46,6 +24,7 @@ import { ReferenceOscillator } from '../dsp/reference/primitives.js';
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { DelayLine } from '../pcm/delay-line.js';
 import { allocateBlock, type AudioFrameBlock } from '../pcm/frame-block.js';
+import { QUANTA, allocatedBy, type Run } from '../testing/allocation.js';
 import {
   RATE,
   STEMS,
@@ -70,79 +49,6 @@ import { TONE_NODE } from './tone.js';
 
 /** The frames of one quantum, the most the test context gives a call. */
 const FRAMES = kernelContext().blockFrames;
-
-/** Quanta in one measured trial: a kernel allocating even 8 bytes a quantum shows 8 KiB. */
-const QUANTA = 1024;
-
-/** Quanta run before measuring, so each path is compiled and settled first. */
-const WARM_QUANTA = 4096;
-
-/** Trials measured, of which the least is taken, and those a collection interrupted dropped. */
-const TRIALS = 8;
-
-/** The most rounds of warming and measuring before a run's allocation is taken as its own. */
-const ROUNDS = 16;
-
-/** The spaces of V8's young generation, where every small new object is placed. */
-const YOUNG_SPACES: ReadonlySet<string> = new Set(['new_space', 'new_large_object_space']);
-
-function youngBytes(): number {
-  let bytes = 0;
-  for (const space of getHeapSpaceStatistics()) {
-    if (YOUNG_SPACES.has(space.space_name)) bytes += space.space_used_size;
-  }
-  return bytes;
-}
-
-/** What one measured run does: `prepare` outside the measurement, then `quanta` calls of `quantum`. */
-interface Run {
-  readonly prepare?: () => void;
-  readonly quantum: () => void;
-  readonly quanta?: number;
-}
-
-/**
- * The fewest bytes one trial of a run allocated, over the trials no
- * collection interrupted, or `undefined` when a collection interrupted every
- * one, which only allocating can cause.
- */
-function leastAllocated({ prepare, quantum, quanta = QUANTA }: Run): number | undefined {
-  let least: number | undefined;
-  for (let trial = 0; trial < TRIALS; trial += 1) {
-    prepare?.();
-    const profiler = new GCProfiler();
-    profiler.start();
-    const before = youngBytes();
-    for (let count = 0; count < quanta; count += 1) quantum();
-    const after = youngBytes();
-    const collections = profiler.stop().statistics.length;
-    if (collections === 0 && (least === undefined || after - before < least)) {
-      least = after - before;
-    }
-  }
-  return least;
-}
-
-/**
- * The fewest bytes a run allocated beyond an empty run's in a round, warmed
- * first, over rounds that stop at the first to reach less than a byte a
- * quantum.
- */
-function allocatedBy(run: Run): number {
-  const quanta = run.quanta ?? QUANTA;
-  let least = Number.POSITIVE_INFINITY;
-  for (let round = 0; round < ROUNDS && least >= quanta; round += 1) {
-    for (let count = 0; count < WARM_QUANTA; count += 1) {
-      if (count % quanta === 0) run.prepare?.();
-      run.quantum();
-    }
-    const baseline = leastAllocated({ quantum: () => undefined, quanta });
-    const measured = leastAllocated(run);
-    if (baseline === undefined) throw new Error('A collection interrupted every empty trial.');
-    if (measured !== undefined) least = Math.min(least, measured - baseline);
-  }
-  return least;
-}
 
 /** One quantum of a kernel, over blocks made once, as the executor reuses its own. */
 function quantumOf(
@@ -458,19 +364,6 @@ function runsByType(): ReadonlyMap<string, readonly (readonly [string, () => Run
 }
 
 describe('processing allocates nothing', () => {
-  it('measures an allocation of a few bytes a quantum', () => {
-    // The measure is only worth its passes if it can fail: a run that keeps
-    // one small array a quantum must show at least that array each quantum.
-    let kept: number[] = [];
-    const allocated = allocatedBy({
-      quantum: () => {
-        kept = [kept.length];
-      },
-    });
-    expect(kept).toHaveLength(1);
-    expect(allocated).toBeGreaterThanOrEqual(QUANTA * 16);
-  });
-
   it('has a run for every built-in node type', () => {
     expect([...runsByType().keys()].sort()).toEqual([...BUILT_IN_NODES.keys()].sort());
   });

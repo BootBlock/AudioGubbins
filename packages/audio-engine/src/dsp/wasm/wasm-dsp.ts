@@ -19,6 +19,7 @@ import {
 } from '@audiogubbins/domain';
 
 import {
+  CoefficientStrategy,
   DspImplementation,
   type CanonicalDsp,
   type CanonicalOscillator,
@@ -135,6 +136,10 @@ function oscillatorIn(
       throwUnlessDone(status, 'an oscillator');
       into.set(buffer.view(into.length));
     },
+    seek: (frame) => {
+      assertSeekFrame(frame, 'An oscillator');
+      throwUnlessDone(module.oscillatorSeek(handle, frame), 'an oscillator');
+    },
     release: () => {
       module.oscillatorRelease(handle);
       buffer.release();
@@ -188,13 +193,20 @@ function resamplerIn(
   settings: ResamplerSettings,
 ): DomainResult<CanonicalResampler> {
   const { from, to, channels, quality } = settings;
-  const handle = module.resamplerCreate(from, to, channels, quality);
+  const budget = settings.coefficientBudgetBytes ?? Number.POSITIVE_INFINITY;
+  const handle = module.resamplerCreate(from, to, channels, quality, budget);
   if (handle === 0) return refusedByModule('a resampler');
+  const tableBytes = module.resamplerTableBytes(handle);
   const input = new ModuleBuffer(module);
   const output = new ModuleBuffer(module);
   return succeed({
     channels,
     lookahead: module.resamplerLookahead(handle),
+    // A table is never empty, so its size says which strategy the module took.
+    coefficients:
+      tableBytes > 0
+        ? { strategy: CoefficientStrategy.Table, tableBytes }
+        : { strategy: CoefficientStrategy.Computed, tableBytes: 0 },
     push: (samples) => {
       pushInto(module, handle, input, samples, channels);
     },
@@ -203,7 +215,7 @@ function resamplerIn(
     },
     pull: (samples) => pullFrom(module, handle, output, samples, channels),
     seek: (frame) => {
-      assertSeekFrame(frame);
+      assertSeekFrame(frame, 'A resampler');
       const start = module.resamplerSeek(handle, frame);
       if (start < 0) {
         // The frame was checked, so -1 means the handle or an input frame past 2^53.

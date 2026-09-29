@@ -18,7 +18,7 @@ mod quality;
 mod stream;
 
 pub use error::ResamplerError;
-pub use kernel::Kernel;
+pub use kernel::{CoefficientStrategy, Kernel};
 pub use quality::ResamplingQuality;
 pub use stream::StreamingResampler;
 

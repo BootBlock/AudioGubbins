@@ -8,7 +8,11 @@
  * convolution order. Its output is the Rust module's, bit for bit.
  */
 
-import { ResamplingQuality } from '../canonical-dsp.js';
+import {
+  CoefficientStrategy,
+  ResamplingQuality,
+  type ResamplerCoefficients,
+} from '../canonical-dsp.js';
 import { besselI0, kaiser, sineOfTurns } from './primitives.js';
 
 /** Each quality's passband edge and design attenuation; see `quality.rs`. */
@@ -31,28 +35,36 @@ function greatestCommonDivisor(left: number, right: number): number {
   return a;
 }
 
+/** The bytes a table of every phase takes: its taps, and a flag per phase. */
+function bytesOfTable(taps: number, phases: number): number {
+  return taps * phases * Float64Array.BYTES_PER_ELEMENT + phases;
+}
+
 /**
  * The interpolation filter for one conversion, as `Kernel` in `kernel.rs`:
- * the design, and a table each phase fills the first time it is used.
+ * the design, and either a table each phase fills the first time it is used,
+ * where the table fits in the budget and can be allocated, or one phase's taps
+ * computed for each output sample.
  */
 class Kernel {
   readonly outputStep: number;
   readonly inputStep: number;
   readonly half: number;
   readonly taps: number;
-  /** Phase `p`'s taps, from `p · taps`, once `#filled[p]` is set. */
-  readonly table: Float64Array;
-  readonly #filled: Uint8Array;
+  /**
+   * The taps: every phase's, phase `p`'s from `p · taps` once `#filled[p]` is
+   * set, where there is a table; one phase's, computed as asked, where not.
+   */
+  readonly coefficients: Float64Array;
+  /** Which phases the table holds; `undefined` where the taps are computed. */
+  readonly #filled: Uint8Array | undefined;
   readonly #halfWidth: number;
   readonly #cutoff: number;
   readonly #beta: number;
   readonly #besselOfBeta: number;
 
-  /**
-   * Throws a `RangeError` when the table cannot be allocated, as the crate
-   * answers `OutOfMemory`.
-   */
-  constructor(outputStep: number, inputStep: number, quality: ResamplingQuality) {
+  /** A table where it fits in `budget` bytes and can be allocated, as `Kernel::new`. */
+  constructor(outputStep: number, inputStep: number, quality: ResamplingQuality, budget: number) {
     this.outputStep = outputStep;
     this.inputStep = inputStep;
     if (outputStep === inputStep) {
@@ -76,12 +88,36 @@ class Kernel {
       this.#besselOfBeta = besselI0(this.#beta);
     }
     this.taps = 2 * this.half + 1;
-    this.table = new Float64Array(this.taps * outputStep);
-    this.#filled = new Uint8Array(outputStep);
-    if (this.half === 0) {
-      this.table.fill(1);
-      this.#filled.fill(1);
+    const table = Kernel.#tableWithin(this.taps, outputStep, budget);
+    this.coefficients = table?.coefficients ?? new Float64Array(this.taps);
+    this.#filled = table?.filled;
+  }
+
+  /** An empty table, when it fits in `budget` bytes and can be allocated. */
+  static #tableWithin(
+    taps: number,
+    phases: number,
+    budget: number,
+  ): { coefficients: Float64Array; filled: Uint8Array } | undefined {
+    if (bytesOfTable(taps, phases) > budget) return undefined;
+    try {
+      return { coefficients: new Float64Array(taps * phases), filled: new Uint8Array(phases) };
+    } catch (error) {
+      // A typed array the engine cannot allocate throws a RangeError; the
+      // taps are then computed as they are used, as the crate does when it
+      // cannot reserve the table.
+      if (!(error instanceof RangeError)) throw error;
+      return undefined;
     }
+  }
+
+  get report(): ResamplerCoefficients {
+    return this.#filled === undefined
+      ? { strategy: CoefficientStrategy.Computed, tableBytes: 0 }
+      : {
+          strategy: CoefficientStrategy.Table,
+          tableBytes: bytesOfTable(this.taps, this.outputStep),
+        };
   }
 
   #coefficient(n: number, phase: number): number {
@@ -95,7 +131,7 @@ class Kernel {
 
   /** Writes the taps of `phase` from `start`, for `n` from `-K` to `K`, scaled to sum to one. */
   #fillPhase(phase: number, start: number): void {
-    const table = this.table;
+    const table = this.coefficients;
     let sum = 0;
     for (let index = 0; index < this.taps; index += 1) {
       const tap = this.#coefficient(index - this.half, phase);
@@ -107,12 +143,20 @@ class Kernel {
     }
   }
 
-  /** Where the taps of `phase` start in {@link table}, filling them the first time. */
+  /**
+   * Where the taps of `phase` start in {@link coefficients}: in the table,
+   * filled the first time, or computed now at the start.
+   */
   phaseOffset(phase: number): number {
+    const filled = this.#filled;
+    if (filled === undefined) {
+      this.#fillPhase(phase, 0);
+      return 0;
+    }
     const start = phase * this.taps;
-    if (this.#filled[phase] === 0) {
+    if (filled[phase] === 0) {
       this.#fillPhase(phase, start);
-      this.#filled[phase] = 1;
+      filled[phase] = 1;
     }
     return start;
   }
@@ -171,12 +215,18 @@ export class ReferenceResampler {
   #phase = 0;
 
   /**
-   * Settings already checked by `checkResampler`. Throws a `RangeError` when
-   * the filter's table cannot be allocated.
+   * Settings already checked by `checkResampler`, with the budget for the
+   * filter's table in bytes: `Infinity` where the caller measured no bound.
    */
-  constructor(from: number, to: number, channels: number, quality: ResamplingQuality) {
+  constructor(
+    from: number,
+    to: number,
+    channels: number,
+    quality: ResamplingQuality,
+    coefficientBudget: number,
+  ) {
     const divisor = greatestCommonDivisor(from, to);
-    this.#kernel = new Kernel(to / divisor, from / divisor, quality);
+    this.#kernel = new Kernel(to / divisor, from / divisor, quality, coefficientBudget);
     this.#history = Array.from({ length: channels }, () => new SampleHistory());
   }
 
@@ -186,6 +236,10 @@ export class ReferenceResampler {
 
   get channels(): number {
     return this.#history.length;
+  }
+
+  get coefficients(): ResamplerCoefficients {
+    return this.#kernel.report;
   }
 
   get drained(): boolean {
@@ -254,7 +308,7 @@ export class ReferenceResampler {
   /** `Σ x[i − n] · h[n]` for `n` from `−K` to `K`, in that order, per channel. */
   #writeSample(output: readonly Float32Array[], at: number): void {
     const kernel = this.#kernel;
-    const table = kernel.table;
+    const table = kernel.coefficients;
     const offset = kernel.phaseOffset(this.#phase);
     const half = kernel.half;
     const centre = this.#index;

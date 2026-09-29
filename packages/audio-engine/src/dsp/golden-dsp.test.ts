@@ -105,7 +105,10 @@ describe.each([
     const samples = new Float32Array(4_800);
     oscillator.render(samples);
     oscillator.release();
-    expect(fingerprint(samples)).toBe(0x46fc8a6833be7402n);
+    // Was 0x46fc8a6833be7402 before the oscillator's phase became a 64-bit
+    // fixed-point count of turns, exact at any frame so it can seek there
+    // (REQ-EXEC-180); see `GOLDEN_TONE` in `oscillator.rs`, the same value.
+    expect(fingerprint(samples)).toBe(0xc92ed51ca6467571n);
   });
 
   it('converts the golden ramp', () => {
@@ -124,6 +127,48 @@ describe.each([
     expect(pieces).toEqual(whole);
   });
 
+  it('renders from any frame it seeks to the bits a run from the first frame renders', () => {
+    const settings = {
+      frequency: 997,
+      sampleRate: rate(44_100),
+      startPhase: 0.25,
+      amplitude: 0.5,
+    };
+    const whole = new Float32Array(10_000);
+    const first = expectSuccess(dspOf().createOscillator(settings));
+    first.render(whole);
+    first.release();
+    const oscillator = expectSuccess(dspOf().createOscillator(settings));
+    const part = new Float32Array(1_000);
+    for (const frame of [7_321, 5, 9_000, 0]) {
+      oscillator.seek(frame);
+      oscillator.render(part);
+      expect(part).toEqual(whole.subarray(frame, frame + 1_000));
+    }
+    expect(() => {
+      oscillator.seek(-1);
+    }).toThrow('An oscillator cannot seek to frame -1.');
+    oscillator.release();
+  });
+
+  it('renders the golden tone a trillion frames in', () => {
+    // Far enough in that a phase computed with any rounding would be off; the
+    // same value is `GOLDEN_TONE_FAR` in `oscillator.rs`.
+    const oscillator = expectSuccess(
+      dspOf().createOscillator({
+        frequency: 440,
+        sampleRate: rate(48_000),
+        startPhase: 0,
+        amplitude: 0.5,
+      }),
+    );
+    const samples = new Float32Array(4_800);
+    oscillator.seek(1_000_000_000_000);
+    oscillator.render(samples);
+    oscillator.release();
+    expect(fingerprint(samples)).toBe(0x6c15de3e30ae6635n);
+  });
+
   it('renders a call of no frames, and the frames after it as if it had not been made', () => {
     const oscillator = expectSuccess(
       dspOf().createOscillator({
@@ -137,7 +182,7 @@ describe.each([
     const samples = new Float32Array(4_800);
     oscillator.render(samples);
     oscillator.release();
-    expect(fingerprint(samples)).toBe(0x46fc8a6833be7402n);
+    expect(fingerprint(samples)).toBe(0xc92ed51ca6467571n);
   });
 
   it('takes and gives no frames, and throws the same fault for arrays of the wrong shape', () => {

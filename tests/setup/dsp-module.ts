@@ -7,11 +7,9 @@
  * whose crates are unchanged costs a check.
  *
  * In watch mode Vitest runs this setup once per process, so it also builds
- * again before every rerun and provides the new bytes: a rerun after an edit
- * to the crates tests the module built from that edit. An edit to a `.rs`
- * file triggers a rerun only where the configuration names the crates among
- * `forceRerunTriggers`, since no test imports them; otherwise the next rerun,
- * however it is started, picks the edit up.
+ * again before every rerun and provides the new bytes. An edit to the crates
+ * starts a rerun (`forceRerunTriggers` in `vitest.config.ts`), which then tests
+ * the module built from that edit.
  */
 
 import { readFileSync } from 'node:fs';

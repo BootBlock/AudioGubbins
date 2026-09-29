@@ -46,8 +46,10 @@ export {
   type CanonicalDsp,
   type CanonicalOscillator,
   type CanonicalResampler,
+  CoefficientStrategy,
   DspImplementation,
   type OscillatorSettings,
+  type ResamplerCoefficients,
   type ResamplerSettings,
   ResamplingQuality,
 } from './dsp/canonical-dsp.js';

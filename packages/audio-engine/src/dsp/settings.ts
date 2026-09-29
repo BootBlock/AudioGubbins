@@ -58,6 +58,17 @@ export function checkResampler(settings: ResamplerSettings): DomainResult<Resamp
       ),
     );
   }
+  const budget = settings.coefficientBudgetBytes;
+  if (budget !== undefined && !(budget >= 0)) {
+    return fail(
+      failure(
+        'dsp.resampler-budget-invalid',
+        FailureKind.Rejected,
+        'A resampler’s memory budget is a number of bytes, zero or more.',
+        { details: { budget: String(budget) } },
+      ),
+    );
+  }
   if (!QUALITIES.has(settings.quality)) {
     return fail(
       failure(
@@ -94,9 +105,12 @@ export function framesOfPlanar(arrays: readonly Float32Array[], channels: number
   return frames;
 }
 
-/** Throws unless `frame` is a frame a resampler can seek to: a whole number from 0. */
-export function assertSeekFrame(frame: number): void {
+/**
+ * Throws unless `frame` is a frame an oscillator or resampler can seek to: a
+ * whole number from 0. `what` names the object, for the fault's message.
+ */
+export function assertSeekFrame(frame: number, what: string): void {
   if (!Number.isSafeInteger(frame) || frame < 0) {
-    throw new Error(`A resampler cannot seek to frame ${String(frame)}.`);
+    throw new Error(`${what} cannot seek to frame ${String(frame)}.`);
   }
 }

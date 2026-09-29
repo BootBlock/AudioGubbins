@@ -28,6 +28,8 @@ describe('estimating a workload', () => {
     ).toEqual({
       bytesHeldWhole: 96_000 * 2 * 4,
       audioSeconds: 2,
+      coefficientTableBytes: 0,
+      computedConversions: 0,
     });
   });
 

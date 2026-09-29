@@ -20,6 +20,7 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
+import { CoefficientStrategy, type ResamplerCoefficients } from '../dsp/canonical-dsp.js';
 import type { PerformanceSettings } from '../profiles/performance-profile.js';
 
 /** The engine processes planar 32-bit float samples. */
@@ -30,12 +31,18 @@ export interface WorkloadShape {
   readonly frames: SampleCount;
   readonly channels: number;
   readonly sampleRate: SampleRate;
+  /** What each conversion of rate in the work reported of its filter's taps. */
+  readonly conversions?: readonly ResamplerCoefficients[];
 }
 
 /** What a workload would cost to hold whole, and how long it plays. */
 export interface WorkloadEstimate {
   readonly bytesHeldWhole: number;
   readonly audioSeconds: number;
+  /** Bytes the conversions' coefficient tables hold, beside the audio. */
+  readonly coefficientTableBytes: number;
+  /** Conversions computing their taps as they go, each tens of times slower than a table. */
+  readonly computedConversions: number;
 }
 
 /** A resource an operation may exhaust. */
@@ -84,9 +91,13 @@ function validChannels(channels: number): DomainResult<number> {
 export function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate> {
   const channels = validChannels(shape.channels);
   if (!channels.ok) return channels;
+  const conversions = shape.conversions ?? [];
   return succeed({
     bytesHeldWhole: shape.frames * channels.value * BYTES_PER_SAMPLE,
     audioSeconds: samplesToSeconds(shape.frames, shape.sampleRate),
+    coefficientTableBytes: conversions.reduce((sum, one) => sum + one.tableBytes, 0),
+    computedConversions: conversions.filter((one) => one.strategy === CoefficientStrategy.Computed)
+      .length,
   });
 }
 

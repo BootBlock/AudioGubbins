@@ -76,10 +76,10 @@ describe('scopeDsp', () => {
     expect(scoped.fallbackReason).toBe(
       'The DSP module lacks exports this engine calls: memory, ag_abi_version, ' +
         'ag_buffer_create, ag_buffer_address, ag_buffer_release, ag_sine_of_turns, ' +
-        'ag_oscillator_create, ag_oscillator_render, ag_oscillator_release, ' +
+        'ag_oscillator_create, ag_oscillator_render, ag_oscillator_seek, ag_oscillator_release, ' +
         'ag_resampler_create, ag_resampler_lookahead, ag_resampler_push, ' +
         'ag_resampler_finish, ag_resampler_pull, ag_resampler_drained, ' +
-        'ag_resampler_seek, ag_resampler_release.',
+        'ag_resampler_seek, ag_resampler_table_bytes, ag_resampler_release.',
     );
   });
 

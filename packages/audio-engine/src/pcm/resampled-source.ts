@@ -23,7 +23,12 @@ import {
 } from '@audiogubbins/domain';
 
 import { throwIfCancelled, type CancellationSignal } from '../cancellation.js';
-import type { CanonicalDsp, CanonicalResampler, ResamplingQuality } from '../dsp/canonical-dsp.js';
+import type {
+  CanonicalDsp,
+  CanonicalResampler,
+  ResamplerCoefficients,
+  ResamplingQuality,
+} from '../dsp/canonical-dsp.js';
 import { allocateBlock, blockView, type AudioFrameBlock } from './frame-block.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 
@@ -35,13 +40,23 @@ function convertedLength(length: number, from: number, to: number): number {
   return Number((BigInt(length) * BigInt(to) + BigInt(from) - 1n) / BigInt(from));
 }
 
-/** The source's audio at `to`, converted at `quality`. */
+/** A converted source, and how its resampler came by its taps, for a workload estimate. */
+export interface ResampledSource extends PcmSource {
+  readonly coefficients: ResamplerCoefficients;
+}
+
+/**
+ * The source's audio at `to`, converted at `quality`, its resampler given
+ * `coefficientBudgetBytes` for its filter's table where the caller measured
+ * the memory it can spare (see `ResamplerSettings`).
+ */
 export function resampledSource(
   dsp: CanonicalDsp,
   source: PcmSource,
   to: SampleRate,
   quality: ResamplingQuality,
-): DomainResult<PcmSource> {
+  coefficientBudgetBytes?: number,
+): DomainResult<ResampledSource> {
   const length =
     source.length === undefined
       ? undefined
@@ -52,6 +67,7 @@ export function resampledSource(
     to,
     channels: source.layout.roles.length,
     quality,
+    ...(coefficientBudgetBytes === undefined ? {} : { coefficientBudgetBytes }),
   });
   return mapResult(made, (resampler) =>
     new Conversion(source, to, resampler).asSource(length?.value),
@@ -75,8 +91,9 @@ class Conversion {
     this.#input = allocateBlock(source.layout, source.sampleRate, INPUT_CHUNK);
   }
 
-  asSource(length: SampleCount | undefined): PcmSource {
+  asSource(length: SampleCount | undefined): ResampledSource {
     return {
+      coefficients: this.#resampler.coefficients,
       layout: this.#source.layout,
       sampleRate: this.#to,
       length,

@@ -19,7 +19,7 @@ import { wasmDsp } from './wasm-dsp.js';
  * The ABI version the engine speaks, written here rather than read from the
  * binding, so a change of version is a change this test is made to agree to.
  */
-const DSP_ABI_VERSION = 2;
+const DSP_ABI_VERSION = 3;
 
 /** Every function the engine calls, each answering 0 unless a test says otherwise. */
 const FUNCTIONS = [
@@ -30,6 +30,7 @@ const FUNCTIONS = [
   'ag_sine_of_turns',
   'ag_oscillator_create',
   'ag_oscillator_render',
+  'ag_oscillator_seek',
   'ag_oscillator_release',
   'ag_resampler_create',
   'ag_resampler_lookahead',
@@ -38,6 +39,7 @@ const FUNCTIONS = [
   'ag_resampler_pull',
   'ag_resampler_drained',
   'ag_resampler_seek',
+  'ag_resampler_table_bytes',
   'ag_resampler_release',
 ] as const;
 

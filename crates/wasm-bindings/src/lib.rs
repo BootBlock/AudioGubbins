@@ -32,8 +32,10 @@ use table::Table;
 /// The ABI's version. The TypeScript side refuses a module of another.
 ///
 /// 2 added `ag_resampler_seek`, and [`STATUS_TOO_SMALL`] and
-/// [`COUNT_TOO_SMALL`] where 1 answered a bad handle.
-pub const ABI_VERSION: u32 = 2;
+/// [`COUNT_TOO_SMALL`] where 1 answered a bad handle. 3 added
+/// `ag_oscillator_seek` with the oscillator's fixed-point phase, a coefficient
+/// budget to `ag_resampler_create`, and `ag_resampler_table_bytes`.
+pub const ABI_VERSION: u32 = 3;
 
 /// The call did what it was asked.
 pub const STATUS_DONE: u32 = 0;
@@ -152,6 +154,36 @@ pub extern "C" fn ag_oscillator_render(oscillator: u32, buffer: u32, frames: u32
     })
 }
 
+/// Moves the oscillator to frame `frame` of its run, so its next sample is
+/// that frame's; [`STATUS_REFUSED`] when `frame` is not a whole number from 0
+/// to 2⁵³.
+#[unsafe(no_mangle)]
+pub extern "C" fn ag_oscillator_seek(oscillator: u32, frame: f64) -> u32 {
+    let Some(whole) = whole_frame(frame) else {
+        return STATUS_REFUSED;
+    };
+    with_objects(|objects| match objects.oscillators.get_mut(oscillator) {
+        Some(generator) => {
+            generator.seek(whole);
+            STATUS_DONE
+        }
+        None => STATUS_BAD_HANDLE,
+    })
+}
+
+/// `frame` as a frame count, if it is a whole number from 0 to 2⁵³.
+fn whole_frame(frame: f64) -> Option<u64> {
+    if !((0.0..=LAST_EXACT_FRAME).contains(&frame) && frame.fract() == 0.0) {
+        return None;
+    }
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a whole number from 0 to 2^53, checked above"
+    )]
+    Some(frame as u64)
+}
+
 /// Releases an oscillator.
 #[unsafe(no_mangle)]
 pub extern "C" fn ag_oscillator_release(oscillator: u32) -> u32 {
@@ -160,17 +192,53 @@ pub extern "C" fn ag_oscillator_release(oscillator: u32) -> u32 {
     }))
 }
 
-/// A resampler, or 0 if its settings are refused.
+/// A resampler, or 0 if its settings are refused. Its filter keeps a table of
+/// coefficients if the table fits in `budget` bytes, a whole number or
+/// infinity for no measured bound, and computes them as it goes otherwise;
+/// a negative or NaN budget is refused.
 #[unsafe(no_mangle)]
-pub extern "C" fn ag_resampler_create(from: u32, to: u32, channels: u32, quality: u32) -> u32 {
+pub extern "C" fn ag_resampler_create(
+    from: u32,
+    to: u32,
+    channels: u32,
+    quality: u32,
+    budget: f64,
+) -> u32 {
     let (Some(level), Ok(count)) = (
         ResamplingQuality::from_code(quality),
         usize::try_from(channels),
     ) else {
         return 0;
     };
-    StreamingResampler::new(from, to, count, level).map_or(0, |resampler| {
+    if budget.is_nan() || budget < 0.0 {
+        return 0;
+    }
+    // Saturating: a budget past the address space is no bound at all.
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "non-negative, and saturating is the meaning"
+    )]
+    let bytes = budget as usize;
+    StreamingResampler::new(from, to, count, level, bytes).map_or(0, |resampler| {
         with_objects(|objects| objects.resamplers.insert(resampler))
+    })
+}
+
+/// The bytes the resampler's coefficient table holds; 0 where it computes
+/// its taps as it goes, and -1 for a bad handle. A table is never empty, so
+/// the answer also says which strategy the resampler took.
+#[unsafe(no_mangle)]
+pub extern "C" fn ag_resampler_table_bytes(resampler: u32) -> f64 {
+    with_objects(|objects| {
+        #[allow(
+            clippy::cast_precision_loss,
+            reason = "a table in a 32-bit memory is far below 2^53 bytes"
+        )]
+        objects
+            .resamplers
+            .get_mut(resampler)
+            .map_or(-1.0, |r| r.table_bytes() as f64)
     })
 }
 
@@ -269,15 +337,9 @@ pub extern "C" fn ag_resampler_drained(resampler: u32) -> u32 {
 /// numbers, and an `f64` holds every whole number up to 2⁵³ exactly.
 #[unsafe(no_mangle)]
 pub extern "C" fn ag_resampler_seek(resampler: u32, frame: f64) -> f64 {
-    if !((0.0..=LAST_EXACT_FRAME).contains(&frame) && frame.fract() == 0.0) {
+    let Some(whole) = whole_frame(frame) else {
         return -1.0;
-    }
-    #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "a whole number from 0 to 2^53, checked above"
-    )]
-    let whole = frame as u64;
+    };
     with_objects(|objects| {
         let Some(converter) = objects.resamplers.get_mut(resampler) else {
             return -1.0;
@@ -345,14 +407,14 @@ mod tests {
     #[test]
     fn refuses_settings_rather_than_trapping() {
         assert_eq!(ag_oscillator_create(30_000.0, 48_000, 0.0, 1.0), 0);
-        assert_eq!(ag_resampler_create(0, 48_000, 2, 0), 0);
-        assert_eq!(ag_resampler_create(44_100, 48_000, 2, 9), 0);
+        assert_eq!(ag_resampler_create(0, 48_000, 2, 0, f64::INFINITY), 0);
+        assert_eq!(ag_resampler_create(44_100, 48_000, 2, 9, f64::INFINITY), 0);
         assert_eq!(ag_resampler_lookahead(12_345), u32::MAX);
     }
 
     #[test]
     fn converts_planar_channels_through_buffers() {
-        let resampler = ag_resampler_create(48_000, 24_000, 2, 2);
+        let resampler = ag_resampler_create(48_000, 24_000, 2, 2, f64::INFINITY);
         let input = ag_buffer_create(200);
         let output = ag_buffer_create(400);
         assert_eq!(ag_resampler_push(resampler, input, 100), STATUS_DONE);
@@ -374,6 +436,30 @@ mod tests {
     }
 
     #[test]
+    fn keeps_a_table_within_the_budget_and_computes_past_it() {
+        #![allow(clippy::float_cmp, reason = "whole numbers, exact in an f64")]
+        let tabled = ag_resampler_create(44_100, 48_000, 1, 2, f64::INFINITY);
+        let bytes = ag_resampler_table_bytes(tabled);
+        assert!(bytes > 0.0);
+        let computed = ag_resampler_create(44_100, 48_000, 1, 2, bytes - 1.0);
+        assert_eq!(ag_resampler_table_bytes(computed), 0.0);
+        assert_eq!(ag_resampler_table_bytes(computed + 100), -1.0);
+        assert_eq!(ag_resampler_create(44_100, 48_000, 1, 2, -1.0), 0);
+        assert_eq!(ag_resampler_create(44_100, 48_000, 1, 2, f64::NAN), 0);
+        assert_eq!(ag_resampler_release(tabled), STATUS_DONE);
+        assert_eq!(ag_resampler_release(computed), STATUS_DONE);
+    }
+
+    #[test]
+    fn seeks_an_oscillator_to_a_whole_frame() {
+        let oscillator = ag_oscillator_create(1_000.0, 48_000, 0.0, 1.0);
+        assert_eq!(ag_oscillator_seek(oscillator, 12.0), STATUS_DONE);
+        assert_eq!(ag_oscillator_seek(oscillator, 0.5), STATUS_REFUSED);
+        assert_eq!(ag_oscillator_seek(oscillator + 100, 0.0), STATUS_BAD_HANDLE);
+        assert_eq!(ag_oscillator_release(oscillator), STATUS_DONE);
+    }
+
+    #[test]
     fn renders_nothing_into_a_buffer_of_nothing() {
         let buffer = ag_buffer_create(0);
         let oscillator = ag_oscillator_create(1_000.0, 48_000, 0.0, 1.0);
@@ -386,7 +472,7 @@ mod tests {
     #[test]
     fn seeks_to_a_whole_frame_and_refuses_any_other() {
         #![allow(clippy::float_cmp, reason = "whole numbers, exact in an f64")]
-        let resampler = ag_resampler_create(44_100, 48_000, 1, 2);
+        let resampler = ag_resampler_create(44_100, 48_000, 1, 2, f64::INFINITY);
         let half = f64::from(ag_resampler_lookahead(resampler));
         assert_eq!(ag_resampler_seek(resampler, 160_000.0), 147_000.0 - half);
         assert_eq!(ag_resampler_seek(resampler, 0.5), -1.0);

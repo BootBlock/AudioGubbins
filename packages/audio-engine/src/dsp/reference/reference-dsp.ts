@@ -5,15 +5,7 @@
  * second implementation every golden test holds the WebAssembly module to.
  */
 
-import {
-  failure,
-  FailureKind,
-  fail,
-  flatMapResult,
-  mapResult,
-  succeed,
-  type DomainResult,
-} from '@audiogubbins/domain';
+import { mapResult, type DomainResult } from '@audiogubbins/domain';
 
 import {
   DspImplementation,
@@ -38,37 +30,28 @@ function oscillatorFrom(settings: OscillatorSettings): CanonicalOscillator {
     render: (into) => {
       oscillator.render(into);
     },
+    seek: (frame) => {
+      assertSeekFrame(frame, 'An oscillator');
+      oscillator.seek(frame);
+    },
     // Garbage collected: nothing outside the object holds its state.
     release: () => undefined,
   };
 }
 
-/** A converter, or why its filter's table cannot be held. */
-function referenceResamplerFor(settings: ResamplerSettings): DomainResult<ReferenceResampler> {
-  try {
-    return succeed(
-      new ReferenceResampler(settings.from, settings.to, settings.channels, settings.quality),
-    );
-  } catch (error) {
-    // A typed array the engine cannot allocate throws a RangeError; the
-    // module answers handle 0 for the same conversion.
-    if (!(error instanceof RangeError)) throw error;
-    return fail(
-      failure(
-        'dsp.resampler-out-of-memory',
-        FailureKind.Unrecoverable,
-        'There is not enough memory for the table of the resampler’s filter.',
-        { details: { from: settings.from, to: settings.to, reason: error.message } },
-      ),
-    );
-  }
-}
-
-function resamplerOver(resampler: ReferenceResampler): CanonicalResampler {
+function resamplerFrom(settings: ResamplerSettings): CanonicalResampler {
+  const resampler = new ReferenceResampler(
+    settings.from,
+    settings.to,
+    settings.channels,
+    settings.quality,
+    settings.coefficientBudgetBytes ?? Number.POSITIVE_INFINITY,
+  );
   const channels = resampler.channels;
   return {
     channels,
     lookahead: resampler.lookahead,
+    coefficients: resampler.coefficients,
     push: (input) => {
       if (!resampler.push(input, framesOfPlanar(input, channels))) {
         throw new Error('The resampler was given input after its end.');
@@ -82,7 +65,7 @@ function resamplerOver(resampler: ReferenceResampler): CanonicalResampler {
       return resampler.pull(output);
     },
     seek: (frame) => {
-      assertSeekFrame(frame);
+      assertSeekFrame(frame, 'A resampler');
       return resampler.seek(frame);
     },
     get drained() {
@@ -99,7 +82,5 @@ export const REFERENCE_DSP: CanonicalDsp = {
   createOscillator: (settings): DomainResult<CanonicalOscillator> =>
     mapResult(checkOscillator(settings), oscillatorFrom),
   createResampler: (settings): DomainResult<CanonicalResampler> =>
-    flatMapResult(checkResampler(settings), (checked) =>
-      mapResult(referenceResamplerFor(checked), resamplerOver),
-    ),
+    mapResult(checkResampler(settings), resamplerFrom),
 };

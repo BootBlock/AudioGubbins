@@ -2,7 +2,7 @@
 
 use crate::error::ResamplerError;
 use crate::greatest_common_divisor;
-use crate::kernel::Kernel;
+use crate::kernel::{CoefficientStrategy, Kernel};
 use crate::quality::ResamplingQuality;
 
 /// A multichannel converter from one rate to another.
@@ -33,17 +33,21 @@ pub struct StreamingResampler {
 }
 
 impl StreamingResampler {
-    /// A converter from `from` to `to` hertz for `channels` channels.
+    /// A converter from `from` to `to` hertz for `channels` channels, keeping
+    /// its filter's coefficients in a table if the table fits in
+    /// `coefficient_budget` bytes, and computing them as it goes if not; see
+    /// [`Kernel::new`]. The budget is the caller's measure of the memory it
+    /// can spare, and changes no bit of the output.
     ///
     /// # Errors
     ///
-    /// Refuses a rate of zero or no channels, and a conversion whose filter
-    /// table cannot be allocated.
+    /// Refuses a rate of zero or no channels.
     pub fn new(
         from: u32,
         to: u32,
         channels: usize,
         quality: ResamplingQuality,
+        coefficient_budget: usize,
     ) -> Result<Self, ResamplerError> {
         if from == 0 || to == 0 {
             return Err(ResamplerError::RateZero);
@@ -52,7 +56,7 @@ impl StreamingResampler {
             return Err(ResamplerError::NoChannels);
         }
         let divisor = greatest_common_divisor(from, to);
-        let kernel = Kernel::new(to / divisor, from / divisor, quality)?;
+        let kernel = Kernel::new(to / divisor, from / divisor, quality, coefficient_budget);
         Ok(Self {
             kernel,
             history: vec![Vec::new(); channels],
@@ -68,6 +72,18 @@ impl StreamingResampler {
     #[must_use]
     pub fn lookahead(&self) -> u32 {
         self.kernel.half()
+    }
+
+    /// Whether its filter's taps come from a table or are computed as it goes.
+    #[must_use]
+    pub fn coefficient_strategy(&self) -> CoefficientStrategy {
+        self.kernel.strategy()
+    }
+
+    /// The bytes its filter's table holds, or 0 where the taps are computed.
+    #[must_use]
+    pub fn table_bytes(&self) -> usize {
+        self.kernel.table_bytes()
     }
 
     /// How many channels it converts.
@@ -236,7 +252,7 @@ mod tests {
 
     use audiogubbins_dsp_core::SineOscillator;
 
-    use super::{ResamplerError, StreamingResampler};
+    use super::{CoefficientStrategy, ResamplerError, StreamingResampler};
     use crate::quality::ResamplingQuality;
 
     /// Converts `input` in chunks of `input_chunk`, pulling in `output_chunk`.
@@ -248,7 +264,8 @@ mod tests {
         input_chunk: usize,
         output_chunk: usize,
     ) -> Vec<f32> {
-        let mut resampler = StreamingResampler::new(from, to, 1, quality).expect("valid");
+        let mut resampler =
+            StreamingResampler::new(from, to, 1, quality, usize::MAX).expect("valid");
         let mut output = Vec::new();
         let mut buffer = vec![0.0_f32; output_chunk];
         let mut drain = |resampler: &mut StreamingResampler, output: &mut Vec<f32>| loop {
@@ -383,7 +400,8 @@ mod tests {
         frame: u64,
         count: usize,
     ) -> Vec<f32> {
-        let mut resampler = StreamingResampler::new(from, to, 1, quality).expect("valid");
+        let mut resampler =
+            StreamingResampler::new(from, to, 1, quality, usize::MAX).expect("valid");
         let start = usize::try_from(resampler.seek(frame).expect("in range")).expect("small");
         let mut output = vec![0.0_f32; count];
         let mut written = 0;
@@ -420,21 +438,23 @@ mod tests {
     #[test]
     fn resumes_its_input_a_filter_length_before_the_frame_sought() {
         let mut resampler =
-            StreamingResampler::new(44_100, 48_000, 2, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(44_100, 48_000, 2, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         let half = u64::from(resampler.lookahead());
         // Frame 160 000 of 48 kHz is frame 147 000 of 44.1 kHz exactly.
         assert_eq!(resampler.seek(160_000), Ok(147_000 - half));
         assert_eq!(resampler.seek(3), Ok(0));
         // Past the end of what a 64-bit count holds, it refuses and stays.
-        let mut down =
-            StreamingResampler::new(48_000, 1, 1, ResamplingQuality::Draft).expect("valid");
+        let mut down = StreamingResampler::new(48_000, 1, 1, ResamplingQuality::Draft, usize::MAX)
+            .expect("valid");
         assert_eq!(down.seek(u64::MAX), Err(ResamplerError::SeekOutOfRange));
     }
 
     #[test]
     fn forgets_an_end_it_was_given_when_it_seeks() {
         let mut resampler =
-            StreamingResampler::new(48_000, 48_000, 1, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(48_000, 48_000, 1, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         resampler.push(&[&[0.5; 10]]).expect("accepted");
         resampler.finish();
         let start = resampler.seek(4).expect("in range");
@@ -450,9 +470,33 @@ mod tests {
     }
 
     #[test]
+    fn writes_the_same_bits_whether_it_tabulates_or_computes_its_taps() {
+        let input = ramp(3_000);
+        for (from, to) in [(44_100, 48_000), (44_099, 48_000), (48_000, 48_000)] {
+            let run = |budget| {
+                let mut resampler =
+                    StreamingResampler::new(from, to, 1, ResamplingQuality::Draft, budget)
+                        .expect("valid");
+                resampler.push(&[&input]).expect("accepted");
+                resampler.finish();
+                let mut output = vec![0.0_f32; 4_000];
+                let written = resampler.pull(&mut [&mut output]);
+                output.truncate(written);
+                (resampler.coefficient_strategy(), output)
+            };
+            let (tabled, by_table) = run(usize::MAX);
+            let (computed, by_computing) = run(0);
+            assert_eq!(tabled, CoefficientStrategy::Table);
+            assert_eq!(computed, CoefficientStrategy::Computed);
+            assert_eq!(by_table, by_computing, "{from} to {to}");
+        }
+    }
+
+    #[test]
     fn keeps_channels_aligned_and_separate() {
         let mut resampler =
-            StreamingResampler::new(44_100, 48_000, 3, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(44_100, 48_000, 3, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         let left = ramp(300);
         let silence = vec![0.0_f32; 300];
         let negated: Vec<f32> = left.iter().map(|sample| -sample).collect();
@@ -470,15 +514,18 @@ mod tests {
     #[test]
     fn refuses_what_it_cannot_convert() {
         assert_eq!(
-            StreamingResampler::new(0, 48_000, 1, ResamplingQuality::Draft).unwrap_err(),
+            StreamingResampler::new(0, 48_000, 1, ResamplingQuality::Draft, usize::MAX)
+                .unwrap_err(),
             ResamplerError::RateZero
         );
         assert_eq!(
-            StreamingResampler::new(48_000, 44_100, 0, ResamplingQuality::Draft).unwrap_err(),
+            StreamingResampler::new(48_000, 44_100, 0, ResamplingQuality::Draft, usize::MAX)
+                .unwrap_err(),
             ResamplerError::NoChannels
         );
         let mut resampler =
-            StreamingResampler::new(48_000, 44_100, 2, ResamplingQuality::Draft).expect("valid");
+            StreamingResampler::new(48_000, 44_100, 2, ResamplingQuality::Draft, usize::MAX)
+                .expect("valid");
         assert_eq!(
             resampler.push(&[&[0.0]]).unwrap_err(),
             ResamplerError::InputRefused
