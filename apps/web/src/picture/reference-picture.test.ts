@@ -8,7 +8,7 @@ import { testAssets } from '../assets/test-assets.js';
 import { fakeEditor, fakePicturePlatform } from '../testing/editor-fakes.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import { pictureSoundAsset } from './picture-sound.js';
+import { pictureSoundAsset, readWhole } from './picture-sound.js';
 import { ReferencePicture } from './reference-picture.js';
 
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor');
@@ -145,6 +145,7 @@ describe('the reference picture (ADR-0046)', () => {
       reason: 'The browser cannot decode a picture in this file.',
     });
     expect(picture.get().binding).toBeUndefined();
+    expect(picture.file).toBeUndefined();
   });
 
   it('says a file the browser cannot decode, and lets go of it', () => {
@@ -182,5 +183,48 @@ describe("a picture's sound", () => {
     expect(pictureSoundAsset(new File([], 'silent.webm'), { channels: [] })).toBe(
       'The picture has no sound.',
     );
+  });
+});
+
+describe("reading a picture's file", () => {
+  /** A stream of `chunks`, which records whether it was cancelled and serves each read on request. */
+  function chunked(chunks: readonly Uint8Array[]) {
+    const state = { cancelled: false, pulled: 0 };
+    const stream = new ReadableStream<Uint8Array>(
+      {
+        pull: (controller) => {
+          const chunk = chunks[state.pulled];
+          state.pulled += 1;
+          if (chunk === undefined) controller.close();
+          else controller.enqueue(chunk);
+        },
+        cancel: () => {
+          state.cancelled = true;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    return { stream, state };
+  }
+
+  it('reads every chunk into one buffer of the file size', async () => {
+    const { stream } = chunked([new Uint8Array([1, 2]), new Uint8Array([3])]);
+
+    const bytes = await readWhole(stream, 3, new AbortController().signal);
+
+    expect([...new Uint8Array(bytes)]).toEqual([1, 2, 3]);
+  });
+
+  it('stops reading as soon as it is abandoned', async () => {
+    const endless = Array.from({ length: 1000 }, () => new Uint8Array(1));
+    const { stream, state } = chunked(endless);
+    const controller = new AbortController();
+
+    const reading = readWhole(stream, 1000, controller.signal);
+    controller.abort(new Error('Another picture was opened.'));
+
+    await expect(reading).rejects.toThrow('Another picture was opened.');
+    expect(state.cancelled).toBe(true);
+    expect(state.pulled).toBeLessThan(10);
   });
 });

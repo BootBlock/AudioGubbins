@@ -16,7 +16,7 @@ import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { NO_PEAK_CACHE } from '../io/peak-cache-store.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { PictureSoundDecoder, type DecodedSound } from '../picture/picture-sound.js';
+import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
 import { createChosenFiles } from '../state/chosen-files.js';
@@ -134,12 +134,14 @@ export function fakePicturePlatform(framesAnnounced = false): PicturePlatform & 
   };
 }
 
-/** The editor part of a shell context, over the real stores and a fake picture. */
+/**
+ * The editor part of a shell context, over the real stores and a fake picture,
+ * whose sound is weighed as where the browser says nothing of its memory.
+ */
 export function fakeEditor(
   storage: StateStorage,
   logger: Logger,
-  decode: (bytes: ArrayBuffer) => Promise<DecodedSound | string> = () =>
-    Promise.resolve('This test decodes no sound.'),
+  decode: DecodeSound = () => Promise.resolve('This test decodes no sound.'),
 ): Pick<
   ShellContext,
   | 'assets'
@@ -168,7 +170,13 @@ export function fakeEditor(
     }),
     ids: createDeterministicIdGenerator(4),
     picture,
-    pictureSound: new PictureSoundDecoder({ decode, picture, catalogue: assets, logger }),
+    pictureSound: new PictureSoundDecoder({
+      decode,
+      picture,
+      catalogue: assets,
+      logger,
+      resources: () => ({ availableMemoryBytes: undefined }),
+    }),
     chosenFiles: createChosenFiles(),
   };
 }

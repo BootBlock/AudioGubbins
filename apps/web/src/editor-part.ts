@@ -12,6 +12,7 @@
 import {
   CapabilityKey,
   readGraphicsPlatform,
+  readResourceFigures,
   type CapabilityRegistry,
 } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -161,6 +162,8 @@ export function startEditor(
         picture,
         catalogue: assets,
         logger,
+        // Measured when each extraction is weighed, since what the page holds moves.
+        resources: () => readResourceFigures(performance),
       }),
       chosenFiles: createChosenFiles(),
     },

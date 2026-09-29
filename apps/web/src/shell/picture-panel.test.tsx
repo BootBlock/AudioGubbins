@@ -59,4 +59,15 @@ describe('the Picture panel', () => {
     expect(button).toHaveAccessibleDescription('This browser cannot show an element full screen.');
     expect(screen.getByText('This browser cannot show an element full screen.')).toBeVisible();
   });
+
+  it("says beside the control why the picture's sound cannot be opened", () => {
+    const { parts } = openedPicture({
+      'picture.extract-sound': 'This page can spare 10 MB for it.',
+    });
+    render(<PicturePanel title="Picture" parts={parts} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Open its sound as an asset' }),
+    ).toHaveAccessibleDescription('This page can spare 10 MB for it.');
+  });
 });

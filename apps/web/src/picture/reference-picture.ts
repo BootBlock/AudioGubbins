@@ -111,6 +111,7 @@ export class ReferencePicture implements Observable<PictureState> {
   readonly #state = observable<PictureState>(NOTHING);
   readonly #video: HTMLVideoElement;
   #url: string | undefined;
+  #file: File | undefined;
   #filmstrip: Filmstrip | undefined;
   /** The timestamp of the frame the browser last said it presented. */
   #presented: number | undefined;
@@ -145,6 +146,11 @@ export class ReferencePicture implements Observable<PictureState> {
     return this.#video;
   }
 
+  /** The file the picture was opened from, while it is open. */
+  get file(): File | undefined {
+    return this.#file;
+  }
+
   /** The thumbnails of the picture open, for an editor view's picture strip. */
   get filmstrip(): Filmstrip | undefined {
     return this.#filmstrip;
@@ -155,6 +161,7 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#release();
     const url = this.#platform.createUrl(file);
     this.#url = url;
+    this.#file = file;
     this.#presented = undefined;
     this.#sought = undefined;
     this.#state.set({
@@ -354,6 +361,7 @@ export class ReferencePicture implements Observable<PictureState> {
     this.#video.load();
     this.#platform.revokeUrl(this.#url);
     this.#url = undefined;
+    this.#file = undefined;
   }
 
   /** Records what became of the picture's own sound. */

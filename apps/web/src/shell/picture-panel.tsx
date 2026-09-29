@@ -3,7 +3,8 @@
  * and able to fill the screen. It shows the picture the reference picture
  * holds, its timecode and frame at the playhead, the frame-rate interpretation,
  * the offset and its calibration, a marker at the frame shown, and the
- * picture's own sound where the browser could decode it.
+ * picture's own sound, extracted when the person asks and where the browser can
+ * decode it in the memory the page can spare.
  *
  * While it is open it keeps the picture on the transport: it hands the
  * reference picture the audible position of the asset the picture is bound to,
@@ -26,6 +27,7 @@ import type { PictureState } from '../picture/reference-picture.js';
 import {
   NotedButton,
   NotedFileButton,
+  ReasonedButton,
   SharedReasonNotes,
   useSharedReasons,
 } from './settings/reasoned-button.js';
@@ -171,7 +173,21 @@ function PictureActions({ parts }: { readonly parts: EditorPanelParts }): ReactN
   );
 }
 
-/** What the panel says of the picture's own sound. */
+/** The control that extracts the picture's sound, with why it cannot beside it. */
+function ExtractSound({ parts }: { readonly parts: EditorPanelParts }): ReactNode {
+  return (
+    <ReasonedButton
+      reason={parts.unavailableReason('picture.extract-sound')}
+      onPress={() => {
+        parts.run('picture.extract-sound');
+      }}
+    >
+      Open its sound as an asset
+    </ReasonedButton>
+  );
+}
+
+/** What the panel says of the picture's own sound, and the control that extracts it. */
 function SoundNote({
   parts,
   state,
@@ -182,11 +198,16 @@ function SoundNote({
   const { sound } = state;
   switch (sound.kind) {
     case 'none':
-      return null;
+      return <ExtractSound parts={parts} />;
     case 'decoding':
       return <p className="ag-panel-note">Decoding the picture’s sound…</p>;
     case 'unavailable':
-      return <p className="ag-panel-note">{sound.reason}</p>;
+      return (
+        <>
+          <p className="ag-panel-note">{sound.reason}</p>
+          <ExtractSound parts={parts} />
+        </>
+      );
     case 'decoded': {
       const view = parts.stores.editorViews.get().focused;
       return (
@@ -240,6 +261,7 @@ function ReadyPicture({
         }}
       />
       <PictureActions parts={parts} />
+      <SoundNote parts={parts} state={state} />
     </>
   );
 }
@@ -288,7 +310,6 @@ export function PicturePanel({
         </p>
       )}
       {media.kind === 'ready' && <ReadyPicture parts={parts} asset={asset} state={state} />}
-      <SoundNote parts={parts} state={state} />
     </section>
   );
 }
