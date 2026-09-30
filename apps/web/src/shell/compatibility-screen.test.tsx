@@ -9,7 +9,7 @@ import { CompatibilityScreen } from './compatibility-screen.js';
 
 const BLOCKED: StorageRootState = {
   kind: 'blocked',
-  data: { kind: 'incompatible', found: 0, current: 1 },
+  data: { kind: 'incompatible', schema: 'projectStorage', found: 0, current: 1 },
   shown: true,
 };
 
@@ -28,7 +28,7 @@ describe('the compatibility screen', () => {
     const dialogue = screen.getByRole('dialog', { name: 'Your stored projects need a decision' });
     expect(
       within(dialogue).getByText(
-        'The projects stored in this browser were saved in format 0, and this version of AudioGubbins reads format 1.',
+        'The projects stored in this browser were saved in storage format 0, and this version of AudioGubbins reads storage format 1.',
       ),
     ).toBeVisible();
   });

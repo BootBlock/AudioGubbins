@@ -24,7 +24,7 @@ export const SCHEMA_VERSIONS = {
   editorViews: 1,
   diagnosticBundle: 1,
   projectDocument: 1,
-  projectStorage: 1,
+  projectStorage: 2,
   portableBundle: 1,
 } as const satisfies Record<string, number>;
 

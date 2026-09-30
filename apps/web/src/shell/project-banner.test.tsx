@@ -61,7 +61,11 @@ describe('the project strip, where projects cannot be reached', () => {
 
   it('says the stored data waits for a decision once it is set aside, and brings the screen back', async () => {
     const { run, strip } = banner(
-      { kind: 'blocked', data: { kind: 'incompatible', found: 0, current: 1 }, shown: false },
+      {
+        kind: 'blocked',
+        data: { kind: 'incompatible', schema: 'projectStorage', found: 0, current: 2 },
+        shown: false,
+      },
       { kind: 'none' },
     );
 

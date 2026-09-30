@@ -11,6 +11,8 @@ import {
   type ByteSink,
 } from '@audiogubbins/project-format';
 
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
+
 import { exportRawStorage } from './raw-export.js';
 import { openStorageRoot, wipeStorage } from './storage-root.js';
 import { nodeDigest } from './testing/node-services.js';
@@ -23,9 +25,15 @@ import { nodeDigest } from './testing/node-services.js';
  * schema.
  */
 
-/** A root written by a build of another storage schema, with a sound checksum. */
-async function rootOfSchema(version: number): Promise<Uint8Array> {
-  const body = { writtenBy: '0.0.1' };
+/**
+ * A root with a sound checksum, written by a build of storage schema `version`
+ * whose projects' documents are of schema `projectDocument`.
+ */
+async function rootOfSchema(
+  version: number,
+  projectDocument: number = SCHEMA_VERSIONS.projectDocument,
+): Promise<Uint8Array> {
+  const body = { schemas: { projectDocument }, writtenBy: '0.0.1' };
   const checksum = hexOf(await nodeDigest(encodeUtf8(canonicalJson(body))));
   return encodeUtf8(
     canonicalJson({ body, checksum, kind: 'storage-root', schemaVersion: version }),
@@ -103,10 +111,41 @@ describe('the storage root', () => {
     const before = await digestsOf(tree);
     expect(expectSuccess(await openStorageRoot(tree, nodeDigest))).toEqual({
       kind: 'incompatible',
+      schema: 'projectStorage',
       found: 99,
-      current: 1,
+      current: SCHEMA_VERSIONS.projectStorage,
     });
     expect(await digestsOf(tree)).toEqual(before);
+  });
+
+  it('reports storage whose project documents are of another schema, though its own records are current', async () => {
+    const tree = new MemoryStorageTree(
+      {},
+      new Map([['storage.json', await rootOfSchema(SCHEMA_VERSIONS.projectStorage, 97)]]),
+    );
+    expect(expectSuccess(await openStorageRoot(tree, nodeDigest))).toEqual({
+      kind: 'incompatible',
+      schema: 'projectDocument',
+      found: 97,
+      current: SCHEMA_VERSIONS.projectDocument,
+    });
+    expect(
+      expectFailureCode(
+        await wipeStorage(tree, nodeDigest, {
+          kind: 'incompatible',
+          schema: 'projectStorage',
+          found: 97,
+        }),
+      ),
+    ).toBe('storage.wipe-unconfirmed');
+    expectSuccess(
+      await wipeStorage(tree, nodeDigest, {
+        kind: 'incompatible',
+        schema: 'projectDocument',
+        found: 97,
+      }),
+    );
+    expect(expectSuccess(await openStorageRoot(tree, nodeDigest))).toEqual({ kind: 'current' });
   });
 
   it('exports every file raw into a ZIP that opens back to the same bytes', async () => {
@@ -138,11 +177,23 @@ describe('the storage root', () => {
     const tree = await olderStorage();
     const before = await digestsOf(tree);
     expect(
-      expectFailureCode(await wipeStorage(tree, nodeDigest, { kind: 'incompatible', found: 98 })),
+      expectFailureCode(
+        await wipeStorage(tree, nodeDigest, {
+          kind: 'incompatible',
+          schema: 'projectStorage',
+          found: 98,
+        }),
+      ),
     ).toBe('storage.wipe-unconfirmed');
     expect(await digestsOf(tree)).toEqual(before);
 
-    expectSuccess(await wipeStorage(tree, nodeDigest, { kind: 'incompatible', found: 99 }));
+    expectSuccess(
+      await wipeStorage(tree, nodeDigest, {
+        kind: 'incompatible',
+        schema: 'projectStorage',
+        found: 99,
+      }),
+    );
     expect(tree.paths()).toEqual(['storage.json']);
     expect(expectSuccess(await openStorageRoot(tree, nodeDigest))).toEqual({ kind: 'current' });
   });
@@ -154,7 +205,7 @@ describe('the storage root', () => {
     // confirmed again.
     const tree = new MemoryStorageTree({ crashAt: 4 }, found.snapshot());
     await expect(
-      wipeStorage(tree, nodeDigest, { kind: 'incompatible', found: 99 }),
+      wipeStorage(tree, nodeDigest, { kind: 'incompatible', schema: 'projectStorage', found: 99 }),
     ).rejects.toThrow();
     const after = tree.restarted();
     expect(after.paths().some((path) => path.startsWith('media/'))).toBe(false);

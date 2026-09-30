@@ -12,6 +12,8 @@ import {
   type Converter,
 } from '@audiogubbins/project-format';
 
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
+
 import { CheckedRecords, RecordKind } from './checked-records.js';
 import { nodeDigest } from './testing/node-services.js';
 
@@ -32,7 +34,13 @@ async function written() {
 async function envelope(body: object, overrides: Record<string, unknown>): Promise<Uint8Array> {
   const checksum = hexOf(await nodeDigest(encodeUtf8(canonicalJson({ ...body }))));
   return encodeUtf8(
-    JSON.stringify({ body, checksum, kind: 'lease', schemaVersion: 1, ...overrides }),
+    JSON.stringify({
+      body,
+      checksum,
+      kind: 'lease',
+      schemaVersion: SCHEMA_VERSIONS.projectStorage,
+      ...overrides,
+    }),
   );
 }
 
@@ -77,7 +85,7 @@ describe('checked records (REQ-STOR-101, REQ-EXEC-136.12)', () => {
     await tree.writeFile('record.json', await envelope({ name: 'Forest' }, { schemaVersion: 7 }));
     expect(await records.read('record.json', RecordKind.Lease, readName)).toEqual({
       kind: 'invalid',
-      fault: { kind: 'incompatible', found: 7, current: 1 },
+      fault: { kind: 'incompatible', found: 7, current: SCHEMA_VERSIONS.projectStorage },
     });
   });
 

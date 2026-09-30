@@ -2,6 +2,12 @@
  * The storage root: the one file that says which schema the whole storage was
  * written with, and the pre-1.0 flow for storage of any other (REQ-STOR-052).
  *
+ * Storage holds data of two schemas, which move independently: its own records,
+ * whose envelope names `projectStorage`, and the project documents inside the
+ * states they keep, `projectDocument`. The root records the version of each, so
+ * storage written with another version of either is found at the root and shown
+ * on the compatibility screen, rather than failing project by project.
+ *
  * Opening the root initialises an empty storage, accepts one of this build's
  * schema, and otherwise reports what it found and changes nothing: the
  * interface shows the blocking compatibility screen, where the person may
@@ -15,8 +21,10 @@
  */
 
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
-import { PRODUCT_VERSION } from '@audiogubbins/version';
+import { PRODUCT_VERSION, SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
+  compatibilityOf,
+  integerConverter,
   objectOf,
   pathOf,
   required,
@@ -30,14 +38,22 @@ import { CheckedRecords, RecordKind, type RecordFault } from './checked-records.
 import { refusalsReported } from './storage-failures.js';
 import { STORAGE_ROOT_FILE } from './storage-layout.js';
 
+/** The schemas storage holds data of, each recorded at the root. */
+export type StoredSchema = 'projectStorage' | 'projectDocument';
+
 /** What opening the storage root found. */
 export type StorageRootOpening =
   /** The storage was empty, and has been initialised with this build's schema. */
   | { readonly kind: 'fresh' }
   /** The storage is of this build's schema. */
   | { readonly kind: 'current' }
-  /** The storage is of another schema, which before 1.0 cannot be read. */
-  | { readonly kind: 'incompatible'; readonly found: number; readonly current: number }
+  /** The storage holds `schema` of another version, which before 1.0 cannot be read. */
+  | {
+      readonly kind: 'incompatible';
+      readonly schema: StoredSchema;
+      readonly found: number;
+      readonly current: number;
+    }
   /** The storage holds data but no readable root: its schema cannot be told. */
   | { readonly kind: 'unreadable'; readonly fault: RecordFault | { readonly kind: 'missing' } };
 
@@ -46,17 +62,40 @@ export type StorageRootOpening =
  * A confirmation of anything else is of another storage, and is refused.
  */
 export type WipeConfirmation =
-  { readonly kind: 'incompatible'; readonly found: number } | { readonly kind: 'unreadable' };
+  | { readonly kind: 'incompatible'; readonly schema: StoredSchema; readonly found: number }
+  | { readonly kind: 'unreadable' };
 
-const ROOT_MEMBERS: ReadonlySet<string> = new Set(['writtenBy']);
+/**
+ * The root's body: the product version that initialised the storage, and the
+ * version of the project documents it holds.
+ */
+interface RootBody {
+  readonly writtenBy: string;
+  readonly projectDocument: number;
+}
+
+const ROOT_MEMBERS: ReadonlySet<string> = new Set(['writtenBy', 'schemas']);
+const SCHEMA_MEMBERS: ReadonlySet<string> = new Set(['projectDocument']);
 const asVersion = textConverter({ maximumLength: 64 });
+const asSchemaVersion = integerConverter(1, Number.MAX_SAFE_INTEGER);
 
-/** The root's body: the product version that initialised the storage. */
-const readRootBody: Converter<string> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, ROOT_MEMBERS);
+/** The versions of the schemas the storage holds beside its own records. */
+const asSchemas: Converter<number> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, SCHEMA_MEMBERS);
   return object === undefined
     ? undefined
-    : required(reading, object, pathOf(parent, key), 'writtenBy', asVersion);
+    : required(reading, object, pathOf(parent, key), 'projectDocument', asSchemaVersion);
+};
+
+const readRootBody: Converter<RootBody> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, ROOT_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const writtenBy = required(reading, object, at, 'writtenBy', asVersion);
+  const projectDocument = required(reading, object, at, 'schemas', asSchemas);
+  return writtenBy === undefined || projectDocument === undefined
+    ? undefined
+    : { writtenBy, projectDocument };
 };
 
 /** Opens the storage root, initialising an empty storage. */
@@ -73,10 +112,23 @@ export async function openStorageRoot(
       readRootBody,
       signal,
     );
-    if (read.kind === 'valid') return succeed({ kind: 'current' });
+    if (read.kind === 'valid') {
+      const documents = compatibilityOf(read.value.projectDocument, 'projectDocument');
+      return succeed(
+        documents.kind === 'current'
+          ? { kind: 'current' }
+          : {
+              kind: 'incompatible',
+              schema: 'projectDocument',
+              found: documents.found,
+              current: documents.current,
+            },
+      );
+    }
     if (read.kind === 'invalid' && read.fault.kind === 'incompatible') {
       return succeed({
         kind: 'incompatible',
+        schema: 'projectStorage',
         found: read.fault.found,
         current: read.fault.current,
       });
@@ -113,6 +165,7 @@ export async function wipeStorage(
   const confirmed =
     (found.kind === 'incompatible' &&
       confirmation.kind === 'incompatible' &&
+      confirmation.schema === found.schema &&
       confirmation.found === found.found) ||
     (found.kind === 'unreadable' && confirmation.kind === 'unreadable');
   if (!confirmed) {
@@ -138,7 +191,7 @@ async function initialise(records: CheckedRecords, signal?: AbortSignal): Promis
   await records.write(
     STORAGE_ROOT_FILE,
     RecordKind.StorageRoot,
-    { writtenBy: PRODUCT_VERSION },
+    { writtenBy: PRODUCT_VERSION, schemas: { projectDocument: SCHEMA_VERSIONS.projectDocument } },
     signal,
   );
 }

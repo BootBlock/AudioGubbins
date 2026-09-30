@@ -3171,7 +3171,7 @@ Published paths
   readonly StepOutcome.refused?: MediaPurgeRefusal
   type StorageLockMode = "exclusive" | "shared"
   type StorageLocking = { readonly kind: "busy"; } | { readonly kind: "held"; readonly release: () => Promise<void>; } | { readonly kind: "unavailable"; }
-  type StorageRootOpening = { readonly kind: "current"; } | { readonly kind: "fresh"; } | { readonly kind: "incompatible"; readonly found: number; readonly current: number; } | { readonly kind: "unreadable"; readonly fault: RecordFault | { readonly kind: "missing"; }; }
+  type StorageRootOpening = { readonly kind: "current"; } | { readonly kind: "fresh"; } | { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; readonly current: number; } | { readonly kind: "unreadable"; readonly fault: RecordFault | { readonly kind: "missing"; }; }
   interface StorageUsage
   readonly StorageUsage.journal: number
   readonly StorageUsage.namedSnapshots: number
@@ -3183,6 +3183,7 @@ Published paths
   readonly StorageUsage.caches: ReadonlyMap<CacheCategory, number>
   readonly StorageUsage.backups: number
   readonly StorageUsage.unreadable: readonly UnreadableRoot[]
+  type StoredSchema = "projectDocument" | "projectStorage"
   type TransferAnswer = "declined" | "granted"
   type TransferOutcome = "unreachable" | TransferAnswer
   interface TransferRequest
@@ -3199,7 +3200,7 @@ Published paths
   readonly UsageServices.digest: Digest
   readonly UsageServices.store: MediaObjectStore
   readonly UsageServices.caches: CacheStore
-  type WipeConfirmation = { readonly kind: "incompatible"; readonly found: number; } | { readonly kind: "unreadable"; }
+  type WipeConfirmation = { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; } | { readonly kind: "unreadable"; }
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
@@ -3482,7 +3483,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 1; readonly portableBundle: 1; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 2; readonly portableBundle: 1; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference

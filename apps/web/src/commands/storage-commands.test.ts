@@ -15,7 +15,7 @@ describe('stored data of another version', () => {
 
     expect(window.context.storageRoot.get()).toMatchObject({
       kind: 'blocked',
-      data: { kind: 'incompatible', found: 0, current: 1 },
+      data: { kind: 'incompatible', schema: 'projectStorage', found: 0, current: 2 },
       shown: true,
     });
     expect(window.run('file.create-project', { name: 'Anything' }).kind).toBe('refused');

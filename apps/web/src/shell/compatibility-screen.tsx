@@ -14,15 +14,25 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 
 import { Button, ButtonTone, ModalDialog } from '@audiogubbins/design-system';
 
+import type { StoredSchema } from '@audiogubbins/storage';
+
 import type { Observable } from '../state/observable.js';
 import type { BlockingData, StorageRootState } from '../state/storage-root-store.js';
 import type { RunCommand } from './settings/section.js';
 
+/** What each stored schema is called, as the screen names the format found. */
+const SCHEMA_WORDS: Readonly<Record<StoredSchema, string>> = {
+  projectStorage: 'storage format',
+  projectDocument: 'project format',
+};
+
 /** What was found, in a sentence. */
 function foundSentence(data: BlockingData): string {
-  return data.kind === 'incompatible'
-    ? `The projects stored in this browser were saved in format ${String(data.found)}, and this version of AudioGubbins reads format ${String(data.current)}.`
-    : 'The projects stored in this browser were saved in a format this version of AudioGubbins cannot recognise.';
+  if (data.kind !== 'incompatible') {
+    return 'The projects stored in this browser were saved in a format this version of AudioGubbins cannot recognise.';
+  }
+  const words = SCHEMA_WORDS[data.schema];
+  return `The projects stored in this browser were saved in ${words} ${String(data.found)}, and this version of AudioGubbins reads ${words} ${String(data.current)}.`;
 }
 
 /**

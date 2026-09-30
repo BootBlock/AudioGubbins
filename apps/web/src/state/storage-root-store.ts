@@ -94,7 +94,7 @@ const NOTHING_BLOCKS = failure(
 /** The confirmation of a wipe of what the person was shown. */
 function confirmationOf(data: BlockingData): WipeConfirmation {
   return data.kind === 'incompatible'
-    ? { kind: 'incompatible', found: data.found }
+    ? { kind: 'incompatible', schema: data.schema, found: data.found }
     : { kind: 'unreadable' };
 }
 

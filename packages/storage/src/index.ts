@@ -30,6 +30,7 @@
 
 export {
   type StorageRootOpening,
+  type StoredSchema,
   type WipeConfirmation,
   openStorageRoot,
   wipeStorage,
