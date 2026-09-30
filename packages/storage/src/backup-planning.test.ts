@@ -82,7 +82,7 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
   const REASONS: readonly BackupReason[] = ['time', 'save', 'manual'];
 
   it.each(Array.from({ length: 200 }, (_, index) => index + 1))(
-    'never removes a protected or manual generation, and only what a limit does not keep: seed %i',
+    'never removes a protected or manual generation or the newest, and only what a limit does not keep: seed %i',
     (seed) => {
       const random = seededRandom(seed);
       const now = 100 * DAY;
@@ -113,15 +113,20 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
         (generation) =>
           !generation.protected && generation.reason !== 'manual' && !removed.includes(generation),
       );
+      // The newest generation is kept whatever the limits, so there is always
+      // one to go back to; every other one kept is within every limit.
+      const newest = generations.at(-1);
+      if (newest !== undefined) expect(removed).not.toContain(newest);
       if (retention.count !== undefined) expect(kept.length).toBeLessThanOrEqual(retention.count);
       if (retention.days !== undefined) {
-        for (const generation of kept) {
+        for (const generation of kept.filter((one) => one !== newest)) {
           expect(now - generation.at).toBeLessThanOrEqual(retention.days * DAY);
         }
       }
       if (retention.bytes !== undefined) {
+        const alone = newest !== undefined && kept.includes(newest) ? newest.bytes : 0;
         expect(kept.reduce((sum, generation) => sum + generation.bytes, 0)).toBeLessThanOrEqual(
-          retention.bytes,
+          Math.max(retention.bytes, alone),
         );
       }
       // Pruning keeps the newest: nothing it keeps is older than something it
@@ -135,6 +140,18 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
       for (const generation of kept) expect(generation.number).toBeGreaterThan(newestRemovedInDays);
     },
   );
+
+  it('keeps the newest generation where it alone is past every limit', () => {
+    const generations: BackupGeneration[] = [1, 2].map((number) => ({
+      number,
+      at: number,
+      reason: 'time',
+      bytes: 5_000,
+      protected: false,
+    }));
+    const pruned = planBackupPruning(generations, { bytes: 1_000, days: 1 }, 10 * DAY);
+    expect(pruned.removed.map(({ number }) => number)).toEqual([1]);
+  });
 
   it('keeps every generation where no limit is set', () => {
     const generations: BackupGeneration[] = [1, 2, 3].map((number) => ({

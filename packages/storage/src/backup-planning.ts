@@ -10,8 +10,9 @@
  * so an idle project makes none however long it stays open.
  *
  * Pruning never removes a protected generation, nor one the person made by
- * hand, whatever the limits; the others are kept while they are within every
- * limit set, counted newest first, and removed otherwise.
+ * hand, nor the newest, whatever the limits, so a limit the newest alone is
+ * past never leaves the project with no backup; the others are kept while they
+ * are within every limit set, counted newest first, and removed otherwise.
  */
 
 import type { History } from '@audiogubbins/history';
@@ -85,9 +86,11 @@ export function planBackupPruning(
   const prunable = generations
     .filter((generation) => !generation.protected && generation.reason !== 'manual')
     .sort((one, other) => other.number - one.number);
+  const newest = generations.reduce((most, { number }) => Math.max(most, number), 0);
   let held = 0;
   const removed = prunable.filter((generation, index) => {
     held += generation.bytes;
+    if (generation.number === newest) return false;
     const kept =
       (retention.count === undefined || index < retention.count) &&
       (retention.days === undefined || now - generation.at <= retention.days * DAY) &&
