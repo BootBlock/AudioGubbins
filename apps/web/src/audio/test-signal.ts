@@ -9,17 +9,18 @@
  * one graph exercises the transport, the worklet, the meters, the feeder and
  * the render worker alike.
  *
- * Both describe the tone rather than make it (`SourceKind.Tone`): playback's
- * feeder worker and a render's worker each make it with their own canonical
- * DSP, so no audio is made on the main thread or crosses to another.
+ * Both describe the tone rather than make it, as a signal recipe of one tone on
+ * each channel (`PcmDescriptionKind.Signal`, ADR-0045): playback's feeder
+ * worker and a render's worker each make it with their own canonical DSP, so no
+ * audio is made on the main thread or crosses to another.
  */
 
 import {
   StandardLayouts,
   ZERO_SAMPLES,
+  channelCount,
   flatMapResult,
   mapResult,
-  sampleCount,
   sampleRate,
   type DomainResult,
 } from '@audiogubbins/domain';
@@ -30,8 +31,16 @@ import {
   type NodeId,
   type ProcessingNodeDescriptor,
 } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, MAXIMUM_RENDER_QUALITY } from '@audiogubbins/audio-engine';
-import { SourceKind, type PlaybackRequest, type RenderRequest } from '@audiogubbins/audio-runtime';
+import {
+  BuiltInNodeType,
+  MAXIMUM_RENDER_QUALITY,
+  toneRecipe,
+  type SignalRecipe,
+  PcmDescriptionKind,
+} from '@audiogubbins/audio-engine';
+import type { PlaybackRequest, RenderRequest } from '@audiogubbins/audio-runtime';
+
+import type { Programme } from './programme.js';
 
 /** The tone: A above middle C, twelve decibels below full scale, for ten seconds. */
 export const TEST_SIGNAL = { frequency: 440, amplitude: 0.25, seconds: 10 } as const;
@@ -100,26 +109,30 @@ const TEST_SIGNAL_GRAPH: DomainResult<TestSignalGraph> = flatMapResult(
     ),
 );
 
+/** The tone on both channels of the layout for `frames` frames. */
+function testSignalRecipe(frames: number): DomainResult<SignalRecipe> {
+  return toneRecipe(channelCount(STEREO), frames, TEST_SIGNAL.frequency, TEST_SIGNAL.amplitude);
+}
+
 /** The test signal to play at `contextRate`, the context's own (REQ-ARCH-085). */
 export function testSignalPlayback(contextRate: number): DomainResult<PlaybackRequest> {
   return flatMapResult(TEST_SIGNAL_GRAPH, ({ graph, input }) =>
     flatMapResult(sampleRate(contextRate), (rate) =>
-      mapResult(sampleCount(TEST_SIGNAL.seconds * contextRate), (frames) => ({
+      mapResult(testSignalRecipe(TEST_SIGNAL.seconds * contextRate), (recipe) => ({
         graph,
-        sources: [
-          {
-            node: input,
-            kind: SourceKind.Tone,
-            sampleRate: rate,
-            frequency: TEST_SIGNAL.frequency,
-            amplitude: TEST_SIGNAL.amplitude,
-            frames,
-          },
-        ],
+        sources: [{ node: input, kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }],
       })),
     ),
   );
 }
+
+/** The test signal as the transport plays it, at whatever rate the context runs at. */
+export const TEST_SIGNAL_PROGRAMME: Programme = {
+  key: 'test-signal',
+  rate: undefined,
+  request: testSignalPlayback,
+  playing: 'The test signal is playing.',
+};
 
 /** An offline render of the test signal, and the node its audio is written from. */
 export interface TestSignalRender {
@@ -128,31 +141,22 @@ export interface TestSignalRender {
 }
 
 /**
- * The whole test signal rendered at maximum quality (REQ-ARCH-081), in
- * chunks of `chunkMilliseconds`, which the profile sets and which change no
- * bit of the output.
+ * The whole test signal rendered at maximum quality (REQ-ARCH-081), in chunks
+ * of `chunkMilliseconds`, which the profile sets and which change no bit of the
+ * output.
  */
 export function testSignalRender(chunkMilliseconds: number): DomainResult<TestSignalRender> {
   return flatMapResult(TEST_SIGNAL_GRAPH, ({ graph, input, output }) =>
     flatMapResult(sampleRate(RENDER_SAMPLE_RATE), (rate) =>
-      mapResult(sampleCount(TEST_SIGNAL.seconds * RENDER_SAMPLE_RATE), (length) => ({
+      mapResult(testSignalRecipe(TEST_SIGNAL.seconds * RENDER_SAMPLE_RATE), (recipe) => ({
         output,
         request: {
           graph,
           sampleRate: rate,
-          range: { start: ZERO_SAMPLES, length },
+          range: { start: ZERO_SAMPLES, length: recipe.length },
           chunkFrames: Math.max(1, Math.round((chunkMilliseconds * RENDER_SAMPLE_RATE) / 1000)),
           quality: MAXIMUM_RENDER_QUALITY,
-          sources: [
-            {
-              node: input,
-              kind: SourceKind.Tone,
-              sampleRate: rate,
-              frequency: TEST_SIGNAL.frequency,
-              amplitude: TEST_SIGNAL.amplitude,
-              frames: length,
-            },
-          ],
+          sources: [{ node: input, kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }],
         },
       })),
     ),

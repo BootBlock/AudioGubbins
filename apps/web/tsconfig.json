@@ -58,6 +58,21 @@
       "path": "../../packages/audio-runtime"
     },
     {
+      "path": "../../packages/timeline"
+    },
+    {
+      "path": "../../packages/waveform"
+    },
+    {
+      "path": "../../packages/renderer"
+    },
+    {
+      "path": "../../packages/editor-view"
+    },
+    {
+      "path": "../../packages/video-reference"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

@@ -111,6 +111,13 @@ describe('the keyboard layout, as the application is wired', () => {
     });
     expect(paletteRow()).toHaveTextContent('Ctrl+K, Ctrl+P');
 
+    // The Selection tool's V was on that key; Dvorak types V where a US
+    // keyboard has its full stop, and typing it there places the last one.
+    await act(async () => {
+      fireEvent.keyDown(document.body, { code: 'Period', key: 'v' });
+      await Promise.resolve();
+    });
+
     // Nothing waits any more, and that is said where the list was: taken away
     // in silence, the last placement told a screen-reader user nothing. The
     // live region carries the progress alone — the instruction beside it is

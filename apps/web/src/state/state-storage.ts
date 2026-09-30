@@ -73,6 +73,7 @@ export const PersistedPart = {
   Verbosity: 'verbosity',
   KeyboardLayout: 'keyboard-layout',
   AudioSettings: 'audio-settings',
+  EditorViews: 'editor-views',
 } as const;
 
 /** A part of the shell's state that is stored on its own. */
@@ -99,6 +100,7 @@ const PART_NAMES: Record<PersistedPart, string> = {
   [PersistedPart.Verbosity]: 'diagnostic log levels',
   [PersistedPart.KeyboardLayout]: 'keyboard layout',
   [PersistedPart.AudioSettings]: 'audio settings',
+  [PersistedPart.EditorViews]: 'editor views',
 };
 
 /** Why a caller keeps back some of a write, and what the user is told about it. */

@@ -2,55 +2,26 @@
  * The sources a render message describes, made in the worker.
  *
  * A source object cannot cross a thread, so the main thread describes each
- * graph input's audio and the worker makes it here: recorded audio as a
- * memory source over the arrays it was transferred, which are read in place
- * and never copied whole, and a tone from the canonical oscillator of the
- * worker's own DSP. Each is made in the layout of the input's port, which is
- * why the description carries none.
+ * graph input's audio and the worker makes it here: recorded audio as a memory
+ * source over the arrays it was transferred, which are read in place and never
+ * copied whole, and generated audio from its recipe with the worker's own DSP.
+ * Each is made in the layout of the input's port, which is why the description
+ * carries none.
  */
 
 import {
   FailureKind,
   fail,
   failure,
-  flatMapResult,
   succeed,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import {
-  frameBlock,
-  memorySource,
-  toneSource,
-  type CanonicalDsp,
-  type PcmSource,
-} from '@audiogubbins/audio-engine';
+import { describedSource, type CanonicalDsp, type PcmSource } from '@audiogubbins/audio-engine';
 
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
-
-function sourceOf(
-  description: SourceDescription,
-  layout: ChannelLayout,
-  dsp: CanonicalDsp,
-): DomainResult<PcmSource> {
-  switch (description.kind) {
-    case SourceKind.Pcm:
-      return flatMapResult(
-        frameBlock(layout, description.sampleRate, description.channels),
-        memorySource,
-      );
-    case SourceKind.Tone:
-      return toneSource(dsp, {
-        layout,
-        sampleRate: description.sampleRate,
-        frequency: description.frequency,
-        amplitude: description.amplitude,
-        length: description.frames,
-      });
-  }
-}
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 
 function unplaced(node: NodeId): DomainFailure {
   return failure(
@@ -88,7 +59,7 @@ export function makeSources(
     } else if (made.has(description.node)) {
       problems.push(duplicated(description.node));
     } else {
-      const source = sourceOf(description, layout, dsp);
+      const source = describedSource(description, layout, dsp);
       if (source.ok) made.set(description.node, source.value);
       else problems.push(...source.failures);
     }

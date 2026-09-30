@@ -26,3 +26,9 @@ declare module '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url'
   const url: string;
   export default url;
 }
+
+/** Where the bundler put the peak worker, built on its own. */
+declare module '@audiogubbins/waveform/threads/peak-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}

@@ -21,6 +21,9 @@ import {
   type RenderStrategyView,
 } from '../state/render-strategy-store.js';
 import { createStateStorage } from '../state/state-storage.js';
+import { createRendererReports } from '../state/renderer-reports.js';
+import { fakePanelParts } from '../testing/editor-fakes.js';
+import { buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { DiagnosticsPanel, recordsPassing } from './diagnostics-panel.js';
 import { CapabilitiesPanel, renderPanel, type PanelContext } from './panels.js';
@@ -74,6 +77,9 @@ function bareEnvironment(): CapabilityEnvironment {
     hasMediaQueries: false,
     hasKeyboardLayoutMap: false,
     comparesNames: false,
+    hasVideoFrameCallback: false,
+    hasFullscreen: false,
+    hasIndexedDb: false,
   };
 }
 
@@ -123,6 +129,7 @@ describe('every panel', () => {
             framesRendered: () => 0,
             run: () => undefined,
             unavailableReason: () => undefined,
+            editor: fakePanelParts(buildShellContext().context, logger),
           })}
         </>,
       );
@@ -277,7 +284,13 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+      />,
+    );
 
     expect(screen.getAllByText(/Unavailable|Reduced/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recording/).length).toBeGreaterThan(0);
@@ -305,7 +318,13 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+      />,
+    );
 
     expect(screen.getByText('Default shortcuts on your keyboard from the start')).toBeVisible();
     expect(
@@ -333,7 +352,13 @@ describe('the capability panel', () => {
       createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
     );
 
-    render(<CapabilitiesPanel title="Capabilities" capabilities={registry} />);
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+      />,
+    );
 
     const statuses = screen.getAllByText(/^(Unavailable|Reduced)$/);
     expect(statuses.map((status) => status.getAttribute('data-ag-status'))).toEqual(

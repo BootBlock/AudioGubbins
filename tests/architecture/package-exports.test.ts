@@ -185,38 +185,21 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/input': {
-    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The waveform canvas, Phase 04, is the first surface a pointer edits; the shell reads only key presses.':
-      [
-        'DEFAULT_GESTURE_SETTINGS',
-        'Gesture',
-        'GestureSettings',
-        'NO_GESTURE',
-        'PointerKind',
-        'PointerReading',
-        'PointerSample',
-        'recogniseGesture',
-        'sampleFromPointerEvent',
-        'toolStrength',
-      ],
+    'The pointer and gesture model REQ-UX-067 and REQ-UX-068 require and ADR-0017 puts here. The editor surface reads contacts and gestures through it, and no tool it has yet acts with a strength: the pressure rule waits for the first that does, the spectral brushes of Phase 08.':
+      ['NO_GESTURE', 'toolStrength'],
   },
   '@audiogubbins/domain': {
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
-      ['FIRST_ORDER_AMBIX', 'ambisonicChannelCount', 'channelLabelOf', 'labelledLayout'],
+      ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives this phase, for the phases that open, edit and play a project, Phase 02 on. The shell edits no project.':
       [
         'ChoiceOption',
         'ChoiceParameterDescriptor',
-        'EmptySelection',
         'EntityId',
-        'EntitySelection',
-        'NO_SELECTION',
         'NumericParameterDescriptor',
         'ParameterDescriptor',
         'ParameterTaper',
         'ProcessorDescriptor',
-        'Selection',
-        'SelectionFocus',
-        'TimeRangeSelection',
         'TimelineEntity',
         'ToggleParameterDescriptor',
         'assetRangeEnd',
@@ -228,69 +211,64 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'clipsOverlap',
         'containsSample',
         'convertSampleRate',
-        'createIdGenerator',
         'defaultParameterValue',
-        'discreteLayout',
-        'hasSelection',
         'instantiateProcessor',
         'isAssetInUse',
         'isFailure',
         'isRetryable',
         'isSuccess',
         'isTrackAudible',
-        'isWellFormedId',
         'processorsInSignalOrder',
         'projectLength',
         'regionEnd',
         'routeToBus',
         'routingPathToOutput',
         'secondsToSamples',
-        'selectionFocus',
-        'selectionSize',
         'tracksInOrder',
-        'unsafeBrandId',
         'validateParameterValue',
         'validateProcessorInstance',
       ],
     'The project, its parts and the measures the fixtures package builds its projects and signals from. Only tests read the fixtures in this phase, so these reach no production code yet.':
       [
         'Asset',
-        'AssetId',
         'AssetOrigin',
         'AssetRange',
-        'Branded',
         'Bus',
         'BusId',
         'Clip',
-        'ClipId',
         'EffectChain',
         'EffectChainId',
-        'IdGenerator',
-        'LoopDefinition',
         'MAIN_OUTPUT',
-        'Marker',
-        'MarkerId',
         'ParameterId',
         'ParameterValue',
-        'ProcessorId',
         'ProcessorInstance',
         'Project',
         'ProjectId',
         'ProjectSettings',
-        'Region',
-        'RegionId',
         'RoutingTarget',
         'Track',
-        'TrackId',
-        'createDeterministicIdGenerator',
         'createProject',
       ],
   },
+  '@audiogubbins/timeline': {
+    "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
+      ['viewportAtStart'],
+    "The spectral facet's builder, which the spectral marquee and lasso of Phase 08's spectral editing make a selection with (ADR-0042); this phase draws and keeps the facet and has no tool that makes one.":
+      ['withSpectralArea'],
+  },
+  '@audiogubbins/waveform': {
+    "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":
+      ['peakGeometry'],
+  },
+  '@audiogubbins/video-reference': {},
+  '@audiogubbins/editor-view': {},
   '@audiogubbins/audio-graph': {
     "The steps `compileGraph` composes, for a host that needs one alone: validation, for an editor that shows a graph's diagnostics as it is drawn, and latency analysis and planning, for a view of each node's latency before a graph runs (ADR-0030, REQ-ARCH-144). Every host in this phase compiles a graph whole; the phase that edits processor graphs is their first consumer.":
       ['GraphValidation', 'LatencyAnalysisResult', 'analyseLatency', 'planGraph', 'validateGraph'],
   },
   '@audiogubbins/audio-engine': {
+    "The sources a description makes, which the runtime and the peak worker reach through `describedSource`, and other packages' tests make audio from directly (ADR-0045).":
+      ['SignalSettings', 'memorySource', 'signalSource'],
     "The engine's primitives no host in this phase calls yet: the workload estimate and the chunk plan on their own, which the one render this phase runs reaches through the render strategy that composes them (`assessRender`), preset settings and their validation, the clock's inverse mapping, and the stream helpers a source written in another package needs. The packet requires them as primitives; the phases that decide where project processing runs and write sources of their own are their first consumers.":
       [
         'STABILITY_WINDOW_SECONDS',
@@ -303,8 +281,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'planChunks',
         'resampledSource',
         'settingsFor',
-        'silence',
-        'throwIfCancelled',
         'timelineFrameAt',
       ],
   },
@@ -325,11 +301,11 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['UNKNOWN_SYSTEM_APPEARANCE', 'fixedSystemAppearance'],
     "The conversion the colour tokens are written in, which the application's test of the colours drawn before the first paint holds them to the tokens with.":
       ['oklchToHex'],
+    "The contrast measure the tokens are solved by, what text must reach, and the conversion back from the channels a canvas is given, which the application's test of the editor's canvas colours holds every label a frame writes to, on what the frame draws under it.":
+      ['ContrastRequirement', 'contrastRatio', 'srgbToOklch'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
-      ['ContextActions', 'ContextMenuProps', 'InfoPopover', 'InfoPopoverProps', 'Menu'],
+      ['InfoPopover', 'InfoPopoverProps', 'Menu'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
-    'An entry of the toolbar primitive, for the editor surface of Phase 04, which is its first toolbar; the shell builds its control bar inside the package.':
-      ['ControlBarItem'],
   },
   '@audiogubbins/capabilities': {
     "How a probe states its answer, which the application's tests state a browser's answers with rather than probing one.":

@@ -27,6 +27,7 @@ import {
   type WorkspaceLayout,
 } from '../panel.js';
 import { keepBaseline } from './baseline.js';
+import { remember, type DockMemory } from './dock-memory.js';
 import { createChangeCoalescer, type FrameScheduler } from './coalescer.js';
 import {
   arrangementFrom,
@@ -113,6 +114,9 @@ export interface DockHostProps {
 
   /** Whether the interface is dark, so the engine draws to match. */
   readonly dark: boolean;
+
+  /** What outlives this mount: each panel's scroll, and the keyboard's place. */
+  readonly memory: DockMemory;
 }
 
 /** Dockview's own name for each docked region. */
@@ -316,6 +320,7 @@ function firstPanelPlacement(
   api: DockviewApi,
   group: WorkspaceLayout['groups'][number],
   anchor: string | undefined,
+  beside: boolean,
 ) {
   if (group.region === DockRegion.Floating) {
     const placement = group.placement;
@@ -329,6 +334,13 @@ function firstPanelPlacement(
             height: placement.height * api.height,
           },
         };
+  }
+
+  if (beside && anchor !== undefined) {
+    return {
+      initialWidth: group.proportion * api.width,
+      position: { referencePanel: anchor, direction: 'right' as const },
+    };
   }
 
   const size =
@@ -359,6 +371,7 @@ function mountLayout(
   const addGroup = (
     group: WorkspaceLayout['groups'][number],
     anchor: string | undefined,
+    beside = false,
   ): string | undefined => {
     let firstInGroup: string | undefined;
 
@@ -380,7 +393,7 @@ function mountLayout(
         // The first panel of a group opens the group. Every panel after it
         // joins that group as another tab.
         ...(firstInGroup === undefined
-          ? firstPanelPlacement(api, group, anchor)
+          ? firstPanelPlacement(api, group, anchor, beside)
           : { position: { referencePanel: firstInGroup, direction: 'within' as const } }),
       });
 
@@ -408,9 +421,15 @@ function mountLayout(
   );
   const floating = layout.groups.filter((group) => group.region === DockRegion.Floating);
 
+  // A second group in the main area goes beside the one before it, at its own
+  // width, so a split main area comes back split rather than as one stack of
+  // tabs; the first is the anchor every other region is placed against.
   let anchor: string | undefined;
+  let previous: string | undefined;
   for (const group of centre) {
-    anchor = addGroup(group, anchor) ?? anchor;
+    const first = addGroup(group, previous, previous !== undefined);
+    anchor ??= first;
+    previous = first ?? previous;
   }
 
   for (const group of surrounding) {
@@ -509,6 +528,7 @@ export function DockHost({
   renderPanel,
   onArrangementChange,
   dark,
+  memory,
 }: DockHostProps): ReactNode {
   /**
    * What this mount has to undo when it goes.
@@ -549,14 +569,21 @@ export function DockHost({
   const onReady = useCallback(
     (event: { api: DockviewApi }) => {
       mountLayout(event.api, layout, descriptors);
+      const forget = remember(event.api, memory, layout.activePanelId);
 
       running.current?.stop();
-      running.current = watchArrangement(event.api, layout, descriptors, onArrangementChange);
+      const watching = watchArrangement(event.api, layout, descriptors, onArrangementChange);
+      running.current = {
+        stop: () => {
+          watching.stop();
+          forget();
+        },
+      };
     },
     // Listed for the linter's sake and nothing else: the engine calls this
     // once, when it mounts, and never takes a new one. What makes the dock
     // follow a changed layout is the key the shell mounts it under, not these.
-    [layout, descriptors, onArrangementChange],
+    [layout, descriptors, onArrangementChange, memory],
   );
 
   return (

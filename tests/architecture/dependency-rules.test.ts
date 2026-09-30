@@ -128,11 +128,23 @@ function specifiersIn(code: string): readonly string[] {
 /** Each file's module specifiers, kept as {@link CODE} keeps its code. */
 const IMPORTS = new Map<string, readonly string[]>();
 
-/** Every module specifier a source file imports, comments excluded, read once for every rule. */
+/**
+ * A triple-slash directive that names a package of type definitions, such as
+ * the WebGPU definitions the renderer compiles against. It is a comment to
+ * the code reader and a dependency to the compiler, so it is read from the
+ * file's text, where it can only stand at the top.
+ */
+const TYPES_REFERENCE = /^\/\/\/\s*<reference\s+types\s*=\s*['"]([^'"]+)['"]\s*\/>/gmu;
+
+/**
+ * Every module specifier a source file imports, comments excluded, with the
+ * type packages it references, read once for every rule.
+ */
 function importsOf(path: string): readonly string[] {
   let specifiers = IMPORTS.get(path);
   if (specifiers === undefined) {
-    specifiers = specifiersIn(readCode(path));
+    const referenced = [...read(path).matchAll(TYPES_REFERENCE)].map((match) => match[1] ?? '');
+    specifiers = [...specifiersIn(readCode(path)), ...referenced];
     IMPORTS.set(path, specifiers);
   }
   return specifiers;
@@ -198,6 +210,17 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/timeline': ['@audiogubbins/domain'],
+  '@audiogubbins/renderer': ['@audiogubbins/domain'],
+  '@audiogubbins/editor-view': [
+    '@audiogubbins/domain',
+    '@audiogubbins/input',
+    '@audiogubbins/timeline',
+    '@audiogubbins/waveform',
+    '@audiogubbins/renderer',
+  ],
+  '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
+  '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
   '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
   '@audiogubbins/audio-runtime': [
     '@audiogubbins/domain',
@@ -665,9 +688,14 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'audio-graph',
     'commands',
     'domain',
+    'editor-view',
     'input',
+    'renderer',
     'text',
+    'timeline',
     'version',
+    'video-reference',
+    'waveform',
   ] as const;
   const FRAMEWORK_FREE = productionSources(
     `packages/{${FRAMEWORK_FREE_PACKAGES.join(',')}}/src/**/*.ts`,
@@ -2486,8 +2514,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'What replaces each thing a report may not carry, in the one order the rules have to run in: inline data before anything reads its body, credentials before an address loses its authority, addresses before paths, paths before names, and network addresses last so one inside an address has already gone with it. The finding of each is elsewhere \u2014 credentials in `credentials.ts` and every location in `path-finding.ts` \u2014 and what is here is the placeholder, the tally and the order. Split, the order would be stated in whichever module ran them.',
     ],
     'packages/workspace/src/adapter/dockview-adapter.tsx': [
-      317,
-      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
+      328,
+      "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
   };
 
@@ -2619,7 +2647,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     // Tables: a list of independent definitions, each whole in itself.
-    'apps/web/src/commands/view-commands.ts: viewCommands': [
+    'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
       'A list of independent appearance commands, each self-contained, sharing only the command builder and `unlessAlready`.',
     ],
@@ -2686,8 +2714,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      86,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page.',
+      96,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio and editor parts are each started by one (the editor\u2019s in `editor-part.ts`), so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.
@@ -2742,14 +2770,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'apps/web/src/shell/use-shell-state.ts: useShellState': [
       62,
       'Nine subscriptions and what the shell derives from them; its two effects are hooks of their own.',
-    ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts': [
-      60,
-      "One document listener deciding what a key press means for the chord tracker, and handing every press it reads to the keyboard layout's reader.",
-    ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts > useEffect callback': [
-      55,
-      'The listener itself, with its blur handler and its cleanup, reading one tracker.',
     ],
 
     // Procedures: one algorithm, or one validation step by step.

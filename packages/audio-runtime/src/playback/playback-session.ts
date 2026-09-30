@@ -189,6 +189,21 @@ export class PlaybackSession {
     return this.#state.apply({ kind: 'pause', contextFrame: this.#state.frame() });
   }
 
+  /**
+   * Moves a paused transport back to `to`, a frame it played, to stand where
+   * the listener stopped hearing. The processor lets go of the audio it holds
+   * past `to`, so Play starts afresh from there, and Stop still returns to
+   * where the last play started, as it would from the pause.
+   */
+  park(to: SampleCount): DomainResult<void> {
+    this.#assertLive();
+    const parked = this.#state.apply({ kind: 'parked', position: to });
+    if (!parked.ok) return parked;
+    this.#commands += 1;
+    this.#graph.current?.runs.stop();
+    return parked;
+  }
+
   /** Stops, and returns to where the last play started. */
   stop(): DomainResult<void> {
     this.#assertLive();

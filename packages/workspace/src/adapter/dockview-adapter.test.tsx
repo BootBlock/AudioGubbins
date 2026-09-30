@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { DockRegion, type PanelDescriptor, type WorkspaceLayout } from '../panel.js';
+import { createDockMemory } from './dock-memory.js';
 import { DockHost } from './dockview-adapter.js';
 
 /**
@@ -122,6 +123,7 @@ function mountDock(
       renderPanel={() => null}
       onArrangementChange={onArrangementChange}
       dark
+      memory={createDockMemory()}
     />,
   );
   return { ...mounted, onArrangementChange };

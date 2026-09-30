@@ -260,6 +260,15 @@ export interface Command<TContext> {
   readonly discoverable?: boolean;
 
   /**
+   * Whether the command changes only how the whole interface is drawn: its
+   * theme, brightness, contrast, density, accent or motion. Such a change is
+   * seen in a modal dialogue as much as on the page behind it, so its shortcut
+   * is the one kind that runs while a modal dialogue is open; every other acts
+   * on that page, or opens something over it, and waits until it closes.
+   */
+  readonly changesAppearance?: boolean;
+
+  /**
    * Whether the command's effect can be reversed.
    *
    * A command that declares this must return an `inverse` when it applies. A

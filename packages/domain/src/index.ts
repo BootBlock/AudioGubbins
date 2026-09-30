@@ -155,15 +155,3 @@ export {
   projectLength,
   tracksInOrder,
 } from './project/project.js';
-
-export {
-  type EmptySelection,
-  type EntitySelection,
-  NO_SELECTION,
-  type Selection,
-  SelectionFocus,
-  type TimeRangeSelection,
-  hasSelection,
-  selectionFocus,
-  selectionSize,
-} from './selection/selection.js';

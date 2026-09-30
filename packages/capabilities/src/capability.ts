@@ -102,6 +102,18 @@ export const CapabilityKey = {
    * at the first name given.
    */
   NameComparison: 'name-comparison',
+
+  /**
+   * Being told when a video frame is presented, which reference picture is
+   * checked against the audio on (ADR-0046).
+   */
+  VideoFrameCallback: 'video-frame-callback',
+
+  /** Showing an element across the whole screen, as a picture preview is. */
+  Fullscreen: 'fullscreen',
+
+  /** A database in the browser, where disposable caches such as waveform peaks are kept. */
+  IndexedDb: 'indexed-db',
 } as const;
 
 /** Something the browser either offers or does not. */

@@ -47,6 +47,7 @@ import { ephemeralStorage } from './ephemeral-storage.js';
 import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { FakePlayback, FakeRendering } from './audio-fakes.js';
+import { fakeEditor } from './editor-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
 /**
@@ -76,6 +77,9 @@ export const CAPABLE: CapabilityEnvironment = {
   hasMediaQueries: true,
   hasKeyboardLayoutMap: true,
   comparesNames: true,
+  hasVideoFrameCallback: true,
+  hasFullscreen: true,
+  hasIndexedDb: true,
 };
 
 /** `context` in a browser whose names cannot be compared. */
@@ -105,6 +109,7 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
+      [PanelKinds.Picture, 'Picture', DockRegion.Right],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
@@ -220,6 +225,7 @@ export function buildShellContext(
       environment: { browser: 'Test browser 1', operatingSystem: 'Test system', installed: false },
       clock: { now: () => 0 },
       ...parts,
+      ...fakeEditor(storage, logger),
     },
   };
 }

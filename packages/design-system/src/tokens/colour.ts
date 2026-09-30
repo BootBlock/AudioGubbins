@@ -178,6 +178,20 @@ export function contrastRatio(foreground: Oklch, background: Oklch): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+/**
+ * The surface a colour is hardest to be seen on: the one it has the least
+ * contrast with, which is the one nearest its own lightness.
+ *
+ * Solving against it makes the answer hold on every surface in the list, which
+ * is what a focus ring needs: it is drawn on a control, in a dialogue, on a
+ * menu and on the entry the keyboard is on, and those are four surfaces.
+ */
+export function hardestFor(colour: Oklch, surfaces: readonly Oklch[]): Oklch {
+  return surfaces.reduce((hardest, one) =>
+    contrastRatio(colour, one) < contrastRatio(colour, hardest) ? one : hardest,
+  );
+}
+
 /** The contrast a pair of colours must reach. */
 export const ContrastRequirement = {
   /** WCAG 2 AA for body text. */

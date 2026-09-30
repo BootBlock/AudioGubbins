@@ -245,6 +245,95 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The time axis as values: zoom and the viewport's exact conversions,
+    // frame rates and timecode, time formats, the ruler, the selection set
+    // with its command-target precedence, and snapping (ADR-0040, ADR-0041,
+    // ADR-0042). No browser, so it runs in any scope.
+    dir: 'packages/timeline',
+    name: '@audiogubbins/timeline',
+    description:
+      'The editor timeline as values: sample-accurate viewport coordinates, time formats, the ruler, the selection set and snapping.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The multi-resolution peak pyramid, made off the page by the peak worker
+    // and shared among views by source identity and revision, with its
+    // disposable cache format and the zero-crossing search (ADR-0040,
+    // ADR-0043). No browser: the worker's scope is declared by its shape.
+    dir: 'packages/waveform',
+    name: '@audiogubbins/waveform',
+    description:
+      'Waveform peaks: the multi-resolution pyramid, its worker, its disposable cache and the column reads a view draws from.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'peak-worker.ts': 'dedicated-worker' },
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The renderer contract and its WebGPU, WebGL2 and Canvas 2D backends,
+    // with the choice among them and recovery from a lost device (ADR-0040,
+    // ADR-0044). Given its canvases and the GPU object; it reads no global.
+    dir: 'packages/renderer',
+    name: '@audiogubbins/renderer',
+    description:
+      'The editor renderer: frames as values, WebGPU, WebGL2 and Canvas 2D backends, and recovery from a lost device.',
+    dom: true,
+    jsx: false,
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    // The WebGPU definitions the backend compiles against, which the DOM's
+    // lack; types alone, so nothing of it reaches the bundle.
+    external: { '@webgpu/types': '0.1.74' },
+    externalDev: {},
+  },
+  {
+    // Picture as reference media: its binding to the shared media clock,
+    // frame arithmetic, calibration and the synchronisation policy (ADR-0040,
+    // ADR-0046). The video element belongs to the application.
+    dir: 'packages/video-reference',
+    name: '@audiogubbins/video-reference',
+    description:
+      'Video as reference media: its binding to the media clock, exact frame arithmetic, calibration and synchronisation.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/timeline'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // One editor view as values: presentation state, lanes, hit testing, the
+    // tools' interpretation of a pointer, snap targets and the composition of
+    // a render frame (ADR-0040). No framework and no browser global.
+    dir: 'packages/editor-view',
+    name: '@audiogubbins/editor-view',
+    description:
+      'One editor view as values: its presentation state, lanes, tools, hit testing, snapping and the frames it draws.',
+    dom: true,
+    jsx: false,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/input',
+      '@audiogubbins/timeline',
+      '@audiogubbins/waveform',
+      '@audiogubbins/renderer',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/commands',
     name: '@audiogubbins/commands',
     description:
@@ -347,6 +436,11 @@ const PACKAGES = [
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
       '@audiogubbins/audio-runtime',
+      '@audiogubbins/timeline',
+      '@audiogubbins/waveform',
+      '@audiogubbins/renderer',
+      '@audiogubbins/editor-view',
+      '@audiogubbins/video-reference',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

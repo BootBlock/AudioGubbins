@@ -42,6 +42,33 @@
       "path": "./packages/audio-runtime/scopes/dedicated-worker"
     },
     {
+      "path": "./packages/timeline"
+    },
+    {
+      "path": "./packages/timeline/scopes/any"
+    },
+    {
+      "path": "./packages/waveform"
+    },
+    {
+      "path": "./packages/waveform/scopes/any"
+    },
+    {
+      "path": "./packages/waveform/scopes/dedicated-worker"
+    },
+    {
+      "path": "./packages/renderer"
+    },
+    {
+      "path": "./packages/video-reference"
+    },
+    {
+      "path": "./packages/video-reference/scopes/any"
+    },
+    {
+      "path": "./packages/editor-view"
+    },
+    {
       "path": "./packages/commands"
     },
     {

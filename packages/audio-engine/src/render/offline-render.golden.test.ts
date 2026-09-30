@@ -11,7 +11,7 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, channelCount, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
@@ -19,7 +19,8 @@ import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { wasmDsp } from '../dsp/wasm/wasm-dsp.js';
 import { BUILT_IN_NODES } from '../nodes/built-in-nodes.js';
 import { BuiltInNodeType } from '../nodes/built-in-node-type.js';
-import { toneSource } from '../pcm/tone-source.js';
+import { toneRecipe } from '../pcm/signal-recipe.js';
+import { signalSource } from '../pcm/signal-source.js';
 import { dspModuleExports } from '../testing/dsp-module.js';
 import { fingerprint } from '../testing/pcm-fingerprint.js';
 import { graphOf, named, nodeOf, wire } from '../testing/graph-builders.js';
@@ -101,12 +102,10 @@ async function goldenRender(
   coefficientBudgetBytes?: number,
 ): Promise<bigint> {
   const recording = expectSuccess(
-    toneSource(dsp, {
+    signalSource(dsp, {
       layout: SURROUND,
       sampleRate: expectSuccess(sampleRate(44_100)),
-      frequency: 440,
-      amplitude: 0.25,
-      length: expectSuccess(sampleCount(8_820)),
+      recipe: expectSuccess(toneRecipe(channelCount(SURROUND), 8_820, 440, 0.25)),
     }),
   );
   const out = collectingSink();

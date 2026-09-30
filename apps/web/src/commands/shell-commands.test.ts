@@ -55,10 +55,35 @@ describe('the shell command set', () => {
     }
   });
 
-  it('marks none of them undoable, because none changes the project', () => {
+  it('marks undoable only the commands that change an asset\u2019s content', () => {
     // A user pressing Undo after a mistaken edit must not find it switching
-    // their theme back instead (REQ-EDIT-073).
-    expect(commands.every((command) => !command.undoable)).toBe(true);
+    // their theme back instead (REQ-EDIT-073). The marker commands change the
+    // content of an asset, which the project's history takes (ADR-0047).
+    expect(commands.filter((command) => command.undoable).map((command) => command.id)).toEqual([
+      'editor.add-marker',
+      'editor.remove-markers',
+      'editor.restore-markers',
+      'editor.move-marker',
+      'editor.nudge-markers-back',
+      'editor.nudge-markers-forward',
+      'editor.nudge-markers-back-sample',
+      'editor.nudge-markers-forward-sample',
+      'editor.move-markers-by',
+      'picture.mark-frame',
+    ]);
+  });
+
+  it('says only of the appearance commands that they change how the interface is drawn', () => {
+    // Their shortcuts are the only ones that run while a modal dialogue is
+    // open, so a command that acts on the page behind must never say so.
+    const appearance = commands
+      .filter((command) => command.changesAppearance === true)
+      .map((command) => command.id);
+
+    expect(appearance).toContain('view.brighten');
+    expect(appearance).toContain('view.theme-dark');
+    expect(appearance.filter((id) => !id.startsWith('view.'))).toEqual([]);
+    expect(appearance).not.toContain('view.command-palette');
   });
 
   it('offers an accent command for every accent', () => {
@@ -580,9 +605,10 @@ describe('the default shortcut profile', () => {
     // key press ends. Read on Windows alone, an Apple wait could never have
     // been seen here at all. A default waits where its character sits away
     // from its US key and no Command press has shown how the system reads the
-    // layout: Dvorak moves every one of them, AZERTY moves the comma alone,
-    // and the two settled readings of Dvorak place them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 10', 'apple, AZERTY: 1']);
+    // layout: Dvorak moves the prefix's and the editor's D, AZERTY moves the
+    // comma and the editor's A, and the two settled readings of Dvorak place
+    // them all.
+    expect(forTheLayer).toEqual(['apple, Dvorak: 11', 'apple, AZERTY: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {
@@ -593,7 +619,8 @@ describe('the default shortcut profile', () => {
       (binding) => binding.commandId,
     );
 
-    expect(bound).toEqual([commandId('settings.open')]);
+    // The editor's defaults are keys pressed alone, placed without the prefix.
+    expect(bound.filter((id) => !id.startsWith('editor.'))).toEqual([commandId('settings.open')]);
   });
 
   it('writes each default by what the layout types, in the menus and the palette', () => {
@@ -697,7 +724,13 @@ describe('finding the shell commands in the palette', () => {
    * Commands that do something every time, so a second run that changes no
    * store is still a change: each writes a file the user asked for.
    */
-  const REPEATABLE: ReadonlySet<string> = new Set(['shortcuts.export', 'help.export-diagnostics']);
+  const REPEATABLE: ReadonlySet<string> = new Set([
+    'shortcuts.export',
+    'help.export-diagnostics',
+    // Full screen is the browser's to grant, outside every store, and asked
+    // for again is asked again.
+    'picture.full-screen',
+  ]);
 
   /** What a command is given, as an invocation carries it. */
   type Arguments = Readonly<Record<string, string | number | boolean>>;
@@ -744,6 +777,54 @@ describe('finding the shell commands in the palette', () => {
       groups: [{ ...first, proportion }, ...rest],
       ...(activePanelId === undefined ? {} : { activePanelId }),
     });
+  }
+
+  /** Shows the tone bursts, or `asset`, in the editor panel of the layout, and makes it the one in use. */
+  function openEditor(context: ShellContext, asset = 'test:tone-bursts'): void {
+    const found = context.assets.find(asset);
+    if (found === undefined) throw new Error(`No asset ${asset}.`);
+    context.editorViews.open('editor', found);
+    context.editorViews.measured('editor', 1000, found.length);
+    context.editorViews.focus('editor');
+  }
+
+  /** A scenario in an editor showing `asset`, reached then by `before`. */
+  function inEditor(scenario: Scenario = {}, asset = 'test:tone-bursts'): Scenario {
+    return {
+      ...scenario,
+      before: (run, context) => {
+        openEditor(context, asset);
+        scenario.before?.(run, context);
+      },
+    };
+  }
+
+  /** The loop test's first marker, which the marker scenarios act on, or the one at `index`. */
+  function firstMarker(context: ShellContext, index = 0): string {
+    const loop = context.assets.find('test:loop');
+    const marker = loop === undefined ? undefined : context.content.of(loop).markers[index];
+    if (marker === undefined) throw new Error('The loop test has no such marker.');
+    return marker.id;
+  }
+
+  /** The loop test's Sustain marker selected, which can move either way. */
+  const sustainSelected = inEditor(
+    { before: (run, context) => run('editor.select-marker', { marker: firstMarker(context, 1) }) },
+    'test:loop',
+  );
+
+  /** The playhead a second into the asset, which can move either way. */
+  const playheadInside = inEditor({
+    before: (run) => run('editor.set-playhead', { position: 48_000 }),
+  });
+
+  /** Opens a reference picture, bound to the editor in use, as the browser would load it. */
+  function openPicture(
+    run: (id: string, args?: Arguments) => unknown,
+    context: ShellContext,
+  ): void {
+    run('picture.open', { file: context.chosenFiles.offer(new File([], 'reference.webm')) });
+    context.picture.element.dispatchEvent(new Event('loadeddata'));
   }
 
   /** Leaves a render waiting on the person's decision, as a warning makes one. */
@@ -874,27 +955,150 @@ describe('finding the shell commands in the palette', () => {
     // warning that the last render ran slower than real time.
     'transport.render-safer': { before: awaitDecision },
     'transport.render-as-chosen': { before: awaitDecision },
+
+    'editor.open-asset': { arguments: () => ({ view: 'editor', asset: 'test:loop' }) },
+    'editor.zoom-by': inEditor({ arguments: () => ({ factor: 0.5 }) }),
+    'editor.zoom-to-fit': inEditor({ before: (run) => run('editor.zoom-in') }),
+    'editor.zoom-to-selection': inEditor({
+      before: (run) => run('editor.select-time', { start: 1000, end: 2000 }),
+    }),
+    'editor.zoom-to-range': inEditor({ arguments: () => ({ start: 1000, end: 2000 }) }),
+    'editor.scroll': inEditor({
+      before: (run) => run('editor.zoom-in'),
+      arguments: () => ({ pixels: 100 }),
+    }),
+    'editor.scroll-back': inEditor({
+      before: (run) => {
+        run('editor.zoom-to-range', { start: 100_000, end: 101_000 });
+      },
+    }),
+    'editor.scroll-forward': inEditor({ before: (run) => run('editor.zoom-in') }),
+    'editor.scroll-to': inEditor({
+      before: (run) => run('editor.zoom-in'),
+      arguments: () => ({ position: 100_000 }),
+    }),
+    'editor.tool-select': inEditor({ before: (run) => run('editor.tool-hand') }),
+    'editor.display-waveform': inEditor({ before: (run) => run('editor.display-stacked') }),
+    'editor.toggle-channel': inEditor({ arguments: () => ({ channel: 0 }) }),
+    'editor.show-all-channels': inEditor({
+      before: (run) => run('editor.toggle-channel', { channel: 0 }),
+    }),
+    'editor.amplitude-down': inEditor({ before: (run) => run('editor.amplitude-up') }),
+    'editor.time-format-clock': inEditor({ before: (run) => run('editor.time-format-samples') }),
+    'editor.follow-page': inEditor({ before: (run) => run('editor.follow-off') }),
+    'editor.spectral-scale-logarithmic': inEditor({
+      before: (run) => run('editor.spectral-scale-linear'),
+    }),
+    'editor.spectral-band-audible': inEditor({
+      before: (run) => run('editor.spectral-band-whole'),
+    }),
+    'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
+    'editor.select-marker': inEditor(
+      { arguments: (context) => ({ marker: firstMarker(context) }) },
+      'test:loop',
+    ),
+    'editor.clear-selection': inEditor({ before: (run) => run('editor.select-all') }),
+    'editor.scope-all-channels': inEditor({
+      before: (run) => run('editor.select-time', { start: 100, end: 200, channels: '0' }),
+    }),
+    'editor.remove-markers': inEditor(
+      {
+        before: (run, context) => run('editor.select-marker', { marker: firstMarker(context) }),
+      },
+      'test:loop',
+    ),
+    'editor.restore-markers': inEditor({
+      arguments: () => ({
+        asset: 'test:tone-bursts',
+        markers: JSON.stringify([{ id: 'a1b2c3d4e5f60718', name: 'Back', position: 480 }]),
+      }),
+    }),
+    'editor.move-marker': inEditor(
+      { arguments: (context) => ({ marker: firstMarker(context), to: 500 }) },
+      'test:loop',
+    ),
+    'editor.set-playhead': inEditor({ arguments: () => ({ position: 4800 }) }),
+    'editor.selection-end-at-playhead': playheadInside,
+    'editor.extend-selection-back': playheadInside,
+    'editor.extend-selection-back-sample': playheadInside,
+    'editor.nudge-markers-back': sustainSelected,
+    'editor.nudge-markers-forward': sustainSelected,
+    'editor.nudge-markers-back-sample': sustainSelected,
+    'editor.nudge-markers-forward-sample': sustainSelected,
+    'editor.move-markers-by': inEditor(
+      { arguments: (context) => ({ markers: firstMarker(context, 1), frames: 10 }) },
+      'test:loop',
+    ),
+    'editor.playhead-back-pixel': inEditor({
+      before: (run) => run('editor.set-playhead', { position: 48_000 }),
+    }),
+    'editor.playhead-back-sample': inEditor({
+      before: (run) => run('editor.set-playhead', { position: 48_000 }),
+    }),
+    'editor.playhead-to-start': inEditor({
+      before: (run) => run('editor.set-playhead', { position: 48_000 }),
+    }),
+    'transport.play': { ...inEditor(), settles: true },
+    'picture.open': inEditor({
+      arguments: (context) => ({
+        file: context.chosenFiles.offer(new File([], 'reference.webm')),
+      }),
+    }),
+    'picture.close': inEditor({ before: openPicture }),
+    'picture.bind-to-editor': {
+      before: (run, context) => {
+        openPicture(run, context);
+        openEditor(context, 'test:loop');
+      },
+    },
+    'picture.frame-rate-pal': inEditor({
+      before: (run, context) => {
+        openPicture(run, context);
+        run('picture.frame-rate-film');
+      },
+    }),
+    'picture.align-with-playhead': inEditor({
+      before: (run, context) => {
+        openPicture(run, context);
+        run('editor.set-playhead', { position: 4801 });
+      },
+    }),
   };
+
+  /** The commands that need an editor, a picture or both, whose default scenario opens them. */
+  function defaultScenario(id: string): Scenario {
+    if (id.startsWith('picture.')) return inEditor({ before: openPicture });
+    return id.startsWith('editor.') ? inEditor() : {};
+  }
 
   /** Everything a command can change, as text, without the announcement it makes. */
   function everything(context: ShellContext): string {
     const { announcement: _said, ...interaction } = context.interaction.get();
-    return JSON.stringify({
-      preferences: context.preferences.get(),
-      workspace: { ...context.workspace.get(), revision: 0 },
-      interaction,
-      shortcuts: context.shortcuts.get(),
-      verbosity: context.verbosity.get(),
-      diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
-      logs: context.logs.usage().recordCount,
-      audioSettings: context.audioSettings.get(),
-      planning: context.renderStrategy.get().planning.stage,
-      audio: {
-        starting: context.audio.get().starting,
-        transport: context.audio.get().playback?.transport,
-        render: context.audio.get().render.stage,
+    return JSON.stringify(
+      {
+        preferences: context.preferences.get(),
+        workspace: { ...context.workspace.get(), revision: 0 },
+        interaction,
+        shortcuts: context.shortcuts.get(),
+        verbosity: context.verbosity.get(),
+        diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
+        logs: context.logs.usage().recordCount,
+        audioSettings: context.audioSettings.get(),
+        planning: context.renderStrategy.get().planning.stage,
+        audio: {
+          starting: context.audio.get().starting,
+          transport: context.audio.get().playback?.transport,
+          render: context.audio.get().render.stage,
+          programme: context.playback.programme(),
+        },
+        editorViews: [...context.editorViews.get().views],
+        selections: [...context.selections.get()],
+        content: [...context.content.get()],
+        cues: [...context.cues.get()],
+        picture: context.picture.get(),
       },
-    });
+      (_key, value: unknown) => (value instanceof Set ? [...value] : value),
+    );
   }
 
   /** Each command run twice, once for each of its forms. */
@@ -902,7 +1106,7 @@ describe('finding the shell commands in the palette', () => {
     .map((command) => command.id)
     .filter((id) => !REPEATABLE.has(id))
     .flatMap((id) => {
-      const given = SCENARIOS[id] ?? {};
+      const given = SCENARIOS[id] ?? defaultScenario(id);
       const forms: readonly Scenario[] = Array.isArray(given) ? given : [given];
       return forms.map(
         (scenario) =>

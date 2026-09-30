@@ -17,8 +17,12 @@ import {
   createChordTracker,
   createCommandBus,
   createCommandRegistry,
+  commandId,
+  shortcutOffered,
+  type CommandBus,
   type CommandId,
   type CommandInvocation,
+  type CommandRegistry,
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import {
@@ -40,6 +44,7 @@ import type { KeyboardConvention } from '@audiogubbins/commands';
 import {
   DockRegion,
   PanelKinds,
+  createDockMemory,
   panelsIn,
   type PanelDescriptor,
   type PanelKind,
@@ -53,6 +58,7 @@ import type { ShellContext } from './commands/shell-context.js';
 import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
+import { startEditor, type PanelControls } from './editor-part.js';
 import { createAudioSettingsStore } from './state/audio-settings-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
@@ -172,6 +178,37 @@ function startAudio(
 }
 
 /**
+ * How a panel's control runs a command with what it names, and asks the
+ * command's label, the shortcut written beside it and why it cannot run: as
+ * the menus do, so a panel's control and the menu entry are one action.
+ */
+function panelControls(
+  context: ShellContext,
+  registry: CommandRegistry<ShellContext>,
+  bus: CommandBus<ShellContext>,
+  run: (id: CommandId, args?: CommandInvocation['arguments']) => unknown,
+  convention: KeyboardConvention,
+): PanelControls {
+  return {
+    run: (id, args) => {
+      run(commandId(id), args);
+    },
+    unavailableReason: (id) => {
+      const availability = bus.availability(context, commandId(id));
+      return availability.available ? undefined : availability.reason;
+    },
+    labelFor: (id) => registry.get(commandId(id))?.label ?? id,
+    shortcutFor: (id) =>
+      shortcutOffered(
+        context.shortcuts.get().profile,
+        commandId(id),
+        convention,
+        context.keyboardLayout.get(),
+      ),
+  };
+}
+
+/**
  * Which panels this build has.
  *
  * The workspace validates a stored layout against this, so a layout naming a
@@ -187,6 +224,7 @@ const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
+      [PanelKinds.Picture, 'Picture', DockRegion.Right],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
@@ -265,6 +303,7 @@ export function createApplication() {
   });
 
   const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
+  const editorPart = startEditor(capabilities, storage, diagnostics.loggerFor('editor'), workspace);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -282,6 +321,7 @@ export function createApplication() {
     environment: describeEnvironment(platform),
     clock,
     ...audioPart.parts,
+    ...editorPart.parts,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -308,6 +348,10 @@ export function createApplication() {
   // changed is the one the next key press is matched against, and never a
   // binding the platform takes on the layout as it is known.
   const tracker = createChordTracker(() => context.shortcuts.get().usable);
+  const editorPanels = editorPart.panelParts(
+    context,
+    panelControls(context, registry, bus, run, convention),
+  );
 
   logger.info('AudioGubbins started.', {
     browser: context.environment.browser,
@@ -326,6 +370,8 @@ export function createApplication() {
     rearrange,
     descriptors: PANEL_DESCRIPTORS,
     appearance: watchAppearanceSettings(),
+    editorPanels,
+    dockMemory: createDockMemory(),
 
     /**
      * Stops everything the application put on the page.
@@ -338,6 +384,7 @@ export function createApplication() {
     dispose: () => {
       stopWatching();
       audioPart.dispose();
+      editorPart.dispose();
     },
   };
 }

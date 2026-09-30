@@ -9,7 +9,13 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
-import { BuiltInNodeType, DspImplementation, ResamplingQuality } from '@audiogubbins/audio-engine';
+import {
+  BuiltInNodeType,
+  DspImplementation,
+  ResamplingQuality,
+  toneRecipe,
+  PcmDescriptionKind,
+} from '@audiogubbins/audio-engine';
 import { dspModuleBytes, graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
@@ -21,7 +27,6 @@ import {
   type FromRenderWorker,
   type ToRenderWorker,
 } from './render-messages.js';
-import { SourceKind } from './source-descriptions.js';
 
 const INPUT = expectSuccess(nodeId('in'));
 const OUTPUT = expectSuccess(nodeId('out'));
@@ -49,17 +54,15 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
     sources: [
       {
         node: INPUT,
-        kind: SourceKind.Pcm,
+        kind: PcmDescriptionKind.Pcm,
         sampleRate: CD_RATE,
         channels: [new Float32Array([0.25, -0.5]), new Float32Array([0.125, 1])],
       },
       {
         node: expectSuccess(nodeId('tone')),
-        kind: SourceKind.Tone,
+        kind: PcmDescriptionKind.Signal,
         sampleRate: RATE,
-        frequency: 1_000,
-        amplitude: 0.5,
-        frames: expectSuccess(sampleCount(48_000)),
+        recipe: expectSuccess(toneRecipe(2, 48_000, 1_000, 0.5)),
       },
     ],
     dsp:
@@ -202,8 +205,8 @@ describe('the messages a render worker is sent', () => {
     ['node', { sources: [{ node: 'In Put', kind: 'pcm', sampleRate: 48_000, channels: [] }] }],
     ['channels', { sources: [{ node: 'in', kind: 'pcm', sampleRate: 48_000, channels: [[1]] }] }],
     [
-      'amplitude',
-      { sources: [{ node: 'in', kind: 'tone', sampleRate: 48_000, frequency: 1, frames: 1 }] },
+      'recipe',
+      { sources: [{ node: 'in', kind: 'signal', sampleRate: 48_000, recipe: { length: 1 } }] },
     ],
     ['coefficientBudgetBytes', { coefficientBudgetBytes: -1 }],
     ['coefficientBudgetBytes', { coefficientBudgetBytes: 'plenty' }],

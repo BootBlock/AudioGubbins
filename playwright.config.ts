@@ -140,6 +140,51 @@ export default defineConfig<SuiteOptions>({
       testMatch: /transport\.spec\.ts/,
     },
     {
+      // The editor's timeline: zoom to single samples, snapping, and two views
+      // of one asset (the packet's `test:e2e:timeline`).
+      name: 'chromium-timeline',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /timeline\.spec\.ts/,
+    },
+    {
+      // The editor's renderer losing its WebGL 2 context, where WebGPU gives
+      // no adapter, as it does in the headless shell.
+      name: 'chromium-renderer',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /renderer-loss\.spec\.ts/,
+    },
+    {
+      // The same with WebGPU on a software adapter, in Chromium's own headless
+      // mode, which offers one: no graphics hardware is asked for, so a run
+      // measures the renderer and not the machine.
+      name: 'chromium-renderer-webgpu',
+      use: {
+        ...devices['Desktop Chrome'],
+        channel: 'chromium',
+        launchOptions: { args: ['--enable-unsafe-webgpu', '--use-webgpu-adapter=swiftshader'] },
+      },
+      testMatch: /renderer-webgpu\.spec\.ts/,
+    },
+    {
+      // A browser with WebGL switched off, where the editor draws with Canvas 2D.
+      name: 'chromium-renderer-reduced',
+      use: { ...devices['Desktop Chrome'], launchOptions: { args: ['--disable-webgl'] } },
+      testMatch: /renderer-reduced\.spec\.ts/,
+    },
+    {
+      // Pinch, pan, pen and long press in the editor, sent as the browser's own
+      // touch and pen events through the DevTools protocol, which Chromium has.
+      name: 'chromium-touch-pen',
+      use: { ...devices['Desktop Chrome'], hasTouch: true },
+      testMatch: /touch-pen\.spec\.ts/,
+    },
+    {
+      // Reference picture recorded in the page and kept on the transport.
+      name: 'chromium-video-reference',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /video-reference\.spec\.ts/,
+    },
+    {
       // Accessibility as well as the smoke suite: asserted on Chromium alone,
       // the focus ring, the live regions and the reduced-motion handling would
       // go untested on the two engines whose focus heuristics differ most from

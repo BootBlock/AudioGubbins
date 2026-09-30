@@ -55,7 +55,7 @@ export {
 
 export { type GpuUse, GpuUseKind } from './playback/gpu-use.js';
 
-export { type SourceDescription, SourceKind } from './protocol/source-descriptions.js';
+export { type SourceDescription } from './protocol/source-descriptions.js';
 
 export {
   type RenderRequest,

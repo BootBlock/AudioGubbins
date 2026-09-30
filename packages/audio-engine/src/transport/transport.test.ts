@@ -130,6 +130,23 @@ describe('the transport', () => {
     expect(at(resumed, 248_000)).toBe(88_435);
   });
 
+  it('parks a paused transport where it was heard, and Stop still returns to where the play started', () => {
+    const paused = run([
+      { kind: 'seek', to: frames(300), contextFrame: 0 },
+      play(0, 300),
+      { kind: 'pause', contextFrame: 48_000 },
+    ]);
+    const parked = run([{ kind: 'parked', position: frames(40_000) }], paused);
+    expect(parked).toEqual({ mode: TransportMode.Paused, position: 40_000, origin: 300 });
+    expect(run([{ kind: 'stop' }], parked)).toEqual({ mode: TransportMode.Stopped, position: 300 });
+  });
+
+  it('refuses to park a transport that is not paused', () => {
+    const playing = run([play(0, 0)]);
+    const parked = nextTransportState(playing, { kind: 'parked', position: frames(10) }, CLOCK);
+    expect(expectFailureCode(parked)).toBe('transport.park-while-not-paused');
+  });
+
   it('ignores a halt when not paused, since a seek or a stop has moved it since', () => {
     const stopped = run([play(0, 0), { kind: 'stop' }]);
     expect(run([{ kind: 'halted', position: frames(4_000) }], stopped)).toEqual(stopped);

@@ -721,3 +721,116 @@
 [data-ag-status='unavailable'] {
   color: var(--ag-chrome-status-error);
 }
+
+/*
+ * The Editor panel: its controls in a column above the waveform, which takes
+ * whatever height is left. The surface draws itself on two stacked canvases
+ * the size of the surface; the browser neither pans nor zooms the page under a
+ * finger there, since two fingers pan and pinch the view (REQ-UX-067).
+ */
+.ag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  block-size: 100%;
+}
+
+.ag-editor-toolbars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+}
+
+.ag-editor-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+}
+
+.ag-editor-scope {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-editor-scope-text {
+  color: var(--ag-chrome-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-editor-surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 160px;
+  overflow: hidden;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  touch-action: none;
+  user-select: none;
+}
+
+.ag-editor-canvas {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.ag-editor-scroll {
+  inline-size: 100%;
+  margin: 0;
+}
+
+.ag-editor-assets {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-editor-asset .ag-panel-note {
+  margin-block: var(--ag-space-tiny) 0;
+}
+
+/* The Picture panel: the reference picture as large as the panel allows. */
+.ag-picture-frame {
+  display: flex;
+  justify-content: center;
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+.ag-picture-video {
+  max-inline-size: 100%;
+  max-block-size: 60vh;
+}
+
+.ag-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  margin-block: var(--ag-space-small);
+}
+
+.ag-renderer-attempts {
+  margin: var(--ag-space-tiny) 0 0;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-editor-asset-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ag-editor-readings {
+  margin: 0;
+}
+
+.ag-editor-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

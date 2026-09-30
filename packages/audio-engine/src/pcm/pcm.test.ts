@@ -15,7 +15,8 @@ import { allocateBlock, blockView, frameBlock, type AudioFrameBlock } from './fr
 import { memorySource } from './memory-source.js';
 import { offsetSource, type PcmSource } from './pcm-source.js';
 import { resampledSource } from './resampled-source.js';
-import { toneSource } from './tone-source.js';
+import { toneRecipe } from './signal-recipe.js';
+import { signalSource } from './signal-source.js';
 import { countingDsp } from '../testing/counting-dsp.js';
 
 const RATE: SampleRate = expectSuccess(sampleRate(48_000));
@@ -90,34 +91,26 @@ describe('the memory source', () => {
   });
 });
 
-describe('the tone source', () => {
+describe('a signal source of one tone', () => {
   const settings = {
     layout: StandardLayouts.surround5_1,
     sampleRate: RATE,
-    frequency: 997,
-    amplitude: 0.25,
-    length: frames(9_600),
+    recipe: expectSuccess(toneRecipe(6, 9_600, 997, 0.25)),
   };
 
   it('puts the same tone on every channel of a 5.1 layout, none dropped or reordered', async () => {
-    const channels = await readAll(expectSuccess(toneSource(REFERENCE_DSP, settings)), 512);
+    const channels = await readAll(expectSuccess(signalSource(REFERENCE_DSP, settings)), 512);
     expect(channels).toHaveLength(6);
     for (const channel of channels) expect(channel).toEqual(channels[0]);
     expect(Math.max(...(channels[0] ?? []))).toBeCloseTo(0.25, 4);
   });
 
   it('gives frame n the same bits whether read in order or reached by a seek', async () => {
-    const source = expectSuccess(toneSource(REFERENCE_DSP, settings));
+    const source = expectSuccess(signalSource(REFERENCE_DSP, settings));
     const [inOrder] = await readAll(source, 1_000);
     const block = allocateBlock(settings.layout, RATE, 100);
     await source.read(frames(7_000), block, undefined);
     expect(block.channels[3]).toEqual(inOrder?.subarray(7_000, 7_100));
-  });
-
-  it('refuses an amplitude above full scale', () => {
-    expect(expectFailureCode(toneSource(REFERENCE_DSP, { ...settings, amplitude: 1.5 }))).toBe(
-      'pcm.tone-amplitude-out-of-range',
-    );
   });
 });
 
@@ -176,12 +169,10 @@ describe('releasing a source', () => {
   it('releases what the source made, and only that', async () => {
     const { dsp, held } = countingDsp();
     const tone = expectSuccess(
-      toneSource(dsp, {
+      signalSource(dsp, {
         layout: StandardLayouts.stereo,
         sampleRate: RATE,
-        frequency: 440,
-        amplitude: 0.5,
-        length: frames(4_800),
+        recipe: expectSuccess(toneRecipe(2, 4_800, 440, 0.5)),
       }),
     );
     const converted = expectSuccess(

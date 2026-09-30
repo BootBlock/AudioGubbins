@@ -10,6 +10,8 @@ import {
   PerformanceProfile,
   TransportMode,
   type PcmSource,
+  toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import {
   distinctChannels,
@@ -33,7 +35,7 @@ import {
   type ToProcessor,
 } from '../protocol/processor-messages.js';
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import type { FakeWorkletNode } from '../testing/fake-worklet-node.js';
 import { PlaybackRig, WORKLET_MODULE_URL, settle } from '../testing/playback-rig.js';
 import { GpuUseKind } from './gpu-use.js';
@@ -96,7 +98,7 @@ function sourceSample(channel: number, frame: number): number {
 function recorded(frames = SOURCE_FRAMES, rate = RATE): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Pcm,
+    kind: PcmDescriptionKind.Pcm,
     sampleRate: rate,
     channels: distinctChannels(STEREO, frames),
   };
@@ -106,12 +108,10 @@ function recorded(frames = SOURCE_FRAMES, rate = RATE): SourceDescription {
 function tone(frames: number | undefined, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Tone,
+    kind: PcmDescriptionKind.Signal,
     sampleRate: RATE,
-    frequency: 440,
-    amplitude,
     // A tone as long as the largest count stands for one that never ends here.
-    frames: expectSuccess(sampleCount(frames ?? Number.MAX_SAFE_INTEGER)),
+    recipe: expectSuccess(toneRecipe(2, frames ?? Number.MAX_SAFE_INTEGER, 440, amplitude)),
   };
 }
 
@@ -318,7 +318,7 @@ describe('PlaybackSession', () => {
 
       expectSuccess(await rig.session.load({ graph: halving(), sources: [source] }));
 
-      expect(source.kind === SourceKind.Pcm && source.channels[0]?.length).toBe(0);
+      expect(source.kind === PcmDescriptionKind.Pcm && source.channels[0]?.length).toBe(0);
     });
 
     it('adds the processor module to a context once, and makes the sources once, however often it loads them', async () => {
@@ -427,12 +427,19 @@ describe('PlaybackSession', () => {
     it('refuses a request whose sources the feeder cannot make, with its reason', async () => {
       const rig = new PlaybackRig();
 
-      const refused = await rig.session.load({ graph: halving(), sources: [tone(100, 2)] });
+      // Above half the rate: a pitch the oscillator refuses to alias.
+      const shrill = {
+        node: IN,
+        kind: PcmDescriptionKind.Signal,
+        sampleRate: RATE,
+        recipe: expectSuccess(toneRecipe(2, 100, 30_000, 0.5)),
+      } as const;
+      const refused = await rig.session.load({ graph: halving(), sources: [shrill] });
 
       expect(expectFailureCode(refused)).toBe('playback.sources-refused');
       expect(rig.session.status.phase).toBe(PlaybackPhase.Refused);
       expect(rig.session.status.problems).toEqual([
-        'A test tone peaks between silence and full scale.',
+        'An oscillator frequency must be above zero and at most half the sample rate.',
       ]);
       expect(rig.current.nodes).toEqual([]);
     });
@@ -735,6 +742,40 @@ describe('PlaybackSession', () => {
 
       expect(rig.position()).toBe(6_000 + 3 * QUANTUM);
       expect(firstMismatch(played(rig.node, startedAt, 3 * QUANTUM), 6_000)).toBe(-1);
+    });
+
+    it('parks a pause where it was heard, plays afresh from there, and stops where the play began', async () => {
+      const rig = await playing();
+      await rig.render(9);
+      expectSuccess(rig.session.pause());
+      await settle();
+
+      expectSuccess(rig.session.park(frames(6 * QUANTUM)));
+      expect(rig.session.status.transport).toEqual({
+        mode: TransportMode.Paused,
+        position: 6 * QUANTUM,
+        origin: 0,
+      });
+      expectSuccess(await rig.session.play());
+      const startedAt = rig.frame;
+      await rig.render(3);
+      expect(firstMismatch(played(rig.node, startedAt, 3 * QUANTUM), 6 * QUANTUM)).toBe(-1);
+
+      expectSuccess(rig.session.stop());
+      await settle();
+      expect(rig.session.status.transport).toEqual({ mode: TransportMode.Stopped, position: 0 });
+    });
+
+    it('refuses to park a transport that is not paused, and leaves the run alone', async () => {
+      const rig = await playing();
+      await rig.render(4);
+      const sent = kindsSent(rig.node).length;
+
+      expect(expectFailureCode(rig.session.park(frames(QUANTUM)))).toBe(
+        'transport.park-while-not-paused',
+      );
+      expect(rig.session.status.transport.mode).toBe(TransportMode.Playing);
+      expect(kindsSent(rig.node)).toHaveLength(sent);
     });
 
     it('seeks while stopped without starting anything', async () => {

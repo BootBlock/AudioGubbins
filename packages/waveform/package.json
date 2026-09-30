@@ -1,0 +1,32 @@
+{
+  "name": "@audiogubbins/waveform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Waveform peaks: the multi-resolution pyramid, its worker, its disposable cache and the column reads a view draws from.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./threads/*": "./src/threads/*"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project waveform"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-engine": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

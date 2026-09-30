@@ -32,8 +32,10 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import { RenderDecision, rendering, type RenderStart } from '../audio/render-control.js';
+import { TEST_SIGNAL_PROGRAMME } from '../audio/test-signal.js';
 import type { Reasons } from '../state/reasons.js';
 import { awaitingDecision } from '../state/render-strategy-store.js';
+import { parkHeld } from './editor-target.js';
 import { report, shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -71,7 +73,7 @@ function missing(context: ShellContext, requirement: FeatureRequirement): string
 }
 
 /** Available where `requirement` can run and `problem` finds nothing in the way. */
-function needing(
+export function needing(
   requirement: FeatureRequirement,
   problem: (context: ShellContext) => string | undefined,
 ): (context: ShellContext) => CommandAvailability {
@@ -82,7 +84,7 @@ function needing(
 }
 
 /** What the transport is doing, where a session has said. */
-function modeOf(context: ShellContext): TransportMode | undefined {
+export function modeOf(context: ShellContext): TransportMode | undefined {
   return context.audio.get().playback?.transport.mode;
 }
 
@@ -96,15 +98,16 @@ function playCommand(): Command<ShellContext> {
     (context) => {
       // Said by the playback once the audio is heard, or its reason if it is
       // not: the context, the module and the graph are still on their way.
-      context.playback.play();
+      context.playback.play(TEST_SIGNAL_PROGRAMME);
     },
     {
       keywords: ['play', 'start', 'tone', 'test', 'sine', 'listen'],
       description:
         'Plays a 440 Hz test tone through the audio engine and its processing graph. Nothing plays until you ask.',
       availability: needing(AUDIO_PLAYBACK, (context) => {
-        if (context.audio.get().starting) return 'The test signal is starting.';
-        return modeOf(context) === TransportMode.Playing
+        if (context.audio.get().starting) return 'Playback is starting.';
+        return modeOf(context) === TransportMode.Playing &&
+          context.playback.programme() === TEST_SIGNAL_PROGRAMME.key
           ? 'The test signal is already playing.'
           : undefined;
       }),
@@ -117,7 +120,12 @@ function pauseCommand(): Command<ShellContext> {
     'transport.pause',
     'Pause',
     CommandCategory.Transport,
-    (context) => report(context, context.playback.pause(), 'Playback is paused.'),
+    (context) => {
+      const refused = context.playback.pause();
+      // Kept for the asset, so its views and its next Play find it there.
+      if (refused === undefined) parkHeld(context);
+      return report(context, refused, 'Playback is paused.');
+    },
     {
       keywords: ['pause', 'hold', 'transport'],
       availability: needing(AUDIO_PLAYBACK, (context) => {
@@ -135,7 +143,11 @@ function stopCommand(): Command<ShellContext> {
     'transport.stop',
     'Stop',
     CommandCategory.Transport,
-    (context) => report(context, context.playback.stop(), 'Playback is stopped.'),
+    (context) => {
+      const refused = context.playback.stop();
+      if (refused === undefined) parkHeld(context);
+      return report(context, refused, 'Playback is stopped.');
+    },
     {
       keywords: ['stop', 'halt', 'transport'],
       description: 'Stops playback and returns to where it last started.',

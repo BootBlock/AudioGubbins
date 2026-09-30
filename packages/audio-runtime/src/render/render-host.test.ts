@@ -23,6 +23,7 @@ import {
   type PriorityScheduler,
   type RenderProgress,
   type RenderSink,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import { graphOf, nodeOf, wire } from '@audiogubbins/audio-engine/testing';
 
@@ -32,7 +33,6 @@ import {
   ToRenderWorkerKind,
   type FromRenderWorker,
 } from '../protocol/render-messages.js';
-import { SourceKind } from '../protocol/source-descriptions.js';
 import { createRenderHost, type RenderHost } from './render-host.js';
 import type { RenderRequest, WorkerRenderSummary } from './render-request.js';
 import { FakeRenderWorker } from '../testing/fake-render-worker.js';
@@ -113,7 +113,9 @@ function request(channels: readonly Float32Array[] = []): RenderRequest {
     chunkFrames: 2,
     quality: MAXIMUM_RENDER_QUALITY,
     sources:
-      channels.length === 0 ? [] : [{ node: IN, kind: SourceKind.Pcm, sampleRate: RATE, channels }],
+      channels.length === 0
+        ? []
+        : [{ node: IN, kind: PcmDescriptionKind.Pcm, sampleRate: RATE, channels }],
   };
 }
 

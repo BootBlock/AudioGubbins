@@ -10,16 +10,27 @@
  * directly would bypass the token system and the accessibility wrappers, and
  * would produce a control that looks right until the theme changes.
  *
- * What is exported is what a consumer uses, the types a used export's
- * signature names, and the primitives WU-01.B requires whether or not a
- * consumer has arrived: the menu, dialogue, popover and toolbar parts. The
- * colour mathematics and the builders the theme is made from are the package's
- * own workings, used through `resolveTheme`, and are not offered past it. One
- * conversion is: `oklchToHex`, which the page's pre-paint colours are checked
- * against, so the check reads the theme's own arithmetic.
+ * What is exported is what a consumer uses, the types a used export's signature
+ * names, and the primitives WU-01.B requires whether or not a consumer has
+ * arrived: the menu, dialogue, popover and toolbar parts. The colour
+ * mathematics and the builders the theme is made from are the package's own
+ * workings, used through `resolveTheme`, and are not offered past it. Two
+ * conversions are: `oklchToHex`, which the page's pre-paint colours are checked
+ * against, so the check reads the theme's own arithmetic, and `oklchToSrgb`,
+ * which gives the editor's renderer the theme's colours as the channels it
+ * draws with.
  */
 
-export { type Oklch, type ContrastShortfall, oklchToHex } from './tokens/colour.js';
+export {
+  type Oklch,
+  type ContrastShortfall,
+  ContrastRequirement,
+  type Srgb,
+  contrastRatio,
+  oklchToHex,
+  oklchToSrgb,
+  srgbToOklch,
+} from './tokens/colour.js';
 
 export {
   ACCENT_HUES,
@@ -78,6 +89,7 @@ export { Button, type ButtonProps, ButtonTone } from './primitives/button.js';
 // explanation a later panel attaches to one of its controls.
 export {
   ContextActions,
+  type ContextActionsOpener,
   type ContextMenuProps,
   HintProvider,
   InfoPopover,

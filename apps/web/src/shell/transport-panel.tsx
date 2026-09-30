@@ -15,6 +15,8 @@ import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
+import { sampleRate } from '@audiogubbins/domain';
+import { TimeFormatKind, formatPosition } from '@audiogubbins/timeline';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import { TEST_SIGNAL } from '../audio/test-signal.js';
@@ -22,13 +24,7 @@ import type { AudioSettings } from '../state/audio-settings-store.js';
 import { RenderStage, type AudioView, type RenderResult } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
-import {
-  durationText,
-  dspText,
-  fingerprintText,
-  framesText,
-  positionText,
-} from '../audio-format.js';
+import { durationText, dspText, fingerprintText, framesText } from '../audio-format.js';
 import {
   AudioDegradations,
   EngineState,
@@ -57,6 +53,11 @@ export interface TransportPanelProps {
   readonly run: (id: string) => void;
   /** Why a command cannot run now, or `undefined`, as the menus say it. */
   readonly unavailableReason: (id: string) => string | undefined;
+  /**
+   * The editor views, which Play reads: it plays the asset of the editor in
+   * use, so the button is drawn again as that changes.
+   */
+  readonly editorViews: Observable<unknown>;
 }
 
 type Commands = Pick<TransportPanelProps, 'run' | 'unavailableReason'>;
@@ -88,6 +89,14 @@ function CommandButton({
   );
 }
 
+/** A transport position as the editor writes a clock, or the start where nothing plays. */
+function positionOf(frame: number | undefined, rate: number | undefined): string {
+  const read = rate === undefined ? undefined : sampleRate(rate);
+  return frame === undefined || read?.ok !== true
+    ? '0:00.000'
+    : formatPosition(frame, read.value, { kind: TimeFormatKind.Clock });
+}
+
 /** Play, Pause and Stop, and where playback is. */
 function TransportControls({
   view,
@@ -104,9 +113,14 @@ function TransportControls({
   return (
     <div className="ag-transport-controls" role="group" aria-label="Transport">
       <CommandButton
-        id="transport.play-test-signal"
+        id="transport.play"
         label="Play"
         tone={ButtonTone.Primary}
+        commands={commands}
+      />
+      <CommandButton
+        id="transport.play-test-signal"
+        label="Play the test signal"
         commands={commands}
       />
       <CommandButton id="transport.pause" label="Pause" commands={commands} />
@@ -118,7 +132,7 @@ function TransportControls({
         {/* A timer, whose changes a screen reader does not read out as they
             come, as a status would be every frame; it is read when reached. */}
         <span role="timer" aria-label="Position">
-          {frame === undefined || rate === undefined ? '0:00.000' : positionText(frame, rate)}
+          {positionOf(frame, rate)}
         </span>
       </span>
       {view.starting && <span className="ag-panel-note">Starting…</span>}
@@ -218,13 +232,14 @@ function Levels({
 export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead, meters } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
+  useSyncExternalStore(props.editorViews.subscribe, props.editorViews.get);
   const { chosen } = useSyncExternalStore(props.audioSettings.subscribe, props.audioSettings.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (
     <section className="ag-panel ag-transport">
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-panel-note">
-        {`A ${String(TEST_SIGNAL.frequency)} Hz test tone through the audio engine and its processing graph.`}
+        {`Play plays the asset in the editor in use, at its own rate. The test signal is a ${String(TEST_SIGNAL.frequency)} Hz tone through the audio engine and its processing graph.`}
       </p>
       <TransportControls view={view} playhead={playhead} commands={props} />
       <PlaybackProblems problems={problems} />

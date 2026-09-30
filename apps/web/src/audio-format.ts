@@ -22,15 +22,6 @@ export function framesText(frames: number): string {
   return WHOLE.format(frames);
 }
 
-/** A timeline position as minutes, seconds and milliseconds: `1:05.250`. */
-export function positionText(frames: number, sampleRate: number): string {
-  const milliseconds = Math.floor((frames * 1000) / sampleRate);
-  const minutes = Math.floor(milliseconds / 60_000);
-  const seconds = Math.floor((milliseconds % 60_000) / 1000);
-  const rest = milliseconds % 1000;
-  return `${String(minutes)}:${String(seconds).padStart(2, '0')}.${String(rest).padStart(3, '0')}`;
-}
-
 /** A latency given in frames at `sampleRate`: `10.7 ms (512 frames)`. */
 export function latencyFramesText(frames: number, sampleRate: number): string {
   return `${TENTHS.format((frames * 1000) / sampleRate)} ms (${framesText(frames)} frames)`;

@@ -119,7 +119,7 @@ describe('running the audio commands', () => {
     expect(reason(bus, context, 'transport.stop')).toBe('Nothing is playing.');
 
     expect(run('transport.play-test-signal').kind).toBe('applied');
-    expect(reason(bus, context, 'transport.play-test-signal')).toBe('The test signal is starting.');
+    expect(reason(bus, context, 'transport.play-test-signal')).toBe('Playback is starting.');
     await playbackSettled(context.audio);
 
     expect(playback.latest().status.transport.mode).toBe(TransportMode.Playing);

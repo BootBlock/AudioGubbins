@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleCount, sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
@@ -9,6 +9,8 @@ import {
   REFERENCE_DSP,
   allocateBlock,
   type PcmSource,
+  toneRecipe,
+  PcmDescriptionKind,
 } from '@audiogubbins/audio-engine';
 import {
   countingDsp,
@@ -35,7 +37,7 @@ import {
   type ToProcessorFeed,
 } from '../protocol/feed-messages.js';
 import { FeedTransport } from '../protocol/processor-messages.js';
-import { SourceKind, type SourceDescription } from '../protocol/source-descriptions.js';
+import type { SourceDescription } from '../protocol/source-descriptions.js';
 import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import { FakeSchedule, settle } from '../testing/playback-rig.js';
 import { FeederCore } from './feeder-core.js';
@@ -55,18 +57,16 @@ const GRAPH = graphOf(
 function tone(frames: number, amplitude = 0.5): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Tone,
+    kind: PcmDescriptionKind.Signal,
     sampleRate: RATE,
-    frequency: 440,
-    amplitude,
-    frames: expectSuccess(sampleCount(frames)),
+    recipe: expectSuccess(toneRecipe(2, frames, 440, amplitude)),
   };
 }
 
 function recorded(frames: number): SourceDescription {
   return {
     node: IN,
-    kind: SourceKind.Pcm,
+    kind: PcmDescriptionKind.Pcm,
     sampleRate: RATE,
     channels: [new Float32Array(frames).fill(0.25), new Float32Array(frames).fill(-0.25)],
   };
@@ -177,7 +177,15 @@ describe('the feeder', () => {
   it('refuses sources it cannot make, with each failure’s code and summary', () => {
     const { core, said } = feeder();
 
-    core.receive(sources(1, tone(480, 2)));
+    // Above half the rate: a pitch the oscillator refuses to alias.
+    core.receive(
+      sources(1, {
+        node: IN,
+        kind: PcmDescriptionKind.Signal,
+        sampleRate: RATE,
+        recipe: expectSuccess(toneRecipe(2, 480, 30_000, 0.5)),
+      }),
+    );
 
     expect(said).toEqual([
       {
@@ -185,8 +193,8 @@ describe('the feeder', () => {
         request: 1,
         failures: [
           {
-            code: 'pcm.tone-amplitude-out-of-range',
-            summary: 'A test tone peaks between silence and full scale.',
+            code: 'dsp.oscillator-frequency-out-of-range',
+            summary: 'An oscillator frequency must be above zero and at most half the sample rate.',
           },
         ],
       },

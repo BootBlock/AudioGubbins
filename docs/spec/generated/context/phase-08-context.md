@@ -1085,6 +1085,79 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-ARCH-157`; affected phases 01 (whose module this extends) and 03; compatibility impact none, because nothing stores a layout yet; verification by the domain's channel-layout tests and the engine's N-channel tests.
 - **Related requirements:** `REQ-ARCH-157`, `REQ-EXEC-216`, `REQ-STOR-052`.
 
+<!-- adr/ADR-0040-editor-package-topology.md -->
+
+# ADR-0040 — The Editor Foundation Is Five Packages, With The Selection Model Moved Into The Timeline
+
+- **Status:** Accepted
+- **Decision:** Phase 04's TypeScript is five packages, each with one responsibility and one direction between them.
+  - `packages/timeline` (`@audiogubbins/timeline`) is the time axis as values: zoom, the viewport and its exact conversions between CSS pixels and sample boundaries, time formats and timecode, ruler and grid ticks, the selection set with its command-target precedence, and snapping. It depends on `packages/domain` alone, knows no thread or browser, and is portable (`ADR-0030`).
+  - `packages/waveform` (`@audiogubbins/waveform`) is the multi-resolution peak pyramid: its generation over a `PcmSource`, its progressive assembly, its query per display column, its disposable cache format, the zero-crossing search, the peak worker's protocol and thread entry, and the main-thread host that shares one pyramid per source among every view. It depends on `packages/domain` and `packages/audio-engine`, and its worker compiles in the dedicated-worker scope.
+  - `packages/renderer` (`@audiogubbins/renderer`) is the renderer contract and its backends: the render frame as a value, WebGPU, WebGL2 and Canvas 2D backends, the choice between them, device and context loss recovery, and the renderer's capability report. It depends on `packages/domain` for its results, with the WebGPU type definitions (`@webgpu/types`, BSD-3-Clause, published by the W3C GPU for the Web group) beside the DOM's, and is compiled with the browser's type definitions.
+  - `packages/editor-view` (`@audiogubbins/editor-view`) is one editor view as values: its presentation state, lane layout, tools and their pointer interpretation, hit testing, snap candidates, and the composition of a render frame from view state, content and peaks. It depends on `packages/domain`, `packages/input`, `packages/timeline`, `packages/waveform` and `packages/renderer`, imports no UI framework and reads no browser global.
+  - `packages/video-reference` (`@audiogubbins/video-reference`) is picture as reference media: the binding of a picture's time to the shared media clock, frame arithmetic at a chosen frame-rate interpretation, offset calibration, and the synchronisation policy. It depends on `packages/domain` and `packages/timeline`, and is portable. The video element, the file and the panel belong to the application.
+- **Selection:** `packages/domain/src/selection` held a single-kind selection that no consumer used. `REQ-EDIT-063` requires time, spectral, channel and object selections to be modelled apart, with a documented precedence, so the selection model moves to `packages/timeline` as a selection set (`ADR-0042`) and the domain's copy is removed, keeping one authoritative home (`REQ-EXEC-136.11`).
+- **Renderer:** AudioGubbins draws with its own three backends rather than PixiJS, which `ADR-0004` permits but does not require. The editor draws rectangles, segments, text and images in clipped layers, a set small enough to own; PixiJS 8 would have to be wrapped rather than used to keep the contract AudioGubbins's, and its loss recovery and Canvas 2D path would not be ours to hold to the recovery rule (`ADR-0044`).
+- **Drivers:** `REQ-EXEC-136.3` cohesive boundaries; the packet's owned modules; `REQ-AUDIO-152`'s renderer contract owned by AudioGubbins; `REQ-ARCH-037`'s off-thread peak generation; the working agreement's rule of one responsibility per module.
+- **Constraints:** the renderer holds no authoritative state: the view composes a whole frame from state each time, so a lost device is recovered by drawing the next frame (`REQ-AUDIO-152`). Only `packages/capabilities` reads browser globals; the renderer and the video adapter are handed the objects they use. Video never enters the audio edit domain (`REQ-AUDIO-156`).
+- **Change record:** affected requirements `REQ-EDIT-063`, `REQ-EXEC-136.11`, `REQ-AUDIO-152`; affected phases 01 (whose selection value moves) and 04; compatibility impact none, because nothing persisted or consumed the domain selection; verification by the dependency rules, the dependency cruise, the scope projects and each package's suite.
+- **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-013`, `REQ-EDIT-061` to `REQ-EDIT-065`, `REQ-ARCH-037`, `REQ-AUDIO-082`, `REQ-AUDIO-152`, `REQ-AUDIO-156`, `REQ-EXEC-136`, `REQ-EXEC-184`.
+
+<!-- adr/ADR-0041-timeline-coordinates.md -->
+
+# ADR-0041 — Timeline Coordinates Are Integer Sample Boundaries Under An Integer Zoom
+
+- **Status:** Accepted
+- **Decision:** A position on the editor's timeline is a sample boundary, a `SampleCount`, never a pixel or a second; the domain's `SampleCount` is the packet's `TimelineCoordinate`/`SamplePosition`, so no second type names the same value. Zoom is one of two integers: whole samples per CSS pixel (one or more), or whole CSS pixels per sample (two or more), so every conversion is exact integer arithmetic. A viewport is the boundary at its left edge, a whole number of pixels into that sample when a sample is wider than a pixel, the zoom and the width. Scrolling moves the left edge by a count computed afresh from the pixel distance, rounded half away from zero, so a scroll and its reverse cancel exactly; zooming keeps the boundary under the anchor pixel exactly where it was, and at a zoom of samples per pixel a zoom and its reverse return the same left edge. A pointer position is converted once, to the nearest boundary or to the sample under it, and nothing converts back and forth.
+- **Drivers:** the packet requires sample coordinates that are integer-safe and not derived from lossy pixel floats, and no drift over huge zoom and scroll ranges; `REQ-EDIT-012` requires movement down to individual samples; `REQ-PROD-160` keeps sample and time coordinates as the source of truth under any later musical mapping.
+- **Constraints:** positions stay below 2^53, the domain's bound, and the largest zoom keeps every product of pixels and samples per pixel exact. Device pixels are a drawing concern: the frame composer divides CSS pixels by the pixel ratio when it chooses columns, and no coordinate depends on it. Seconds, milliseconds and timecode are formats of a boundary, computed with integer division at an explicit rate.
+- **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-013`, `REQ-PROD-160`; affected phase 04; compatibility impact none; verification by the timeline's round-trip and far-position tests.
+- **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-013`, `REQ-PROD-160`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0042-selection-set.md -->
+
+# ADR-0042 — The Selection Is A Set Of Explicit Facets, And The Active Facet Decides A Command's Target
+
+- **Status:** Accepted
+- **Decision:** A selection set holds, each optional and each kept until it is cleared or made invalid: a time range, a spectral selection (a time range, a frequency band and a rectangle or lasso shape), an object selection (markers, regions, clips, tracks, assets or processors, one kind at a time), and a channel scope. The set records the order the facets were made in, and the one made last is active; when it is cleared, the one made before it becomes active, which is the person's own earlier choice rather than a guess. A command states the target kinds it accepts and what it does when nothing is selected, and resolution is deterministic: the active facet is the target when the command accepts it; when it does not, the command is refused with the reason, and never falls back to another facet; with nothing active, the command either takes the whole asset or refuses, as it declared. The channel scope narrows a time, spectral or whole-asset target and never an object one. A selection is kept per asset, shared by every view of the asset, changed only through the selection commands, and reconciled when content changes: a range is clipped to the asset, channels beyond its layout are dropped, and objects that no longer exist are removed.
+- **Drivers:** `REQ-EDIT-063` forbids collapsing selection into one ambiguous concept and silently guessing between targets; `REQ-EDIT-064` keeps a selection across tools, zoom, scroll and views; `REQ-EDIT-012` applies processing to the whole asset or region when nothing is selected; `REQ-EDIT-065` requires tools and contextual input to act through the same commands.
+- **Constraints:** the resolved target carries a description the interface shows as the active selection scope, and a view can tell whether the target lies outside what it shows, so a command with a surprising consequence can indicate or confirm it (`REQ-EDIT-064`). Spectral rendering and spectral tools belong to Phase 08; the facet exists so that their commands have a target. Nothing here is persisted.
+- **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-065`; affected phases 01 (whose domain selection this replaces, `ADR-0040`) and 04; compatibility impact none; verification by the timeline's selection and precedence tests.
+- **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-063`, `REQ-EDIT-064`, `REQ-EDIT-065`, `REQ-EXEC-136.11`.
+
+<!-- adr/ADR-0043-peak-pyramid.md -->
+
+# ADR-0043 — Waveform Peaks Are A Quantised Pyramid Made Off The UI Thread And Kept As A Disposable Cache
+
+- **Status:** Accepted
+- **Decision:** A source's peaks are a pyramid of levels per channel. Level zero summarises 256 frames per bucket and each level above it four buckets of the one below. A bucket holds its minimum and maximum, rounded outward to a 16-bit step over ±4 full scale so the envelope never shrinks, its root mean square to the same step, and whether any sample in it reached full scale or was not finite. A worker makes the pyramid by reading the source in chunks of 65,536 frames, nearest first to the range a view shows, and sends the runs of buckets it finishes to the page in batches at most once a display frame, merged where they touch, so a view draws what is known and marks what is not. A view below 256 frames per device pixel asks the worker for a window of detail buckets of 16 frames each, summarised by the same rule, and below 16 frames per device pixel for the samples themselves, so no column reads more than sixteen values a frame. A window spans the view and one view's width either side, asked for before the view reaches its edge, and is bounded by the widest view it is sized for; a view never asks again for a window it holds, and one it no longer needs is cancelled in the worker, which answers requests one at a time and reads no more of a cancelled one. When the pyramid is whole the worker encodes it (a header naming the format version, the source identity and revision, the rate, length, channel count and bucket geometry, then the levels, then a checksum) and the page keeps the bytes in a cache store keyed by the source's identity and revision. The worker checks a cache before it is used, and one that is missing, stale, torn or of another format is made again, which changes nothing in the project.
+- **Drivers:** `REQ-ARCH-037` (precomputed multi-resolution peaks, progressive and background generation, cache persistence and regeneration); the packet's forbidden shortcut of waveform generation on the main thread and its acceptance criterion that large assets scroll and zoom without rebuilding peaks from raw PCM per frame; `REQ-ARCH-157` N channels; `REQ-EXEC-216`, a source that does not fit in memory.
+- **Constraints:** one pyramid per source identity and revision is shared by every view, and lives as long as a view in the view store shows its source, not as long as a component, so a view mounted again keeps a pyramid half made. The cache is derived data (`REQ-STOR-106`) and never the sole copy of anything. The cache store is a port: the application keeps the bytes in IndexedDB under its own database until Phase 02's cache store is on the branch, whose waveform category then implements it.
+- **Change record:** affected requirements `REQ-ARCH-037`, `REQ-ARCH-157`; affected phase 04; compatibility impact none, because the format is new and disposable; verification by the pyramid, codec and host tests and the timeline browser suite.
+- **Related requirements:** `REQ-ARCH-037`, `REQ-AUDIO-152`, `REQ-ARCH-157`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0045-signal-recipes.md -->
+
+# ADR-0045 — Generated Audio Crosses A Thread As A Signal Recipe, Which Replaces The Tone Description
+
+- **Status:** Accepted
+- **Decision:** `packages/audio-engine` gains the signal recipe: per channel, an ordered list of segments, each silence, an impulse or a tone from the canonical oscillator at a frequency and a peak, over a stated length. A recipe is validated by one function, where it is made and where it is read from a message. A recipe source makes any frame on demand, at a cost that does not grow with its position, so an asset of hours is described in a few hundred bytes and never held. `packages/audio-runtime`'s source description replaces its tone kind with a signal kind that carries a recipe; the test signal is a recipe of one tone on each channel and renders to the same bits, and the engine's tone source, which the signal source supersedes, is removed. The application's deterministic test assets are recipes, played by the feeder worker, rendered by the render worker and summarised by the peak worker, each making the same frames.
+- **Drivers:** the packet's user-visible outcome of opening deterministic test assets, and its acceptance criterion on large assets; `REQ-EXEC-216`, which forbids assuming a file fits in memory; `ADR-0030`, which keeps sources in the engine; one description of generated audio rather than two.
+- **Constraints:** a tone segment's oscillator starts at phase zero at the segment's first frame, so a frame's bits do not depend on how it was reached. Recipes are bounded in segments and channels when read, so a message cannot ask a worker for unbounded work.
+- **Change record:** affected requirements `REQ-ARCH-157`, `REQ-EXEC-216`; affected phases 03 (whose tone description this generalises) and 04; compatibility impact none, because a description is never persisted, and the test signal's golden render is unchanged; verification by the recipe source's tests, the unchanged golden render and the runtime's protocol tests.
+- **Related requirements:** `REQ-ARCH-157`, `REQ-EXEC-216`, `REQ-ARCH-081`.
+
+<!-- adr/ADR-0047-session-annotations.md -->
+
+# ADR-0047 — Phase 04's Markers Are Held Per Asset For The Session Until A Project Holds Them
+
+- **Status:** Accepted
+- **Decision:** An asset opened in an editor view carries its own markers and regions for the session, as the domain's `Marker` and `Region` values at the asset's own frames. Markers are added, moved and removed only by typed commands that each give their inverse, and every view of the asset shows the change. Regions are shown and snapped to, and are made only by a test asset that defines them, because making and editing regions is Phase 05's (`REQ-EDIT-014`). The session holds this content in memory and the interface says so, because persisting a project is Phase 02's.
+- **Drivers:** `REQ-EDIT-012` (markers, named regions and loop boundaries in the editor), `REQ-EDIT-061` (a change to content propagates to every view), `REQ-AUDIO-156` (picture-aligned markers), and the absence of a persisted project on the branch Phase 04 starts from.
+- **Constraints:** this is temporary by `REQ-EXEC-181`'s rule, with a stated removal boundary: when Phase 02's project session is on the branch, the markers and regions move into the project, these commands become project commands with the same inverses, and the in-memory holder is removed. No persisted format is introduced for them.
+- **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-061`; affected phases 02, 04 and 05; compatibility impact none; verification by the marker command tests and the multi-view browser test.
+- **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-AUDIO-156`, `REQ-EXEC-181`.
+
 # Passed Dependency Handoffs
 
 <!-- traceability/handoffs/phase-03.md -->
@@ -1232,6 +1305,185 @@ Only items explicitly authorised by the specification:
 
 - Phase 04 — Waveform and Timeline Foundation is `READY`.
 - Phase 05 still waits on Phases 02 and 04, and Phase 06 on Phase 05.
+
+<!-- traceability/handoffs/phase-04.md -->
+
+# Phase Handoff Capsule — Phase 04
+
+## Capability Delivered
+
+AudioGubbins has a sample-accurate editor foundation. A person opens a
+deterministic test asset into one or more Editor panels, each with its own
+zoom, scroll, display mode, tool and channels, and zooms from the whole asset
+down to individual samples. The views share the asset's selection, markers and
+playhead. Peaks are built progressively in a worker into a multi-resolution
+pyramid, kept in a disposable IndexedDB cache, and drawn by a renderer that
+takes WebGPU where a device passes a validation draw, with WebGL2 and Canvas 2D
+behind it, and recovers from a lost context or device by drawing the next
+frame. A selection set models time, channel, object and spectral selection
+apart, with a precedence that names a command's target or refuses it with the
+reason. Snapping, the hybrid tools with pointer, pen, touch and keyboard input,
+and a Picture panel that follows the media clock within one frame while
+playing and exactly while parked complete it.
+
+## Requirements Satisfied
+
+Each owned requirement is mapped to its implementation and its evidence in
+`reviews/phase-04-evidence.md`, under "Requirement-to-evidence mapping".
+`REQ-PROD-160` is deferred by the specification, and parts of `REQ-EDIT-065`
+and `REQ-EDIT-062` come with later phases, as recorded below.
+
+- `REQ-EDIT-012`
+- `REQ-EDIT-013`
+- `REQ-ARCH-037`
+- `REQ-EDIT-061`
+- `REQ-EDIT-062`
+- `REQ-EDIT-063`
+- `REQ-EDIT-064`
+- `REQ-EDIT-065`
+- `REQ-AUDIO-082`
+- `REQ-AUDIO-152`
+- `REQ-AUDIO-156`
+
+## Public Contracts Introduced or Changed
+
+Every entry point's exported names and members are recorded in
+`tests/architecture/public-contracts.txt`, which
+`tests/architecture/public-contracts.test.ts` holds to the code. The evidence
+maps the packet's contract names to them.
+
+- `@audiogubbins/timeline`: zoom, `ViewportState` and its exact conversions,
+  frame rates, timecode, time formats, the ruler, `SelectionSet` with
+  `resolveTarget`, `describeTarget` and `targetOutside`, and snapping with
+  `SnapTarget` and `SnapResult`. A position is the domain's `SampleCount`, a
+  sample boundary (`ADR-0041`).
+- `@audiogubbins/waveform`: `WaveformPeakPyramid`, its builder, codec, column
+  query, detail buckets and zero crossings, the peak worker's protocol and
+  thread entry, and the host that shares one pyramid per source.
+- `@audiogubbins/renderer`: the render frame as a value, `RendererBackend`,
+  the WebGPU, WebGL2 and Canvas 2D backends made with an injected schedule,
+  the renderer with its report, and a surface that tells it of an overlay's
+  loss and restoration.
+- `@audiogubbins/editor-view`: `EditorViewState`, lane layout, tools as
+  intents, hit testing, snap candidates, `FrameComposer`, and `./testing` for
+  other packages' tests.
+- `@audiogubbins/video-reference`: `ReferenceMediaClockBinding`, frame
+  arithmetic, calibration, timecode and `pictureCorrection`.
+- `@audiogubbins/audio-engine` and `@audiogubbins/audio-runtime`: the signal
+  recipe and its source replace the tone description (`ADR-0045`), and one
+  `PcmDescription` is shared by the feeder, the render worker and the peak
+  worker.
+- `@audiogubbins/capabilities`: the graphics platform, and the frame callback,
+  full screen and IndexedDB as capabilities.
+- `@audiogubbins/commands`: a command may be marked as changing only the
+  appearance, which lets it run while a modal dialogue is open.
+- `@audiogubbins/design-system`: `ContextActions` takes an opener that opens it
+  at a point, and contrast measurement (`contrastRatio`).
+- `@audiogubbins/domain`: its unused single-kind selection is removed; the
+  selection set replaces it (`ADR-0040`).
+
+## Persisted / Interchange Formats
+
+- The application's editor views, schema `editorViews` version 1 under
+  `audiogubbins.editor-views`, each field read back on its own so a damaged
+  field falls back alone.
+- The peak cache in IndexedDB is disposable: each entry names its format
+  version, its source's identity and its revision, and an entry that does not
+  match is built again. A write resolves only when its transaction commits.
+- Markers and regions are held for the session only (`ADR-0047`). Nothing in a
+  project changes.
+
+## Invariants Downstream Agents Must Preserve
+
+- The five packages keep the directions of `ADR-0040`: the timeline depends on
+  the domain alone, and the editor view imports no UI framework. Only
+  `packages/capabilities` reads browser globals. The renderer reads none, and
+  an ESLint rule holds it to that.
+- A position is a sample boundary, and zoom is whole samples per pixel or whole
+  pixels per sample, so every conversion is exact at any position
+  (`ADR-0041`).
+- A command's target comes from the selection set's precedence, never from a
+  single facet read directly, and a command that cannot resolve one refuses
+  with the reason (`ADR-0042`).
+- The page never builds peaks. The worker builds them, and the host keeps a
+  pyramid while any view shows its asset (`peak-messages.test.ts`,
+  `shown-peaks.test.ts`). Every request to the worker can be cancelled.
+- The renderer holds no authoritative state: each frame is composed whole from
+  the stores, so a lost device is recovered by the next frame. A frame is
+  composed again only when a value it is drawn from has changed.
+- A draw a backend cannot make is reported, and the next backend takes over.
+  Recovery is counted only once the latest frame is drawn again.
+- Text the editor draws meets 4.5:1 against what is drawn under it, in both
+  themes, both contrasts, every accent and every brightness
+  (`theme-palette.test.ts`).
+- Mutations of authoritative state go through commands. Every tool acts
+  through them, and the keyboard reaches every tool's action.
+- A text field keeps its editing keys, and a modal dialogue keeps the
+  keyboard, except for a command marked as changing only the appearance.
+- The Picture panel's video element never enters the audio edit domain. Its
+  sound is decoded only when the person asks, within the page's memory.
+
+## ADRs
+
+- `ADR-0040` — the editor foundation is five packages, with the selection
+  model moved into the timeline.
+- `ADR-0041` — a position is a sample boundary, and every conversion is exact.
+- `ADR-0042` — the selection set, its facets and the precedence that makes a
+  command's target.
+- `ADR-0043` — the peak pyramid, its worker and its disposable cache.
+- `ADR-0044` — the render frame as a value, the backends and recovery.
+- `ADR-0045` — signal recipes replace the engine's tone source.
+- `ADR-0046` — reference picture bound to the media clock.
+- `ADR-0047` — the session's markers and regions per asset.
+
+## Verification Baselines
+
+- The application's test signal still renders to `0xe576a76257ddb259`
+  (`tests/e2e/transport.spec.ts`), so the signal recipe changed no sample.
+- The test assets are signal recipes, deterministic to the sample
+  (`test-assets.test.ts`), among them a three-hour stereo session that the
+  timeline suite zooms and scrolls on a wide display.
+- `pnpm run test:e2e:timeline`, `test:renderer-loss`, `test:touch-pen` and
+  `test:video-reference` in Chromium. The renderer suites read the drawn
+  pixels after a loss and after recovery.
+
+## Intentionally Deferred Items
+
+Only items explicitly authorised by the specification:
+
+- The razor tool places the playhead where it would split. Splitting is an
+  edit, Phase 05's (`REQ-EDIT-014`).
+- Regions come only from the test asset that defines them, and markers and
+  regions are held for the session. Phase 05 edits regions and Phase 02's
+  project persists both (`ADR-0047`).
+- The spectrogram lane is the presentation shell: its axis, its scale and band
+  commands, and the spectral selection the selection set keeps and the overlay
+  draws. Spectral analysis, the spectral tools and the region tool come with
+  Phases 08 and 05.
+- Musical time is `REQ-PROD-160`, deferred. Time formats and snap kinds are
+  unions a musical kind can join.
+
+## Accepted Non-Blocking Debt
+
+- Safari and WebKit were not run for the editor. Playwright's WebKit on the
+  test machine has no `AudioContext`. Owed to Phase 14's compatibility
+  hardening.
+- The picture's sound extraction bounds its memory by assuming at most eight
+  channels. Owed to Phase 09, whose codecs read a file's real channel count.
+- The browser suite checks that playing picture stays within a frame of the
+  audio, not how many seeks that took. Owed to Phase 14's performance
+  hardening.
+- Phase 01's debt owed to this phase is closed: the dock keeps each group's
+  scroll across a rebuild (F-304, F-560); the editor surface mounts the long
+  press context action, with its test in `touch-pen.spec.ts` (F-188, F-281);
+  pointer input calls `sampleFromPointerEvent` (F-218); a split of the main
+  area survives a remount (F-275); and focus follows a panel an arrangement
+  command moved (F-283).
+
+## Downstream Readiness
+
+- No phase becomes `READY`. Phase 05 still waits on Phase 02, and Phase 08 on
+  Phases 05 and 06.
 
 # Current Ledger Entry
 

@@ -48,6 +48,9 @@ function environmentWhere(available: boolean): CapabilityEnvironment {
     hasMediaQueries: available,
     hasKeyboardLayoutMap: available,
     comparesNames: available,
+    hasVideoFrameCallback: available,
+    hasFullscreen: available,
+    hasIndexedDb: available,
   };
 }
 
@@ -250,6 +253,9 @@ describe('degradedFeatures', () => {
       ['offline-use', FeatureStatus.Unavailable],
       ['pressure-sensitive-tools', FeatureStatus.Unavailable],
       ['hardware-codecs', FeatureStatus.Reduced],
+      ['reference-picture', FeatureStatus.Reduced],
+      ['full-screen-picture', FeatureStatus.Unavailable],
+      ['waveform-cache', FeatureStatus.Unavailable],
     ]);
   });
 

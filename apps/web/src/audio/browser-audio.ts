@@ -55,14 +55,18 @@ export interface BrowserAudioOptions {
   readonly logger: Logger;
 }
 
-/** A context's life and a session over it, for a profile, the context made when first asked for. */
+/**
+ * A context's life and a session over it, for a profile, the context made when
+ * first asked for, at the programme's rate where it has one.
+ */
 export function browserPlayback(options: BrowserAudioOptions): OpenPlayback {
   const { capabilities, engine, logger } = options;
-  return (profile) => {
+  return (profile, rate) => {
     const lifecycle = new ContextLifecycle({
       createContext: browserAudioContext(capabilities),
       watchDevices: watchAudioDevices,
       latencyHint: profile.settings.latencyHint,
+      ...(rate === undefined ? {} : { sampleRate: rate }),
       schedule: browserSchedule,
       logger,
     });

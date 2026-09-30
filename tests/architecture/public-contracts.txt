@@ -11,11 +11,17 @@ Published paths
   @audiogubbins/diagnostics
   @audiogubbins/domain
   @audiogubbins/domain/testing
+  @audiogubbins/editor-view
   @audiogubbins/input
   @audiogubbins/input/testing
+  @audiogubbins/renderer
   @audiogubbins/test-fixtures
   @audiogubbins/text
+  @audiogubbins/timeline
   @audiogubbins/version
+  @audiogubbins/video-reference
+  @audiogubbins/waveform
+  @audiogubbins/waveform/threads/*
   @audiogubbins/workspace
   @audiogubbins/workspace/styles/*.css
 
@@ -60,6 +66,9 @@ Published paths
   CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
+  interface ChannelProgramme
+  readonly ChannelProgramme.segments: readonly SignalSegment[]
+  readonly ChannelProgramme.repeats: boolean
   interface ChunkPlan
   readonly ChunkPlan.chunkFrames: number
   readonly ChunkPlan.chunks: number
@@ -133,6 +142,9 @@ Published paths
   const PRESET_SETTINGS: Readonly<Record<PresetProfile, PerformanceSettings>>
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
+  type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
+  const PcmDescriptionKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; }
+  type PcmDescriptionKind = "pcm" | "signal"
   interface PcmSource
   readonly PcmSource.layout: ChannelLayout
   readonly PcmSource.sampleRate: SampleRate
@@ -248,6 +260,14 @@ Published paths
   readonly SchedulerCounts.queued: Readonly<Record<JobPriority, number>>
   const SchedulingPolicy: { readonly InteractiveFirst: "interactive-first"; readonly Throughput: "throughput"; }
   type SchedulingPolicy = "interactive-first" | "throughput"
+  interface SignalRecipe
+  readonly SignalRecipe.channels: readonly ChannelProgramme[]
+  readonly SignalRecipe.length: SampleCount
+  type SignalSegment = { readonly kind: "impulse"; readonly length: SampleCount; readonly amplitude: number; } | { readonly kind: "silence"; readonly length: SampleCount; } | { readonly kind: "tone"; readonly length: SampleCount; readonly frequency: number; readonly amplitude: number; }
+  interface SignalSettings
+  readonly SignalSettings.layout: ChannelLayout
+  readonly SignalSettings.sampleRate: SampleRate
+  readonly SignalSettings.recipe: SignalRecipe
   interface SinkTarget
   SinkTarget.receive: (block: AudioFrameBlock) => void
   interface StabilityAssessment
@@ -256,13 +276,7 @@ Published paths
   readonly StabilityAssessment.recommendation?: PerformanceProfile
   readonly StabilityAssessment.explanation: string
   const TRANSPORT_AT_START: TransportState
-  interface ToneSettings
-  readonly ToneSettings.layout: ChannelLayout
-  readonly ToneSettings.sampleRate: SampleRate
-  readonly ToneSettings.frequency: number
-  readonly ToneSettings.amplitude: number
-  readonly ToneSettings.length: SampleCount | undefined
-  type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
+  type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "parked"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
   type TransportMode = "paused" | "playing" | "stopped" | "suspended"
   type TransportState = { readonly mode: typeof TransportMode.Paused; readonly position: SampleCount; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Playing; readonly anchor: ClockAnchor; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Stopped; readonly position: SampleCount; } | { readonly mode: typeof TransportMode.Suspended; readonly position: SampleCount; readonly origin: SampleCount; }
@@ -304,6 +318,8 @@ Published paths
   function createCancellationSource(): CancellationSource
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
+  function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
+  function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
@@ -311,6 +327,7 @@ Published paths
   function memorySource(block: AudioFrameBlock): DomainResult<PcmSource>
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
+  function pcmDescription(value: unknown): DomainResult<PcmDescription>
   function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan>
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
@@ -318,10 +335,12 @@ Published paths
   function selectProcessingMode(request: ProcessingModeRequest): DomainResult<ProcessingModeChoice>
   function settingsFor(profile: PresetProfile): DomainResult<PerformanceSettings>
   function settingsFor(profile: "custom", custom: PerformanceSettings): DomainResult<PerformanceSettings>
+  function signalRecipe(value: unknown): DomainResult<SignalRecipe>
+  function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
-  function toneSource(dsp: CanonicalDsp, settings: ToneSettings): DomainResult<PcmSource>
+  function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
   function wasmDsp(exports: unknown): DomainResult<CanonicalDsp>
@@ -590,6 +609,7 @@ Published paths
   PlaybackSession.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
   PlaybackSession.play: () => Promise<DomainResult<void>>
   PlaybackSession.pause: () => DomainResult<void>
+  PlaybackSession.park: (to: SampleCount) => DomainResult<void>
   PlaybackSession.stop: () => DomainResult<void>
   PlaybackSession.seek: (to: SampleCount) => Promise<DomainResult<void>>
   PlaybackSession.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>
@@ -653,9 +673,7 @@ Published paths
   RenderWorkerPort.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.terminate: () => void
-  type SourceDescription = { readonly node: NodeId; readonly kind: typeof SourceKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly node: NodeId; readonly kind: typeof SourceKind.Tone; readonly sampleRate: SampleRate; readonly frequency: number; readonly amplitude: number; readonly frames: SampleCount; }
-  const SourceKind: { readonly Pcm: "pcm"; readonly Tone: "tone"; }
-  type SourceKind = "pcm" | "tone"
+  type SourceDescription = PcmDescription & { readonly node: NodeId; }
   interface WorkerRenderSummary extends RenderSummary
   readonly WorkerRenderSummary.dsp: DspImplementation
   readonly WorkerRenderSummary.dspFallbackReason: string | undefined
@@ -714,8 +732,11 @@ Published paths
   readonly CapabilityEnvironment.hasMediaQueries: boolean
   readonly CapabilityEnvironment.hasKeyboardLayoutMap: boolean
   readonly CapabilityEnvironment.comparesNames: boolean
-  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; }
-  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
+  readonly CapabilityEnvironment.hasVideoFrameCallback: boolean
+  readonly CapabilityEnvironment.hasFullscreen: boolean
+  readonly CapabilityEnvironment.hasIndexedDb: boolean
+  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; readonly IndexedDb: "indexed-db"; }
+  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "indexed-db" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
   interface CapabilityPresent
   readonly CapabilityPresent.key: CapabilityKey
   readonly CapabilityPresent.available: true
@@ -729,6 +750,7 @@ Published paths
   readonly CapabilityRegistry.degradedFeatures: (requirements: readonly FeatureRequirement[]) => readonly FeatureAvailability[]
   type CapabilityState = CapabilityAbsent | CapabilityPresent
   const DIRECT_FILE_ACCESS: FeatureRequirement
+  const FULL_SCREEN_PICTURE: FeatureRequirement
   interface FeatureAvailability
   readonly FeatureAvailability.featureKey: string
   readonly FeatureAvailability.label: string
@@ -744,8 +766,12 @@ Published paths
   readonly FeatureRequirement.fallback: string
   const FeatureStatus: { readonly Full: "full"; readonly Reduced: "reduced"; readonly Unavailable: "unavailable"; }
   type FeatureStatus = "full" | "reduced" | "unavailable"
+  interface GraphicsPlatform
+  readonly GraphicsPlatform.gpu: unknown
+  readonly GraphicsPlatform.pixelRatio: () => number
+  readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
-  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; }
+  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; readonly "indexed-db"?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
@@ -773,6 +799,7 @@ Published paths
   function detectBrowserEnvironment(): CapabilityEnvironment
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
+  function readGraphicsPlatform(): GraphicsPlatform
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
   function readPlatformSignals(): PlatformSignals
   function readResourceFigures(performanceLike: object): ResourceFigures
@@ -816,6 +843,7 @@ Published paths
   readonly Command.keywords?: readonly string[]
   readonly Command.description?: string
   readonly Command.discoverable?: boolean
+  readonly Command.changesAppearance?: boolean
   readonly Command.undoable: boolean
   Command.availability: (context: TContext) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
@@ -944,12 +972,17 @@ Published paths
   type CategoryPalette = { readonly [x: string]: Oklch; }
   type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
   function ContextActions(props: ContextMenuProps): ReactNode
+  interface ContextActionsOpener
+  readonly ContextActionsOpener.openAt: (clientX: number, clientY: number) => void
   interface ContextMenuProps
   readonly ContextMenuProps.children: ReactNode
   readonly ContextMenuProps.groups: readonly MenuGroup[]
   readonly ContextMenuProps.label: string
+  readonly ContextMenuProps.opener?: Ref<ContextActionsOpener>
   const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
   type ContrastLevel = "high" | "standard"
+  const ContrastRequirement: { readonly BodyText: 4.5; readonly LargeText: 3; readonly Enhanced: 7; }
+  type ContrastRequirement = 3 | 4.5 | 7
   interface ContrastShortfall
   readonly ContrastShortfall.token: string
   readonly ContrastShortfall.ratio: number
@@ -1051,6 +1084,11 @@ Published paths
   type SelectionPalette = { readonly fill: Oklch; readonly border: Oklch; readonly handle: Oklch; }
   type SpacingScale = { readonly none: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; }
   type SpectrogramRamp = readonly [Oklch, ...Oklch[]]
+  interface Srgb
+  readonly Srgb.red: number
+  readonly Srgb.green: number
+  readonly Srgb.blue: number
+  readonly Srgb.alpha: number
   interface SystemAppearance
   readonly SystemAppearance.prefersDark: boolean
   readonly SystemAppearance.prefersReducedMotion: boolean
@@ -1123,13 +1161,16 @@ Published paths
   readonly ValueSliderProps.displayValue?: string
   readonly ValueSliderProps.disabled?: boolean
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
-  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; }
+  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
   function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
   function clampBrightness(value: number): number
+  function contrastRatio(foreground: Oklch, background: Oklch): number
   function fixedSystemAppearance(appearance: SystemAppearance): SystemAppearanceSource
   function isAccentName(value: unknown): boolean
   function oklchToHex(colour: Oklch): string
+  function oklchToSrgb(colour: Oklch): Srgb
   function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
+  function srgbToOklch(colour: Srgb): Oklch
   function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
   function useTheme(): Theme
 
@@ -1347,10 +1388,7 @@ Published paths
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.processors: readonly ProcessorInstance[]
   type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
-  interface EmptySelection
-  readonly EmptySelection.kind: "none"
   type EntityId = AssetId | BusId | ClipId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
-  type EntitySelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
   const FIRST_ORDER_AMBIX: AmbisonicConvention
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
@@ -1368,7 +1406,6 @@ Published paths
   readonly Marker.position: SampleCount
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
-  const NO_SELECTION: EmptySelection
   interface NumericParameterDescriptor
   readonly NumericParameterDescriptor.kind: "numeric"
   readonly NumericParameterDescriptor.id: ParameterId
@@ -1426,15 +1463,7 @@ Published paths
   type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
   type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
   type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
-  type Selection = EmptySelection | EntitySelection | TimeRangeSelection
-  const SelectionFocus: { readonly Nothing: "nothing"; readonly TimeRange: "time-range"; readonly Clips: "clips"; readonly Regions: "regions"; readonly Markers: "markers"; readonly Tracks: "tracks"; readonly Assets: "assets"; readonly Processors: "processors"; }
-  type SelectionFocus = "assets" | "clips" | "markers" | "nothing" | "processors" | "regions" | "time-range" | "tracks"
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
-  interface TimeRangeSelection
-  readonly TimeRangeSelection.kind: "time-range"
-  readonly TimeRangeSelection.start: SampleCount
-  readonly TimeRangeSelection.length: SampleCount
-  readonly TimeRangeSelection.trackIds: readonly TrackId[]
   type TimelineEntity = Clip | Marker | Region
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
@@ -1481,7 +1510,6 @@ Published paths
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
-  function hasSelection(selection: Selection): boolean
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
@@ -1501,8 +1529,6 @@ Published paths
   function sampleRate(value: number): DomainResult<SampleRate>
   function samplesToSeconds(count: SampleCount, rate: SampleRate): number
   function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
-  function selectionFocus(selection: Selection): SelectionFocus
-  function selectionSize(selection: Selection): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
   function tracksInOrder(project: Project): readonly Track[]
@@ -1513,6 +1539,160 @@ Published paths
 @audiogubbins/domain/testing
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
+
+@audiogubbins/editor-view
+  const AMPLITUDES: readonly number[]
+  const DEFAULT_OVERLAYS: Overlays
+  const DisplayMode: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Stacked: "stacked"; readonly Overlay: "overlay"; }
+  type DisplayMode = "overlay" | "spectrogram" | "stacked" | "waveform"
+  interface EditorPalette
+  readonly EditorPalette.background: Colour
+  readonly EditorPalette.laneSeparator: Colour
+  readonly EditorPalette.centreLine: Colour
+  readonly EditorPalette.peak: Colour
+  readonly EditorPalette.rms: Colour
+  readonly EditorPalette.clipped: Colour
+  readonly EditorPalette.pending: Colour
+  readonly EditorPalette.grid: Colour
+  readonly EditorPalette.rulerBackground: Colour
+  readonly EditorPalette.rulerTick: Colour
+  readonly EditorPalette.rulerText: Colour
+  readonly EditorPalette.text: Colour
+  readonly EditorPalette.quietText: Colour
+  readonly EditorPalette.selectionFill: Colour
+  readonly EditorPalette.inactiveSelectionFill: Colour
+  readonly EditorPalette.selectionBorder: Colour
+  readonly EditorPalette.playhead: Colour
+  readonly EditorPalette.marker: Colour
+  readonly EditorPalette.selectedMarker: Colour
+  readonly EditorPalette.region: Colour
+  readonly EditorPalette.loop: Colour
+  readonly EditorPalette.snap: Colour
+  readonly EditorPalette.spectrogramBackground: Colour
+  interface EditorType
+  readonly EditorType.label: string
+  readonly EditorType.small: string
+  interface EditorViewState
+  readonly EditorViewState.viewport: ViewportState
+  readonly EditorViewState.displayMode: DisplayMode
+  readonly EditorViewState.tool: ToolId
+  readonly EditorViewState.hiddenChannels: readonly number[]
+  readonly EditorViewState.amplitude: number
+  readonly EditorViewState.overlays: Overlays
+  readonly EditorViewState.snapping: SnapSettings
+  readonly EditorViewState.timeFormat: TimeFormat
+  readonly EditorViewState.follow: FollowMode
+  readonly EditorViewState.spectral: SpectralSettings
+  const FollowMode: { readonly Off: "off"; readonly Page: "page"; readonly Centre: "centre"; }
+  type FollowMode = "centre" | "off" | "page"
+  class FrameComposer
+  new FrameComposer(): FrameComposer
+  readonly FrameComposer.#pool: BuilderPool
+  readonly FrameComposer.#waveform: WaveformPainter
+  FrameComposer.waiting: boolean
+  FrameComposer.compose: (scene: ViewScene) => RenderFrame
+  FrameComposer.#above: (scene: ViewScene, style: OverlayStyle) => RenderLayer[]
+  FrameComposer.#lane: (lane: Lane, scene: ViewScene, style: OverlayStyle) => RenderBatch[]
+  FrameComposer.#spectrogramShell: (lane: Lane, scene: ViewScene, out: RenderBatch[]) => void
+  interface HitScene
+  readonly HitScene.layout: ViewLayout
+  readonly HitScene.viewport: ViewportState
+  readonly HitScene.markers: readonly Marker[]
+  readonly HitScene.selection: BoundaryRange | undefined
+  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
+  const IDLE: Interaction
+  type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; }
+  interface KnownAudio
+  readonly KnownAudio.pyramid: WaveformPeakPyramid | undefined
+  readonly KnownAudio.buckets: BucketWindow | undefined
+  readonly KnownAudio.samples: SampleWindow | undefined
+  readonly KnownAudio.length: SampleCount
+  interface Lane
+  readonly Lane.channel: number
+  readonly Lane.kind: LaneKind
+  readonly Lane.area: Rectangle
+  const LaneKind: { readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Overlay: "overlay"; }
+  type LaneKind = "overlay" | "spectrogram" | "waveform"
+  interface Overlays
+  readonly Overlays.grid: boolean
+  readonly Overlays.rms: boolean
+  readonly Overlays.clipping: boolean
+  readonly Overlays.markers: boolean
+  readonly Overlays.regions: boolean
+  readonly Overlays.filmstrip: boolean
+  interface SnapSources
+  readonly SnapSources.markers: readonly Marker[]
+  readonly SnapSources.regions: readonly Region[]
+  readonly SnapSources.playhead: SampleCount | undefined
+  readonly SnapSources.selection: BoundaryRange | undefined
+  readonly SnapSources.grid: readonly SampleCount[]
+  readonly SnapSources.frames: readonly number[]
+  readonly SnapSources.zeroCrossing: SampleCount | undefined
+  interface SpectralSettings
+  readonly SpectralSettings.frequencyScale: "linear" | "logarithmic"
+  readonly SpectralSettings.lowest: number
+  readonly SpectralSettings.highest: number
+  interface ToolContext
+  readonly ToolContext.tool: ToolId
+  readonly ToolContext.panning: boolean
+  readonly ToolContext.hit: HitTarget
+  readonly ToolContext.selection: BoundaryRange | undefined
+  readonly ToolContext.visibleChannels: readonly number[]
+  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; }
+  type ToolId = "hand" | "marker" | "razor" | "select" | "time-select" | "zoom"
+  interface ToolInput
+  readonly ToolInput.x: number
+  readonly ToolInput.y: number
+  readonly ToolInput.pointer: PointerKind
+  readonly ToolInput.boundary: SampleCount
+  readonly ToolInput.channel: number | undefined
+  readonly ToolInput.shift: boolean
+  readonly ToolInput.alt: boolean
+  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
+  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
+  interface ToolStep
+  readonly ToolStep.interaction: Interaction
+  readonly ToolStep.preview: ToolPreview | undefined
+  readonly ToolStep.intents: readonly ToolIntent[]
+  interface ViewContent
+  readonly ViewContent.length: SampleCount
+  readonly ViewContent.channelNames: readonly string[]
+  readonly ViewContent.markers: readonly Marker[]
+  readonly ViewContent.regions: readonly Region[]
+  interface ViewLayout
+  readonly ViewLayout.width: number
+  readonly ViewLayout.height: number
+  readonly ViewLayout.ruler: Rectangle
+  readonly ViewLayout.strip: Rectangle
+  readonly ViewLayout.picture: Rectangle | undefined
+  readonly ViewLayout.lanes: readonly Lane[]
+  interface ViewScene
+  readonly ViewScene.layout: ViewLayout
+  readonly ViewScene.state: EditorViewState
+  readonly ViewScene.pixelRatio: number
+  readonly ViewScene.content: ViewContent
+  readonly ViewScene.audio: KnownAudio
+  readonly ViewScene.selection: SelectionSet
+  readonly ViewScene.playhead: SampleCount | undefined
+  readonly ViewScene.preview: ToolPreview | undefined
+  readonly ViewScene.snap: SnapTarget | undefined
+  readonly ViewScene.ruler: RulerTicks
+  readonly ViewScene.grid: readonly SampleCount[] | undefined
+  readonly ViewScene.picture: readonly PlacedImage[]
+  readonly ViewScene.palette: EditorPalette
+  readonly ViewScene.type: EditorType
+  function hitTest(scene: HitScene, x: number, y: number, pointer: PointerKind): HitTarget
+  function laneAt(layout: ViewLayout, y: number): Lane | undefined
+  function layoutView(state: EditorViewState, width: number, height: number, channelCount: number, pictureBound: boolean): ViewLayout
+  function move(interaction: Interaction, input: ToolInput): ToolStep
+  function newViewState(length: SampleCount, width: number): EditorViewState
+  function press(context: ToolContext, input: ToolInput): ToolStep
+  function release(interaction: Interaction, input: ToolInput): ToolStep
+  function snapInView(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, viewport: ViewportState): SnapResult
+  function snapTargetsOf(sources: SnapSources): readonly SnapTarget[]
+  function visibleChannels(state: EditorViewState, channelCount: number): readonly number[]
+  function withAmplitudeStep(state: EditorViewState, steps: number): EditorViewState
+  function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState
 
 @audiogubbins/input
   const DEFAULT_GESTURE_SETTINGS: GestureSettings
@@ -1599,6 +1779,110 @@ Published paths
 @audiogubbins/input/testing
   function keyEventOf(code: string, key: string, held?: Partial<KeyEventReading>): KeyEventReading
 
+@audiogubbins/renderer
+  interface BackendEvents
+  readonly BackendEvents.lost: (reason: string) => void
+  readonly BackendEvents.restored: () => void
+  readonly BackendEvents.failed: (reason: string) => void
+  interface BackendFactory
+  readonly BackendFactory.kind: RendererKind
+  BackendFactory.create: (canvas: HTMLCanvasElement, events: BackendEvents) => Promise<DomainResult<RendererBackend>>
+  type Colour = readonly [number, number, number, number]
+  interface ImageBatch
+  readonly ImageBatch.kind: "images"
+  readonly ImageBatch.images: readonly PlacedImage[]
+  interface OverlayEvents
+  readonly OverlayEvents.lost: () => void
+  readonly OverlayEvents.restored: () => void
+  type Painter = { moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; rect: (x: number, y: number, w: number, h: number) => void; font: string; stroke: { (): void; (path: Path2D): void; }; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; save: () => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
+  interface PlacedImage
+  readonly PlacedImage.image: CanvasImageSource
+  readonly PlacedImage.at: Rectangle
+  interface Rectangle
+  readonly Rectangle.x: number
+  readonly Rectangle.y: number
+  readonly Rectangle.width: number
+  readonly Rectangle.height: number
+  interface RectangleBatch
+  readonly RectangleBatch.kind: "rectangles"
+  readonly RectangleBatch.colour: Colour
+  readonly RectangleBatch.values: Float32Array<ArrayBufferLike>
+  readonly RectangleBatch.count: number
+  type RenderBatch = ImageBatch | RectangleBatch | SegmentBatch | TextBatch
+  interface RenderFrame
+  readonly RenderFrame.width: number
+  readonly RenderFrame.height: number
+  readonly RenderFrame.pixelRatio: number
+  readonly RenderFrame.clear: Colour
+  readonly RenderFrame.layers: readonly RenderLayer[]
+  interface RenderLayer
+  readonly RenderLayer.clip?: Rectangle
+  readonly RenderLayer.batches: readonly RenderBatch[]
+  interface RenderSurface
+  RenderSurface.freshCanvas: () => HTMLCanvasElement
+  RenderSurface.overlay: () => Painter | undefined
+  RenderSurface.watchOverlay: (events: OverlayEvents) => () => void
+  class Renderer
+  new Renderer(options: { readonly surface: RenderSurface; readonly backends: readonly BackendFactory[]; }): Renderer
+  readonly Renderer.#surface: RenderSurface
+  readonly Renderer.#backends: readonly BackendFactory[]
+  readonly Renderer.#listeners: Set<(report: RendererReport) => void>
+  Renderer.#report: RendererReport
+  Renderer.#backend: undefined | { readonly made: RendererBackend; readonly index: number; }
+  Renderer.#latest: RenderFrame | undefined
+  Renderer.#disposed: boolean
+  Renderer.#overlayLost: boolean
+  readonly Renderer.#stopWatchingOverlay: () => void
+  Renderer.report: RendererReport
+  Renderer.subscribe: (listener: (report: RendererReport) => void) => () => void
+  Renderer.#update: (change: Partial<RendererReport>) => void
+  Renderer.#attempt: (attempt: RendererAttempt) => void
+  Renderer.start: (from?: number) => Promise<void>
+  Renderer.#stopped: () => boolean
+  Renderer.#lost: (kind: RendererKind, reason: string) => void
+  Renderer.#restored: (kind: RendererKind) => void
+  Renderer.#failed: (kind: RendererKind, reason: string) => Promise<void>
+  Renderer.draw: (frame: RenderFrame) => void
+  Renderer.#paint: () => DrawOutcome
+  Renderer.#paintOverlay: () => void
+  Renderer.dispose: () => void
+  interface RendererAttempt
+  readonly RendererAttempt.kind: RendererKind
+  readonly RendererAttempt.outcome: "active" | "failed" | "lost" | "refused"
+  readonly RendererAttempt.reason?: string
+  interface RendererBackend
+  readonly RendererBackend.kind: RendererKind
+  RendererBackend.draw: (frame: RenderFrame) => DrawOutcome
+  RendererBackend.dispose: () => void
+  const RendererKind: { readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly Canvas2d: "canvas-2d"; }
+  type RendererKind = "canvas-2d" | "webgl2" | "webgpu"
+  interface RendererReport
+  readonly RendererReport.state: RendererState
+  readonly RendererReport.active: RendererKind | undefined
+  readonly RendererReport.attempts: readonly RendererAttempt[]
+  readonly RendererReport.losses: number
+  readonly RendererReport.recoveries: number
+  const RendererState: { readonly Starting: "starting"; readonly Drawing: "drawing"; readonly Recovering: "recovering"; readonly Unavailable: "unavailable"; }
+  type RendererState = "drawing" | "recovering" | "starting" | "unavailable"
+  interface SegmentBatch
+  readonly SegmentBatch.kind: "segments"
+  readonly SegmentBatch.colour: Colour
+  readonly SegmentBatch.width: number
+  readonly SegmentBatch.values: Float32Array<ArrayBufferLike>
+  readonly SegmentBatch.count: number
+  interface TextBatch
+  readonly TextBatch.kind: "text"
+  readonly TextBatch.labels: readonly TextLabel[]
+  interface TextLabel
+  readonly TextLabel.text: string
+  readonly TextLabel.x: number
+  readonly TextLabel.y: number
+  readonly TextLabel.colour: Colour
+  readonly TextLabel.font: string
+  readonly TextLabel.align: "centre" | "left" | "right"
+  readonly TextLabel.baseline: "bottom" | "middle" | "top"
+  function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
+
 @audiogubbins/test-fixtures
   const FIXTURE_LENGTH: 48000
   const FIXTURE_SAMPLE_RATE: 48000
@@ -1674,10 +1958,277 @@ Published paths
   function utf8Bytes(text: string): number
   function wholeCharactersWithin(text: string, bound: number): string
 
+@audiogubbins/timeline
+  interface BoundaryRange
+  readonly BoundaryRange.start: SampleCount
+  readonly BoundaryRange.end: SampleCount
+  const DEFAULT_SNAP_SETTINGS: SnapSettings
+  const EMPTY_SELECTION: SelectionSet
+  interface FrameRate
+  readonly FrameRate.numerator: number
+  readonly FrameRate.denominator: number
+  readonly FrameRate.dropFrame: boolean
+  interface FrequencyBand
+  readonly FrequencyBand.low: number
+  readonly FrequencyBand.high: number
+  type MadeFacet = "objects" | "spectral" | "time"
+  type ObjectSelection = { readonly kind: "assets"; readonly ids: readonly [AssetId, ...AssetId[]]; } | { readonly kind: "clips"; readonly ids: readonly [ClipId, ...ClipId[]]; } | { readonly kind: "markers"; readonly ids: readonly [MarkerId, ...MarkerId[]]; } | { readonly kind: "processors"; readonly ids: readonly [ProcessorId, ...ProcessorId[]]; } | { readonly kind: "regions"; readonly ids: readonly [RegionId, ...RegionId[]]; } | { readonly kind: "tracks"; readonly ids: readonly [TrackId, ...TrackId[]]; }
+  interface PixelsPerSample
+  readonly PixelsPerSample.kind: "pixels-per-sample"
+  readonly PixelsPerSample.pixels: number
+  interface RulerTick
+  readonly RulerTick.position: SampleCount
+  readonly RulerTick.label: string
+  interface RulerTicks
+  readonly RulerTicks.major: readonly RulerTick[]
+  readonly RulerTicks.minor: readonly SampleCount[]
+  interface SamplesPerPixel
+  readonly SamplesPerPixel.kind: "samples-per-pixel"
+  readonly SamplesPerPixel.samples: number
+  interface SelectableContent
+  readonly SelectableContent.length: SampleCount
+  readonly SelectableContent.channelCount: number
+  readonly SelectableContent.markers: ReadonlySet<string>
+  readonly SelectableContent.regions: ReadonlySet<string>
+  const SelectionFacet: { readonly None: "none"; readonly Time: "time"; readonly Spectral: "spectral"; readonly Objects: "objects"; }
+  type SelectionFacet = "none" | "objects" | "spectral" | "time"
+  interface SelectionSet
+  readonly SelectionSet.time?: BoundaryRange
+  readonly SelectionSet.spectral?: SpectralArea
+  readonly SelectionSet.objects?: ObjectSelection
+  readonly SelectionSet.channels?: readonly [number, ...number[]]
+  readonly SelectionSet.recency: readonly MadeFacet[]
+  type SelectionTarget = { readonly kind: "objects"; readonly objects: ObjectSelection; } | { readonly kind: "spectral"; readonly area: SpectralArea; readonly channels: readonly number[]; } | { readonly kind: "time"; readonly range: BoundaryRange; readonly channels: readonly number[]; } | { readonly kind: "whole-asset"; readonly range: BoundaryRange; readonly channels: readonly number[]; }
+  const SnapKind: { readonly Marker: "marker"; readonly RegionBoundary: "region-boundary"; readonly LoopBoundary: "loop-boundary"; readonly SelectionEdge: "selection-edge"; readonly Playhead: "playhead"; readonly Frame: "frame"; readonly ZeroCrossing: "zero-crossing"; readonly Grid: "grid"; }
+  type SnapKind = "frame" | "grid" | "loop-boundary" | "marker" | "playhead" | "region-boundary" | "selection-edge" | "zero-crossing"
+  interface SnapResult
+  readonly SnapResult.position: SampleCount
+  readonly SnapResult.target?: SnapTarget
+  interface SnapSettings
+  readonly SnapSettings.enabled: boolean
+  readonly SnapSettings.kinds: ReadonlySet<SnapKind>
+  readonly SnapSettings.tolerance: number
+  interface SnapTarget
+  readonly SnapTarget.kind: SnapKind
+  readonly SnapTarget.position: SampleCount
+  readonly SnapTarget.label?: string
+  interface SpectralArea
+  readonly SpectralArea.range: BoundaryRange
+  readonly SpectralArea.band: FrequencyBand
+  readonly SpectralArea.shape: SpectralShape
+  interface SpectralPoint
+  readonly SpectralPoint.position: SampleCount
+  readonly SpectralPoint.frequency: number
+  type SpectralShape = { readonly kind: "lasso"; readonly points: readonly [SpectralPoint, SpectralPoint, SpectralPoint, ...SpectralPoint[]]; } | { readonly kind: "rectangle"; }
+  const StandardFrameRates: { readonly film: FrameRate; readonly filmPulledDown: FrameRate; readonly pal: FrameRate; readonly ntscDropFrame: FrameRate; readonly ntscNonDrop: FrameRate; readonly thirty: FrameRate; readonly palDouble: FrameRate; readonly ntscDoubleDropFrame: FrameRate; readonly ntscDoubleNonDrop: FrameRate; readonly sixty: FrameRate; }
+  interface TargetAsset
+  readonly TargetAsset.length: SampleCount
+  readonly TargetAsset.channelCount: number
+  interface TargetRequest
+  readonly TargetRequest.accepts: ReadonlySet<MadeFacet>
+  readonly TargetRequest.whenNothing: "refuse" | "whole-asset"
+  interface TargetWriting
+  readonly TargetWriting.position: (position: SampleCount) => string
+  readonly TargetWriting.channel: (index: number) => string
+  readonly TargetWriting.channelCount: number
+  readonly TargetWriting.frequency: (hertz: number) => string
+  type TimeFormat = { readonly kind: "clock"; } | { readonly kind: "milliseconds"; } | { readonly kind: "samples"; } | { readonly kind: "timecode"; readonly frames: FrameRate; }
+  const TimeFormatKind: { readonly Samples: "samples"; readonly Milliseconds: "milliseconds"; readonly Clock: "clock"; readonly Timecode: "timecode"; }
+  type TimeFormatKind = "clock" | "milliseconds" | "samples" | "timecode"
+  const TimePrecision: { readonly Milliseconds: "milliseconds"; readonly Microseconds: "microseconds"; }
+  type TimePrecision = "microseconds" | "milliseconds"
+  interface TimecodeLabel
+  readonly TimecodeLabel.negative: boolean
+  readonly TimecodeLabel.hours: number
+  readonly TimecodeLabel.minutes: number
+  readonly TimecodeLabel.seconds: number
+  readonly TimecodeLabel.frames: number
+  readonly TimecodeLabel.dropFrame: boolean
+  interface ViewportState
+  readonly ViewportState.start: SampleCount
+  readonly ViewportState.offset: number
+  readonly ViewportState.zoom: Zoom
+  readonly ViewportState.width: number
+  type Zoom = PixelsPerSample | SamplesPerPixel
+  function activeFacet(set: SelectionSet): SelectionFacet
+  function boundaryAt(view: ViewportState, x: number, length: SampleCount): SampleCount
+  function centredOn(view: ViewportState, position: SampleCount, length: SampleCount): ViewportState
+  function describeTarget(target: SelectionTarget, writing: TargetWriting): string
+  function formatPosition(position: number, rate: SampleRate, format: TimeFormat, precision?: TimePrecision): string
+  function frameAt(position: number, sampleRate: SampleRate, frames: FrameRate): number
+  function frameRate(numerator: number, denominator: number, dropFrame: boolean): DomainResult<FrameRate>
+  function frameRatesEqual(left: FrameRate, right: FrameRate): boolean
+  function frameStart(frame: number, sampleRate: SampleRate, frames: FrameRate): number
+  function framesPerSecond(frames: FrameRate): number
+  function framing(view: ViewportState, range: BoundaryRange, margin: number, length: SampleCount): ViewportState
+  function gridPositions(ticks: RulerTicks): readonly SampleCount[]
+  function pixelOf(view: ViewportState, position: number): number
+  function pixelsPerSample(pixels: number): Zoom
+  function placedAt(view: ViewportState, position: SampleCount, x: number, length: SampleCount): ViewportState
+  function reconciled(set: SelectionSet, content: SelectableContent): SelectionSet
+  function resized(view: ViewportState, width: number, length: SampleCount): ViewportState
+  function resolveTarget(set: SelectionSet, request: TargetRequest, asset: TargetAsset): DomainResult<SelectionTarget>
+  function rulerTicks(view: ViewportState, length: SampleCount, rate: SampleRate, format: TimeFormat, minimumSpacing: number): RulerTicks
+  function sampleAt(view: ViewportState, x: number, length: SampleCount): SampleCount | undefined
+  function samplesPerPixel(samples: number): Zoom
+  function samplesWithin(view: ViewportState, pixels: number): number
+  function scrolledBy(view: ViewportState, dx: number, length: SampleCount): ViewportState
+  function selectionsEqual(left: SelectionSet, right: SelectionSet): boolean
+  function snapped(position: SampleCount, targets: readonly SnapTarget[], settings: SnapSettings, within: number): SnapResult
+  function targetOutside(target: SelectionTarget, shown: BoundaryRange): boolean
+  function targetRange(target: SelectionTarget): BoundaryRange | undefined
+  function timecodeOf(frame: number, frames: FrameRate): TimecodeLabel
+  function timecodeText(label: TimecodeLabel): string
+  function viewportAtStart(zoom: Zoom, width: number): ViewportState
+  function viewportFitting(length: SampleCount, width: number): ViewportState
+  function visibleRange(view: ViewportState, length: SampleCount): BoundaryRange
+  function withChannels(set: SelectionSet, channels: readonly number[], channelCount: number): SelectionSet
+  function withObjects(set: SelectionSet, objects: ObjectSelection): SelectionSet
+  function withSpectralArea(set: SelectionSet, area: SpectralArea): SelectionSet
+  function withTimeRange(set: SelectionSet, time: BoundaryRange): SelectionSet
+  function withoutFacet(set: SelectionSet, facet: SelectionFacet): SelectionSet
+  function zoomScaled(zoom: Zoom, factor: number): Zoom
+  function zoomedAround(view: ViewportState, zoom: Zoom, anchorX: number, length: SampleCount): ViewportState
+  function zoomedIn(zoom: Zoom): Zoom
+  function zoomedOut(zoom: Zoom): Zoom
+  function zoomsEqual(left: Zoom, right: Zoom): boolean
+
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly diagnosticBundle: 1; }
-  type SchemaName = "audioSettings" | "diagnosticBundle" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; }
+  type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+
+@audiogubbins/video-reference
+  type PictureCorrection = { readonly kind: "in-sync"; } | { readonly kind: "no-picture"; } | { readonly kind: "seek"; readonly to: number; }
+  interface PresentedPicture
+  readonly PresentedPicture.mediaTime: number
+  readonly PresentedPicture.stamped: boolean
+  readonly PresentedPicture.duration: number
+  interface ReferenceMediaClockBinding
+  readonly ReferenceMediaClockBinding.timelineRate: SampleRate
+  readonly ReferenceMediaClockBinding.frames: FrameRate
+  readonly ReferenceMediaClockBinding.offset: number
+  readonly ReferenceMediaClockBinding.firstFrameLabel: number
+  type TransportMotion = "parked" | "playing"
+  function bindingAtStart(timelineRate: SampleRate, frames: FrameRate): ReferenceMediaClockBinding
+  function calibratedTo(binding: ReferenceMediaClockBinding, frame: number, position: number): ReferenceMediaClockBinding
+  function frameBoundariesWithin(binding: ReferenceMediaClockBinding, from: number, to: number, most: number): readonly number[]
+  function frameBoundary(binding: ReferenceMediaClockBinding, frame: number): number
+  function nudgedByFrames(binding: ReferenceMediaClockBinding, frames: number): ReferenceMediaClockBinding
+  function pictureCorrection(binding: ReferenceMediaClockBinding, position: number, presented: PresentedPicture, motion: TransportMotion): PictureCorrection
+  function pictureFrameAt(binding: ReferenceMediaClockBinding, position: number): number
+  function pictureTimeAt(binding: ReferenceMediaClockBinding, position: number): number
+  function pictureTimecodeAt(binding: ReferenceMediaClockBinding, position: number): string
+  function seekTimeFor(binding: ReferenceMediaClockBinding, frame: number): number
+
+@audiogubbins/waveform
+  interface BucketWindow
+  readonly BucketWindow.start: number
+  readonly BucketWindow.frames: number
+  readonly BucketWindow.bucketFrames: number
+  readonly BucketWindow.channels: readonly PeakChannel[]
+  interface ColumnPeaks
+  ColumnPeaks.columns: number
+  readonly ColumnPeaks.minimum: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.maximum: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.rms: Float32Array<ArrayBufferLike>
+  readonly ColumnPeaks.clipped: Uint8Array<ArrayBufferLike>
+  readonly ColumnPeaks.known: Uint8Array<ArrayBufferLike>
+  interface ColumnSpan
+  readonly ColumnSpan.start: number
+  readonly ColumnSpan.framesPerColumn: number
+  readonly ColumnSpan.columns: number
+  const DetailKind: { readonly Samples: "samples"; readonly Buckets: "buckets"; readonly Pyramid: "pyramid"; }
+  type DetailKind = "buckets" | "pyramid" | "samples"
+  interface FrameRange
+  readonly FrameRange.start: number
+  readonly FrameRange.end: number
+  interface LevelGeometry
+  readonly LevelGeometry.bucketFrames: number
+  readonly LevelGeometry.buckets: number
+  interface PeakCacheStore
+  PeakCacheStore.read: (identity: string, revision: string) => Promise<Uint8Array<ArrayBuffer> | undefined>
+  PeakCacheStore.write: (identity: string, revision: string, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  interface PeakChannel
+  readonly PeakChannel.minimum: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.maximum: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.rms: Int16Array<ArrayBufferLike>
+  readonly PeakChannel.clipped: Uint8Array<ArrayBufferLike>
+  type PeakEvent = { readonly kind: "cache-refused"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unreadable"; readonly identity: string; readonly reason: string; } | { readonly kind: "cache-unwritten"; readonly identity: string; readonly reason: string; } | { readonly kind: "failed"; readonly identity: string; readonly reason: string; }
+  interface PeakGeometry
+  readonly PeakGeometry.frames: number
+  readonly PeakGeometry.channels: number
+  readonly PeakGeometry.levels: readonly LevelGeometry[]
+  interface PeakHandle
+  readonly PeakHandle.pyramid: WaveformPeakPyramid
+  readonly PeakHandle.status: PeakStatus
+  PeakHandle.subscribe: (listener: () => void) => () => void
+  PeakHandle.focus: (range: FrameRange) => void
+  PeakHandle.samples: (range: FrameRange, signal?: CancellationSignal) => Promise<SampleWindow>
+  PeakHandle.buckets: (range: FrameRange, signal?: CancellationSignal) => Promise<BucketWindow>
+  readonly PeakHandle.zeroCrossings: ZeroCrossingSearch
+  PeakHandle.release: () => void
+  class PeakHost
+  new PeakHost(options: { readonly createWorker: () => PeakWorkerPort; readonly cache: PeakCacheStore; readonly report: (event: PeakEvent) => void; }): PeakHost
+  readonly PeakHost.#createWorker: () => PeakWorkerPort
+  readonly PeakHost.#cache: PeakCacheStore
+  readonly PeakHost.#report: (event: PeakEvent) => void
+  readonly PeakHost.#shared: Map<string, Shared>
+  readonly PeakHost.#byName: Map<string, PeakJob>
+  PeakHost.#worker: PeakWorkerPort | undefined
+  PeakHost.#jobs: number
+  PeakHost.open: (subject: PeakSubject) => PeakHandle
+  PeakHost.#start: (key: string, subject: PeakSubject) => Shared
+  PeakHost.#workerPort: () => PeakWorkerPort
+  PeakHost.#receive: (value: unknown) => void
+  PeakHost.#workerFailed: (reason: string) => void
+  PeakHost.#close: (key: string, job: PeakJob) => void
+  PeakHost.dispose: () => void
+  interface PeakLevel extends LevelGeometry
+  readonly PeakLevel.channels: readonly PeakChannel[]
+  readonly PeakLevel.known: Uint8Array<ArrayBufferLike>
+  readonly PeakLevel.bucketFrames: number
+  readonly PeakLevel.buckets: number
+  interface PeakRun
+  readonly PeakRun.level: number
+  readonly PeakRun.first: number
+  readonly PeakRun.channels: readonly PeakChannel[]
+  type PeakStatus = { readonly kind: "complete"; } | { readonly kind: "failed"; readonly reason: string; } | { readonly kind: "generating"; readonly progress: number; } | { readonly kind: "reading-cache"; }
+  interface PeakSubject
+  readonly PeakSubject.identity: string
+  readonly PeakSubject.revision: string
+  readonly PeakSubject.channels: number
+  readonly PeakSubject.frames: number
+  readonly PeakSubject.sampleRate: number
+  readonly PeakSubject.describe: () => PcmDescription
+  interface PeakWorkerPort
+  PeakWorkerPort.post: (message: ToPeakWorker, transfer: readonly ArrayBuffer[]) => void
+  PeakWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  PeakWorkerPort.terminate: () => void
+  interface SampleWindow
+  readonly SampleWindow.start: number
+  readonly SampleWindow.channels: readonly Float32Array<ArrayBufferLike>[]
+  const WINDOW_SPANS: 3
+  class WaveformPeakPyramid
+  new WaveformPeakPyramid(geometry: PeakGeometry, levels?: readonly PeakLevel[]): WaveformPeakPyramid
+  readonly WaveformPeakPyramid.geometry: PeakGeometry
+  readonly WaveformPeakPyramid.levels: readonly PeakLevel[]
+  WaveformPeakPyramid.#version: number
+  readonly WaveformPeakPyramid.#known: number[]
+  WaveformPeakPyramid.version: number
+  WaveformPeakPyramid.progress: number
+  WaveformPeakPyramid.complete: boolean
+  WaveformPeakPyramid.apply: (run: PeakRun) => void
+  interface ZeroCrossingSearch
+  ZeroCrossingSearch.nearest: (position: number, within: number, channels: readonly number[], signal?: CancellationSignal) => Promise<number | undefined>
+  function columnPeaks(capacity: number): ColumnPeaks
+  function detailFor(framesPerColumn: number): DetailKind
+  function largestWindow(kind: "buckets" | "samples"): number
+  function peakGeometry(frames: number, channels: number): PeakGeometry
+  function readBucketColumns(held: BucketWindow, channel: number, span: ColumnSpan, into: ColumnPeaks): void
+  function readPyramidColumns(pyramid: WaveformPeakPyramid, channel: number, span: ColumnSpan, into: ColumnPeaks): void
+  function readSampleColumns(held: SampleWindow, channel: number, span: ColumnSpan, into: ColumnPeaks): void
+  function windowFrames(held: SampleWindow): number
 
 @audiogubbins/workspace
   const BUILT_IN_IS_NOT_DELETABLE: "A built-in workspace cannot be deleted."
@@ -1689,8 +2240,14 @@ Published paths
   readonly DockHostProps.renderPanel: PanelRenderer
   readonly DockHostProps.onArrangementChange: (arrangement: WorkspaceArrangement) => void
   readonly DockHostProps.dark: boolean
+  readonly DockHostProps.memory: DockMemory
+  interface DockMemory
+  readonly DockMemory.scrolls: Map<string, Scrolled>
+  DockMemory.focus: FocusPlace | undefined
+  DockMemory.mounts: number
   const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
   type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
+  const KEYBOARD_HOME: "data-ag-keyboard-home"
   const LONGEST_WORKSPACE_NAME: 120
   interface LayoutProblem
   readonly LayoutProblem.kind: "invalid" | "nothing-docked"
@@ -1731,7 +2288,7 @@ Published paths
   readonly PanelGroup.proportion: number
   type PanelId = string
   type PanelKind = string
-  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; }
+  const PanelKinds: { readonly AssetBrowser: "asset-browser"; readonly Inspector: "inspector"; readonly Editor: "editor"; readonly Transport: "transport"; readonly Diagnostics: "diagnostics"; readonly Capabilities: "capabilities"; readonly Picture: "picture"; }
   type PanelRenderer = (panel: OpenPanel) => ReactNode
   interface PlacedLayouts
   readonly PlacedLayouts.layouts: readonly WorkspaceLayout[]
@@ -1753,6 +2310,7 @@ Published paths
   function activePanelOf(layout: WorkspaceLayout): OpenPanel | undefined
   function buildPresets(available: ReadonlySet<string>): readonly WorkspaceLayout[]
   function closureProblem(layout: WorkspaceLayout, id: string): string | undefined
+  function createDockMemory(): DockMemory
   function createLayoutStore(builtIn: readonly WorkspaceLayout[], userLayouts?: readonly WorkspaceLayout[]): LayoutStore
   function listedName(layout: WorkspaceLayout): string
   function movingProblem(layout: WorkspaceLayout, id: string, region: DockRegion): string | undefined
@@ -1771,7 +2329,7 @@ Published paths
   function titleOf(panel: OpenPanel, descriptors: ReadonlyMap<string, PanelDescriptor>): string
   function withGroupNudged(layout: WorkspaceLayout, id: string, x: number, y: number): WorkspaceLayout | string
   function withGroupResized(layout: WorkspaceLayout, id: string, steps: number): WorkspaceLayout | string
-  function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor): WorkspaceLayout
+  function withPanel(layout: WorkspaceLayout, descriptor: PanelDescriptor, beside?: string | undefined): WorkspaceLayout
   function withPanelMoved(layout: WorkspaceLayout, id: string, region: DockRegion): WorkspaceLayout | string
   function withPanelReordered(layout: WorkspaceLayout, id: string, places: number): WorkspaceLayout | string
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
@@ -2121,6 +2679,134 @@ packages/design-system/src/primitives/overlays.tsx
   readonly DropdownMenuProps.trigger: ReactNode
   readonly DropdownMenuProps.groups: readonly MenuGroup[]
   readonly DropdownMenuProps.label: string
+
+packages/editor-view/src/batch-buffers.ts
+  class BuilderPool
+  new BuilderPool(): BuilderPool
+  readonly BuilderPool.#rectangles: RectangleBuilder[]
+  readonly BuilderPool.#segments: SegmentBuilder[]
+  BuilderPool.#nextRectangle: number
+  BuilderPool.#nextSegment: number
+  BuilderPool.reset: () => void
+  BuilderPool.rectangles: (colour: Colour) => RectangleBuilder
+  BuilderPool.segments: (colour: Colour, width: number) => SegmentBuilder
+  class Quads
+  new Quads(): Quads
+  Quads.#values: Float32Array<ArrayBuffer>
+  Quads.#count: number
+  Quads.count: number
+  Quads.values: Float32Array<ArrayBufferLike>
+  Quads.reset: () => void
+  Quads.push: (a: number, b: number, c: number, d: number) => void
+  class RectangleBuilder
+  new RectangleBuilder(colour: Colour): RectangleBuilder
+  readonly RectangleBuilder.#quads: Quads
+  RectangleBuilder.colour: Colour
+  RectangleBuilder.reset: (colour: Colour) => void
+  RectangleBuilder.add: (x: number, y: number, width: number, height: number) => void
+  RectangleBuilder.batch: () => RectangleBatch
+  class SegmentBuilder
+  new SegmentBuilder(colour: Colour, width: number): SegmentBuilder
+  readonly SegmentBuilder.#quads: Quads
+  SegmentBuilder.colour: Colour
+  SegmentBuilder.width: number
+  SegmentBuilder.reset: (colour: Colour, width: number) => void
+  SegmentBuilder.add: (x0: number, y0: number, x1: number, y1: number) => void
+  SegmentBuilder.batch: () => SegmentBatch
+
+packages/editor-view/src/ruler-drawing.ts
+  interface OverlayStyle
+  readonly OverlayStyle.viewport: ViewportState
+  readonly OverlayStyle.pixelRatio: number
+  readonly OverlayStyle.palette: EditorPalette
+  readonly OverlayStyle.type: EditorType
+
+packages/editor-view/src/waveform-drawing.ts
+  class WaveformPainter
+  new WaveformPainter(): WaveformPainter
+  WaveformPainter.#columns: ColumnPeaks
+  WaveformPainter.#waiting: boolean
+  WaveformPainter.waiting: boolean
+  WaveformPainter.begin: () => void
+  WaveformPainter.#columnsFor: (count: number) => ColumnPeaks
+  WaveformPainter.draw: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, out: RenderBatch[]) => void
+  WaveformPainter.#drawColumns: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  WaveformPainter.#drawKnown: (pool: BuilderPool, lane: Lane, columns: ColumnPeaks, span: ColumnSpan, length: number, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  WaveformPainter.#drawSamples: (pool: BuilderPool, lane: Lane, audio: KnownAudio, style: WaveformStyle, middle: number, scale: number, out: RenderBatch[]) => void
+  interface WaveformStyle
+  readonly WaveformStyle.viewport: ViewportState
+  readonly WaveformStyle.pixelRatio: number
+  readonly WaveformStyle.amplitude: number
+  readonly WaveformStyle.rms: boolean
+  readonly WaveformStyle.clipping: boolean
+  readonly WaveformStyle.palette: EditorPalette
+
+packages/renderer/src/renderer-backend.ts
+  type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
+  type Schedule = (callback: () => void, delayMs: number) => () => void
+
+packages/waveform/src/peak-host.ts
+  interface Shared
+  readonly Shared.job: PeakJob
+  Shared.holders: number
+
+packages/waveform/src/peak-job.ts
+  interface HeldWindow
+  readonly HeldWindow.start: number
+  readonly HeldWindow.frames: number
+  class PeakJob
+  new PeakJob(options: { readonly name: string; readonly subject: PeakSubject; readonly post: (message: ToPeakWorker) => void; readonly keep: (bytes: Uint8Array<ArrayBuffer>) => Promise<void>; readonly report: (event: PeakEvent) => void; }): PeakJob
+  readonly PeakJob.subject: PeakSubject
+  readonly PeakJob.#name: string
+  readonly PeakJob.#post: (message: ToPeakWorker) => void
+  readonly PeakJob.#report: (event: PeakEvent) => void
+  readonly PeakJob.#keep: (bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  readonly PeakJob.#listeners: Set<() => void>
+  PeakJob.#pyramid: WaveformPeakPyramid
+  PeakJob.#status: PeakStatus
+  PeakJob.#focus: FrameRange | undefined
+  PeakJob.#requests: number
+  readonly PeakJob.#samples: Map<number, Pending<SampleWindow>>
+  readonly PeakJob.#buckets: Map<number, Pending<BucketWindow>>
+  readonly PeakJob.#crossings: Map<number, Pending<number | undefined>>
+  PeakJob.#sampleWindows: (SampleWindow & HeldWindow)[]
+  PeakJob.#bucketWindows: BucketWindow[]
+  PeakJob.#closed: boolean
+  PeakJob.#started: boolean
+  PeakJob.#queued: ToPeakWorker[]
+  PeakJob.pyramid: WaveformPeakPyramid
+  PeakJob.status: PeakStatus
+  PeakJob.subscribe: (listener: () => void) => () => void
+  PeakJob.#changed: () => void
+  PeakJob.start: (cached: Uint8Array<ArrayBuffer> | undefined) => void
+  PeakJob.focus: (range: FrameRange) => void
+  PeakJob.samples: (range: FrameRange, signal?: CancellationSignal) => Promise<SampleWindow>
+  PeakJob.buckets: (range: FrameRange, signal?: CancellationSignal) => Promise<BucketWindow>
+  PeakJob.nearestZeroCrossing: (position: number, within: number, channels: readonly number[], signal?: CancellationSignal) => Promise<number | undefined>
+  PeakJob.#ask: <T>(pending: Map<number, Pending<T>>, signal: CancellationSignal | undefined, message: (request: number) => ToPeakWorker) => Promise<T>
+  PeakJob.#send: (message: ToPeakWorker) => void
+  PeakJob.receive: (message: FromPeakWorker) => void
+  PeakJob.#adopt: (bytes: Uint8Array<ArrayBuffer>) => void
+  PeakJob.#complete: (bytes: Uint8Array<ArrayBuffer>, refusedCache: string | undefined) => void
+  PeakJob.fail: (reason: string) => void
+  PeakJob.#rejectAll: (error: Error) => void
+  PeakJob.close: () => void
+  interface Pending<T>
+  readonly Pending.resolve: (value: T) => void
+  readonly Pending.reject: (error: Error) => void
+
+packages/waveform/src/peak-messages.ts
+  type FromPeakWorker = { readonly kind: typeof FromPeakWorkerKind.Adopted; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof FromPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly start: number; readonly frames: number; readonly bucketFrames: number; readonly channels: readonly PeakChannel[]; } | { readonly kind: typeof FromPeakWorkerKind.Complete; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; readonly refusedCache: string | undefined; } | { readonly kind: typeof FromPeakWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromPeakWorkerKind.Runs; readonly job: string; readonly runs: readonly PeakRun[]; } | { readonly kind: typeof FromPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly start: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof FromPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number | undefined; }
+  type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
+
+packages/workspace/src/adapter/dock-memory.ts
+  interface FocusPlace
+  readonly FocusPlace.panel: string
+  readonly FocusPlace.what: string
+  readonly FocusPlace.which: number
+  interface Scrolled
+  readonly Scrolled.top: number
+  readonly Scrolled.left: number
 
 packages/workspace/src/layout-reading.ts
   interface RecoveredLayout
