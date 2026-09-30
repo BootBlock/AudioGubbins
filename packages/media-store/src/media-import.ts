@@ -31,7 +31,8 @@ import { checkedFile, type ExternalFile } from './external-file.js';
 import { identityOutdated } from './media-failures.js';
 import type { MediaObjectStore } from './object-store.js';
 import type { PutOptions } from './object-writing.js';
-import { observeFile } from './source-observation.js';
+import type { YieldToHost } from './progressive-hashing.js';
+import { completeIdentity, observeFile } from './source-observation.js';
 import { sampleSource } from './source-sampling.js';
 
 /** How a file is brought in. */
@@ -52,6 +53,9 @@ export interface ImportRequest {
 export interface ImportServices {
   readonly store: MediaObjectStore;
   readonly digest: Digest;
+
+  /** Lets the host run between the chunks of a linked file's full hash. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** A file brought in. */
@@ -109,13 +113,23 @@ async function copyIn(
 async function referTo(
   request: ImportRequest,
   keepProtectedCopy: boolean,
-  { store, digest }: ImportServices,
+  { store, digest, yieldToHost }: ImportServices,
   options: PutOptions,
 ): Promise<DomainResult<ImportedMedia>> {
   const { file } = request;
   const observed = await observeFile(file, digest, options.signal);
   if (!observed.ok) return observed;
-  if (!keepProtectedCopy) return succeed({ source: referenceOf(request, observed.value) });
+  if (!keepProtectedCopy) {
+    // The full content identity, taken now, is what later tells an edit the
+    // samples miss from the file as it was linked.
+    const complete = await completeIdentity(
+      observed.value,
+      file.source,
+      { digest, yieldToHost },
+      options.signal === undefined ? {} : { signal: options.signal },
+    );
+    return complete.ok ? succeed({ source: referenceOf(request, complete.value) }) : complete;
+  }
 
   const stored = await store.put(file.source, options);
   if (!stored.ok) return stored;

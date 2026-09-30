@@ -35,7 +35,11 @@ function servicesOver(tree = new MemoryStorageTree()) {
     nextToken: countingTokens(),
     sharing: countedSharing(),
   });
-  return { tree, store, services: { store, digest: nodeDigest } };
+  return {
+    tree,
+    store,
+    services: { store, digest: nodeDigest, yieldToHost: () => Promise.resolve() },
+  };
 }
 
 function requestFor(choice: ImportChoice, extra: Partial<ExternalFile> = {}): ImportRequest {
@@ -113,7 +117,7 @@ describe('importing by copy', () => {
 });
 
 describe('importing by reference', () => {
-  it('records the identity with the prompting policy, and stores nothing', async () => {
+  it('records the whole identity with the prompting policy, and stores nothing', async () => {
     const { services, tree } = servicesOver();
 
     const imported = expectSuccess(
@@ -121,6 +125,7 @@ describe('importing by reference', () => {
     );
 
     const sample = expectSuccess(await sampleSource(generatedSource(SIZE, 7), nodeDigest));
+    const { contentId } = expectSuccess(await contentIdOf(generatedSource(SIZE, 7), nodeDigest));
     expect(imported).toEqual({
       source: {
         media: {
@@ -133,6 +138,7 @@ describe('importing by reference', () => {
             mediaType: 'application/octet-stream',
             signature: sample.signature,
             fastFingerprint: sample.fastFingerprint,
+            contentId,
           },
           policy: 'prompt',
         },
@@ -140,6 +146,7 @@ describe('importing by reference', () => {
           originalFileName: 'Gravel footstep.wav',
           importedAt: 1_790_000_000_000,
           sourceFingerprint: sample.fastFingerprint,
+          sourceContentId: contentId,
           byteLength: SIZE,
           mediaType: 'application/octet-stream',
           originProjectId: sampleProject().project.id,

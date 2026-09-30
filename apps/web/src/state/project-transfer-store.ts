@@ -230,6 +230,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
       consolidate(session, {
         store: this.services.store,
         digest: this.services.digest,
+        yieldToHost: this.services.yieldToHost,
         locate: async (_asset, identity) => {
           const access = await linkedFileOf(this.services.keeper, identity);
           return access.kind === 'available' ? access.file : undefined;

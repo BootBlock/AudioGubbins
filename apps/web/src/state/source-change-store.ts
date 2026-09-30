@@ -25,6 +25,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   classifySource,
+  examineFile,
   observeFile,
   resolutionsFor,
   type ResolutionKind,
@@ -193,7 +194,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     const access = await linkedFileOf(this.services.keeper, identity);
     if (access.kind === 'missing') return { kind: 'absent', reason: 'not-found' };
     if (access.kind !== 'available') return { kind: 'absent', reason: 'permission-refused' };
-    const observed = await observeFile(access.file, this.services.digest);
+    const observed = await examineFile(identity, access.file, this.services);
     return observed.ok
       ? { kind: 'present', file: observed.value }
       : { kind: 'absent', reason: 'unreadable' };

@@ -29,12 +29,17 @@ import { harness, nodeDigest } from './testing/node-services.js';
 
 const AUDIO = new Uint8Array(Array.from({ length: 4_096 }, (_, index) => (index * 7) & 0xff));
 
-function fileOf(bytes: Uint8Array<ArrayBuffer>): ExternalFile {
+/** Longer than every range sampling reads, so an edit can fall between them. */
+const LONG_AUDIO = new Uint8Array(
+  Array.from({ length: 1_048_576 }, (_, index) => (index * 7) & 0xff),
+);
+
+function fileOf(bytes: Uint8Array<ArrayBuffer>, lastModified = 1_790_000_000_000): ExternalFile {
   return {
     source: memorySource(bytes),
     fileName: 'footstep.wav',
     mediaType: 'audio/wav',
-    lastModified: 1_790_000_000_000,
+    lastModified,
     handleKey: 'handle-1',
   };
 }
@@ -42,6 +47,7 @@ function fileOf(bytes: Uint8Array<ArrayBuffer>): ExternalFile {
 async function setUp(
   located: ExternalFile | undefined,
   media: (identity: ExternalSourceIdentity) => ExternalMedia,
+  linked: ExternalFile = fileOf(AUDIO),
 ) {
   const test = harness(8);
   const tree = new MemoryStorageTree();
@@ -50,12 +56,13 @@ async function setUp(
   // The session writes through a tree that can fill up; the store does not.
   const sessionTree = new FillableTree(tree);
   const session = await openToWrite(test, sessionTree, header.id);
-  const identity = expectSuccess(await observeFile(fileOf(AUDIO), nodeDigest));
+  const identity = expectSuccess(await observeFile(linked, nodeDigest));
   const asset = test.ids.next<'AssetId'>();
   expectSuccess(await session.run(setMedia(asset, media(identity))));
   const services: ConsolidationServices = {
     store: storage.store,
     digest: nodeDigest,
+    yieldToHost: () => Promise.resolve(),
     locate: () => Promise.resolve(located),
     setMedia: (id: AssetId, managed: MediaSource) => setMedia(id, managed),
   };
@@ -110,6 +117,19 @@ describe('consolidation (REQ-STOR-099)', () => {
       ]);
       expect(session.getSnapshot().model.state.sources.get(asset)?.media.kind).toBe('external');
     }
+  });
+
+  it('passes over a file edited between the ranges its link sampled, and saved since', async () => {
+    const edited = LONG_AUDIO.slice();
+    edited[300_000] = (edited[300_000] ?? 0) ^ 0xff;
+    const { session, services, asset } = await setUp(
+      fileOf(edited, 1_790_000_060_000),
+      following,
+      fileOf(LONG_AUDIO),
+    );
+    expect(expectSuccess(await consolidate(session, services))).toEqual([
+      { asset, kind: 'passed-over', reason: 'changed' },
+    ]);
   });
 
   it('takes the retained copy of a frozen asset, and of a missing file of the same content', async () => {

@@ -21,9 +21,10 @@ import type { CommandInvocation } from '@audiogubbins/commands';
 import { succeed, type AssetId, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 import {
   classifySource,
-  observeFile,
+  examineFile,
   type ExternalFile,
   type MediaObjectStore,
+  type YieldToHost,
 } from '@audiogubbins/media-store';
 import {
   SourceChangePolicy,
@@ -41,6 +42,9 @@ import type { ProjectSession } from './project-session.js';
 export interface ConsolidationServices {
   readonly store: MediaObjectStore;
   readonly digest: Digest;
+
+  /** Lets the host run between the chunks of a linked file's full hash. */
+  readonly yieldToHost: YieldToHost;
 
   /** The file an asset is linked to, where the platform can still reach it. */
   readonly locate: (
@@ -147,7 +151,7 @@ async function copyOf(
       ? await retained()
       : succeed({ kind: 'missing' });
   }
-  const observed = await observeFile(file, services.digest, signal);
+  const observed = await examineFile(identity, file, services, signal);
   if (!observed.ok) return observed;
   const classified = classifySource(identity, { kind: 'present', file: observed.value });
   if (classified.kind !== 'unchanged') return succeed({ kind: 'changed' });

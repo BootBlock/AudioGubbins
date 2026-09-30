@@ -2130,6 +2130,7 @@ Published paths
   interface ImportServices
   readonly ImportServices.store: MediaObjectStore
   readonly ImportServices.digest: Digest
+  readonly ImportServices.yieldToHost: YieldToHost
   interface ImportedMedia
   readonly ImportedMedia.source: AssetSource
   readonly ImportedMedia.held?: ContentId
@@ -2204,6 +2205,7 @@ Published paths
   function collect(store: MediaObjectStore, plan: CollectionPlan, confirmation: PurgeConfirmation, freshRoots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionReport>>
   function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
   function contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined>
+  function examineFile(recorded: ExternalSourceIdentity, file: ExternalFile, services: CompletionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function importMedia(request: ImportRequest, services: ImportServices, options?: PutOptions): Promise<DomainResult<ImportedMedia>>
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function planCollection(store: MediaObjectStore, roots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionPlan>>
@@ -2874,6 +2876,7 @@ Published paths
   interface ConsolidationServices
   readonly ConsolidationServices.store: MediaObjectStore
   readonly ConsolidationServices.digest: Digest
+  readonly ConsolidationServices.yieldToHost: YieldToHost
   readonly ConsolidationServices.locate: (asset: AssetId, identity: ExternalSourceIdentity, signal?: AbortSignal) => Promise<ExternalFile | undefined>
   readonly ConsolidationServices.setMedia: (asset: AssetId, media: MediaSource) => CommandInvocation
   interface CopyOptions

@@ -27,12 +27,20 @@ function present(extra: Partial<ExternalSourceIdentity> = {}): SourceObservation
 const EDITED = { fastFingerprint: 'b'.repeat(64), byteLength: 120_000 };
 
 describe('what became of an external source', () => {
-  it('finds the file unchanged by its sampled signals, whatever its modification time', () => {
+  it('finds the file unchanged by its sampled signals where its modification time is too', () => {
+    expect(classifySource(recorded, present())).toMatchObject({
+      kind: 'unchanged',
+      confidence: 'sampled',
+    });
+  });
+
+  it('takes sampled signals alone for no proof once the file was modified since', () => {
+    // An edit outside the sampled ranges keeps the length and the samples; only
+    // the full content identity, which `examineFile` then takes, can tell.
     const touched = classifySource(recorded, present({ lastModified: 1_790_000_000_000 }));
 
     expect(touched).toEqual({
-      kind: 'unchanged',
-      confidence: 'sampled',
+      kind: 'modified',
       evidence: {
         byteLength: 'same',
         fastFingerprint: 'same',

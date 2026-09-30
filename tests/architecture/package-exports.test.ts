@@ -258,7 +258,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/media-store': {
     'The import pipeline: copying or linking a file into a project with its identity completed as it is hashed (REQ-STOR-025, REQ-STOR-104). An asset records the audio shape of its file, which a codec reads, so the interface imports no audio until the codec phase; the pipeline is tested through a probe port.':
       [
-        'CompletionServices',
         'ImportChoice',
         'ImportRequest',
         'ImportServices',

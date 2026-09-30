@@ -8,22 +8,23 @@
  * user or turned up by a search, is a candidate. Both are identities made by
  * `observeFile`, so they compare signal for signal with the recorded one:
  *
- * - Same content: the lengths are equal and, where both identities carry a
- *   full content identity, those are equal, which is proof; where either lacks
- *   one, the fast fingerprints are equal, which is a sampling and reported as
- *   such. Where both carry one, a difference in it is decisive whatever the
- *   fingerprints say.
- * - `unchanged`: the observation has the same content.
- * - `relinked-identical`: it has not, or is absent, and the candidate has the
- *   same content.
- * - `missing`: it is absent, with the reason as data, and no candidate has the
- *   same content.
- * - `modified`: it differs in content but not in kind: the same container, by
- *   its signature, and the same media type. An edit of the file keeps both.
- * - `replaced`: it differs in kind, so another file stands in its place.
+ * - Same content: the lengths are equal and, where both identities carry a full
+ * content identity, those are equal, which is proof; where either lacks one,
+ * the fast fingerprints and the modification times are equal, which is a
+ * sampling and reported as such. Where both carry one, a difference in it is
+ * decisive whatever the fingerprints say. - `unchanged`: the observation has
+ * the same content. - `relinked-identical`: it has not, or is absent, and the
+ * candidate has the same content. - `missing`: it is absent, with the reason as
+ * data, and no candidate has the same content. - `modified`: it differs in
+ * content but not in kind: the same container, by its signature, and the same
+ * media type. An edit of the file keeps both. - `replaced`: it differs in kind,
+ * so another file stands in its place.
  *
- * The modification time never decides: an unchanged file may be touched and a
- * changed one may keep its time. It is reported with the other signals.
+ * The modification time never proves sameness, since a changed file may keep
+ * its time, but a file modified since it was recorded may have been edited
+ * outside the sampled ranges, so samples alone are no match then: its full
+ * content identity decides, which `examineFile` takes before classifying where
+ * the recorded identity carries one.
  */
 
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
@@ -146,7 +147,9 @@ function contentMatch(evidence: SignalEvidence): MatchConfidence | undefined {
   if (evidence.contentId !== 'unknown') {
     return evidence.contentId === 'same' ? 'content-identity' : undefined;
   }
-  return evidence.fastFingerprint === 'same' ? 'sampled' : undefined;
+  return evidence.fastFingerprint === 'same' && evidence.lastModified === 'same'
+    ? 'sampled'
+    : undefined;
 }
 
 function matchOf<TSignal extends string | number>(

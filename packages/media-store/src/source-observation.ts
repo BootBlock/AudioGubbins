@@ -45,6 +45,32 @@ export async function observeFile(
 }
 
 /**
+ * The identity of a file found where a source was recorded, or offered in its
+ * place, made to compare with the recorded one: its quick signals, and its full
+ * content identity as well where the recorded identity carries one and the
+ * samples match a file modified since, which the samples alone cannot clear.
+ */
+export async function examineFile(
+  recorded: ExternalSourceIdentity,
+  file: ExternalFile,
+  services: CompletionServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<ExternalSourceIdentity>> {
+  const observed = await observeFile(file, services.digest, signal);
+  if (!observed.ok || recorded.contentId === undefined) return observed;
+  const found = observed.value;
+  const sampledAlike =
+    found.byteLength === recorded.byteLength && found.fastFingerprint === recorded.fastFingerprint;
+  if (!sampledAlike || found.lastModified === recorded.lastModified) return observed;
+  return await completeIdentity(
+    found,
+    file.source,
+    services,
+    signal === undefined ? {} : { signal },
+  );
+}
+
+/**
  * The identity with its full content identity, hashed progressively from the
  * file it was taken from.
  *

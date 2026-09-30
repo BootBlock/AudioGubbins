@@ -5,7 +5,8 @@ import { CONTENT_CHUNK_BYTES, contentIdOf, type ByteSource } from '@audiogubbins
 
 import type { ExternalFile } from './external-file.js';
 import { hashProgressively } from './progressive-hashing.js';
-import { completeIdentity, observeFile } from './source-observation.js';
+import { classifySource } from './source-classification.js';
+import { completeIdentity, examineFile, observeFile } from './source-observation.js';
 import { sampleSource } from './source-sampling.js';
 import { generatedBytes, generatedSource, memorySource } from './testing/index.js';
 import { nodeDigest } from './testing/node-digest.js';
@@ -147,5 +148,49 @@ describe('taking the identity of an external file', () => {
     });
 
     expect(expectFailureCode(refused)).toBe('media.source-changed');
+  });
+});
+
+describe('examining a file against the identity recorded', () => {
+  const BIG = 1_048_576;
+  const services = { digest: nodeDigest, yieldToHost: immediately };
+
+  async function recordedOf(bytes: Uint8Array) {
+    const observed = expectSuccess(await observeFile(fileOf(memorySource(bytes)), nodeDigest));
+    return expectSuccess(await completeIdentity(observed, memorySource(bytes), services));
+  }
+
+  it('tells an edit between the sampled ranges from the file linked, once it was saved since', async () => {
+    const linked = generatedBytes(0, BIG, 3);
+    const edited = linked.slice();
+    edited[300_000] = (edited[300_000] ?? 0) ^ 0xff;
+    const recorded = await recordedOf(linked);
+    const later = fileOf(memorySource(edited), { lastModified: 1_780_000_060_000 });
+
+    const found = expectSuccess(await examineFile(recorded, later, services));
+    expect(found.fastFingerprint).toBe(recorded.fastFingerprint);
+    expect(classifySource(recorded, { kind: 'present', file: found }).kind).toBe('modified');
+  });
+
+  it('proves a file only touched since unchanged, by its full content identity', async () => {
+    const linked = generatedBytes(0, BIG, 3);
+    const recorded = await recordedOf(linked);
+    const touched = fileOf(memorySource(linked.slice()), { lastModified: 1_780_000_060_000 });
+
+    const found = expectSuccess(await examineFile(recorded, touched, services));
+    expect(classifySource(recorded, { kind: 'present', file: found })).toMatchObject({
+      kind: 'unchanged',
+      confidence: 'content-identity',
+    });
+  });
+
+  it('reads no more than the samples where the file keeps its time', async () => {
+    const linked = generatedBytes(0, BIG, 3);
+    const recorded = await recordedOf(linked);
+
+    const found = expectSuccess(
+      await examineFile(recorded, fileOf(memorySource(linked)), services),
+    );
+    expect(found.contentId).toBeUndefined();
   });
 });
