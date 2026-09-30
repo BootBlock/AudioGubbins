@@ -12,7 +12,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { ModalDialog } from '@audiogubbins/design-system';
+import { Button, ModalDialog } from '@audiogubbins/design-system';
 import type {
   ResolutionChoice,
   ResolutionKind,
@@ -21,6 +21,7 @@ import type {
 
 import type { Observable } from '../state/observable.js';
 import type { SourceChange, SourceChangeState } from '../state/source-change-store.js';
+import { offeredSentence } from '../commands/source-commands.js';
 import { quoted } from '../wording.js';
 import { ReasonedButton } from './settings/reasoned-button.js';
 import type { RunCommand } from './settings/section.js';
@@ -67,10 +68,19 @@ function ChangedFile({
   readonly run: RunCommand;
 }): ReactNode {
   const name = quoted(change.name);
+  const { offered } = change;
   return (
     <li className="ag-source-change">
       <p>{whatBecame(change.classification, name)}</p>
+      {offered === undefined ? undefined : <p>{offeredSentence(offered)}</p>}
       <div className="ag-settings-row" role="group" aria-label={`What to do about ${name}`}>
+        {offered === undefined ? undefined : (
+          <Button onClick={() => run('source.link-offered', { asset: change.asset })}>
+            {offered.identity.fileName === undefined
+              ? 'Link the chosen file anyway'
+              : `Link ${quoted(offered.identity.fileName)} anyway`}
+          </Button>
+        )}
         {change.plan.choices.map((choice) => (
           <ReasonedButton
             key={choice.kind}

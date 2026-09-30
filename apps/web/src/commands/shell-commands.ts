@@ -40,6 +40,7 @@ import { selectionCommands } from './selection-commands.js';
 import { selectionPlayheadCommands } from './selection-playhead-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
+import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
 import { viewCommands } from './view-commands.js';
@@ -136,6 +137,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...compactionCommands(),
     ...ownershipCommands(),
     ...storageCommands(),
+    ...sourceCommands(),
   ];
 }
 

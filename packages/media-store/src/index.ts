@@ -43,12 +43,7 @@ export {
 
 export { type YieldToHost } from './progressive-hashing.js';
 
-export {
-  type CompletionServices,
-  completeIdentity,
-  examineFile,
-  observeFile,
-} from './source-observation.js';
+export { type CompletionServices, completeIdentity, examineFile } from './source-observation.js';
 
 export {
   type AbsenceReason,

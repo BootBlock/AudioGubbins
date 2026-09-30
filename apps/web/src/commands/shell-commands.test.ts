@@ -46,6 +46,7 @@ import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { shellCommands } from './shell-commands.js';
+import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -766,6 +767,7 @@ describe('finding the shell commands in the palette', () => {
       ...compactionCommands(),
       ...ownershipCommands(),
       ...storageCommands(),
+      ...sourceCommands(),
     ].map((command) => command.id),
   );
 

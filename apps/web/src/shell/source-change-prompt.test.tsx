@@ -37,6 +37,48 @@ describe('the question about linked files that changed', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('says how a file chosen to link differs, and links it only when asked to anyway', async () => {
+    const { run } = promptOver({
+      checking: false,
+      applied: [],
+      changes: [
+        {
+          asset: KICK,
+          name: 'Kick',
+          classification: { kind: 'missing', reason: 'not-found' },
+          plan: {
+            choices: [
+              { kind: 'relink', available: true },
+              { kind: 'keep-offline', available: true },
+            ],
+          },
+          offered: {
+            identity: {
+              fileName: 'snare.wav',
+              byteLength: 256,
+              lastModified: 5,
+              mediaType: 'audio/wav',
+              signature: '02020202',
+              fastFingerprint: 'b'.repeat(64),
+            },
+            difference: 'modified',
+          },
+        },
+      ],
+    });
+
+    const dialogue = screen.getByRole('dialog', { name: 'Linked files have changed' });
+    expect(
+      within(dialogue).getByText(
+        'The file you chose is not the one the project used: its content differs. Link it anyway, or choose another file.',
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      within(dialogue).getByRole('button', { name: 'Link "snare.wav" anyway' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('source.link-offered', { asset: KICK });
+  });
+
   it('names each file, says what became of it, and offers its choices in order', async () => {
     const { run } = promptOver({
       checking: false,

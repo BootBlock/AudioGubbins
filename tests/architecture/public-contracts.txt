@@ -2207,7 +2207,6 @@ Published paths
   function contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined>
   function examineFile(recorded: ExternalSourceIdentity, file: ExternalFile, services: CompletionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function importMedia(request: ImportRequest, services: ImportServices, options?: PutOptions): Promise<DomainResult<ImportedMedia>>
-  function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function planCollection(store: MediaObjectStore, roots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionPlan>>
   function resolutionsFor(classification: SourceClassification, media: ExternalMedia): ResolutionPlan
 
@@ -2255,6 +2254,7 @@ Published paths
   function generatedBytes(offset: number, length: number, seed: number): Uint8Array<ArrayBuffer>
   function generatedSource(size: number, seed: number): ObservedSource
   function memorySource(bytes: Uint8Array<ArrayBufferLike>): ObservedSource
+  function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
 @audiogubbins/project-commands
   const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; }

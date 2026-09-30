@@ -8,17 +8,17 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { observeFile, type ExternalFile } from '@audiogubbins/media-store';
-import { memorySource } from '@audiogubbins/media-store/testing';
+import type { ExternalFile } from '@audiogubbins/media-store';
+import { memorySource, observeFile } from '@audiogubbins/media-store/testing';
 import { addAssetInvocation } from '@audiogubbins/project-commands';
 import { storageKeyOf, type MediaSource } from '@audiogubbins/project-format';
 
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 
 /** A file the person linked, as the browser hands one over, its handle kept under `key`. */
-function linkedFile(name: string, key: string): ExternalFile {
+function linkedFile(name: string, key: string, fill = 1): ExternalFile {
   return {
-    source: memorySource(new Uint8Array(256).fill(1)),
+    source: memorySource(new Uint8Array(256).fill(fill)),
     fileName: name,
     mediaType: 'audio/wav',
     lastModified: 5,
@@ -93,6 +93,28 @@ describe('a file the open project links to', () => {
     const media =
       open.kind === 'open' ? open.snapshot.model.state.sources.get(asset)?.media : undefined;
     expect(media?.kind === 'external' && media.identity.fileName).toBe('kick, moved.wav');
+  });
+
+  it('asks before linking a chosen file that is not the one the project used', async () => {
+    const { window, asset } = await withLinkedAsset();
+    window.files.mediaFiles.push(linkedFile('snare.wav', 'kept-3', 2));
+
+    expect(await window.runAndHear('source.resolve', { asset, choice: 'relink' })).toBe(
+      'The file you chose is not the one the project used: it is another kind of file. Link it anyway, or choose another file.',
+    );
+    const [change] = window.projects.sources.get().changes;
+    expect(change?.offered?.identity.fileName).toBe('snare.wav');
+    const linkedName = (): string | false | undefined => {
+      const open = window.projects.project.get();
+      const media =
+        open.kind === 'open' ? open.snapshot.model.state.sources.get(asset)?.media : undefined;
+      return media?.kind === 'external' && media.identity.fileName;
+    };
+    expect(linkedName()).toBe('kick.wav');
+
+    expect(await window.runAndHear('source.link-offered', { asset })).toBe('Done.');
+    expect(window.projects.sources.get().changes).toEqual([]);
+    expect(linkedName()).toBe('snare.wav');
   });
 
   it('refuses a choice that cannot be taken, saying why, and keeps it waiting', async () => {

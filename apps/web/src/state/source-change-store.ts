@@ -8,10 +8,13 @@
  * it was is left alone. For one that changed, went or was replaced, the choices
  * are the media store's, in its order: take the new version, link another file,
  * keep the copy retained of the version the project was made with where one
- * was, or keep the asset offline. What the asset's own policy does without
- * asking is done at once and said, and never a silent adoption, since the
- * policy that asks applies nothing. Every answer that changes the project is
- * one project command through the session, so undo reverses it.
+ * was, or keep the asset offline. A file chosen to link instead is examined
+ * against the recorded identity like the file it stands for: one of the same
+ * content is linked at once, and any other is offered, with how it differs, for
+ * the person to link anyway or choose again. What the asset's own policy does
+ * without asking is done at once and said, and never a silent adoption, since
+ * the policy that asks applies nothing. Every answer that changes the project
+ * is one project command through the session, so undo reverses it.
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
@@ -26,7 +29,6 @@ import {
 import {
   classifySource,
   examineFile,
-  observeFile,
   resolutionsFor,
   type ResolutionKind,
   type ResolutionPlan,
@@ -62,7 +64,22 @@ export interface SourceChange {
 
   /** The file found in the recorded place, for taking its new version. */
   readonly found?: ExternalSourceIdentity;
+
+  /** A file the person chose to link instead that is not the one recorded, until they decide. */
+  readonly offered?: OfferedFile;
 }
+
+/** A file chosen to link that differs from the one recorded, and how. */
+export interface OfferedFile {
+  readonly identity: ExternalSourceIdentity;
+
+  /** How it differs: in content, or in kind. */
+  readonly difference: 'modified' | 'replaced';
+}
+
+/** What answering a change came to. */
+export type Resolution =
+  { readonly kind: 'taken' } | { readonly kind: 'offered'; readonly offered: OfferedFile };
 
 /** The linked files that changed, and what the policies did without asking. */
 export interface SourceChangeState {
@@ -165,20 +182,30 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
   };
 
   /** Answers one change as the person chose. */
-  readonly resolve = async (asset: AssetId, kind: ResolutionKind): Promise<DomainResult<void>> => {
+  readonly resolve = async (
+    asset: AssetId,
+    kind: ResolutionKind,
+  ): Promise<DomainResult<Resolution>> => {
     const session = this.project.session();
     const change = this.state.get().changes.find((one) => one.asset === asset);
     if (session === undefined || change === undefined) return fail(NO_SUCH_CHANGE);
     const choice = change.plan.choices.find((one) => one.kind === kind);
     if (choice?.available !== true) return fail(cannotTake(kind));
+    if (kind === 'relink') return await this.relink(session, change);
     const taken = await this.take(session, change, kind);
-    if (taken.ok) {
-      this.state.update((current) => ({
-        ...current,
-        changes: current.changes.filter((one) => one.asset !== asset),
-      }));
-    }
-    return taken;
+    if (!taken.ok) return taken;
+    this.answered(asset);
+    return succeed({ kind: 'taken' });
+  };
+
+  /** Links the file offered for a change, which the person chose to link anyway. */
+  readonly linkOffered = async (asset: AssetId): Promise<DomainResult<void>> => {
+    const session = this.project.session();
+    const change = this.state.get().changes.find((one) => one.asset === asset);
+    if (session === undefined || change?.offered === undefined) return fail(NO_SUCH_CHANGE);
+    const linked = await this.linked(session, change, change.offered.identity);
+    if (linked.ok) this.answered(asset);
+    return linked;
   };
 
   /**
@@ -218,29 +245,67 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     };
   }
 
-  /**
-   * Takes a choice through the session. Linking another file asks for it first,
-   * in the handler of the person's gesture.
-   */
+  /** Takes a choice that needs no more of the person through the session. */
   private async take(
     session: ProjectSession,
     change: SourceChange,
     kind: ResolutionKind,
   ): Promise<DomainResult<void>> {
     if (kind === 'keep-offline') return succeed(undefined);
-    const current = session.getSnapshot().model.state;
-    let invocation = invocationOf(change, current, kind);
-    if (kind === 'relink') {
-      const chosen = await this.files.chooseMediaFile();
-      const asset = current.project.assets.get(change.asset);
-      if (asset === undefined) return fail(NO_SUCH_CHANGE);
-      if (chosen === undefined) return fail(NOTHING_CHOSEN);
-      const identity = await observeFile(chosen, this.services.digest);
-      if (!identity.ok) return identity;
-      invocation = relinkSourceInvocation(asset, identity.value);
-    }
+    const invocation = invocationOf(change, session.getSnapshot().model.state, kind);
     if (invocation === undefined) return fail(cannotTake(kind));
     const ran = await session.run(invocation);
     return ran.ok ? succeed(undefined) : ran;
+  }
+
+  /**
+   * Asks for another file, in the handler of the person's gesture, and links it
+   * where it holds what the project recorded, or offers it where it does not.
+   */
+  private async relink(
+    session: ProjectSession,
+    change: SourceChange,
+  ): Promise<DomainResult<Resolution>> {
+    const chosen = await this.files.chooseMediaFile();
+    if (chosen === undefined) return fail(NOTHING_CHOSEN);
+    const media = session.getSnapshot().model.state.sources.get(change.asset)?.media;
+    if (media?.kind !== 'external') return fail(NO_SUCH_CHANGE);
+    const examined = await examineFile(media.identity, chosen, this.services);
+    if (!examined.ok) return examined;
+    const identity = examined.value;
+    const verdict = classifySource(media.identity, { kind: 'present', file: identity });
+    if (verdict.kind === 'modified' || verdict.kind === 'replaced') {
+      const offered: OfferedFile = { identity, difference: verdict.kind };
+      this.state.update((current) => ({
+        ...current,
+        changes: current.changes.map((one) =>
+          one.asset === change.asset ? { ...one, offered } : one,
+        ),
+      }));
+      return succeed({ kind: 'offered', offered });
+    }
+    const linked = await this.linked(session, change, identity);
+    if (!linked.ok) return linked;
+    this.answered(change.asset);
+    return succeed({ kind: 'taken' });
+  }
+
+  private async linked(
+    session: ProjectSession,
+    change: SourceChange,
+    identity: ExternalSourceIdentity,
+  ): Promise<DomainResult<void>> {
+    const asset = session.getSnapshot().model.state.project.assets.get(change.asset);
+    if (asset === undefined) return fail(NO_SUCH_CHANGE);
+    const ran = await session.run(relinkSourceInvocation(asset, identity));
+    return ran.ok ? succeed(undefined) : ran;
+  }
+
+  /** Puts away a change the person answered. */
+  private answered(asset: AssetId): void {
+    this.state.update((current) => ({
+      ...current,
+      changes: current.changes.filter((one) => one.asset !== asset),
+    }));
   }
 }

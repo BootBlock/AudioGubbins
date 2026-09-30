@@ -1,9 +1,7 @@
 /**
  * The storage as a whole: the compatibility decisions for data of another
- * version, measuring what the storage holds and cleaning it up, the default way
- * files are brought in, and the answer to a linked file that changed
- * (REQ-STOR-052, REQ-STOR-102, REQ-STOR-106, REQ-STOR-200, REQ-STOR-025,
- * REQ-STOR-053).
+ * version, and measuring what the storage holds and cleaning it up
+ * (REQ-STOR-052, REQ-STOR-102, REQ-STOR-106, REQ-STOR-200).
  *
  * Wiping and every cleanup step past the caches remove what cannot be made
  * again, so each runs only from the confirmation that says what goes: wiping
@@ -19,7 +17,6 @@ import {
   type CommandAvailability,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import type { ResolutionKind } from '@audiogubbins/media-store';
 import {
   CACHE_CLEANUP_ORDER,
   type CleanupChoice,
@@ -27,13 +24,7 @@ import {
 } from '@audiogubbins/storage';
 
 import { describeBytes } from '../wording.js';
-import { SourceHandling } from '../state/project-preferences-store.js';
-import {
-  idArgument,
-  projectsAvailability,
-  readyProjects,
-  sayWhenSettled,
-} from './project-access.js';
+import { projectsAvailability, readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -237,82 +228,7 @@ function cleanupCommands(): readonly Command<ShellContext>[] {
   return [measureCommand(), planCleanupCommand(), cleanUpCommand(), dismissCleanupCommand()];
 }
 
-function sourceHandlingCommand(): Command<ShellContext> {
-  return shellCommand(
-    'settings.source-handling',
-    'Choose how files are brought in',
-    CommandCategory.Settings,
-    (context, invocation) => {
-      const preferences = context.projects?.preferences;
-      if (preferences === undefined) return 'This browser cannot keep projects.';
-      const named = textArgument(invocation, 'handling');
-      const handling = Object.values(SourceHandling).find((one) => one === named);
-      if (handling === undefined) return 'Choose to copy files or to link them.';
-      const refused = preferences.setSourceHandling(handling);
-      if (refused !== undefined) return refused;
-      context.interaction.announce(
-        handling === SourceHandling.Copy
-          ? 'Files are copied into the project from now on.'
-          : 'Files are linked where they lie from now on.',
-      );
-      return undefined;
-    },
-    { discoverable: false, availability: projectsAvailability },
-  );
-}
-
-function resolveCommand(): Command<ShellContext> {
-  return shellCommand(
-    'source.resolve',
-    'Answer a change to a linked file',
-    CommandCategory.Edit,
-    (context, invocation) => {
-      const stores = readyProjects(context);
-      if (typeof stores === 'string') return stores;
-      const asset = idArgument<'AssetId'>(invocation, 'asset', 'asset');
-      if ('refused' in asset) return asset.refused;
-      const named = textArgument(invocation, 'choice');
-      const kinds: readonly ResolutionKind[] = ['adopt', 'relink', 'freeze', 'keep-offline'];
-      const choice = kinds.find((one) => one === named);
-      if (choice === undefined) return 'Choose what to do about the file.';
-      sayWhenSettled(context, stores.sources.resolve(asset.id, choice), () =>
-        choice === 'keep-offline' ? 'The asset stays offline until you choose again.' : 'Done.',
-      );
-      return undefined;
-    },
-    { discoverable: false, availability: projectsAvailability },
-  );
-}
-
-function decideLaterCommand(): Command<ShellContext> {
-  return shellCommand(
-    'source.decide-later',
-    'Decide later about changed linked files',
-    CommandCategory.Edit,
-    (context) => {
-      context.projects?.sources.putAside();
-      context.interaction.announce(
-        'The changed files are left as they are, and their assets stay offline until the project is opened again.',
-      );
-    },
-    {
-      discoverable: false,
-      availability: (context) => {
-        const waiting = context.projects?.sources.get();
-        return waiting === undefined || waiting.changes.length + waiting.applied.length === 0
-          ? unavailable('No linked file is waiting for an answer.')
-          : projectsAvailability(context);
-      },
-    },
-  );
-}
-
-/** How files are brought in, and what is done about one that changed. */
-function sourceCommands(): readonly Command<ShellContext>[] {
-  return [sourceHandlingCommand(), resolveCommand(), decideLaterCommand()];
-}
-
 /** Every command on the storage as a whole. */
 export function storageCommands(): readonly Command<ShellContext>[] {
-  return [...compatibilityCommands(), ...cleanupCommands(), ...sourceCommands()];
+  return [...compatibilityCommands(), ...cleanupCommands()];
 }
