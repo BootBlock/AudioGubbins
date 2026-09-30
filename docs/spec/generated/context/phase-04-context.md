@@ -1932,7 +1932,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 4,
   "name": "Waveform and Timeline Foundation",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     1,
     3
@@ -1954,7 +1954,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-04-evidence.md",
+    "reviews/phase-04-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-04.md"
 }
 ```

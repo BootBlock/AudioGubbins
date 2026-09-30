@@ -1,8 +1,10 @@
-> **Status:** In progress. 2026-09-29: the decisions and all five packages are
-> committed (timeline, waveform, renderer, video-reference, editor-view), with
-> the signal recipes and the engine's shared description; the application,
-> the browser suites, the review pass, the evidence, the ledger, the handoff
-> and the landing remain (see "Left to do").
+> **Status:** Done. 2026-09-30: every slice is built, and the one review pass
+> of the seven lenses found thirty-seven findings, eight of them high, every
+> one fixed or accepted with tracking and written into
+> `docs/spec/reviews/phase-04-review.md`. Phase 04 is closed at `PASS` in the
+> ledger, and its handoff capsule is
+> `docs/spec/traceability/handoffs/phase-04.md`. The progress table and the
+> list of what was left are those of the time they were written.
 
 # Phase 04 — Waveform and Timeline Foundation
 
