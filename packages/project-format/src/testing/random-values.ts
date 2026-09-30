@@ -10,9 +10,13 @@
  */
 
 import {
+  AmbisonicNormalisation,
+  AmbisonicOrdering,
   AssetOrigin,
   StandardLayouts,
+  ambisonicLayout,
   discreteLayout,
+  labelledLayout,
   sampleCount,
   sampleRate,
   type Asset,
@@ -119,11 +123,43 @@ export function randomCount(random: Random, most: number): SampleCount {
   return expectSuccess(sampleCount(random.below(most + 1)));
 }
 
-/** A random layout: mostly a standard one, sometimes discrete channels. */
+/**
+ * A random layout: mostly a standard one, and otherwise discrete channels, a
+ * custom map whose labels name each channel, or an ambisonic set with its
+ * convention, the two a layout states beyond its roles (ADR-0033).
+ */
 export function randomLayout(random: Random): ChannelLayout {
-  return random.chance(0.8)
-    ? random.pick(Object.values(StandardLayouts))
-    : expectSuccess(discreteLayout(1 + random.below(12)));
+  if (random.chance(0.6)) return random.pick(Object.values(StandardLayouts));
+  switch (random.below(3)) {
+    case 0:
+      return expectSuccess(discreteLayout(1 + random.below(12)));
+    case 1:
+      return expectSuccess(
+        labelledLayout(
+          Array.from({ length: 1 + random.below(6) }, (_, index) => `Stem ${String(index + 1)}`),
+        ),
+      );
+    default:
+      // The Furse-Malham order and weights go together, to the third order.
+      return expectSuccess(
+        ambisonicLayout(
+          random.chance(0.5)
+            ? {
+                order: random.below(4),
+                ordering: AmbisonicOrdering.FuMa,
+                normalisation: AmbisonicNormalisation.FuMa,
+              }
+            : {
+                order: random.below(8),
+                ordering: AmbisonicOrdering.Acn,
+                normalisation: random.pick([
+                  AmbisonicNormalisation.Sn3d,
+                  AmbisonicNormalisation.N3d,
+                ]),
+              },
+        ),
+      );
+  }
 }
 
 function randomHex(random: Random, digits: number): string {

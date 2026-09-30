@@ -12,15 +12,26 @@
  */
 
 import {
+  AmbisonicNormalisation,
+  AmbisonicOrdering,
   ChannelRole,
   MAXIMUM_CHANNEL_COUNT,
+  ambisonicLayout,
   channelLayout,
   sampleCount,
   sampleRate,
+  type AmbisonicConvention,
   type ChannelLayout,
 } from '@audiogubbins/domain';
 
-import { listConverter, pathOf, type Converter } from './document-reading.js';
+import {
+  listConverter,
+  objectOf,
+  optional,
+  pathOf,
+  required,
+  type Converter,
+} from './document-reading.js';
 import {
   domainNumberConverter,
   fitsTextRule,
@@ -108,12 +119,78 @@ export const asPan = numberConverter(-1, 1);
 
 const asRoles = listConverter(MAXIMUM_CHANNEL_COUNT, oneOfConverter(Object.values(ChannelRole)));
 
-/** A channel layout, written as its roles in channel order. */
+const LAYOUT_MEMBERS: ReadonlySet<string> = new Set(['roles', 'labels', 'ambisonic']);
+const CONVENTION_MEMBERS: ReadonlySet<string> = new Set(['order', 'ordering', 'normalisation']);
+
+/**
+ * A channel's label is held to the domain's rule once read; this bound only
+ * keeps a hostile document from making the reader hold more.
+ */
+const asLabels = listConverter(MAXIMUM_CHANNEL_COUNT, asName);
+
+/** The highest order whose set fits in the most channels a layout has. */
+const HIGHEST_ORDER = Math.floor(Math.sqrt(MAXIMUM_CHANNEL_COUNT)) - 1;
+
+const asConvention: Converter<AmbisonicConvention> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, CONVENTION_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const order = required(reading, object, at, 'order', integerConverter(0, HIGHEST_ORDER));
+  const ordering = required(
+    reading,
+    object,
+    at,
+    'ordering',
+    oneOfConverter(Object.values(AmbisonicOrdering)),
+  );
+  const normalisation = required(
+    reading,
+    object,
+    at,
+    'normalisation',
+    oneOfConverter(Object.values(AmbisonicNormalisation)),
+  );
+  return order === undefined || ordering === undefined || normalisation === undefined
+    ? undefined
+    : { order, ordering, normalisation };
+};
+
+/**
+ * A channel layout: its roles in channel order, the label of each channel of
+ * a custom map, and the convention of an ambisonic set (ADR-0033), each built
+ * by the domain's own constructor. An ambisonic layout's roles are the ones
+ * its convention gives, so a document whose roles say otherwise is refused
+ * rather than one of the two believed.
+ */
 export const asChannelLayout: Converter<ChannelLayout> = (reading, value, parent, key) => {
-  const roles = asRoles(reading, value, parent, key);
+  const object = objectOf(reading, value, parent, key, LAYOUT_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const roles = required(reading, object, at, 'roles', asRoles);
+  const labels = optional(reading, object, at, 'labels', asLabels);
+  const convention = optional(reading, object, at, 'ambisonic', asConvention);
   if (roles === undefined) return undefined;
-  const built = channelLayout(roles);
-  if (built.ok) return built.value;
-  reading.refuseAll(built.failures, pathOf(parent, key));
-  return undefined;
+  if (convention === undefined) {
+    const built = channelLayout(roles, labels);
+    if (built.ok) return built.value;
+    reading.refuseAll(built.failures, at);
+    return undefined;
+  }
+  const built = ambisonicLayout(convention);
+  if (!built.ok) {
+    reading.refuseAll(built.failures, pathOf(at, 'ambisonic'));
+    return undefined;
+  }
+  const setRoles =
+    roles.length === built.value.roles.length &&
+    roles.every((role) => role === ChannelRole.Ambisonic);
+  if (labels !== undefined || !setRoles) {
+    reading.refuse(
+      'channel.layout-ambisonic-mismatch',
+      'An ambisonic layout has one ambisonic role for each component of its set, and no labels.',
+      at,
+    );
+    return undefined;
+  }
+  return built.value;
 };

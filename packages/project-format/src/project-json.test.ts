@@ -372,9 +372,9 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'a channel role the domain does not name': {
     edit: (document) =>
-      withValue(document, ['project', 'tracks', 0, 'channelLayout'], ['left', 'middle']),
+      withValue(document, ['project', 'tracks', 0, 'channelLayout', 'roles'], ['left', 'middle']),
     code: 'schema.unknown-value',
-    at: 'project.tracks[0].channelLayout[1]',
+    at: 'project.tracks[0].channelLayout.roles[1]',
   },
   'a change policy the format does not name': {
     edit: (document) => withValue(document, [...externalAt, 'policy'], 'ignore'),
@@ -439,9 +439,60 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'a layout the domain refuses': {
     edit: (document) =>
-      withValue(document, ['project', 'tracks', 0, 'channelLayout'], ['left', 'left']),
+      withValue(document, ['project', 'tracks', 0, 'channelLayout', 'roles'], ['left', 'left']),
     code: 'channel.layout-duplicate-role',
     at: 'project.tracks[0].channelLayout',
+  },
+  'a layout written as its roles alone': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], ['left', 'right']),
+    code: 'schema.not-an-object',
+    at: 'project.tracks[0].channelLayout',
+  },
+  'a custom map with two channels of one label': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], {
+        roles: ['discrete', 'discrete'],
+        labels: ['Dialogue', 'Dialogue'],
+      }),
+    code: 'channel.label-duplicate',
+    at: 'project.tracks[0].channelLayout',
+  },
+  'ambisonic roles with no convention': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], {
+        roles: ['ambisonic', 'ambisonic', 'ambisonic', 'ambisonic'],
+      }),
+    code: 'channel.layout-ambisonic-without-convention',
+    at: 'project.tracks[0].channelLayout',
+  },
+  'an ambisonic convention over roles of another width': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], {
+        roles: ['ambisonic', 'ambisonic'],
+        ambisonic: { order: 1, ordering: 'acn', normalisation: 'sn3d' },
+      }),
+    code: 'channel.layout-ambisonic-mismatch',
+    at: 'project.tracks[0].channelLayout',
+  },
+  'an ambisonic set whose channels carry labels': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], {
+        roles: ['ambisonic'],
+        labels: ['W'],
+        ambisonic: { order: 0, ordering: 'acn', normalisation: 'sn3d' },
+      }),
+    code: 'channel.layout-ambisonic-mismatch',
+    at: 'project.tracks[0].channelLayout',
+  },
+  'a Furse-Malham set above the third order': {
+    edit: (document) =>
+      withValue(document, ['project', 'tracks', 0, 'channelLayout'], {
+        roles: Array.from({ length: 25 }, () => 'ambisonic'),
+        ambisonic: { order: 4, ordering: 'fuma', normalisation: 'fuma' },
+      }),
+    code: 'channel.ambisonic-fuma-order-too-high',
+    at: 'project.tracks[0].channelLayout.ambisonic',
   },
   'a clip on a track the project does not have': {
     edit: (document) => withValue(document, ['project', 'clips', 0, 'trackId'], UNKNOWN_ID),

@@ -55,8 +55,22 @@ export function writeProject(project: Project): JsonObject {
   };
 }
 
-function writeLayout(layout: ChannelLayout): JsonArray {
-  return [...layout.roles];
+/** Writes a layout whole: its roles, and its labels or its ambisonic convention where it has them. */
+function writeLayout(layout: ChannelLayout): JsonObject {
+  const { labels, ambisonic } = layout;
+  return {
+    roles: [...layout.roles],
+    ...(labels === undefined ? {} : { labels: [...labels] }),
+    ...(ambisonic === undefined
+      ? {}
+      : {
+          ambisonic: {
+            order: ambisonic.order,
+            ordering: ambisonic.ordering,
+            normalisation: ambisonic.normalisation,
+          },
+        }),
+  };
 }
 
 /** Writes one asset, as the project's list of assets holds it. */
