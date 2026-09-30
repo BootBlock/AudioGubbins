@@ -13,7 +13,13 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
-import { mapResult, succeed, type IdGenerator } from '@audiogubbins/domain';
+import {
+  mapResult,
+  succeed,
+  type DomainFailureResult,
+  type DomainResult,
+  type IdGenerator,
+} from '@audiogubbins/domain';
 import type { HistoryNodeId, ProjectState, StateFingerprint } from '@audiogubbins/project-format';
 
 import { writeCheckpointAndHead } from './checkpoint-writing.js';
@@ -24,6 +30,7 @@ import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHeader } from './project-header.js';
 import type { ProjectModel } from './project-model.js';
+import { isRecordTooLarge } from './storage-failures.js';
 import { WriteQueue, type SaveStatus, type WriteOutcome } from './write-queue.js';
 
 /** How often an open project writes a checkpoint and keeps a state. */
@@ -100,10 +107,9 @@ export class SessionWriter {
     const position = { epoch: this.start.lease.epoch, sequence: this.nextSequence };
     this.nextSequence += 1;
     this.last = position;
-    const record = this.queue.enqueue(async () => {
-      await this.start.files.journal.append(position, event);
-      return succeed(undefined);
-    });
+    const record = this.queue.enqueue(
+      async () => await this.start.files.journal.append(position, event),
+    );
     this.sinceCheckpoint += 1;
     // What the record makes due is queued behind it and awaited with it, so a
     // storage failure in any of them reaches the caller rather than no one.
@@ -114,18 +120,28 @@ export class SessionWriter {
     return written ?? { kind: 'written' };
   }
 
-  /** Queues the keeping of a state whole, where storage does not hold it yet. */
+  /**
+   * Queues the keeping of a state whole, where storage does not hold it yet. A
+   * state larger than storage can read back stays in memory only, and the
+   * journal still holds how to make it again, so it is logged and not retried.
+   */
   async keep(state: ProjectState, fingerprint: StateFingerprint): Promise<WriteOutcome> {
     if (this.kept.has(fingerprint)) return { kind: 'written' };
     return await this.queue.enqueue(async () => {
-      await this.start.files.states.put(state);
+      const kept = await this.start.files.states.put(state);
+      if (!kept.ok) return this.notHeld(kept);
       this.kept.add(fingerprint);
       this.unwritten.delete(fingerprint);
       return succeed(undefined);
     });
   }
 
-  /** Queues a checkpoint of `model`, as of the last record queued. */
+  /**
+   * Queues a checkpoint of `model`, as of the last record queued. A checkpoint
+   * larger than storage can read back is not written, and nothing it would have
+   * replaced is removed: the journal holds every change still, and the next
+   * checkpoint due tries again.
+   */
   async checkpoint(model: ProjectModel): Promise<WriteOutcome> {
     this.sinceCheckpoint = 0;
     const request = {
@@ -139,7 +155,7 @@ export class SessionWriter {
       const written = await writeCheckpointAndHead(this.start.files, request);
       if (!written.ok) {
         if (written.failures[0].code === SUPERSEDED) this.start.onSuperseded();
-        return written;
+        return this.notHeld(written);
       }
       this.kept.clear();
       for (const state of written.value.keptStates) {
@@ -152,6 +168,23 @@ export class SessionWriter {
       this.start.onCheckpointWritten();
       return succeed(undefined);
     });
+  }
+
+  /**
+   * Passes on a failed write, save one refused as larger than storage can read
+   * back, which is logged instead: retrying it would refuse again and hold up
+   * every journal record behind it.
+   */
+  private notHeld(written: DomainFailureResult): DomainResult<void> {
+    const [first] = written.failures;
+    if (!isRecordTooLarge(first)) return written;
+    this.start.logger.warning(
+      'Storage cannot hold part of a project whole, so it keeps the journal.',
+      {
+        kind: String(first.details?.['kind']),
+      },
+    );
+    return succeed(undefined);
   }
 
   /**

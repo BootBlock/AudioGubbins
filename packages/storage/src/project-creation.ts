@@ -111,9 +111,17 @@ export async function writeProject(
   const { state } = contents;
   const tree = files.records.tree;
   await tree.writeFile(files.paths.unfinished, new Uint8Array(0), signal);
-  for (const kept of contents.kept.values()) await files.states.put(kept, signal);
+  for (const kept of contents.kept.values()) {
+    const put = await files.states.put(kept, signal);
+    if (!put.ok) return put;
+  }
   const cursorState = await files.states.put(state, signal);
-  const history = withStateFingerprint(contents.history, contents.history.cursor, cursorState);
+  if (!cursorState.ok) return cursorState;
+  const history = withStateFingerprint(
+    contents.history,
+    contents.history.cursor,
+    cursorState.value,
+  );
   if (!history.ok) return history;
   const comparison =
     contents.comparison === undefined
@@ -122,12 +130,12 @@ export async function writeProject(
   if (comparison?.ok === false) return comparison;
 
   const checkpoint = ids.next<'CheckpointId'>();
-  await files.writeCheckpoint(
+  const written = await files.writeCheckpoint(
     checkpoint,
     {
       history: history.value,
-      cursorState,
-      keptStates: new Set([cursorState, ...contents.kept.keys()]),
+      cursorState: cursorState.value,
+      keptStates: new Set([cursorState.value, ...contents.kept.keys()]),
       exports: contents.exports,
       retention: contents.retention,
       backup: contents.backup,
@@ -136,6 +144,7 @@ export async function writeProject(
     },
     signal,
   );
+  if (!written.ok) return written;
 
   const head = await writeHead(
     files.records,

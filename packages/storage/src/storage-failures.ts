@@ -61,6 +61,27 @@ export async function refusalsReported<TValue>(
   }
 }
 
+/**
+ * The failure of a write refused because what it holds is larger than its
+ * reader accepts: `kind` is the record's kind, or `state` for a kept state. It
+ * is never retried as it stands, since the same write would be refused again.
+ */
+export function recordTooLarge(kind: string, cause: DomainFailure): DomainFailure {
+  return failure(
+    RECORD_TOO_LARGE,
+    FailureKind.Rejected,
+    'This is larger than storage can read back, so it was not written.',
+    { details: { kind }, cause },
+  );
+}
+
+/** Whether a failure is {@link recordTooLarge}'s. */
+export function isRecordTooLarge(cause: DomainFailure): boolean {
+  return cause.code === RECORD_TOO_LARGE;
+}
+
+const RECORD_TOO_LARGE = 'storage.record-too-large';
+
 /** The failure of asking for a project the storage does not hold. */
 export function projectMissing(project: ProjectId): DomainFailure {
   return failure('storage.project-missing', FailureKind.Rejected, 'There is no such project.', {

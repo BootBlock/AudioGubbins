@@ -25,7 +25,7 @@ function store(tree = new MemoryStorageTree()) {
 describe('the states a project keeps whole (REQ-STOR-101)', () => {
   it('keeps a state under the fingerprint of its document, and reads it back', async () => {
     const { states } = store();
-    const fingerprint = await states.put(STATE);
+    const fingerprint = expectSuccess(await states.put(STATE));
     expect(fingerprint).toBe(await stateFingerprintOf(STATE, nodeDigest));
     expect(expectSuccess(await states.get(fingerprint))).toEqual(STATE);
     expect([...(await states.list())]).toEqual([fingerprint]);
@@ -42,7 +42,7 @@ describe('the states a project keeps whole (REQ-STOR-101)', () => {
 
   it('writes a torn state again', async () => {
     const { tree, states } = store();
-    const fingerprint = await states.put(STATE);
+    const fingerprint = expectSuccess(await states.put(STATE));
     const path = `projects/${STATE.project.id}/states/${fingerprint}.json`;
     const bytes = await tree.readFile(path);
     await tree.writeFile(path, (bytes ?? new Uint8Array()).subarray(0, 20));
@@ -53,7 +53,7 @@ describe('the states a project keeps whole (REQ-STOR-101)', () => {
 
   it('writes again a state torn at its full length, as a write sized before it lands leaves one', async () => {
     const { tree, states } = store();
-    const fingerprint = await states.put(STATE);
+    const fingerprint = expectSuccess(await states.put(STATE));
     const path = `projects/${STATE.project.id}/states/${fingerprint}.json`;
     const whole = (await tree.readFile(path)) ?? new Uint8Array();
     const torn = new Uint8Array(whole.length);
@@ -65,8 +65,8 @@ describe('the states a project keeps whole (REQ-STOR-101)', () => {
 
   it('refuses a file that holds another state than its name promises', async () => {
     const { tree, states } = store();
-    const fingerprint = await states.put(STATE);
-    const other = await states.put(RENAMED);
+    const fingerprint = expectSuccess(await states.put(STATE));
+    const other = expectSuccess(await states.put(RENAMED));
     const base = `projects/${STATE.project.id}/states`;
     await tree.writeFile(
       `${base}/${fingerprint}.json`,

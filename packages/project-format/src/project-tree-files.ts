@@ -17,9 +17,15 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import { compareCodeUnits, isJsonObject, memberOf, type JsonValue } from './canonical-json.js';
+import {
+  compareCodeUnits,
+  isJsonObject,
+  memberOf,
+  type JsonLimits,
+  type JsonValue,
+} from './canonical-json.js';
 import { startReading, type Converter } from './document-reading.js';
-import { parseJson, type JsonLimits } from './json-parsing.js';
+import { parseJson } from './json-parsing.js';
 import { readTreeHeader, type TreeHeader } from './project-tree-header.js';
 import { TREE_HEADER_PATH, placeOf, type TreePlace } from './project-tree-layout.js';
 import { decodeUtf8 } from './utf8.js';
@@ -39,9 +45,13 @@ export interface ProjectTreeListing {
 }
 
 /** The longest metadata file read, in bytes: the longest a project's text may be. */
-const LONGEST_METADATA = 2 ** 28;
+export const LONGEST_METADATA = 2 ** 28;
 
-const TREE_JSON_LIMITS: JsonLimits = { maximumLength: LONGEST_METADATA, maximumDepth: 32 };
+/** The bounds a metadata file's text is read within. */
+export const TREE_JSON_LIMITS: JsonLimits = {
+  maximumLength: LONGEST_METADATA,
+  maximumDepth: 32,
+};
 
 /** An item of a list within a value: the list's path and the item's index. */
 const LIST_ITEM = /^([A-Za-z.]*)\[([0-9]+)\]/u;
@@ -178,7 +188,7 @@ export class TreeReading {
 
   private async json(path: string, size: number): Promise<DomainResult<JsonValue>> {
     this.signal?.throwIfAborted();
-    if (size > LONGEST_METADATA) return fail(treeProblem('tree.file-too-large', path));
+    if (size > LONGEST_METADATA) return fail(fileTooLarge(path));
     const bytes = await this.listing.read(path, this.signal);
     if (!bytes.ok) return bytes;
     return flatMapResult(decodeUtf8(bytes.value), (text) => parseJson(text, TREE_JSON_LIMITS));
@@ -221,6 +231,11 @@ const SUMMARIES: ReadonlyMap<string, string> = new Map([
   ['tree.snapshot-state-missing', 'A snapshot’s state is not in the tree.'],
   ['tree.cursor-state-mismatch', 'The project’s state is not the one its history is at.'],
 ]);
+
+/** The failure of a metadata file longer than {@link LONGEST_METADATA}. */
+export function fileTooLarge(path: string): DomainFailure {
+  return treeProblem('tree.file-too-large', path);
+}
 
 function treeProblem(code: string, path: string): DomainFailure {
   return failure(code, FailureKind.IntegrityViolation, SUMMARIES.get(code) ?? code, {

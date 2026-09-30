@@ -20,7 +20,14 @@
  * did before: empty, or still of the old schema.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  mapResult,
+  succeed,
+  type DomainResult,
+} from '@audiogubbins/domain';
 import { PRODUCT_VERSION, SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
   compatibilityOf,
@@ -143,8 +150,7 @@ export async function openStorageRoot(
         fault: read.kind === 'invalid' ? read.fault : { kind: 'missing' },
       });
     }
-    await initialise(records, signal);
-    return succeed({ kind: 'fresh' });
+    return mapResult(await initialise(records, signal), () => ({ kind: 'fresh' }) as const);
   });
 }
 
@@ -182,13 +188,15 @@ export async function wipeStorage(
       if (entry.name !== STORAGE_ROOT_FILE) await tree.remove(entry.name);
     }
     await tree.remove(STORAGE_ROOT_FILE);
-    await initialise(new CheckedRecords(tree, digest), signal);
-    return succeed(undefined);
+    return await initialise(new CheckedRecords(tree, digest), signal);
   });
 }
 
-async function initialise(records: CheckedRecords, signal?: AbortSignal): Promise<void> {
-  await records.write(
+async function initialise(
+  records: CheckedRecords,
+  signal?: AbortSignal,
+): Promise<DomainResult<void>> {
+  return await records.write(
     STORAGE_ROOT_FILE,
     RecordKind.StorageRoot,
     { writtenBy: PRODUCT_VERSION, schemas: { projectDocument: SCHEMA_VERSIONS.projectDocument } },

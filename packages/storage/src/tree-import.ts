@@ -258,7 +258,9 @@ async function bringBodies(
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
   const from = content.state.project.id;
-  for (const file of projectTree(content)) {
+  const files = projectTree(content);
+  if (!files.ok) return files;
+  for (const file of files.value) {
     const { body } = file;
     if (body.kind === 'text') continue;
     const source = await open(file, signal);

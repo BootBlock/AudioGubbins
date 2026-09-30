@@ -48,10 +48,10 @@ describe('stripAssetProvenance', () => {
   it.each([ProvenanceLevel.Minimal, ProvenanceLevel.None])(
     'leaves no file name, path or handle in the written project at %s',
     (level) => {
-      const before = serialiseProjectDocument(REFERENCE);
+      const before = expectSuccess(serialiseProjectDocument(REFERENCE));
       for (const text of PRIVATE_TEXT) expect(before).toContain(text);
 
-      const after = serialiseProjectDocument(stripAssetProvenance(REFERENCE, level));
+      const after = expectSuccess(serialiseProjectDocument(stripAssetProvenance(REFERENCE, level)));
       for (const text of PRIVATE_TEXT) expect(after).not.toContain(text);
     },
   );

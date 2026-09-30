@@ -19,6 +19,7 @@ import {
   FailureKind,
   fail,
   failure,
+  mapResult,
   succeed,
   type AssetId,
   type DomainResult,
@@ -130,7 +131,7 @@ export async function treeOfCopy(
     media: media.value,
     ...(caches === undefined ? {} : { caches: caches.value }),
   });
-  return succeed({ files, linked: linkedAssets(model.state) });
+  return mapResult(files, (written) => ({ files: written, linked: linkedAssets(model.state) }));
 }
 
 /**

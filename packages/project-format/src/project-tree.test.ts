@@ -19,7 +19,11 @@ import { decodeUtf8, encodeUtf8 } from './utf8.js';
  */
 
 async function sampleTree(): Promise<ProjectTreeFile[]> {
-  return [...projectTree(await historyContent(referenceState(sampleProject()), 4, nodeDigest))];
+  return [
+    ...expectSuccess(
+      projectTree(await historyContent(referenceState(sampleProject()), 4, nodeDigest)),
+    ),
+  ];
 }
 
 type Json = Record<string, unknown>;

@@ -23,7 +23,10 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import type { Digest } from './byte-ports.js';
 import {
   canonicalJson,
-  prettyCanonicalJson,
+  canonicalJsonWithin,
+  prettyCanonicalJsonWithin,
+  type CanonicalJson,
+  type JsonLimits,
   type JsonObject,
   type JsonValue,
 } from './canonical-json.js';
@@ -31,7 +34,7 @@ import { readCompatibleHeader } from './compatibility.js';
 import { fingerprintOf } from './content-hashing.js';
 import type { StateFingerprint } from './content-identity.js';
 import { objectOf, required, startReading } from './document-reading.js';
-import { parseJson, type JsonLimits } from './json-parsing.js';
+import { parseJson } from './json-parsing.js';
 import { asProject } from './project-reading.js';
 import type { ProjectState } from './project-state.js';
 import { writeProject, writeSources } from './project-writing.js';
@@ -88,9 +91,22 @@ export function readProjectDocument(value: JsonValue): DomainResult<ProjectState
   );
 }
 
-/** The document of a state as the text written to a file: pretty canonical JSON. */
-export function serialiseProjectDocument(state: ProjectState): string {
-  return prettyCanonicalJson(writeProjectDocument(state));
+/**
+ * The document of a state as the text written to a file: pretty canonical
+ * JSON. Fails as {@link canonicalJsonWithin} does where the text is past what
+ * {@link parseProjectDocument} reads, since a file written so could never be
+ * opened.
+ */
+export function serialiseProjectDocument(state: ProjectState): DomainResult<string> {
+  return prettyCanonicalJsonWithin(writeProjectDocument(state), PROJECT_DOCUMENT_LIMITS);
+}
+
+/**
+ * The compact canonical text a state is kept as, whose digest is its
+ * fingerprint, failing as {@link serialiseProjectDocument} does.
+ */
+export function compactProjectDocument(state: ProjectState): DomainResult<CanonicalJson> {
+  return canonicalJsonWithin(writeProjectDocument(state), PROJECT_DOCUMENT_LIMITS);
 }
 
 /** The state a document's text holds, or why it cannot be read. */

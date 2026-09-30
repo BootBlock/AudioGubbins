@@ -15,21 +15,21 @@ const ENTRIES: readonly ManifestEntry[] = [
 
 function edited(change: (manifest: Record<string, unknown>) => unknown): Uint8Array {
   const manifest: Record<string, unknown> = JSON.parse(
-    expectSuccess(decodeUtf8(writeBundleManifest(ENTRIES))),
+    expectSuccess(decodeUtf8(expectSuccess(writeBundleManifest(ENTRIES)))),
   );
   return encodeUtf8(JSON.stringify(change(manifest)));
 }
 
 describe('the bundle manifest (REQ-STOR-099, REQ-STOR-052)', () => {
   it('lists every entry sorted by path, and reads back as written', () => {
-    const bytes = writeBundleManifest(ENTRIES);
+    const bytes = expectSuccess(writeBundleManifest(ENTRIES));
     const read = expectSuccess(readBundleManifest(bytes));
     expect(read.entries.map(({ path }) => path)).toEqual([
       'audiogubbins-project.json',
       `media/${contentIdOfDigit('a')}`,
       'project/settings.json',
     ]);
-    expect(writeBundleManifest(read.entries)).toEqual(bytes);
+    expect(expectSuccess(writeBundleManifest(read.entries))).toEqual(bytes);
   });
 
   it('refuses a manifest of another bundle schema, naming the version found', () => {
@@ -61,6 +61,16 @@ describe('the bundle manifest (REQ-STOR-099, REQ-STOR-052)', () => {
   it('refuses to write a manifest listing a path twice', () => {
     const [first] = ENTRIES;
     if (first === undefined) throw new Error('No entry.');
-    expect(() => writeBundleManifest([...ENTRIES, first])).toThrow(/twice/u);
+    expect(() => expectSuccess(writeBundleManifest([...ENTRIES, first]))).toThrow(/twice/u);
+  });
+
+  it('refuses to write a manifest listing more files than its reader reads', () => {
+    const contentId = contentIdOfDigit('4');
+    const entries = Array.from({ length: 1_000_001 }, (_, index) => ({
+      path: `media/${String(index)}`,
+      size: 1,
+      contentId,
+    }));
+    expect(expectFailureCode(writeBundleManifest(entries))).toBe('manifest.too-large');
   });
 });

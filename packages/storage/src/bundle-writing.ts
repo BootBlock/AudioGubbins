@@ -76,9 +76,14 @@ export async function writeBundle(
     await sink.abort(entries.failures[0]);
     return entries;
   }
+  const listing = writeBundleManifest(entries.value);
+  if (!listing.ok) {
+    await sink.abort(listing.failures[0]);
+    return listing;
+  }
   const manifest: ProjectTreeFile = {
     path: BUNDLE_MANIFEST_PATH,
-    body: { kind: 'text', bytes: writeBundleManifest(entries.value) },
+    body: { kind: 'text', bytes: listing.value },
   };
   const ordered = [...files, manifest].sort((one, other) => compareCodeUnits(one.path, other.path));
   try {

@@ -25,9 +25,11 @@ export { decodeUtf8, encodeUtf8 } from './utf8.js';
 export {
   type CanonicalJson,
   type JsonArray,
+  type JsonLimits,
   type JsonObject,
   type JsonValue,
   canonicalJson,
+  canonicalJsonWithin,
   compareCodeUnits,
   isJsonArray,
   isJsonObject,
@@ -35,7 +37,7 @@ export {
   prettyCanonicalJson,
 } from './canonical-json.js';
 
-export { type JsonLimits, parseJson } from './json-parsing.js';
+export { parseJson } from './json-parsing.js';
 
 export { type ByteSink, type ByteSource, type Digest } from './byte-ports.js';
 
@@ -138,6 +140,7 @@ export {
 
 export {
   PROJECT_DOCUMENT_FORMAT,
+  compactProjectDocument,
   parseProjectDocument,
   readProjectDocument,
   serialiseProjectDocument,
@@ -232,6 +235,7 @@ export { readProjectTree, readProjectTreeHeader } from './project-tree-reading.j
 export { type TreeHeader } from './project-tree-header.js';
 export {
   BUNDLE_MANIFEST_PATH,
+  LONGEST_MANIFEST,
   type BundleManifest,
   type ManifestEntry,
   readBundleManifest,

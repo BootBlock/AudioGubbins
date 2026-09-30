@@ -14,7 +14,7 @@
  * (REQ-STOR-101: recovery from a torn tail, never unseen).
  */
 
-import type { DomainFailure, ProjectId } from '@audiogubbins/domain';
+import type { DomainFailure, DomainResult, ProjectId } from '@audiogubbins/domain';
 
 import type { CheckedReading, CheckedRecords, RecordFault } from './checked-records.js';
 import { RecordKind } from './checked-records.js';
@@ -92,13 +92,16 @@ export class CommandJournal {
     this.paths = new ProjectPaths(project);
   }
 
-  /** Writes one event at a position. Rejects with the tree's refusal. */
+  /**
+   * Writes one event at a position. Rejects with the tree's refusal, and fails
+   * as {@link CheckedRecords.write} does.
+   */
   async append(
     position: JournalPosition,
     event: JournalEvent,
     signal?: AbortSignal,
-  ): Promise<void> {
-    await this.records.write(
+  ): Promise<DomainResult<void>> {
+    return await this.records.write(
       this.paths.record(position.epoch, position.sequence),
       RecordKind.JournalRecord,
       writeEvent(event),

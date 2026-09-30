@@ -154,7 +154,13 @@ export async function writeHead(
   const generation = (ofEpoch[0]?.generation ?? 0) + 1;
   const path = paths.head(head.epoch, generation);
   const record: ProjectHead = { ...head, generation };
-  await records.write(path, RecordKind.ProjectHead, writeHeadRecord(record), signal);
+  const written = await records.write(
+    path,
+    RecordKind.ProjectHead,
+    writeHeadRecord(record),
+    signal,
+  );
+  if (!written.ok) return written;
   const back = await records.read(path, RecordKind.ProjectHead, readHead, signal);
   if (back.kind !== 'valid' || back.value.generation !== generation) {
     return fail(

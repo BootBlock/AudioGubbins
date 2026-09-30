@@ -91,7 +91,7 @@ describe('a late writer moves no head', () => {
     await tree.remove(files.paths.record(2, 2));
     await takenByB(test, tree, header.id);
     const checkpoint = test.ids.next<'CheckpointId'>();
-    const cursorState = await files.states.put(late.state);
+    const cursorState = expectSuccess(await files.states.put(late.state));
     const history = expectSuccess(
       withStateFingerprint(late.history, late.history.cursor, cursorState),
     );

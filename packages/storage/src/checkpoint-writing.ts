@@ -91,20 +91,23 @@ export async function writeCheckpointAndHead(
 ): Promise<DomainResult<WrittenCheckpoint>> {
   const { model, lease } = request;
   const cursorState = await files.states.put(model.state, signal);
-  const named = withStateFingerprint(model.history, model.history.cursor, cursorState);
+  if (!cursorState.ok) return cursorState;
+  const named = withStateFingerprint(model.history, model.history.cursor, cursorState.value);
   if (!named.ok) return named;
   const history = named.value;
 
   const retained = retainedStates(history);
   for (const [fingerprint, state] of request.unwritten) {
-    if (retained.has(fingerprint)) await files.states.put(state, signal);
+    if (!retained.has(fingerprint)) continue;
+    const kept = await files.states.put(state, signal);
+    if (!kept.ok) return kept;
   }
   const held = await files.states.list();
   const keptStates = new Set([...retained].filter((state) => held.has(state)));
 
   const checkpoint: Checkpoint = {
     history,
-    cursorState,
+    cursorState: cursorState.value,
     keptStates,
     exports: model.exports,
     retention: model.retention,
@@ -112,7 +115,8 @@ export async function writeCheckpointAndHead(
     ...(model.comparison === undefined ? {} : { comparison: model.comparison }),
     leaseEpoch: lease.epoch,
   };
-  await files.writeCheckpoint(request.id, checkpoint, signal);
+  const written = await files.writeCheckpoint(request.id, checkpoint, signal);
+  if (!written.ok) return written;
 
   if (!isHeldBy(await readLease(files.records, files.paths, signal), lease)) {
     return fail(leaseSuperseded());

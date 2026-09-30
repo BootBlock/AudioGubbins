@@ -10,7 +10,16 @@
  * different value.
  */
 
-import { unsafeBrandId, type Branded } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  mapResult,
+  succeed,
+  unsafeBrandId,
+  type Branded,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 /** A JSON value. */
 export type JsonValue = null | boolean | number | string | JsonArray | JsonObject;
@@ -56,6 +65,25 @@ export function compareCodeUnits(left: string, right: string): number {
 }
 
 /**
+ * The bounds a text is read and written within.
+ *
+ * A reader refuses a text past its bounds, so a writer that knows them refuses
+ * to write one: a file written past them is one that can never be read back.
+ */
+export interface JsonLimits {
+  /** The longest text, in UTF-16 code units. */
+  readonly maximumLength: number;
+
+  /** The deepest nesting of arrays and objects. */
+  readonly maximumDepth: number;
+}
+
+const UNBOUNDED: JsonLimits = {
+  maximumLength: Number.POSITIVE_INFINITY,
+  maximumDepth: Number.POSITIVE_INFINITY,
+};
+
+/**
  * The compact canonical text of a value: no whitespace, members sorted by
  * {@link compareCodeUnits}, arrays in order. Two equal values always give the
  * same text, so the text can be hashed.
@@ -64,9 +92,7 @@ export function compareCodeUnits(left: string, right: string): number {
  * writing one would save a project that cannot be read back.
  */
 export function canonicalJson(value: JsonValue): CanonicalJson {
-  const parts: string[] = [];
-  write(value, undefined, '', parts);
-  return unsafeBrandId<'CanonicalJson'>(parts.join(''));
+  return unsafeBrandId<'CanonicalJson'>(new TextWriter(undefined, UNBOUNDED).text(value));
 }
 
 /**
@@ -75,87 +101,153 @@ export function canonicalJson(value: JsonValue): CanonicalJson {
  * Throws where {@link canonicalJson} throws.
  */
 export function prettyCanonicalJson(value: JsonValue): string {
-  const parts: string[] = [];
-  write(value, '  ', '', parts);
-  parts.push('\n');
-  return parts.join('');
+  return new TextWriter('  ', UNBOUNDED).text(value);
 }
 
 /**
- * Appends the text of `value` to `parts`. `indent` is the step of one level, or
- * `undefined` for the compact form; `margin` is the indent of the line the
- * value starts on.
+ * The compact canonical text of a value, where a reader bounded by `limits`
+ * can read it back. Otherwise fails with the code that reader would give,
+ * `json.too-long` or `json.too-deep`, having stopped writing at the bound
+ * rather than built a text no one can read. Throws where
+ * {@link canonicalJson} throws.
  */
-function write(
+export function canonicalJsonWithin(
+  value: JsonValue,
+  limits: JsonLimits,
+): DomainResult<CanonicalJson> {
+  return mapResult(textWithin(value, undefined, limits), (text) =>
+    unsafeBrandId<'CanonicalJson'>(text),
+  );
+}
+
+/**
+ * {@link prettyCanonicalJson}'s text of a value, where a reader bounded by
+ * `limits` can read it back, failing as {@link canonicalJsonWithin} does.
+ */
+export function prettyCanonicalJsonWithin(
+  value: JsonValue,
+  limits: JsonLimits,
+): DomainResult<string> {
+  return textWithin(value, '  ', limits);
+}
+
+function textWithin(
   value: JsonValue,
   indent: string | undefined,
-  margin: string,
-  parts: string[],
-): void {
-  if (value === null) {
-    parts.push('null');
-  } else if (typeof value === 'boolean') {
-    parts.push(value ? 'true' : 'false');
-  } else if (typeof value === 'number') {
-    parts.push(numberText(value));
-  } else if (typeof value === 'string') {
-    parts.push(stringText(value));
-  } else if (isJsonArray(value)) {
-    writeContainer(
-      value,
-      (item) => {
-        write(item, indent, inner(indent, margin), parts);
-      },
-      '[]',
-      indent,
-      margin,
-      parts,
-    );
-  } else {
-    const keys = Object.keys(value).sort(compareCodeUnits);
-    const separator = indent === undefined ? ':' : ': ';
-    writeContainer(
-      keys,
-      (key) => {
-        parts.push(stringText(key), separator);
-        write(memberOf(value, key) ?? null, indent, inner(indent, margin), parts);
-      },
-      '{}',
-      indent,
-      margin,
-      parts,
-    );
+  limits: JsonLimits,
+): DomainResult<string> {
+  const writer = new TextWriter(indent, limits);
+  const text = writer.text(value);
+  switch (writer.problem) {
+    case undefined:
+      return succeed(text);
+    case 'too-long':
+      return fail(
+        failure(
+          'json.too-long',
+          FailureKind.IntegrityViolation,
+          'The text would be longer than its reader accepts.',
+          { details: { maximum: limits.maximumLength } },
+        ),
+      );
+    case 'too-deep':
+      return fail(
+        failure(
+          'json.too-deep',
+          FailureKind.IntegrityViolation,
+          'Arrays and objects would be nested deeper than their reader accepts.',
+          { details: { maximum: limits.maximumDepth } },
+        ),
+      );
   }
 }
 
-/** The margin one level inside `margin`. */
-function inner(indent: string | undefined, margin: string): string {
-  return indent === undefined ? margin : margin + indent;
-}
+/**
+ * Writes one value's text, compact where `indent` is `undefined` and laid out
+ * with that step per level otherwise, and stops at the first bound it passes.
+ */
+class TextWriter {
+  /** The bound the text passed, where it passed one. */
+  problem: 'too-long' | 'too-deep' | undefined;
 
-/** Writes an array or object's brackets around its items, laid out if indented. */
-function writeContainer<TItem>(
-  items: readonly TItem[],
-  writeItem: (item: TItem) => void,
-  brackets: '[]' | '{}',
-  indent: string | undefined,
-  margin: string,
-  parts: string[],
-): void {
-  const [open, close] = brackets === '[]' ? ['[', ']'] : ['{', '}'];
-  if (items.length === 0) {
-    parts.push(open, close);
-    return;
+  private readonly indent: string | undefined;
+  private readonly limits: JsonLimits;
+  private readonly parts: string[] = [];
+  private length = 0;
+
+  constructor(indent: string | undefined, limits: JsonLimits) {
+    this.indent = indent;
+    this.limits = limits;
   }
 
-  const lineStart = indent === undefined ? '' : `\n${margin}${indent}`;
-  parts.push(open);
-  items.forEach((item, index) => {
-    if (index > 0) parts.push(',');
-    parts.push(lineStart);
-    writeItem(item);
-  });
-  parts.push(indent === undefined ? '' : `\n${margin}`, close);
+  /**
+   * The text of `value`. Past a bound it is the empty text, with the bound in
+   * {@link TextWriter.problem}, so a text too long to hold is never joined.
+   */
+  text(value: JsonValue): string {
+    this.value(value, '', 0);
+    if (this.indent !== undefined) this.push('\n');
+    return this.problem === undefined ? this.parts.join('') : '';
+  }
+
+  /** Writes `value`, which starts on a line indented by `margin`, `depth` deep. */
+  private value(value: JsonValue, margin: string, depth: number): void {
+    if (this.problem !== undefined) return;
+    if (value === null) {
+      this.push('null');
+    } else if (typeof value === 'boolean') {
+      this.push(value ? 'true' : 'false');
+    } else if (typeof value === 'number') {
+      this.push(numberText(value));
+    } else if (typeof value === 'string') {
+      this.push(stringText(value));
+    } else if (depth + 1 > this.limits.maximumDepth) {
+      this.problem = 'too-deep';
+    } else if (isJsonArray(value)) {
+      this.container(value, '[]', margin, (item, inner) => {
+        this.value(item, inner, depth + 1);
+      });
+    } else {
+      const keys = Object.keys(value).sort(compareCodeUnits);
+      const separator = this.indent === undefined ? ':' : ': ';
+      this.container(keys, '{}', margin, (key, inner) => {
+        this.push(stringText(key));
+        this.push(separator);
+        this.value(memberOf(value, key) ?? null, inner, depth + 1);
+      });
+    }
+  }
+
+  /** Writes an array or object's brackets around its items, laid out if indented. */
+  private container<TItem>(
+    items: readonly TItem[],
+    brackets: '[]' | '{}',
+    margin: string,
+    writeItem: (item: TItem, inner: string) => void,
+  ): void {
+    const [open, close] = brackets === '[]' ? ['[', ']'] : ['{', '}'];
+    if (items.length === 0) {
+      this.push(open + close);
+      return;
+    }
+
+    const inner = this.indent === undefined ? margin : margin + this.indent;
+    const lineStart = this.indent === undefined ? '' : `\n${inner}`;
+    this.push(open);
+    for (const [index, item] of items.entries()) {
+      if (this.problem !== undefined) return;
+      if (index > 0) this.push(',');
+      this.push(lineStart);
+      writeItem(item, inner);
+    }
+    this.push(this.indent === undefined ? close : `\n${margin}${close}`);
+  }
+
+  private push(text: string): void {
+    this.parts.push(text);
+    this.length += text.length;
+    if (this.length > this.limits.maximumLength) this.problem ??= 'too-long';
+  }
 }
 
 /**

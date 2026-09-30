@@ -197,13 +197,12 @@ export class CacheStore {
       await this.tree.remove(`${path}${SEAL_SUFFIX}`);
       const written = await streamInto(source, await this.tree.createFile(path), signal);
       if (!written.ok) return written;
-      await this.records.write(
+      return await this.records.write(
         `${path}${SEAL_SUFFIX}`,
         RecordKind.CacheSeal,
         { byteLength: source.size },
         signal,
       );
-      return succeed(undefined);
     });
   }
 

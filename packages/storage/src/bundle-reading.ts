@@ -23,6 +23,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   BUNDLE_MANIFEST_PATH,
+  LONGEST_MANIFEST,
   contentIdOf,
   openZip,
   readBundleManifest,
@@ -45,9 +46,6 @@ interface OpenedBundle {
   /** A media file or a cache, checked against its identity before it is given. */
   readonly open: BodyOpener;
 }
-
-/** The longest manifest read, in bytes. */
-const LONGEST_MANIFEST = 2 ** 28;
 
 /** Opens a bundle (see the module comment). */
 export async function openBundle(

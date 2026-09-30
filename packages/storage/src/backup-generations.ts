@@ -25,7 +25,7 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { withStateFingerprint } from '@audiogubbins/history';
+import { withStateFingerprint, type History } from '@audiogubbins/history';
 import {
   objectOf,
   oneOfConverter,
@@ -33,6 +33,7 @@ import {
   required,
   type Converter,
   type Digest,
+  type ProjectState,
   type StateFingerprint,
   type StorageTree,
 } from '@audiogubbins/project-format';
@@ -53,6 +54,14 @@ export interface GenerationListing {
 
   /** The numbers of generations a crash left without their record. */
   readonly incomplete: readonly number[];
+}
+
+/** The states a generation keeps, written, and the history naming its cursor's. */
+interface KeptStates {
+  readonly kept: ReadonlySet<StateFingerprint>;
+  readonly bytes: number;
+  readonly cursorState: StateFingerprint;
+  readonly history: History;
 }
 
 /** What a generation's record says of it. */
@@ -121,48 +130,72 @@ export class BackupGenerations {
   ): Promise<DomainResult<BackupGeneration>> {
     return await refusalsReported(async () => {
       const number = Math.max(0, ...(await this.numbers())) + 1;
-      const states = new SnapshotStore(this.tree, this.records.digest, this.paths.states(number));
-      const kept = new Set<StateFingerprint>();
-      let bytes = 0;
-      const keep = async (fingerprint: StateFingerprint): Promise<void> => {
-        kept.add(fingerprint);
-        bytes += (await this.tree.openFile(states.path(fingerprint)))?.size ?? 0;
-      };
-      for (const fingerprint of offeredStates(copy)) {
-        const state = await copy.states.load(fingerprint, signal);
-        if (state.ok) await keep(await states.put(state.value, signal));
-      }
+      const states = await this.writeStates(copy, number, signal);
+      if (!states.ok) return states;
       const { model } = copy;
-      const cursorState = await states.put(model.state, signal);
-      await keep(cursorState);
-      const history = withStateFingerprint(model.history, model.history.cursor, cursorState);
-      if (!history.ok) return history;
-
       const checkpoint: Checkpoint = {
-        history: history.value,
-        cursorState,
-        keptStates: kept,
+        history: states.value.history,
+        cursorState: states.value.cursorState,
+        keptStates: states.value.kept,
         exports: model.exports,
         retention: model.retention,
         backup: model.backup,
         ...(model.comparison === undefined ? {} : { comparison: model.comparison }),
         leaseEpoch: 0,
       };
-      const checkpointBody = writeCheckpoint(checkpoint);
-      await this.records.write(
+      const written = await this.records.write(
         this.paths.checkpoint(number),
         RecordKind.Checkpoint,
-        checkpointBody,
+        writeCheckpoint(checkpoint),
         signal,
       );
-      bytes += (await this.tree.openFile(this.paths.checkpoint(number)))?.size ?? 0;
+      if (!written.ok) return written;
+      const bytes =
+        states.value.bytes + ((await this.tree.openFile(this.paths.checkpoint(number)))?.size ?? 0);
       if (made.protect) await this.tree.writeFile(this.paths.protection(number), new Uint8Array(0));
       const record: GenerationRecord = { at: made.at, reason: made.reason, bytes };
-      await this.records.write(this.paths.record(number), RecordKind.BackupGeneration, {
-        ...record,
-      });
+      const listed = await this.records.write(
+        this.paths.record(number),
+        RecordKind.BackupGeneration,
+        { ...record },
+        signal,
+      );
+      if (!listed.ok) return listed;
       return succeed({ number, ...record, protected: made.protect });
     });
+  }
+
+  /**
+   * Writes the states generation `number` keeps: each the copy offers that can
+   * be read, and the state at its cursor, which its history then names.
+   */
+  private async writeStates(
+    copy: ProjectCopy,
+    number: number,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<KeptStates>> {
+    const states = new SnapshotStore(this.tree, this.records.digest, this.paths.states(number));
+    const kept = new Set<StateFingerprint>();
+    let bytes = 0;
+    const put = async (state: ProjectState): Promise<DomainResult<StateFingerprint>> => {
+      const written = await states.put(state, signal);
+      if (!written.ok) return written;
+      kept.add(written.value);
+      bytes += (await this.tree.openFile(states.path(written.value)))?.size ?? 0;
+      return written;
+    };
+    for (const fingerprint of offeredStates(copy)) {
+      const state = await copy.states.load(fingerprint, signal);
+      if (!state.ok) continue;
+      const written = await put(state.value);
+      if (!written.ok) return written;
+    }
+    const { model } = copy;
+    const cursorState = await put(model.state);
+    if (!cursorState.ok) return cursorState;
+    const history = withStateFingerprint(model.history, model.history.cursor, cursorState.value);
+    if (!history.ok) return history;
+    return succeed({ kept, bytes, cursorState: cursorState.value, history: history.value });
   }
 
   /** Protects a generation from pruning, or lets pruning consider it again. */

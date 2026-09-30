@@ -12,10 +12,24 @@
  * version it was found to be: before 1.0 nothing migrates.
  */
 
-import { flatMapResult, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  flatMapResult,
+  mapResult,
+  succeed,
+  type DomainFailure,
+  type DomainResult,
+} from '@audiogubbins/domain';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
-import { compareCodeUnits, prettyCanonicalJson, type JsonObject } from './canonical-json.js';
+import {
+  compareCodeUnits,
+  prettyCanonicalJsonWithin,
+  type JsonLimits,
+  type JsonObject,
+} from './canonical-json.js';
 import { readCompatibleHeader } from './compatibility.js';
 import type { ContentId } from './content-identity.js';
 import {
@@ -55,6 +69,11 @@ const ENTRY_MEMBERS: ReadonlySet<string> = new Set(['path', 'size', 'contentId']
 /** The most entries a manifest lists, as many as a ZIP archive is read with. */
 const MAXIMUM_ENTRIES = 1_000_000;
 
+/** The longest manifest read, in bytes. */
+export const LONGEST_MANIFEST = 2 ** 28;
+
+const MANIFEST_LIMITS: JsonLimits = { maximumLength: LONGEST_MANIFEST, maximumDepth: 8 };
+
 const asText = textConverter({ maximumLength: 4_096 });
 
 const asPath: Converter<string> = (reading, value, parent, key) => {
@@ -85,8 +104,16 @@ const asEntry: Converter<ManifestEntry> = (reading, value, parent, key) => {
 
 const asEntries = listConverter(MAXIMUM_ENTRIES, asEntry);
 
-/** The text of a manifest listing `entries`. Throws where two share a path. */
-export function writeBundleManifest(entries: readonly ManifestEntry[]): Uint8Array<ArrayBuffer> {
+/**
+ * The text of a manifest listing `entries`. Fails where
+ * {@link readBundleManifest} would refuse it for its size: more entries than it
+ * lists, or a text past its bounds in characters or, once encoded, in bytes.
+ * Throws where two share a path.
+ */
+export function writeBundleManifest(
+  entries: readonly ManifestEntry[],
+): DomainResult<Uint8Array<ArrayBuffer>> {
+  if (entries.length > MAXIMUM_ENTRIES) return fail(manifestTooLarge());
   const sorted = [...entries].sort((one, other) => compareCodeUnits(one.path, other.path));
   sorted.forEach((entry, index) => {
     if (sorted[index + 1]?.path === entry.path) {
@@ -98,15 +125,25 @@ export function writeBundleManifest(entries: readonly ManifestEntry[]): Uint8Arr
     schemaVersion: SCHEMA_VERSIONS.portableBundle,
     entries: sorted.map(({ path, size, contentId }) => ({ path, size, contentId })),
   };
-  return encodeUtf8(prettyCanonicalJson(manifest));
+  return flatMapResult(
+    mapResult(prettyCanonicalJsonWithin(manifest, MANIFEST_LIMITS), encodeUtf8),
+    (bytes) => (bytes.length > LONGEST_MANIFEST ? fail(manifestTooLarge()) : succeed(bytes)),
+  );
+}
+
+function manifestTooLarge(): DomainFailure {
+  return failure(
+    'manifest.too-large',
+    FailureKind.Rejected,
+    'The project has more files than a bundle can list.',
+    { details: { entries: MAXIMUM_ENTRIES, bytes: LONGEST_MANIFEST } },
+  );
 }
 
 /** The manifest the bytes hold, refusing one of another schema first. */
 export function readBundleManifest(bytes: Uint8Array): DomainResult<BundleManifest> {
   return flatMapResult(
-    flatMapResult(decodeUtf8(bytes), (text) =>
-      parseJson(text, { maximumLength: 2 ** 28, maximumDepth: 8 }),
-    ),
+    flatMapResult(decodeUtf8(bytes), (text) => parseJson(text, MANIFEST_LIMITS)),
     (value) => {
       const header = readCompatibleHeader(value, BUNDLE_MANIFEST_FORMAT, 'portableBundle');
       if (!header.ok) return header;

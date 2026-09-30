@@ -50,7 +50,8 @@ export async function unpackBundle(
   const claimed = await claimDirectory(writer, content.value.state.project.id, claim, signal);
   if (!claimed.ok) return claimed;
   const tree = projectTree(content.value);
-  return (await writeTreeInto(claimed.value, tree, bundle.value.open, signal)).written;
+  if (!tree.ok) return tree;
+  return (await writeTreeInto(claimed.value, tree.value, bundle.value.open, signal)).written;
 }
 
 /** Writes the tree a directory holds as a bundle into `sink`, and closes it. */
@@ -70,7 +71,12 @@ export async function packUnpacked(
     await sink.abort(content.failures[0]);
     return content;
   }
-  return await writeBundle(projectTree(content.value), sink, {
+  const files = projectTree(content.value);
+  if (!files.ok) {
+    await sink.abort(files.failures[0]);
+    return files;
+  }
+  return await writeBundle(files.value, sink, {
     open: tree.value.open,
     digest,
     proveMedia: true,

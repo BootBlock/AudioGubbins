@@ -254,7 +254,7 @@ async function rebuilt(
         path,
         source:
           path === 'manifest.json' && manifest === 'listing the edits'
-            ? edit(path, writeBundleManifest(listed))
+            ? edit(path, expectSuccess(writeBundleManifest(listed)))
             : bytes,
       })),
       sink,

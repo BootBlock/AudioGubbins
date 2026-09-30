@@ -15,9 +15,17 @@
  * trusted.
  */
 
-import { FailureKind, failure, type DomainFailure } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  succeed,
+  type DomainFailure,
+  type DomainResult,
+} from '@audiogubbins/domain';
 import {
   canonicalJson,
+  canonicalJsonWithin,
   compatibilityOf,
   decodeUtf8,
   encodeUtf8,
@@ -34,6 +42,8 @@ import {
   type StorageTree,
 } from '@audiogubbins/project-format';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
+
+import { recordTooLarge } from './storage-failures.js';
 
 /** What a record is, written in its envelope. */
 export const RecordKind = {
@@ -79,6 +89,9 @@ export type CheckedReading<TValue> =
  */
 const RECORD_LIMITS: JsonLimits = { maximumLength: 2 ** 28, maximumDepth: 32 };
 
+/** A checksum's text, standing in for one when an envelope is measured. */
+const ANY_CHECKSUM = '0'.repeat(64);
+
 const ENVELOPE_MEMBERS: ReadonlySet<string> = new Set([
   'body',
   'checksum',
@@ -106,20 +119,29 @@ export class CheckedRecords {
     this.digest = digest;
   }
 
-  /** Writes a record of `kind` holding `body` at `path`, replacing any there. */
+  /**
+   * Writes a record of `kind` holding `body` at `path`, replacing any there.
+   * Refuses, as `storage.record-too-large`, what the reader could not read
+   * back, and writes nothing then: a checkpoint written past the reader's
+   * bounds would stand in for the ones it replaced and never open.
+   */
   async write(
     path: string,
     kind: RecordKind,
     body: JsonValue,
     signal?: AbortSignal,
-  ): Promise<void> {
-    const bodyText = canonicalJson(body);
-    const checksum = hexOf(await this.digest(encodeUtf8(bodyText)));
-    // The envelope's canonical text, written from the body's rather than by
-    // serialising the body a second time: the members are in canonical order
-    // and the two scalars are written as canonical JSON writes them.
-    const text = `{"body":${bodyText},"checksum":"${checksum}","kind":${canonicalJson(kind)},"schemaVersion":${String(SCHEMA_VERSIONS.projectStorage)}}`;
-    await this.tree.writeFile(path, encodeUtf8(text), signal);
+  ): Promise<DomainResult<void>> {
+    // The envelope holds the body one level down, and its own members take a
+    // length that does not depend on the body, so the body's bounds are the
+    // record's less the envelope's.
+    const within = canonicalJsonWithin(body, {
+      maximumLength: RECORD_LIMITS.maximumLength - envelopeText('', ANY_CHECKSUM, kind).length,
+      maximumDepth: RECORD_LIMITS.maximumDepth - 1,
+    });
+    if (!within.ok) return fail(recordTooLarge(kind, within.failures[0]));
+    const checksum = hexOf(await this.digest(encodeUtf8(within.value)));
+    await this.tree.writeFile(path, encodeUtf8(envelopeText(within.value, checksum, kind)), signal);
+    return succeed(undefined);
   }
 
   /** Reads the record at `path`, expecting `kind`, and its body through `convert`. */
@@ -185,6 +207,15 @@ function envelopeOf(bytes: Uint8Array): Envelope | RecordFault {
     return notAnEnvelope();
   }
   return { kind, schemaVersion, checksum, body };
+}
+
+/**
+ * The envelope's canonical text, written from the body's rather than by
+ * serialising the body a second time: the members are in canonical order and
+ * the scalars are written as canonical JSON writes them.
+ */
+function envelopeText(bodyText: string, checksum: string, kind: RecordKind): string {
+  return `{"body":${bodyText},"checksum":"${checksum}","kind":${canonicalJson(kind)},"schemaVersion":${String(SCHEMA_VERSIONS.projectStorage)}}`;
 }
 
 function notAnEnvelope(): RecordFault {

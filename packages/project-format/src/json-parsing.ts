@@ -18,16 +18,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import type { JsonArray, JsonObject, JsonValue } from './canonical-json.js';
-
-/** The bounds a text is read within. */
-export interface JsonLimits {
-  /** The longest text read, in UTF-16 code units. */
-  readonly maximumLength: number;
-
-  /** The deepest nesting of arrays and objects read. */
-  readonly maximumDepth: number;
-}
+import type { JsonArray, JsonLimits, JsonObject, JsonValue } from './canonical-json.js';
 
 /**
  * The deepest nesting any caller may ask for.

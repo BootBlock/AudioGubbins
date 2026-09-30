@@ -101,18 +101,20 @@ describe('the project document', () => {
 
   it('reads back as the state it was written from', () => {
     expect(expectSuccess(readProjectDocument(DOCUMENT))).toEqual(REFERENCE);
-    expect(expectSuccess(parseProjectDocument(serialiseProjectDocument(REFERENCE)))).toEqual(
-      REFERENCE,
-    );
+    expect(
+      expectSuccess(parseProjectDocument(expectSuccess(serialiseProjectDocument(REFERENCE)))),
+    ).toEqual(REFERENCE);
   });
 
   it('writes the same text again from what it read, byte for byte', () => {
-    const text = serialiseProjectDocument(REFERENCE);
-    expect(serialiseProjectDocument(expectSuccess(parseProjectDocument(text)))).toBe(text);
+    const text = expectSuccess(serialiseProjectDocument(REFERENCE));
+    expect(expectSuccess(serialiseProjectDocument(expectSuccess(parseProjectDocument(text))))).toBe(
+      text,
+    );
   });
 
   it('writes pretty canonical text, with a final newline, for Git', () => {
-    const text = serialiseProjectDocument(REFERENCE);
+    const text = expectSuccess(serialiseProjectDocument(REFERENCE));
     expect(text).toBe(prettyCanonicalJson(DOCUMENT));
     expect(text.endsWith('}\n')).toBe(true);
     expect(text).not.toContain('\r');
@@ -123,7 +125,9 @@ describe('the project document', () => {
     expect(canonicalJson(shuffled)).not.toBe(canonicalJson(DOCUMENT));
     const read = expectSuccess(readProjectDocument(shuffled));
     expect(read).toEqual(REFERENCE);
-    expect(serialiseProjectDocument(read)).toBe(serialiseProjectDocument(REFERENCE));
+    expect(expectSuccess(serialiseProjectDocument(read))).toBe(
+      expectSuccess(serialiseProjectDocument(REFERENCE)),
+    );
   });
 
   it('writes the same document whatever order the state’s maps were built in', () => {
@@ -154,9 +158,9 @@ describe('a seeded property: every valid state survives the document', () => {
         expect(read, `seed ${String(seed)}`).toEqual(state);
         expect(canonicalJson(writeProjectDocument(read)), `seed ${String(seed)}`).toBe(compact);
 
-        const text = serialiseProjectDocument(state);
+        const text = expectSuccess(serialiseProjectDocument(state));
         expect(
-          serialiseProjectDocument(expectSuccess(parseProjectDocument(text))),
+          expectSuccess(serialiseProjectDocument(expectSuccess(parseProjectDocument(text)))),
           `seed ${String(seed)}`,
         ).toBe(text);
       }
@@ -708,8 +712,8 @@ describe('readProjectDocument refuses', () => {
 
 describe('the generator of random states', () => {
   it('is deterministic by seed', () => {
-    expect(serialiseProjectDocument(randomState(77))).toBe(
-      serialiseProjectDocument(randomState(77)),
+    expect(expectSuccess(serialiseProjectDocument(randomState(77)))).toBe(
+      expectSuccess(serialiseProjectDocument(randomState(77))),
     );
     expect(seededRandom(3).next()).toBe(seededRandom(3).next());
   });

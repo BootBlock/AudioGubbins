@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
   canonicalJson,
@@ -10,6 +11,7 @@ import {
   required,
   textConverter,
   type Converter,
+  type JsonValue,
 } from '@audiogubbins/project-format';
 
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
@@ -27,7 +29,7 @@ const readName: Converter<string> = (reading, value, parent, key) => {
 async function written() {
   const tree = new MemoryStorageTree();
   const records = new CheckedRecords(tree, nodeDigest);
-  await records.write('record.json', RecordKind.Lease, { name: 'Forest' });
+  expectSuccess(await records.write('record.json', RecordKind.Lease, { name: 'Forest' }));
   return { tree, records };
 }
 
@@ -117,5 +119,26 @@ describe('checked records (REQ-STOR-101, REQ-EXEC-136.12)', () => {
       kind: 'invalid',
       fault: { kind: 'damaged', cause: { code: 'storage.not-a-record' } },
     });
+  });
+});
+
+describe('writing a record its reader cannot read back', () => {
+  const anyValue: Converter<JsonValue> = (_reading, value) => value;
+  const nested = (depth: number): JsonValue =>
+    Array.from({ length: depth - 1 }).reduce<JsonValue>((inner) => [inner], []);
+
+  it('writes a body nested as deep as the reader reads, and reads it back', async () => {
+    const records = new CheckedRecords(new MemoryStorageTree(), nodeDigest);
+    expectSuccess(await records.write('deep.json', RecordKind.Lease, nested(31)));
+    const read = await records.read('deep.json', RecordKind.Lease, anyValue);
+    expect(read).toEqual({ kind: 'valid', value: nested(31) });
+  });
+
+  it('refuses one level deeper, and writes nothing', async () => {
+    const tree = new MemoryStorageTree();
+    const records = new CheckedRecords(tree, nodeDigest);
+    const written = await records.write('deep.json', RecordKind.Lease, nested(32));
+    expect(await tree.readFile('deep.json')).toBeUndefined();
+    expect(expectFailureCode(written)).toBe('storage.record-too-large');
   });
 });

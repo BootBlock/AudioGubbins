@@ -24,6 +24,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   canonicalJson,
+  compactProjectDocument,
   decodeUtf8,
   encodeUtf8,
   fingerprintOf,
@@ -35,6 +36,8 @@ import {
   type StateFingerprint,
   type StorageTree,
 } from '@audiogubbins/project-format';
+
+import { recordTooLarge } from './storage-failures.js';
 
 const STATE_FILE = /^(s1-[0-9a-f]{64})\.json$/u;
 
@@ -60,12 +63,15 @@ export class SnapshotStore {
 
   /**
    * Keeps a state whole, if it is not kept already, and gives its fingerprint.
-   * Rejects with the tree's refusal where it cannot be written.
+   * Rejects with the tree's refusal where it cannot be written, and refuses, as
+   * `storage.record-too-large`, a state {@link SnapshotStore.get} could not
+   * read back.
    */
-  async put(state: ProjectState, signal?: AbortSignal): Promise<StateFingerprint> {
-    const text = canonicalJson(writeProjectDocument(state));
-    const fingerprint = await fingerprintOf(text, this.digest);
-    const bytes = encodeUtf8(text);
+  async put(state: ProjectState, signal?: AbortSignal): Promise<DomainResult<StateFingerprint>> {
+    const text = compactProjectDocument(state);
+    if (!text.ok) return fail(recordTooLarge('state', text.failures[0]));
+    const fingerprint = await fingerprintOf(text.value, this.digest);
+    const bytes = encodeUtf8(text.value);
     const path = this.path(fingerprint);
     // Only the bytes say a file is whole: a tree may size a file before it
     // writes it, so a write cut short can leave the full length.
@@ -73,7 +79,7 @@ export class SnapshotStore {
     if (held === undefined || !sameBytes(held, bytes)) {
       await this.tree.writeFile(path, bytes, signal);
     }
-    return fingerprint;
+    return succeed(fingerprint);
   }
 
   /** The state kept under a fingerprint, or why there is none to trust. */

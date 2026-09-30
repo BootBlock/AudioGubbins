@@ -4,7 +4,7 @@
  * shares one tree, one digest and one set of paths (ADR-0020, REQ-STOR-101).
  */
 
-import type { ProjectId } from '@audiogubbins/domain';
+import type { DomainResult, ProjectId } from '@audiogubbins/domain';
 
 import { type CheckedReading, type CheckedRecords, RecordKind } from './checked-records.js';
 import { readCheckpoint, writeCheckpoint, type Checkpoint } from './checkpoint-record.js';
@@ -63,13 +63,16 @@ export class ProjectFiles {
     );
   }
 
-  /** Writes a checkpoint under the lease epoch it records. */
+  /**
+   * Writes a checkpoint under the lease epoch it records, failing as
+   * {@link CheckedRecords.write} does.
+   */
   async writeCheckpoint(
     id: CheckpointId,
     checkpoint: Checkpoint,
     signal?: AbortSignal,
-  ): Promise<void> {
-    await this.records.write(
+  ): Promise<DomainResult<void>> {
+    return await this.records.write(
       this.paths.checkpoint(checkpoint.leaseEpoch, id),
       RecordKind.Checkpoint,
       writeCheckpoint(checkpoint),

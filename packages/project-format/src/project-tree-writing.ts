@@ -11,14 +11,20 @@
  * tree keeps is what it keeps.
  */
 
-import type { ProjectId } from '@audiogubbins/domain';
+import {
+  fail,
+  succeed,
+  type DomainFailure,
+  type DomainResult,
+  type ProjectId,
+} from '@audiogubbins/domain';
 
 import {
   compareCodeUnits,
   isJsonArray,
   isJsonObject,
   memberOf,
-  prettyCanonicalJson,
+  prettyCanonicalJsonWithin,
   type JsonObject,
   type JsonValue,
 } from './canonical-json.js';
@@ -57,6 +63,7 @@ import {
 import { writeRetentionPolicy } from './retention-json.js';
 import { writeBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
 import { writeComparisonChoice, type ComparisonChoiceRecord } from './comparison-choice-json.js';
+import { LONGEST_METADATA, TREE_JSON_LIMITS, atFile, fileTooLarge } from './project-tree-files.js';
 import { encodeUtf8 } from './utf8.js';
 
 /** A piece of managed media a tree carries. */
@@ -121,11 +128,13 @@ export interface ProjectTreeFile {
 }
 
 /**
- * The files of a project's tree, sorted by path. Throws where the history is of
- * another project than the state, or two parts would share a path: the caller
- * built the content wrongly.
+ * The files of a project's tree, sorted by path. Fails, at the first such file,
+ * where a file would be past what the tree's reader reads, since a tree that
+ * cannot be read back is no copy. Throws where the history is of another
+ * project than the state, or two parts would share a path: the caller built the
+ * content wrongly.
  */
-export function projectTree(content: ProjectTreeContent): readonly ProjectTreeFile[] {
+export function projectTree(content: ProjectTreeContent): DomainResult<readonly ProjectTreeFile[]> {
   const files = new TreeFiles();
   const { scope } = content;
   const provenance = scope.kind === 'state' ? scope.provenance : ProvenanceLevel.Full;
@@ -159,20 +168,40 @@ export function projectTree(content: ProjectTreeContent): readonly ProjectTreeFi
 /** The files of a tree as they are added. */
 class TreeFiles {
   private readonly files = new Map<string, TreeFileBody>();
+  private problem: DomainFailure | undefined;
 
   add(path: string, body: TreeFileBody): void {
     if (this.files.has(path)) throw new Error(`Two parts of a project tree share ${path}.`);
     this.files.set(path, body);
   }
 
+  /**
+   * Adds the text of `value`, unless a file already refused means the tree is
+   * not written, or this one is past what the reader reads: in characters, or
+   * in bytes once encoded, which the reader measures first.
+   */
   text(path: string, value: JsonValue): void {
-    this.add(path, { kind: 'text', bytes: encodeUtf8(prettyCanonicalJson(value)) });
+    if (this.problem !== undefined) return;
+    const text = prettyCanonicalJsonWithin(value, TREE_JSON_LIMITS);
+    if (!text.ok) {
+      this.problem = atFile(text.failures[0], path);
+      return;
+    }
+    const bytes = encodeUtf8(text.value);
+    if (bytes.length > LONGEST_METADATA) {
+      this.problem = fileTooLarge(path);
+      return;
+    }
+    this.add(path, { kind: 'text', bytes });
   }
 
-  sorted(): readonly ProjectTreeFile[] {
-    return [...this.files]
-      .map(([path, body]) => ({ path, body }))
-      .sort((one, other) => compareCodeUnits(one.path, other.path));
+  sorted(): DomainResult<readonly ProjectTreeFile[]> {
+    if (this.problem !== undefined) return fail(this.problem);
+    return succeed(
+      [...this.files]
+        .map(([path, body]) => ({ path, body }))
+        .sort((one, other) => compareCodeUnits(one.path, other.path)),
+    );
   }
 }
 

@@ -2410,6 +2410,7 @@ Published paths
   type JsonValue = JsonArray | JsonObject | boolean | null | number | string
   const LONGEST_CHANGE_DESCRIPTION: 4096
   const LONGEST_HISTORY_LABEL: 1024
+  const LONGEST_MANIFEST: number
   const LONGEST_NAME: 1024
   interface ManagedMedia
   readonly ManagedMedia.kind: "managed"
@@ -2542,9 +2543,11 @@ Published paths
   const asContentId: Converter<ContentId>
   function asId<TBrand extends string>(reading: Reading, value: JsonValue, parent: string, key: number | string): Branded<TBrand> | undefined
   function canonicalJson(value: JsonValue): CanonicalJson
+  function canonicalJsonWithin(value: JsonValue, limits: JsonLimits): DomainResult<CanonicalJson>
   function checkMembers(reading: Reading, object: JsonObject, at: string, members: ReadonlySet<string>): void
   function checkedBackupPolicy(policy: BackupPolicy): DomainResult<BackupPolicy>
   function checkedRetentionPolicy(policy: RetentionPolicy): DomainResult<RetentionPolicy>
+  function compactProjectDocument(state: ProjectState): DomainResult<CanonicalJson>
   function compareCodeUnits(left: string, right: string): number
   function compatibilityOf(found: number, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): Compatibility
   function contentIdFrom(text: string): DomainResult<ContentId>
@@ -2584,7 +2587,7 @@ Published paths
   function pathOf(parent: string, key: number | string): string
   function presentMembers(members: Readonly<Record<string, JsonValue | undefined>>): JsonObject
   function prettyCanonicalJson(value: JsonValue): string
-  function projectTree(content: ProjectTreeContent): readonly ProjectTreeFile[]
+  function projectTree(content: ProjectTreeContent): DomainResult<readonly ProjectTreeFile[]>
   const readAssetRecord: Converter<AssetRecord>
   const readBackupPolicy: Converter<BackupPolicy>
   function readBundleManifest(bytes: Uint8Array<ArrayBufferLike>): DomainResult<BundleManifest>
@@ -2604,7 +2607,7 @@ Published paths
   const readSnapshotRecord: Converter<NamedSnapshot>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options?: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
-  function serialiseProjectDocument(state: ProjectState): string
+  function serialiseProjectDocument(state: ProjectState): DomainResult<string>
   function sortedBy<TValue>(values: Iterable<TValue>, keyOf: (value: TValue) => string, write: (value: TValue) => JsonValue): JsonArray
   function startReading(): Reading
   function stateFingerprintFrom(text: string): DomainResult<StateFingerprint>
@@ -2615,7 +2618,7 @@ Published paths
   function textConverter(rule: TextRule): Converter<string>
   function writeAssetRecord(record: AssetRecord): JsonObject
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
-  function writeBundleManifest(entries: readonly ManifestEntry[]): Uint8Array<ArrayBuffer>
+  function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
   function writeComparisonChoice(choice: ComparisonChoiceRecord): JsonObject
   function writeExportRecord(record: ExportRecord): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
@@ -2770,6 +2773,7 @@ Published paths
   readonly BackupGenerations.paths: BackupPaths
   BackupGenerations.list: (signal?: AbortSignal) => Promise<DomainResult<GenerationListing>>
   BackupGenerations.create: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, signal?: AbortSignal) => Promise<DomainResult<BackupGeneration>>
+  BackupGenerations.writeStates: (copy: ProjectCopy, number: number, signal?: AbortSignal) => Promise<DomainResult<KeptStates>>
   BackupGenerations.protect: (number: number, protect: boolean) => Promise<DomainResult<void>>
   BackupGenerations.remove: (numbers: readonly number[], signal?: AbortSignal) => Promise<DomainResult<void>>
   BackupGenerations.copyOf: (number: number, signal?: AbortSignal) => Promise<DomainResult<ProjectCopy>>
@@ -2873,7 +2877,7 @@ Published paths
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal
   readonly CommandJournal.records: CheckedRecords
   readonly CommandJournal.paths: ProjectPaths
-  CommandJournal.append: (position: JournalPosition, event: JournalEvent, signal?: AbortSignal) => Promise<void>
+  CommandJournal.append: (position: JournalPosition, event: JournalEvent, signal?: AbortSignal) => Promise<DomainResult<void>>
   CommandJournal.read: (position: JournalPosition, signal?: AbortSignal) => Promise<CheckedReading<JournalEvent>>
   CommandJournal.readAfter: (from: JournalPosition, lease: LeaseRecord) => Promise<JournalPlan>
   CommandJournal.prune: (head: JournalPosition, lease: LeaseRecord) => Promise<void>
@@ -3158,7 +3162,7 @@ Published paths
   readonly SnapshotStore.digest: Digest
   readonly SnapshotStore.directory: string
   SnapshotStore.fingerprint: (state: ProjectState) => Promise<StateFingerprint>
-  SnapshotStore.put: (state: ProjectState, signal?: AbortSignal) => Promise<StateFingerprint>
+  SnapshotStore.put: (state: ProjectState, signal?: AbortSignal) => Promise<DomainResult<StateFingerprint>>
   SnapshotStore.get: (fingerprint: StateFingerprint, signal?: AbortSignal) => Promise<DomainResult<ProjectState>>
   SnapshotStore.list: () => Promise<ReadonlySet<StateFingerprint>>
   SnapshotStore.remove: (fingerprint: StateFingerprint) => Promise<void>
@@ -4187,13 +4191,20 @@ packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
   type Schedule = (callback: () => void, delayMs: number) => () => void
 
+packages/storage/src/backup-generations.ts
+  interface KeptStates
+  readonly KeptStates.kept: ReadonlySet<StateFingerprint>
+  readonly KeptStates.bytes: number
+  readonly KeptStates.cursorState: StateFingerprint
+  readonly KeptStates.history: History
+
 packages/storage/src/checked-records.ts
   type CheckedReading<TValue> = { readonly kind: "absent"; } | { readonly kind: "invalid"; readonly fault: RecordFault; } | { readonly kind: "valid"; readonly value: TValue; }
   class CheckedRecords
   new CheckedRecords(tree: StorageTree, digest: Digest): CheckedRecords
   readonly CheckedRecords.tree: StorageTree
   readonly CheckedRecords.digest: Digest
-  CheckedRecords.write: (path: string, kind: RecordKind, body: JsonValue, signal?: AbortSignal) => Promise<void>
+  CheckedRecords.write: (path: string, kind: RecordKind, body: JsonValue, signal?: AbortSignal) => Promise<DomainResult<void>>
   CheckedRecords.read: <TValue>(path: string, kind: RecordKind, convert: Converter<TValue>, signal?: AbortSignal) => Promise<CheckedReading<TValue>>
   const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; }
   type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "journal-record" | "lease" | "project-head" | "project-header" | "storage-root"
@@ -4273,7 +4284,7 @@ packages/storage/src/project-files.ts
   ProjectFiles.newestCheckpoint: (signal?: AbortSignal) => Promise<Checkpoint | undefined>
   ProjectFiles.isUnfinished: () => Promise<boolean>
   ProjectFiles.readCheckpoint: (epoch: number, id: CheckpointId, signal?: AbortSignal) => Promise<CheckedReading<Checkpoint>>
-  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, signal?: AbortSignal) => Promise<void>
+  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, signal?: AbortSignal) => Promise<DomainResult<void>>
 
 packages/storage/src/project-model.ts
   type SettledEvent = { readonly kind: "backup-policy"; readonly policy: BackupPolicy; } | { readonly kind: "branch-name"; readonly node: import("packages/project-format/src/history-record").HistoryNodeId; readonly name?: import("packages/project-format/src/history-record").HistoryLabel; } | { readonly kind: "comparison"; readonly choice?: import("packages/project-format/src/comparison-choice-json").ComparisonChoiceRecord; } | { readonly kind: "export"; readonly record: ExportRecord; } | { readonly kind: "retention-policy"; readonly policy: RetentionPolicy; } | { readonly kind: "snapshot-created"; readonly snapshot: import("packages/project-format/src/history-record").NamedSnapshot; } | { readonly kind: "snapshot-deleted"; readonly snapshot: import("packages/project-format/src/history-record").SnapshotId; }
@@ -4348,6 +4359,7 @@ packages/storage/src/session-writer.ts
   SessionWriter.append: (event: JournalEvent, model: ProjectModel) => Promise<WriteOutcome>
   SessionWriter.keep: (state: ProjectState, fingerprint: StateFingerprint) => Promise<WriteOutcome>
   SessionWriter.checkpoint: (model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.notHeld: (written: DomainFailureResult) => DomainResult<void>
   SessionWriter.followName: (name: string) => Promise<WriteOutcome>
   interface WriterStart
   readonly WriterStart.files: ProjectFiles

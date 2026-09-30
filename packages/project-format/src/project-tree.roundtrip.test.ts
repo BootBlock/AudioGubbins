@@ -65,9 +65,9 @@ function contentText(content: ProjectTreeContent): string {
 }
 
 async function roundTrip(content: ProjectTreeContent) {
-  const files = projectTree(content);
+  const files = expectSuccess(projectTree(content));
   const read = expectSuccess(await readProjectTree(listingOf(files), nodeDigest));
-  return { files, read, again: projectTree(read) };
+  return { files, read, again: expectSuccess(projectTree(read)) };
 }
 
 function sample(seed: number): ProjectState {
@@ -104,7 +104,7 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
 
   it('writes one file per entity, the header first, and media by reference', async () => {
     const content = await historyContent(referenceState(sampleProject()), 3, nodeDigest);
-    const paths = projectTree(content).map(({ path }) => path);
+    const paths = expectSuccess(projectTree(content)).map(({ path }) => path);
 
     expect(paths[0]).toBe('audiogubbins-project.json');
     expect(paths).toContain('project/settings.json');
@@ -133,13 +133,15 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
     };
     const treeOf = (of: ProjectState) =>
       filesText(
-        projectTree({
-          state: of,
-          scope: { kind: 'state', provenance: ProvenanceLevel.Full },
-          exports: [],
-          backup: DEFAULT_BACKUP_POLICY,
-          media: [],
-        }),
+        expectSuccess(
+          projectTree({
+            state: of,
+            scope: { kind: 'state', provenance: ProvenanceLevel.Full },
+            exports: [],
+            backup: DEFAULT_BACKUP_POLICY,
+            media: [],
+          }),
+        ),
       );
     const before = treeOf(state);
     const after = treeOf(changed);

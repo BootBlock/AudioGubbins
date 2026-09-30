@@ -80,7 +80,8 @@ export async function writeNext<TValue extends Generational>(
   const newest = current.valid[0];
   const slot: PairSlot = newest?.slot === 0 ? 1 : 0;
   const generation = (newest?.value.generation ?? 0) + 1;
-  await records.write(files.path(slot), files.kind, build(generation), signal);
+  const written = await records.write(files.path(slot), files.kind, build(generation), signal);
+  if (!written.ok) return written;
 
   const back = await records.read(files.path(slot), files.kind, files.convert, signal);
   if (back.kind !== 'valid' || back.value.generation !== generation) {

@@ -161,7 +161,13 @@ async function raiseEpoch(
 ): Promise<DomainResult<LeaseRecord>> {
   const epoch = Math.max(reading.current.epoch, reading.highestNamed) + 1;
   const record: LeaseRecord = { ...lease, epoch };
-  await records.write(paths.lease(epoch), RecordKind.Lease, writeLeaseRecord(record), signal);
+  const written = await records.write(
+    paths.lease(epoch),
+    RecordKind.Lease,
+    writeLeaseRecord(record),
+    signal,
+  );
+  if (!written.ok) return written;
   const back = await records.read(paths.lease(epoch), RecordKind.Lease, readLeaseRecord, signal);
   if (back.kind !== 'valid' || back.value.epoch !== epoch || back.value.holder !== lease.holder) {
     return fail(notConfirmed());

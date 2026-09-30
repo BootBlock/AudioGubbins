@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import {
   canonicalJson,
+  canonicalJsonWithin,
   compareCodeUnits,
   isJsonArray,
   isJsonObject,
   memberOf,
   prettyCanonicalJson,
+  prettyCanonicalJsonWithin,
   type JsonValue,
 } from './canonical-json.js';
 import { parseJson } from './json-parsing.js';
@@ -143,6 +145,61 @@ describe('prettyCanonicalJson', () => {
 
   it('lays out a scalar on its own line', () => {
     expect(prettyCanonicalJson('text')).toBe('"text"\n');
+  });
+});
+
+describe('canonicalJsonWithin and prettyCanonicalJsonWithin', () => {
+  it('write exactly the texts a reader with the same limits reads back', () => {
+    const random = seededRandom(0x5eed_b0);
+    for (let run = 0; run < 2_000; run += 1) {
+      const value = randomValue(random, 0);
+      for (const [within, whole] of [
+        [canonicalJsonWithin, canonicalJson],
+        [prettyCanonicalJsonWithin, prettyCanonicalJson],
+      ] as const) {
+        const text = whole(value);
+        const limits = {
+          maximumLength: text.length - 2 + random.below(5),
+          maximumDepth: 1 + random.below(6),
+        };
+        const written = within(value, limits);
+        expect(written.ok).toBe(parseJson(text, limits).ok);
+        if (written.ok) expect(written.value).toBe(text);
+      }
+    }
+  });
+
+  it('refuse one code unit past the length a reader accepts, as that reader does', () => {
+    const value = { name: 'Walk', tags: ['a', 'b'] };
+    const length = canonicalJson(value).length;
+    expect(
+      expectSuccess(canonicalJsonWithin(value, { maximumLength: length, maximumDepth: 2 })),
+    ).toBe(canonicalJson(value));
+    expect(
+      expectFailureCode(canonicalJsonWithin(value, { maximumLength: length - 1, maximumDepth: 2 })),
+    ).toBe('json.too-long');
+  });
+
+  it('refuse one level deeper than a reader accepts, as that reader does', () => {
+    const value = { outer: [{ inner: [] }] };
+    expect(expectSuccess(canonicalJsonWithin(value, { maximumLength: 100, maximumDepth: 4 }))).toBe(
+      '{"outer":[{"inner":[]}]}',
+    );
+    expect(
+      expectFailureCode(canonicalJsonWithin(value, { maximumLength: 100, maximumDepth: 3 })),
+    ).toBe('json.too-deep');
+    expect(
+      expectFailureCode(prettyCanonicalJsonWithin(value, { maximumLength: 100, maximumDepth: 3 })),
+    ).toBe('json.too-deep');
+  });
+
+  it('stop at the bound rather than build a text too long for the runtime to hold', () => {
+    const chunk = 'x'.repeat(2 ** 20);
+    const value = Array.from({ length: 600 }, () => chunk);
+    expect(() => canonicalJson(value)).toThrow(RangeError);
+    expect(
+      expectFailureCode(canonicalJsonWithin(value, { maximumLength: 2 ** 28, maximumDepth: 1 })),
+    ).toBe('json.too-long');
   });
 });
 
