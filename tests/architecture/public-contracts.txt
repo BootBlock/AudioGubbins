@@ -976,6 +976,8 @@ Published paths
   readonly ContextMenuProps.label: string
   const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
   type ContrastLevel = "high" | "standard"
+  const ContrastRequirement: { readonly BodyText: 4.5; readonly LargeText: 3; readonly Enhanced: 7; }
+  type ContrastRequirement = 3 | 4.5 | 7
   interface ContrastShortfall
   readonly ContrastShortfall.token: string
   readonly ContrastShortfall.ratio: number
@@ -1154,14 +1156,16 @@ Published paths
   readonly ValueSliderProps.displayValue?: string
   readonly ValueSliderProps.disabled?: boolean
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
-  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; }
+  type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
   function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
   function clampBrightness(value: number): number
+  function contrastRatio(foreground: Oklch, background: Oklch): number
   function fixedSystemAppearance(appearance: SystemAppearance): SystemAppearanceSource
   function isAccentName(value: unknown): boolean
   function oklchToHex(colour: Oklch): string
   function oklchToSrgb(colour: Oklch): Srgb
   function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
+  function srgbToOklch(colour: Srgb): Oklch
   function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
   function useTheme(): Theme
 
@@ -1547,6 +1551,7 @@ Published paths
   readonly EditorPalette.grid: Colour
   readonly EditorPalette.rulerBackground: Colour
   readonly EditorPalette.rulerTick: Colour
+  readonly EditorPalette.rulerText: Colour
   readonly EditorPalette.text: Colour
   readonly EditorPalette.quietText: Colour
   readonly EditorPalette.selectionFill: Colour
@@ -1781,6 +1786,9 @@ Published paths
   interface ImageBatch
   readonly ImageBatch.kind: "images"
   readonly ImageBatch.images: readonly PlacedImage[]
+  interface OverlayEvents
+  readonly OverlayEvents.lost: () => void
+  readonly OverlayEvents.restored: () => void
   type Painter = { moveTo: (x: number, y: number) => void; readonly canvas: HTMLCanvasElement; clip: { (fillRule?: CanvasFillRule): void; (path: Path2D, fillRule?: CanvasFillRule): void; }; rect: (x: number, y: number, w: number, h: number) => void; font: string; stroke: { (): void; (path: Path2D): void; }; setTransform: { (a: number, b: number, c: number, d: number, e: number, f: number): void; (transform?: DOMMatrix2DInit): void; }; clearRect: (x: number, y: number, w: number, h: number) => void; fillRect: (x: number, y: number, w: number, h: number) => void; fillStyle: CanvasGradient | CanvasPattern | string; strokeStyle: CanvasGradient | CanvasPattern | string; lineWidth: number; beginPath: () => void; lineTo: (x: number, y: number) => void; save: () => void; restore: () => void; textAlign: CanvasTextAlign; textBaseline: CanvasTextBaseline; fillText: (text: string, x: number, y: number, maxWidth?: number) => void; drawImage: { (image: CanvasImageSource, dx: number, dy: number): void; (image: CanvasImageSource, dx: number, dy: number, dw: number, dh: number): void; (image: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, dx: number, dy: number, dw: number, dh: number): void; }; }
   interface PlacedImage
   readonly PlacedImage.image: CanvasImageSource
@@ -1808,15 +1816,18 @@ Published paths
   interface RenderSurface
   RenderSurface.freshCanvas: () => HTMLCanvasElement
   RenderSurface.overlay: () => Painter | undefined
+  RenderSurface.watchOverlay: (events: OverlayEvents) => () => void
   class Renderer
   new Renderer(options: { readonly surface: RenderSurface; readonly backends: readonly BackendFactory[]; }): Renderer
   readonly Renderer.#surface: RenderSurface
   readonly Renderer.#backends: readonly BackendFactory[]
   readonly Renderer.#listeners: Set<(report: RendererReport) => void>
   Renderer.#report: RendererReport
-  Renderer.#backend: RendererBackend | undefined
+  Renderer.#backend: undefined | { readonly made: RendererBackend; readonly index: number; }
   Renderer.#latest: RenderFrame | undefined
   Renderer.#disposed: boolean
+  Renderer.#overlayLost: boolean
+  readonly Renderer.#stopWatchingOverlay: () => void
   Renderer.report: RendererReport
   Renderer.subscribe: (listener: (report: RendererReport) => void) => () => void
   Renderer.#update: (change: Partial<RendererReport>) => void
@@ -1825,9 +1836,10 @@ Published paths
   Renderer.#stopped: () => boolean
   Renderer.#lost: (kind: RendererKind, reason: string) => void
   Renderer.#restored: (kind: RendererKind) => void
-  Renderer.#failed: (kind: RendererKind, index: number, reason: string) => Promise<void>
+  Renderer.#failed: (kind: RendererKind, reason: string) => Promise<void>
   Renderer.draw: (frame: RenderFrame) => void
-  Renderer.#redraw: () => void
+  Renderer.#paint: () => DrawOutcome
+  Renderer.#paintOverlay: () => void
   Renderer.dispose: () => void
   interface RendererAttempt
   readonly RendererAttempt.kind: RendererKind
@@ -1835,7 +1847,7 @@ Published paths
   readonly RendererAttempt.reason?: string
   interface RendererBackend
   readonly RendererBackend.kind: RendererKind
-  RendererBackend.draw: (frame: RenderFrame) => boolean
+  RendererBackend.draw: (frame: RenderFrame) => DrawOutcome
   RendererBackend.dispose: () => void
   const RendererKind: { readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly Canvas2d: "canvas-2d"; }
   type RendererKind = "canvas-2d" | "webgl2" | "webgpu"
@@ -1864,7 +1876,7 @@ Published paths
   readonly TextLabel.font: string
   readonly TextLabel.align: "centre" | "left" | "right"
   readonly TextLabel.baseline: "bottom" | "middle" | "top"
-  function browserBackends(gpu: unknown): readonly BackendFactory[]
+  function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
 
 @audiogubbins/test-fixtures
   const FIXTURE_LENGTH: 48000
@@ -2723,6 +2735,10 @@ packages/editor-view/src/waveform-drawing.ts
   readonly WaveformStyle.rms: boolean
   readonly WaveformStyle.clipping: boolean
   readonly WaveformStyle.palette: EditorPalette
+
+packages/renderer/src/renderer-backend.ts
+  type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
+  type Schedule = (callback: () => void, delayMs: number) => () => void
 
 packages/waveform/src/peak-host.ts
   interface Shared

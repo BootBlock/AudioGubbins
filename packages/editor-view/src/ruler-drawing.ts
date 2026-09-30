@@ -38,12 +38,13 @@ function label(
   x: number,
   y: number,
   baseline: TextLabel['baseline'],
+  colour: TextLabel['colour'],
 ): TextLabel {
   return {
     text,
     x,
     y,
-    colour: style.palette.text,
+    colour,
     font: style.type.small,
     align: 'left',
     baseline,
@@ -69,7 +70,7 @@ export function drawRuler(
     const x = crispX(style, tick.position, ruler.width);
     if (x === undefined) continue;
     tickMarks.add(x, ruler.y + ruler.height / 2, hairline, ruler.height / 2);
-    labels.push(label(style, tick.label, x + 3, ruler.y + 2, 'top'));
+    labels.push(label(style, tick.label, x + 3, ruler.y + 2, 'top', style.palette.rulerText));
   }
   for (const tick of ticks.minor) {
     const x = crispX(style, tick, ruler.width);
@@ -138,14 +139,14 @@ export function drawStrip(
     const to = Math.min(strip.width, pixelOf(style.viewport, region.start + region.length));
     if (to <= from) continue;
     spans.add(from, strip.y, to - from, strip.height);
-    labels.push(label(style, region.displayName, from + 4, middle, 'middle'));
+    labels.push(label(style, region.displayName, from + 4, middle, 'middle', style.palette.text));
   }
   for (const marker of content.markers) {
     const moving = preview?.kind === 'marker' && preview.id === marker.id;
     const x = pixelOf(style.viewport, moving ? preview.position : marker.position);
     if (x < -8 || x > strip.width + 8) continue;
     (selectedMarkers.has(marker.id) ? chosen : flags).add(x - 1, strip.y, 7, strip.height);
-    labels.push(label(style, marker.displayName, x + 9, middle, 'middle'));
+    labels.push(label(style, marker.displayName, x + 9, middle, 'middle', style.palette.text));
   }
   out.push(spans.batch(), flags.batch(), chosen.batch(), {
     kind: 'text',

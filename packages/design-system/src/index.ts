@@ -24,9 +24,12 @@
 export {
   type Oklch,
   type ContrastShortfall,
+  ContrastRequirement,
   type Srgb,
+  contrastRatio,
   oklchToHex,
   oklchToSrgb,
+  srgbToOklch,
 } from './tokens/colour.js';
 
 export {

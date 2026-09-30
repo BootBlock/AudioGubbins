@@ -8,10 +8,10 @@ import { openFresh } from './shell.js';
  * panel a person reads (the surface, the scope, the readouts and the marker
  * list), and where on the surface a position is.
  *
- * The waveform is drawn on a canvas, so everything asserted is read from what
- * the panel says beside it, which the same stores the canvas is drawn from
- * feed: a test of the canvas's pixels would test the renderer, which has its
- * own suite.
+ * The waveform is drawn on a canvas, so what these suites assert of a view is
+ * read from what the panel says beside it, which the stores the canvas is drawn
+ * from feed. That the canvas shows what the panel says is checked from the
+ * page's pixels by the renderer suites, through `renderer.ts`.
  */
 
 /** Every editor panel on the page, in the order the dock holds them. */

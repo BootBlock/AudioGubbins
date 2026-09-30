@@ -304,6 +304,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['UNKNOWN_SYSTEM_APPEARANCE', 'fixedSystemAppearance'],
     "The conversion the colour tokens are written in, which the application's test of the colours drawn before the first paint holds them to the tokens with.":
       ['oklchToHex'],
+    "The contrast measure the tokens are solved by, what text must reach, and the conversion back from the channels a canvas is given, which the application's test of the editor's canvas colours holds every label a frame writes to, on what the frame draws under it.":
+      ['ContrastRequirement', 'contrastRatio', 'srgbToOklch'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
       ['InfoPopover', 'InfoPopoverProps', 'Menu'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],

@@ -26,6 +26,7 @@ import { Renderer, browserBackends, type RendererReport } from '@audiogubbins/re
 import type { SnapTarget } from '@audiogubbins/timeline';
 import type { PeakHost, PeakStatus } from '@audiogubbins/waveform';
 
+import { browserSchedule } from '../audio/browser-schedule.js';
 import type { Filmstrip } from '../picture/filmstrip.js';
 
 import { EditorCanvases } from './editor-canvases.js';
@@ -81,7 +82,7 @@ export class EditorSurface {
     this.#canvases = new EditorCanvases(options.host);
     this.#renderer = new Renderer({
       surface: this.#canvases,
-      backends: browserBackends(options.graphics.gpu),
+      backends: browserBackends(options.graphics.gpu, browserSchedule),
     });
     this.#stops.push(this.#renderer.subscribe(this.#reported));
     void this.#renderer.start().then(() => {

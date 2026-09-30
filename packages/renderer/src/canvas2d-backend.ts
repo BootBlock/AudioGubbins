@@ -17,7 +17,14 @@ import {
   type Painter,
 } from './canvas-painting.js';
 import type { RenderFrame } from './render-frame.js';
-import { RendererKind, type BackendFactory, type RendererBackend } from './renderer-backend.js';
+import {
+  AWAY,
+  DRAWN,
+  RendererKind,
+  type BackendFactory,
+  type DrawOutcome,
+  type RendererBackend,
+} from './renderer-backend.js';
 
 class Canvas2dBackend implements RendererBackend {
   readonly kind = RendererKind.Canvas2d;
@@ -32,8 +39,8 @@ class Canvas2dBackend implements RendererBackend {
     this.#lost = value;
   }
 
-  draw(frame: RenderFrame): boolean {
-    if (this.#lost) return false;
+  draw(frame: RenderFrame): DrawOutcome {
+    if (this.#lost) return AWAY;
     const painter = this.#painter;
     prepare(painter, frame);
     painter.fillStyle = cssColour(frame.clear);
@@ -46,7 +53,7 @@ class Canvas2dBackend implements RendererBackend {
         }
       });
     }
-    return true;
+    return DRAWN;
   }
 
   dispose(): void {

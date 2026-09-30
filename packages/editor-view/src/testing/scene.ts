@@ -47,6 +47,7 @@ export const PALETTE: EditorPalette = {
   loop: named(20),
   snap: named(21),
   spectrogramBackground: named(22),
+  rulerText: named(23),
 };
 
 const TYPE: EditorType = { label: '12px sans-serif', small: '11px sans-serif' };

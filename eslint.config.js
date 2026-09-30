@@ -70,6 +70,19 @@ const BROWSER_GLOBALS_FORBIDDEN_IN_DOMAIN = ['window', 'document', 'navigator', 
   }),
 );
 
+/**
+ * Every browser global, which the renderer reads none of: the GPU object, the
+ * canvases and the timers it waits by are handed to it (ADR-0044, ADR-0040), so
+ * it can be driven by a test and only `packages/capabilities` reads the
+ * browser. The language's own globals are not in the browser set.
+ */
+const BROWSER_GLOBALS_FORBIDDEN_IN_RENDERER = Object.keys(globals.browser).map((name) => ({
+  name,
+  message:
+    'The renderer reads no browser global (ADR-0044). Take the object from the surface, ' +
+    'the GPU object or the schedule it is handed.',
+}));
+
 export default tseslint.config(
   {
     ignores: [
@@ -190,11 +203,24 @@ export default tseslint.config(
   {
     files: [
       'apps/web/**/*.{ts,tsx}',
-      'packages/{audio-runtime,design-system,workspace,capabilities,renderer}/**/*.{ts,tsx}',
+      'packages/{audio-runtime,design-system,workspace,capabilities}/**/*.{ts,tsx}',
     ],
     languageOptions: {
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
+    },
+  },
+
+  // The renderer draws on what it is handed, and reads nothing of the browser.
+  {
+    files: ['packages/renderer/**/*.ts'],
+    languageOptions: { globals: {} },
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        ...NETWORK_GLOBALS,
+        ...BROWSER_GLOBALS_FORBIDDEN_IN_RENDERER,
+      ],
     },
   },
 

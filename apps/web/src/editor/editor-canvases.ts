@@ -1,18 +1,20 @@
 /**
  * The two stacked canvases an editor view is drawn on: the geometry canvas,
- * which a GPU backend or the Canvas 2D backend draws the frame's rectangles
- * and segments on, and the overlay above it, where the frame's text and
- * picture thumbnails are drawn (ADR-0044).
+ * which a GPU backend or the Canvas 2D backend draws the frame's rectangles and
+ * segments on, and the overlay above it, where the frame's text and picture
+ * thumbnails are drawn (ADR-0044).
  *
  * A canvas takes one kind of context for life, so each backend the renderer
  * tries is given a fresh geometry canvas, which takes the place of the one
- * before it under the overlay. Neither canvas is a control: the element that
- * holds them is the view's one focusable, labelled surface, and both are
- * hidden from assistive technology, which reads the view's state from the
- * readouts beside it (REQ-UX-005).
+ * before it under the overlay. The overlay keeps its canvas, and says when the
+ * browser takes its context away and gives it back, so the renderer paints it
+ * again. Neither canvas is a control: the element that holds them is the view's
+ * one focusable, labelled surface, and both are hidden from assistive
+ * technology, which reads the view's state from the readouts beside it
+ * (REQ-UX-005).
  */
 
-import type { Painter, RenderSurface } from '@audiogubbins/renderer';
+import type { OverlayEvents, Painter, RenderSurface } from '@audiogubbins/renderer';
 
 function stacked(canvas: HTMLCanvasElement, role: string): HTMLCanvasElement {
   canvas.className = `ag-editor-canvas ag-editor-canvas-${role}`;
@@ -50,6 +52,25 @@ export class EditorCanvases implements RenderSurface {
   overlay(): Painter | undefined {
     this.#painter ??= this.#overlay.getContext('2d');
     return this.#painter ?? undefined;
+  }
+
+  /**
+   * The overlay's context lost and given back. Not prevented, so the browser
+   * gives it back by itself, blank, whenever it does so for the page.
+   */
+  watchOverlay(events: OverlayEvents): () => void {
+    const lost = (): void => {
+      events.lost();
+    };
+    const restored = (): void => {
+      events.restored();
+    };
+    this.#overlay.addEventListener('contextlost', lost);
+    this.#overlay.addEventListener('contextrestored', restored);
+    return () => {
+      this.#overlay.removeEventListener('contextlost', lost);
+      this.#overlay.removeEventListener('contextrestored', restored);
+    };
   }
 
   /** Takes both canvases out of the page. */
