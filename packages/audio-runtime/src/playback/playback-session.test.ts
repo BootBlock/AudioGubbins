@@ -744,6 +744,40 @@ describe('PlaybackSession', () => {
       expect(firstMismatch(played(rig.node, startedAt, 3 * QUANTUM), 6_000)).toBe(-1);
     });
 
+    it('parks a pause where it was heard, plays afresh from there, and stops where the play began', async () => {
+      const rig = await playing();
+      await rig.render(9);
+      expectSuccess(rig.session.pause());
+      await settle();
+
+      expectSuccess(rig.session.park(frames(6 * QUANTUM)));
+      expect(rig.session.status.transport).toEqual({
+        mode: TransportMode.Paused,
+        position: 6 * QUANTUM,
+        origin: 0,
+      });
+      expectSuccess(await rig.session.play());
+      const startedAt = rig.frame;
+      await rig.render(3);
+      expect(firstMismatch(played(rig.node, startedAt, 3 * QUANTUM), 6 * QUANTUM)).toBe(-1);
+
+      expectSuccess(rig.session.stop());
+      await settle();
+      expect(rig.session.status.transport).toEqual({ mode: TransportMode.Stopped, position: 0 });
+    });
+
+    it('refuses to park a transport that is not paused, and leaves the run alone', async () => {
+      const rig = await playing();
+      await rig.render(4);
+      const sent = kindsSent(rig.node).length;
+
+      expect(expectFailureCode(rig.session.park(frames(QUANTUM)))).toBe(
+        'transport.park-while-not-paused',
+      );
+      expect(rig.session.status.transport.mode).toBe(TransportMode.Playing);
+      expect(kindsSent(rig.node)).toHaveLength(sent);
+    });
+
     it('seeks while stopped without starting anything', async () => {
       const rig = new PlaybackRig();
       expectSuccess(await rig.session.load({ graph: halving(), sources: [recorded()] }));

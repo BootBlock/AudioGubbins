@@ -140,6 +140,10 @@ export class FakeSession implements PlaybackSessionPort {
     return this.move({ kind: 'pause', contextFrame: this.contextFrame });
   }
 
+  park(to: SampleCount): DomainResult<void> {
+    return this.move({ kind: 'parked', position: to });
+  }
+
   stop(): DomainResult<void> {
     return this.move({ kind: 'stop' });
   }

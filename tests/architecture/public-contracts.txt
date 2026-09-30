@@ -276,7 +276,7 @@ Published paths
   readonly StabilityAssessment.recommendation?: PerformanceProfile
   readonly StabilityAssessment.explanation: string
   const TRANSPORT_AT_START: TransportState
-  type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
+  type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "parked"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
   type TransportMode = "paused" | "playing" | "stopped" | "suspended"
   type TransportState = { readonly mode: typeof TransportMode.Paused; readonly position: SampleCount; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Playing; readonly anchor: ClockAnchor; readonly origin: SampleCount; } | { readonly mode: typeof TransportMode.Stopped; readonly position: SampleCount; } | { readonly mode: typeof TransportMode.Suspended; readonly position: SampleCount; readonly origin: SampleCount; }
@@ -609,6 +609,7 @@ Published paths
   PlaybackSession.load: (request: PlaybackRequest) => Promise<DomainResult<void>>
   PlaybackSession.play: () => Promise<DomainResult<void>>
   PlaybackSession.pause: () => DomainResult<void>
+  PlaybackSession.park: (to: SampleCount) => DomainResult<void>
   PlaybackSession.stop: () => DomainResult<void>
   PlaybackSession.seek: (to: SampleCount) => Promise<DomainResult<void>>
   PlaybackSession.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>

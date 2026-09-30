@@ -83,6 +83,12 @@ export type TransportEvent =
   | { readonly kind: 'pause'; readonly contextFrame: number }
   /** The audio thread halted with `position` the next frame it would have output. */
   | { readonly kind: 'halted'; readonly position: SampleCount }
+  /**
+   * A paused transport moved back to `position`, a frame it played, to stand
+   * where the listener stopped hearing: not a new start, so Stop still returns
+   * to where the last play started.
+   */
+  | { readonly kind: 'parked'; readonly position: SampleCount }
   | { readonly kind: 'stop' }
   | { readonly kind: 'seek'; readonly to: SampleCount; readonly contextFrame: number }
   | { readonly kind: 'context-suspended'; readonly contextFrame: number }
@@ -143,6 +149,16 @@ export function nextTransportState(
       return succeed(
         state.mode === TransportMode.Paused ? { ...state, position: event.position } : state,
       );
+    case 'parked':
+      return state.mode === TransportMode.Paused
+        ? succeed({ ...state, position: event.position })
+        : fail(
+            failure(
+              'transport.park-while-not-paused',
+              FailureKind.Conflict,
+              'The transport is not paused, so there is no pause to move.',
+            ),
+          );
     case 'pause':
       return fromPause(state, event.contextFrame, clock);
     case 'stop':

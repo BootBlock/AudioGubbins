@@ -36,6 +36,7 @@ export type PlaybackSessionPort = Pick<
   | 'load'
   | 'play'
   | 'pause'
+  | 'park'
   | 'stop'
   | 'seek'
   | 'position'
@@ -176,8 +177,8 @@ export class PlaybackControl {
    * Pauses where the listener stopped hearing. The processor counts ahead of
    * the device by its output latency, so the transport is moved back to the
    * frame heard: the playhead, a marker placed at it and a picture parked on it
-   * are what was heard, and Play goes on from there. A seek while paused moves
-   * the transport before it answers.
+   * are what was heard, and Play goes on from there. Stop still returns to
+   * where the play started, since the move is no seek of the person's.
    */
   pause(): Reasons | undefined {
     const current = this.#opened;
@@ -193,7 +194,7 @@ export class PlaybackControl {
       position.ok &&
       heard.value < position.value
     ) {
-      this.#moveTo(current, session, heard.value);
+      return reasonsFor(session.park(heard.value));
     }
     return refused;
   }
