@@ -195,12 +195,17 @@ export {
 } from './history-node-json.js';
 export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
 export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
-export { readRetentionPolicy, writeRetentionPolicy } from './retention-json.js';
+export {
+  checkedRetentionPolicy,
+  readRetentionPolicy,
+  writeRetentionPolicy,
+} from './retention-json.js';
 export {
   type BackupPolicy,
   type BackupRetention,
   type BackupTrigger,
   DEFAULT_BACKUP_POLICY,
+  checkedBackupPolicy,
   readBackupPolicy,
   writeBackupPolicy,
 } from './backup-policy-json.js';

@@ -3,6 +3,8 @@
  * (REQ-STOR-055, REQ-EXEC-136.12).
  */
 
+import type { DomainResult } from '@audiogubbins/domain';
+
 import type { JsonObject } from './canonical-json.js';
 import {
   anyObjectOf,
@@ -10,6 +12,7 @@ import {
   listOf,
   pathOf,
   required,
+  startReading,
   type Converter,
 } from './document-reading.js';
 import type { RetentionPolicy, RetentionRule } from './history-record.js';
@@ -53,6 +56,17 @@ function writeRule(rule: RetentionRule): JsonObject {
   return rule.kind === 'recent-changes'
     ? { kind: rule.kind, count: rule.count }
     : { kind: rule.kind, days: rule.days };
+}
+
+/**
+ * The policy, where the format can hold it, or every rule it breaks. Checked by
+ * the reader itself, so no policy is ever set that a reload would refuse.
+ */
+export function checkedRetentionPolicy(policy: RetentionPolicy): DomainResult<RetentionPolicy> {
+  const reading = startReading();
+  return reading.outcome(
+    readRetentionPolicy(reading, writeRetentionPolicy(policy), '', 'retention'),
+  );
 }
 
 /** Reads a retention policy. */

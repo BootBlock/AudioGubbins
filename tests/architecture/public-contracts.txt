@@ -2535,6 +2535,8 @@ Published paths
   function asId<TBrand extends string>(reading: Reading, value: JsonValue, parent: string, key: number | string): Branded<TBrand> | undefined
   function canonicalJson(value: JsonValue): CanonicalJson
   function checkMembers(reading: Reading, object: JsonObject, at: string, members: ReadonlySet<string>): void
+  function checkedBackupPolicy(policy: BackupPolicy): DomainResult<BackupPolicy>
+  function checkedRetentionPolicy(policy: RetentionPolicy): DomainResult<RetentionPolicy>
   function compareCodeUnits(left: string, right: string): number
   function compatibilityOf(found: number, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): Compatibility
   function contentIdFrom(text: string): DomainResult<ContentId>

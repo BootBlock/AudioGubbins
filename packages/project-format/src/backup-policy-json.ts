@@ -15,6 +15,8 @@
  * the project.
  */
 
+import type { DomainResult } from '@audiogubbins/domain';
+
 import type { JsonObject } from './canonical-json.js';
 import {
   anyObjectOf,
@@ -23,6 +25,7 @@ import {
   optional,
   pathOf,
   required,
+  startReading,
   type Converter,
 } from './document-reading.js';
 import { presentMembers } from './document-writing.js';
@@ -104,6 +107,15 @@ export function writeBackupPolicy(policy: BackupPolicy): JsonObject {
     }),
     ...(policy.external === undefined ? {} : { external: policy.external }),
   };
+}
+
+/**
+ * The policy, where the format can hold it, or every rule it breaks. Checked by
+ * the reader itself, so no policy is ever set that a reload would refuse.
+ */
+export function checkedBackupPolicy(policy: BackupPolicy): DomainResult<BackupPolicy> {
+  const reading = startReading();
+  return reading.outcome(readBackupPolicy(reading, writeBackupPolicy(policy), '', 'backup'));
 }
 
 /** Reads a backup policy. */

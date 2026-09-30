@@ -53,6 +53,42 @@ describe('a project session', () => {
     expect(session.getSnapshot().model.history.nodes.size).toBe(1);
   });
 
+  it.each([
+    [
+      'a backup policy nothing triggers',
+      'backup.no-trigger',
+      { kind: 'automatic', trigger: {}, retention: {} },
+    ],
+    [
+      'a backup made every half minute',
+      'schema.not-an-integer',
+      { kind: 'automatic', trigger: { everyMinutes: 0.5 }, retention: {} },
+    ],
+  ] as const)(
+    'refuses %s, which a reload would refuse, and keeps the policy it had',
+    async (_, code, policy) => {
+      const { test, tree, header, session } = await started();
+      const before = session.getSnapshot().model.backup;
+      expect(expectFailureCode(await session.setBackupPolicy(policy))).toBe(code);
+      expect(session.getSnapshot().model.backup).toBe(before);
+      expectSuccess(await session.close());
+      expectSuccess(await openProject({ project: header.id, access: 'read' }, test.services(tree)));
+    },
+  );
+
+  it.each([
+    ['a budget below no bytes', { kind: 'budget', bytes: -1 }],
+    ['a rule keeping no changes', { kind: 'rules', rules: [{ kind: 'recent-changes', count: 0 }] }],
+  ] as const)(
+    'refuses a retention policy of %s, which a reload would refuse',
+    async (_, policy) => {
+      const { session } = await started();
+      const before = session.getSnapshot().model.retention;
+      expect((await session.setRetentionPolicy(policy)).ok).toBe(false);
+      expect(session.getSnapshot().model.retention).toBe(before);
+    },
+  );
+
   it('keeps B → C when the person goes back to A and makes D (REQ-STOR-193)', async () => {
     const { session } = await started();
     expectSuccess(await session.run(setName('A')));

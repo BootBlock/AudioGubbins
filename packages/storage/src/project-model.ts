@@ -27,11 +27,13 @@ import {
   type Comparison,
   type History,
 } from '@audiogubbins/history';
-import type {
-  BackupPolicy,
-  ExportRecord,
-  ProjectState,
-  RetentionPolicy,
+import {
+  checkedBackupPolicy,
+  checkedRetentionPolicy,
+  type BackupPolicy,
+  type ExportRecord,
+  type ProjectState,
+  type RetentionPolicy,
 } from '@audiogubbins/project-format';
 
 import { comparisonFrom } from './comparison-record.js';
@@ -93,9 +95,12 @@ export function withEvent(model: ProjectModel, event: SettledEvent): DomainResul
     case 'export':
       return withExport(model, event.record);
     case 'retention-policy':
-      return succeed({ ...model, retention: event.policy });
+      return mapResult(checkedRetentionPolicy(event.policy), (retention) => ({
+        ...model,
+        retention,
+      }));
     case 'backup-policy':
-      return succeed({ ...model, backup: event.policy });
+      return mapResult(checkedBackupPolicy(event.policy), (backup) => ({ ...model, backup }));
     case 'comparison':
       return withComparison(model, event);
   }
