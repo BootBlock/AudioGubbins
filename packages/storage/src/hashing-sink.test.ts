@@ -27,7 +27,8 @@ describe('a sink that identifies what it writes (REQ-STOR-197)', () => {
     await sink.close();
 
     expect(inner.ending).toBe('closed');
-    expect(inner.bytes()).toEqual(whole);
+    // Compared as bytes: a deep equality walks a megabyte an element at a time.
+    expect(Buffer.compare(inner.bytes(), whole)).toBe(0);
     expect(sink.identity).toEqual(
       expectSuccess(await contentIdOf(memorySource(whole), nodeDigest)),
     );

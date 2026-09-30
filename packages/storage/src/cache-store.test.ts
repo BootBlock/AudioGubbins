@@ -38,7 +38,9 @@ describe('the cache store (REQ-STOR-027, REQ-STOR-106)', () => {
     const source = generatedSource(2 * 1_048_576 + 5, 9);
     expectSuccess(await store.put(PEAKS, source));
     expect(source.largestRead).toBeLessThanOrEqual(1_048_576);
-    expect(await bytesOf(store, PEAKS)).toEqual(await source.read(0, source.size));
+    // Compared as bytes: a deep equality walks two megabytes an element at a time.
+    const kept = await bytesOf(store, PEAKS);
+    expect(kept && Buffer.compare(kept, await source.read(0, source.size))).toBe(0);
   });
 
   it('reads a cache torn or without its seal as absent', async () => {
