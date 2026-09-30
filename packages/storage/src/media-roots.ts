@@ -17,9 +17,20 @@
  * the caller, which must not purge as though it retained nothing. The roots are
  * yielded as they are found, so the caller marks them without holding a list of
  * every file.
+ *
+ * Another window may write a checkpoint of a project while its files are
+ * gathered, folding records into a checkpoint and a state the listings were
+ * taken before, and then removing the records. A checkpoint removes nothing
+ * until its head is written, so a project's files are gathered again whenever
+ * its newest head is not the same after gathering as before; only a pass the
+ * head stayed still through counts, and a project whose head never stays still
+ * is reported as unreadable. A file listed and gone in a pass that counts is
+ * reported too, since nothing that removes one does so without a new head.
  */
 
 import {
+  FailureKind,
+  failure,
   flatMapResult,
   isWellFormedId,
   unsafeBrandId,
@@ -38,6 +49,7 @@ import {
 import { CheckedRecords } from './checked-records.js';
 import { contentIdsIn } from './content-references.js';
 import { ProjectFiles } from './project-files.js';
+import { newestHead, type ProjectHead } from './project-heads.js';
 import { SnapshotStore } from './state-store.js';
 import {
   BACKUPS_DIRECTORY,
@@ -54,6 +66,9 @@ export interface UnreadableRoot {
 
 /** The bounds a checkpoint's or record's text is searched within. */
 const SEARCH_LIMITS = { maximumLength: 2 ** 28, maximumDepth: 32 } as const;
+
+/** How many times a project's files are gathered before a moving head is given up on. */
+const MOST_PASSES = 4;
 
 /**
  * Every content identifier every project retains, each project's in turn; an
@@ -76,14 +91,7 @@ async function* gather(
 ): AsyncGenerator<ContentId, void, undefined> {
   const { tree, digest } = records;
   for (const project of await projectsUnder(tree, PROJECTS_DIRECTORY)) {
-    const files = new ProjectFiles(records, project);
-    yield* statesRetain(files.states, onUnreadable, signal);
-    for (const directory of [files.paths.checkpoints, files.paths.journal]) {
-      for await (const path of filesUnder(tree, directory)) {
-        signal?.throwIfAborted();
-        yield* searched(await tree.readFile(path, signal), path, onUnreadable);
-      }
-    }
+    yield* projectRetains(new ProjectFiles(records, project), onUnreadable, signal);
   }
   for (const project of await projectsUnder(tree, BACKUPS_DIRECTORY)) {
     const paths = new BackupPaths(project);
@@ -96,6 +104,57 @@ async function* gather(
       yield* searched(await tree.readFile(checkpoint, signal), checkpoint, onUnreadable);
     }
   }
+}
+
+/** What a project retains, gathered until its newest head stays still (see the module comment). */
+async function* projectRetains(
+  files: ProjectFiles,
+  onUnreadable: (root: UnreadableRoot) => void,
+  signal?: AbortSignal,
+): AsyncGenerator<ContentId, void, undefined> {
+  const { tree } = files.records;
+  for (let pass = 0; pass < MOST_PASSES; pass += 1) {
+    const before = await newestHead(files.records, files.paths, signal);
+    const problems: UnreadableRoot[] = [];
+    const noteProblem = (problem: UnreadableRoot): void => {
+      problems.push(problem);
+    };
+    yield* statesRetain(files.states, noteProblem, signal);
+    for (const directory of [files.paths.checkpoints, files.paths.journal]) {
+      for await (const path of filesUnder(tree, directory)) {
+        signal?.throwIfAborted();
+        const bytes = await tree.readFile(path, signal);
+        if (bytes === undefined) noteProblem({ path, failure: rootGone(path) });
+        else yield* searched(bytes, path, noteProblem);
+      }
+    }
+    if (sameHead(before, await newestHead(files.records, files.paths, signal))) {
+      for (const problem of problems) onUnreadable(problem);
+      return;
+    }
+  }
+  onUnreadable({ path: files.paths.heads, failure: headMoving() });
+}
+
+function sameHead(one: ProjectHead | undefined, other: ProjectHead | undefined): boolean {
+  return one?.epoch === other?.epoch && one?.generation === other?.generation;
+}
+
+function rootGone(path: string): DomainFailure {
+  return failure(
+    'storage.root-gone',
+    FailureKind.Conflict,
+    'A file that may retain media was removed while it was being read.',
+    { details: { path } },
+  );
+}
+
+function headMoving(): DomainFailure {
+  return failure(
+    'storage.roots-moving',
+    FailureKind.Retryable,
+    'A project kept changing while the media it retains was gathered.',
+  );
 }
 
 /** The projects a directory holds one directory for each of. */
