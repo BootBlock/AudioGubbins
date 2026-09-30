@@ -129,6 +129,38 @@ describe('taking a project out as a folder and bringing it back', () => {
     );
   });
 
+  it('asks before writing into a folder that holds another project, and replaces it only when told', async () => {
+    const { world, window } = await withProject();
+    const folder = new MemoryDirectory();
+    const other = await world.window();
+    await other.runAndHear('file.create-project', { name: 'Quay' });
+    other.files.foldersToWrite.push(folder);
+    await other.runAndHear('file.export-folder');
+    const before = new Map(folder.files);
+
+    window.files.foldersToWrite.push(folder);
+    expect(await window.runAndHear('file.export-folder')).toBe(
+      'The folder holds another project, "Quay". Choose another folder, or replace its files.',
+    );
+    expect(folder.files).toEqual(before);
+    expect(window.projects.transfer.get().replacing).toEqual({ name: 'Quay' });
+
+    expect(await window.runAndHear('file.export-folder-keep')).toBe(
+      'The folder is left as it was, and nothing was exported.',
+    );
+    expect(window.projects.transfer.get().replacing).toBeUndefined();
+    expect(window.run('file.export-folder-replace').kind).toBe('refused');
+
+    window.files.foldersToWrite.push(folder);
+    await window.runAndHear('file.export-folder');
+    expect(await window.runAndHear('file.export-folder-replace')).toBe(
+      '"Harbour at dusk" is exported to the folder, in place of the project it held.',
+    );
+    expect(window.projects.transfer.get().replacing).toBeUndefined();
+    const header = new TextDecoder().decode(folder.files.get('audiogubbins-project.json'));
+    expect(header).toContain('"displayName": "Harbour at dusk"');
+  });
+
   it('cannot export to a folder where the browser gives no folder to write into', async () => {
     const { window } = await withProject({ canWriteFolders: false });
 
@@ -318,7 +350,7 @@ describe('an export, recorded in its project’s history (REQ-STOR-197, REQ-STOR
     expect(exportsOf(window)).toHaveLength(1);
   });
 
-  it('records a folder written in part as a failed export, with what went wrong', async () => {
+  it('records a folder written in part as a partial export, with what went wrong', async () => {
     const { window } = await withProject();
     const folder = new MemoryDirectory();
     let created = 0;
@@ -339,8 +371,8 @@ describe('an export, recorded in its project’s history (REQ-STOR-197, REQ-STOR
       {
         destination: { kind: 'directory', label: CHOSEN_FOLDER_NAME },
         output: { container: 'project-tree' },
-        status: 'failed',
-        problems: [expect.stringMatching(/full/u)],
+        status: 'partial',
+        problems: [expect.stringMatching(/full/u), expect.stringMatching(/^Part of the export/u)],
       },
     ]);
     expect(folder.files.size).toBe(1);

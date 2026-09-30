@@ -28,12 +28,14 @@ import {
   type ExportOutput,
 } from '@audiogubbins/project-format';
 import {
+  anotherProjectIn,
   consolidate,
   exportBackup,
   exportBundle,
   exportUnpacked,
   importBundle,
   importUnpacked,
+  type AnotherProject,
   type AssetConsolidation,
   type CopyOptions,
   type ExportAttempt,
@@ -45,7 +47,7 @@ import {
 
 import { bundleNameOf } from '../io/file-names.js';
 import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
-import type { SaveTarget, TransferFiles } from '../io/transfer-files.js';
+import type { ChosenFolder, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
 import { observable, type Observable } from './observable.js';
@@ -66,6 +68,16 @@ export interface ExportedProject {
 /** What is being taken out or brought in, while something is. */
 export interface TransferState {
   readonly working?: 'exporting' | 'importing' | 'consolidating';
+
+  /** A folder chosen to export into that holds another project, until the person answers. */
+  readonly replacing?: AnotherProject;
+}
+
+/** A folder export refused for the project the folder holds, kept for the person's answer. */
+interface RefusedFolder {
+  readonly project: ProjectId;
+  readonly options: CopyOptions;
+  readonly folder: ChosenFolder;
 }
 
 /** What a bundle is saved as. */
@@ -134,6 +146,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
   private readonly library: ProjectLibraryStore;
   private readonly recorder: ExportRecorder;
   private readonly state = observable<TransferState>({});
+  private refused: RefusedFolder | undefined;
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
@@ -190,19 +203,51 @@ export class ProjectTransferStore implements Observable<TransferState> {
     );
   };
 
-  /** Writes a project as an unpacked tree into a folder the person chooses. */
+  /**
+   * Writes a project as an unpacked tree into a folder the person chooses. A
+   * folder that holds another project is written into only once the person
+   * answers that its files may be replaced (`replaceFolder`).
+   */
   readonly exportFolder = async (
     project: ProjectId,
     options: CopyOptions,
   ): Promise<DomainResult<ExportedProject | undefined>> => {
     const folder = await this.files.chooseFolderToWrite?.();
     if (folder === undefined) return succeed(undefined);
-    return await this.working(
+    this.putFolderAside();
+    return await this.folderExport({ project, options, folder }, false);
+  };
+
+  /** Writes the refused folder export over the other project's files, as the person confirmed. */
+  readonly replaceFolder = async (): Promise<DomainResult<ExportedProject | undefined>> => {
+    const { refused } = this;
+    if (refused === undefined) return succeed(undefined);
+    this.putFolderAside();
+    return await this.folderExport(refused, true);
+  };
+
+  /** Leaves the refused folder as it is. */
+  readonly putFolderAside = (): void => {
+    this.refused = undefined;
+    this.state.update(({ replacing: _answered, ...rest }) => rest);
+  };
+
+  private async folderExport(
+    refused: RefusedFolder,
+    replaceAnother: boolean,
+  ): Promise<DomainResult<ExportedProject>> {
+    const { project, options, folder } = refused;
+    const exported = await this.working(
       'exporting',
       async () =>
         await this.recorded(
           project,
-          await exportUnpacked(project, folder.writer, options, this.services),
+          await exportUnpacked(
+            project,
+            folder.writer,
+            { ...options, replaceAnother },
+            this.services,
+          ),
           {
             output: copyOutput(FOLDER_CONTAINER, options),
             destination: { kind: ExportDestinationKind.Directory, label: folder.name },
@@ -210,7 +255,13 @@ export class ProjectTransferStore implements Observable<TransferState> {
           },
         ),
     );
-  };
+    const other = exported.ok ? undefined : anotherProjectIn(exported.failures[0]);
+    if (other !== undefined) {
+      this.refused = refused;
+      this.state.update((current) => ({ ...current, replacing: other }));
+    }
+    return exported;
+  }
 
   /** Brings a project in from a bundle the person chooses. */
   readonly importBundle = async (): Promise<DomainResult<ImportedProject | undefined>> => {
@@ -261,11 +312,11 @@ export class ProjectTransferStore implements Observable<TransferState> {
     doing: NonNullable<TransferState['working']>,
     work: () => Promise<DomainResult<TValue>>,
   ): Promise<DomainResult<TValue>> {
-    this.state.set({ working: doing });
+    this.state.update((current) => ({ ...current, working: doing }));
     try {
       return await work();
     } finally {
-      this.state.set({});
+      this.state.update(({ working: _done, ...rest }) => rest);
     }
   }
 
@@ -280,9 +331,9 @@ export class ProjectTransferStore implements Observable<TransferState> {
     described: ExportDescription<TWritten>,
   ): Promise<DomainResult<ExportedProject>> {
     if (!attempt.ok) return attempt;
-    const { source, written } = attempt.value;
+    const { source, written, partial } = attempt.value;
     const { output, destination } = described;
-    const draft = { project, source, output, destination };
+    const draft = { project, source, output, destination, ...(partial ? { partial } : {}) };
     if (!written.ok) {
       await this.recorder.record({ ...draft, written });
       return written;

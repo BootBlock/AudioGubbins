@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ProjectsSection } from '../state/interaction-store.js';
 import { renderInTheShell } from '../testing/in-the-shell.js';
+import { MemoryDirectory } from '@audiogubbins/storage/testing';
+
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { ProjectsDialog } from './projects-dialog.js';
 
@@ -158,5 +160,29 @@ describe('the Projects dialogue', () => {
     await userEvent.click(within(dialogue).getByRole('button', { name: 'Import a bundle…' }));
     await userEvent.click(within(dialogue).getByRole('button', { name: 'Import a folder…' }));
     expect(run.mock.calls).toEqual([['file.import-bundle'], ['file.import-folder']]);
+  });
+
+  it('puts a folder holding another project to the person before writing over it', async () => {
+    const window = await withProjects();
+    const folder = new MemoryDirectory();
+    const other = await projectWorld().window();
+    await other.runAndHear('file.create-project', { name: 'Quay' });
+    other.files.foldersToWrite.push(folder);
+    await other.runAndHear('file.export-folder');
+    window.files.foldersToWrite.push(folder);
+    await window.runAndHear('file.export-folder');
+    const { run, dialogue } = dialogueAt(window, 'current');
+
+    const question = within(dialogue).getByRole('group', {
+      name: 'The folder holds another project',
+    });
+    expect(question).toHaveTextContent(
+      'The folder holds another project, "Quay". Replacing it deletes its files from the folder.',
+    );
+    await userEvent.click(within(question).getByRole('button', { name: 'Replace its files' }));
+    await userEvent.click(
+      within(question).getByRole('button', { name: 'Keep the folder as it is' }),
+    );
+    expect(run.mock.calls).toEqual([['file.export-folder-replace'], ['file.export-folder-keep']]);
   });
 });

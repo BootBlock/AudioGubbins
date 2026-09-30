@@ -57,6 +57,17 @@ import { readComparisonChoice, type ComparisonChoiceRecord } from './comparison-
 
 const CURSOR_MEMBERS: ReadonlySet<string> = new Set(['cursor', 'preferred']);
 
+/**
+ * Reads a tree's header alone: which project the tree is, and what it holds,
+ * without reading the rest of it.
+ */
+export async function readProjectTreeHeader(
+  listing: ProjectTreeListing,
+  signal?: AbortSignal,
+): Promise<DomainResult<TreeHeader>> {
+  return await new TreeReading(listing, signal).header();
+}
+
 /** Reads a tree (see the module comment). */
 export async function readProjectTree(
   listing: ProjectTreeListing,

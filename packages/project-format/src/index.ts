@@ -228,7 +228,8 @@ export {
 } from './project-tree-writing.js';
 export { isProjectTreePath, isWithinProjectTree } from './project-tree-layout.js';
 export { type ProjectTreeListing, type TreeListedFile } from './project-tree-files.js';
-export { readProjectTree } from './project-tree-reading.js';
+export { readProjectTree, readProjectTreeHeader } from './project-tree-reading.js';
+export { type TreeHeader } from './project-tree-header.js';
 export {
   BUNDLE_MANIFEST_PATH,
   type BundleManifest,

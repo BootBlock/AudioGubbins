@@ -2499,6 +2499,12 @@ Published paths
   const TreeFailureKind: { readonly Quota: "quota"; readonly Unavailable: "unavailable"; readonly Io: "io"; }
   type TreeFailureKind = "io" | "quota" | "unavailable"
   type TreeFileBody = { readonly kind: "cache"; readonly path: string; readonly byteLength: number; } | { readonly kind: "media"; readonly contentId: ContentId; readonly byteLength: number; } | { readonly kind: "text"; readonly bytes: Uint8Array<ArrayBuffer>; }
+  interface TreeHeader
+  readonly TreeHeader.project: ProjectId
+  readonly TreeHeader.displayName: string
+  readonly TreeHeader.history: boolean
+  readonly TreeHeader.caches: boolean
+  readonly TreeHeader.provenance: ProvenanceLevel
   interface TreeListedFile
   readonly TreeListedFile.path: string
   readonly TreeListedFile.size: number
@@ -2593,6 +2599,7 @@ Published paths
   const readMediaSource: Converter<MediaSource>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
+  function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSnapshotRecord: Converter<NamedSnapshot>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options?: VerifiedReadingOptions): Promise<DomainResult<void>>
@@ -2747,6 +2754,8 @@ Published paths
   function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
 
 @audiogubbins/storage
+  interface AnotherProject
+  readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
   interface BackupGeneration
   readonly BackupGeneration.number: number
@@ -2886,6 +2895,8 @@ Published paths
   readonly CopyOptions.scope: BundleScope
   readonly CopyOptions.includeCaches: boolean
   const DEFAULT_CADENCE: SessionCadence
+  interface DirectoryClaim
+  readonly DirectoryClaim.replaceAnother?: boolean
   interface DirectoryFile
   readonly DirectoryFile.path: string
   readonly DirectoryFile.size: number
@@ -2900,6 +2911,7 @@ Published paths
   interface ExportAttempt<TWritten>
   readonly ExportAttempt.source: ExportSource
   readonly ExportAttempt.written: DomainResult<TWritten>
+  readonly ExportAttempt.partial?: true
   interface ExportServices extends RecoveryServices, TreeSources
   readonly ExportServices.tree: StorageTree
   readonly ExportServices.digest: Digest
@@ -3186,11 +3198,12 @@ Published paths
   readonly UsageServices.caches: CacheStore
   type WipeConfirmation = { readonly kind: "incompatible"; readonly found: number; } | { readonly kind: "unreadable"; }
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
+  function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options?: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
-  function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
+  function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
@@ -3205,7 +3218,7 @@ Published paths
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
-  function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
+  function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 

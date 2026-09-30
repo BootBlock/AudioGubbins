@@ -112,9 +112,12 @@ export {
 export { type ImportIdentity, type ImportServices } from './tree-import.js';
 export { packUnpacked, unpackBundle } from './bundle-conversion.js';
 export {
+  type AnotherProject,
+  type DirectoryClaim,
   type DirectoryFile,
   type DirectoryReader,
   type DirectoryWriter,
+  anotherProjectIn,
 } from './project-directory.js';
 
 export {

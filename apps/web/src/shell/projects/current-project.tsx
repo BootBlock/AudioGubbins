@@ -10,9 +10,17 @@
 
 import { useState, type ReactNode } from 'react';
 
-import { ButtonTone, OptionSelect, TextField, ToggleSwitch } from '@audiogubbins/design-system';
+import {
+  Button,
+  ButtonTone,
+  OptionSelect,
+  TextField,
+  ToggleSwitch,
+} from '@audiogubbins/design-system';
 import { LONGEST_NAME } from '@audiogubbins/project-format';
+import type { AnotherProject } from '@audiogubbins/storage';
 
+import { quoted } from '../../wording.js';
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 
@@ -20,6 +28,9 @@ import type { RunCommand } from '../settings/section.js';
 export interface CurrentProjectProps {
   /** The open project's name, where one is open. */
   readonly name: string | undefined;
+
+  /** The project a folder chosen to export into holds, while the person decides. */
+  readonly replacing: AnotherProject | undefined;
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
 }
@@ -128,8 +139,38 @@ function ExportChoices({
   );
 }
 
+/** The question put when the folder chosen to export into holds another project. */
+function FolderReplacement({
+  replacing,
+  run,
+}: {
+  readonly replacing: AnotherProject;
+  readonly run: RunCommand;
+}): ReactNode {
+  return (
+    <div role="group" aria-label="The folder holds another project">
+      <p data-ag-status="reduced">
+        {replacing.name === undefined
+          ? 'The folder holds files of a project whose header cannot be read. Replacing them deletes them.'
+          : `The folder holds another project, ${quoted(replacing.name)}. Replacing it deletes its files from the folder.`}
+      </p>
+      <div className="ag-settings-row">
+        <Button tone={ButtonTone.Destructive} onClick={() => run('file.export-folder-replace')}>
+          Replace its files
+        </Button>
+        <Button onClick={() => run('file.export-folder-keep')}>Keep the folder as it is</Button>
+      </div>
+    </div>
+  );
+}
+
 /** The This project section. */
-export function CurrentProject({ name, run, unavailableReason }: CurrentProjectProps): ReactNode {
+export function CurrentProject({
+  name,
+  replacing,
+  run,
+  unavailableReason,
+}: CurrentProjectProps): ReactNode {
   if (name === undefined) return <p className="ag-settings-note">No project is open.</p>;
   return (
     <div className="ag-settings-section">
@@ -150,6 +191,7 @@ export function CurrentProject({ name, run, unavailableReason }: CurrentProjectP
         unavailable={unavailableReason('file.fork-project')}
       />
       <ExportChoices run={run} unavailableReason={unavailableReason} />
+      {replacing === undefined ? undefined : <FolderReplacement replacing={replacing} run={run} />}
       <div className="ag-settings-row">
         <ReasonedButton
           reason={unavailableReason('file.consolidate')}

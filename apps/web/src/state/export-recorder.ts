@@ -44,6 +44,9 @@ export interface ExportDraft {
 
   /** How the writing went, with the identity of the bytes where there was one output. */
   readonly written: DomainResult<ContentIdentity | undefined>;
+
+  /** The write failed after it changed the destination, which holds part of the export. */
+  readonly partial?: true;
 }
 
 /** What recording an export works with, each made once by the composition root. */
@@ -75,6 +78,10 @@ export function copyOutput(
   };
 }
 
+/** What a partial export's record says of the destination it left. */
+const PARTIAL_PROBLEM =
+  'Part of the export was written before it stopped, so the destination holds some of it.';
+
 /** Records each export of the open project (see the module comment). */
 export class ExportRecorder {
   private readonly services: RecorderServices;
@@ -104,8 +111,17 @@ export class ExportRecorder {
       output: draft.output,
       destination: draft.destination,
       ...(output === undefined ? {} : { outputContentId: output.contentId }),
-      status: written.ok ? ExportStatus.Succeeded : ExportStatus.Failed,
-      problems: written.ok ? [] : written.failures.map((failure) => failure.summary),
+      status: written.ok
+        ? ExportStatus.Succeeded
+        : draft.partial === true
+          ? ExportStatus.Partial
+          : ExportStatus.Failed,
+      problems: written.ok
+        ? []
+        : [
+            ...written.failures.map((failure) => failure.summary),
+            ...(draft.partial === true ? [PARTIAL_PROBLEM] : []),
+          ],
     };
     const kept = await session.recordExport(record);
     if (kept.ok) return 'kept';

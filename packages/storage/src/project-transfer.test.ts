@@ -9,7 +9,7 @@ import {
   stateFingerprintOf,
 } from '@audiogubbins/project-format';
 
-import type { DirectoryWriter } from './project-directory.js';
+import { anotherProjectIn, type DirectoryWriter } from './project-directory.js';
 import { exportBundle, exportUnpacked } from './project-transfer.js';
 import { MemoryDirectory, memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
@@ -39,6 +39,69 @@ async function changedProject() {
   expectSuccess(await session.undo());
   return { test, storage, project: header.id, session };
 }
+
+const README = new TextEncoder().encode('Kept beside the tree.');
+
+describe('exporting into a folder that holds a project', () => {
+  it('refuses a folder holding another project, and changes nothing in it unasked', async () => {
+    const { test, storage, project } = await changedProject();
+    const other = await madeProject(test, storage.tree);
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(other.id, folder, WHOLE, storage.exporting));
+    folder.files.set('README.md', README);
+    const before = new Map(folder.files);
+
+    const refused = await exportUnpacked(project, folder, WHOLE, storage.exporting);
+
+    expect(expectFailureCode(refused)).toBe('storage.folder-holds-another-project');
+    expect(refused.ok ? undefined : anotherProjectIn(refused.failures[0])).toEqual({
+      name: other.name,
+    });
+    expect(folder.files).toEqual(before);
+  });
+
+  it('replaces the other project only where the person confirmed it, keeping files beside it', async () => {
+    const { test, storage, project } = await changedProject();
+    const other = await madeProject(test, storage.tree);
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(other.id, folder, WHOLE, storage.exporting));
+    folder.files.set('README.md', README);
+    const alone = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(project, alone, WHOLE, storage.exporting));
+
+    const replacing = { ...WHOLE, replaceAnother: true };
+    const attempt = expectSuccess(
+      await exportUnpacked(project, folder, replacing, storage.exporting),
+    );
+
+    expectSuccess(attempt.written);
+    // Every file of the other project's tree has gone, and the file beside it stays.
+    expect([...folder.files.keys()].sort()).toEqual([...alone.files.keys(), 'README.md'].sort());
+    expect(folder.files.get('README.md')).toEqual(README);
+  });
+
+  it('writes again, unasked, into a folder holding the same project', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(project, folder, WHOLE, storage.exporting));
+
+    const again = expectSuccess(await exportUnpacked(project, folder, WHOLE, storage.exporting));
+
+    expectSuccess(again.written);
+  });
+
+  it('refuses a folder holding project files whose header cannot be read', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    folder.files.set('audiogubbins-project.json', new TextEncoder().encode('{ not json'));
+
+    const refused = await exportUnpacked(project, folder, WHOLE, storage.exporting);
+
+    expect(refused.ok ? undefined : anotherProjectIn(refused.failures[0])).toEqual({
+      name: undefined,
+    });
+  });
+});
 
 describe('the provenance an export answers', () => {
   it('says which state and node a bundle was taken from, and the identity of its bytes', async () => {
@@ -83,6 +146,23 @@ describe('the provenance an export answers', () => {
     expect(expectFailureCode(attempt.written)).toBe('storage.full');
     // What was written before the failure stays, which the provenance says.
     expect(folder.files.size).toBe(2);
+    expect(attempt.partial).toBe(true);
+  });
+
+  it('says nothing is partial where a folder export fails before it writes anything', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    const full: DirectoryWriter = {
+      list: () => folder.list(),
+      open: (path) => folder.open(path),
+      remove: (path) => folder.remove(path),
+      create: () => Promise.reject(new TreeFailure(TreeFailureKind.Quota, 'The disk is full.')),
+    };
+
+    const attempt = expectSuccess(await exportUnpacked(project, full, WHOLE, storage.exporting));
+
+    expect(expectFailureCode(attempt.written)).toBe('storage.full');
+    expect(attempt.partial).toBeUndefined();
   });
 
   it('answers only a failure, with nothing written, where the project cannot be read', async () => {

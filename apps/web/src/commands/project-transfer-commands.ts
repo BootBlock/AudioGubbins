@@ -137,9 +137,55 @@ function exportFolderCommand(): Command<ShellContext> {
   );
 }
 
+/** Available only while a folder export waits for the person's answer about the project there. */
+function whileReplacing(context: ShellContext) {
+  return context.projects?.transfer.get().replacing === undefined
+    ? unavailable('No folder is waiting for an answer.')
+    : projectsAvailability(context);
+}
+
+function replaceFolderCommand(): Command<ShellContext> {
+  return shellCommand(
+    'file.export-folder-replace',
+    'Replace the project in the folder',
+    CommandCategory.File,
+    (context) => {
+      const stores = readyProjects(context);
+      if (typeof stores === 'string') return stores;
+      const open = openProject(context);
+      if (typeof open === 'string') return open;
+      sayWhenSettled(context, stores.transfer.replaceFolder(), (exported) =>
+        exported === undefined
+          ? undefined
+          : `${quoted(open.name)} is exported to the folder, in place of the project it held.${linkedNote(exported.linked)}${recordedNote(exported.recorded)}`,
+      );
+      return undefined;
+    },
+    { discoverable: false, availability: whileReplacing },
+  );
+}
+
+function keepFolderCommand(): Command<ShellContext> {
+  return shellCommand(
+    'file.export-folder-keep',
+    'Keep the project in the folder',
+    CommandCategory.File,
+    (context) => {
+      context.projects?.transfer.putFolderAside();
+      context.interaction.announce('The folder is left as it was, and nothing was exported.');
+    },
+    { discoverable: false, availability: whileReplacing },
+  );
+}
+
 /** Taking the open project out. */
 function exportCommands(): readonly Command<ShellContext>[] {
-  return [exportBundleCommand(), exportFolderCommand()];
+  return [
+    exportBundleCommand(),
+    exportFolderCommand(),
+    replaceFolderCommand(),
+    keepFolderCommand(),
+  ];
 }
 
 /** What bringing a project in came to, in a sentence, or nothing where nothing was chosen. */

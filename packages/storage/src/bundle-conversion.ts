@@ -24,24 +24,33 @@ import {
 import { openBundle } from './bundle-reading.js';
 import { writeBundle } from './bundle-writing.js';
 import {
+  claimDirectory,
   directoryTree,
   writeTreeInto,
+  type DirectoryClaim,
   type DirectoryReader,
   type DirectoryWriter,
 } from './project-directory.js';
 
-/** Writes the tree a bundle holds into a directory. */
+/**
+ * Writes the tree a bundle holds into a directory, claimed for its project
+ * first as `claim` allows.
+ */
 export async function unpackBundle(
   source: ByteSource,
   writer: DirectoryWriter,
   digest: Digest,
+  claim: DirectoryClaim = {},
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
   const bundle = await openBundle(source, digest, signal);
   if (!bundle.ok) return bundle;
   const content = await readProjectTree(bundle.value.listing, digest, signal);
   if (!content.ok) return content;
-  return await writeTreeInto(writer, projectTree(content.value), bundle.value.open, signal);
+  const claimed = await claimDirectory(writer, content.value.state.project.id, claim, signal);
+  if (!claimed.ok) return claimed;
+  const tree = projectTree(content.value);
+  return (await writeTreeInto(claimed.value, tree, bundle.value.open, signal)).written;
 }
 
 /** Writes the tree a directory holds as a bundle into `sink`, and closes it. */

@@ -44,8 +44,10 @@ import { BackupGenerations } from './backup-generations.js';
 import { HashingSink } from './hashing-sink.js';
 import { readProjectCopy, type ProjectCopy } from './project-copy.js';
 import {
+  claimDirectory,
   directoryTree,
   writeTreeInto,
+  type DirectoryClaim,
   type DirectoryReader,
   type DirectoryWriter,
 } from './project-directory.js';
@@ -74,6 +76,9 @@ export interface ExportSource {
 export interface ExportAttempt<TWritten> {
   readonly source: ExportSource;
   readonly written: DomainResult<TWritten>;
+
+  /** The write failed after it changed the destination, which holds part of the export. */
+  readonly partial?: true;
 }
 
 /** A bundle written, and the assets whose bytes it could not carry. */
@@ -174,25 +179,39 @@ async function writeCopy(
 }
 
 /**
- * Writes a project as an unpacked tree into a directory, and gives the assets
- * whose bytes it could not carry. A failure part of the way through leaves the
- * files written before it in the directory.
+ * Writes a project as an unpacked tree into a directory claimed for it as
+ * `claim` allows, and gives the assets whose bytes it could not carry. A
+ * directory holding another project is refused before anything is read or
+ * written, unless the person confirmed replacing it. A failure part of the way
+ * through leaves the files written before it in the directory, and the attempt
+ * says so.
  */
 export async function exportUnpacked(
   project: ProjectId,
   writer: DirectoryWriter,
-  options: CopyOptions,
+  options: CopyOptions & DirectoryClaim,
   services: ExportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>> {
+  const claimed = await claimDirectory(writer, project, options, signal);
+  if (!claimed.ok) return claimed;
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   const copy = await readProjectCopy(files, services, signal);
   if (!copy.ok) return copy;
   const source = await sourceOf(copy.value, services.digest);
   const tree = await treeOfCopy(copy.value, options, services, signal);
   if (!tree.ok) return succeed({ source, written: tree });
-  const written = await writeTreeInto(writer, tree.value.files, storedBodies(services), signal);
-  return succeed({ source, written: mapResult(written, () => tree.value.linked) });
+  const { written, changed } = await writeTreeInto(
+    claimed.value,
+    tree.value.files,
+    storedBodies(services),
+    signal,
+  );
+  return succeed({
+    source,
+    written: mapResult(written, () => tree.value.linked),
+    ...(!written.ok && changed ? { partial: true } : {}),
+  });
 }
 
 /** Brings in the project a bundle holds, as itself or as a copy. */

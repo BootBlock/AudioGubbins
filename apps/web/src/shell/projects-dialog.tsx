@@ -42,7 +42,7 @@ export interface ProjectsDialogProps {
 function sectionsOf(
   { projects, run, unavailableReason }: ProjectsDialogProps,
   open: ProjectSnapshot | undefined,
-  importing: boolean,
+  { working, replacing }: TransferState,
 ): readonly TabDescriptor[] {
   return [
     {
@@ -64,6 +64,7 @@ function sectionsOf(
           // project's name rather than keep the last one's.
           key={open?.project}
           name={open?.model.state.project.displayName}
+          replacing={replacing}
           run={run}
           unavailableReason={unavailableReason}
         />
@@ -73,7 +74,11 @@ function sectionsOf(
       value: ProjectsSection.Import,
       label: 'Import',
       content: (
-        <ImportProjects run={run} unavailableReason={unavailableReason} working={importing} />
+        <ImportProjects
+          run={run}
+          unavailableReason={unavailableReason}
+          working={working === 'importing'}
+        />
       ),
     },
   ];
@@ -99,7 +104,7 @@ export function ProjectsDialog(props: ProjectsDialogProps): ReactNode {
         label="Projects sections"
         value={section ?? ProjectsSection.Open}
         onValueChange={(chosen) => run('file.projects', { section: chosen })}
-        tabs={sectionsOf(props, openNow, transfer.working === 'importing')}
+        tabs={sectionsOf(props, openNow, transfer)}
       />
     </ModalDialog>
   );
