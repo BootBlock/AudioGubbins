@@ -82,6 +82,24 @@ describe('compacting expired history in a cleanup', () => {
     expect(other.getSnapshot().model.history.nodes.size).toBe(4);
   });
 
+  it('compacts the project this window writes through its own session, not a lease of its own', async () => {
+    const { test, tree, storage, header } = await expiring();
+    const plan = expectSuccess(
+      await planCleanup([{ kind: 'expired-history' }], storage.cleaning, test.clock.now()),
+    );
+    const step = historyStep(plan.steps);
+    const held = await openToWrite(test, tree, header.id);
+
+    const outcomes = expectSuccess(
+      await runCleanup(plan, { bytes: plan.confirmationBytes }, storage.cleaning, { held }),
+    );
+    expect(outcomes).toEqual([
+      { step: 'expired-history', freed: step.bytes, busy: [], unapplied: [] },
+    ]);
+    expect(held.getSnapshot().model.history.nodes.size).toBe(2);
+    expect(held.getSnapshot().access.kind).toBe('writable');
+  });
+
   it('plans nothing for a project whose policy keeps everything', async () => {
     const test = harness();
     const tree = new MemoryStorageTree();

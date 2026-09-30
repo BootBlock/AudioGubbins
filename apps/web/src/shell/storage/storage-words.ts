@@ -11,7 +11,6 @@
 import type {
   CacheCategory,
   CleanupStep,
-  MediaPurgeRefusal,
   RecoverabilityLoss,
   StorageUsage,
 } from '@audiogubbins/storage';
@@ -91,16 +90,4 @@ export function lossOf(step: CleanupStep): string {
 /** How a step is named when it is chosen by an argument of the cleanup command. */
 export function choiceOf(step: CleanupStep): string {
   return step.kind === 'cache' ? `cache:${step.category}` : step.kind;
-}
-
-/** Why audio cannot be purged now, in a sentence. */
-export function refusalSentence(refusal: MediaPurgeRefusal): string {
-  switch (refusal.kind) {
-    case 'unreadable':
-      return `Audio cannot be purged now: ${String(refusal.roots.length)} stored ${refusal.roots.length === 1 ? 'file' : 'files'} could not be read, and might need it.`;
-    case 'no-coordination':
-      return 'Audio cannot be purged in this browser, because it cannot keep other tabs from storing audio meanwhile.';
-    case 'storing':
-      return 'Another tab is storing audio now, so none can be purged. Try again shortly.';
-  }
 }

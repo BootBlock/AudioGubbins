@@ -9,6 +9,7 @@
  * person was shown, which the storage checks against its plan.
  */
 
+import { cleanedSentences } from '../cleanup-words.js';
 import {
   AVAILABLE,
   CommandCategory,
@@ -23,7 +24,6 @@ import {
   type CleanupSelection,
 } from '@audiogubbins/storage';
 
-import { describeBytes } from '../wording.js';
 import { projectsAvailability, readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -194,11 +194,7 @@ function cleanUpCommand(): Command<ShellContext> {
       if (typeof stores === 'string') return stores;
       const bytes = invocation.arguments?.['bytes'];
       const work = stores.usage.clean(typeof bytes === 'number' ? bytes : undefined);
-      sayWhenSettled(context, work, (outcomes) => {
-        const freed = outcomes.reduce((sum, one) => sum + one.freed, 0);
-        const busy = outcomes.some((one) => one.busy.length > 0);
-        return `The cleanup freed ${describeBytes(freed)}.${busy ? ' A project another tab has open was left as it was.' : ''}`;
-      });
+      sayWhenSettled(context, work, (outcomes) => cleanedSentences(outcomes).join(' '));
       return undefined;
     },
     {

@@ -6,17 +6,19 @@
  * confirmation of the bytes those steps would free, as the plan showed them;
  * without it nothing at all is removed. Each step is checked again as it runs,
  * against storage as it is by then: a project is changed only under its write
- * lease, and one another window holds is passed over and reported; a generation
- * protected since the plan was made is kept; a history is compacted through a
- * session of its project, and only where its plan still fits; and media is
- * removed only where it is still unreachable from roots gathered afresh and
- * read whole, under the storage-wide lock held alone, so no window stores media
- * meanwhile that nothing yet refers to (`media-sharing.ts`). Where that lock
- * cannot be had, because a window is storing media or the platform cannot
- * coordinate windows, no media is removed, and the outcome says why. Relieving
- * pressure touches the caches alone, in the order they are given up, and stops
- * once enough is freed: authoritative state, history, backups and source media
- * are never removed without the person.
+ * lease, and one another window holds is passed over and reported, while the
+ * project this window writes is changed under the lease its own session holds,
+ * and its history compacted through that session; a generation protected since
+ * the plan was made is kept; a history is compacted through a session of its
+ * project, and only where its plan still fits; and media is removed only where
+ * it is still unreachable from roots gathered afresh and read whole, under the
+ * storage-wide lock held alone, so no window stores media meanwhile that
+ * nothing yet refers to (`media-sharing.ts`). Where that lock cannot be had,
+ * because a window is storing media or the platform cannot coordinate windows,
+ * no media is removed, and the outcome says why. Relieving pressure touches the
+ * caches alone, in the order they are given up, and stops once enough is freed:
+ * authoritative state, history, backups and source media are never removed
+ * without the person.
  */
 
 import {
@@ -47,8 +49,20 @@ import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
 import type { OpeningServices } from './project-opening.js';
+import type { ProjectSession } from './project-session.js';
 import { bytesUnder } from './usage-measurement.js';
 import type { LeaseCoordinator } from './write-lease.js';
+
+/** How a cleanup is carried out in the window that runs it. */
+export interface CleanupRunOptions {
+  /**
+   * The session of the project this window writes, whose steps run under the
+   * lease it holds and whose history is compacted through it: asking for a
+   * lease of its own would find the project held, by this very window.
+   */
+  readonly held?: ProjectSession;
+  readonly signal?: AbortSignal;
+}
 
 /** The person's confirmation of a plan: the bytes they were shown it would free past the caches. */
 export interface CleanupConfirmation {
@@ -84,8 +98,9 @@ export async function runCleanup(
   plan: CleanupPlan,
   confirmation: CleanupConfirmation | undefined,
   services: CleanupRunServices,
-  signal?: AbortSignal,
+  options: CleanupRunOptions = {},
 ): Promise<DomainResult<readonly StepOutcome[]>> {
+  const { signal } = options;
   const reducesRecoverability = plan.steps.some((step) => !isDisposable(step));
   if (reducesRecoverability && confirmation?.bytes !== plan.confirmationBytes) {
     return fail(
@@ -100,7 +115,7 @@ export async function runCleanup(
     const outcomes: StepOutcome[] = [];
     for (const step of plan.steps) {
       signal?.throwIfAborted();
-      const outcome = await runStep(step, services, signal);
+      const outcome = await runStep(step, services, options);
       if (!outcome.ok) return outcome;
       outcomes.push(outcome.value);
     }
@@ -111,8 +126,9 @@ export async function runCleanup(
 async function runStep(
   step: CleanupStep,
   services: CleanupRunServices,
-  signal?: AbortSignal,
+  options: CleanupRunOptions,
 ): Promise<DomainResult<StepOutcome>> {
+  const { held, signal } = options;
   const records = new CheckedRecords(services.tree, services.digest);
   switch (step.kind) {
     case 'cache': {
@@ -120,18 +136,18 @@ async function runStep(
       return freed.ok ? succeed({ step: step.kind, freed: freed.value, busy: [] }) : freed;
     }
     case 'unfinished-projects':
-      return await eachHeld(step, step.projects, services, async (project) => {
+      return await eachHeld(step, step.projects, services, held, async (project) => {
         const files = new ProjectFiles(records, project);
         const header = await readPair(records, files.header);
         if (header.valid.length > 0 || !(await files.isUnfinished())) return 0;
         return await removedBytes(services, files.paths.directory);
       });
     case 'expired-backups':
-      return await eachHeld(step, [...step.generations.keys()], services, async (project) => {
-        return await expiredGenerationsRemoved(project, step.generations, services, signal);
-      });
+      return await eachHeld(step, [...step.generations.keys()], services, held, (project) =>
+        expiredGenerationsRemoved(project, step.generations, services, signal),
+      );
     case 'expired-history': {
-      const compacted = await compactExpiredHistory(step.compactions, services, signal);
+      const compacted = await compactExpiredHistory(step.compactions, services, held, signal);
       return mapResult(compacted, ({ freed, busy, unapplied }) => ({
         step: step.kind,
         freed,
@@ -140,7 +156,7 @@ async function runStep(
       }));
     }
     case 'set-aside-records':
-      return await eachHeld(step, step.projects, services, async (project) => {
+      return await eachHeld(step, step.projects, services, held, async (project) => {
         const files = new ProjectFiles(records, project);
         return await removedBytes(services, files.paths.quarantine);
       });
@@ -178,12 +194,15 @@ async function expiredGenerationsRemoved(
 
 /**
  * Runs `work` on each project under its write lease, passing over, and
- * reporting, each another window holds. `work` gives the bytes it freed.
+ * reporting, each another window holds; the project of `held` runs under the
+ * lease its session holds while it still writes. `work` gives the bytes it
+ * freed.
  */
 async function eachHeld(
   step: CleanupStep,
   projects: readonly ProjectId[],
   services: CleanupRunServices,
+  held: ProjectSession | undefined,
   work: (project: ProjectId) => Promise<number>,
 ): Promise<DomainResult<StepOutcome>> {
   const { coordinator, owner } = services;
@@ -191,6 +210,11 @@ async function eachHeld(
   const busy: ProjectId[] = [];
   let freed = 0;
   for (const project of projects) {
+    if (held?.project === project) {
+      if (writes(held)) freed += await work(project);
+      else busy.push(project);
+      continue;
+    }
     const acquired = await coordinator.acquire(project, { steal: false, owner });
     if (acquired.kind === 'unavailable') return fail(noCoordination());
     if (acquired.kind === 'busy') {
@@ -204,6 +228,11 @@ async function eachHeld(
     }
   }
   return succeed({ step: step.kind, freed, busy });
+}
+
+/** Whether a session still holds its project's write lease. */
+function writes(session: ProjectSession): boolean {
+  return session.getSnapshot().access.kind === 'writable';
 }
 
 async function removedBytes(services: CleanupRunServices, directory: string): Promise<number> {

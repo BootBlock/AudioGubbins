@@ -17,7 +17,8 @@ import type { CleanupPlan } from '@audiogubbins/storage';
 
 import { describeBytes } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
-import { choiceOf, lossOf, refusalSentence, stepName } from './storage-words.js';
+import { refusalSentence } from '../../cleanup-words.js';
+import { choiceOf, lossOf, stepName } from './storage-words.js';
 
 /** The steps, each with what it frees and costs, and whether it is left out. */
 function Steps({

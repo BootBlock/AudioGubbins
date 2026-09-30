@@ -91,7 +91,12 @@ export class StorageUsageStore implements Observable<StorageUsageState> {
     const { plan } = this.state.get();
     if (plan === undefined) return fail(NOTHING_PLANNED);
     const confirmation = confirmedBytes === undefined ? undefined : { bytes: confirmedBytes };
-    const ran = await this.working('cleaning', () => runCleanup(plan, confirmation, this.services));
+    // The project open here is cleaned through its own session, whose lease
+    // any other way in would find held, by this very tab.
+    const held = this.project.session();
+    const ran = await this.working('cleaning', () =>
+      runCleanup(plan, confirmation, this.services, held === undefined ? {} : { held }),
+    );
     if (!ran.ok) return ran;
     this.state.update(({ plan: _carried, ...rest }) => ({ ...rest, outcomes: ran.value }));
     await this.measure();

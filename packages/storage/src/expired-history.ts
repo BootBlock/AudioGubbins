@@ -12,7 +12,8 @@
  * which is what writes a project, under its write lease: a project another
  * window writes is passed over and reported, and one whose history has moved on
  * so that its plan no longer fits is left as it is and reported, to be planned
- * again.
+ * again. The project the running window writes is compacted through the session
+ * it already has, which holds the lease a session of its own would ask for.
  */
 
 import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
@@ -22,6 +23,7 @@ import type { CheckedRecords } from './checked-records.js';
 import { planHistoryCompaction } from './history-compaction.js';
 import { readPair } from './generational-pair.js';
 import { openProject, type OpeningServices } from './project-opening.js';
+import type { ProjectSession } from './project-session.js';
 import { ProjectFiles } from './project-files.js';
 import { projectsIn } from './project-listing.js';
 import { noCoordination } from './storage-failures.js';
@@ -65,18 +67,34 @@ export async function expiredHistory(
   return compactions;
 }
 
-/** Carries each project's confirmed compaction out through a session of its own. */
+/**
+ * Carries each project's confirmed compaction out through a session of its
+ * own, or through `held` for the project it writes.
+ */
 export async function compactExpiredHistory(
   compactions: ReadonlyMap<ProjectId, CompactionPlan>,
   services: OpeningServices,
+  held: ProjectSession | undefined,
   signal?: AbortSignal,
 ): Promise<DomainResult<HistoryCompactions>> {
   if (services.coordinator === undefined) return fail(noCoordination());
   let freed = 0;
   const busy: ProjectId[] = [];
   const unapplied: ProjectId[] = [];
+  const compactedBy = async (session: ProjectSession, plan: CompactionPlan): Promise<void> => {
+    const compacted = await session.compactHistory(plan, {
+      reclaimableBytes: plan.reclaimableBytes,
+    });
+    if (compacted.ok && compacted.value.kind === 'written') freed += plan.reclaimableBytes;
+    else unapplied.push(session.project);
+  };
   for (const [project, plan] of compactions) {
     signal?.throwIfAborted();
+    if (held?.project === project) {
+      if (held.getSnapshot().access.kind === 'writable') await compactedBy(held, plan);
+      else busy.push(project);
+      continue;
+    }
     const opened = await openProject(
       { project, access: 'write', ...(signal === undefined ? {} : { signal }) },
       services,
@@ -93,11 +111,7 @@ export async function compactExpiredHistory(
       continue;
     }
     const { session } = opened.value;
-    const compacted = await session.compactHistory(plan, {
-      reclaimableBytes: plan.reclaimableBytes,
-    });
-    if (compacted.ok && compacted.value.kind === 'written') freed += plan.reclaimableBytes;
-    else unapplied.push(project);
+    await compactedBy(session, plan);
     const closed = await session.close();
     if (!closed.ok) return closed;
   }

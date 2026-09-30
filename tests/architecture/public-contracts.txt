@@ -2837,6 +2837,9 @@ Published paths
   readonly CleanupPlan.steps: readonly CleanupStep[]
   readonly CleanupPlan.confirmationBytes: number
   readonly CleanupPlan.mediaRefused?: MediaPurgeRefusal
+  interface CleanupRunOptions
+  readonly CleanupRunOptions.held?: ProjectSession
+  readonly CleanupRunOptions.signal?: AbortSignal
   interface CleanupRunServices extends CleanupServices, OpeningServices
   readonly CleanupRunServices.coordinator?: LeaseCoordinator
   readonly CleanupRunServices.tree: import("packages/project-format/src/storage-tree").StorageTree
@@ -3201,7 +3204,7 @@ Published paths
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
-  function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly StepOutcome[]>>
+  function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>

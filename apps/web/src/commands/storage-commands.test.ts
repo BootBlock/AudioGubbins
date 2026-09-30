@@ -132,6 +132,33 @@ describe('measuring the storage and cleaning it up', () => {
     expect(window.projects.usage.get().usage?.unreferencedMedia).toBe(0);
   });
 
+  it('compacts the history of the project open in this tab, rather than calling it busy', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const session = window.projects.project.session();
+    if (session === undefined) throw new Error('No project is open.');
+    await session.setRetentionPolicy({
+      kind: 'rules',
+      rules: [{ kind: 'recent-changes', count: 1 }],
+    });
+    for (const name of ['One', 'Two', 'Three']) {
+      await window.runAndHear('file.rename-project', { name });
+    }
+    await session.checkpoint();
+    const planned = window.nextSaid();
+    window.run('storage.plan-cleanup', { choices: 'expired-history' });
+    expect(await planned).toBe('The cleanup is planned. Review it before you carry it out.');
+    const bytes = window.projects.usage.get().plan?.confirmationBytes ?? 0;
+
+    expect(await window.runAndHear('storage.clean-up', { bytes })).toMatch(
+      /^The cleanup freed [^.]+\.$/u,
+    );
+    expect(window.projects.usage.get().outcomes).toMatchObject([
+      { step: 'expired-history', busy: [], unapplied: [] },
+    ]);
+    expect(session.getSnapshot().model.history.nodes.size).toBe(2);
+  });
+
   it('refuses a cleanup the arguments do not name, and one with no plan', async () => {
     const window = await projectWorld().window();
 

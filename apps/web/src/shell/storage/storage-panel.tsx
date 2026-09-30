@@ -9,6 +9,7 @@
  * action is a command.
  */
 
+import { cleanedSentences } from '../../cleanup-words.js';
 import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button } from '@audiogubbins/design-system';
@@ -32,11 +33,6 @@ export interface StoragePanelProps {
 
   /** Why the storage cannot be measured now, or `undefined` where it can. */
   readonly unavailable: string | undefined;
-}
-
-/** What the last cleanup freed, in a sentence. */
-function freedSentence(outcomes: readonly { readonly freed: number }[]): string {
-  return `The last cleanup freed ${describeBytes(outcomes.reduce((sum, one) => sum + one.freed, 0))}.`;
 }
 
 /** What each part of the storage takes, and what could not be counted. */
@@ -86,7 +82,9 @@ export function StoragePanel({
         <p role="status">{state.working === 'cleaning' ? 'Cleaning up…' : 'Measuring…'}</p>
       )}
       {state.usage !== undefined && <Usage usage={state.usage} />}
-      {state.outcomes !== undefined && <p>{freedSentence(state.outcomes)}</p>}
+      {state.outcomes === undefined
+        ? undefined
+        : cleanedSentences(state.outcomes).map((sentence) => <p key={sentence}>{sentence}</p>)}
       <div className="ag-settings-row">
         <Button compact onClick={() => run('storage.measure')}>
           Measure again

@@ -245,6 +245,40 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
     expect(await numbers()).toEqual([3, 1]);
   });
 
+  it('removes the expired backups of the project this window writes, under its own lease', async () => {
+    const { services, storage, test, project, current } = await world();
+    const session = await openToWrite(test, storage.tree, project);
+    const policy = (count: number) =>
+      session.setBackupPolicy({
+        kind: 'automatic',
+        trigger: { everyChanges: 1 },
+        retention: { count },
+      });
+    expectSuccess(await policy(10));
+    const scheduler = new BackupScheduler(project, storage.exporting);
+    for (let round = 0; round < 3; round += 1) {
+      expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), current)));
+      expectSuccess(await scheduler.tick(test.clock.now(), session.getSnapshot().model));
+    }
+    expectSuccess(await policy(1));
+    expectSuccess(await session.checkpoint());
+    const generations = new BackupGenerations(storage.tree, nodeDigest, project);
+    const numbers = async () =>
+      expectSuccess(await generations.list()).generations.map(({ number }) => number);
+
+    const plan = expectSuccess(await planCleanup([{ kind: 'expired-backups' }], services, 0));
+    const confirmed = { bytes: plan.confirmationBytes };
+    expect(expectSuccess(await runCleanup(plan, confirmed, services))).toMatchObject([
+      { step: 'expired-backups', freed: 0, busy: [project] },
+    ]);
+    expect(await numbers()).toEqual([3, 2, 1]);
+
+    const outcomes = expectSuccess(await runCleanup(plan, confirmed, services, { held: session }));
+    expect(outcomes).toMatchObject([{ step: 'expired-backups', busy: [] }]);
+    expect(await numbers()).toEqual([3]);
+    expect(session.getSnapshot().access.kind).toBe('writable');
+  });
+
   it.each([1, 2, 3, 4, 5, 6])(
     'never removes media anything retains, after random sessions: seed %i',
     async (seed) => {

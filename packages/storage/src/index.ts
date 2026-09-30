@@ -155,6 +155,7 @@ export {
 } from './cleanup-planning.js';
 export {
   type CleanupConfirmation,
+  type CleanupRunOptions,
   type CleanupRunServices,
   type PressureRelief,
   type StepOutcome,
