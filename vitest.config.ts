@@ -21,7 +21,7 @@
  * within `pnpm test`, and the cruise on its own as `pnpm test:dependencies`.
  */
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 import generated from './vitest.projects.json' with { type: 'json' };
 
@@ -33,6 +33,19 @@ function environmentOf(name: string): 'node' | 'jsdom' {
 
 export default defineConfig({
   test: {
+    // Builds the canonical DSP module from the crates before any test runs,
+    // so no test reads a module older than its source (ADR-0031).
+    globalSetup: ['./tests/setup/dsp-module.ts'],
+
+    // No test imports the crates, so an edit to one is not a change Vitest
+    // follows; naming them reruns every test in watch mode, and the global
+    // setup builds the module again before the rerun.
+    forceRerunTriggers: [
+      ...configDefaults.forceRerunTriggers,
+      '**/crates/**/*.rs',
+      '**/Cargo.{toml,lock}',
+    ],
+
     projects: [
       ...generated.projects.map((project) => ({
         test: { ...project, environment: environmentOf(project.environment) },

@@ -42,6 +42,79 @@
       ]
     },
     {
+      "name": "audio-graph",
+      "root": "packages/audio-graph",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "audio-engine",
+      "root": "packages/audio-engine",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "audio-runtime",
+      "root": "packages/audio-runtime",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
+      "name": "timeline",
+      "root": "packages/timeline",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "waveform",
+      "root": "packages/waveform",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "renderer",
+      "root": "packages/renderer",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
+      "name": "video-reference",
+      "root": "packages/video-reference",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "editor-view",
+      "root": "packages/editor-view",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "commands",
       "root": "packages/commands",
       "environment": "node",

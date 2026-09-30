@@ -13,6 +13,7 @@ import {
   createDiagnosticCentre,
   createLogStore,
   type LogStore,
+  type Logger,
 } from '@audiogubbins/diagnostics';
 import {
   DockRegion,
@@ -23,14 +24,19 @@ import {
 
 import { KeyboardConvention } from '@audiogubbins/commands';
 
+import { PlaybackControl } from '../audio/playback-control.js';
+import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { createInteractionStore } from '../state/interaction-store.js';
+import { createAudioSettingsStore } from '../state/audio-settings-store.js';
+import { createAudioViewStore } from '../state/audio-view-store.js';
+import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import {
   createKeyboardLayoutStore,
   type KeyboardLayoutStore,
 } from '../state/keyboard-layout-store.js';
 import { createPreferencesStore } from '../state/preferences-store.js';
+import { createRenderStrategyStore } from '../state/render-strategy-store.js';
 import { createShortcutStore } from '../state/shortcut-store.js';
 import {
   createStateStorage,
@@ -41,6 +47,8 @@ import { ephemeralStorage } from './ephemeral-storage.js';
 import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { unavailableStorageRoot } from '../state/storage-root-store.js';
+import { FakePlayback, FakeRendering } from './audio-fakes.js';
+import { fakeEditor } from './editor-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
 /**
@@ -53,6 +61,8 @@ export const CAPABLE: CapabilityEnvironment = {
   hasSharedArrayBuffer: true,
   isCrossOriginIsolated: true,
   hasAudioWorklet: true,
+  compilesWebAssembly: true,
+  choosesAudioOutput: true,
   hasWebWorkers: true,
   hasWebGpu: true,
   hasWebGl2: true,
@@ -68,6 +78,9 @@ export const CAPABLE: CapabilityEnvironment = {
   hasMediaQueries: true,
   hasKeyboardLayoutMap: true,
   comparesNames: true,
+  hasVideoFrameCallback: true,
+  hasFullscreen: true,
+  hasIndexedDb: true,
 };
 
 /** `context` in a browser whose names cannot be compared. */
@@ -97,12 +110,62 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Transport, 'Transport', DockRegion.Bottom],
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
+      [PanelKinds.Picture, 'Picture', DockRegion.Right],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
     { kind, title, defaultRegion, allowsMultiple: kind === PanelKinds.Editor, closable: true },
   ]),
 );
+
+/**
+ * The audio part over fakes of the runtime, which it makes nothing real with,
+ * on a machine that does not say how much memory it has left.
+ */
+function fakeAudio(
+  interaction: InteractionStore,
+  storage: StateStorage,
+  logger: Logger,
+): {
+  readonly parts: Pick<
+    ShellContext,
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+  >;
+  readonly fakes: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
+} {
+  const audio = createAudioViewStore();
+  const audioSettings = createAudioSettingsStore(storage, logger);
+  const renderStrategy = createRenderStrategyStore();
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const fakes = { playback: new FakePlayback(), rendering: new FakeRendering() };
+  return {
+    fakes,
+    parts: {
+      audio,
+      audioSettings,
+      renderStrategy,
+      playback: new PlaybackControl({
+        view: audio,
+        open: fakes.playback.open,
+        profile: () => audioSettings.get().chosen,
+        announce,
+        logger,
+      }),
+      rendering: new RenderControl({
+        view: audio,
+        settings: audioSettings,
+        strategy: renderStrategy,
+        open: fakes.rendering.open,
+        resources: () => ({ availableMemoryBytes: undefined }),
+        now: () => 0,
+        announce,
+        logger,
+      }),
+    },
+  };
+}
 
 /**
  * Builds a shell context, and the fakes behind it a test may want to inspect.
@@ -119,6 +182,8 @@ export function buildShellContext(
   readonly logs: LogStore;
   readonly files: RecordedTextFiles;
   readonly storage: StateStorage;
+  /** The audio part's fakes, for a test of what the audio commands asked of them. */
+  readonly audio: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
 } {
   const logs = createLogStore();
   const diagnostics = createDiagnosticCentre(
@@ -138,10 +203,13 @@ export function buildShellContext(
   const layout =
     keyboardLayout ?? createKeyboardLayoutStore(storage, logger, KeyboardConvention.Windows);
 
+  const { parts, fakes } = fakeAudio(interaction, storage, logger);
+
   return {
     logs,
     files,
     storage,
+    audio: fakes,
     context: {
       preferences: createPreferencesStore(storage, logger),
       workspace: createWorkspaceStore(DESCRIPTORS, storage, logger),
@@ -162,6 +230,8 @@ export function buildShellContext(
       storageRoot: unavailableStorageRoot('This test keeps no projects.'),
       projects: undefined,
       storageAbsences: [],
+      ...parts,
+      ...fakeEditor(storage, logger),
     },
   };
 }

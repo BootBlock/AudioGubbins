@@ -1,6 +1,6 @@
 /**
- * Every action the shell can perform: the Phase 01 shell's own, and the project
- * system's.
+ * Every action the shell can perform: the shell's own, the audio engine's, the
+ * editor's and the project system's.
  *
  * REQ-EDIT-073 requires each of these to be reachable the same way from a menu,
  * a shortcut, the palette and a future macro, which is what registering them
@@ -20,12 +20,24 @@ import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
-import { diagnosticCommands } from './diagnostic-commands.js';
 import { historyCommands } from './history-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
+import { audioCommands } from './audio-commands.js';
+import { audioSettingsCommands } from './audio-settings-commands.js';
+import { diagnosticCommands } from './diagnostic-commands.js';
+import { editorAssetCommands } from './editor-asset-commands.js';
+import { editorNavigationCommands } from './editor-navigation-commands.js';
+import { editorOptionCommands } from './editor-option-commands.js';
+import { editorPresentationCommands } from './editor-presentation-commands.js';
+import { markerCommands } from './marker-commands.js';
+import { markerNudgeCommands } from './marker-nudge-commands.js';
+import { pictureCommands } from './picture-commands.js';
+import { playheadCommands } from './playhead-commands.js';
+import { selectionCommands } from './selection-commands.js';
+import { selectionPlayheadCommands } from './selection-playhead-commands.js';
 import { shellCommand } from './shell-command.js';
 import { shortcutCommands } from './shortcut-commands.js';
 import { storageCommands } from './storage-commands.js';
@@ -146,5 +158,17 @@ export function shellCommands(
     ...unreadTextCommands(),
     ...diagnosticCommands(),
     ...projectSystemCommands(),
+    ...audioCommands(),
+    ...audioSettingsCommands(),
+    ...editorAssetCommands(),
+    ...editorNavigationCommands(),
+    ...editorPresentationCommands(),
+    ...editorOptionCommands(),
+    ...selectionCommands(),
+    ...selectionPlayheadCommands(),
+    ...markerCommands(),
+    ...markerNudgeCommands(),
+    ...playheadCommands(),
+    ...pictureCommands(),
   ];
 }

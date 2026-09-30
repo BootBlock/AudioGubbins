@@ -30,6 +30,17 @@ export const CapabilityKey = {
   /** Audio processing on the audio thread. */
   AudioWorklet: 'audio-worklet',
 
+  /**
+   * Compiling WebAssembly, which the canonical DSP runs as (ADR-0031).
+   *
+   * Asked by compiling a module, not by looking for the global: a page whose
+   * security policy forbids compilation has the global and cannot use it.
+   */
+  WebAssembly: 'webassembly',
+
+  /** Choosing which audio device playback goes to, rather than the system's. */
+  AudioOutputSelection: 'audio-output-selection',
+
   /** Background threads for analysis, decoding and rendering. */
   WebWorkers: 'web-workers',
 
@@ -91,6 +102,18 @@ export const CapabilityKey = {
    * at the first name given.
    */
   NameComparison: 'name-comparison',
+
+  /**
+   * Being told when a video frame is presented, which reference picture is
+   * checked against the audio on (ADR-0046).
+   */
+  VideoFrameCallback: 'video-frame-callback',
+
+  /** Showing an element across the whole screen, as a picture preview is. */
+  Fullscreen: 'fullscreen',
+
+  /** A database in the browser, where disposable caches such as waveform peaks are kept. */
+  IndexedDb: 'indexed-db',
 } as const;
 
 /** Something the browser either offers or does not. */

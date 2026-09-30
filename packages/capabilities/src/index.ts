@@ -27,6 +27,14 @@ export {
   createCapabilityRegistry,
 } from './registry.js';
 
+export { type AudioRuntimeCapabilities, audioRuntimeCapabilities } from './audio-runtime.js';
+
+// What the machine has left, for the engine to plan work around (REQ-ARCH-087).
+export { type ResourceFigures, readResourceFigures } from './resources.js';
+
+// When the audio devices change, for the runtime to recover its context.
+export { watchAudioDevices } from './audio-devices.js';
+
 export {
   type AppearanceSettings,
   type AppearanceSettingsWatch,
@@ -49,17 +57,24 @@ export {
   ACCELERATED_RENDERING,
   ALL_FEATURES,
   AUDIO_PLAYBACK,
+  CANONICAL_DSP,
   DIRECT_FILE_ACCESS,
+  FULL_SCREEN_PICTURE,
   HARDWARE_CODECS,
   MULTI_THREADED_DSP,
   NAMING,
+  OFFLINE_RENDERING,
   OFFLINE_USE,
+  OUTPUT_DEVICE_CHOICE,
   PRESSURE_SENSITIVE_TOOLS,
   PROJECT_STORAGE,
   RECORDING,
   SETTINGS_STORAGE,
   SYSTEM_APPEARANCE,
 } from './features.js';
+
+// What the editor's renderer is handed: the GPU, and the pixel ratio as it changes.
+export { type GraphicsPlatform, readGraphicsPlatform } from './graphics-platform.js';
 
 // What the user's keyboard layout types on each key, where the browser says.
 export { readLayoutMap, type LayoutMapPairs } from './keyboard-layout-map.js';

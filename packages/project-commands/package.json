@@ -16,8 +16,10 @@
   "files": [
     "src"
   ],
+  "sideEffects": false,
   "scripts": {
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project project-commands"
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",

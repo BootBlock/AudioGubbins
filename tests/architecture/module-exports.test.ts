@@ -182,16 +182,43 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
-  'Which element is a text field, asked of every kind of element by the listener tests; the listener asks it of an event target alone.':
-    ['apps/web/src/input/use-shortcuts.ts: isTextField'],
+  "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":
+    ['packages/editor-view/src/frame-composer.ts: SPECTROGRAM_SHELL_NOTE'],
+  "The time axis's bounds and rounding, which its conversions use and its tests hold to ADR-0041's exactness: the zoom's limits and single-sample step, the zoom showing a span, rounding half away from zero, the unclamped nearest boundary and the view kept within the timeline, and the order snap targets win in.":
+    [
+      'packages/timeline/src/snapping.ts: SNAP_PRECEDENCE',
+      'packages/timeline/src/viewport.ts: clampedView',
+      'packages/timeline/src/viewport.ts: nearestBoundary',
+      'packages/timeline/src/viewport.ts: roundHalfAway',
+      'packages/timeline/src/zoom.ts: MAXIMUM_PIXELS_PER_SAMPLE',
+      'packages/timeline/src/zoom.ts: MAXIMUM_SAMPLES_PER_PIXEL',
+      'packages/timeline/src/zoom.ts: ONE_SAMPLE_PER_PIXEL',
+      'packages/timeline/src/zoom.ts: zoomShowing',
+    ],
+  'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
+    ['packages/waveform/src/peak-codec.ts: crc32'],
+  'Which element is a text field, and which control keeps a key pressed alone, asked of every kind of element by the listener tests; the listener asks each of an event target alone.':
+    [
+      'apps/web/src/input/use-shortcuts.ts: isTextField',
+      'apps/web/src/input/use-shortcuts.ts: ownsItsKeys',
+    ],
+  "The test signal's request at a context rate the test names, whose graph and source its tests read; the transport reaches it through `TEST_SIGNAL_PROGRAMME`.":
+    ['apps/web/src/audio/test-signal.ts: testSignalPlayback'],
+  "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
+    ['apps/web/src/editor-part.ts: panelPartsOf'],
+  "The asset a picture's decoded sound makes, which its tests build from arrays they name; the application reaches it through `decodePictureSound`, which a test cannot hand a browser's decoder.":
+    ['apps/web/src/picture/picture-sound.ts: pictureSoundAsset'],
+  'The key the editor views are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/editor-view-store.ts: EDITOR_VIEWS_KEY'],
   'Each panel drawn on its own, and the log filter decided on its own, for the panel tests: the dock draws a panel through `renderPanel`, and the filter is chosen in a portalled listbox, which jsdom opens once per file.':
     [
+      'apps/web/src/shell/diagnostics-panel.tsx: recordsPassing',
       'apps/web/src/shell/panels.tsx: CapabilitiesPanel',
-      'apps/web/src/shell/panels.tsx: DiagnosticsPanel',
-      'apps/web/src/shell/panels.tsx: recordsPassing',
     ],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
+  'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':
+    ['packages/audio-runtime/src/context/context-resume.ts: GESTURE_WAIT_MILLISECONDS'],
   'How long a notice stays, which the announcement tests wait out.': [
     'packages/design-system/src/primitives/announcement.tsx: NOTICE_DURATION',
   ],
@@ -199,12 +226,9 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/design-system/src/primitives/announcement.tsx: LiveRegion'],
   'The colour arithmetic the tokens are solved with, which the colour and theme tests hold to published values and to the contrast each theme promises.':
     [
-      'packages/design-system/src/tokens/colour.ts: Srgb',
       'packages/design-system/src/tokens/colour.ts: meetsContrast',
-      'packages/design-system/src/tokens/colour.ts: oklchToSrgb',
       'packages/design-system/src/tokens/colour.ts: relativeLuminance',
       'packages/design-system/src/tokens/colour.ts: solveContrast',
-      'packages/design-system/src/tokens/colour.ts: srgbToOklch',
     ],
   'The custom properties and data attributes a theme writes, which the theme tests read; the shell writes both through `applyTheme`.':
     [
@@ -228,10 +252,23 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/workspace/src/layout-reading.ts: resolveLayout'],
   'Keeping a changed layout in the collection, asked of layout store doubles by the workspace tests, since no stored text brings about the refusal it throws at; the store reaches it through `commit` and `rearranged`.':
     ['apps/web/src/state/workspace-store.ts: keptInCollection'],
+  "The ring's position arithmetic and its largest size, which the ring tests drive near 2³¹ positions, where no ring can be filled to reach them; the ring reaches them through its reader and writer.":
+    [
+      'packages/audio-runtime/src/feed/sample-ring.ts: MAXIMUM_RING_FRAMES',
+      'packages/audio-runtime/src/feed/sample-ring.ts: advancePosition',
+      'packages/audio-runtime/src/feed/sample-ring.ts: framesBetween',
+    ],
+  "The named matrices and the mid/side layout, which the matrix tests name; a graph names a matrix by its setting's text, which the matrix node reads through `namedCoefficients`.":
+    [
+      'packages/audio-engine/src/nodes/named-matrices.ts: MID_SIDE',
+      'packages/audio-engine/src/nodes/named-matrices.ts: NamedMatrix',
+    ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
   "The storage worker's service over any synchronous root, which the worker tests serve over a directory in memory; the worker reaches it through `serveOriginPrivateTree`, over the origin-private file system.":
     ['packages/browser-storage/src/serve-tree.ts: serveTree'],
+  'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
+    ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };
 
 /**
@@ -242,12 +279,13 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
  * reaches. This is about support code: a module a test runs and no user
  * receives, whose exports a test is expected to take.
  *
- * Empty, and expected to stay empty: every export of every support module is
- * taken by a test today. The rule that reads it is asleep until something is
- * listed, so its passing is not evidence of anything, and it is here so that
- * the first entry cannot be added without a reason beside it.
+ * An entry is an export the runner reaches by a path written in its
+ * configuration rather than by an import, which the rule cannot follow.
  */
-const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {};
+const FOR_THE_SUITE: Readonly<Record<string, readonly string[]>> = {
+  'The global setup that builds the canonical DSP module, which Vitest runs by the path `vitest.config.ts` names under `globalSetup`.':
+    ['tests/setup/dsp-module.ts: setup'],
+};
 
 describe('module exports (REQ-EXEC-184)', () => {
   it('finds an export no other module takes, and not one another module imports', () => {

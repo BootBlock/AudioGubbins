@@ -1,0 +1,30 @@
+{
+  "name": "@audiogubbins/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The editor renderer: frames as values, WebGPU, WebGL2 and Canvas 2D backends, and recovery from a lost device.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project renderer"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@webgpu/types": "0.1.74"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

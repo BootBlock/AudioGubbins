@@ -26,6 +26,20 @@ function exists(host: object | undefined, name: string): boolean {
 }
 
 /**
+ * Whether the page can open an IndexedDB database. A browser with IndexedDB
+ * turned off still names it, as `null`, which the DOM's types do not allow
+ * for, so it is read as a value of no type.
+ */
+function opensDatabases(): boolean {
+  const factory: unknown = Reflect.get(window, 'indexedDB');
+  return (
+    typeof factory === 'object' &&
+    factory !== null &&
+    typeof Reflect.get(factory, 'open') === 'function'
+  );
+}
+
+/**
  * Asks a question of the browser that may throw instead of answering.
  *
  * A hardened or privacy-focused browser may make reading a property raise
@@ -45,6 +59,15 @@ function safely(probe: () => unknown): boolean {
     return false;
   }
 }
+
+/**
+ * The smallest module WebAssembly accepts: its magic number and version 1.
+ *
+ * Compiled, rather than `WebAssembly` looked for, because a security policy
+ * without `'wasm-unsafe-eval'` leaves the global in place and refuses every
+ * compilation, which is what the canonical DSP needs.
+ */
+const EMPTY_MODULE = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
 
 /** The media queries the operating system's appearance settings answer. */
 const APPEARANCE_QUERIES = {
@@ -84,6 +107,12 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     isCrossOriginIsolated: safely(() => window.crossOriginIsolated),
     hasAudioWorklet: safely(
       () => exists(window, 'AudioWorkletNode') && exists(window, 'AudioContext'),
+    ),
+    compilesWebAssembly: safely(
+      () => new WebAssembly.Module(EMPTY_MODULE) instanceof WebAssembly.Module,
+    ),
+    choosesAudioOutput: safely(
+      () => exists(window, 'AudioContext') && 'setSinkId' in AudioContext.prototype,
     ),
     hasWebWorkers: safely(() => typeof Worker === 'function'),
     hasWebGpu: safely(() => exists(navigator, 'gpu')),
@@ -135,6 +164,17 @@ export function detectBrowserEnvironment(): CapabilityEnvironment {
     // The rule's own check rather than a second statement of it, so the
     // capability and every comparison of two names cannot disagree.
     comparesNames: safely(namesCanBeCompared),
+
+    hasVideoFrameCallback: safely(
+      () =>
+        exists(window, 'HTMLVideoElement') &&
+        'requestVideoFrameCallback' in HTMLVideoElement.prototype,
+    ),
+    // Whether the document allows it, not only whether the method is there:
+    // Safari on an iPhone has the method on no element but a video, and a
+    // frame without the permission refuses every request.
+    hasFullscreen: safely(() => document.fullscreenEnabled),
+    hasIndexedDb: safely(opensDatabases),
   };
 }
 

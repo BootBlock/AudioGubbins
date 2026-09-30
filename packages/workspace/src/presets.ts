@@ -36,6 +36,9 @@ export const PanelKinds = {
 
   /** What this browser can and cannot do (REQ-EXEC-216). */
   Capabilities: 'capabilities',
+
+  /** Reference picture beside the audio (REQ-AUDIO-156). */
+  Picture: 'picture',
 } as const;
 
 /** One group of a preset, before the unavailable kinds are removed. */

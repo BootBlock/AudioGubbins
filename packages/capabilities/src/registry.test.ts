@@ -31,6 +31,8 @@ function environmentWhere(available: boolean): CapabilityEnvironment {
     hasSharedArrayBuffer: available,
     isCrossOriginIsolated: available,
     hasAudioWorklet: available,
+    compilesWebAssembly: available,
+    choosesAudioOutput: available,
     hasWebWorkers: available,
     hasWebGpu: available,
     hasWebGl2: available,
@@ -46,6 +48,9 @@ function environmentWhere(available: boolean): CapabilityEnvironment {
     hasMediaQueries: available,
     hasKeyboardLayoutMap: available,
     comparesNames: available,
+    hasVideoFrameCallback: available,
+    hasFullscreen: available,
+    hasIndexedDb: available,
   };
 }
 
@@ -239,12 +244,18 @@ describe('degradedFeatures', () => {
       ['project-storage', FeatureStatus.Unavailable],
       ['direct-file-access', FeatureStatus.Unavailable],
       ['audio-playback', FeatureStatus.Unavailable],
+      ['output-device-choice', FeatureStatus.Unavailable],
+      ['canonical-dsp', FeatureStatus.Reduced],
+      ['offline-rendering', FeatureStatus.Unavailable],
       ['multi-threaded-dsp', FeatureStatus.Unavailable],
       ['accelerated-rendering', FeatureStatus.Reduced],
       ['recording', FeatureStatus.Unavailable],
       ['offline-use', FeatureStatus.Unavailable],
       ['pressure-sensitive-tools', FeatureStatus.Unavailable],
       ['hardware-codecs', FeatureStatus.Reduced],
+      ['reference-picture', FeatureStatus.Reduced],
+      ['full-screen-picture', FeatureStatus.Unavailable],
+      ['waveform-cache', FeatureStatus.Unavailable],
     ]);
   });
 

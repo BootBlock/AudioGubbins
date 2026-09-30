@@ -68,16 +68,29 @@ export {
 } from './time/sample-time.js';
 
 export {
+  type AmbisonicConvention,
+  AmbisonicNormalisation,
+  AmbisonicOrdering,
   type ChannelLayout,
   ChannelRole,
   MAXIMUM_CHANNEL_COUNT,
   StandardLayouts,
   channelCount,
   channelIndexOf,
+  channelLabelOf,
   channelLayout,
   discreteLayout,
+  labelledLayout,
   layoutsMatch,
 } from './audio/channel-layout.js';
+
+export {
+  type AmbisonicComponent,
+  FIRST_ORDER_AMBIX,
+  ambisonicChannelCount,
+  ambisonicComponentOf,
+  ambisonicLayout,
+} from './audio/ambisonic-layout.js';
 
 export {
   type Asset,
@@ -131,6 +144,8 @@ export {
   validateProcessorInstance,
 } from './processing/effect-chain.js';
 
+export { type ProcessorLatency } from './processing/processor-latency.js';
+
 export {
   type Project,
   type ProjectSettings,
@@ -140,15 +155,3 @@ export {
   projectLength,
   tracksInOrder,
 } from './project/project.js';
-
-export {
-  type EmptySelection,
-  type EntitySelection,
-  NO_SELECTION,
-  type Selection,
-  SelectionFocus,
-  type TimeRangeSelection,
-  hasSelection,
-  selectionFocus,
-  selectionSize,
-} from './selection/selection.js';

@@ -612,6 +612,22 @@
   font-size: var(--ag-text-small);
 }
 
+/* A set of settings applied together, such as the Custom profile's. */
+.ag-settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: var(--ag-space-small) var(--ag-space-medium);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-small);
+}
+
+.ag-settings-group > legend {
+  padding-inline: var(--ag-space-tiny);
+  font-weight: 600;
+}
+
 .ag-shortcut-table {
   inline-size: 100%;
   border-collapse: collapse;
@@ -732,6 +748,152 @@
   overscroll-behavior: contain;
 }
 
+/* The Transport panel. */
+
+.ag-transport {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-medium);
+}
+
+.ag-transport > * {
+  margin-block: 0;
+}
+
+.ag-transport-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+/* Tabular figures, so the position does not shuffle sideways as it counts. */
+.ag-transport-position {
+  margin-inline-start: var(--ag-space-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-transport-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ag-space-small);
+}
+
+.ag-transport-heading {
+  margin: 0;
+  font-size: var(--ag-text-body);
+  font-weight: 600;
+}
+
+.ag-readings {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  margin: 0;
+  font-size: var(--ag-text-small);
+}
+
+/* Each term and its reading take a row of the grid between them. */
+.ag-reading {
+  display: contents;
+}
+
+.ag-reading dt {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-reading dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ag-reading-note {
+  display: block;
+  margin-block-start: var(--ag-space-tiny);
+}
+
+/*
+ * One grid for every row of a meter, so the name column is as wide as the
+ * longest name, a surround role or "Correlation", and every bar starts at the
+ * same place. A row lays out no box of its own; subgrid would, but it is newer
+ * than the browsers the build supports.
+ */
+.ag-meters {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) 5em;
+  align-items: center;
+  gap: var(--ag-space-tiny) var(--ag-space-small);
+  font-size: var(--ag-text-small);
+}
+
+.ag-meter {
+  display: contents;
+}
+
+.ag-meter-scale {
+  block-size: var(--ag-space-small);
+  border-radius: var(--ag-radius-small);
+  background-color: var(--ag-meter-background);
+  overflow: hidden;
+}
+
+.ag-meter-fill {
+  block-size: 100%;
+  background-color: var(--ag-meter-low);
+}
+
+.ag-meter-fill[data-ag-zone='mid'] {
+  background-color: var(--ag-meter-mid);
+}
+
+.ag-meter-fill[data-ag-zone='high'] {
+  background-color: var(--ag-meter-high);
+}
+
+.ag-meter-fill[data-ag-zone='clip'] {
+  background-color: var(--ag-meter-clip);
+}
+
+.ag-meter-value {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-render-progress {
+  inline-size: min(100%, 24em);
+  accent-color: var(--ag-chrome-accent);
+}
+
+/* What a render's resources warned of, each naming the resource that limits it. */
+.ag-render-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-small);
+}
+
+/* The two ways a render waiting on a warning can go. */
+.ag-render-decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ag-space-small);
+}
+
+.ag-render-decision > .ag-panel-note {
+  flex-basis: 100%;
+}
+
+.ag-audio-problems {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
+  font-size: var(--ag-text-small);
+}
+
 /*
  * A state, wherever it is written.
  *
@@ -752,4 +914,117 @@
 
 [data-ag-status='unavailable'] {
   color: var(--ag-chrome-status-error);
+}
+
+/*
+ * The Editor panel: its controls in a column above the waveform, which takes
+ * whatever height is left. The surface draws itself on two stacked canvases
+ * the size of the surface; the browser neither pans nor zooms the page under a
+ * finger there, since two fingers pan and pinch the view (REQ-UX-067).
+ */
+.ag-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ag-space-tiny);
+  block-size: 100%;
+}
+
+.ag-editor-toolbars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+}
+
+.ag-editor-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+}
+
+.ag-editor-scope {
+  margin: 0;
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-editor-scope-text {
+  color: var(--ag-chrome-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-editor-surface {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 160px;
+  overflow: hidden;
+  border: 1px solid var(--ag-chrome-border-subtle);
+  touch-action: none;
+  user-select: none;
+}
+
+.ag-editor-canvas {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+.ag-editor-scroll {
+  inline-size: 100%;
+  margin: 0;
+}
+
+.ag-editor-assets {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-editor-asset .ag-panel-note {
+  margin-block: var(--ag-space-tiny) 0;
+}
+
+/* The Picture panel: the reference picture as large as the panel allows. */
+.ag-picture-frame {
+  display: flex;
+  justify-content: center;
+  background-color: var(--ag-chrome-surface-sunken);
+}
+
+.ag-picture-video {
+  max-inline-size: 100%;
+  max-block-size: 60vh;
+}
+
+.ag-picture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  margin-block: var(--ag-space-small);
+}
+
+.ag-renderer-attempts {
+  margin: var(--ag-space-tiny) 0 0;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-editor-asset-name {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ag-editor-readings {
+  margin: 0;
+}
+
+.ag-editor-markers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-tiny);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }

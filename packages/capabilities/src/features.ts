@@ -34,12 +34,58 @@ export const DIRECT_FILE_ACCESS: FeatureRequirement = {
   fallback: 'Files are imported through a file chooser and exported to your downloads instead.',
 };
 
-/** Playing and processing audio without interrupting the interface. */
+/**
+ * Playing and processing audio without interrupting the interface.
+ *
+ * Shared memory lets the audio thread read what it plays without a message for
+ * every block; without it, audio is sent in messages and the engine keeps more
+ * of it ahead of the play position, so playback starts a little later.
+ */
 export const AUDIO_PLAYBACK: FeatureRequirement = {
   featureKey: 'audio-playback',
   label: 'Playback and live effects',
   required: [CapabilityKey.AudioWorklet],
+  preferred: [CapabilityKey.SharedArrayBuffer],
   fallback: 'Playback is unavailable in this browser.',
+};
+
+/**
+ * The canonical DSP compiled to WebAssembly (ADR-0031).
+ *
+ * Without it, processing runs the TypeScript reference path, which repeats
+ * every operation of the canonical one in the same order and gives the same
+ * bits (ADR-0032), so nothing a render produces changes; only its speed does.
+ */
+export const CANONICAL_DSP: FeatureRequirement = {
+  featureKey: 'canonical-dsp',
+  label: 'Fast canonical processing',
+  required: [],
+  preferred: [CapabilityKey.WebAssembly],
+  fallback:
+    'Processing runs without WebAssembly. Renders are the same, sample for sample, and take longer.',
+};
+
+/**
+ * Rendering offline, away from the interface.
+ *
+ * Requires background threads outright: REQ-ARCH-036 keeps heavy processing off
+ * the thread that draws the interface, so a browser without workers is told the
+ * renderer is unavailable rather than having its interface stall.
+ */
+export const OFFLINE_RENDERING: FeatureRequirement = {
+  featureKey: 'offline-rendering',
+  label: 'Rendering in the background',
+  required: [CapabilityKey.WebWorkers],
+  fallback:
+    'Offline rendering is unavailable in this browser, because it would stop the interface while it ran.',
+};
+
+/** Choosing the device playback goes to. */
+export const OUTPUT_DEVICE_CHOICE: FeatureRequirement = {
+  featureKey: 'output-device-choice',
+  label: 'Choosing the playback device',
+  required: [CapabilityKey.AudioOutputSelection],
+  fallback: "Playback goes to your system's default device.",
 };
 
 /** Running DSP across several threads. */
@@ -124,8 +170,8 @@ export const SYSTEM_APPEARANCE: FeatureRequirement = {
  * Phase 01's, as the settings' storage is. A default is placed on the key that
  * types its character, and where the browser gives no layout map that key is
  * learned from what the user types. Counted as missing in the status bar, it
- * says its cause and its remedy here as well as in the settings, where they
- * are shown only while a default waits.
+ * says its cause and its remedy here as well as in the settings, where they are
+ * shown only while a default waits.
  */
 const KEYBOARD_PLACED_SHORTCUTS: FeatureRequirement = {
   featureKey: 'keyboard-placed-shortcuts',
@@ -134,18 +180,18 @@ const KEYBOARD_PLACED_SHORTCUTS: FeatureRequirement = {
   preferred: [CapabilityKey.KeyboardLayoutMap],
   // Both waits, with Caps Lock off, as the Shortcuts settings say. Nothing is
   // learned while it is on, so a reader who follows the status bar here and
-  // presses the key with it on is given the cause. The second wait is the one
-  // a key press does not end: on Apple hardware a default whose character
-  // sits away from its US key waits for a press made with Command, which only
-  // the Shortcuts settings ask for.
+  // presses the key with it on is given the cause. The second wait is the one a
+  // key press does not end: on Apple hardware a default whose character sits
+  // away from its US key waits for a press made with Command, which only the
+  // Shortcuts settings ask for.
   fallback:
     'A default shortcut waits until you have pressed the key it goes on once, with Caps Lock off, anywhere in AudioGubbins. On Apple hardware, a default may instead wait for you to press its key with Command while the Shortcuts settings, which name the key, are open.',
 };
 
 /**
  * Giving a workspace or a shortcut profile a name, which saving as, copying,
- * renaming and importing each do, and so does changing the built-in
- * shortcuts, which are copied under a name first.
+ * renaming and importing each do, and so does changing the built-in shortcuts,
+ * which are copied under a name first.
  *
  * Phase 01's, as the settings' storage is. The commands that name read it, so
  * each is unavailable with the reason shown here, and nothing the user has is
@@ -160,6 +206,44 @@ export const NAMING: FeatureRequirement = {
     'Workspaces and shortcut profiles cannot be saved as new ones, copied, renamed or imported, and the built-in shortcuts cannot be changed. Those you have are kept, and you can still switch between them.',
 };
 
+/**
+ * Keeping reference picture on the audio's time (REQ-AUDIO-156, ADR-0046).
+ *
+ * The picture is checked against the audible position each time a frame is
+ * presented where the browser says when that is; elsewhere it is checked on
+ * each display frame, which holds the same one-frame tolerance a little less
+ * promptly.
+ */
+const REFERENCE_PICTURE: FeatureRequirement = {
+  featureKey: 'reference-picture',
+  label: 'Reference picture in step with the audio',
+  required: [],
+  preferred: [CapabilityKey.VideoFrameCallback],
+  fallback:
+    'The picture is checked against the audio on each display frame rather than as each video frame is shown, so a correction can come a frame later.',
+};
+
+/** Showing reference picture across the whole screen. */
+export const FULL_SCREEN_PICTURE: FeatureRequirement = {
+  featureKey: 'full-screen-picture',
+  label: 'Full-screen picture',
+  required: [CapabilityKey.Fullscreen],
+  fallback: 'The picture cannot fill the screen; make its panel larger instead.',
+};
+
+/**
+ * Keeping waveform peaks between visits, a disposable cache (ADR-0043): a long
+ * file's waveform is drawn at once on a later visit rather than filled in
+ * again.
+ */
+const WAVEFORM_CACHE: FeatureRequirement = {
+  featureKey: 'waveform-cache',
+  label: 'Keeping waveforms between visits',
+  required: [CapabilityKey.IndexedDb],
+  fallback:
+    'Waveforms are made again on each visit, which takes a while on long files. Nothing else is affected.',
+};
+
 /** Every declared feature, for the capability surface and diagnostic bundles. */
 export const ALL_FEATURES: readonly FeatureRequirement[] = [
   SETTINGS_STORAGE,
@@ -169,10 +253,16 @@ export const ALL_FEATURES: readonly FeatureRequirement[] = [
   PROJECT_STORAGE,
   DIRECT_FILE_ACCESS,
   AUDIO_PLAYBACK,
+  OUTPUT_DEVICE_CHOICE,
+  CANONICAL_DSP,
+  OFFLINE_RENDERING,
   MULTI_THREADED_DSP,
   ACCELERATED_RENDERING,
   RECORDING,
   OFFLINE_USE,
   PRESSURE_SENSITIVE_TOOLS,
   HARDWARE_CODECS,
+  REFERENCE_PICTURE,
+  FULL_SCREEN_PICTURE,
+  WAVEFORM_CACHE,
 ];

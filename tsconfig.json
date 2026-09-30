@@ -11,6 +11,10 @@
     "allowJs": true,
     "checkJs": true
   },
-  "files": ["tools/check-build-output.mjs", "tools/check-record-titles.mjs"],
+  "files": [
+    "tools/build-wasm.mjs",
+    "tools/check-build-output.mjs",
+    "tools/check-record-titles.mjs"
+  ],
   "include": ["*.ts", "apps/*/*.ts"]
 }

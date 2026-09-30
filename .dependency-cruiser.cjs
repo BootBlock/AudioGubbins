@@ -15,6 +15,27 @@
  *   input           mouse, touch, pen and keyboard as values; depends on text
  *   diagnostics     structured local logging, redaction and bundles; depends on
  *                   text + version
+ *   audio-graph     the processing graph as a value, its validation, latency
+ *                   and plan; depends on domain alone, knows no thread, browser
+ *                   or buffer (ADR-0030)
+ *   audio-engine    the audio core that runs on any thread; depends on domain
+ *                   and audio-graph, knows no browser (ADR-0030)
+ *   audio-runtime   the browser host of the engine: context, worklet, render
+ *                   worker and their messages; depends on domain, diagnostics,
+ *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   timeline        the time axis as values: viewport, formats, ruler, the
+ *                   selection set and snapping; depends on domain alone, knows
+ *                   no thread or browser (ADR-0040)
+ *   waveform        the peak pyramid, its worker, cache format and column
+ *                   reads; depends on domain + audio-engine, knows no browser
+ *                   (ADR-0043)
+ *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
+ *                   backends; depends on domain, reads no global (ADR-0044)
+ *   video-reference picture bound to the media clock, frame arithmetic and
+ *                   sync; depends on domain + timeline (ADR-0046)
+ *   editor-view     one view as values: state, lanes, tools, hit testing,
+ *                   snapping and frame composition; depends on domain, input,
+ *                   timeline, waveform and renderer (ADR-0040)
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
@@ -121,7 +142,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(commands|domain|history|input|media-store|project-commands|project-format|storage|text|version)/',
+        path: '^packages/(audio-engine|audio-graph|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -138,6 +159,92 @@ module.exports = {
         'AudioGubbins package, the concept belongs in the domain or the dependency is inverted.',
       from: { path: '^packages/domain/' },
       to: { path: '^packages/(?!domain/)' },
+    },
+    {
+      name: 'audio-graph-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The processing graph is a value and the decisions made from it, below the engine that ' +
+        'runs it and the browser runtime that hosts it (ADR-0030). It depends on the domain alone, ' +
+        'whose channel layouts and sample counts it is written in, so it can be checked and ' +
+        'planned on any thread.',
+      from: { path: '^packages/audio-graph/' },
+      to: { path: '^packages/(?!(audio-graph|domain)/)' },
+    },
+    {
+      name: 'audio-engine-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
+        'the browser, the interface or storage: it depends on the domain and the graph alone, ' +
+        'and the runtime that hosts it sits above it (ADR-0030).',
+      from: { path: '^packages/audio-engine/' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|domain)/)' },
+    },
+    {
+      name: 'audio-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The browser host of the engine is given what the device offers and runs the engine in ' +
+        'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
+        'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
+        'storage or command package.',
+      from: { path: '^packages/audio-runtime/' },
+      to: {
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+      },
+    },
+    {
+      name: 'timeline-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The timeline is the time axis of the editor as values, below every view that draws it and ' +
+        'every command that reads its selection (ADR-0040). It depends on the domain alone, whose ' +
+        'sample counts and identifiers it is written in, so it runs in any scope.',
+      from: { path: '^packages/timeline/' },
+      to: { path: '^packages/(?!(timeline|domain)/)' },
+    },
+    {
+      name: 'waveform-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Peaks are derived from sources the engine reads and are drawn by the views above them ' +
+        '(ADR-0043). The package depends on the domain and the engine alone, and knows no ' +
+        'interface or storage: the cache is kept through a port the application implements.',
+      from: { path: '^packages/waveform/' },
+      to: { path: '^packages/(?!(waveform|audio-engine|domain)/)' },
+    },
+    {
+      name: 'renderer-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The renderer draws the frames views compose and holds no editor state (ADR-0044, ' +
+        'REQ-AUDIO-152). It depends on the domain alone, for its results, and knows no timeline, ' +
+        'waveform, command or interface package.',
+      from: { path: '^packages/renderer/' },
+      to: { path: '^packages/(?!(renderer|domain)/)' },
+    },
+    {
+      name: 'video-reference-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Video is reference media bound to the media clock, never an editable video domain ' +
+        '(REQ-AUDIO-156, ADR-0046). The package depends on the domain and the timeline alone, ' +
+        'whose positions and frame rates it is written in.',
+      from: { path: '^packages/video-reference/' },
+      to: { path: '^packages/(?!(video-reference|timeline|domain)/)' },
+    },
+    {
+      name: 'editor-view-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'A view composes frames from state and turns pointer input into intents the application ' +
+        'carries out through commands (ADR-0040). It depends on the packages it is drawn from and ' +
+        'knows no command, storage or interface package.',
+      from: { path: '^packages/editor-view/' },
+      to: {
+        path: '^packages/(?!(editor-view|domain|input|timeline|waveform|renderer)/)',
+      },
     },
     {
       name: 'input-owns-nothing-else',
@@ -313,6 +420,10 @@ module.exports = {
           // from production code is refused by the rule below, not by this
           // one, so the path being public costs nothing.
           '^packages/[^/]+/src/testing/index\\.ts$',
+
+          // A module a package declares as a thread entry point, which the
+          // browser loads by URL in its own global scope (ADR-0030).
+          '^packages/[^/]+/src/threads/[^/]+\\.ts$',
         ],
       },
     },
@@ -378,7 +489,12 @@ module.exports = {
         // test support with them. The composite build stops them again, since
         // the importing package references no project the source is in, so the
         // typecheck fails.
-        pathNot: '^packages/[^/]+/src/',
+        //
+        // The application's own build also serves a module no manifest can
+        // declare: the canonical DSP module's bytes, built from the crates by
+        // the Vite configuration's plugin under the `virtual:audiogubbins/`
+        // prefix, which only that plugin resolves.
+        pathNot: ['^packages/[^/]+/src/', '^virtual:audiogubbins/'],
       },
     },
   ],

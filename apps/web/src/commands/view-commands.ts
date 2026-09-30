@@ -74,8 +74,13 @@ const MOTION_NAMES: Readonly<Record<MotionLevel, string>> = {
   [MotionLevel.Minimal]: 'Minimal',
 };
 
-/** The commands that change how the interface looks. */
+/** The commands that change how the interface looks, each saying so. */
 export function viewCommands(): readonly Command<ShellContext>[] {
+  return appearanceCommands().map((command) => ({ ...command, changesAppearance: true }));
+}
+
+/** The commands that change how the interface looks. */
+function appearanceCommands(): readonly Command<ShellContext>[] {
   return [
     shellCommand(
       'view.theme-dark',

@@ -76,6 +76,8 @@ export const PersistedPart = {
   KeyboardLayout: 'keyboard-layout',
   SourceHandling: 'source-handling',
   LastProject: 'last-project',
+  AudioSettings: 'audio-settings',
+  EditorViews: 'editor-views',
 } as const;
 
 /** A part of the shell's state that is stored on its own. */
@@ -107,6 +109,8 @@ const PART_NAMES: Record<PersistedPart, string> = {
   [PersistedPart.KeyboardLayout]: 'keyboard layout',
   [PersistedPart.SourceHandling]: 'way of bringing files in',
   [PersistedPart.LastProject]: 'the project to open next time',
+  [PersistedPart.AudioSettings]: 'audio settings',
+  [PersistedPart.EditorViews]: 'editor views',
 };
 
 /** Why a caller keeps back some of a write, and what the user is told about it. */

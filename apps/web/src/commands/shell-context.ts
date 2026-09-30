@@ -11,12 +11,16 @@
  * prohibits, and it would make every command untestable without the whole
  * application being constructed first.
  *
- * Note what is absent: no audio and no renderer, and no project state to write.
- * A shell command reaches an open project only through its session, whose every
- * change is a project command run through the project's own bus and kept in its
- * history (REQ-STOR-021), so a shell command cannot change a project by any
- * other route: the dependency direction REQ-EXEC-136.4 asks for rather than a
- * rule to remember.
+ * Note what is absent: no project state to write. A shell command reaches an
+ * open project only through its session, whose every change is a project
+ * command run through the project's own bus and kept in its history
+ * (REQ-STOR-021), so a shell command cannot change a project by any other
+ * route: the dependency direction REQ-EXEC-136.4 asks for rather than a rule to
+ * remember. The audio engine is here as the transport and the test signal's
+ * renderer. The editor's assets, their markers, selections and playheads, and
+ * the views of them, are the session's (ADR-0047), held in memory until the
+ * project holds the content, and the reference picture is reference media,
+ * never project state.
  */
 
 import type { CapabilityRegistry, StorageCapabilityAbsence } from '@audiogubbins/capabilities';
@@ -28,13 +32,28 @@ import type {
   LogStore,
 } from '@audiogubbins/diagnostics';
 
+import type { IdGenerator } from '@audiogubbins/domain';
+
+import type { PlaybackControl } from '../audio/playback-control.js';
+import type { PictureSoundDecoder } from '../picture/picture-sound.js';
+import type { ReferencePicture } from '../picture/reference-picture.js';
+import type { AssetCatalogue } from '../state/asset-catalogue.js';
+import type { ChosenFiles } from '../state/chosen-files.js';
+import type { CueStore } from '../state/cue-store.js';
+import type { EditorViewStore } from '../state/editor-view-store.js';
+import type { SelectionStore } from '../state/selection-store.js';
+import type { SessionContent } from '../state/session-content.js';
+import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { StorageRootStore } from '../state/storage-root-store.js';
+import type { AudioSettingsStore } from '../state/audio-settings-store.js';
+import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
 import type { KeyboardLayoutStore } from '../state/keyboard-layout-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
 import type { PreferencesStore } from '../state/preferences-store.js';
+import type { RenderStrategyStore } from '../state/render-strategy-store.js';
 import type { ShortcutStore } from '../state/shortcut-store.js';
 import type { VerbosityStore } from '../state/verbosity-store.js';
 import type { WorkspaceStore } from '../state/workspace-store.js';
@@ -91,4 +110,47 @@ export interface ShellContext {
 
   /** What this browser lacks for keeping projects, and what that costs (REQ-EXEC-216). */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
+
+  /** What the audio engine is doing. */
+  readonly audio: AudioViewStore;
+
+  /**
+   * How the person has set the audio engine up: the performance profile, the
+   * Custom profile's settings, the background priority and the render mode.
+   */
+  readonly audioSettings: AudioSettingsStore;
+
+  /** How the latest render was planned, and what the last one measured. */
+  readonly renderStrategy: RenderStrategyStore;
+
+  /** Plays, pauses, stops and moves the transport, over an asset or the test signal. */
+  readonly playback: PlaybackControl;
+
+  /** Renders the test signal offline. */
+  readonly rendering: RenderControl;
+
+  /** The assets an editor view can open this session. */
+  readonly assets: AssetCatalogue;
+
+  /** Each asset's markers and regions for the session. */
+  readonly content: SessionContent;
+
+  /** What is selected in each asset. */
+  readonly selections: SelectionStore;
+
+  /** Where each asset's playhead is parked. */
+  readonly cues: CueStore;
+
+  /** Each editor panel's asset and presentation. */
+  readonly editorViews: EditorViewStore;
+
+  /** New identities, for the markers a person adds. */
+  readonly ids: IdGenerator;
+
+  /** The reference picture, and the decoding of its sound. */
+  readonly picture: ReferencePicture;
+  readonly pictureSound: PictureSoundDecoder;
+
+  /** Files the person chose, held for the command that opens each. */
+  readonly chosenFiles: ChosenFiles;
 }

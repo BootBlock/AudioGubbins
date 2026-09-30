@@ -1,11 +1,13 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { inRepository } from './repository.js';
 
 /**
- * The evidence's list of the commands it verified with, held to the scripts the
- * manifest declares.
+ * Each phase evidence's list of the commands it verified with, held to the
+ * scripts the manifest declares. Every evidence under `docs/spec/reviews/` is
+ * read, since a script changed after a phase reached `PASS` makes its list as
+ * untrue as the latest one's.
  *
  * The evidence names each command a reader runs to verify the phase, and says
  * beside it what the command runs. A script changed without that line says what
@@ -24,8 +26,10 @@ import { inRepository } from './repository.js';
  * all fail.
  */
 
-/** The evidence, whose list of commands is read. */
-const EVIDENCE = 'docs/spec/reviews/phase-01-evidence.md';
+/** Every phase's evidence, each of whose lists of commands is read. */
+const EVIDENCE: readonly string[] = readdirSync(inRepository('docs/spec/reviews'))
+  .filter((name) => /^phase-\d+-evidence\.md$/u.test(name))
+  .map((name) => `docs/spec/reviews/${name}`);
 
 /** The heading the list is under. */
 const HEADING = '## Commands used for verification';
@@ -115,19 +119,34 @@ function untrueOf(lines: readonly string[]): readonly string[] {
   });
 }
 
-describe('the evidence says what each command it verified with runs', () => {
-  it('says each script it lists as the manifest declares it', () => {
-    const lines = listedCommands(readFileSync(inRepository(EVIDENCE), 'utf8'));
-    // Named, so that a list moved or renamed would not pass in silence.
-    expect(lines.filter((line) => SCRIPT_LINE.test(line)).length).toBeGreaterThan(5);
+/** The lines of every evidence's list, one after another. */
+function everyListedCommand(): readonly string[] {
+  return EVIDENCE.flatMap((file) => listedCommands(readFileSync(inRepository(file), 'utf8')));
+}
 
-    expect(untrueOf(lines)).toEqual([]);
+describe('the evidence says what each command it verified with runs', () => {
+  it('lists the evidence of Phase 01 among those it reads', () => {
+    // Named, so that a pattern that matched nothing would not pass in silence.
+    expect(EVIDENCE).toContain('docs/spec/reviews/phase-01-evidence.md');
+  });
+
+  it('says each script it lists as the manifest declares it', () => {
+    for (const file of EVIDENCE) {
+      const lines = listedCommands(readFileSync(inRepository(file), 'utf8'));
+      // Named, so that a list moved or renamed would not pass in silence.
+      expect(lines.filter((line) => SCRIPT_LINE.test(line)).length, file).toBeGreaterThan(5);
+
+      expect(
+        untrueOf(lines).map((untrue) => `${file}: ${untrue}`),
+        file,
+      ).toEqual([]);
+    }
   });
 
   it('names no phrase of prose and no command outside the manifest that the list does not use', () => {
     // A name nothing uses would let a later line pass on a phrase or a
-    // command the list has never held.
-    const lines = listedCommands(readFileSync(inRepository(EVIDENCE), 'utf8'));
+    // command the lists have never held.
+    const lines = everyListedCommand();
     const parts = new Set(lines.flatMap((line) => partsOf(SCRIPT_LINE.exec(line)?.[2] ?? '')));
 
     expect([...PROSE].filter((phrase) => !parts.has(phrase))).toEqual([]);

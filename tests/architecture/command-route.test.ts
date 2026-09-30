@@ -68,6 +68,33 @@ const READ_ONLY_MEMBERS: Readonly<Record<string, readonly string[]>> = {
   // the log and setting the verbosity are changes, and are commands.
   LogStore: ['snapshot', 'performanceSnapshot', 'usage'],
   DiagnosticCentre: ['loggerFor', 'isDiagnosticModeActive', 'diagnosticModeEndsAt'],
+
+  // The audio engine's view, and playback itself. Playing, pausing, stopping,
+  // rendering and choosing a profile are commands; the Transport panel only
+  // reads what they did, and the playhead reads the position as it moves.
+  AudioViewStore: ['get', 'subscribe'],
+  PlaybackSession: ['status', 'subscribe', 'position', 'audiblePosition'],
+
+  // The editor's session: assets, their content, selections and playheads,
+  // and each view's presentation. Every change is a command; a view's surface
+  // reports the width it is laid out at, which is a measurement of the page
+  // and not an action the person takes.
+  AssetCatalogue: ['get', 'subscribe', 'find'],
+  SessionContent: ['get', 'subscribe', 'of'],
+  SelectionStore: ['get', 'subscribe', 'of'],
+  CueStore: ['get', 'subscribe', 'of'],
+  EditorViewStore: ['get', 'subscribe', 'entry', 'measured'],
+
+  // What each view's renderer draws with is the renderer's report of the
+  // browser, written as it arrives; a chosen file is handed over to the
+  // command that opens it, which a command's arguments cannot carry.
+  RendererReports: ['get', 'subscribe', 'report', 'forget'],
+  ChosenFiles: ['offer'],
+
+  // The reference picture: opening, binding and calibrating it are commands.
+  // The Picture panel shows its element and keeps it on the transport's clock
+  // each display frame, which follows the audio rather than acting on it.
+  ReferencePicture: ['get', 'subscribe', 'element', 'filmstrip', 'presented', 'follow'],
 };
 
 /**
@@ -87,6 +114,16 @@ const DECLARED_IN: Readonly<Record<string, string>> = {
   KeyboardLayoutStore: 'apps/web/src/state/keyboard-layout-store.ts',
   LogStore: 'packages/diagnostics/src/log-store.ts',
   DiagnosticCentre: 'packages/diagnostics/src/logger.ts',
+  AudioViewStore: 'apps/web/src/state/audio-view-store.ts',
+  PlaybackSession: 'packages/audio-runtime/src/playback/playback-session.ts',
+  AssetCatalogue: 'apps/web/src/state/asset-catalogue.ts',
+  SessionContent: 'apps/web/src/state/session-content.ts',
+  SelectionStore: 'apps/web/src/state/selection-store.ts',
+  CueStore: 'apps/web/src/state/cue-store.ts',
+  EditorViewStore: 'apps/web/src/state/editor-view-store.ts',
+  RendererReports: 'apps/web/src/state/renderer-reports.ts',
+  ChosenFiles: 'apps/web/src/state/chosen-files.ts',
+  ReferencePicture: 'apps/web/src/picture/reference-picture.ts',
 };
 
 /**
@@ -104,6 +141,16 @@ const NOT_INTERFACE: readonly string[] = [
   'apps/web/src/commands/',
   'apps/web/src/state/',
   'apps/web/src/application.ts',
+  // The root's editor part, which builds the editor's stores and wires the one
+  // to the workspace that makes the editor in use the one commands act on.
+  'apps/web/src/editor-part.ts',
+  // What the audio commands drive: the playback and render controls the root
+  // builds, which act on the runtime and render nothing.
+  'apps/web/src/audio/',
+  // What the picture commands drive: the reference picture and the decoding of
+  // its sound, which adds the asset it makes to the catalogue; they render
+  // nothing.
+  'apps/web/src/picture/',
 ];
 
 function isInterfaceFile(path: string): boolean {

@@ -17,20 +17,27 @@ import {
   createChordTracker,
   createCommandBus,
   createCommandRegistry,
+  commandId,
+  shortcutOffered,
+  type CommandBus,
   type CommandId,
   type CommandInvocation,
+  type CommandRegistry,
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import {
   askLateQuestions,
+  audioRuntimeCapabilities,
   createCapabilityRegistry,
   describeEnvironment,
   detectBrowserEnvironment,
   operatingSystemOf,
   readLayoutMap,
   readPlatformSignals,
+  readResourceFigures,
   readStoragePlatform,
   watchAppearanceSettings,
+  type CapabilityRegistry,
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
 import { createDiagnosticCentre, createLogStore, type Logger } from '@audiogubbins/diagnostics';
@@ -38,17 +45,24 @@ import type { KeyboardConvention } from '@audiogubbins/commands';
 import {
   DockRegion,
   PanelKinds,
+  createDockMemory,
   panelsIn,
   type PanelDescriptor,
   type PanelKind,
 } from '@audiogubbins/workspace';
 
+import { browserEngineLoader, browserPlayback, browserRendering } from './audio/browser-audio.js';
+import { PlaybackControl } from './audio/playback-control.js';
+import { RenderControl } from './audio/render-control.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
 import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.js';
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
-import { createInteractionStore } from './state/interaction-store.js';
+import { startEditor, type PanelControls } from './editor-part.js';
+import { createAudioSettingsStore } from './state/audio-settings-store.js';
+import { createAudioViewStore } from './state/audio-view-store.js';
+import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
 import { startProjectSystem } from './state/project-system.js';
 import { ProjectPanelKinds } from './panel-kinds.js';
@@ -58,6 +72,7 @@ import {
   type KeyboardLayoutStore,
 } from './state/keyboard-layout-store.js';
 import { createPreferencesStore } from './state/preferences-store.js';
+import { createRenderStrategyStore } from './state/render-strategy-store.js';
 import { createShortcutStore } from './state/shortcut-store.js';
 import { browserStorage, createStateStorage, type StateStorage } from './state/state-storage.js';
 import { createVerbosityStore, readStoredVerbosity } from './state/verbosity-store.js';
@@ -109,6 +124,94 @@ function startKeyboardLayout(
 }
 
 /**
+ * The audio part: the engine's view, the person's audio settings, how renders
+ * are planned, and the controls that play and render the test signal.
+ *
+ * Nothing audible is made here. The context, the session, the DSP module and
+ * the render host are made by the first command that needs each, from the
+ * person's gesture, so a page that is only looked at starts no audio and loads
+ * none of the engine's threads, and one whose browser cannot play never makes
+ * a context at all: the command that would is unavailable there.
+ */
+function startAudio(
+  capabilities: CapabilityRegistry,
+  interaction: InteractionStore,
+  storage: StateStorage,
+  logger: Logger,
+): {
+  readonly parts: Pick<
+    ShellContext,
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+  >;
+  readonly dispose: () => void;
+} {
+  const runtime = audioRuntimeCapabilities(capabilities);
+  const engine = browserEngineLoader(runtime);
+  const audio = createAudioViewStore();
+  const audioSettings = createAudioSettingsStore(storage, logger);
+  const renderStrategy = createRenderStrategyStore();
+  const announce = (text: string): void => {
+    interaction.announce(text);
+  };
+  const playback = new PlaybackControl({
+    view: audio,
+    open: browserPlayback({ capabilities: runtime, engine, logger }),
+    profile: () => audioSettings.get().chosen,
+    announce,
+    logger,
+  });
+  const rendering = new RenderControl({
+    view: audio,
+    settings: audioSettings,
+    strategy: renderStrategy,
+    open: browserRendering(engine),
+    // Measured when each render is asked for, since what the page holds moves.
+    resources: () => readResourceFigures(performance),
+    now: () => performance.now(),
+    announce,
+    logger,
+  });
+  return {
+    parts: { audio, audioSettings, renderStrategy, playback, rendering },
+    dispose: () => {
+      playback.dispose();
+      rendering.dispose();
+    },
+  };
+}
+
+/**
+ * How a panel's control runs a command with what it names, and asks the
+ * command's label, the shortcut written beside it and why it cannot run: as
+ * the menus do, so a panel's control and the menu entry are one action.
+ */
+function panelControls(
+  context: ShellContext,
+  registry: CommandRegistry<ShellContext>,
+  bus: CommandBus<ShellContext>,
+  run: (id: CommandId, args?: CommandInvocation['arguments']) => unknown,
+  convention: KeyboardConvention,
+): PanelControls {
+  return {
+    run: (id, args) => {
+      run(commandId(id), args);
+    },
+    unavailableReason: (id) => {
+      const availability = bus.availability(context, commandId(id));
+      return availability.available ? undefined : availability.reason;
+    },
+    labelFor: (id) => registry.get(commandId(id))?.label ?? id,
+    shortcutFor: (id) =>
+      shortcutOffered(
+        context.shortcuts.get().profile,
+        commandId(id),
+        convention,
+        context.keyboardLayout.get(),
+      ),
+  };
+}
+
+/**
  * Which panels this build has.
  *
  * The workspace validates a stored layout against this, so a layout naming a
@@ -126,6 +229,7 @@ const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
       [ProjectPanelKinds.History, 'History', DockRegion.Right],
       [ProjectPanelKinds.Storage, 'Storage', DockRegion.Bottom],
+      [PanelKinds.Picture, 'Picture', DockRegion.Right],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
@@ -212,6 +316,9 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
+  const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
+  const editorPart = startEditor(capabilities, storage, diagnostics.loggerFor('editor'), workspace);
+
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
     workspace,
@@ -230,6 +337,8 @@ export function createApplication() {
     storageRoot: projectSystem.storageRoot,
     projects: projectSystem.projects,
     storageAbsences: projectSystem.storageAbsences,
+    ...audioPart.parts,
+    ...editorPart.parts,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -256,6 +365,10 @@ export function createApplication() {
   // changed is the one the next key press is matched against, and never a
   // binding the platform takes on the layout as it is known.
   const tracker = createChordTracker(() => context.shortcuts.get().usable);
+  const editorPanels = editorPart.panelParts(
+    context,
+    panelControls(context, registry, bus, run, convention),
+  );
 
   logger.info('AudioGubbins started.', {
     browser: context.environment.browser,
@@ -274,16 +387,21 @@ export function createApplication() {
     rearrange,
     descriptors: PANEL_DESCRIPTORS,
     appearance: watchAppearanceSettings(),
+    editorPanels,
+    dockMemory: createDockMemory(),
 
     /**
      * Stops everything the application put on the page.
      *
      * Its own function rather than React's unmounting, because what is
      * registered here is outside React: `root.unmount()` removes no
-     * `visibilitychange` listener, no `focus` listener and no timer.
+     * `visibilitychange` listener, no `focus` listener and no timer, closes
+     * no audio context, ends no render and releases no project.
      */
     dispose: () => {
       stopWatching();
+      audioPart.dispose();
+      editorPart.dispose();
       projectSystem.dispose();
     },
   };

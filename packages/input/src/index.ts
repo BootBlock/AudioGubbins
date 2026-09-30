@@ -49,8 +49,7 @@ export {
 
 // `sampleFromPointerEvent` is the pointer half of the input abstraction WU-01.D
 // requires, the counterpart of `readingOf`: it turns a browser's pointer event
-// into a sample. Nothing in this phase draws on a canvas, so it has no caller
-// yet; the waveform editor's canvas, Phase 04's, is the first.
+// into a sample, which the editor's surface reads every contact through.
 export {
   DEFAULT_GESTURE_SETTINGS,
   type Gesture,

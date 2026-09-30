@@ -19,6 +19,7 @@
 
 import {
   contrastSolver,
+  hardestFor,
   oklch,
   scaleChroma,
   shiftLightness,
@@ -26,7 +27,7 @@ import {
   type Oklch,
 } from './colour.js';
 import { ACCENT_HUES, ContrastLevel, type AccentName } from './preferences.js';
-import { buildChrome, type ChromePalette } from './chrome.js';
+import { buildChrome, textRequirements, type ChromePalette } from './chrome.js';
 
 /** Colours the waveform display uses, independent of the chrome theme. */
 export type WaveformPalette = {
@@ -47,6 +48,15 @@ export type WaveformPalette = {
 
   /** The playhead. */
   readonly playhead: Oklch;
+
+  /** Where the peaks are not yet known: a step up from the background. */
+  readonly pending: Oklch;
+
+  /** Text written on the display: a marker's or a region's name. */
+  readonly label: Oklch;
+
+  /** Supporting text written on the display: a channel's name, a frequency. */
+  readonly labelSecondary: Oklch;
 };
 
 /** Colours a selection uses, in any editor. */
@@ -179,12 +189,28 @@ function finish(colour: Oklch, options: PaletteOptions): Oklch {
  * background is harder to read at a glance, and the editing surface is where a
  * user spends the session, so it keeps its own contrast rather than inheriting
  * the chrome's.
+ *
+ * The text written on the display is therefore light in both themes, and is
+ * solved, as the chrome's text is, against the surface of the display it is
+ * hardest to read on: the background, the wash where peaks are not yet known,
+ * or the floor of the spectrogram, `floor`. The chrome's text, which is dark in
+ * the light theme, would all but vanish here.
  */
-function buildWaveform(options: PaletteOptions): WaveformPalette {
+function buildWaveform(
+  options: PaletteOptions,
+  floor: Oklch,
+  solver: ReturnType<typeof contrastSolver>,
+): WaveformPalette {
   const accentHue = ACCENT_HUES[options.accent];
+  const background = finish(oklch(options.dark ? 0.13 : 0.18, 0.01, 255), options);
+  const pending = finish(oklch(options.dark ? 0.25 : 0.3, 0.01, 255), options);
+  const surfaces = [background, pending, floor];
+  const requirement = textRequirements(options.contrast);
+  const labelSeed = oklch(0.96, 0.006, 255);
+  const secondarySeed = oklch(0.8, 0.01, 255);
 
   return {
-    background: finish(oklch(options.dark ? 0.13 : 0.18, 0.01, 255), options),
+    background,
     peak: finish(oklch(0.72, 0.13, accentHue), options),
     rms: finish(oklch(0.86, 0.09, accentHue), options),
     centreLine: finish(oklch(0.4, 0.01, 255), options),
@@ -194,6 +220,19 @@ function buildWaveform(options: PaletteOptions): WaveformPalette {
     // red, which would make clipping invisible.
     clipped: finish(oklch(0.68, 0.22, 25), options),
     playhead: finish(oklch(0.95, 0.02, 90), options),
+    pending,
+    label: solver.solve(
+      'waveform.label',
+      labelSeed,
+      hardestFor(labelSeed, surfaces),
+      requirement.primary,
+    ),
+    labelSecondary: solver.solve(
+      'waveform.labelSecondary',
+      secondarySeed,
+      hardestFor(secondarySeed, surfaces),
+      requirement.secondary,
+    ),
   };
 }
 
@@ -276,12 +315,13 @@ function buildCategory(options: PaletteOptions): CategoryPalette {
 /** Builds every palette for one set of preferences. */
 export function buildPalette(options: PaletteOptions): Palette {
   const solver = contrastSolver();
+  const spectrogram = buildSpectrogram(options);
   return {
     chrome: buildChrome(options, solver),
-    waveform: buildWaveform(options),
+    waveform: buildWaveform(options, spectrogram[0], solver),
     selection: buildSelection(options),
     meter: buildMeter(options),
-    spectrogram: buildSpectrogram(options),
+    spectrogram,
     category: buildCategory(options),
     analysisGrid: finish(oklch(0.45, 0.01, 255), options),
     contrastShortfalls: solver.shortfalls(),

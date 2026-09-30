@@ -18,7 +18,9 @@ import { ModalDialog, TabSet, type ThemePreferences } from '@audiogubbins/design
 import type { VerbosityConfiguration } from '@audiogubbins/diagnostics';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 
+import type { AudioSettings } from '../state/audio-settings-store.js';
 import { Accessibility, Appearance } from './settings/appearance.js';
+import { Audio } from './settings/audio.js';
 import { Diagnostics } from './settings/diagnostics.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { UnreadText } from '../state/text-custody.js';
@@ -52,6 +54,9 @@ export interface SettingsDialogProps {
 
   /** When diagnostic mode ends on its own, as text, while it is on. */
   readonly diagnosticModeEnds?: string;
+
+  /** The performance profile, the Custom profile's settings, the background priority and the render mode. */
+  readonly audio: AudioSettings;
 
   /** How much the log records, and which subsystems write to it. */
   readonly verbosity: VerbosityConfiguration;
@@ -102,7 +107,7 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
       open={open}
       onOpenChange={onOpenChange}
       title="Settings"
-      description="How AudioGubbins looks, how it moves, and what it records."
+      description="How AudioGubbins looks, how it moves, how it processes audio, and what it records."
     >
       <TabSet
         label="Settings sections"
@@ -145,6 +150,11 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
             ),
           },
           ...projectTabs(props),
+          {
+            value: 'audio',
+            label: 'Audio',
+            content: <Audio settings={props.audio} run={props.run} />,
+          },
           {
             value: 'diagnostics',
             label: 'Diagnostics',

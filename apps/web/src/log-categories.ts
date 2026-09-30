@@ -25,6 +25,8 @@ import { isLogCategory } from '@audiogubbins/diagnostics';
 const KNOWN_LOG_CATEGORIES = [
   'shell',
   'commands',
+  'audio',
+  'editor',
   // Project storage: opening, saving and recovering projects, the project
   // commands' own bus, and the storage beneath them, each levelled apart.
   'projects',
@@ -48,6 +50,8 @@ interface CategoryNames {
 const LOG_CATEGORY_NAMES: Readonly<Record<KnownLogCategory, CategoryNames>> = {
   shell: { alone: 'Shell', inSentence: 'the shell' },
   commands: { alone: 'Commands', inSentence: 'commands' },
+  audio: { alone: 'Audio engine', inSentence: 'the audio engine' },
+  editor: { alone: 'Editor', inSentence: 'the editor' },
   projects: { alone: 'Projects', inSentence: 'projects' },
   'project-commands': { alone: 'Project changes', inSentence: 'changes to projects' },
   storage: { alone: 'Storage', inSentence: 'storage' },

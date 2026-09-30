@@ -17,7 +17,8 @@
     "src"
   ],
   "scripts": {
-    "typecheck": "tsc --build"
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project browser-storage"
   },
   "dependencies": {
     "@audiogubbins/diagnostics": "workspace:*",

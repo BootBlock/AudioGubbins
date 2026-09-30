@@ -1,44 +1,52 @@
 /**
  * The panels the Phase 01 shell can show.
  *
- * Phase 01 delivers the shell, not the editing (the Phase Packet's user-visible
- * outcome says so plainly: AudioGubbins launches as a polished responsive shell
- * but does not yet edit real audio). So the asset browser, editor and transport
- * say what they are for and which phase brings them, rather than showing a
- * pretend waveform.
+ * The shell arrived before the rest of the editing, so the asset browser and
+ * the inspector say what they are for and which phase brings them, rather than
+ * pretending to be there.
  *
  * That is a deliberate distinction from the placeholder REQ-EXEC-181 forbids. A
  * placeholder pretends to be the real thing and fails silently; these state
  * what is not here yet. A user who opens AudioGubbins today should not be shown
  * a fake waveform and left to discover that nothing happens when they click it.
  *
- * Two panels are entirely real, because their subject exists now: the
- * capability surface and the diagnostic log.
+ * The rest are real, because their subject exists now: the capability surface,
+ * the diagnostic log (`diagnostics-panel.tsx`), the transport, which plays an
+ * asset or the test signal and renders the test signal (`transport-panel.tsx`),
+ * the editor, one view of an asset (`editor-panel.tsx`), and the reference
+ * picture (`picture-panel.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, OptionSelect } from '@audiogubbins/design-system';
+import { Button } from '@audiogubbins/design-system';
 import {
   ALL_FEATURES,
   FeatureStatus,
   type CapabilityRegistry,
   type StorageCapabilityAbsence,
 } from '@audiogubbins/capabilities';
-import {
-  LogSeverity,
-  allSeverities,
-  severityPasses,
-  type LogRecord,
-  type LogStore,
-} from '@audiogubbins/diagnostics';
+import type { LogStore } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
+import type { NodeId } from '@audiogubbins/audio-graph';
+import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
-import { logCategoryName } from '../log-categories.js';
+import type { ShellContext } from '../commands/shell-context.js';
 import { ProjectPanelKinds } from '../panel-kinds.js';
-import type { LogView, LogViewStore } from '../state/log-view-store.js';
+import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { AudioView } from '../state/audio-view-store.js';
+import type { Observable } from '../state/observable.js';
+import type { RenderStrategyView } from '../state/render-strategy-store.js';
+import type { LogViewStore } from '../state/log-view-store.js';
+import { DiagnosticsPanel } from './diagnostics-panel.js';
+import type { EditorPanelParts } from '../editor/panel-parts.js';
+import { EditorPanel } from './editor-panel.js';
+import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
+import { RendererReportList } from './renderer-report-list.js';
+import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
+import { TransportPanel } from './transport-panel.js';
 
 /** A panel that describes what will live here, and when. */
 function ComingInAPhase({
@@ -63,11 +71,13 @@ function ComingInAPhase({
 export function CapabilitiesPanel({
   title,
   capabilities,
+  renderers,
   storageAbsences,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
-
+  /** What each editor view's renderer tried and draws with. */
+  readonly renderers: EditorPanelParts['rendererReports'];
   /** What this browser lacks for keeping projects, and what that costs. */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
 }): ReactNode {
@@ -106,143 +116,7 @@ export function CapabilitiesPanel({
         </ul>
       )}
       <StorageAbsences absences={storageAbsences} />
-    </section>
-  );
-}
-
-/**
- * The records a reader sees, given the level and the subsystem they chose.
- *
- * A function of its own so the filter can be tested: the panel's own controls
- * are a portalled listbox, which jsdom will open once per file, and this is the
- * decision the controls exist to make.
- */
-export function recordsPassing(
-  records: readonly LogRecord[],
-  threshold: LogSeverity,
-  category: string,
-): readonly LogRecord[] {
-  return records.filter(
-    (record) =>
-      severityPasses(record.severity, threshold) &&
-      (category === 'all' || record.category === category),
-  );
-}
-
-/** How a record's time is written in the log. */
-function formatTime(timestamp: number): string {
-  const when = new Date(timestamp);
-  return `${String(when.getHours()).padStart(2, '0')}:${String(when.getMinutes()).padStart(2, '0')}:${String(when.getSeconds()).padStart(2, '0')}`;
-}
-
-/** The recent diagnostic records, and what they cost to keep. */
-export function DiagnosticsPanel({
-  panelId,
-  title,
-  logs,
-  views,
-  diagnosticModeActive,
-}: {
-  readonly panelId: string;
-  readonly title: string;
-  readonly logs: LogStore;
-  readonly views: LogViewStore;
-  readonly diagnosticModeActive: boolean;
-}): ReactNode {
-  const records = useSyncExternalStore(
-    // The log store has no subscription of its own: a logger that notified
-    // React on every record would re-render the tree hundreds of times during
-    // an import. The panel reads a snapshot when React renders it for another
-    // reason, which is enough for a log a person is reading.
-    () => () => undefined,
-    () => logs.snapshot(),
-  );
-
-  const usage = logs.usage();
-
-  // What the reader is looking at, not what is recorded. Filtering a view the
-  // user is reading changes nothing about the application, so it is view state
-  // rather than a command; the level the log records is set in the settings, by
-  // command (REQ-PRIV-165). Held by a store above the dock, which the dock is
-  // rebuilt out from under by every arrangement command, and read from here
-  // rather than copied, so there is one answer to what this panel is showing.
-  useSyncExternalStore(views.subscribe, views.get);
-  const { threshold, category } = views.viewOf(panelId);
-  const choose = (chosen: Partial<LogView>): void => {
-    views.choose(panelId, chosen);
-  };
-
-  const categories = [...new Set(records.map((record) => record.category))].sort();
-  const shown = recordsPassing(records, threshold, category);
-
-  return (
-    <section className="ag-panel">
-      <h2 className="ag-panel-title">{title}</h2>
-
-      <p className="ag-panel-note">
-        {`${String(usage.recordCount)} messages, about ${String(Math.round(usage.approximateBytes / 1024))} kB. `}
-        {usage.droppedRecordCount > 0
-          ? `${String(usage.droppedRecordCount)} older messages have been discarded. `
-          : ''}
-        Nothing here leaves this machine unless you choose to share it.
-      </p>
-
-      {diagnosticModeActive && (
-        <p className="ag-panel-note" data-ag-status="reduced">
-          Diagnostic mode is on, so AudioGubbins is collecting more detail than usual.
-        </p>
-      )}
-
-      {records.length > 0 && (
-        <div className="ag-settings-row" role="group" aria-label="Filter the log">
-          <OptionSelect
-            label="Show"
-            value={threshold}
-            options={allSeverities().map((severity) => ({
-              value: severity,
-              label:
-                severity === LogSeverity.Trace ? 'Everything recorded' : `${severity} and above`,
-            }))}
-            onValueChange={(value) => {
-              const chosen = allSeverities().find((severity) => severity === value);
-              if (chosen !== undefined) choose({ threshold: chosen });
-            }}
-          />
-          <OptionSelect
-            label="From"
-            value={category}
-            options={[
-              { value: 'all', label: 'Every part of AudioGubbins' },
-              ...categories.map((one) => ({ value: one, label: logCategoryName(one) })),
-            ]}
-            onValueChange={(chosen) => {
-              choose({ category: chosen });
-            }}
-          />
-        </div>
-      )}
-
-      {records.length === 0 ? (
-        <p>Nothing has been recorded.</p>
-      ) : shown.length === 0 ? (
-        <p>Nothing recorded matches the filter.</p>
-      ) : (
-        <ol className="ag-log">
-          {shown
-            .slice()
-            .reverse()
-            .map((record: LogRecord, index) => (
-              <li key={`${String(record.timestamp)}-${String(index)}`} className="ag-log-record">
-                <span className="ag-log-time">{formatTime(record.timestamp)}</span>
-                <span className="ag-log-severity" data-ag-severity={record.severity}>
-                  {record.severity}
-                </span>
-                <span className="ag-log-category">{logCategoryName(record.category)}</span>
-                <span className="ag-log-message">{record.message}</span>
-              </li>
-            ))}
-        </ol>
-      )}
+      <RendererReportList reports={renderers} />
     </section>
   );
 }
@@ -257,14 +131,67 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** What this browser lacks for keeping projects. */
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
+
+  /**
+   * What the audio engine is doing, which the Transport panel shows. Read
+   * alone, as the next two are: a panel changes them only through the commands
+   * it runs, never by writing a store (`CLAUDE.md` G2).
+   */
+  readonly audio: Observable<AudioView>;
+
+  /** The person's audio settings, and how the latest render was planned, which it shows too. */
+  readonly audioSettings: Observable<AudioSettings>;
+  readonly renderStrategy: Observable<RenderStrategyView>;
+
+  /** The frame the listener hears now, at the context's rate. */
+  readonly playhead: () => number | undefined;
+
+  /** Each meter's latest levels, which the Transport panel reads once a display frame. */
+  readonly meters: () => ReadonlyMap<NodeId, MeterLevels>;
+
+  /** The frames the running render has reached, which the Transport panel reads likewise. */
+  readonly framesRendered: () => number;
+
+  /** What the Editor and Picture panels are given. */
+  readonly editor: EditorPanelParts;
 }
 
 /**
- * The panels a later phase fills, with what each is for and what arrives with
- * which phase. A placeholder that says so rather than pretends
- * (REQ-EXEC-136.9). The Assets panel's projects are kept already; what it waits
- * for is audio to list, which a project gains only once files can be read, so
- * it names importing rather than the panel.
+ * What a panel reads, from the shell's context, and how its controls run a
+ * command and ask why one cannot run: as every other surface does, so a panel's
+ * button and the palette entry of the same name are one action.
+ */
+export function panelContextOf(
+  {
+    context,
+    editorPanels,
+  }: { readonly context: ShellContext; readonly editorPanels: EditorPanelParts },
+  run: RunCommand,
+  unavailableReason: (id: string) => string | undefined,
+): PanelContext {
+  return {
+    editor: editorPanels,
+    capabilities: context.capabilities,
+    logs: context.logs,
+    logViews: context.logViews,
+    diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
+    storageAbsences: context.storageAbsences,
+    projects: context.projects,
+    projectsUnavailable: unavailableReason('file.projects'),
+    audio: context.audio,
+    audioSettings: context.audioSettings,
+    renderStrategy: context.renderStrategy,
+    playhead: () => context.playback.audiblePosition(),
+    meters: () => context.playback.meters(),
+    framesRendered: () => context.rendering.framesRendered(),
+    run,
+    unavailableReason,
+  };
+}
+
+/**
+ * The panels a later phase fills, with what each is for and which phase brings
+ * it. A placeholder that says so rather than pretends (REQ-EXEC-136.9).
  */
 const PENDING_PANELS: ReadonlyMap<
   PanelKind,
@@ -278,27 +205,37 @@ const PENDING_PANELS: ReadonlyMap<
     },
   ],
   [
-    PanelKinds.Editor,
-    {
-      purpose: 'The waveform, the selection and the editing tools.',
-      arrival: 'Arrives with the waveform and timeline foundation.',
-    },
-  ],
-  [
     PanelKinds.Inspector,
     {
       purpose: 'The properties of whatever you have selected, editable in place.',
       arrival: 'Arrives with core non-destructive editing.',
     },
   ],
-  [
-    PanelKinds.Transport,
-    {
-      purpose: 'Play, stop, loop, and the output levels.',
-      arrival: 'Arrives with the audio engine foundation.',
-    },
-  ],
 ]);
+
+/** The capability surface, the Editor and the Picture panel, or `undefined` for another kind. */
+function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
+  switch (panel.kind) {
+    case PanelKinds.Capabilities:
+      return (
+        <CapabilitiesPanel
+          title={title}
+          capabilities={context.capabilities}
+          renderers={context.editor.rendererReports}
+          storageAbsences={context.storageAbsences}
+        />
+      );
+    case ProjectPanelKinds.History:
+    case ProjectPanelKinds.Storage:
+      return <ProjectPanel kind={panel.kind} title={title} context={context} />;
+    case PanelKinds.Editor:
+      return <EditorPanel panel={panel.id} title={title} parts={context.editor} />;
+    case PanelKinds.Picture:
+      return <PicturePanel title={title} parts={context.editor} />;
+    default:
+      return undefined;
+  }
+}
 
 /**
  * Draws whichever panel the workspace asks for, under the title its tab shows.
@@ -309,18 +246,22 @@ const PENDING_PANELS: ReadonlyMap<
  */
 export function renderPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
-    case PanelKinds.Capabilities:
+    case PanelKinds.Transport:
       return (
-        <CapabilitiesPanel
+        <TransportPanel
           title={title}
+          audio={context.audio}
+          audioSettings={context.audioSettings}
+          renderStrategy={context.renderStrategy}
           capabilities={context.capabilities}
-          storageAbsences={context.storageAbsences}
+          playhead={context.playhead}
+          meters={context.meters}
+          framesRendered={context.framesRendered}
+          run={context.run}
+          unavailableReason={context.unavailableReason}
+          editorViews={context.editor.stores.editorViews}
         />
       );
-
-    case ProjectPanelKinds.History:
-    case ProjectPanelKinds.Storage:
-      return <ProjectPanel kind={panel.kind} title={title} context={context} />;
 
     case PanelKinds.Diagnostics:
       return (
@@ -334,6 +275,8 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
       );
 
     default: {
+      const editing = editingPanel(panel, title, context);
+      if (editing !== undefined) return editing;
       const pending = PENDING_PANELS.get(panel.kind);
       if (pending !== undefined) return <ComingInAPhase title={title} {...pending} />;
 
@@ -361,8 +304,8 @@ export function QuickAction({
   readonly label: string;
 
   /**
-   * What is drawn, when that is shorter: the start of the label, so the name
-   * a voice user says is the one they see (WCAG 2.5.3).
+   * What is drawn, when that is shorter: the start of the label, so the name a
+   * voice user says is the one they see (WCAG 2.5.3).
    */
   readonly shown?: string;
 

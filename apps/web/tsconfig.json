@@ -22,9 +22,6 @@
   ],
   "references": [
     {
-      "path": "../../packages/domain"
-    },
-    {
       "path": "../../packages/commands"
     },
     {
@@ -49,6 +46,9 @@
       "path": "../../packages/version"
     },
     {
+      "path": "../../packages/domain"
+    },
+    {
       "path": "../../packages/project-format"
     },
     {
@@ -65,6 +65,30 @@
     },
     {
       "path": "../../packages/browser-storage"
+    },
+    {
+      "path": "../../packages/audio-graph"
+    },
+    {
+      "path": "../../packages/audio-engine"
+    },
+    {
+      "path": "../../packages/audio-runtime"
+    },
+    {
+      "path": "../../packages/timeline"
+    },
+    {
+      "path": "../../packages/waveform"
+    },
+    {
+      "path": "../../packages/renderer"
+    },
+    {
+      "path": "../../packages/editor-view"
+    },
+    {
+      "path": "../../packages/video-reference"
     },
     {
       "path": "../../packages/test-fixtures"

@@ -71,6 +71,114 @@ export interface MenuSources {
   readonly run: (id: CommandId, args?: Readonly<Record<string, string>>) => void;
 }
 
+/**
+ * The Editor menu: the editor's commands, grouped by what they act on. A table,
+ * as the other menus' groups are, so the menu is read as one list.
+ */
+const EDITOR_GROUPS: readonly {
+  readonly key: string;
+  readonly label: string;
+  readonly ids: readonly string[];
+}[] = [
+  {
+    key: 'views',
+    label: 'Views',
+    ids: ['editor.new-view'],
+  },
+  {
+    key: 'navigate',
+    label: 'Zoom and scroll',
+    ids: [
+      'editor.zoom-in',
+      'editor.zoom-out',
+      'editor.zoom-to-fit',
+      'editor.zoom-to-selection',
+      'editor.scroll-back',
+      'editor.scroll-forward',
+    ],
+  },
+  {
+    key: 'playhead',
+    label: 'Playhead',
+    ids: [
+      'transport.play',
+      'editor.playhead-back-pixel',
+      'editor.playhead-forward-pixel',
+      'editor.playhead-back-sample',
+      'editor.playhead-forward-sample',
+      'editor.playhead-to-start',
+      'editor.playhead-to-end',
+    ],
+  },
+  {
+    key: 'selection',
+    label: 'Selection',
+    ids: [
+      'editor.select-all',
+      'editor.clear-selection',
+      'editor.selection-start-at-playhead',
+      'editor.selection-end-at-playhead',
+      'editor.extend-selection-back',
+      'editor.extend-selection-forward',
+      'editor.extend-selection-back-sample',
+      'editor.extend-selection-forward-sample',
+      'editor.scope-all-channels',
+    ],
+  },
+  {
+    key: 'markers',
+    label: 'Markers',
+    ids: [
+      'editor.add-marker',
+      'editor.remove-markers',
+      'editor.nudge-markers-back',
+      'editor.nudge-markers-forward',
+      'editor.nudge-markers-back-sample',
+      'editor.nudge-markers-forward-sample',
+    ],
+  },
+  {
+    key: 'tools',
+    label: 'Tools',
+    ids: [
+      'editor.tool-select',
+      'editor.tool-time-select',
+      'editor.tool-hand',
+      'editor.tool-zoom',
+      'editor.tool-razor',
+      'editor.tool-marker',
+    ],
+  },
+  {
+    key: 'display',
+    label: 'Display',
+    ids: [
+      'editor.display-waveform',
+      'editor.display-spectrogram',
+      'editor.display-stacked',
+      'editor.display-overlay',
+      'editor.show-all-channels',
+      'editor.amplitude-up',
+      'editor.amplitude-down',
+      'editor.toggle-snapping',
+    ],
+  },
+  {
+    key: 'picture',
+    label: 'Reference picture',
+    ids: [
+      'picture.bind-to-editor',
+      'picture.align-with-playhead',
+      'picture.nudge-earlier',
+      'picture.nudge-later',
+      'picture.mark-frame',
+      'picture.extract-sound',
+      'picture.full-screen',
+      'picture.close',
+    ],
+  },
+];
+
 /** Builds every menu of the menu bar. */
 export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
   const { registry, context, profile, convention, layout, descriptors, workspace, run } = sources;
@@ -246,6 +354,10 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
           'workspace.restore',
         ]),
       ],
+    },
+    {
+      label: 'Editor',
+      groups: EDITOR_GROUPS.map((each) => labelled(each.key, each.label, each.ids)),
     },
     {
       label: 'Help',

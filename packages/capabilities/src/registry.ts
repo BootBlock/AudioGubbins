@@ -38,6 +38,8 @@ export interface CapabilityEnvironment {
   readonly hasSharedArrayBuffer: boolean;
   readonly isCrossOriginIsolated: boolean;
   readonly hasAudioWorklet: boolean;
+  readonly compilesWebAssembly: boolean;
+  readonly choosesAudioOutput: boolean;
   readonly hasWebWorkers: boolean;
 
   /**
@@ -60,6 +62,9 @@ export interface CapabilityEnvironment {
   readonly hasMediaQueries: boolean;
   readonly hasKeyboardLayoutMap: boolean;
   readonly comparesNames: boolean;
+  readonly hasVideoFrameCallback: boolean;
+  readonly hasFullscreen: boolean;
+  readonly hasIndexedDb: boolean;
 }
 
 /** The remedy for a capability every supported browser has in its current version. */
@@ -99,6 +104,15 @@ const ABSENCE: Record<CapabilityKey, { readonly reason: string; readonly remedy?
   [CapabilityKey.AudioWorklet]: {
     reason: 'This browser cannot run audio processing on the audio thread.',
     remedy: USE_A_CURRENT_BROWSER,
+  },
+  [CapabilityKey.WebAssembly]: {
+    reason: 'This page cannot compile WebAssembly.',
+    remedy:
+      'A security setting or an extension that blocks WebAssembly usually causes this. Processing gives the same result without it, more slowly.',
+  },
+  [CapabilityKey.AudioOutputSelection]: {
+    reason: 'This browser plays audio only to the device your system chooses.',
+    remedy: "Change the output device in your system's sound settings.",
   },
   [CapabilityKey.WebWorkers]: {
     reason: 'This browser cannot run background threads.',
@@ -153,6 +167,17 @@ const ABSENCE: Record<CapabilityKey, { readonly reason: string; readonly remedy?
     reason: 'This browser cannot compare two names the way AudioGubbins does on every machine.',
     remedy: USE_A_CURRENT_BROWSER,
   },
+  [CapabilityKey.VideoFrameCallback]: {
+    reason: 'This browser does not say when each video frame is shown.',
+  },
+  [CapabilityKey.Fullscreen]: {
+    reason: 'This browser will not show a part of the page across the whole screen.',
+    remedy: 'Make the picture panel larger, or float it and enlarge the window.',
+  },
+  [CapabilityKey.IndexedDb]: {
+    reason: 'This browser will not keep a database for AudioGubbins between visits.',
+    remedy: 'Private browsing and blocked site data usually cause this.',
+  },
 };
 
 /** Maps each capability to the environment field that decides it. */
@@ -166,6 +191,8 @@ const PROBES: Record<CapabilityKey, (environment: CapabilityEnvironment) => bool
   [CapabilityKey.SharedArrayBuffer]: (e) => e.hasSharedArrayBuffer && e.isCrossOriginIsolated,
   [CapabilityKey.CrossOriginIsolation]: (e) => e.isCrossOriginIsolated,
   [CapabilityKey.AudioWorklet]: (e) => e.hasAudioWorklet,
+  [CapabilityKey.WebAssembly]: (e) => e.compilesWebAssembly,
+  [CapabilityKey.AudioOutputSelection]: (e) => e.choosesAudioOutput,
   [CapabilityKey.WebWorkers]: (e) => e.hasWebWorkers,
   [CapabilityKey.WebGpu]: (e) => e.hasWebGpu,
   [CapabilityKey.WebGl2]: (e) => e.hasWebGl2,
@@ -181,6 +208,9 @@ const PROBES: Record<CapabilityKey, (environment: CapabilityEnvironment) => bool
   [CapabilityKey.MediaQueries]: (e) => e.hasMediaQueries,
   [CapabilityKey.KeyboardLayoutMap]: (e) => e.hasKeyboardLayoutMap,
   [CapabilityKey.NameComparison]: (e) => e.comparesNames,
+  [CapabilityKey.VideoFrameCallback]: (e) => e.hasVideoFrameCallback,
+  [CapabilityKey.Fullscreen]: (e) => e.hasFullscreen,
+  [CapabilityKey.IndexedDb]: (e) => e.hasIndexedDb,
 };
 
 /**

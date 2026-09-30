@@ -1,0 +1,35 @@
+{
+  "name": "@audiogubbins/audio-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The audio engine core that runs on any thread: it moves, processes and renders audio through the processing graph.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project audio-engine"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/audio-graph": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}

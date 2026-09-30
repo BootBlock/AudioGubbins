@@ -31,7 +31,7 @@ import { CommandPalette } from './shell/command-palette.js';
 import { DiagnosticExportDialog } from './shell/diagnostic-export.js';
 import { ApplicationFailure, FailureBoundary, PanelFailure } from './shell/failure-boundary.js';
 import { shellMenus } from './shell/menus.js';
-import { renderPanel } from './shell/panels.js';
+import { panelContextOf, renderPanel } from './shell/panels.js';
 import { ProjectBanner } from './shell/project-banner.js';
 import { ProjectSurfaces } from './shell/project-surfaces.js';
 import { SaveStatus } from './shell/save-status.js';
@@ -60,6 +60,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
     interaction,
     shortcuts,
     verbosity,
+    audioSettings,
     keyboardLayout,
     persistence,
     missingCapabilities,
@@ -192,6 +193,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                 // differs is overridden by the workspace stylesheet today, so
                 // nothing would show; one engine upgrade and it would.
                 dark={resolvedTheme.dark}
+                memory={application.dockMemory}
                 onArrangementChange={rearrange}
                 renderPanel={(panel) => (
                   // One boundary per panel, so a panel that throws costs the
@@ -207,17 +209,11 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                       />
                     )}
                   >
-                    {renderPanel(panel, titleOf(panel, descriptors), {
-                      capabilities: context.capabilities,
-                      logs: context.logs,
-                      logViews: context.logViews,
-                      diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
-                      storageAbsences: context.storageAbsences,
-                      projects: context.projects,
-                      projectsUnavailable: unavailableReason('file.projects'),
-                      run: runNamed,
-                      unavailableReason,
-                    })}
+                    {renderPanel(
+                      panel,
+                      titleOf(panel, descriptors),
+                      panelContextOf(application, runNamed, unavailableReason),
+                    )}
                   </FailureBoundary>
                 )}
               />
@@ -287,6 +283,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
                     diagnosticModeEnds: new Date(diagnosticModeEndsAt).toLocaleTimeString('en-GB'),
                   })}
               verbosity={verbosity}
+              audio={audioSettings}
               logCategories={logCategories}
               layout={workspace.layout}
               available={workspace.available}
