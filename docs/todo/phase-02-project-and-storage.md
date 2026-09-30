@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-09-29: implementation complete and green on
-> the branch; the review pass, the evidence, the ledger, the handoff and the
-> landing remain (see Progress, "Left to do").
+> **Status:** In progress. 2026-09-30: review findings F-01 to F-13 fixed;
+> F-14 and F-15, the medium findings and the landing remain (see "Left to
+> do").
 
 # Phase 02 — Project and Storage System
 
@@ -177,35 +177,41 @@ every agent), `-storage-brief.md`, `-safety-brief.md` (done), and
 
 ### Left to do, in order
 
-Done and committed through `0a699a8`: the interface and its gaps (external
-backup folder, exports recorded as provenance, Undo and Redo shortcuts, the
-Assets panel's wording, the refusal layout), every shared-file entry, the
-public contract record, the context packs and checksums. At that commit
-`pnpm run verify:commit` passes (216 files, 3837 tests; cruise clean),
-`spec:verify` and `sha256sum -c CHECKSUMS.sha256` pass, the three packet
-scripts pass, `pnpm build` passes, and Playwright `chromium-smoke`,
-`chromium-accessibility`, `chromium-projects` and `firefox-projects` pass.
+The review pass ran; its findings and their triage are kept outside the
+repository. Critical and high findings F-01 to F-13 are fixed. The owner ruled
+that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
 
-1. One review pass with the packet's lenses (Architecture, Data Integrity /
-   Recovery, Security / Privacy, Testing / Regression, Performance / Storage,
-   Code Quality / Maintainability, Adversarial Agent-Quality) as parallel
-   sub-agents over the committed branch (`git diff 2d9f195..HEAD`); verify
-   each finding; fix the genuine ones; commit.
-2. Drive in a real browser what the automated run did not: the backups
-   folder through a real picker, the History panel's export rows, a real two
-   tabs' loss naming the taker.
-3. Evidence `docs/spec/reviews/phase-02-evidence.md` and review record
-   `docs/spec/reviews/phase-02-review.md` (Phase 01's are the model; keep
-   them within what `record:check` and the document-width rule accept), the
-   phase 2 ledger entry (`docs/spec/traceability/implementation-ledger.json`,
-   own entry only: status PASS, commits, evidence, handoff), the handoff
-   `docs/spec/traceability/handoffs/phase-02.md` from the template, the
-   README's readiness lines if the tools require, `spec:verify`, checksums.
-4. Move this note to `docs/todo/done/` with a Done banner; merge `main` in
-   (Phase 03 may have landed: conflicts expected in the graph tool, the
-   contract record, the lockfile, the capabilities index, the diagnostics
-   categories, the ledger); `verify:commit`; merge `--no-ff` into `main`
-   from the primary checkout; push; remove the worktree and the branch.
+1. F-14, part one: never write a file its reader cannot read back.
+   - `project-format` writes canonical text within stated `JsonLimits`
+     (`canonicalJsonWithin`, `prettyCanonicalJsonWithin`), refusing with the
+     reader's own codes (`json.too-long`, `json.too-deep`) and stopping early
+     rather than building a text past the bound.
+   - `CheckedRecords.write` and `StateStore.put` return a `DomainResult` and
+     refuse, as `storage.record-too-large`, what their readers would refuse.
+     Every caller passes the refusal on.
+   - A checkpoint storage cannot hold is not written: the session keeps
+     journalling, removes nothing, logs it, and tries again at the next
+     cadence. A snapshot state it cannot hold stays unwritten and is logged.
+     A journal record it cannot hold pauses the queue, not saved, with the
+     cause.
+   - The export writers (the bundle's project documents and manifest, the
+     unpacked tree's text files) refuse an export holding a file its importer
+     would refuse.
+2. F-14, part two: incremental checkpoints. History nodes are written once, in
+   immutable segment records of their own; a checkpoint names its segments and
+   holds only what changes (cursor, branch names, snapshots, the states nodes
+   name, kept states, exports, policies, comparison). A checkpoint writes only
+   the segment of nodes added since the last; compaction writes a new segment
+   for what it keeps and the removal step drops segments no head names. The
+   reader, the writer, compaction, copies, bundle and tree export and import,
+   backups and the crash suites all follow.
+3. F-15: the storage core in a worker behind a typed port, with a host yield
+   and an `AbortSignal` passed through the long paths.
+4. Fix or accept, with a reason, every medium finding; track the low ones.
+5. Evidence, review record, ledger entry, handoff; this note to
+   `docs/todo/done/`; merge `main`; `verify:commit`; land.
+6. Drive the built app in a real browser for the changed surfaces, and record
+   what a user would see.
 
 ### Decisions to carry into the evidence
 
