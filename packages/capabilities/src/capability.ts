@@ -111,9 +111,6 @@ export const CapabilityKey = {
 
   /** Showing an element across the whole screen, as a picture preview is. */
   Fullscreen: 'fullscreen',
-
-  /** A database in the browser, where disposable caches such as waveform peaks are kept. */
-  IndexedDb: 'indexed-db',
 } as const;
 
 /** Something the browser either offers or does not. */

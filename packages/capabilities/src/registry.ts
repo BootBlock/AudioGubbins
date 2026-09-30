@@ -64,7 +64,6 @@ export interface CapabilityEnvironment {
   readonly comparesNames: boolean;
   readonly hasVideoFrameCallback: boolean;
   readonly hasFullscreen: boolean;
-  readonly hasIndexedDb: boolean;
 }
 
 /** The remedy for a capability every supported browser has in its current version. */
@@ -174,10 +173,6 @@ const ABSENCE: Record<CapabilityKey, { readonly reason: string; readonly remedy?
     reason: 'This browser will not show a part of the page across the whole screen.',
     remedy: 'Make the picture panel larger, or float it and enlarge the window.',
   },
-  [CapabilityKey.IndexedDb]: {
-    reason: 'This browser will not keep a database for AudioGubbins between visits.',
-    remedy: 'Private browsing and blocked site data usually cause this.',
-  },
 };
 
 /** Maps each capability to the environment field that decides it. */
@@ -210,7 +205,6 @@ const PROBES: Record<CapabilityKey, (environment: CapabilityEnvironment) => bool
   [CapabilityKey.NameComparison]: (e) => e.comparesNames,
   [CapabilityKey.VideoFrameCallback]: (e) => e.hasVideoFrameCallback,
   [CapabilityKey.Fullscreen]: (e) => e.hasFullscreen,
-  [CapabilityKey.IndexedDb]: (e) => e.hasIndexedDb,
 };
 
 /**

@@ -13,7 +13,7 @@ import { PeakHost, type PeakWorkerPort } from '@audiogubbins/waveform';
 import { testAssets } from '../assets/test-assets.js';
 import { panelPartsOf } from '../editor-part.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
-import { NO_PEAK_CACHE } from '../io/peak-cache-store.js';
+import { NO_PEAK_CACHE } from '../io/stored-peak-cache.js';
 import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';

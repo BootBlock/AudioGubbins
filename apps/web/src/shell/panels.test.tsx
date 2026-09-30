@@ -81,7 +81,6 @@ function bareEnvironment(): CapabilityEnvironment {
     comparesNames: false,
     hasVideoFrameCallback: false,
     hasFullscreen: false,
-    hasIndexedDb: false,
   };
 }
 

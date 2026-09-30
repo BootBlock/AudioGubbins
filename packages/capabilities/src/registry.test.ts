@@ -50,7 +50,6 @@ function environmentWhere(available: boolean): CapabilityEnvironment {
     comparesNames: available,
     hasVideoFrameCallback: available,
     hasFullscreen: available,
-    hasIndexedDb: available,
   };
 }
 

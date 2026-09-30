@@ -853,9 +853,8 @@ Published paths
   readonly CapabilityEnvironment.comparesNames: boolean
   readonly CapabilityEnvironment.hasVideoFrameCallback: boolean
   readonly CapabilityEnvironment.hasFullscreen: boolean
-  readonly CapabilityEnvironment.hasIndexedDb: boolean
-  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; readonly IndexedDb: "indexed-db"; }
-  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "indexed-db" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
+  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; }
+  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
   interface CapabilityPresent
   readonly CapabilityPresent.key: CapabilityKey
   readonly CapabilityPresent.available: true
@@ -895,7 +894,7 @@ Published paths
   readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
   type HostYielding = { readonly kind: "macrotask"; readonly createChannel: () => MessageChannel; } | { readonly kind: "none"; } | { readonly kind: "scheduler"; readonly yieldNow: () => Promise<void>; }
-  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; readonly "indexed-db"?: Promise<boolean>; }
+  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
@@ -2800,13 +2799,14 @@ Published paths
   readonly CacheKey.category: CacheCategory
   readonly CacheKey.scope: CacheScope
   readonly CacheKey.name: string
-  type CacheScope = { readonly kind: "media"; readonly content: ContentId; } | { readonly kind: "project"; readonly project: ProjectId; }
+  type CacheScope = { readonly kind: "media"; readonly content: ContentId; } | { readonly kind: "project"; readonly project: ProjectId; } | { readonly kind: "unstored"; readonly source: string; }
   class CacheStore
   new CacheStore(tree: StorageTree, digest: Digest): CacheStore
   readonly CacheStore.records: CheckedRecords
   CacheStore.put: (key: CacheKey, bytes: ByteSource | Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheStore.open: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<ByteSource | undefined>>
   CacheStore.evict: (key: CacheKey) => Promise<DomainResult<void>>
+  CacheStore.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
   CacheStore.evictCategory: (category: CacheCategory, signal?: AbortSignal) => Promise<DomainResult<number>>
   CacheStore.entries: (category: CacheCategory, signal?: AbortSignal) => AsyncGenerator<CacheEntry, void, undefined>
   CacheStore.usage: (signal?: AbortSignal) => Promise<DomainResult<ReadonlyMap<CacheCategory, number>>>
@@ -3193,6 +3193,7 @@ Published paths
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly StepOutcome[]>>
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
+  function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage/testing

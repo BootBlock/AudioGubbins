@@ -22,8 +22,10 @@ import {
   type StoragePlatform,
 } from '@audiogubbins/capabilities';
 import type { Clock, DiagnosticCentre } from '@audiogubbins/diagnostics';
+import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
+import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf } from '../storage/project-services.js';
 import type { PageVisibility } from './layout-map-watch.js';
@@ -44,6 +46,9 @@ export interface ProjectSystem {
   readonly projects: ProjectStores | undefined;
   readonly storageAbsences: readonly StorageCapabilityAbsence[];
 
+  /** Where the editor keeps waveform peaks: among the storage's caches (ADR-0043). */
+  readonly peakCache: PeakCacheStore;
+
   /** Stops what the system put on the page. */
   readonly dispose: () => void;
 }
@@ -56,32 +61,17 @@ export interface ProjectSystemNeeds {
   readonly page: PageVisibility;
 }
 
-/** Makes the project system from what the browser offers, and starts it. */
-export function startProjectSystem(
-  platform: StoragePlatform,
+/**
+ * Starts what the page does for the project system while it runs: opening the
+ * root and the project last open, looking for the backups folder, a checkpoint
+ * as the page is hidden, and the backup scheduler's tick. Answers what stops
+ * the last two.
+ */
+function run(
+  storageRoot: StorageRoot,
+  projects: ProjectStores,
   needs: ProjectSystemNeeds,
-): ProjectSystem {
-  const storageAbsences = missingStorageCapabilities(platform);
-  const made = projectPlatformOf(platform, needs.diagnostics, needs.clock);
-  if (made.kind === 'unavailable') {
-    return {
-      storageRoot: unavailableStorageRoot(made.reason),
-      projects: undefined,
-      storageAbsences,
-      dispose: () => undefined,
-    };
-  }
-
-  const { services } = made;
-  const storageRoot = new StorageRoot(services);
-  const files = browserTransferFiles(platform.pickers, services.keeper);
-  const projects = createProjectStores(
-    services,
-    needs.storage,
-    files,
-    platform.pickers !== undefined,
-    browserBackupFolder(platform.pickers, services.keeper),
-  );
+): () => void {
   const logger = needs.diagnostics.loggerFor('projects');
 
   // Each runs apart from any command, so a fault in one is logged here, where
@@ -100,14 +90,52 @@ export function startProjectSystem(
   const ticking = setInterval(() => {
     projects.backups.tick().catch(logFault('A scheduled backup failed.'));
   }, BACKUP_TICK_MILLISECONDS);
+  return () => {
+    stopWatching();
+    clearInterval(ticking);
+  };
+}
+
+/** Makes the project system from what the browser offers, and starts it. */
+export function startProjectSystem(
+  platform: StoragePlatform,
+  needs: ProjectSystemNeeds,
+): ProjectSystem {
+  const storageAbsences = missingStorageCapabilities(platform);
+  const made = projectPlatformOf(platform, needs.diagnostics, needs.clock);
+  if (made.kind === 'unavailable') {
+    return {
+      storageRoot: unavailableStorageRoot(made.reason),
+      projects: undefined,
+      storageAbsences,
+      peakCache: NO_PEAK_CACHE,
+      dispose: () => undefined,
+    };
+  }
+
+  const { services } = made;
+  const storageRoot = new StorageRoot(services);
+  const files = browserTransferFiles(platform.pickers, services.keeper);
+  const projects = createProjectStores(
+    services,
+    needs.storage,
+    files,
+    platform.pickers !== undefined,
+    browserBackupFolder(platform.pickers, services.keeper),
+  );
+  const stop = run(storageRoot, projects, needs);
 
   return {
     storageRoot,
     projects,
     storageAbsences,
+    peakCache: storedPeakCache({
+      ready: () => storageRoot.get().kind === 'ready',
+      caches: services.caches,
+      digest: services.digest,
+    }),
     dispose: () => {
-      stopWatching();
-      clearInterval(ticking);
+      stop();
       projects.project.dispose();
     },
   };

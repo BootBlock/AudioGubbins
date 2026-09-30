@@ -317,7 +317,13 @@ export function createApplication() {
   });
 
   const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
-  const editorPart = startEditor(capabilities, storage, diagnostics.loggerFor('editor'), workspace);
+  const editorPart = startEditor(
+    capabilities,
+    storage,
+    diagnostics.loggerFor('editor'),
+    workspace,
+    projectSystem.peakCache,
+  );
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),

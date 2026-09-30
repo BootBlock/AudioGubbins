@@ -80,7 +80,6 @@ export const CAPABLE: CapabilityEnvironment = {
   comparesNames: true,
   hasVideoFrameCallback: true,
   hasFullscreen: true,
-  hasIndexedDb: true,
 };
 
 /** `context` in a browser whose names cannot be compared. */
