@@ -2102,7 +2102,7 @@ Published paths
   function keyEventOf(code: string, key: string, held?: Partial<KeyEventReading>): KeyEventReading
 
 @audiogubbins/media-store
-  type AbsenceReason = "not-found" | "permission-refused" | "unreadable"
+  type AbsenceReason = "access-needed" | "not-found" | "permission-refused" | "unreadable"
   interface CollectionPlan
   readonly CollectionPlan.unreachable: readonly StoredObject[]
   readonly CollectionPlan.reclaimableBytes: number
@@ -2747,7 +2747,7 @@ Published paths
   function browserBackends(gpu: unknown, schedule: Schedule): readonly BackendFactory[]
 
 @audiogubbins/storage
-  type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: "changed" | "missing"; }
+  type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
   interface BackupGeneration
   readonly BackupGeneration.number: number
   readonly BackupGeneration.at: number
@@ -2877,7 +2877,7 @@ Published paths
   readonly ConsolidationServices.store: MediaObjectStore
   readonly ConsolidationServices.digest: Digest
   readonly ConsolidationServices.yieldToHost: YieldToHost
-  readonly ConsolidationServices.locate: (asset: AssetId, identity: ExternalSourceIdentity, signal?: AbortSignal) => Promise<ExternalFile | undefined>
+  readonly ConsolidationServices.locate: (asset: AssetId, identity: ExternalSourceIdentity, signal?: AbortSignal) => Promise<LocatedFile>
   readonly ConsolidationServices.setMedia: (asset: AssetId, media: MediaSource) => CommandInvocation
   interface CopyOptions
   readonly CopyOptions.scope: BundleScope
@@ -2965,6 +2965,7 @@ Published paths
   interface LeaseOwner
   readonly LeaseOwner.instance: string
   readonly LeaseOwner.label: string
+  type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
   const MEDIA_DIRECTORY: "media"
   type MediaPurgeRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
   interface NewProject
@@ -2987,6 +2988,7 @@ Published paths
   readonly OpeningServices.owner: LeaseOwner
   readonly OpeningServices.cadence?: SessionCadence
   type OwnershipEvent = { readonly kind: "acquired"; readonly owner?: LeaseOwner; } | { readonly kind: "checkpointed"; } | { readonly kind: "released"; }
+  type PassedOverReason = "changed" | AbsenceReason
   interface PressureRelief
   readonly PressureRelief.freed: ReadonlyMap<CacheCategory, number>
   readonly PressureRelief.total: number

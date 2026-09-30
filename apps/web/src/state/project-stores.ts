@@ -11,6 +11,7 @@
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import type { BackupFolderPort } from '../io/backup-folder.js';
+import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { BackupFolderStore } from './backup-folder-store.js';
@@ -45,23 +46,33 @@ export interface ProjectStores {
   readonly files: TransferFiles;
 }
 
-/**
- * Makes the stores over the storage, each once. `canLink` says whether the
- * browser gives files it lets AudioGubbins find again, which only the pickers
- * do, and `folder` is the backups folder, absent where the browser gives none.
- */
+/** What the browser gives the stores beyond its storage. */
+export interface ProjectPorts {
+  /** The files passed to and from the person. */
+  readonly files: TransferFiles;
+
+  /** Whether the browser gives files it lets AudioGubbins find again, which only the pickers do. */
+  readonly canLink: boolean;
+
+  /** The backups folder, absent where the browser gives none. */
+  readonly backupFolder: BackupFolderPort | undefined;
+
+  /** The files linked assets were recorded from, found again. */
+  readonly linkedFiles: LinkedFilesPort;
+}
+
+/** Makes the stores over the storage and the browser's `ports`, each once. */
 export function createProjectStores(
   services: ProjectServices,
   storage: StateStorage,
-  files: TransferFiles,
-  canLink: boolean,
-  folder: BackupFolderPort | undefined,
+  ports: ProjectPorts,
 ): ProjectStores {
-  const preferences = createProjectPreferencesStore(storage, canLink, services.logger);
+  const { files, linkedFiles } = ports;
+  const preferences = createProjectPreferencesStore(storage, ports.canLink, services.logger);
   const library = new ProjectLibraryStore(services);
   const project = new OpenProjectStore(services, preferences);
-  const sources = new SourceChangeStore(services, project, files);
-  const backupFolder = new BackupFolderStore(folder, services.logger);
+  const sources = new SourceChangeStore(services, project, files, linkedFiles);
+  const backupFolder = new BackupFolderStore(ports.backupFolder, services.logger);
 
   relieveWhenFull(project, services.caches, services.logger);
 
@@ -73,6 +84,7 @@ export function createProjectStores(
     transfer: new ProjectTransferStore(
       services,
       files,
+      linkedFiles,
       library,
       new ExportRecorder(services, project),
     ),

@@ -9,6 +9,8 @@ import {
   projectWorld,
   type ProjectWindow,
 } from '../testing/project-context.js';
+import { addLinkedAsset, linkedFile } from '../testing/linked-assets.js';
+import { ScriptedLinkedFiles } from '../testing/scripted-linked-files.js';
 
 /** The names of the projects a window lists, deleted ones among them, sorted. */
 function names(window: ProjectWindow): readonly string[] {
@@ -144,6 +146,30 @@ describe('the open project made whole', () => {
     expect(await window.runAndHear('file.consolidate')).toBe(
       '0 linked files are copied into the project.',
     );
+  });
+
+  it('asks leave to read each linked file the browser needs it for, and says what it could not copy', async () => {
+    const linkedFiles = new ScriptedLinkedFiles();
+    const window = await projectWorld().window({ linkedFiles });
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const kick = linkedFile('kick.wav', 'kept-1');
+    const snare = linkedFile('snare.wav', 'kept-2', 2);
+    const hat = linkedFile('hat.wav', 'kept-3', 3);
+    const [kickAsset] = [
+      await addLinkedAsset(window, kick, { name: 'Kick' }),
+      await addLinkedAsset(window, snare, { name: 'Snare' }),
+      await addLinkedAsset(window, hat, { name: 'Hat' }),
+    ];
+    linkedFiles.keep(kick, 'asks');
+    linkedFiles.keep(snare, 'asks').activated = false;
+
+    expect(await window.runAndHear('file.consolidate')).toBe(
+      '1 copied. Not copied: 1 need your leave to be read, which copying again asks for; 1 cannot be found.',
+    );
+    expect(linkedFiles.asked).toBe(1);
+    const open = window.projects.project.get();
+    const sources = open.kind === 'open' ? open.snapshot.model.state.sources : undefined;
+    expect(sources?.get(kickAsset)?.media.kind).toBe('managed');
   });
 });
 

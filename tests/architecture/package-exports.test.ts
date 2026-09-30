@@ -273,8 +273,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['diffStates', 'promotion'],
   },
   '@audiogubbins/browser-storage': {
-    "Asking for leave to read a linked file again after a reload, from the person's gesture (REQ-STOR-104). A linked file has a kept handle only once audio is imported by linking, which arrives with the codec phase; until then no project in this browser links a file, and the prompt a change of a linked file brings has nothing to ask for.":
-      ['requestKeptFileAccess'],
     "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
       ['filesInDirectory'],
   },

@@ -42,6 +42,7 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
+import { ScriptedLinkedFiles } from './scripted-linked-files.js';
 import { StorageRoot } from '../state/storage-root-store.js';
 import { DESCRIPTORS, buildShellContext } from './shell-context.js';
 
@@ -148,6 +149,7 @@ export interface ProjectWorld {
   window(options?: {
     readonly canWriteFolders?: boolean;
     readonly backupFolder?: BackupFolderPort;
+    readonly linkedFiles?: ScriptedLinkedFiles;
   }): Promise<ProjectWindow>;
 }
 
@@ -237,13 +239,12 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
       const services = servicesOf(world, built.context, shared, windows);
       const files = scriptedFiles(options.canWriteFolders);
       const root = new StorageRoot(services);
-      const projects = createProjectStores(
-        services,
-        built.storage,
+      const projects = createProjectStores(services, built.storage, {
         files,
-        true,
-        options.backupFolder,
-      );
+        canLink: true,
+        backupFolder: options.backupFolder,
+        linkedFiles: options.linkedFiles ?? new ScriptedLinkedFiles(),
+      });
       return await windowOver(built.context, services, root, projects, files);
     },
   };

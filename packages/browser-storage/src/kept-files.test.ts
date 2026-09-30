@@ -54,6 +54,16 @@ describe('finding a linked file again', () => {
     expect(await requestKeptFileAccess(keeper, key)).toMatchObject({ kind: 'available' });
   });
 
+  it('answers that leave is still needed where the gesture that asks has lapsed', async () => {
+    const { keeper, handle, key } = await kept();
+    handle.permission.state = 'prompt';
+    handle.permission.activated = false;
+
+    expect(await requestKeptFileAccess(keeper, key)).toEqual({ kind: 'permission-needed' });
+    handle.permission.activated = true;
+    expect(await requestKeptFileAccess(keeper, key)).toMatchObject({ kind: 'available' });
+  });
+
   it('answers denied where the user refused, whether before or when asked', async () => {
     const { keeper, handle, key } = await kept();
     handle.permission.state = 'prompt';

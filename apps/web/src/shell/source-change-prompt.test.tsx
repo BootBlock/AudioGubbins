@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { unsafeBrandId } from '@audiogubbins/domain';
 
 import { observable } from '../state/observable.js';
-import type { SourceChangeState } from '../state/source-change-store.js';
+import type { SourceChangeState } from '../state/source-changes.js';
 import { renderInTheShell } from '../testing/in-the-shell.js';
 import { SourceChangePrompt } from './source-change-prompt.js';
 
@@ -143,14 +143,20 @@ describe('the question about linked files that changed', () => {
     expect(run).toHaveBeenCalledWith('source.decide-later');
   });
 
-  it('asks for leave to read a file again where the browser needs it', () => {
-    promptOver({
+  it('asks for leave to read a file again where the browser needs it, from a button', async () => {
+    const { run } = promptOver({
       checking: false,
       applied: [],
       changes: [
         {
           asset: KICK,
           name: 'Kick',
+          classification: { kind: 'missing', reason: 'access-needed' },
+          plan: { choices: [{ kind: 'relink', available: true }] },
+        },
+        {
+          asset: SNARE,
+          name: 'Snare',
           classification: { kind: 'missing', reason: 'permission-refused' },
           plan: { choices: [{ kind: 'relink', available: true }] },
         },
@@ -160,5 +166,12 @@ describe('the question about linked files that changed', () => {
     expect(
       screen.getByText('AudioGubbins needs your leave to read the file of "Kick" again.'),
     ).toBeVisible();
+    expect(screen.getByText('Leave to read the file of "Snare" was refused.')).toBeVisible();
+    const snare = screen.getByRole('group', { name: 'What to do about "Snare"' });
+    expect(within(snare).queryByRole('button', { name: 'Give access' })).toBeNull();
+
+    const kick = screen.getByRole('group', { name: 'What to do about "Kick"' });
+    await userEvent.click(within(kick).getByRole('button', { name: 'Give access' }));
+    expect(run).toHaveBeenCalledWith('source.give-access', { asset: KICK });
   });
 });

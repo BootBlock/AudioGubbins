@@ -25,6 +25,7 @@ import type { Clock, DiagnosticCentre } from '@audiogubbins/diagnostics';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
+import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf } from '../storage/project-services.js';
@@ -116,13 +117,12 @@ export function startProjectSystem(
   const { services } = made;
   const storageRoot = new StorageRoot(services);
   const files = browserTransferFiles(platform.pickers, services.keeper);
-  const projects = createProjectStores(
-    services,
-    needs.storage,
+  const projects = createProjectStores(services, needs.storage, {
     files,
-    platform.pickers !== undefined,
-    browserBackupFolder(platform.pickers, services.keeper),
-  );
+    canLink: platform.pickers !== undefined,
+    backupFolder: browserBackupFolder(platform.pickers, services.keeper),
+    linkedFiles: browserLinkedFiles(services.keeper),
+  });
   const stop = run(storageRoot, projects, needs);
 
   return {

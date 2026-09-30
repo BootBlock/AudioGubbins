@@ -19,12 +19,14 @@
  * `freeze` applies `freeze` to a modified, replaced or missing file where a
  * copy was retained, and asks otherwise. An identical copy found elsewhere is
  * always offered, never applied, because relinking changes where the project
- * reads from.
+ * reads from. Nothing is applied to a file that could not be looked at for want
+ * of the person's leave, since nothing is known of what became of it: giving
+ * that leave may show it unchanged.
  */
 
 import { SourceChangePolicy, type ExternalMedia } from '@audiogubbins/project-format';
 
-import type { SourceClassification } from './source-classification.js';
+import type { AbsenceReason, SourceClassification } from './source-classification.js';
 
 /** One thing that can be done about a changed source. */
 export type ResolutionKind = 'adopt' | 'relink' | 'freeze' | 'keep-offline';
@@ -60,6 +62,12 @@ const KEEP_OFFLINE: ResolutionChoice = { kind: 'keep-offline', available: true }
 
 const NOTHING_TO_RESOLVE: ResolutionPlan = { choices: [] };
 
+/** The absences that say nothing of the file, only that it could not be read. */
+const WANTING_LEAVE: ReadonlySet<AbsenceReason> = new Set<AbsenceReason>([
+  'access-needed',
+  'permission-refused',
+]);
+
 /** The choices for a classified source under its own policy (see the module comment). */
 export function resolutionsFor(
   classification: SourceClassification,
@@ -82,7 +90,10 @@ export function resolutionsFor(
     case 'relinked-identical':
       return planOf([RELINK, freeze, KEEP_OFFLINE], undefined);
     case 'missing':
-      return planOf([RELINK, freeze, KEEP_OFFLINE], frozen);
+      return planOf(
+        [RELINK, freeze, KEEP_OFFLINE],
+        WANTING_LEAVE.has(classification.reason) ? undefined : frozen,
+      );
   }
 }
 

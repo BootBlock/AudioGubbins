@@ -179,5 +179,7 @@ export {
 export {
   type AssetConsolidation,
   type ConsolidationServices,
+  type LocatedFile,
+  type PassedOverReason,
   consolidate,
 } from './consolidation.js';

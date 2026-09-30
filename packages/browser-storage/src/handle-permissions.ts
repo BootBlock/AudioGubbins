@@ -46,9 +46,24 @@ export function queryReadPermission(handle: FileSystemHandle): Promise<HandlePer
   return askFor(handle, 'queryPermission', 'read');
 }
 
+/**
+ * Asks the user through `request` for leave that is needed, answering that it
+ * is still needed where the browser will not ask now: it refuses with a
+ * `SecurityError` a request made once the gesture it answers has lapsed, which
+ * a request after a long wait or another prompt is.
+ */
+async function requested(request: () => Promise<HandlePermission>): Promise<HandlePermission> {
+  try {
+    return await request();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'SecurityError') return 'prompt';
+    throw error;
+  }
+}
+
 /** Asks the user to let the handle be read; only in answer to their gesture. */
 export function requestReadPermission(handle: FileSystemHandle): Promise<HandlePermission> {
-  return askFor(handle, 'requestPermission', 'read');
+  return requested(() => askFor(handle, 'requestPermission', 'read'));
 }
 
 /** Whether the handle may be written now, without asking the user. */
@@ -58,5 +73,5 @@ export function queryWritePermission(handle: FileSystemHandle): Promise<HandlePe
 
 /** Asks the user to let the handle be written; only in answer to their gesture. */
 export function requestWritePermission(handle: FileSystemHandle): Promise<HandlePermission> {
-  return askFor(handle, 'requestPermission', 'readwrite');
+  return requested(() => askFor(handle, 'requestPermission', 'readwrite'));
 }

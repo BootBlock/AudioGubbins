@@ -16,7 +16,7 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import { ProvenanceLevel } from '@audiogubbins/project-format';
-import type { CopyOptions } from '@audiogubbins/storage';
+import type { AssetConsolidation, CopyOptions, PassedOverReason } from '@audiogubbins/storage';
 
 import type { RecordedExport } from '../state/export-recorder.js';
 import { quoted } from '../wording.js';
@@ -188,6 +188,35 @@ function importFolderCommand(): Command<ShellContext> {
   );
 }
 
+/** Why linked files were not copied, as the person is told it, by the reason. */
+const PASSED_OVER_WORDS: Readonly<Record<PassedOverReason, string>> = {
+  changed: 'changed since the project used it',
+  'not-found': 'cannot be found',
+  unreadable: 'cannot be found',
+  'access-needed': 'need your leave to be read, which copying again asks for',
+  'permission-refused': 'were refused leave to be read',
+};
+
+/** What copying linked files into the project came to, in a sentence. */
+function consolidatedSentence(outcomes: readonly AssetConsolidation[]): string {
+  const copied = outcomes.filter((one) => one.kind === 'consolidated').length;
+  const left = new Map<string, number>();
+  for (const outcome of outcomes) {
+    const words =
+      outcome.kind === 'passed-over'
+        ? PASSED_OVER_WORDS[outcome.reason]
+        : outcome.kind === 'failed'
+          ? 'could not be stored'
+          : undefined;
+    if (words !== undefined) left.set(words, (left.get(words) ?? 0) + 1);
+  }
+  if (left.size === 0) {
+    return `${String(copied)} linked ${copied === 1 ? 'file is' : 'files are'} copied into the project.`;
+  }
+  const why = [...left].map(([words, count]) => `${String(count)} ${words}`).join('; ');
+  return `${String(copied)} copied. Not copied: ${why}.`;
+}
+
 function consolidateCommand(): Command<ShellContext> {
   return shellCommand(
     'file.consolidate',
@@ -198,13 +227,7 @@ function consolidateCommand(): Command<ShellContext> {
       const session = sessionOf(context);
       if (typeof stores === 'string') return stores;
       if (typeof session === 'string') return session;
-      sayWhenSettled(context, stores.transfer.consolidate(session), (outcomes) => {
-        const copied = outcomes.filter((one) => one.kind === 'consolidated').length;
-        const left = outcomes.length - copied;
-        return left === 0
-          ? `${String(copied)} linked ${copied === 1 ? 'file is' : 'files are'} copied into the project.`
-          : `${String(copied)} copied; ${String(left)} could not be, because the file changed or cannot be found.`;
-      });
+      sayWhenSettled(context, stores.transfer.consolidate(session), consolidatedSentence);
       return undefined;
     },
     {

@@ -1,15 +1,16 @@
 /**
  * The files a project links to: the default way files are brought in, and the
  * answer to a linked file that changed, went or was replaced, including a file
- * chosen in its place that is not the one recorded (REQ-STOR-025,
- * REQ-STOR-053, REQ-STOR-104).
+ * chosen in its place that is not the one recorded, and the leave to read one
+ * the browser asks the person for again (REQ-STOR-025, REQ-STOR-053,
+ * REQ-STOR-104).
  */
 
 import { CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
 import type { ResolutionKind } from '@audiogubbins/media-store';
 
 import { SourceHandling } from '../state/project-preferences-store.js';
-import type { OfferedFile } from '../state/source-change-store.js';
+import type { GivenAccess, OfferedFile } from '../state/source-changes.js';
 import {
   idArgument,
   projectsAvailability,
@@ -93,6 +94,39 @@ function linkOfferedCommand(): Command<ShellContext> {
   );
 }
 
+/** What giving leave to read a linked file came to, in a sentence. */
+function givenSentence(given: GivenAccess): string {
+  switch (given.kind) {
+    case 'as-recorded':
+      return 'The file is as the project recorded it, and the asset plays again.';
+    case 'changed':
+      return 'The file can be read, but it is not what the project recorded. Choose what to do about it.';
+    case 'applied':
+      return 'The file is not what the project recorded, so the asset was dealt with as its own setting says.';
+    case 'not-given':
+      return given.refused
+        ? 'Leave to read the file was refused, so the asset stays offline unless you choose another file.'
+        : 'The browser did not ask for leave to read the file. Press Give access again.';
+  }
+}
+
+function giveAccessCommand(): Command<ShellContext> {
+  return shellCommand(
+    'source.give-access',
+    'Give access to a linked file',
+    CommandCategory.Edit,
+    (context, invocation) => {
+      const stores = readyProjects(context);
+      if (typeof stores === 'string') return stores;
+      const asset = idArgument<'AssetId'>(invocation, 'asset', 'asset');
+      if ('refused' in asset) return asset.refused;
+      sayWhenSettled(context, stores.sources.giveAccess(asset.id), givenSentence);
+      return undefined;
+    },
+    { discoverable: false, availability: projectsAvailability },
+  );
+}
+
 function decideLaterCommand(): Command<ShellContext> {
   return shellCommand(
     'source.decide-later',
@@ -118,5 +152,11 @@ function decideLaterCommand(): Command<ShellContext> {
 
 /** How files are brought in, and what is done about one that changed. */
 export function sourceCommands(): readonly Command<ShellContext>[] {
-  return [sourceHandlingCommand(), resolveCommand(), linkOfferedCommand(), decideLaterCommand()];
+  return [
+    sourceHandlingCommand(),
+    resolveCommand(),
+    linkOfferedCommand(),
+    giveAccessCommand(),
+    decideLaterCommand(),
+  ];
 }

@@ -17,7 +17,9 @@ class FakeHandle {
   readonly permission: {
     state: 'granted' | 'prompt' | 'denied';
     answer: 'granted' | 'denied';
-  } = { state: 'granted', answer: 'granted' };
+    /** Whether a request answers a gesture still in force, without which the browser refuses it. */
+    activated: boolean;
+  } = { state: 'granted', answer: 'granted', activated: true };
 
   /** The access each question about the permission was asked for, in order. */
   readonly modesAsked: string[] = [];
@@ -37,6 +39,11 @@ class FakeHandle {
 
   requestPermission(descriptor: { readonly mode: string }): Promise<string> {
     this.modesAsked.push(descriptor.mode);
+    if (!this.permission.activated) {
+      return Promise.reject(
+        new DOMException('User activation is required to request permissions.', 'SecurityError'),
+      );
+    }
     if (this.permission.state === 'prompt') this.permission.state = this.permission.answer;
     return Promise.resolve(this.permission.state);
   }

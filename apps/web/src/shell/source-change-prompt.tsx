@@ -3,11 +3,12 @@
  * longer what the project recorded (REQ-STOR-053, REQ-STOR-104).
  *
  * Each changed file is named with what became of it, and offered the media
- * store's choices in its order: take the new version, link another file, keep
- * playing the copy kept of the version the project was made with, or keep the
- * asset offline. A choice that cannot be taken is shown with the reason rather
- * than left out. What an asset's own policy did without asking is said too.
- * Closing the question decides later, and leaves every asset offline.
+ * store's choices in its order, after leave to read it where the browser needs
+ * the person's: take the new version, link another file, keep playing the copy
+ * kept of the version the project was made with, or keep the asset offline. A
+ * choice that cannot be taken is shown with the reason rather than left out.
+ * What an asset's own policy did without asking is said too. Closing the
+ * question decides later, and leaves every asset offline.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -20,7 +21,7 @@ import type {
 } from '@audiogubbins/media-store';
 
 import type { Observable } from '../state/observable.js';
-import type { SourceChange, SourceChangeState } from '../state/source-change-store.js';
+import { wantsLeave, type SourceChange, type SourceChangeState } from '../state/source-changes.js';
 import { offeredSentence } from '../commands/source-commands.js';
 import { quoted } from '../wording.js';
 import { ReasonedButton } from './settings/reasoned-button.js';
@@ -38,9 +39,15 @@ function whatBecame(classification: SourceClassification, name: string): string 
     case 'relinked-identical':
       return `The file of ${name} has moved, and an identical copy was found.`;
     case 'missing':
-      return classification.reason === 'permission-refused'
-        ? `AudioGubbins needs your leave to read the file of ${name} again.`
-        : `The file of ${name} cannot be found.`;
+      switch (classification.reason) {
+        case 'access-needed':
+          return `AudioGubbins needs your leave to read the file of ${name} again.`;
+        case 'permission-refused':
+          return `Leave to read the file of ${name} was refused.`;
+        case 'not-found':
+        case 'unreadable':
+          return `The file of ${name} cannot be found.`;
+      }
   }
 }
 
@@ -74,6 +81,11 @@ function ChangedFile({
       <p>{whatBecame(change.classification, name)}</p>
       {offered === undefined ? undefined : <p>{offeredSentence(offered)}</p>}
       <div className="ag-settings-row" role="group" aria-label={`What to do about ${name}`}>
+        {wantsLeave(change.classification) ? (
+          <Button onClick={() => run('source.give-access', { asset: change.asset })}>
+            Give access
+          </Button>
+        ) : undefined}
         {offered === undefined ? undefined : (
           <Button onClick={() => run('source.link-offered', { asset: change.asset })}>
             {offered.identity.fileName === undefined

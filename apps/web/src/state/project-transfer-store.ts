@@ -10,16 +10,19 @@
  * identity where the storage does not hold it yet, and comes in as a copy where
  * it does, so bringing the same bundle in twice never refuses the person.
  * Copying linked files runs through the open project's session, one project
- * command an asset, so undo reverses each. Every export of a project that was
- * read is an event of its provenance, whether it wrote or failed, and is
- * recorded in its history where this tab writes the project
- * (`export-recorder.ts`); undo never reverses one.
+ * command an asset, so undo reverses each; the person is asked first, in the
+ * handler of their gesture, for leave to read each linked file the browser
+ * needs it for, since the browser will not ask once the copying has begun.
+ * Every export of a project that was read is an event of its provenance,
+ * whether it wrote or failed, and is recorded in its history where this tab
+ * writes the project (`export-recorder.ts`); undo never reverses one.
  */
 
 import { succeed, type AssetId, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import { setAssetMediaInvocation } from '@audiogubbins/project-commands';
 import {
   ExportDestinationKind,
+  SourceChangePolicy,
   type ContentIdentity,
   type ExportDestination,
   type ExportOutput,
@@ -41,10 +44,10 @@ import {
 } from '@audiogubbins/storage';
 
 import { bundleNameOf } from '../io/file-names.js';
+import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
 import type { SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
-import { linkedFileOf } from './linked-files.js';
 import { observable, type Observable } from './observable.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
 
@@ -127,6 +130,7 @@ async function asItselfOrACopy(
 export class ProjectTransferStore implements Observable<TransferState> {
   private readonly services: ProjectServices;
   private readonly files: TransferFiles;
+  private readonly linkedFiles: LinkedFilesPort;
   private readonly library: ProjectLibraryStore;
   private readonly recorder: ExportRecorder;
   private readonly state = observable<TransferState>({});
@@ -137,11 +141,13 @@ export class ProjectTransferStore implements Observable<TransferState> {
   constructor(
     services: ProjectServices,
     files: TransferFiles,
+    linkedFiles: LinkedFilesPort,
     library: ProjectLibraryStore,
     recorder: ExportRecorder,
   ) {
     this.services = services;
     this.files = files;
+    this.linkedFiles = linkedFiles;
     this.library = library;
     this.recorder = recorder;
   }
@@ -222,22 +228,34 @@ export class ProjectTransferStore implements Observable<TransferState> {
     return await this.bringingIn((identity) => importUnpacked(folder, identity, this.services));
   };
 
-  /** Copies every linked file of the open project into it, one change each. */
+  /**
+   * Copies every linked file of the open project into it, one change each,
+   * having asked in the handler of the person's gesture for leave to read each
+   * file the copying reads.
+   */
   readonly consolidate = (
     session: ProjectSession,
   ): Promise<DomainResult<readonly AssetConsolidation[]>> =>
-    this.working('consolidating', () =>
-      consolidate(session, {
+    this.working('consolidating', async () => {
+      for (const { media } of session.getSnapshot().model.state.sources.values()) {
+        // A frozen asset is copied from its retained copy, never its file.
+        if (media.kind === 'external' && media.policy !== SourceChangePolicy.Freeze) {
+          await this.linkedFiles.ask(media.identity);
+        }
+      }
+      return await consolidate(session, {
         store: this.services.store,
         digest: this.services.digest,
         yieldToHost: this.services.yieldToHost,
         locate: async (_asset, identity) => {
-          const access = await linkedFileOf(this.services.keeper, identity);
-          return access.kind === 'available' ? access.file : undefined;
+          const access = await this.linkedFiles.look(identity);
+          return access.kind === 'available'
+            ? { kind: 'found', file: access.file }
+            : { kind: 'absent', reason: absenceOf(access) };
         },
         setMedia: setAssetMediaInvocation,
-      }),
-    );
+      });
+    });
 
   private async working<TValue>(
     doing: NonNullable<TransferState['working']>,

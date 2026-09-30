@@ -13,7 +13,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { bytesSource } from './byte-streams.js';
-import { consolidate, type ConsolidationServices } from './consolidation.js';
+import { consolidate, type ConsolidationServices, type LocatedFile } from './consolidation.js';
 import { storageOf } from './testing/memory-ports.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { setMedia } from './testing/test-commands.js';
@@ -44,8 +44,15 @@ function fileOf(bytes: Uint8Array<ArrayBuffer>, lastModified = 1_790_000_000_000
   };
 }
 
+/** The file at the recorded place, as `locate` answers it. */
+function found(file: ExternalFile): LocatedFile {
+  return { kind: 'found', file };
+}
+
+const GONE: LocatedFile = { kind: 'absent', reason: 'not-found' };
+
 async function setUp(
-  located: ExternalFile | undefined,
+  located: LocatedFile,
   media: (identity: ExternalSourceIdentity) => ExternalMedia,
   linked: ExternalFile = fileOf(AUDIO),
 ) {
@@ -77,7 +84,7 @@ const following = (identity: ExternalSourceIdentity): ExternalMedia => ({
 
 describe('consolidation (REQ-STOR-099)', () => {
   it('copies an unchanged linked file into the store by one undoable change', async () => {
-    const { session, services, asset, storage } = await setUp(fileOf(AUDIO), following);
+    const { session, services, asset, storage } = await setUp(found(fileOf(AUDIO)), following);
     const { contentId } = expectSuccess(await contentIdOf(bytesSource(AUDIO), nodeDigest));
     const outcomes = expectSuccess(await consolidate(session, services));
     expect(outcomes).toEqual([{ asset, kind: 'consolidated', contentId }]);
@@ -94,7 +101,10 @@ describe('consolidation (REQ-STOR-099)', () => {
   });
 
   it('holds what it copied, keeping every purge off it, until the change is saved', async () => {
-    const { session, services, storage, sessionTree } = await setUp(fileOf(AUDIO), following);
+    const { session, services, storage, sessionTree } = await setUp(
+      found(fileOf(AUDIO)),
+      following,
+    );
     const { contentId } = expectSuccess(await contentIdOf(bytesSource(AUDIO), nodeDigest));
     sessionTree.full = true;
     expectSuccess(await consolidate(session, services));
@@ -106,15 +116,18 @@ describe('consolidation (REQ-STOR-099)', () => {
     expect(storage.store.isHeld(contentId)).toBe(false);
   });
 
-  it('passes over a file that changed, and one that is missing with nothing retained', async () => {
+  it('passes over a file that changed, and one it cannot read with nothing retained, saying why', async () => {
     const changed = AUDIO.slice();
     changed[0] = 0xff;
-    for (const located of [fileOf(changed), undefined]) {
+    for (const [located, reason] of [
+      [found(fileOf(changed)), 'changed'],
+      [GONE, 'not-found'],
+      [{ kind: 'absent', reason: 'access-needed' }, 'access-needed'],
+      [{ kind: 'absent', reason: 'permission-refused' }, 'permission-refused'],
+    ] as const) {
       const { session, services, asset } = await setUp(located, following);
       const outcomes = expectSuccess(await consolidate(session, services));
-      expect(outcomes).toEqual([
-        { asset, kind: 'passed-over', reason: located === undefined ? 'missing' : 'changed' },
-      ]);
+      expect(outcomes).toEqual([{ asset, kind: 'passed-over', reason }]);
       expect(session.getSnapshot().model.state.sources.get(asset)?.media.kind).toBe('external');
     }
   });
@@ -123,7 +136,7 @@ describe('consolidation (REQ-STOR-099)', () => {
     const edited = LONG_AUDIO.slice();
     edited[300_000] = (edited[300_000] ?? 0) ^ 0xff;
     const { session, services, asset } = await setUp(
-      fileOf(edited, 1_790_000_060_000),
+      found(fileOf(edited, 1_790_000_060_000)),
       following,
       fileOf(LONG_AUDIO),
     );
@@ -138,7 +151,7 @@ describe('consolidation (REQ-STOR-099)', () => {
     const { contentId } = expectSuccess(await probe.store.put(memorySource(AUDIO)));
     for (const [located, media] of [
       [
-        fileOf(AUDIO),
+        found(fileOf(AUDIO)),
         (identity: ExternalSourceIdentity): ExternalMedia => ({
           kind: 'external',
           identity,
@@ -147,7 +160,7 @@ describe('consolidation (REQ-STOR-099)', () => {
         }),
       ],
       [
-        undefined,
+        GONE,
         (identity: ExternalSourceIdentity): ExternalMedia => ({
           kind: 'external',
           identity: { ...identity, contentId },

@@ -29,8 +29,12 @@
 
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
 
-/** Why nothing could be read at the recorded place. */
-export type AbsenceReason = 'not-found' | 'permission-refused' | 'unreadable';
+/**
+ * Why nothing could be read at the recorded place: nothing is there, the
+ * browser needs the person's leave to read it and has yet to ask, the person
+ * refused that leave, or what is there cannot be read.
+ */
+export type AbsenceReason = 'not-found' | 'access-needed' | 'permission-refused' | 'unreadable';
 
 /** What stands at the recorded place of an external source. */
 export type SourceObservation =

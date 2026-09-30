@@ -140,6 +140,18 @@ describe('what can be done about a changed source', () => {
     },
   );
 
+  it('applies nothing to a file it could not look at for want of leave, whatever the policy', () => {
+    for (const reason of ['access-needed', 'permission-refused'] as const) {
+      const plan = resolutionsFor({ kind: 'missing', reason }, mediaOf('freeze', true));
+
+      expect(plan.automatic, reason).toBeUndefined();
+      expect(plan.choices.map(({ kind }) => kind)).toEqual(['relink', 'freeze', 'keep-offline']);
+    }
+    expect(
+      resolutionsFor({ kind: 'missing', reason: 'unreadable' }, mediaOf('freeze', true)).automatic,
+    ).toBe('freeze');
+  });
+
   it('offers nothing for an unchanged source', () => {
     expect(resolutionsFor(CLASSIFICATIONS.unchanged, mediaOf('adopt', true))).toEqual({
       choices: [],
