@@ -191,7 +191,11 @@ async function mediaOf(
   return succeed(media);
 }
 
-/** The caches derived from the project or from media the tree carries. */
+/**
+ * The caches derived from the project or from media the tree carries. The
+ * caches of audio the storage does not keep belong to no project and never
+ * travel with one.
+ */
 async function cachesOf(
   copy: ProjectCopy,
   carried: ReadonlySet<ContentId>,
@@ -204,7 +208,8 @@ async function cachesOf(
       for await (const { key, byteLength } of sources.caches.entries(category, signal)) {
         const { scope } = key;
         const derived =
-          scope.kind === 'media' ? carried.has(scope.content) : scope.project === copy.project;
+          (scope.kind === 'media' && carried.has(scope.content)) ||
+          (scope.kind === 'project' && scope.project === copy.project);
         if (derived) caches.push({ path: cachePathOf(key), byteLength });
       }
     }

@@ -137,7 +137,53 @@ async function madeFree(files: ProjectFiles): Promise<DomainResult<void>> {
   );
 }
 
-/** Whether the tree carries every piece of media its states refer to, and only caches this build keeps. */
+/**
+ * Why each cache the tree carries cannot be kept: one this build does not
+ * keep, or one made from neither the project nor the media the tree carries.
+ */
+function cacheProblems(
+  content: ProjectTreeContent,
+  carried: ReadonlySet<ContentId>,
+): readonly DomainFailure[] {
+  const project = content.state.project.id;
+  const problems: DomainFailure[] = [];
+  for (const { path } of content.caches ?? []) {
+    const key = cacheKeyOf(path);
+    if (key === undefined) {
+      problems.push(
+        failure(
+          'storage.bundle-cache-unknown',
+          FailureKind.IntegrityViolation,
+          'The project carries a cache this version does not keep.',
+          { details: { cache: path } },
+        ),
+      );
+      continue;
+    }
+    // Kept as it is, a cache made from something else would stand in the
+    // storage as though derived from what the storage holds.
+    const { scope } = key;
+    const derived =
+      (scope.kind === 'project' && scope.project === project) ||
+      (scope.kind === 'media' && carried.has(scope.content));
+    if (!derived) {
+      problems.push(
+        failure(
+          'storage.bundle-cache-foreign',
+          FailureKind.IntegrityViolation,
+          'The project carries a cache made from neither the project nor the media it carries.',
+          { details: { cache: path } },
+        ),
+      );
+    }
+  }
+  return problems;
+}
+
+/**
+ * Whether the tree carries every piece of media its states refer to, and only
+ * caches this build keeps, made from the project or from media it carries.
+ */
 function selfContained(content: ProjectTreeContent): DomainResult<void> {
   const carried = new Set(content.media.map(({ contentId }) => contentId));
   const states = [
@@ -157,18 +203,7 @@ function selfContained(content: ProjectTreeContent): DomainResult<void> {
       );
     }
   }
-  for (const { path } of content.caches ?? []) {
-    if (cacheKeyOf(path) === undefined) {
-      problems.push(
-        failure(
-          'storage.bundle-cache-unknown',
-          FailureKind.IntegrityViolation,
-          'The project carries a cache this version does not keep.',
-          { details: { cache: path } },
-        ),
-      );
-    }
-  }
+  problems.push(...cacheProblems(content, carried));
   const [first, ...rest] = problems;
   return first === undefined ? succeed(undefined) : fail(first, ...rest);
 }

@@ -18,6 +18,7 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { packUnpacked, unpackBundle } from './bundle-conversion.js';
 import { bytesSource } from './byte-streams.js';
+import { CacheCategory, cachePathOf, unstoredScope, type CacheKey } from './cache-store.js';
 import { openProject } from './project-opening.js';
 import { exportBundle, exportUnpacked, importBundle, importUnpacked } from './project-transfer.js';
 import { summaryOf } from './testing/model-summary.js';
@@ -212,11 +213,15 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
   });
 });
 
-/** The bundle's entries with `edit` applied, and a manifest made for them. */
+/**
+ * The bundle's entries with `edit` applied and each moved to where `move`
+ * says, and a manifest made for them.
+ */
 async function rebuilt(
   bundle: Uint8Array<ArrayBuffer>,
   edit: (path: string, bytes: Uint8Array<ArrayBuffer>) => Uint8Array<ArrayBuffer>,
   manifest: 'listing the edits' | 'as it was' = 'listing the edits',
+  move: (path: string) => string = (path) => path,
 ): Promise<Uint8Array<ArrayBuffer>> {
   const archive = expectSuccess(await openZip(memorySource(bundle)));
   const files: { path: string; bytes: Uint8Array<ArrayBuffer> }[] = [];
@@ -234,7 +239,7 @@ async function rebuilt(
       whole.set(chunk, at);
       at += chunk.length;
     }
-    files.push({ path: entry.path, bytes: edit(entry.path, whole) });
+    files.push({ path: move(entry.path), bytes: edit(entry.path, whole) });
   }
   const listed: ManifestEntry[] = [];
   for (const { path, bytes } of files) {
@@ -306,6 +311,63 @@ describe('an unpacked tree in a directory the person keeps (REQ-STOR-103)', () =
     directory.files.set('project/notes.json', new TextEncoder().encode('{}'));
     const refused = await importUnpacked(directory, 'copy', other.importing);
     expect(refused.ok).toBe(false);
+  });
+});
+
+describe('the caches a bundle carries (REQ-STOR-027)', () => {
+  /** A project, a cache made from it, and a cache of audio the storage does not keep. */
+  async function projectWithCaches(seed: number) {
+    const test = harness(seed);
+    const source = storageOf(test, new MemoryStorageTree());
+    const { project } = await randomProject(test, source, seed, 10);
+    const preview: CacheKey = {
+      category: CacheCategory.Render,
+      scope: { kind: 'project', project },
+      name: 'preview',
+    };
+    const peaks: CacheKey = {
+      category: CacheCategory.Waveform,
+      scope: await unstoredScope('test:loop', nodeDigest),
+      name: 'peaks-1',
+    };
+    expectSuccess(await source.caches.put(preview, new Uint8Array([1, 2, 3, 4, 5])));
+    expectSuccess(await source.caches.put(peaks, new Uint8Array([6, 6, 6])));
+    const bundle = await bundleOf(source, project, { ...WHOLE, includeCaches: true });
+    return { project, preview, peaks, bundle };
+  }
+
+  it("carries the project's caches, and never those of audio the storage does not keep", async () => {
+    const { project, preview, peaks, bundle } = await projectWithCaches(31);
+
+    const target = storageOf(harness(131), new MemoryStorageTree());
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+
+    const carried = expectSuccess(
+      await target.caches.open({ ...preview, scope: { kind: 'project', project } }),
+    );
+    expect(carried && (await carried.read(0, carried.size))).toEqual(
+      new Uint8Array([1, 2, 3, 4, 5]),
+    );
+    expect(expectSuccess(await target.caches.open(peaks))).toBeUndefined();
+  });
+
+  it('refuses a bundle carrying a cache made from neither its project nor its media', async () => {
+    // Brought in, it would be kept as though derived from something this
+    // storage holds, where nothing it holds made it.
+    const { preview, peaks, bundle } = await projectWithCaches(32);
+    const planted = await rebuilt(
+      bundle,
+      (_path, bytes) => bytes,
+      'listing the edits',
+      (path) => (path === `caches/${cachePathOf(preview)}` ? `caches/${cachePathOf(peaks)}` : path),
+    );
+
+    const target = storageOf(harness(132), new MemoryStorageTree());
+    const imported = await importBundle(memorySource(planted), 'original', target.importing);
+    expect(imported.ok).toBe(false);
+    if (imported.ok) return;
+    expect(imported.failures[0].code).toBe('storage.bundle-cache-foreign');
+    expect((target.tree as MemoryStorageTree).paths()).toEqual([]);
   });
 });
 

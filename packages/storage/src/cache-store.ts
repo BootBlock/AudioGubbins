@@ -6,11 +6,14 @@
  * A cache is kept at `cache/<category>/<scope>/<name>`, where the scope is the
  * media or the project it was derived from, so the caches of one piece of media
  * or of one project can be found, travel with it in a bundle where asked for,
- * and are given up whole. The tree writes nothing atomically, so a cache is
- * trusted only once a checked seal beside it says how long it is; one that was
- * torn, or whose seal is missing, reads as absent, which is what losing a cache
- * must mean: the caller makes it again, and nothing authoritative ever depends
- * on it. The categories are ranked in the order storage pressure gives them up.
+ * and are given up whole; or, for audio the storage does not keep, such as a
+ * built-in test signal or the sound of a reference picture, the digest of the
+ * identity it is known by, so its caches are counted and given up with the rest
+ * (ADR-0043). The tree writes nothing atomically, so a cache is trusted only
+ * once a checked seal beside it says how long it is; one that was torn, or
+ * whose seal is missing, reads as absent, which is what losing a cache must
+ * mean: the caller makes it again, and nothing authoritative ever depends on
+ * it. The categories are ranked in the order storage pressure gives them up.
  */
 
 import {
@@ -71,7 +74,43 @@ const CATEGORIES: ReadonlySet<string> = new Set(CACHE_CLEANUP_ORDER);
 /** What a cache was derived from. */
 export type CacheScope =
   | { readonly kind: 'media'; readonly content: ContentId }
-  | { readonly kind: 'project'; readonly project: ProjectId };
+  | { readonly kind: 'project'; readonly project: ProjectId }
+  /**
+   * Audio the storage does not keep, by the SHA-256 of the identity it is
+   * known by, in lower-case hexadecimal (see {@link unstoredScope}).
+   */
+  | { readonly kind: 'unstored'; readonly source: string };
+
+/** The start of the path segment of an unstored scope, which no other scope's segment has. */
+const UNSTORED_PREFIX = 'u-';
+
+/** A SHA-256 digest, as an unstored scope names its source. */
+const SOURCE_DIGEST = /^[0-9a-f]{64}$/u;
+
+const TEXT = new TextEncoder();
+
+/**
+ * The scope of the caches of audio the storage does not keep, from the
+ * identity it is known by, which may hold any character: its digest is what
+ * the path holds, so one identity always names one scope.
+ */
+export async function unstoredScope(identity: string, digest: Digest): Promise<CacheScope> {
+  const hash = await digest(TEXT.encode(identity));
+  const source = Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return { kind: 'unstored', source };
+}
+
+/** The path segment of a scope. */
+function segmentOf(scope: CacheScope): string {
+  switch (scope.kind) {
+    case 'media':
+      return scope.content;
+    case 'project':
+      return scope.project;
+    case 'unstored':
+      return `${UNSTORED_PREFIX}${scope.source}`;
+  }
+}
 
 /** Where a cache is kept. */
 export interface CacheKey {
@@ -100,8 +139,7 @@ const readSeal: Converter<number> = (reading, value, parent, key) => {
 
 /** The path of a cache under the cache directory: `<category>/<scope>/<name>`. */
 export function cachePathOf(key: CacheKey): string {
-  const scope = key.scope.kind === 'media' ? key.scope.content : key.scope.project;
-  return `${key.category}/${scope}/${key.name}`;
+  return `${key.category}/${segmentOf(key.scope)}/${key.name}`;
 }
 
 /** The key a path under the cache directory names, or `undefined` for another path. */
@@ -116,6 +154,10 @@ export function cacheKeyOf(path: string): CacheKey | undefined {
 }
 
 function scopeOf(segment: string): CacheScope | undefined {
+  if (segment.startsWith(UNSTORED_PREFIX)) {
+    const source = segment.slice(UNSTORED_PREFIX.length);
+    return SOURCE_DIGEST.test(source) ? { kind: 'unstored', source } : undefined;
+  }
   if (isContentId(segment)) {
     const content = contentIdFrom(segment);
     return content.ok ? { kind: 'media', content: content.value } : undefined;
@@ -176,6 +218,17 @@ export class CacheStore {
       const path = this.path(key);
       await this.tree.remove(`${path}${SEAL_SUFFIX}`);
       await this.tree.remove(path);
+      return succeed(undefined);
+    });
+  }
+
+  /**
+   * Gives up every cache of one scope in a category, as a cache kept by
+   * revision does before it keeps a newer one, so revisions never accumulate.
+   */
+  async evictScope(category: CacheCategory, scope: CacheScope): Promise<DomainResult<void>> {
+    return await refusalsReported(async () => {
+      await this.tree.remove(`${CACHE_DIRECTORY}/${category}/${segmentOf(scope)}`);
       return succeed(undefined);
     });
   }

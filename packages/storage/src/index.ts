@@ -124,6 +124,7 @@ export {
   type CacheKey,
   type CacheScope,
   CacheStore,
+  unstoredScope,
 } from './cache-store.js';
 
 export {

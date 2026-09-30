@@ -10,6 +10,7 @@ import {
   CacheStore,
   cacheKeyOf,
   cachePathOf,
+  unstoredScope,
   type CacheKey,
 } from './cache-store.js';
 import { contentOf } from './testing/test-commands.js';
@@ -93,9 +94,45 @@ describe('the cache store (REQ-STOR-027, REQ-STOR-106)', () => {
     expect(await bytesOf(store, PEAKS)).toEqual(new Uint8Array(10));
   });
 
+  it('keeps the caches of audio it does not store under a digest of its identity', async () => {
+    // A built-in signal or a picture's sound has no content identifier and no
+    // project, and its identity may hold any character a path may not.
+    const store = new CacheStore(new MemoryStorageTree(), nodeDigest);
+    const picture = await unstoredScope('picture-sound:take/1.webm:2048:7', nodeDigest);
+    const tones = await unstoredScope('test:tone-bursts', nodeDigest);
+    expect(picture).toEqual(await unstoredScope('picture-sound:take/1.webm:2048:7', nodeDigest));
+    expect(picture).not.toEqual(tones);
+
+    const key: CacheKey = { category: CacheCategory.Waveform, scope: picture, name: 'peaks' };
+    expect(cacheKeyOf(cachePathOf(key))).toEqual(key);
+    expectSuccess(await store.put(key, new Uint8Array([1, 2, 3])));
+    expect(await bytesOf(store, key)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(await bytesOf(store, { ...key, scope: tones })).toBeUndefined();
+  });
+
+  it('gives up every cache of one scope in a category, and nothing else', async () => {
+    const store = new CacheStore(new MemoryStorageTree(), nodeDigest);
+    const tones = await unstoredScope('test:tone-bursts', nodeDigest);
+    const older: CacheKey = { category: CacheCategory.Waveform, scope: tones, name: 'r-1' };
+    const newer: CacheKey = { ...older, name: 'r-2' };
+    const spectrum: CacheKey = { ...older, category: CacheCategory.Spectrogram };
+    for (const key of [older, newer, spectrum, PEAKS]) {
+      expectSuccess(await store.put(key, new Uint8Array(4)));
+    }
+
+    expectSuccess(await store.evictScope(CacheCategory.Waveform, tones));
+
+    expect(await bytesOf(store, older)).toBeUndefined();
+    expect(await bytesOf(store, newer)).toBeUndefined();
+    expect(await bytesOf(store, spectrum)).toEqual(new Uint8Array(4));
+    expect(await bytesOf(store, PEAKS)).toEqual(new Uint8Array(4));
+  });
+
   it('names a cache by a path its key is read back from, and refuses other paths', async () => {
     expect(cacheKeyOf(cachePathOf(PEAKS))).toEqual(PEAKS);
     expect(cacheKeyOf('waveform/not-a-scope/peaks')).toBeUndefined();
+    expect(cacheKeyOf(`waveform/u-${'a'.repeat(63)}/peaks`)).toBeUndefined();
+    expect(cacheKeyOf(`waveform/u-${'A'.repeat(64)}/peaks`)).toBeUndefined();
     expect(cacheKeyOf(`unknown/${contentOf(1)}/peaks`)).toBeUndefined();
     expect(cacheKeyOf(`waveform/${contentOf(1)}/peaks.seal`)).toBeUndefined();
     expect(CACHE_CLEANUP_ORDER[0]).toBe(CacheCategory.Temporary);
