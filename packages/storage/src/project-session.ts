@@ -76,6 +76,7 @@ import {
   NOTHING_TO_UNDO,
   NO_COMPARISON,
   NO_SUCH_NODE,
+  copyWouldOmit,
   notWritable,
   retentionUnconfirmed,
   unsavedChanges,
@@ -284,6 +285,15 @@ export class ProjectSession {
   /** Writes a checkpoint now, as the application does when the page is hidden. */
   readonly checkpoint = async (): Promise<DomainResult<WriteOutcome>> =>
     await this.whileWritable(async () => succeed(await this.writer.checkpoint(this.model)));
+
+  /**
+   * Settles once every change made is written, so storage holds the project as
+   * it is here, or fails with what is not saved.
+   */
+  readonly saved = async (): Promise<DomainResult<void>> => {
+    const status = await this.writer.queue.settled();
+    return status.kind === 'saved' ? succeed(undefined) : fail(copyWouldOmit(status));
+  };
 
   /** Writes everything waiting after storage refused it, in order. */
   readonly retry = async (): Promise<SaveStatus> => await this.writer.queue.retry();

@@ -53,6 +53,7 @@ import {
 } from './project-directory.js';
 import { ProjectFiles } from './project-files.js';
 import type { ProjectHeader } from './project-header.js';
+import type { ProjectSession } from './project-session.js';
 import type { RecoveryServices } from './project-recovery.js';
 import { storedBodies, treeOfCopy, type CopyOptions, type TreeSources } from './tree-content.js';
 import { importTree, type ImportIdentity, type ImportServices } from './tree-import.js';
@@ -92,6 +93,32 @@ export interface ExportedBundle {
   readonly output: ContentIdentity;
 }
 
+/** Where an export of a project open to write takes it from. */
+export interface ExportFrom {
+  /**
+   * The session of the project the exporting window writes. Storage holds the
+   * project as the session has it only once every change is written, so the
+   * export waits for that, and is refused while any change is not saved rather
+   * than leave it out unsaid.
+   */
+  readonly held?: ProjectSession;
+}
+
+/** The copy of a project as storage holds it, once `from` has written it all. */
+async function exportedCopy(
+  project: ProjectId,
+  from: ExportFrom,
+  services: ExportServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<ProjectCopy>> {
+  if (from.held?.project === project) {
+    const saved = await from.held.saved();
+    if (!saved.ok) return saved;
+  }
+  const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
+  return await readProjectCopy(files, services, signal);
+}
+
 /**
  * Writes a project as a portable bundle into `sink`, and closes it; abandons it
  * where the project cannot be read or the bundle cannot be written whole.
@@ -99,13 +126,12 @@ export interface ExportedBundle {
 export async function exportBundle(
   project: ProjectId,
   sink: ByteSink,
-  options: CopyOptions,
+  options: CopyOptions & ExportFrom,
   services: ExportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ExportAttempt<ExportedBundle>>> {
-  const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   return await writeCopy(
-    await readProjectCopy(files, services, signal),
+    await exportedCopy(project, options, services, signal),
     sink,
     options,
     services,
@@ -189,14 +215,13 @@ async function writeCopy(
 export async function exportUnpacked(
   project: ProjectId,
   writer: DirectoryWriter,
-  options: CopyOptions & DirectoryClaim,
+  options: CopyOptions & DirectoryClaim & ExportFrom,
   services: ExportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>> {
   const claimed = await claimDirectory(writer, project, options, signal);
   if (!claimed.ok) return claimed;
-  const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
-  const copy = await readProjectCopy(files, services, signal);
+  const copy = await exportedCopy(project, options, services, signal);
   if (!copy.ok) return copy;
   const source = await sourceOf(copy.value, services.digest);
   const tree = await treeOfCopy(copy.value, options, services, signal);

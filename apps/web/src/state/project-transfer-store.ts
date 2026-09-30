@@ -39,6 +39,7 @@ import {
   type AssetConsolidation,
   type CopyOptions,
   type ExportAttempt,
+  type ExportFrom,
   type ExportedBundle,
   type ImportIdentity,
   type ProjectHeader,
@@ -51,6 +52,7 @@ import type { ChosenFolder, SaveTarget, TransferFiles } from '../io/transfer-fil
 import type { ProjectServices } from '../storage/project-services.js';
 import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
 import { observable, type Observable } from './observable.js';
+import type { OpenProjectStore } from './open-project-store.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
 
 /** A project brought in, and whether it came in as a copy. */
@@ -144,6 +146,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
   private readonly files: TransferFiles;
   private readonly linkedFiles: LinkedFilesPort;
   private readonly library: ProjectLibraryStore;
+  private readonly project: OpenProjectStore;
   private readonly recorder: ExportRecorder;
   private readonly state = observable<TransferState>({});
   private refused: RefusedFolder | undefined;
@@ -156,12 +159,14 @@ export class ProjectTransferStore implements Observable<TransferState> {
     files: TransferFiles,
     linkedFiles: LinkedFilesPort,
     library: ProjectLibraryStore,
+    project: OpenProjectStore,
     recorder: ExportRecorder,
   ) {
     this.services = services;
     this.files = files;
     this.linkedFiles = linkedFiles;
     this.library = library;
+    this.project = project;
     this.recorder = recorder;
   }
 
@@ -178,7 +183,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
       async () =>
         await this.recorded(
           project,
-          await exportBundle(project, target.sink, options, this.services),
+          await exportBundle(project, target.sink, this.fromHere(options), this.services),
           bundleExport(target, copyOutput(BUNDLE_CONTAINER, options)),
         ),
     );
@@ -245,7 +250,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
           await exportUnpacked(
             project,
             folder.writer,
-            { ...options, replaceAnother },
+            { ...this.fromHere(options), replaceAnother },
             this.services,
           ),
           {
@@ -307,6 +312,15 @@ export class ProjectTransferStore implements Observable<TransferState> {
         setMedia: setAssetMediaInvocation,
       });
     });
+
+  /**
+   * `options`, with the session of the project this tab writes, which an export
+   * of that project waits for until it has written every change.
+   */
+  private fromHere(options: CopyOptions): CopyOptions & ExportFrom {
+    const held = this.project.session();
+    return held === undefined ? options : { ...options, held };
+  }
 
   private async working<TValue>(
     doing: NonNullable<TransferState['working']>,

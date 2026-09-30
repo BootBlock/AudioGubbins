@@ -11,6 +11,7 @@ import {
 
 import { anotherProjectIn, type DirectoryWriter } from './project-directory.js';
 import { exportBundle, exportUnpacked } from './project-transfer.js';
+import { FillableTree } from './testing/fillable-tree.js';
 import { MemoryDirectory, memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { addAsset, setName } from './testing/test-commands.js';
@@ -41,6 +42,39 @@ async function changedProject() {
 }
 
 const README = new TextEncoder().encode('Kept beside the tree.');
+
+describe('exporting the project this window writes', () => {
+  it('refuses while a change is not saved, rather than leave it out, and carries it once saved', async () => {
+    const test = harness(73);
+    const storage = storageOf(test, new MemoryStorageTree());
+    const header = await madeProject(test, storage.tree);
+    const writing = new FillableTree(storage.tree);
+    const held = await openToWrite(test, writing, header.id);
+    writing.full = true;
+    expectSuccess(await held.run(setName('Not yet saved')));
+    expect(held.getSnapshot().save.kind).toBe('not-saved');
+
+    const refusedSink = memorySink();
+    const refused = await exportBundle(
+      header.id,
+      refusedSink,
+      { ...WHOLE, held },
+      storage.exporting,
+    );
+    expect(expectFailureCode(refused)).toBe('storage.copy-would-omit');
+    expect(refusedSink.ending).toBe('aborted');
+
+    writing.full = false;
+    expect(await held.retry()).toEqual({ kind: 'saved' });
+    const folder = new MemoryDirectory();
+    const attempt = expectSuccess(
+      await exportUnpacked(header.id, folder, { ...WHOLE, held }, storage.exporting),
+    );
+    expectSuccess(attempt.written);
+    const written = new TextDecoder().decode(folder.files.get('audiogubbins-project.json'));
+    expect(written).toContain('Not yet saved');
+  });
+});
 
 describe('exporting into a folder that holds a project', () => {
   it('refuses a folder holding another project, and changes nothing in it unasked', async () => {

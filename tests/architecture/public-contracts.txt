@@ -2912,6 +2912,8 @@ Published paths
   readonly ExportAttempt.source: ExportSource
   readonly ExportAttempt.written: DomainResult<TWritten>
   readonly ExportAttempt.partial?: true
+  interface ExportFrom
+  readonly ExportFrom.held?: ProjectSession
   interface ExportServices extends RecoveryServices, TreeSources
   readonly ExportServices.tree: StorageTree
   readonly ExportServices.digest: Digest
@@ -3074,6 +3076,7 @@ Published paths
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.replaceProject: (model: ProjectModel, states: ReadonlyMap<StateFingerprint, ProjectState>) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.checkpoint: () => Promise<DomainResult<WriteOutcome>>
+  readonly ProjectSession.saved: () => Promise<DomainResult<void>>
   readonly ProjectSession.retry: () => Promise<SaveStatus>
   readonly ProjectSession.answerTransfer: (request: TransferRequest, answer: TransferAnswer) => Promise<DomainResult<void>>
   readonly ProjectSession.close: () => Promise<DomainResult<void>>
@@ -3201,9 +3204,9 @@ Published paths
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
-  function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
+  function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options?: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
-  function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
+  function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>

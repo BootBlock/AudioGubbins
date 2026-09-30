@@ -86,6 +86,7 @@ export function createProjectStores(
       files,
       linkedFiles,
       library,
+      project,
       new ExportRecorder(services, project),
     ),
     project,

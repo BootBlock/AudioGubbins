@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import {
+  TreeFailure,
+  TreeFailureKind,
+  type ByteSink,
+  type StorageTree,
+} from '@audiogubbins/project-format';
 import { MemoryDirectory } from '@audiogubbins/storage/testing';
 
 import {
@@ -30,6 +36,40 @@ async function withProject(options?: { readonly canWriteFolders?: boolean }) {
   await expect.poll(() => names(window)).toEqual(['Harbour at dusk']);
   return { world, window };
 }
+
+/** A storage that refuses every write while it is full, as a browser's quota does. */
+class FillingTree extends MemoryStorageTree implements StorageTree {
+  full = false;
+
+  override async writeFile(path: string, bytes: Uint8Array): Promise<void> {
+    this.refuseWhileFull();
+    await super.writeFile(path, bytes);
+  }
+
+  override async createFile(path: string): Promise<ByteSink> {
+    this.refuseWhileFull();
+    return await super.createFile(path);
+  }
+
+  private refuseWhileFull(): void {
+    if (this.full) throw new TreeFailure(TreeFailureKind.Quota, 'The storage is full.');
+  }
+}
+
+describe('taking out the project open in this tab', () => {
+  it('refuses while a change is not saved, rather than leave it out of the bundle', async () => {
+    const tree = new FillingTree();
+    const window = await projectWorld(tree).window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    tree.full = true;
+    await window.runAndHear('file.rename-project', { name: 'Harbour at dusk' });
+
+    expect(await window.runAndHear('file.export-bundle')).toBe(
+      'Some changes are not saved yet, so a copy made now would leave them out. Save them, then try again.',
+    );
+    expect(window.files.saved[0]?.finished).not.toBe(true);
+  });
+});
 
 describe('taking a project out as a bundle and bringing it back', () => {
   it('saves the bundle where the person chooses, named after the project', async () => {

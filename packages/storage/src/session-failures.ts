@@ -32,6 +32,19 @@ export function unsavedChanges(status: SaveStatus): DomainFailure {
 }
 
 /**
+ * Why a copy of the project cannot be taken from storage now: some changes are
+ * not written, so the copy would leave them out.
+ */
+export function copyWouldOmit(status: SaveStatus): DomainFailure {
+  return failure(
+    'storage.copy-would-omit',
+    FailureKind.Retryable,
+    'Some changes are not saved yet, so a copy made now would leave them out. Save them, then try again.',
+    { details: { status: status.kind } },
+  );
+}
+
+/**
  * The failure of a command that changed the project and gave no way to undo
  * it: a change the history cannot reverse cannot be kept in it.
  */
