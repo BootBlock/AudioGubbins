@@ -8,7 +8,12 @@
  * support.
  */
 
-export { type MemoryTreeOptions, MemoryStorageTree, SimulatedCrash } from './memory-tree.js';
+export {
+  type MemoryTreeOptions,
+  type TornWrite,
+  MemoryStorageTree,
+  SimulatedCrash,
+} from './memory-tree.js';
 
 export {
   type ObservedSource,

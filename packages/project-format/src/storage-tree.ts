@@ -70,7 +70,8 @@ export interface StorageTree {
 
   /**
    * Writes a whole file, replacing any there. A crash part-way may leave the
-   * file torn, which the caller's check detects.
+   * file torn at any length, its full length included, so only a check of its
+   * content, the caller's, says whether it is whole.
    */
   writeFile(path: string, bytes: Uint8Array, signal?: AbortSignal): Promise<void>;
 

@@ -119,6 +119,22 @@ describe('the tree over the origin-private file system', () => {
     await expect(sink.write(bytes(1, 2))).rejects.toMatchObject({ kind: TreeFailureKind.Quota });
   });
 
+  it('can leave a write that fails after sizing its file torn at its full length', async () => {
+    // What the in-memory tree's `full-length` tear stands for: a caller cannot
+    // judge a file whole by its size.
+    const system = new MemorySyncFileSystem({
+      refuse: (asked) =>
+        asked === 'write' ? new DOMException('Lost.', 'UnknownError') : undefined,
+    });
+    const { tree } = servedPair(() => Promise.resolve(system.root()));
+    await expect(tree.writeFile('f.bin', bytes(1, 2, 3))).rejects.toBeInstanceOf(TreeFailure);
+    expect(system.files().get('f.bin')).toEqual(bytes(0, 0, 0));
+
+    const reference = new MemoryStorageTree({ crashAt: 1, tornWrite: 'full-length' });
+    await expect(reference.writeFile('f.bin', bytes(1, 2, 3))).rejects.toThrow();
+    expect(await reference.restarted().readFile('f.bin')).toEqual(bytes(1, 0, 0));
+  });
+
   it('removes what an abandoned sink wrote, leaving no partial file', async () => {
     const system = new MemorySyncFileSystem();
     const { tree } = servedPair(() => Promise.resolve(system.root()));

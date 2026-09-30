@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, SimulatedCrash } from '@audiogubbins/media-store/testing';
+import {
+  MemoryStorageTree,
+  SimulatedCrash,
+  type TornWrite,
+} from '@audiogubbins/media-store/testing';
 import { changeNodeOf } from '@audiogubbins/history';
 import type { AffectedEntities, HistoryNodeId, StorageTree } from '@audiogubbins/project-format';
 
@@ -151,53 +155,65 @@ async function opened(tree: StorageTree, seed: number): Promise<OpenedProject | 
 }
 
 describe('crash recovery at every tree operation (REQ-STOR-101)', () => {
-  it('opens every crash to the last acknowledged step or the one cut short, and goes on', async () => {
-    const clean = new MemoryStorageTree();
-    const whole = await runScript(clean);
-    expect(whole.crashedAt).toBeUndefined();
-    const operations = clean.operations;
-    expect(operations).toBeGreaterThan(100);
+  it.each<TornWrite>(['short', 'full-length'])(
+    'opens every crash, a write torn %s, to the last acknowledged step or the one cut short, and goes on',
+    async (tornWrite) => {
+      const clean = new MemoryStorageTree();
+      const whole = await runScript(clean);
+      expect(whole.crashedAt).toBeUndefined();
+      const operations = clean.operations;
+      expect(operations).toBeGreaterThan(100);
 
-    const reportedBreaks = new Set<string>();
-    for (let crashAt = 1; crashAt <= operations; crashAt += 1) {
-      const tree = new MemoryStorageTree({ crashAt });
-      const run = await runScript(tree);
-      const found = tree.restarted();
-      const reopened = await opened(found, 1_000 + crashAt);
-      const crashed = run.crashedAt ?? SCRIPT.length;
+      const reportedBreaks = new Set<string>();
+      for (let crashAt = 1; crashAt <= operations; crashAt += 1) {
+        const tree = new MemoryStorageTree({ crashAt, tornWrite });
+        const run = await runScript(tree);
+        const found = tree.restarted();
+        const reopened = await opened(found, 1_000 + crashAt);
+        const crashed = run.crashedAt ?? SCRIPT.length;
 
-      if (reopened === undefined) {
-        // Only a crash while the project was being made leaves none to list.
-        expect(crashed, `crash at ${String(crashAt)}`).toBe(0);
-        continue;
+        if (reopened === undefined) {
+          // Only a crash while the project was being made leaves none to list.
+          expect(crashed, `crash at ${String(crashAt)}`).toBe(0);
+          continue;
+        }
+        if (reopened.kind !== 'writable') throw new Error('Expected the project to open to write.');
+        const summary = summaryOf(reopened.session.getSnapshot().model);
+        const acknowledged = run.after.at(-1);
+        const cutShort = whole.after[crashed];
+        const allowed = [acknowledged, cutShort].filter((one) => one !== 'no session');
+        // A crash before the session opened leaves the project as it was made.
+        if (crashed <= 1) allowed.push(whole.after[1]);
+        expect(
+          allowed,
+          `crash at ${String(crashAt)} in step ${SCRIPT[crashed]?.[0] ?? 'none'}`,
+        ).toContain(summary);
+        const journalBreak = reopened.report.journalBreak;
+        if (journalBreak !== undefined) reportedBreaks.add(journalBreak.reason.kind);
+
+        // Closed as it was found, the project's checkpoint names the state the
+        // crash may have torn, and the close writes that state whole again.
+        expectSuccess(await reopened.session.close());
+        const settled = await opened(found, 3_000 + crashAt);
+        if (settled?.kind !== 'writable') throw new Error('Expected the project to open again.');
+        expect(settled.report.rebuiltCursorState, `crash at ${String(crashAt)}`).toBeUndefined();
+        expect(settled.report.missingStates, `crash at ${String(crashAt)}`).toEqual([]);
+
+        // The project goes on working after the crash, and keeps what it did.
+        expectSuccess(await settled.session.run(setName(`After ${String(crashAt)}`)));
+        expectSuccess(await settled.session.close());
+        const again = await opened(found, 5_000 + crashAt);
+        if (again?.kind !== 'writable') throw new Error('Expected the project to open again.');
+        expect(again.session.getSnapshot().model.state.project.displayName).toBe(
+          `After ${String(crashAt)}`,
+        );
+        expect(again.report.journalBreak).toBeUndefined();
       }
-      if (reopened.kind !== 'writable') throw new Error('Expected the project to open to write.');
-      const summary = summaryOf(reopened.session.getSnapshot().model);
-      const acknowledged = run.after.at(-1);
-      const cutShort = whole.after[crashed];
-      const allowed = [acknowledged, cutShort].filter((one) => one !== 'no session');
-      // A crash before the session opened leaves the project as it was made.
-      if (crashed <= 1) allowed.push(whole.after[1]);
-      expect(
-        allowed,
-        `crash at ${String(crashAt)} in step ${SCRIPT[crashed]?.[0] ?? 'none'}`,
-      ).toContain(summary);
-      const journalBreak = reopened.report.journalBreak;
-      if (journalBreak !== undefined) reportedBreaks.add(journalBreak.reason.kind);
-
-      // The project goes on working after the crash, and keeps what it did.
-      expectSuccess(await reopened.session.run(setName(`After ${String(crashAt)}`)));
-      expectSuccess(await reopened.session.close());
-      const again = await opened(found, 5_000 + crashAt);
-      if (again?.kind !== 'writable') throw new Error('Expected the project to open again.');
-      expect(again.session.getSnapshot().model.state.project.displayName).toBe(
-        `After ${String(crashAt)}`,
-      );
-      expect(again.report.journalBreak).toBeUndefined();
-    }
-    // Some crash tore a journal record, and recovery said so.
-    expect(reportedBreaks).toContain('invalid');
-  }, 120_000);
+      // Some crash tore a journal record, and recovery said so.
+      expect(reportedBreaks).toContain('invalid');
+    },
+    120_000,
+  );
 });
 
 describe('recovery from damage it did not make', () => {
@@ -265,6 +281,21 @@ describe('recovery from damage it did not make', () => {
     expect(reopened.report.rebuiltCursorState?.code).toBe('storage.state-mismatch');
     const view = reopened.kind === 'read-only' ? reopened.view.getSnapshot() : undefined;
     expect(view && summaryOf(view.model)).toBe(summaryOf(session.getSnapshot().model));
+  });
+
+  it('writes whole again a cursor state it rebuilt, though the cursor moves on', async () => {
+    const { test, tree, header, files, session } = await closedProject();
+    expectSuccess(await session.createSnapshot({ name: 'Kept' }));
+    expectSuccess(await session.close());
+    const snapshot = expectDefined([...session.getSnapshot().model.history.snapshots.values()][0]);
+    const path = files.states.path(snapshot.stateFingerprint);
+    const whole = expectDefined(await tree.readFile(path));
+    await tree.writeFile(path, new Uint8Array(whole.length));
+
+    const moving = await openToWrite(test, tree, header.id);
+    expectSuccess(await moving.run(setName('Moved on')));
+    expectSuccess(await moving.close());
+    expectSuccess(await files.states.get(snapshot.stateFingerprint));
   });
 
   it('reports a kept state that is missing', async () => {

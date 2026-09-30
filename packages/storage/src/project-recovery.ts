@@ -227,12 +227,17 @@ async function replayAfter(
   signal?: AbortSignal,
 ): Promise<RecoveredProject> {
   const { checkpoint, held } = start;
+  // A cursor state rebuilt is held only in memory until it is written whole
+  // again: its file is there, but not what its name promises.
+  const damaged = start.rebuilt === undefined ? undefined : checkpoint.cursorState;
   const context: ReplayContext = {
     files,
     bus: services.bus,
     logger: services.logger,
-    kept: new Set([...checkpoint.keptStates].filter((state) => held.has(state))),
-    unwritten: new Map(),
+    kept: new Set(
+      [...checkpoint.keptStates].filter((state) => held.has(state) && state !== damaged),
+    ),
+    unwritten: new Map(damaged === undefined ? [] : [[damaged, start.state]]),
   };
   const model: ProjectModel = {
     state: start.state,

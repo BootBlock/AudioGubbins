@@ -13,9 +13,12 @@
  * (counted from 1 over every call, each sink write and each range read
  * included) tears that operation, so a write keeps half its bytes, and every
  * operation after it throws {@link SimulatedCrash}; {@link restarted} is the
- * tree as the storage would be found on the next start. A quota refuses, with
- * the tree's `quota` failure and before writing anything, any write that would
- * take what the tree holds past it.
+ * tree as the storage would be found on the next start. A whole-file write
+ * tears as `tornWrite` says: cut short, or at its full length with zeros after
+ * the half written, as the browser's tree leaves one it sizes before writing. A
+ * sink's write always tears short, since a sink's file only grows. A quota
+ * refuses, with the tree's `quota` failure and before writing anything, any
+ * write that would take what the tree holds past it.
  */
 
 import {
@@ -37,10 +40,16 @@ export class SimulatedCrash extends Error {
   }
 }
 
+/** How a torn whole-file write is left: cut short, or at its full length. */
+export type TornWrite = 'short' | 'full-length';
+
 /** The failures to inject. */
 export interface MemoryTreeOptions {
   /** The operation, counted from 1, at which the tree crashes. */
   readonly crashAt?: number;
+
+  /** How a whole-file write the crash tears is left: `short` where not given. */
+  readonly tornWrite?: TornWrite;
 
   /** The most bytes the tree holds, across every file. */
   readonly quotaBytes?: number;
@@ -133,7 +142,7 @@ export class MemoryStorageTree implements StorageTree {
     this.checkedWritable(path);
     const torn = await this.tick();
     this.refuseBeyondQuota(bytes.length - (this.files.get(path)?.length ?? 0));
-    this.files.set(path, FileBody.of(torn ? bytes.subarray(0, bytes.length >> 1) : bytes));
+    this.files.set(path, FileBody.of(torn ? this.tornFrom(bytes) : bytes));
     if (torn) throw new SimulatedCrash();
   }
 
@@ -189,6 +198,15 @@ export class MemoryStorageTree implements StorageTree {
     return [...entries]
       .map(([name, kind]) => ({ name, kind }))
       .sort((one, other) => compareCodeUnits(one.name, other.name));
+  }
+
+  /** What a torn whole-file write of `bytes` leaves. */
+  private tornFrom(bytes: Uint8Array): Uint8Array {
+    const half = bytes.subarray(0, bytes.length >> 1);
+    if (this.options.tornWrite !== 'full-length') return half;
+    const sized = new Uint8Array(bytes.length);
+    sized.set(half);
+    return sized;
   }
 
   /** Counts an operation that cannot tear, and crashes on the one numbered `crashAt`. */

@@ -4,8 +4,9 @@
  *
  * A state is written as the compact canonical text of its project document,
  * whose digest is its fingerprint, so the file's name says what it must hold. A
- * file is written once and never changed: putting a state already whole is a
- * no-op, since rewriting a file in place could tear what was sound. Reading one
+ * file is written once and never changed: putting a state whose file already
+ * holds its bytes is a no-op, since rewriting a file in place could tear what
+ * was sound, and a file holding anything else is written again. Reading one
  * validates the document through the format's reader and derives the
  * fingerprint again from the state read, refusing a file that holds anything
  * but the state its name promises, so a torn or altered state is reported and
@@ -66,10 +67,12 @@ export class SnapshotStore {
     const fingerprint = await fingerprintOf(text, this.digest);
     const bytes = encodeUtf8(text);
     const path = this.path(fingerprint);
-    // A file of the full length is whole: the tree tears a write by cutting it
-    // short, and a name is only ever written with the one text it names.
-    const held = await this.tree.openFile(path);
-    if (held?.size !== bytes.length) await this.tree.writeFile(path, bytes, signal);
+    // Only the bytes say a file is whole: a tree may size a file before it
+    // writes it, so a write cut short can leave the full length.
+    const held = await this.tree.readFile(path, signal);
+    if (held === undefined || !sameBytes(held, bytes)) {
+      await this.tree.writeFile(path, bytes, signal);
+    }
     return fingerprint;
   }
 
@@ -127,6 +130,14 @@ export class SnapshotStore {
   path(fingerprint: StateFingerprint): string {
     return `${this.directory}/${fingerprint}.json`;
   }
+}
+
+function sameBytes(one: Uint8Array, other: Uint8Array): boolean {
+  if (one.length !== other.length) return false;
+  for (let index = 0; index < one.length; index += 1) {
+    if (one[index] !== other[index]) return false;
+  }
+  return true;
 }
 
 /** The failure of a state that is not kept. */

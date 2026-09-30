@@ -51,6 +51,18 @@ describe('the states a project keeps whole (REQ-STOR-101)', () => {
     expect(expectSuccess(await states.get(fingerprint))).toEqual(STATE);
   });
 
+  it('writes again a state torn at its full length, as a write sized before it lands leaves one', async () => {
+    const { tree, states } = store();
+    const fingerprint = await states.put(STATE);
+    const path = `projects/${STATE.project.id}/states/${fingerprint}.json`;
+    const whole = (await tree.readFile(path)) ?? new Uint8Array();
+    const torn = new Uint8Array(whole.length);
+    torn.set(whole.subarray(0, whole.length >> 1));
+    await tree.writeFile(path, torn);
+    await states.put(STATE);
+    expect(expectSuccess(await states.get(fingerprint))).toEqual(STATE);
+  });
+
   it('refuses a file that holds another state than its name promises', async () => {
     const { tree, states } = store();
     const fingerprint = await states.put(STATE);

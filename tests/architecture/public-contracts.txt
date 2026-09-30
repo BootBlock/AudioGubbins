@@ -2231,12 +2231,14 @@ Published paths
   MemoryStorageTree.createFile: (path: string) => Promise<ByteSink>
   MemoryStorageTree.remove: (path: string) => Promise<void>
   MemoryStorageTree.list: (directory: string) => Promise<readonly TreeEntry[]>
+  MemoryStorageTree.tornFrom: (bytes: Uint8Array) => Uint8Array
   MemoryStorageTree.step: () => Promise<void>
   MemoryStorageTree.tick: () => Promise<boolean>
   MemoryStorageTree.refuseBeyondQuota: (growth: number) => void
   MemoryStorageTree.checkedWritable: (path: string) => void
   interface MemoryTreeOptions
   readonly MemoryTreeOptions.crashAt?: number
+  readonly MemoryTreeOptions.tornWrite?: TornWrite
   readonly MemoryTreeOptions.quotaBytes?: number
   interface ObservedSource extends ByteSource
   readonly ObservedSource.largestRead: number
@@ -2245,6 +2247,7 @@ Published paths
   ObservedSource.read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array<ArrayBuffer>>
   class SimulatedCrash extends Error
   new SimulatedCrash(): SimulatedCrash
+  type TornWrite = "full-length" | "short"
   function countedSharing(): CountedSharing
   function countingTokens(): () => string
   function generatedBytes(offset: number, length: number, seed: number): Uint8Array<ArrayBuffer>
