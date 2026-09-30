@@ -181,7 +181,8 @@ The review pass ran; its findings and their triage are kept outside the
 repository. Critical and high findings F-01 to F-13 are fixed. The owner ruled
 that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
 
-1. F-14, part one: never write a file its reader cannot read back.
+1. Done (`3c41371`). F-14, part one: never write a file its reader cannot
+   read back.
    - `project-format` writes canonical text within stated `JsonLimits`
      (`canonicalJsonWithin`, `prettyCanonicalJsonWithin`), refusing with the
      reader's own codes (`json.too-long`, `json.too-deep`) and stopping early
