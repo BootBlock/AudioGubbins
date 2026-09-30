@@ -12,6 +12,7 @@ import type { AffectedEntities, HistoryNodeId, StorageTree } from '@audiogubbins
 import { CheckedRecords } from './checked-records.js';
 import { newestHead } from './project-heads.js';
 import { ProjectFiles } from './project-files.js';
+import { readProjectCopy } from './project-copy.js';
 import { openProject, type OpenedProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { summaryOf } from './testing/model-summary.js';
@@ -373,6 +374,72 @@ describe('recovery from damage it did not make', () => {
       await openProject({ project: header.id, access: 'read' }, harness(98).services(tree)),
     );
     expect(again.report.journalBreak).toBeUndefined();
+  });
+});
+
+/** A tree that runs `race` once, before the first read of a journal record, as another window might. */
+class RacingTree extends MemoryStorageTree {
+  race: (() => Promise<void>) | undefined;
+
+  override async readFile(path: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
+    const race = this.race;
+    if (race !== undefined && path.includes('/journal/')) {
+      this.race = undefined;
+      await race();
+    }
+    return await super.readFile(path);
+  }
+}
+
+describe('a project read to be copied out', () => {
+  it('is refused, rather than copied older, where its journal is damaged, until it is opened', async () => {
+    const test = harness();
+    const tree = new MemoryStorageTree();
+    const header = await madeProject(test, tree);
+    const session = await openToWrite(test, tree, header.id);
+    expectSuccess(await session.run(setName('Checkpointed')));
+    expectSuccess(await session.checkpoint());
+    for (const name of ['Journalled', 'Third', 'Fourth']) {
+      expectSuccess(await session.run(setName(name)));
+    }
+    const files = new ProjectFiles(new CheckedRecords(tree, nodeDigest), header.id);
+    const [epoch] = (await tree.list(files.paths.journal)).map((entry) => entry.name).slice(-1);
+    const directory = `${files.paths.journal}/${expectDefined(epoch)}`;
+    const [, second] = await tree.list(directory);
+    const path = `${directory}/${expectDefined(second).name}`;
+    await tree.writeFile(path, expectDefined(await tree.readFile(path)).subarray(0, 10));
+    const services = harness(97).services(tree);
+
+    const refused = await readProjectCopy(files, services);
+    expect(refused.ok ? undefined : refused.failures[0].code).toBe('storage.copy-incomplete');
+
+    const opened = expectSuccess(
+      await openProject({ project: header.id, access: 'write' }, services),
+    );
+    if (opened.kind !== 'writable') throw new Error('Expected a writable project.');
+    expectSuccess(await opened.session.checkpoint());
+    const copy = expectSuccess(await readProjectCopy(files, services));
+    expect(copy.model.state.project.displayName).toBe('Journalled');
+  });
+
+  it('reads again from the newer head where a writer pruned what the read had yet to reach', async () => {
+    const test = harness();
+    const tree = new RacingTree();
+    const header = await madeProject(test, tree);
+    const session = await openToWrite(test, tree, header.id);
+    expectSuccess(await session.run(setName('Checkpointed')));
+    expectSuccess(await session.checkpoint());
+    expectSuccess(await session.run(setName('Journalled')));
+    tree.race = async () => {
+      expectSuccess(await session.run(setName('Raced')));
+      expectSuccess(await session.checkpoint());
+    };
+    const files = new ProjectFiles(new CheckedRecords(tree, nodeDigest), header.id);
+
+    const copy = expectSuccess(await readProjectCopy(files, harness(96).services(tree)));
+
+    expect(tree.race).toBeUndefined();
+    expect(copy.model.state.project.displayName).toBe('Raced');
   });
 });
 

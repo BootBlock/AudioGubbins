@@ -121,6 +121,14 @@ export async function readHeads(
   return { valid, faults };
 }
 
+/** Whether two heads are the same commit point, or both absent. */
+export function sameHead(
+  one: Pick<ProjectHead, 'epoch' | 'generation'> | undefined,
+  other: Pick<ProjectHead, 'epoch' | 'generation'> | undefined,
+): boolean {
+  return one?.epoch === other?.epoch && one?.generation === other?.generation;
+}
+
 /** The newest valid head of a project, where it has one. */
 export async function newestHead(
   records: CheckedRecords,

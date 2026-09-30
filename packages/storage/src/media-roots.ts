@@ -49,7 +49,7 @@ import {
 import { CheckedRecords } from './checked-records.js';
 import { contentIdsIn } from './content-references.js';
 import { ProjectFiles } from './project-files.js';
-import { newestHead, type ProjectHead } from './project-heads.js';
+import { newestHead, sameHead } from './project-heads.js';
 import { SnapshotStore } from './state-store.js';
 import {
   BACKUPS_DIRECTORY,
@@ -134,10 +134,6 @@ async function* projectRetains(
     }
   }
   onUnreadable({ path: files.paths.heads, failure: headMoving() });
-}
-
-function sameHead(one: ProjectHead | undefined, other: ProjectHead | undefined): boolean {
-  return one?.epoch === other?.epoch && one?.generation === other?.generation;
 }
 
 function rootGone(path: string): DomainFailure {
