@@ -13,6 +13,7 @@
 
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -20,7 +21,14 @@ import {
   type RefObject,
 } from 'react';
 
-import { Button, ContextActions, useTheme, type MenuGroup } from '@audiogubbins/design-system';
+import {
+  Button,
+  ContextActions,
+  useTheme,
+  type ContextActionsOpener,
+  type MenuGroup,
+} from '@audiogubbins/design-system';
+import { KEYBOARD_HOME } from '@audiogubbins/workspace';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
@@ -31,6 +39,7 @@ import { editorPaletteOf, editorTypeOf } from '../editor/theme-palette.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorReadouts, MarkerList } from './editor-readouts.js';
 import { EditorToolbar } from './editor-toolbar.js';
+import { PeaksNote } from './peaks-note.js';
 import { SelectionScope } from './selection-scope.js';
 
 /** The editor's context actions, each a command run as the menus run it. */
@@ -39,21 +48,6 @@ const CONTEXT_GROUPS: readonly (readonly string[])[] = [
   ['editor.zoom-in', 'editor.zoom-out', 'editor.zoom-to-fit', 'editor.zoom-to-selection'],
   ['editor.select-all', 'editor.clear-selection', 'editor.new-view'],
 ];
-
-/** What the view's peaks are waiting for, in words, or nothing once they are whole. */
-function peaksText(status: PeakStatus | undefined): string | undefined {
-  switch (status?.kind) {
-    case undefined:
-    case 'complete':
-      return undefined;
-    case 'reading-cache':
-      return 'Reading the kept waveform…';
-    case 'generating':
-      return `Making the waveform: ${String(Math.floor(status.progress * 100))}%`;
-    case 'failed':
-      return `The waveform could not be made: ${status.reason}`;
-  }
-}
 
 /** The assets a view can open, as buttons. */
 function AssetChooser({
@@ -111,12 +105,16 @@ function contextGroups(parts: EditorPanelParts, panel: string): readonly MenuGro
 /**
  * Mounts the surface in `host` for panel `panel`, once, and hands it the
  * theme's colours as they change: a change of theme reaches its next frame.
+ *
+ * A press it recognises as held still opens the context actions through
+ * `actions`.
  */
 function useEditorSurface(
   host: RefObject<HTMLDivElement | null>,
   panel: string,
   parts: EditorPanelParts,
   onPeaks: (status: PeakStatus) => void,
+  actions: RefObject<ContextActionsOpener | null>,
 ): void {
   const theme = useTheme();
   const look = useRef({ palette: editorPaletteOf(theme), type: editorTypeOf(theme) });
@@ -144,6 +142,9 @@ function useEditorSurface(
         parts.rendererReports.report(panel, report);
       },
       peaksChanged: onPeaks,
+      contextActions: (clientX, clientY) => {
+        actions.current?.openAt(clientX, clientY);
+      },
       logger: parts.logger,
     });
     surface.current = made;
@@ -152,31 +153,39 @@ function useEditorSurface(
       surface.current = undefined;
       parts.rendererReports.forget(panel);
     };
-  }, [host, panel, parts, onPeaks]);
+  }, [host, panel, parts, onPeaks, actions]);
 }
 
-/** The waveform surface, mounted once for the panel. */
+/** The waveform surface, mounted once for the panel in `host`, and described by `describedBy`. */
 function Surface({
+  host,
+  describedBy,
   panel,
   asset,
   parts,
   onPeaks,
 }: {
+  readonly host: RefObject<HTMLDivElement | null>;
+  readonly describedBy: string;
   readonly panel: string;
   readonly asset: EditorAsset;
   readonly parts: EditorPanelParts;
   readonly onPeaks: (status: PeakStatus) => void;
 }): ReactNode {
-  const host = useRef<HTMLDivElement>(null);
-  useEditorSurface(host, panel, parts, onPeaks);
+  const actions = useRef<ContextActionsOpener>(null);
+  useEditorSurface(host, panel, parts, onPeaks, actions);
   return (
-    <ContextActions label="Editor actions" groups={contextGroups(parts, panel)}>
+    <ContextActions label="Editor actions" groups={contextGroups(parts, panel)} opener={actions}>
       <div
         ref={host}
         className="ag-editor-surface"
         role="application"
         aria-roledescription="waveform editor"
         aria-label={`Waveform of ${asset.name}`}
+        aria-describedby={describedBy}
+        // Where the keyboard goes when a command makes this view the one in
+        // use: the arrow keys are the surface's own, and nowhere else's.
+        {...{ [KEYBOARD_HOME]: '' }}
         // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- an application region takes the keyboard for its own keys, the held space bar among them, so it must be reachable by Tab
         tabIndex={0}
       />
@@ -228,7 +237,8 @@ function EditorView({
   readonly parts: EditorPanelParts;
 }): ReactNode {
   const [peaks, setPeaks] = useState<PeakStatus | undefined>(undefined);
-  const waiting = peaksText(peaks);
+  const surface = useRef<HTMLDivElement>(null);
+  const readings = useId();
   const selection = parts.stores.selections.of(asset.id);
   return (
     <section className="ag-panel ag-editor">
@@ -245,9 +255,16 @@ function EditorView({
         commands={{ run: parts.run, shortcutFor: parts.shortcutFor }}
       />
       <SelectionScope selection={selection} asset={asset} state={state} />
-      <Surface panel={panel} asset={asset} parts={parts} onPeaks={setPeaks} />
+      <Surface
+        host={surface}
+        describedBy={readings}
+        panel={panel}
+        asset={asset}
+        parts={parts}
+        onPeaks={setPeaks}
+      />
       <ScrollPosition panel={panel} asset={asset} state={state} parts={parts} />
-      <EditorReadouts asset={asset} state={state} parts={parts} />
+      <EditorReadouts id={readings} surface={surface} asset={asset} state={state} parts={parts} />
       <MarkerList
         panel={panel}
         asset={asset}
@@ -256,7 +273,7 @@ function EditorView({
         selection={selection}
         parts={parts}
       />
-      {waiting !== undefined && <p className="ag-panel-note">{waiting}</p>}
+      <PeaksNote status={peaks} />
     </section>
   );
 }

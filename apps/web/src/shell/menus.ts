@@ -115,15 +115,26 @@ const EDITOR_GROUPS: readonly {
     ids: [
       'editor.select-all',
       'editor.clear-selection',
+      'editor.selection-start-at-playhead',
+      'editor.selection-end-at-playhead',
       'editor.extend-selection-back',
       'editor.extend-selection-forward',
+      'editor.extend-selection-back-sample',
+      'editor.extend-selection-forward-sample',
       'editor.scope-all-channels',
     ],
   },
   {
     key: 'markers',
     label: 'Markers',
-    ids: ['editor.add-marker', 'editor.remove-markers'],
+    ids: [
+      'editor.add-marker',
+      'editor.remove-markers',
+      'editor.nudge-markers-back',
+      'editor.nudge-markers-forward',
+      'editor.nudge-markers-back-sample',
+      'editor.nudge-markers-forward-sample',
+    ],
   },
   {
     key: 'tools',

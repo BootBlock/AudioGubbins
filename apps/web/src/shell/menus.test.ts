@@ -47,7 +47,7 @@ describe('the menu bar', () => {
     const entries = menus.flatMap((menu) => menu.groups.flatMap((group) => group.items));
 
     expect(menus.map((menu) => menu.label)).toEqual(['View', 'Workspace', 'Editor', 'Help']);
-    expect(entries).toHaveLength(88);
+    expect(entries).toHaveLength(96);
   });
 
   it('names the panel the arrangement entries act on', () => {

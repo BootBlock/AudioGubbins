@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test';
 
-import { openPalette, writtenPress } from './platform.js';
+import { KeyboardConvention } from '@audiogubbins/commands';
+
+import { editorPanels, openAsset, readingOf, scopeOf, surfaceOf } from './editor.js';
+import { conventionOf, openPalette, openSettings, pressPrimary, writtenPress } from './platform.js';
 import { centreOf, menuBarMenu, openFresh, recordPresses } from './shell.js';
 import { test } from './test.js';
 
@@ -77,6 +80,73 @@ test.describe('the keyboard', () => {
     await page.keyboard.press('Enter');
 
     await expect(page.locator('.ag-theme-root')).toHaveAttribute('data-ag-theme', 'light');
+  });
+
+  test('leaves a text field its select-all and its word movement', async ({ page }) => {
+    // The editor's Ctrl+A and Ctrl+Left took the field's own: "zoom in",
+    // select all, "x" read "zoom inx", and the caret did not move by a word.
+    await openFresh(page);
+    await openPalette(page);
+    const field = page.getByRole('combobox', { name: 'Search commands' });
+
+    await field.fill('zoom in');
+    await pressPrimary(page, 'KeyA');
+    await page.keyboard.type('x');
+    await expect(field).toHaveValue('x');
+
+    await field.fill('open another view');
+    // A word back is Option with the arrow on Apple hardware, Control elsewhere.
+    const apple = (await conventionOf(page)) === KeyboardConvention.Apple;
+    await page.keyboard.press(apple ? 'Alt+ArrowLeft' : 'Control+ArrowLeft');
+    await page.keyboard.type('Z');
+    await expect(field).toHaveValue('open another Zview');
+  });
+
+  test('says what the keys changed in the editor, once they stop', async ({ page }) => {
+    // The surface is an application region, so a screen reader passes its keys
+    // through; the playhead and the zoom moved and nothing was said.
+    const panel = await openAsset(page, 'Tone bursts');
+    const surface = surfaceOf(panel);
+    await expect(surface).toHaveAccessibleDescription(/Playhead.*Zoom.*Showing/u);
+    await surface.focus();
+
+    await surface.press('ArrowRight');
+    await surface.press('ArrowRight');
+    await surface.press('ArrowUp');
+
+    const playhead = await readingOf(panel, 'Playhead').innerText();
+    const zoom = await readingOf(panel, 'Zoom').innerText();
+    await expect(
+      page.locator('.ag-live-regions', { hasText: `Playhead at ${playhead}. Zoom ${zoom},` }),
+    ).toHaveCount(1);
+  });
+
+  test('changes nothing behind a modal dialogue', async ({ page }) => {
+    // With the settings open on their first tab, M, Z and Ctrl+A added a
+    // marker, chose the Zoom tool and selected everything in the editor
+    // hidden behind them, and nothing was said until the dialogue closed.
+    const panel = await openAsset(page, 'Tone bursts');
+    await surfaceOf(panel).focus();
+    const scope = await scopeOf(panel).innerText();
+    await openSettings(page);
+    const settings = page.getByRole('dialog', { name: 'Settings' });
+    await expect(settings).toBeVisible();
+
+    await page.keyboard.press('m');
+    await page.keyboard.press('z');
+    await pressPrimary(page, 'KeyA');
+    await expect(
+      page.locator('.ag-live-regions', { hasText: 'Close the dialogue to use that shortcut.' }),
+    ).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    await expect(settings).toBeHidden();
+
+    await expect(panel.getByRole('list', { name: 'Markers' })).toHaveCount(0);
+    await expect(panel.getByRole('button', { name: 'Zoom', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await expect(scopeOf(panel)).toHaveText(scope);
   });
 });
 
@@ -235,5 +305,36 @@ test.describe('the dock built again by a command', () => {
     await page.getByRole('option', { name: /^Move this panel to the right/u }).click();
 
     await expect(transportContents(page)).toBeFocused();
+  });
+
+  test('gives the keyboard to a new view of an asset, and back to a view moved', async ({
+    page,
+  }) => {
+    // Opening another view left the keyboard on the new group's contents,
+    // where the arrow keys scroll it, so ArrowUp left the new view's zoom as
+    // it was until the reader tabbed back into a surface.
+    const first = await openAsset(page, 'Tone bursts');
+    await surfaceOf(first).focus();
+    await page.keyboard.press('Shift+F10');
+    await page.getByRole('menuitem', { name: 'Open another view of this asset' }).click();
+    await expect(editorPanels(page)).toHaveCount(2);
+    const second = editorPanels(page).last();
+    await expect(surfaceOf(second)).toBeFocused();
+
+    const zoom = await readingOf(second, 'Zoom').innerText();
+    await page.keyboard.press('ArrowUp');
+    await expect(readingOf(second, 'Zoom')).not.toHaveText(zoom);
+
+    await openPalette(page);
+    await page
+      .getByRole('combobox', { name: 'Search commands' })
+      .fill('Move this panel to the left');
+    await page.getByRole('option', { name: /^Move this panel to the left/u }).click();
+    // The view moved is drawn again, and the keyboard is back on its surface.
+    const moved = editorPanels(page).filter({ has: page.locator(':focus') });
+    await expect(surfaceOf(moved)).toBeFocused();
+    const zoomed = await readingOf(moved, 'Zoom').innerText();
+    await page.keyboard.press('ArrowDown');
+    await expect(readingOf(moved, 'Zoom')).not.toHaveText(zoomed);
   });
 });

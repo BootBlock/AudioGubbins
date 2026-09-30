@@ -29,7 +29,11 @@ import { shellCommand, type ShellCommandOptions } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** Moves `target`'s playhead to `position`, and brings the view to it where it is out of sight. */
-function setPlayhead(context: ShellContext, target: EditorTarget, position: SampleCount): void {
+export function setPlayhead(
+  context: ShellContext,
+  target: EditorTarget,
+  position: SampleCount,
+): void {
   context.cues.park(target.asset.id, position);
   context.playback.seek(target.asset.id, position);
   const { viewport } = target.state;

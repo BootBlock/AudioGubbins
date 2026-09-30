@@ -3,19 +3,20 @@
  * release, read into the editor-view package's tool steps and carried out as
  * commands (REQ-EDIT-065). Mouse, pen and a single finger take this one path,
  * each with its own reach and drag threshold. A finger or a pen held still is
- * the context action instead (REQ-UX-067), which the panel's context actions
- * open, so the press it began is abandoned rather than finished.
+ * the context action instead (REQ-UX-067), which the pointer input recognises
+ * and which abandons the press here rather than finishing it.
  *
  * Every position is snapped as the view's settings say before a tool reads it
  * (REQ-EDIT-013), among targets gathered from the same values the frame is
  * drawn from. A zero crossing needs the audio, which the peak worker searches;
  * events are taken in order, each waiting for its search, so where a press or a
  * release lands does not depend on how quickly the worker answered, and a drag
- * that outruns it skips the moves that were overtaken.
+ * that outruns it skips the moves that were overtaken. A press that is
+ * abandoned, or overtaken by the next, abandons the search it is waiting on.
  */
 
 import { SnapKind, boundaryAt, samplesWithin, type SnapTarget } from '@audiogubbins/timeline';
-import { DEFAULT_GESTURE_SETTINGS, PointerKind, type PointerSample } from '@audiogubbins/input';
+import type { PointerSample } from '@audiogubbins/input';
 import {
   IDLE,
   hitTest,
@@ -61,10 +62,12 @@ export interface ToolPointerHost {
   readonly show: (preview: ToolPreview | undefined, snap: SnapTarget | undefined) => void;
   /** Records a fault met while an event was taken. */
   readonly fault: (error: unknown) => void;
+  /** The zero crossing nearest a position, searched until `signal` gives the press up. */
   readonly zeroCrossing: (
     position: number,
     within: number,
     channels: readonly number[],
+    signal: AbortSignal,
   ) => Promise<number | undefined>;
 }
 
@@ -85,8 +88,8 @@ export class ToolPointer {
   readonly #host: ToolPointerHost;
   #interaction: Interaction = IDLE;
   #pointer: number | undefined;
-  #longPress: ReturnType<typeof setTimeout> | undefined;
-  #started: PointerSample | undefined;
+  /** Gives up the searches of the press under way, when it is abandoned or overtaken while held. */
+  #press = new AbortController();
   /** The event being taken, and the move waiting behind it, which a later move replaces. */
   #busy: Promise<void> = Promise.resolve();
   #waitingMove: (() => Promise<void>) | undefined;
@@ -101,18 +104,15 @@ export class ToolPointer {
   }
 
   down(sample: PointerSample, modifiers: Modifiers): void {
+    // A press still held is overtaken; one released keeps its release.
+    this.#abandon();
     this.#pointer = sample.pointerId;
-    this.#started = sample;
-    if (sample.kind !== PointerKind.Mouse) {
-      this.#longPress = setTimeout(() => {
-        this.#longPress = undefined;
-        this.cancel();
-      }, DEFAULT_GESTURE_SETTINGS.longPressMs);
-    }
-    this.#enqueue(async () => {
+    this.#press = new AbortController();
+    const signal = this.#press.signal;
+    this.#enqueue(signal, async () => {
       const snapshot = this.#host.snapshot();
       if (snapshot === undefined) return;
-      const input = await this.#input(snapshot, sample, modifiers, {});
+      const input = await this.#input(snapshot, sample, modifiers, {}, signal);
       const { state, selection } = snapshot.sources;
       const hit = hitTest(
         {
@@ -143,25 +143,18 @@ export class ToolPointer {
 
   moved(sample: PointerSample, modifiers: Modifiers): void {
     if (sample.pointerId !== this.#pointer) return;
-    const started = this.#started;
-    if (
-      started !== undefined &&
-      Math.hypot(sample.x - started.x, sample.y - started.y) >
-        DEFAULT_GESTURE_SETTINGS.longPressTolerancePx
-    ) {
-      this.#cancelLongPress();
-    }
+    const signal = this.#press.signal;
     const step = async (): Promise<void> => {
       const snapshot = this.#host.snapshot();
       if (snapshot === undefined || this.#interaction.kind === 'idle') return;
-      const input = await this.#input(snapshot, sample, modifiers, this.#exclusions());
+      const input = await this.#input(snapshot, sample, modifiers, this.#exclusions(), signal);
       this.#apply(move(this.#interaction, input), input.snap);
     };
     // A move not yet taken is overtaken by this one.
     const waiting = this.#waitingMove !== undefined;
     this.#waitingMove = step;
     if (!waiting) {
-      this.#enqueue(async () => {
+      this.#enqueue(signal, async () => {
         const next = this.#waitingMove;
         this.#waitingMove = undefined;
         await next?.();
@@ -171,41 +164,54 @@ export class ToolPointer {
 
   up(sample: PointerSample, modifiers: Modifiers): void {
     if (sample.pointerId !== this.#pointer) return;
-    this.#cancelLongPress();
     this.#pointer = undefined;
-    this.#enqueue(async () => {
+    const signal = this.#press.signal;
+    this.#enqueue(signal, async () => {
       const snapshot = this.#host.snapshot();
       if (snapshot === undefined || this.#interaction.kind === 'idle') return;
-      const input = await this.#input(snapshot, sample, modifiers, this.#exclusions());
+      const input = await this.#input(snapshot, sample, modifiers, this.#exclusions(), signal);
       this.#apply(release(this.#interaction, input), undefined);
     });
   }
 
-  /** Abandons the press, as a second finger or a cancelled pointer does. */
+  /**
+   * Abandons the press, and the search it waits on, as a second finger, a long
+   * press or a cancelled pointer does.
+   */
   cancel(): void {
-    this.#cancelLongPress();
-    this.#pointer = undefined;
+    this.#abandon();
     this.#waitingMove = undefined;
-    this.#enqueue(() => {
+    this.#enqueue(undefined, () => {
       this.#interaction = IDLE;
       this.#host.show(undefined, undefined);
       return Promise.resolve();
     });
   }
 
-  #cancelLongPress(): void {
-    if (this.#longPress !== undefined) clearTimeout(this.#longPress);
-    this.#longPress = undefined;
+  /** Gives up the searches of the press still held, if one is. */
+  #abandon(): void {
+    if (this.#pointer !== undefined) this.#press.abort();
+    this.#pointer = undefined;
   }
 
-  #enqueue(work: () => Promise<void>): void {
-    this.#busy = this.#busy.then(work).catch((error: unknown) => {
-      // An event that failed is recorded, and the press it belonged to is
-      // abandoned, so the events after it are still taken.
-      this.#interaction = IDLE;
-      this.#host.show(undefined, undefined);
-      this.#host.fault(error);
-    });
+  /**
+   * Takes `work` after the events before it, for the press `signal` belongs to,
+   * or for none. Work its press gave up is dropped quietly, before it starts or
+   * while it waits, since what it served is gone. Work that failed otherwise is
+   * recorded, and the press it belonged to is abandoned, so the events after it
+   * are still taken.
+   */
+  #enqueue(signal: AbortSignal | undefined, work: () => Promise<void>): void {
+    this.#busy = this.#busy
+      .then(async () => {
+        if (signal?.aborted !== true) await work();
+      })
+      .catch((error: unknown) => {
+        if (signal?.aborted === true) return;
+        this.#interaction = IDLE;
+        this.#host.show(undefined, undefined);
+        this.#host.fault(error);
+      });
   }
 
   #exclusions(): SnapExclusions {
@@ -221,6 +227,7 @@ export class ToolPointer {
     sample: PointerSample,
     modifiers: Modifiers,
     exclusions: SnapExclusions,
+    signal: AbortSignal,
   ): Promise<ToolInput & { readonly snap: SnapTarget | undefined }> {
     const { state, asset } = snapshot.sources;
     const raw = boundaryAt(state.viewport, sample.x, asset.length);
@@ -232,6 +239,7 @@ export class ToolPointer {
           raw,
           samplesWithin(state.viewport, snapping.tolerance),
           shownChannels(state, asset),
+          signal,
         ),
       );
     }

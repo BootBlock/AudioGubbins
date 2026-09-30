@@ -2647,7 +2647,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     // Tables: a list of independent definitions, each whole in itself.
-    'apps/web/src/commands/view-commands.ts: viewCommands': [
+    'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
       'A list of independent appearance commands, each self-contained, sharing only the command builder and `unlessAlready`.',
     ],
@@ -2770,14 +2770,6 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'apps/web/src/shell/use-shell-state.ts: useShellState': [
       62,
       'Nine subscriptions and what the shell derives from them; its two effects are hooks of their own.',
-    ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts': [
-      60,
-      "One document listener deciding what a key press means for the chord tracker, and handing every press it reads to the keyboard layout's reader.",
-    ],
-    'apps/web/src/input/use-shortcuts.ts: useShortcuts > useEffect callback': [
-      55,
-      'The listener itself, with its blur handler and its cleanup, reading one tracker.',
     ],
 
     // Procedures: one algorithm, or one validation step by step.

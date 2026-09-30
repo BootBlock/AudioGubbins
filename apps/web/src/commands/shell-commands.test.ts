@@ -64,8 +64,26 @@ describe('the shell command set', () => {
       'editor.remove-markers',
       'editor.restore-markers',
       'editor.move-marker',
+      'editor.nudge-markers-back',
+      'editor.nudge-markers-forward',
+      'editor.nudge-markers-back-sample',
+      'editor.nudge-markers-forward-sample',
+      'editor.move-markers-by',
       'picture.mark-frame',
     ]);
+  });
+
+  it('says only of the appearance commands that they change how the interface is drawn', () => {
+    // Their shortcuts are the only ones that run while a modal dialogue is
+    // open, so a command that acts on the page behind must never say so.
+    const appearance = commands
+      .filter((command) => command.changesAppearance === true)
+      .map((command) => command.id);
+
+    expect(appearance).toContain('view.brighten');
+    expect(appearance).toContain('view.theme-dark');
+    expect(appearance.filter((id) => !id.startsWith('view.'))).toEqual([]);
+    expect(appearance).not.toContain('view.command-palette');
   });
 
   it('offers an accent command for every accent', () => {
@@ -781,13 +799,24 @@ describe('finding the shell commands in the palette', () => {
     };
   }
 
-  /** The loop test's first marker, which the marker scenarios act on. */
-  function firstMarker(context: ShellContext): string {
+  /** The loop test's first marker, which the marker scenarios act on, or the one at `index`. */
+  function firstMarker(context: ShellContext, index = 0): string {
     const loop = context.assets.find('test:loop');
-    const marker = loop === undefined ? undefined : context.content.of(loop).markers[0];
-    if (marker === undefined) throw new Error('The loop test has no marker.');
+    const marker = loop === undefined ? undefined : context.content.of(loop).markers[index];
+    if (marker === undefined) throw new Error('The loop test has no such marker.');
     return marker.id;
   }
+
+  /** The loop test's Sustain marker selected, which can move either way. */
+  const sustainSelected = inEditor(
+    { before: (run, context) => run('editor.select-marker', { marker: firstMarker(context, 1) }) },
+    'test:loop',
+  );
+
+  /** The playhead a second into the asset, which can move either way. */
+  const playheadInside = inEditor({
+    before: (run) => run('editor.set-playhead', { position: 48_000 }),
+  });
 
   /** Opens a reference picture, bound to the editor in use, as the browser would load it. */
   function openPicture(
@@ -989,6 +1018,17 @@ describe('finding the shell commands in the palette', () => {
       'test:loop',
     ),
     'editor.set-playhead': inEditor({ arguments: () => ({ position: 4800 }) }),
+    'editor.selection-end-at-playhead': playheadInside,
+    'editor.extend-selection-back': playheadInside,
+    'editor.extend-selection-back-sample': playheadInside,
+    'editor.nudge-markers-back': sustainSelected,
+    'editor.nudge-markers-forward': sustainSelected,
+    'editor.nudge-markers-back-sample': sustainSelected,
+    'editor.nudge-markers-forward-sample': sustainSelected,
+    'editor.move-markers-by': inEditor(
+      { arguments: (context) => ({ markers: firstMarker(context, 1), frames: 10 }) },
+      'test:loop',
+    ),
     'editor.playhead-back-pixel': inEditor({
       before: (run) => run('editor.set-playhead', { position: 48_000 }),
     }),

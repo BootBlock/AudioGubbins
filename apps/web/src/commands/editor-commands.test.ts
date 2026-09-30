@@ -9,7 +9,13 @@ import {
   type ExecutionResult,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
-import { SelectionFacet, activeFacet, pixelOf } from '@audiogubbins/timeline';
+import {
+  SelectionFacet,
+  activeFacet,
+  boundaryAt,
+  pixelOf,
+  samplesWithin,
+} from '@audiogubbins/timeline';
 
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
@@ -115,12 +121,51 @@ describe('a selection (REQ-EDIT-063, REQ-EDIT-064)', () => {
     expect(made.channels).toEqual([1]);
   });
 
-  it('extends by exactly one sample at each end', () => {
+  it('extends with the playhead by exactly one sample, and shrinks back the same way', () => {
+    // The keyboard could only grow a range, a sample a press, from wherever the
+    // range was: a second of audio took 48,000 presses and a press too many
+    // could not be taken back. The playhead is the moving end, as a text
+    // field's caret is.
     run('editor.select-time', { start: 1000, end: 2000 });
-    run('editor.extend-selection-forward');
-    run('editor.extend-selection-back');
+    run('editor.set-playhead', { position: 2000 });
+    run('editor.extend-selection-forward-sample');
+    run('editor.extend-selection-forward-sample');
+    run('editor.extend-selection-back-sample');
 
-    expect(context.selections.of('test:tone-bursts').time).toEqual({ start: 999, end: 2001 });
+    expect(context.selections.of('test:tone-bursts').time).toEqual({ start: 1000, end: 2001 });
+    expect(context.cues.of('test:tone-bursts')).toBe(2001);
+  });
+
+  it('extends with the playhead by a pixel of the view, growing the way the key points', () => {
+    const perPixel = samplesWithin(view('editor').viewport, 1);
+    run('editor.select-time', { start: 100_000, end: 200_000 });
+
+    // The playhead is on neither end, so the end the key moves towards moves.
+    run('editor.extend-selection-back');
+    expect(context.selections.of('test:tone-bursts').time).toEqual({
+      start: 100_000 - perPixel,
+      end: 200_000,
+    });
+    run('editor.extend-selection-forward');
+    run('editor.extend-selection-forward');
+    expect(context.selections.of('test:tone-bursts').time).toEqual({
+      start: 100_000 + perPixel,
+      end: 200_000,
+    });
+  });
+
+  it('starts a selection at the playhead and ends it at the playhead, as in and out points', () => {
+    run('editor.set-playhead', { position: 24_000 });
+    run('editor.selection-start-at-playhead');
+    expect(context.selections.of('test:tone-bursts').time).toEqual({ start: 24_000, end: 480_000 });
+
+    run('editor.set-playhead', { position: 72_000 });
+    run('editor.selection-end-at-playhead');
+    expect(context.selections.of('test:tone-bursts').time).toEqual({ start: 24_000, end: 72_000 });
+
+    run('editor.set-playhead', { position: 12_000 });
+    expect(run('editor.selection-end-at-playhead').kind).toBe('refused');
+    expect(context.selections.of('test:tone-bursts').time).toEqual({ start: 24_000, end: 72_000 });
   });
 
   it('makes the marker selected last the active facet, and keeps the range behind it', () => {
@@ -166,9 +211,9 @@ describe('a selection (REQ-EDIT-063, REQ-EDIT-064)', () => {
     run('editor.select-time', { start: 100, end: 200 });
     run('editor.select-marker', { marker: attack.id });
     run('editor.set-playhead', { position: 4800 });
-    run('editor.extend-selection-forward');
+    run('editor.extend-selection-forward-sample');
 
-    expect(context.selections.of('test:loop').time).toEqual({ start: 4800, end: 4802 });
+    expect(context.selections.of('test:loop').time).toEqual({ start: 4800, end: 4801 });
   });
 
   it('refuses a range outside the asset, and one that ends before it starts', () => {
@@ -216,6 +261,39 @@ describe('the marker commands (ADR-0047)', () => {
     expect(markers()).toEqual(before);
   });
 
+  it('nudge the selected marker by a pixel and by a sample, and back by each inverse', () => {
+    // A marker could be moved only by dragging it: without a pointer it could
+    // not be moved at all.
+    const sustain = markers()[1];
+    if (sustain === undefined) throw new Error('No Sustain marker.');
+    const perPixel = samplesWithin(view('editor').viewport, 1);
+    run('editor.select-marker', { marker: sustain.id });
+
+    const byPixel = run('editor.nudge-markers-forward');
+    const bySample = run('editor.nudge-markers-back-sample');
+
+    expect(markers()[1]?.position).toBe(sustain.position + perPixel - 1);
+    reverse(bySample);
+    expect(markers()[1]?.position).toBe(sustain.position + perPixel);
+    reverse(byPixel);
+    expect(markers()[1]?.position).toBe(sustain.position);
+  });
+
+  it('nudge none of the selected markers where one would pass the start', () => {
+    const [attack, sustain] = markers();
+    if (attack === undefined || sustain === undefined) throw new Error('No markers.');
+    run('editor.select-marker', { marker: sustain.id });
+    run('editor.select-marker', { marker: attack.id, add: true });
+
+    expect(run('editor.nudge-markers-back-sample').kind).toBe('refused');
+    expect(markers().map((marker) => marker.position)).toEqual([0, 4800, 244_800]);
+
+    const both = run('editor.nudge-markers-forward-sample');
+    expect(markers().map((marker) => marker.position)).toEqual([1, 4801, 244_800]);
+    reverse(both);
+    expect(markers().map((marker) => marker.position)).toEqual([0, 4800, 244_800]);
+  });
+
   it('move a marker, and move it back by its inverse', () => {
     const [first] = markers();
     const moved = run('editor.move-marker', { marker: first?.id ?? '', to: 960 });
@@ -244,6 +322,40 @@ describe('zooming (ADR-0041)', () => {
     for (let step = 0; step < steps; step += 1) run('editor.zoom-out');
 
     expect(view('editor').viewport).toEqual(start);
+  });
+});
+
+describe('zooming about a point (ADR-0041)', () => {
+  /** The boundary under pixel `x` of the view, before and after running `id` about it. */
+  function aboutAnchor(id: string, x: number, args: Arguments = {}, rungsIn = 1) {
+    openView('editor', 'test:tone-bursts');
+    const tones = context.assets.find('test:tone-bursts');
+    if (tones === undefined) throw new Error('No tone bursts.');
+    // Onto a rung first, and away from the playhead at the start, which a zoom
+    // that names no point keeps where it is, and far enough in that a zoom out
+    // is not stopped by either end of the asset.
+    for (let rung = 0; rung < rungsIn; rung += 1) run('editor.zoom-in');
+    run('editor.scroll', { pixels: 300 });
+    const before = view('editor').viewport;
+    const under = boundaryAt(before, x, tones.length);
+    const result = run(id, { anchor: x, ...args });
+    return { result, moved: pixelOf(view('editor').viewport, under) - x, before };
+  }
+
+  it('keeps the audio under the fingers, the wheel or the pointer where it was', () => {
+    // A pinch, a Ctrl+wheel and a zoom-tool click each name the pixel they zoom
+    // about, and a zoom that dropped it zoomed about the left edge, so the
+    // audio under the person's fingers left the view; every suite passed.
+    const { result, moved, before } = aboutAnchor('editor.zoom-by', 700, { factor: 0.5 });
+
+    expect(result.kind).toBe('applied');
+    expect(view('editor').viewport.zoom).not.toEqual(before.zoom);
+    expect(Math.abs(moved)).toBeLessThan(1);
+  });
+
+  it('keeps it for a step in and a step out about a point, as the zoom tool takes them', () => {
+    expect(Math.abs(aboutAnchor('editor.zoom-in', 640).moved)).toBeLessThan(1);
+    expect(Math.abs(aboutAnchor('editor.zoom-out', 130, {}, 3).moved)).toBeLessThan(1);
   });
 });
 

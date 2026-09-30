@@ -113,6 +113,14 @@ describe('ModalDialog', () => {
     expect(description?.textContent).toBe('This returns every panel to its built-in position.');
   });
 
+  it('says it is modal, which is what keeps the shortcuts off the page behind it', () => {
+    // Radix makes the page behind inert and did not say so: the shortcut
+    // listener, which reads this, ran the editor's keys behind the settings.
+    renderThemed(dialog());
+
+    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+  });
+
   it('moves focus into itself when it opens', () => {
     renderThemed(dialog());
     expect(screen.getByRole('dialog')).toContainElement(

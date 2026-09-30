@@ -842,6 +842,7 @@ Published paths
   readonly Command.keywords?: readonly string[]
   readonly Command.description?: string
   readonly Command.discoverable?: boolean
+  readonly Command.changesAppearance?: boolean
   readonly Command.undoable: boolean
   Command.availability: (context: TContext) => CommandAvailability
   Command.run: (context: TContext, invocation: CommandInvocation) => CommandOutcome<TContext>
@@ -970,10 +971,13 @@ Published paths
   type CategoryPalette = { readonly [x: string]: Oklch; }
   type ChromePalette = { readonly surfaceBase: Oklch; readonly surfaceRaised: Oklch; readonly surfaceOverlay: Oklch; readonly surfaceSunken: Oklch; readonly surfaceHover: Oklch; readonly surfaceActive: Oklch; readonly borderSubtle: Oklch; readonly borderDefault: Oklch; readonly borderStrong: Oklch; readonly borderFocus: Oklch; readonly textPrimary: Oklch; readonly textSecondary: Oklch; readonly textDisabled: Oklch; readonly textOnAccent: Oklch; readonly accent: Oklch; readonly accentHover: Oklch; readonly accentActive: Oklch; readonly accentSubtle: Oklch; readonly statusError: Oklch; readonly statusWarning: Oklch; readonly statusSuccess: Oklch; readonly statusInfo: Oklch; readonly scrim: Oklch; readonly shadow: Oklch; }
   function ContextActions(props: ContextMenuProps): ReactNode
+  interface ContextActionsOpener
+  readonly ContextActionsOpener.openAt: (clientX: number, clientY: number) => void
   interface ContextMenuProps
   readonly ContextMenuProps.children: ReactNode
   readonly ContextMenuProps.groups: readonly MenuGroup[]
   readonly ContextMenuProps.label: string
+  readonly ContextMenuProps.opener?: Ref<ContextActionsOpener>
   const ContrastLevel: { readonly Standard: "standard"; readonly High: "high"; }
   type ContrastLevel = "high" | "standard"
   const ContrastRequirement: { readonly BodyText: 4.5; readonly LargeText: 3; readonly Enhanced: 7; }
@@ -2240,9 +2244,11 @@ Published paths
   readonly DockHostProps.memory: DockMemory
   interface DockMemory
   readonly DockMemory.scrolls: Map<string, Scrolled>
+  DockMemory.focus: FocusPlace | undefined
   DockMemory.mounts: number
   const DockRegion: { readonly Centre: "centre"; readonly Left: "left"; readonly Right: "right"; readonly Bottom: "bottom"; readonly Floating: "floating"; }
   type DockRegion = "bottom" | "centre" | "floating" | "left" | "right"
+  const KEYBOARD_HOME: "data-ag-keyboard-home"
   const LONGEST_WORKSPACE_NAME: 120
   interface LayoutProblem
   readonly LayoutProblem.kind: "invalid" | "nothing-docked"
@@ -2795,6 +2801,10 @@ packages/waveform/src/peak-messages.ts
   type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
 
 packages/workspace/src/adapter/dock-memory.ts
+  interface FocusPlace
+  readonly FocusPlace.panel: string
+  readonly FocusPlace.what: string
+  readonly FocusPlace.which: number
   interface Scrolled
   readonly Scrolled.top: number
   readonly Scrolled.left: number
