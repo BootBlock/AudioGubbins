@@ -14,7 +14,6 @@ export {
   calibratedTo,
   frameBoundariesWithin,
   frameBoundary,
-  framePeriod,
   nudgedByFrames,
   pictureFrameAt,
   pictureTimeAt,
@@ -27,5 +26,4 @@ export {
   type PresentedPicture,
   type TransportMotion,
   pictureCorrection,
-  pictureDrift,
 } from './picture-sync.js';

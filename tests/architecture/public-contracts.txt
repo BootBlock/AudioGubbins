@@ -2113,10 +2113,8 @@ Published paths
   function calibratedTo(binding: ReferenceMediaClockBinding, frame: number, position: number): ReferenceMediaClockBinding
   function frameBoundariesWithin(binding: ReferenceMediaClockBinding, from: number, to: number, most: number): readonly number[]
   function frameBoundary(binding: ReferenceMediaClockBinding, frame: number): number
-  function framePeriod(binding: ReferenceMediaClockBinding): number
   function nudgedByFrames(binding: ReferenceMediaClockBinding, frames: number): ReferenceMediaClockBinding
   function pictureCorrection(binding: ReferenceMediaClockBinding, position: number, presented: PresentedPicture, motion: TransportMotion): PictureCorrection
-  function pictureDrift(binding: ReferenceMediaClockBinding, position: number, presented: PresentedPicture): number
   function pictureFrameAt(binding: ReferenceMediaClockBinding, position: number): number
   function pictureTimeAt(binding: ReferenceMediaClockBinding, position: number): number
   function pictureTimecodeAt(binding: ReferenceMediaClockBinding, position: number): string

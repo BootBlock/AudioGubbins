@@ -64,7 +64,7 @@ function presentedFrame(binding: ReferenceMediaClockBinding, presented: Presente
  * How many frames the picture is from the frame that holds `position`; positive
  * when it is late.
  */
-export function pictureDrift(
+function pictureDrift(
   binding: ReferenceMediaClockBinding,
   position: number,
   presented: PresentedPicture,

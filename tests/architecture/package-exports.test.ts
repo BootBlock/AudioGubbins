@@ -260,10 +260,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The shape of a source's pyramid, which the editor view's and the application's tests make an empty or a filled pyramid with; the page is handed pyramids whole.":
       ['peakGeometry'],
   },
-  '@audiogubbins/video-reference': {
-    "The picture binding the application's picture panel and the editor view of this phase use, which reach it in the commits that follow (ADR-0046).":
-      ['framePeriod', 'pictureDrift'],
-  },
+  '@audiogubbins/video-reference': {},
   '@audiogubbins/editor-view': {},
   '@audiogubbins/audio-graph': {
     "The steps `compileGraph` composes, for a host that needs one alone: validation, for an editor that shows a graph's diagnostics as it is drawn, and latency analysis and planning, for a view of each node's latency before a graph runs (ADR-0030, REQ-ARCH-144). Every host in this phase compiles a graph whole; the phase that edits processor graphs is their first consumer.":

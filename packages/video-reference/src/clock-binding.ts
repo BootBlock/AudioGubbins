@@ -66,11 +66,6 @@ export function seekTimeFor(binding: ReferenceMediaClockBinding, frame: number):
   return (frame + 0.5) / framesPerSecond(binding.frames);
 }
 
-/** How long one frame lasts, in seconds, at the binding's interpretation. */
-export function framePeriod(binding: ReferenceMediaClockBinding): number {
-  return 1 / framesPerSecond(binding.frames);
-}
-
 /** The timecode label of the picture at `position`, counted from its first frame's label. */
 export function pictureTimecodeAt(binding: ReferenceMediaClockBinding, position: number): string {
   return timecodeText(

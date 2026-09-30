@@ -15,7 +15,7 @@ import {
   pictureTimecodeAt,
   seekTimeFor,
 } from './clock-binding.js';
-import { pictureCorrection, pictureDrift } from './picture-sync.js';
+import { pictureCorrection } from './picture-sync.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 const PAL = bindingAtStart(RATE, StandardFrameRates.pal);
@@ -120,7 +120,7 @@ describe('keeping the picture with the audio', () => {
     expect(pictureCorrection(PAL, position, stamped(10.04), 'playing')).toEqual({
       kind: 'in-sync',
     });
-    expect(pictureDrift(PAL, position, stamped(9.92))).toBe(2);
+    // Stamped 9.92 is frame 248, two frames behind the frame 250 that should show.
     expect(pictureCorrection(PAL, position, stamped(9.92), 'playing')).toEqual({
       kind: 'seek',
       to: position / 48_000,
