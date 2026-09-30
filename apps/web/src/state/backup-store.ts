@@ -146,6 +146,16 @@ export class BackupStore implements Observable<BackupState> {
     return done.ok ? succeed(undefined) : done;
   };
 
+  /** Removes a generation the person chose to delete, protected or not. */
+  readonly remove = async (generation: number): Promise<DomainResult<void>> => {
+    const session = this.project.session();
+    if (session === undefined) return fail(NOT_WRITABLE);
+    const { tree, digest } = this.services;
+    const done = await new BackupGenerations(tree, digest, session.project).remove([generation]);
+    await this.list(session.project);
+    return done;
+  };
+
   /** Sets when the open project is backed up on its own. */
   readonly setPolicy = async (policy: BackupPolicy): Promise<DomainResult<WriteOutcome>> => {
     const session = this.project.session();

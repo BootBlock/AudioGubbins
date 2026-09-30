@@ -18,8 +18,9 @@ import { setName } from './testing/test-commands.js';
 /**
  * When a generation is due and which ones retention keeps (REQ-STOR-105): a
  * generation follows changes, by time or by their number, never idleness; and
- * pruning never removes a protected or a manual generation, whatever the
- * limits, and removes only what some limit does not keep.
+ * pruning never removes a protected generation or the newest, whatever the
+ * limits, and removes only what some limit does not keep. How a generation was
+ * made does not matter: one made by hand goes once it is let go.
  */
 
 const DAY = 86_400_000;
@@ -82,7 +83,7 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
   const REASONS: readonly BackupReason[] = ['time', 'save', 'manual'];
 
   it.each(Array.from({ length: 200 }, (_, index) => index + 1))(
-    'never removes a protected or manual generation or the newest, and only what a limit does not keep: seed %i',
+    'never removes a protected generation or the newest, and only what a limit does not keep: seed %i',
     (seed) => {
       const random = seededRandom(seed);
       const now = 100 * DAY;
@@ -103,15 +104,11 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
       };
       const { removed, bytes } = planBackupPruning(generations, retention, now);
 
-      for (const generation of removed) {
-        expect(generation.protected).toBe(false);
-        expect(generation.reason).not.toBe('manual');
-      }
+      for (const generation of removed) expect(generation.protected).toBe(false);
       expect(bytes).toBe(removed.reduce((sum, generation) => sum + generation.bytes, 0));
 
       const kept = generations.filter(
-        (generation) =>
-          !generation.protected && generation.reason !== 'manual' && !removed.includes(generation),
+        (generation) => !generation.protected && !removed.includes(generation),
       );
       // The newest generation is kept whatever the limits, so there is always
       // one to go back to; every other one kept is within every limit.
@@ -150,6 +147,18 @@ describe('pruning backup generations (REQ-STOR-105, REQ-STOR-106)', () => {
       protected: false,
     }));
     const pruned = planBackupPruning(generations, { bytes: 1_000, days: 1 }, 10 * DAY);
+    expect(pruned.removed.map(({ number }) => number)).toEqual([1]);
+  });
+
+  it('prunes a generation made by hand once the person lets it go', () => {
+    const generations: BackupGeneration[] = [1, 2].map((number) => ({
+      number,
+      at: number,
+      reason: 'manual',
+      bytes: 10,
+      protected: false,
+    }));
+    const pruned = planBackupPruning(generations, { count: 1 }, DAY);
     expect(pruned.removed.map(({ number }) => number)).toEqual([1]);
   });
 

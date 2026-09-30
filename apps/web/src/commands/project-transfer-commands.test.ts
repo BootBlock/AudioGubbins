@@ -166,6 +166,18 @@ describe('backups of the open project', () => {
     expect(window.projects.backups.get().generations[0]?.protected).toBe(false);
   });
 
+  it('deletes a backup the person chose, though it is kept', async () => {
+    const { window } = await withProject();
+    await window.runAndHear('file.back-up-now');
+    const [generation] = window.projects.backups.get().generations;
+    expect(generation?.protected).toBe(true);
+
+    expect(await window.runAndHear('backup.delete', { generation: generation?.number ?? 0 })).toBe(
+      'The backup is deleted.',
+    );
+    expect(window.projects.backups.get().generations).toEqual([]);
+  });
+
   it('restores a backup as a new project, leaving the project as it is', async () => {
     const { window } = await withProject();
     await window.runAndHear('file.back-up-now');

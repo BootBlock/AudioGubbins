@@ -165,7 +165,7 @@ async function expiredGenerationsRemoved(
   const numbers = new Set(planned.get(project));
   const guarded = new Set(
     listing.value.generations
-      .filter((generation) => generation.protected || generation.reason === 'manual')
+      .filter((generation) => generation.protected)
       .map(({ number }) => number),
   );
   const removed = [...numbers].filter((number) => !guarded.has(number));

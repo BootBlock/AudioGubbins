@@ -9,10 +9,12 @@
  * the side. A generation is made only where something changed since the last,
  * so an idle project makes none however long it stays open.
  *
- * Pruning never removes a protected generation, nor one the person made by
- * hand, nor the newest, whatever the limits, so a limit the newest alone is
- * past never leaves the project with no backup; the others are kept while they
- * are within every limit set, counted newest first, and removed otherwise.
+ * Pruning never removes a protected generation, nor the newest, whatever the
+ * limits, so a limit the newest alone is past never leaves the project with no
+ * backup; the others are kept while they are within every limit set, counted
+ * newest first, and removed otherwise. Protection alone decides: a generation
+ * made by hand is made protected, and once the person lets it go, it goes as
+ * the policy says.
  */
 
 import type { History } from '@audiogubbins/history';
@@ -84,7 +86,7 @@ export function planBackupPruning(
   now: number,
 ): BackupPruning {
   const prunable = generations
-    .filter((generation) => !generation.protected && generation.reason !== 'manual')
+    .filter((generation) => !generation.protected)
     .sort((one, other) => other.number - one.number);
   const newest = generations.reduce((most, { number }) => Math.max(most, number), 0);
   let held = 0;

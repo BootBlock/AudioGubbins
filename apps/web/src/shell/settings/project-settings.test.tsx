@@ -107,6 +107,22 @@ describe('the backup settings', () => {
     });
   });
 
+  it('deletes a backup only from its confirmation, and says a let-go one is kept no longer', async () => {
+    const window = await withBackup();
+    const [generation] = window.projects.backups.get().generations;
+    await window.runAndHear('backup.protect', { generation: generation?.number ?? 0, keep: false });
+    const run = recorder();
+    render(<Backups projects={window.projects} run={run} unavailableReason={() => undefined} />);
+
+    const list = screen.getByRole('list', { name: 'Backups' });
+    expect(within(list).queryByText(/kept until you let it go/)).toBeNull();
+    await userEvent.click(within(list).getByRole('button', { name: /^Delete the backup of .*…$/ }));
+    expect(run).not.toHaveBeenCalled();
+    expect(within(list).getByText(/cannot be brought back/)).toBeVisible();
+    await userEvent.click(within(list).getByRole('button', { name: 'Delete' }));
+    expect(run).toHaveBeenLastCalledWith('backup.delete', { generation: generation?.number });
+  });
+
   it('exports a backup, and keeps or lets one go, each by its command', async () => {
     const window = await withBackup();
     const [generation] = window.projects.backups.get().generations;

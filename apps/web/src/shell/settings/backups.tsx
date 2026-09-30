@@ -5,10 +5,10 @@
  *
  * Restoring in place replaces the project, history and all, which undo cannot
  * reverse, so it asks a second time and says the project as it is now is kept
- * as a backup first. A backup made by hand is kept until it is let go; the
- * others go as the policy says. Where the browser gives a folder to write into,
- * a backup can be copied to one as well (`backup-folder.tsx`). Every control
- * runs a command.
+ * as a backup first. Deleting a backup asks a second time too. A backup made by
+ * hand is kept until it is let go, and then goes as the policy says, as the
+ * others do. Where the browser gives a folder to write into, a backup can be
+ * copied to one as well (`backup-folder.tsx`). Every control runs a command.
  */
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -36,35 +36,66 @@ const REASONS: Readonly<Record<BackupGeneration['reason'], string>> = {
   save: 'made after a number of changes',
 };
 
-/** Restoring a backup in place, once the person has read that undo cannot reverse it. */
-function RestoreConfirmation({
+/** What a row asks a second time before doing. */
+type Confirming = 'restore-in-place' | 'delete';
+
+/** The words and the command of each thing a row confirms. */
+const CONFIRMATIONS: Readonly<
+  Record<
+    Confirming,
+    {
+      readonly group: string;
+      readonly warning: string;
+      readonly action: string;
+      readonly command: string;
+      readonly arguments: Readonly<Record<string, string>>;
+    }
+  >
+> = {
+  'restore-in-place': {
+    group: 'Restore the backup of %s in place',
+    warning: 'Undo cannot reverse this. The project as it is now is kept as a backup first.',
+    action: 'Restore in place',
+    command: 'backup.restore',
+    arguments: { as: 'replace-current' },
+  },
+  delete: {
+    group: 'Delete the backup of %s',
+    warning: 'The backup cannot be brought back once it is deleted.',
+    action: 'Delete',
+    command: 'backup.delete',
+    arguments: {},
+  },
+};
+
+/** A destructive action on a backup, once the person has read what it cannot undo. */
+function Confirmation({
+  confirming,
   generation,
   when,
   onCancel,
   run,
 }: {
+  readonly confirming: Confirming;
   readonly generation: BackupGeneration;
   readonly when: string;
   readonly onCancel: () => void;
   readonly run: RunCommand;
 }): ReactNode {
+  const words = CONFIRMATIONS[confirming];
   return (
     <span
       className="ag-project-row-actions"
       role="group"
-      aria-label={`Restore the backup of ${when} in place`}
+      aria-label={words.group.replace('%s', when)}
     >
-      <span data-ag-status="unavailable">
-        Undo cannot reverse this. The project as it is now is kept as a backup first.
-      </span>
+      <span data-ag-status="unavailable">{words.warning}</span>
       <Button
         compact
         tone={ButtonTone.Destructive}
-        onClick={() =>
-          run('backup.restore', { generation: generation.number, as: 'replace-current' })
-        }
+        onClick={() => run(words.command, { ...words.arguments, generation: generation.number })}
       >
-        Restore in place
+        {words.action}
       </Button>
       <Button compact onClick={onCancel}>
         Cancel
@@ -73,16 +104,19 @@ function RestoreConfirmation({
   );
 }
 
-/** What can be done with a backup: restore it either way, take it out, keep it or let it go. */
+/**
+ * What can be done with a backup: restore it either way, take it out, keep it
+ * or let it go, or delete it.
+ */
 function GenerationActions({
   generation,
   when,
-  onRestoreInPlace,
+  onConfirm,
   run,
 }: {
   readonly generation: BackupGeneration;
   readonly when: string;
-  readonly onRestoreInPlace: () => void;
+  readonly onConfirm: (confirming: Confirming) => void;
   readonly run: RunCommand;
 }): ReactNode {
   const { number } = generation;
@@ -95,7 +129,13 @@ function GenerationActions({
       >
         Restore as a new project
       </Button>
-      <Button compact label={`Restore the backup of ${when} in place…`} onClick={onRestoreInPlace}>
+      <Button
+        compact
+        label={`Restore the backup of ${when} in place…`}
+        onClick={() => {
+          onConfirm('restore-in-place');
+        }}
+      >
         Restore in place…
       </Button>
       <Button
@@ -111,6 +151,15 @@ function GenerationActions({
       >
         {generation.protected ? 'Let it go' : 'Keep it'}
       </Button>
+      <Button
+        compact
+        label={`Delete the backup of ${when}…`}
+        onClick={() => {
+          onConfirm('delete');
+        }}
+      >
+        Delete…
+      </Button>
     </span>
   );
 }
@@ -123,30 +172,29 @@ function GenerationRow({
   readonly generation: BackupGeneration;
   readonly run: RunCommand;
 }): ReactNode {
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<Confirming | undefined>(undefined);
   const when = WHEN.format(generation.at);
-  const kept = generation.protected || generation.reason === 'manual';
+  const kept = generation.protected;
   return (
     <li className="ag-project-row">
       <span className="ag-project-row-name">{when}</span>
       <span className="ag-project-row-note">
         {`${REASONS[generation.reason]}, ${describeBytes(generation.bytes)}${kept ? ', kept until you let it go' : ''}`}
       </span>
-      {confirming ? (
-        <RestoreConfirmation
-          generation={generation}
-          when={when}
-          onCancel={() => {
-            setConfirming(false);
-          }}
-          run={run}
-        />
-      ) : (
+      {confirming === undefined ? (
         <GenerationActions
           generation={generation}
           when={when}
-          onRestoreInPlace={() => {
-            setConfirming(true);
+          onConfirm={setConfirming}
+          run={run}
+        />
+      ) : (
+        <Confirmation
+          confirming={confirming}
+          generation={generation}
+          when={when}
+          onCancel={() => {
+            setConfirming(undefined);
           }}
           run={run}
         />

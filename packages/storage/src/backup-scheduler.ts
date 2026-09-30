@@ -7,11 +7,11 @@
  * and the scheduler decides from the policy and the history whether a
  * generation is due. A generation is made from the project as storage holds it,
  * then the policy's retention prunes the others, which the person authorised by
- * setting it, and never a protected or a manual one. Where the policy says so
- * and the person chose a backup directory, the new generation is written there
- * as a bundle too; failing to write it there is reported beside the generation
- * made, which stands whatever became of the copy. One tick at a time: a tick
- * while one runs is told the scheduler is busy.
+ * setting it, and never a protected one. Where the policy says so and the
+ * person chose a backup directory, the new generation is written there as a
+ * bundle too; failing to write it there is reported beside the generation made,
+ * which stands whatever became of the copy. One tick at a time: a tick while
+ * one runs is told the scheduler is busy.
  */
 
 import {

@@ -127,6 +127,23 @@ function protectCommand(): Command<ShellContext> {
   );
 }
 
+function deleteCommand(): Command<ShellContext> {
+  return shellCommand(
+    'backup.delete',
+    'Delete a backup',
+    CommandCategory.File,
+    (context, invocation) => {
+      const stores = readyProjects(context);
+      if (typeof stores === 'string') return stores;
+      const generation = invocation.arguments?.['generation'];
+      if (typeof generation !== 'number') return 'Say which backup.';
+      sayWhenSettled(context, stores.backups.remove(generation), () => 'The backup is deleted.');
+      return undefined;
+    },
+    { discoverable: false, availability: sessionAvailability },
+  );
+}
+
 function restoreCommand(): Command<ShellContext> {
   return shellCommand(
     'backup.restore',
@@ -187,6 +204,7 @@ export function backupCommands(): readonly Command<ShellContext>[] {
     backUpNowCommand(),
     setPolicyCommand(),
     protectCommand(),
+    deleteCommand(),
     restoreCommand(),
   ];
 }
