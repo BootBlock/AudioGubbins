@@ -1,9 +1,10 @@
 /**
  * Each open asset's markers and regions for the session (ADR-0047).
  *
- * Held here, in memory, until Phase 02's project holds them: the interface
- * says the session is not saved, and the removal boundary is the project
- * session, into which these values and the commands that change them move
+ * Held here, in memory, until the editor opens the project's own assets, which
+ * needs audio imported into a project at its own rate (ADR-0021): the interface
+ * says the session is not saved, and the removal boundary is that import, when
+ * these values and the commands that change them move into the project
  * unchanged. Every view of an asset reads the one entry, so a marker added in
  * one view is shown in all of them (REQ-EDIT-061), and a view's own
  * presentation is untouched by it.

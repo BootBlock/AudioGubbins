@@ -245,8 +245,8 @@ function EditorView({
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
       <p className="ag-panel-note">
-        Markers and selections last for this session; keeping them in a project arrives with the
-        project system.
+        Markers and selections last for this session. Keeping them in a project arrives with
+        importing audio into projects.
       </p>
       <EditorToolbar
         panel={panel}

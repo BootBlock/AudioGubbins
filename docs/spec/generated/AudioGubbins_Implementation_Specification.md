@@ -7453,6 +7453,7 @@ Material changes after implementation begins require a change record identifying
 - **Drivers:** `REQ-EDIT-012` (markers, named regions and loop boundaries in the editor), `REQ-EDIT-061` (a change to content propagates to every view), `REQ-AUDIO-156` (picture-aligned markers), and the absence of a persisted project on the branch Phase 04 starts from.
 - **Constraints:** this is temporary by `REQ-EXEC-181`'s rule, with a stated removal boundary: when Phase 02's project session is on the branch, the markers and regions move into the project, these commands become project commands with the same inverses, and the in-memory holder is removed. No persisted format is introduced for them.
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-061`; affected phases 02, 04 and 05; compatibility impact none; verification by the marker command tests and the multi-view browser test.
+- **Amended by:** `ADR-0021`, in the removal boundary of the Constraints clause. The markers and regions move into the project when the editor opens the project's own assets, which needs audio imported at its own rate (Phase 09), not when Phase 02's project session is on the branch. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-AUDIO-156`, `REQ-EXEC-181`.
 
 
@@ -8659,6 +8660,7 @@ Users can Quick Edit or use projects to create regions, trim/split/copy/paste/mo
 ## Data / Schema Changes
 
 - Introduces persisted edit-operation, region, clipboard/interchange and channel-edit operation representations.
+- Persisting a region or an edit needs an asset of the project the editor opens, which needs audio imported at its native rate, Phase 09's (`ADR-0021`). The readiness review settles, by a change record, whether native-rate reading is brought forward into this phase or its region editing stays the session's until Phase 09.
 
 ## Browser / Platform Considerations
 
@@ -9385,6 +9387,7 @@ Users can import common audio formats, render projects/regions through the canon
 - [ ] Collision policy
 - [ ] Deterministic/application-owned codecs where required
 - [ ] Streaming/chunked I/O
+- [ ] Importing audio into the open project at its native rate, and opening the project's assets in the editor, whose per-asset markers and regions then move into the project as project commands with the same inverses, removing the session holder (`ADR-0047`, `ADR-0021`)
 
 ## Explicitly Out of Scope
 
@@ -11201,4 +11204,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:d7f0b1c1e08b3d023484d8e0fda3f0aefc058a8461dddf5ad1ea3e8086032822`
+`sha256:c237844fd86075e341d41770c8c39bc67e27e3470d26de531bcfb8e50cacf5dd`

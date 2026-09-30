@@ -85,6 +85,7 @@ Users can Quick Edit or use projects to create regions, trim/split/copy/paste/mo
 ## Data / Schema Changes
 
 - Introduces persisted edit-operation, region, clipboard/interchange and channel-edit operation representations.
+- Persisting a region or an edit needs an asset of the project the editor opens, which needs audio imported at its native rate, Phase 09's (`ADR-0021`). The readiness review settles, by a change record, whether native-rate reading is brought forward into this phase or its region editing stays the session's until Phase 09.
 
 ## Browser / Platform Considerations
 

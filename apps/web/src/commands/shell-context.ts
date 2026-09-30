@@ -18,9 +18,9 @@
  * route: the dependency direction REQ-EXEC-136.4 asks for rather than a rule to
  * remember. The audio engine is here as the transport and the test signal's
  * renderer. The editor's assets, their markers, selections and playheads, and
- * the views of them, are the session's (ADR-0047), held in memory until the
- * project holds the content, and the reference picture is reference media,
- * never project state.
+ * the views of them, are the session's (ADR-0047), held in memory until audio
+ * is imported into a project at its own rate (ADR-0021), and the reference
+ * picture is reference media, never project state.
  */
 
 import type { CapabilityRegistry, StorageCapabilityAbsence } from '@audiogubbins/capabilities';
