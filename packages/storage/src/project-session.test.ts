@@ -209,7 +209,38 @@ describe('a project session', () => {
     expect(model.state.project.displayName).toBe('Before closing');
     expect(model.history.nodes.size).toBe(2);
   });
+
+  it('lets the lease go when an opening to write is abandoned once it holds it', async () => {
+    const test = harness();
+    const tree = new SignalledTree();
+    const header = await madeProject(test, tree);
+    const controller = new AbortController();
+    const reason = new Error('Closed.');
+    // Abandoned as the lease is taken, so the opening stops on its next read.
+    test.coordinator.watchOwnership(header.id, (event) => {
+      if (event.kind === 'acquired') controller.abort(reason);
+    });
+
+    const opening = openProject(
+      { project: header.id, access: 'write', signal: controller.signal },
+      test.services(tree),
+    );
+
+    await expect(opening).rejects.toBe(reason);
+    expect(await test.coordinator.ownerOf(header.id)).toBeUndefined();
+  });
 });
+
+/** A tree in memory whose reads stop once their signal aborts, as a platform's do. */
+class SignalledTree extends MemoryStorageTree {
+  override async readFile(
+    path: string,
+    signal?: AbortSignal,
+  ): Promise<Uint8Array<ArrayBuffer> | undefined> {
+    signal?.throwIfAborted();
+    return await super.readFile(path);
+  }
+}
 
 async function sessionFingerprint(session: ProjectSession): Promise<StateFingerprint> {
   return await stateFingerprintOf(session.getSnapshot().model.state, nodeDigest);

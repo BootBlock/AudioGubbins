@@ -125,12 +125,17 @@ export async function openProject(
   }
 
   const lease = acquired.lease;
-  const opened = await refusalsReported(
-    async () => await openToWrite(files, header.value, lease, coordinator, services, signal),
-  );
-  // Whatever kept the project from opening, the lease is let go, so no other
-  // window waits on a writer that never began.
-  if (!opened.ok) await lease.release();
+  let opened: DomainResult<OpenedProject> | undefined;
+  try {
+    opened = await refusalsReported(
+      async () => await openToWrite(files, header.value, lease, coordinator, services, signal),
+    );
+  } finally {
+    // Whatever kept the project from opening, a failure or an opening
+    // abandoned, the lease is let go, so no other window waits on a writer
+    // that never began.
+    if (opened?.ok !== true) await lease.release();
+  }
   return opened;
 }
 
