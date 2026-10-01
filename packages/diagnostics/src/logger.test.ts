@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { LogSeverity, allSeverities, severityPasses } from './log-record.js';
+import {
+  LogSeverity,
+  allSeverities,
+  severityPasses,
+  type LogRecord,
+  type PerformanceRecord,
+} from './log-record.js';
 import { createLogStore, type LogStore } from './log-store.js';
 import {
   DEFAULT_VERBOSITY,
@@ -172,6 +178,70 @@ describe('performance measurement', () => {
     centre.loggerFor('renderer').measured('peaks-built', 240);
 
     expect(store.performanceSnapshot()).toEqual([]);
+  });
+});
+
+describe("another thread's records, relayed", () => {
+  /** A record another thread's logger made, at `severity` in `category`. */
+  const made = (severity: LogSeverity, category = 'storage'): LogRecord => ({
+    timestamp: 5,
+    severity,
+    category,
+    message: 'A worker said this.',
+    fields: { project: 'p-1' },
+  });
+
+  /** A centre admitting Info, and Debug for `storage`, with its store. */
+  const relaying = (): { store: LogStore; centre: DiagnosticCentre } => {
+    const store = createLogStore();
+    const centre = createDiagnosticCentre(store, testClock(), {
+      defaultSeverity: LogSeverity.Info,
+      categoryOverrides: { storage: LogSeverity.Debug },
+    });
+    return { store, centre };
+  };
+
+  it('keeps a record as it was made, at or above the verbosity of its category', () => {
+    const { store, centre } = relaying();
+
+    centre.relay.write(made(LogSeverity.Debug));
+    centre.relay.write(made(LogSeverity.Info, 'projects'));
+
+    expect(store.snapshot()).toEqual([made(LogSeverity.Debug), made(LogSeverity.Info, 'projects')]);
+  });
+
+  it('drops a record below the verbosity of its category', () => {
+    const { store, centre } = relaying();
+
+    centre.relay.write(made(LogSeverity.Trace));
+    centre.relay.write(made(LogSeverity.Debug, 'projects'));
+
+    expect(store.snapshot()).toEqual([]);
+  });
+
+  it('admits more while diagnostic mode is on, as for its own loggers', () => {
+    const { store, centre } = relaying();
+
+    centre.startDiagnosticMode();
+    centre.relay.write(made(LogSeverity.Trace));
+
+    expect(store.snapshot()).toEqual([made(LogSeverity.Trace)]);
+  });
+
+  it('keeps a measurement only where its category admits detail', () => {
+    const { store, centre } = relaying();
+    const measured = (category: string): PerformanceRecord => ({
+      timestamp: 5,
+      category,
+      operation: 'usage-measured',
+      durationMs: 12,
+      fields: {},
+    });
+
+    centre.relay.writePerformance(measured('storage'));
+    centre.relay.writePerformance(measured('projects'));
+
+    expect(store.performanceSnapshot()).toEqual([measured('storage')]);
   });
 });
 

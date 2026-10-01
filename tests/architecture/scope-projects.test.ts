@@ -44,6 +44,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
+    'packages/storage-runtime/src/threads/storage-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
     'packages/waveform/src/threads/peak-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],

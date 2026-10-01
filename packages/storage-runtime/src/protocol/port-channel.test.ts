@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
 
 import { portPair, type PortPair } from '../testing/index.js';
-import { Transferring, type Handlers, type Operation } from './operations.js';
+import { Transferring, type Handlers, type Operation, type Stream } from './operations.js';
 import { PortChannel } from './port-channel.js';
 
 /** What the page calls on the worker in these tests. */
@@ -22,6 +22,19 @@ type PageOperations = {
   'page.name': Operation<number, string>;
   'page.wait': Operation<undefined, string>;
 };
+
+/** What the worker serves and sends the page, a stream of each thing's counts among it. */
+type WorkerSide = {
+  operations: WorkerOperations;
+  streams: {
+    log: Stream<{ readonly line: number; readonly bytes?: ArrayBuffer }>;
+    other: Stream<string>;
+    [count: `count:${string}`]: Stream<number>;
+  };
+};
+
+/** What the page serves and sends the worker. */
+type PageSide = { operations: PageOperations; streams: { nudge: Stream<string> } };
 
 /** A promise and what settles it, from outside. */
 function deferred<TValue>(): { promise: Promise<TValue>; resolve: (value: TValue) => void } {
@@ -67,8 +80,8 @@ const WORKER_HANDLERS: Handlers<WorkerOperations> = {
 /** A page and a worker, each with its side of the port, the worker serving `handlers`. */
 function joined(handlers: Partial<Handlers<WorkerOperations>> = {}) {
   const pair = portPair();
-  const page = new PortChannel<WorkerOperations, PageOperations>(pair.page);
-  const worker = new PortChannel<PageOperations, WorkerOperations>(pair.worker);
+  const page = new PortChannel<WorkerSide, PageSide>(pair.page);
+  const worker = new PortChannel<PageSide, WorkerSide>(pair.worker);
   worker.serve({ ...WORKER_HANDLERS, ...handlers });
   return { pair, page, worker };
 }
@@ -257,6 +270,32 @@ describe('events across the port', () => {
     worker.emit('log', { line: 2 });
     await expect(page.call('echo.text', 'after')).resolves.toBe('after');
     expect(heard).toHaveLength(1);
+  });
+
+  it('reach only the listeners of their own key, where a stream is kept for each thing', async () => {
+    const { page, worker } = joined();
+    const heard: string[] = [];
+    page.listen('count:a', (count) => heard.push(`a ${String(count)}`));
+    page.listen('count:b', (count) => heard.push(`b ${String(count)}`));
+
+    worker.emit('count:b', 2);
+    worker.emit('count:a', 1);
+    worker.emit('count:c', 3);
+
+    await expect(page.call('echo.text', 'after')).resolves.toBe('after');
+    expect(heard).toEqual(['b 2', 'a 1']);
+  });
+
+  it('cross from the page to the worker as well', async () => {
+    const { page, worker } = joined();
+    const heard: string[] = [];
+    worker.listen('nudge', (text) => heard.push(text));
+
+    page.emit('nudge', 'hello');
+
+    await vi.waitFor(() => {
+      expect(heard).toEqual(['hello']);
+    });
   });
 });
 

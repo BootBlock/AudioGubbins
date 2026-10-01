@@ -25,6 +25,7 @@ import {
   type Answered,
   type Handlers,
   type OperationTable,
+  type PortSide,
   type ServeContext,
 } from './operations.js';
 import { readPortMessage, type CallOutcome, type PortMessage } from './port-messages.js';
@@ -34,14 +35,14 @@ import { readPortMessage, type CallOutcome, type PortMessage } from './port-mess
  * worker's own global scope inside it, and either end of the test pair.
  */
 export interface PortEndpoint {
-  postMessage(message: unknown, transfer: Transferable[]): void;
+  postMessage(message: unknown, options: StructuredSerializeOptions): void;
   addEventListener(type: 'message', listener: (event: MessageEvent) => void): void;
   addEventListener(type: 'error' | 'messageerror', listener: (event: Event) => void): void;
 }
 
 /** How a call is made: the signal that abandons it, and the buffers it gives up. */
 export interface CallOptions {
-  readonly signal?: AbortSignal;
+  readonly signal?: AbortSignal | undefined;
   readonly transfer?: readonly Transferable[];
 }
 
@@ -105,13 +106,17 @@ function answerOf(operation: string, outcome: CallOutcome): unknown {
   }
 }
 
-/** Calls of `TCalls` on the other side, and `TServes` served for it (see the module comment). */
-export class PortChannel<TCalls extends OperationTable, TServes extends OperationTable> {
+/**
+ * One side's end of the port: calling `TOther`'s operations and hearing its
+ * streams, serving `TOwn`'s operations and sending its streams (see the module
+ * comment).
+ */
+export class PortChannel<TOther extends PortSide, TOwn extends PortSide> {
   readonly #endpoint: PortEndpoint;
   readonly #calls = new Map<number, PendingCall>();
   readonly #serving = new Map<number, AbortController>();
   readonly #listeners = new Map<string, Set<(value: unknown) => void>>();
-  #handlers: Handlers<TServes> | undefined;
+  #handlers: Handlers<TOwn['operations']> | undefined;
   #nextId = 0;
   #broken: Error | undefined;
 
@@ -138,11 +143,11 @@ export class PortChannel<TCalls extends OperationTable, TServes extends Operatio
    * Calls an operation and resolves to its answer. Rejects with the signal's
    * reason where it aborts first, and tells the other side to abandon it.
    */
-  async call<TName extends keyof TCalls & string>(
+  async call<TName extends keyof TOther['operations'] & string>(
     operation: TName,
-    argument: TCalls[TName]['argument'],
+    argument: TOther['operations'][TName]['argument'],
     options: CallOptions = {},
-  ): Promise<TCalls[TName]['answer']> {
+  ): Promise<TOther['operations'][TName]['answer']> {
     if (this.#broken !== undefined) throw this.#broken;
     const { signal, transfer = [] } = options;
     signal?.throwIfAborted();
@@ -178,7 +183,7 @@ export class PortChannel<TCalls extends OperationTable, TServes extends Operatio
   }
 
   /** Serves the other side's calls, once, with a handler for each operation. */
-  serve(handlers: Handlers<TServes>): void {
+  serve(handlers: Handlers<TOwn['operations']>): void {
     if (this.#handlers !== undefined) throw new Error('The channel already serves its calls.');
     this.#handlers = handlers;
   }
@@ -188,24 +193,36 @@ export class PortChannel<TCalls extends OperationTable, TServes extends Operatio
    * channel is broken: an event is owed no answer, and the side that would
    * hear it has gone or cannot be trusted.
    */
-  emit(stream: string, value: unknown, transfer: readonly Transferable[] = []): void {
+  emit<TName extends keyof TOwn['streams'] & string>(
+    stream: TName,
+    value: TOwn['streams'][TName]['value'],
+    transfer: readonly Transferable[] = [],
+  ): void {
     if (this.#broken !== undefined) return;
     this.#post({ type: 'event', stream, value }, transfer);
   }
 
   /** Hears each event the other side sends on a stream, until the returned call. */
-  listen(stream: string, listener: (value: unknown) => void): () => void {
+  listen<TName extends keyof TOther['streams'] & string>(
+    stream: TName,
+    listener: (value: TOther['streams'][TName]['value']) => void,
+  ): () => void {
+    // The value is not read: the table both sides compile from types it by
+    // its stream (ADR-0022).
+    const heard = (value: unknown): void => {
+      listener(value);
+    };
     const listeners = this.#listeners.get(stream) ?? new Set();
-    listeners.add(listener);
+    listeners.add(heard);
     this.#listeners.set(stream, listeners);
     return () => {
-      listeners.delete(listener);
+      listeners.delete(heard);
       if (listeners.size === 0) this.#listeners.delete(stream);
     };
   }
 
   #post(message: PortMessage, transfer: readonly Transferable[]): void {
-    this.#endpoint.postMessage(message, [...transfer]);
+    this.#endpoint.postMessage(message, { transfer: [...transfer] });
   }
 
   #receive(data: unknown): void {

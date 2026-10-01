@@ -657,12 +657,33 @@ importers:
 
   packages/storage-runtime:
     dependencies:
+      '@audiogubbins/browser-storage':
+        specifier: workspace:*
+        version: link:../browser-storage
+      '@audiogubbins/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
+      '@audiogubbins/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@audiogubbins/diagnostics':
+        specifier: workspace:*
+        version: link:../diagnostics
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/media-store':
+        specifier: workspace:*
+        version: link:../media-store
+      '@audiogubbins/project-commands':
+        specifier: workspace:*
+        version: link:../project-commands
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/storage':
+        specifier: workspace:*
+        version: link:../storage
     devDependencies:
       vitest:
         specifier: 5.0.1

@@ -25,6 +25,7 @@ Published paths
   @audiogubbins/storage
   @audiogubbins/storage-runtime
   @audiogubbins/storage-runtime/testing
+  @audiogubbins/storage-runtime/threads/*
   @audiogubbins/storage/testing
   @audiogubbins/test-fixtures
   @audiogubbins/text
@@ -1386,6 +1387,7 @@ Published paths
   DiagnosticCentre.diagnosticModeEndsAt: () => number | undefined
   DiagnosticCentre.startDiagnosticMode: (durationMs?: number) => void
   DiagnosticCentre.stopDiagnosticMode: () => void
+  readonly DiagnosticCentre.relay: LogSink
   interface EnvironmentSummary
   readonly EnvironmentSummary.browser: string
   readonly EnvironmentSummary.operatingSystem: string
@@ -3272,9 +3274,38 @@ Published paths
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage-runtime
+  interface CacheClient
+  CacheClient.read: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer> | undefined>>
+  CacheClient.put: (key: CacheKey, bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
+  CacheClient.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
+  interface LibraryClient
+  LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
+  LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  LibraryClient.softDelete: (project: ProjectId) => Promise<DomainResult<ProjectHeader>>
+  LibraryClient.restore: (project: ProjectId) => Promise<DomainResult<ProjectHeader>>
+  LibraryClient.purge: (project: ProjectId, confirmation: PurgeProjectConfirmation) => Promise<DomainResult<void>>
+  LibraryClient.fork: (request: ForkRequest, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  interface OwnershipClient
+  OwnershipClient.ownerOf: (project: ProjectId) => Promise<LeaseOwner | undefined>
+  OwnershipClient.watch: (project: ProjectId, listener: (event: OwnershipEvent) => void) => Promise<() => Promise<void>>
   interface PortEndpoint
-  PortEndpoint.postMessage: (message: unknown, transfer: Transferable[]) => void
+  PortEndpoint.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
   PortEndpoint.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
+  interface RootClient
+  RootClient.open: (signal?: AbortSignal) => Promise<DomainResult<StorageRootOpening>>
+  RootClient.wipe: (confirmation: WipeConfirmation, signal?: AbortSignal) => Promise<DomainResult<void>>
+  interface StorageClient
+  readonly StorageClient.library: LibraryClient
+  readonly StorageClient.root: RootClient
+  readonly StorageClient.caches: CacheClient
+  readonly StorageClient.usage: UsageClient
+  readonly StorageClient.ownership: OwnershipClient
+  interface UsageClient
+  UsageClient.measure: (live: readonly ProjectState[], signal?: AbortSignal) => Promise<DomainResult<StorageUsage>>
+  UsageClient.planCleanup: (selection: CleanupSelection, signal?: AbortSignal) => Promise<DomainResult<CleanupPlan>>
+  UsageClient.runCleanup: (plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, signal?: AbortSignal) => Promise<DomainResult<readonly StepOutcome[]>>
+  UsageClient.relievePressure: (signal?: AbortSignal) => Promise<DomainResult<PressureRelief>>
+  function connectStorage(endpoint: PortEndpoint, diagnostics: Pick<DiagnosticCentre, "relay">): StorageClient
 
 @audiogubbins/storage-runtime/testing
   interface PortPair

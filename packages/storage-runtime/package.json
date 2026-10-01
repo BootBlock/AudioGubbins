@@ -10,6 +10,7 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./threads/*": "./src/threads/*",
     "./testing": {
       "types": "./src/testing/index.ts",
       "default": "./src/testing/index.ts"
@@ -20,13 +21,23 @@
   "files": [
     "src"
   ],
+  "sideEffects": [
+    "./src/threads/*"
+  ],
   "scripts": {
     "typecheck": "tsc --build",
     "test": "vitest run --root ../../ --project storage-runtime"
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/project-format": "workspace:*"
+    "@audiogubbins/diagnostics": "workspace:*",
+    "@audiogubbins/capabilities": "workspace:*",
+    "@audiogubbins/commands": "workspace:*",
+    "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/project-commands": "workspace:*",
+    "@audiogubbins/media-store": "workspace:*",
+    "@audiogubbins/storage": "workspace:*",
+    "@audiogubbins/browser-storage": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

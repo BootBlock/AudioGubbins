@@ -152,7 +152,9 @@ class ArchiveWriter {
       );
     }
 
-    const source = entry.source instanceof Uint8Array ? bytesSource(entry.source) : entry.source;
+    // Told apart by what the bytes are, not by `instanceof`, which answers for
+    // one realm's arrays alone and so not for bytes cloned from another's.
+    const source = ArrayBuffer.isView(entry.source) ? bytesSource(entry.source) : entry.source;
     if (!Number.isSafeInteger(source.size) || source.size < 0) {
       throw new RangeError('A byte source reports its size as a whole number of bytes.');
     }

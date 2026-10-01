@@ -19,10 +19,10 @@ class End implements PortEndpoint {
   }
 
   /** Sends a message on a later task, cloned and with its buffers moved. */
-  postMessage(message: unknown, transfer: Transferable[]): void {
+  postMessage(message: unknown, options: StructuredSerializeOptions): void {
     const other = this.other;
     if (other === undefined) throw new Error('The pair is not joined.');
-    other.receive(message, transfer);
+    other.receive(message, options.transfer ?? []);
   }
 
   receive(message: unknown, transfer: Transferable[]): void {

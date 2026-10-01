@@ -189,7 +189,9 @@ export class CacheStore {
     signal?: AbortSignal,
   ): Promise<DomainResult<void>> {
     if (!isCacheName(key.name)) throw new Error(`Not a cache's name: ${key.name}`);
-    const source = bytes instanceof Uint8Array ? bytesSource(bytes) : bytes;
+    // Told apart by what the bytes are, not by `instanceof`, which answers for
+    // one realm's arrays alone and so not for bytes cloned from another's.
+    const source = ArrayBuffer.isView(bytes) ? bytesSource(bytes) : bytes;
     const path = this.path(key);
     return await refusalsReported(async () => {
       // The seal goes first, so a cache torn while it is replaced is never

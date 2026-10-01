@@ -279,12 +279,19 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/browser-storage': {
     "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
       ['filesInDirectory'],
-    'The storage tree run against the origin-private file system from inside the worker (ADR-0022), which the storage worker builds its tree with in the commits that follow.':
-      ['originPrivateTree'],
   },
   '@audiogubbins/storage-runtime': {
-    'The endpoint the application hands the storage client, its dedicated worker (ADR-0022); the worker and its client arrive in the commits that follow.':
-      ['PortEndpoint'],
+    "The page's client of the storage worker, its facades and the endpoint it is connected over (ADR-0022), which the application's stores move onto in the commits that follow; until then the package's own tests drive them, over the port pair.":
+      [
+        'CacheClient',
+        'LibraryClient',
+        'OwnershipClient',
+        'PortEndpoint',
+        'RootClient',
+        'StorageClient',
+        'UsageClient',
+        'connectStorage',
+      ],
   },
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":

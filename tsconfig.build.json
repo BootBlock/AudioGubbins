@@ -102,6 +102,9 @@
       "path": "./packages/storage-runtime"
     },
     {
+      "path": "./packages/storage-runtime/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/test-fixtures"
     },
     {
