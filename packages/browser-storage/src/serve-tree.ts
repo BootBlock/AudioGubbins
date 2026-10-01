@@ -11,8 +11,8 @@
  * sides disagree (REQ-EXEC-136.12).
  */
 
-import { bindDirectory } from './opfs-binding.js';
 import type { SyncDirectory } from './sync-file-system.js';
+import { SyncStorageTree, originPrivateRoot } from './sync-storage-tree.js';
 import { TreeHandler } from './tree-handler.js';
 import { readPageMessage, transferOf, type WorkerMessage } from './tree-protocol.js';
 
@@ -27,7 +27,7 @@ export function serveTree(scope: TreeWorkerScope, openRoot: () => Promise<SyncDi
   const answer = (message: WorkerMessage): void => {
     scope.postMessage(message, { transfer: transferOf(message) });
   };
-  const handler = new TreeHandler(openRoot, answer);
+  const handler = new TreeHandler(new SyncStorageTree(openRoot), answer);
   scope.addEventListener('message', (event) => {
     const reading = readPageMessage(event.data);
     if (reading.ok) handler.receive(reading.message);
@@ -45,13 +45,5 @@ export function serveOriginPrivateTree(
   scope: TreeWorkerScope,
   readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined,
 ): void {
-  serveTree(scope, async () => {
-    if (readRoot === undefined) {
-      throw new DOMException(
-        'This browser offers no private storage to the storage worker.',
-        'NotSupportedError',
-      );
-    }
-    return bindDirectory(await readRoot());
-  });
+  serveTree(scope, originPrivateRoot(readRoot));
 }

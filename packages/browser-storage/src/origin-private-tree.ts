@@ -6,9 +6,10 @@
  * floor offers where it offers no writable stream, and which every floor
  * browser offers only in a dedicated worker. This is the page's side: it
  * refuses a path the tree cannot hold as a programmer error, as every tree
- * does, and sends everything else to the worker (`tree-handler.ts`). Bytes sent
- * are copied once, because the caller keeps its own, and moved from there;
- * bytes read arrive moved (G4).
+ * does, and sends everything else to the worker (`tree-handler.ts`), which runs
+ * it on the tree there (`sync-storage-tree.ts`). Bytes sent are copied once,
+ * because the caller keeps its own, and moved from there; bytes read arrive
+ * moved (G4).
  */
 
 import {

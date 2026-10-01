@@ -35,7 +35,7 @@ const UNREACHABLE: ReadonlySet<string> = new Set([
 const NOTHING_THERE: ReadonlySet<string> = new Set(['NotFoundError', 'TypeMismatchError']);
 
 /** What a refusal the platform gave means, by the name of its error. */
-export function failureKindOf(error: DOMException): TreeFailureKind {
+function failureKindOf(error: DOMException): TreeFailureKind {
   if (error.name === 'QuotaExceededError') return TreeFailureKind.Quota;
   if (UNREACHABLE.has(error.name)) return TreeFailureKind.Unavailable;
   return TreeFailureKind.Io;

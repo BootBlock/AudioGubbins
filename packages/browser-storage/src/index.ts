@@ -21,6 +21,8 @@ export { startOriginPrivateTree } from './origin-private-tree.js';
 
 export { type TreeWorkerScope, serveOriginPrivateTree } from './serve-tree.js';
 
+export { originPrivateTree } from './sync-storage-tree.js';
+
 export {
   FileHandleKeeper,
   FolderUse,

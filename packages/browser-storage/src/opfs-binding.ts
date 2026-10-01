@@ -2,12 +2,12 @@
  * The storage worker's file-system port bound to the browser's own handles.
  *
  * Thin by design: each member calls the one handle method it mirrors
- * (`sync-file-system.ts`), and every rule of the tree is in the handler that
- * uses it, where it is tested. The synchronous access handle is absent from the
- * DOM type definitions, which declare it only for workers, so it is reached
- * through `Reflect` and its methods are checked before use. Each of its answers
- * is awaited, since the first releases of the handle answered with promises
- * where the floor browsers answer at once.
+ * (`sync-file-system.ts`), and every rule of the tree is in the tree that uses
+ * it (`sync-storage-tree.ts`), where it is tested. The synchronous access
+ * handle is absent from the DOM type definitions, which declare it only for
+ * workers, so it is reached through `Reflect` and its methods are checked
+ * before use. Each of its answers is awaited, since the first releases of the
+ * handle answered with promises where the floor browsers answer at once.
  *
  * Real handles exist only in a browser, so this module is proved by driving the
  * built application there rather than by a unit test.

@@ -1,7 +1,7 @@
 /**
  * The storage worker's file-system port held in memory, as strict as the
- * origin-private file system it stands in for, for the tests of the handler and
- * of the tree over it.
+ * origin-private file system it stands in for, for the tests of the tree over
+ * it.
  *
  * Strict where it matters to the tree: an entry of the wrong kind is a
  * `TypeMismatchError` and a missing one a `NotFoundError`; an access handle is
@@ -9,7 +9,7 @@
  * directory holding one that is open, is a `NoModificationAllowedError`; and a
  * quota refuses, before changing anything, any write or growth that would take
  * what is held past it. Every operation is asynchronous, opening takes several
- * turns and a write a whole task, so a handler that did not order its changes
+ * turns and a write a whole task, so a tree that did not order its changes
  * would meet the exclusivity or land them out of order. A refusal of any
  * operation can be injected by name.
  */
@@ -155,7 +155,7 @@ export class MemorySyncFileSystem {
         node.children.delete(name);
       },
       entries: async function* () {
-        // Newest first, so a handler that did not sort would be seen not to.
+        // Newest first, so a tree that did not sort would be seen not to.
         const listed: TreeEntry[] = [...node.children].map(([name, child]) => ({
           name,
           kind: child instanceof FileNode ? 'file' : 'directory',

@@ -1,8 +1,8 @@
 /**
  * The origin-private file system as the storage worker uses it: the port the
- * worker's handler is written against, so it is tested in Node over a file
- * system held in memory (`testing/memory-sync-file-system.ts`), and bound to
- * the browser's handles in `opfs-binding.ts`.
+ * worker's tree is written against, so it is tested in Node over a file system
+ * held in memory (`testing/memory-sync-file-system.ts`), and bound to the
+ * browser's handles in `opfs-binding.ts`.
  *
  * Each member mirrors one handle method, and refuses as that method does, with
  * a `DOMException` of the name the file system specification gives:
@@ -54,8 +54,8 @@ export interface FileSnapshot {
  *
  * Asynchronous in this port although the handle is synchronous on every floor
  * browser, because the first releases of the handle answered some of these with
- * promises: the binding awaits either, and the handler is written for the one
- * that covers both.
+ * promises: the binding awaits either, and the tree is written for the one that
+ * covers both.
  */
 export interface SyncFile {
   /** `write(bytes, { at })`: the number of bytes written. */

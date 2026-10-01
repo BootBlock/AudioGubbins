@@ -789,6 +789,7 @@ Published paths
   function listedFolder(files: readonly ExternalFile[]): DirectoryReader
   function openFileSink(file: WritableFile): Promise<ByteSink>
   function openFileSinkIn(directory: WritableDirectory, name: string): Promise<ByteSink>
+  function originPrivateTree(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): StorageTree
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
   function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ExternalFile[]>>
   function pickSaveFile(saveFile: Picker, suggestedName: string): Promise<Picked<FileSystemFileHandle>>
