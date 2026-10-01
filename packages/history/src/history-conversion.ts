@@ -45,17 +45,22 @@ function newestChild(history: History, node: HistoryNodeId): HistoryNodeId | und
   return newest?.id;
 }
 
-/** The record a history is stored as. */
-export function historyRecordOf(history: History): HistoryRecord {
+/** The preferences a history stores: those a reader could not take as the newest child. */
+export function storedPreferences(history: History): ReadonlyMap<HistoryNodeId, HistoryNodeId> {
   const preferred = new Map<HistoryNodeId, HistoryNodeId>();
   for (const [node, child] of history.preferred.entries()) {
     if (child !== newestChild(history, node)) preferred.set(node, child);
   }
+  return preferred;
+}
+
+/** The record a history is stored as. */
+export function historyRecordOf(history: History): HistoryRecord {
   return {
     project: history.project,
     nodes: [...history.nodes.values()],
     cursor: history.cursor,
-    preferred,
+    preferred: storedPreferences(history),
     branchNames: history.branchNames,
     snapshots: [...history.snapshots.values()],
   };

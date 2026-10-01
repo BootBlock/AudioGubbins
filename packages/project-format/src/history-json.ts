@@ -40,7 +40,7 @@ import { MAXIMUM_ENTITIES } from './value-reading.js';
  * person makes, and a bound that keeps a hostile document from making the
  * reader allocate without limit.
  */
-const MAXIMUM_HISTORY_NODES = 10_000_000;
+export const MAXIMUM_HISTORY_NODES = 10_000_000;
 
 const HISTORY_MEMBERS: ReadonlySet<string> = new Set([
   'project',
@@ -81,7 +81,7 @@ export const readHistoryRecord: Converter<HistoryRecord> = (reading, value, pare
 
   const project = required(reading, object, at, 'project', asId<'ProjectId'>);
   const cursor = required(reading, object, at, 'cursor', asId<'HistoryNodeId'>);
-  const read = required(reading, object, at, 'nodes', readNodes);
+  const read = required(reading, object, at, 'nodes', readHistoryNodes);
   const preferred = required(reading, object, at, 'preferred', asPreferences);
   const branchNames = required(reading, object, at, 'branchNames', asBranchNames);
   const snapshots = required(reading, object, at, 'snapshots', asSnapshots);
@@ -96,26 +96,43 @@ export const readHistoryRecord: Converter<HistoryRecord> = (reading, value, pare
     return undefined;
   }
 
-  const { nodes, places } = read;
-  // Both checks run whatever the first finds, so every problem is reported.
-  const tree = checkTree(reading, nodes, places, pathOf(at, 'nodes'));
-  const references = checkReferences(
+  return checkedHistoryRecord(
     reading,
     at,
-    { cursor, preferred, branchNames, snapshots },
-    nodes,
+    { project, cursor, preferred, branchNames, snapshots },
+    read,
   );
-  return tree && references
-    ? { project, nodes: [...nodes.values()], cursor, preferred, branchNames, snapshots }
-    : undefined;
 };
 
-interface ReadNodes {
-  readonly nodes: ReadonlyMap<HistoryNodeId, HistoryNodeRecord>;
-  readonly places: Places;
+/** Everything a history record holds but its nodes. */
+export type HistoryLinks = Omit<HistoryRecord, 'nodes'>;
+
+/**
+ * The record of a history's nodes and links, or `undefined` where its graph is
+ * not one rooted tree whose references all resolve, with every problem refused.
+ * `at` is where the links were read.
+ */
+export function checkedHistoryRecord(
+  reading: Reading,
+  at: string,
+  links: HistoryLinks,
+  read: ReadNodes,
+): HistoryRecord | undefined {
+  // Both checks run whatever the first finds, so every problem is reported.
+  const tree = checkTree(reading, read.nodes, read.places, read.at);
+  const references = checkReferences(reading, at, links, read.nodes);
+  return tree && references ? { ...links, nodes: [...read.nodes.values()] } : undefined;
 }
 
-const readNodes: Converter<ReadNodes> = (reading, value, parent, key) => {
+/** Nodes read by identifier, with where each was read and where they all were. */
+export interface ReadNodes {
+  readonly nodes: ReadonlyMap<HistoryNodeId, HistoryNodeRecord>;
+  readonly places: Places;
+  readonly at: string;
+}
+
+/** Reads a list of nodes, refusing one listed twice. */
+export const readHistoryNodes: Converter<ReadNodes> = (reading, value, parent, key) => {
   const list = listOf(reading, value, parent, key, MAXIMUM_HISTORY_NODES);
   if (list === undefined) return undefined;
   const at = pathOf(parent, key);
@@ -138,14 +155,14 @@ const readNodes: Converter<ReadNodes> = (reading, value, parent, key) => {
       places.set(node.id, pathOf(at, index));
     }
   }
-  return whole ? { nodes, places } : undefined;
+  return whole ? { nodes, places, at } : undefined;
 };
 
 /**
  * Reads a list of pairs, each of a node and one value, into a map by node,
  * refusing a node listed twice.
  */
-function nodeMap<TValue>(
+export function nodeMap<TValue>(
   reading: Reading,
   value: JsonValue,
   parent: string,
@@ -184,21 +201,21 @@ function nodeMap<TValue>(
   return whole ? entries : undefined;
 }
 
-const asPreferences: Converter<ReadonlyMap<HistoryNodeId, HistoryNodeId>> = (
+export const asPreferences: Converter<ReadonlyMap<HistoryNodeId, HistoryNodeId>> = (
   reading,
   value,
   parent,
   key,
 ) => nodeMap(reading, value, parent, key, PREFERENCE_MEMBERS, 'child', asId<'HistoryNodeId'>);
 
-const asBranchNames: Converter<ReadonlyMap<HistoryNodeId, HistoryLabel>> = (
+export const asBranchNames: Converter<ReadonlyMap<HistoryNodeId, HistoryLabel>> = (
   reading,
   value,
   parent,
   key,
 ) => nodeMap(reading, value, parent, key, BRANCH_NAME_MEMBERS, 'name', readHistoryLabel);
 
-const asSnapshots: Converter<readonly NamedSnapshot[]> = (reading, value, parent, key) => {
+export const asSnapshots: Converter<readonly NamedSnapshot[]> = (reading, value, parent, key) => {
   const list = listOf(reading, value, parent, key, MAXIMUM_ENTITIES);
   if (list === undefined) return undefined;
   const at = pathOf(parent, key);

@@ -110,7 +110,9 @@ once and carries a checksum; a torn file fails its check and is ignored.
 - `projects/<id>/head-0.json`, `head-1.json`: generation, checkpoint, lease
   epoch and journal position, checksummed. The valid head with the highest
   generation wins; the other is written next.
-- `projects/<id>/checkpoints/<id>.json`: history graph, cursor, named
+- `projects/<id>/segments/<epoch>-<id>.json`: history nodes, each written
+  once in one segment.
+- `projects/<id>/checkpoints/<id>.json`: the segments, cursor, named
   snapshots, branch names, export log, retention settings.
 - `projects/<id>/states/<fingerprint>.json`: canonical `ProjectState`,
   content-addressed and immutable.

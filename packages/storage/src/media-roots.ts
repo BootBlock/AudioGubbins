@@ -7,11 +7,12 @@
  * invocations name the media they add or remove, and by every record not yet
  * folded into a checkpoint, the quarantined among them. A deleted project
  * retains its media until it is purged. So every project's states are read by
- * the media store's own rule, `contentReferencedBy`, and every checkpoint and
- * journal record is searched for any content identifier it holds anywhere,
- * which errs, as it must, on the side of keeping. Every backup generation
- * retains what its states and its checkpoint name, the generations of a purged
- * project among them, until they are removed themselves.
+ * the media store's own rule, `contentReferencedBy`, and every checkpoint,
+ * segment of history and journal record is searched for any content identifier
+ * it holds anywhere, which errs, as it must, on the side of keeping. Every
+ * backup generation retains what its states, its checkpoint and its segments
+ * name, the generations of a purged project among them, until they are removed
+ * themselves.
  *
  * A file that cannot be read cannot say what it retains, so it is reported to
  * the caller, which must not purge as though it retained nothing. The roots are
@@ -102,6 +103,10 @@ async function* gather(
       yield* statesRetain(states, onUnreadable, signal);
       const checkpoint = paths.checkpoint(generation);
       yield* searched(await tree.readFile(checkpoint, signal), checkpoint, onUnreadable);
+      for await (const path of filesUnder(tree, paths.segments(generation))) {
+        signal?.throwIfAborted();
+        yield* searched(await tree.readFile(path, signal), path, onUnreadable);
+      }
     }
   }
 }
@@ -120,7 +125,7 @@ async function* projectRetains(
       problems.push(problem);
     };
     yield* statesRetain(files.states, noteProblem, signal);
-    for (const directory of [files.paths.checkpoints, files.paths.journal]) {
+    for (const directory of [files.paths.checkpoints, files.paths.segments, files.paths.journal]) {
       for await (const path of filesUnder(tree, directory)) {
         signal?.throwIfAborted();
         const bytes = await tree.readFile(path, signal);

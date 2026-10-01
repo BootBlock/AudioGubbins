@@ -11,6 +11,7 @@ import { retainedMedia } from './media-roots.js';
 import { openProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { exportBackup, importBundle } from './project-transfer.js';
+import { ProjectPaths } from './storage-layout.js';
 import { summaryOf } from './testing/model-summary.js';
 import { memorySink, storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
 import { addAsset, setName } from './testing/test-commands.js';
@@ -95,6 +96,24 @@ describe('backup generations (REQ-STOR-105)', () => {
     await changes(setup, 1);
     const made = await tick(setup);
     expect(made).toMatchObject({ kind: 'made', generation: { number: 2, reason: 'save' } });
+  });
+
+  it('reads a generation back whole once its project’s own history files are gone', async () => {
+    const setup = await setUp();
+    await changes(setup, 2);
+    expect((await tick(setup)).kind).toBe('made');
+    const [number] = await numbers(setup);
+    if (number === undefined) throw new Error('A generation was made.');
+    expectSuccess(await setup.session.close());
+    const { tree } = setup.storage;
+    const segments = new ProjectPaths(setup.project).segments;
+    expect((await tree.list(segments)).length).toBeGreaterThan(0);
+    for (const entry of await tree.list(segments)) await tree.remove(`${segments}/${entry.name}`);
+
+    const copy = expectSuccess(await setup.generations.copyOf(number));
+    expect(copy.model.history.nodes.size).toBe(
+      setup.session.getSnapshot().model.history.nodes.size,
+    );
   });
 
   it('prunes by retention, but never a protected or a manual generation', async () => {

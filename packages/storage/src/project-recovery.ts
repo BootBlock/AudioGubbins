@@ -35,12 +35,14 @@ import { restorationOf, retainedStates } from '@audiogubbins/history';
 import type { ProjectState, StateFingerprint } from '@audiogubbins/project-format';
 
 import type { RecordFault } from './checked-records.js';
+import type { StoredCheckpoint } from './checkpoint-files.js';
 import type { Checkpoint } from './checkpoint-record.js';
 import type { JournalBreak } from './command-journal.js';
 import { replayEvent, type ReplayContext } from './journal-replay.js';
 import type { JournalPosition } from './journal-position.js';
 import { sealOf, type LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
+import type { SegmentLedger } from './segment-ledger.js';
 import { readHeads, type ProjectHead } from './project-heads.js';
 import type { ProjectModel } from './project-model.js';
 import { replayInvocations } from './history-moves.js';
@@ -98,6 +100,9 @@ export interface RecoveredProject {
 
   /** States the history keeps that replay rebuilt and storage does not yet hold. */
   readonly unwritten: ReadonlyMap<StateFingerprint, ProjectState>;
+
+  /** The segments of history the checkpoint recovered from names. */
+  readonly segments: SegmentLedger;
   readonly report: ProjectRecoveryReport;
 }
 
@@ -142,7 +147,7 @@ export async function recoverProject(
 type Start =
   | {
       readonly ok: true;
-      readonly checkpoint: Checkpoint;
+      readonly checkpoint: StoredCheckpoint;
       readonly state: ProjectState;
       readonly held: ReadonlySet<StateFingerprint>;
       readonly rebuilt?: DomainFailure;
@@ -256,6 +261,7 @@ async function replayAfter(
     position: replay.position,
     lastReplayed: replay.lastReplayed,
     keptStates: context.kept,
+    segments: checkpoint.segments,
     unwritten: context.unwritten,
     report: {
       head: { epoch: head.epoch, generation: head.generation },

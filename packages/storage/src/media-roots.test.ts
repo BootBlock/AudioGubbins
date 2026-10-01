@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
-import type { ByteSink, ContentId, StorageTree, TreeEntry } from '@audiogubbins/project-format';
+import {
+  encodeUtf8,
+  type ByteSink,
+  type ContentId,
+  type StorageTree,
+  type TreeEntry,
+} from '@audiogubbins/project-format';
 
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { ProjectPaths } from './storage-layout.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { harness, nodeDigest } from './testing/node-services.js';
@@ -74,6 +81,18 @@ describe('the media every project retains (REQ-STOR-102, REQ-STOR-193)', () => {
     expectSuccess(await session.close());
     // Now it is in the checkpoint's history, whose change redo would replay.
     expect((await rootsOf(tree)).roots).toEqual(new Set([contentOf(1), contentOf(2)]));
+  });
+
+  it('keeps media only a segment of a project’s history names', async () => {
+    const test = harness();
+    const tree = new MemoryStorageTree();
+    const header = await madeProject(test, tree);
+    const segments = new ProjectPaths(header.id).segments;
+    await tree.writeFile(
+      `${segments}/000000000001-0000aaaa.json`,
+      encodeUtf8(JSON.stringify({ body: { content: contentOf(7) } })),
+    );
+    expect((await rootsOf(tree)).roots).toContain(contentOf(7));
   });
 
   it('keeps a deleted project’s media until the project is purged', async () => {

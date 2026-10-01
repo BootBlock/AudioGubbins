@@ -1,4 +1,5 @@
 import { generatedSource } from '@audiogubbins/media-store/testing';
+import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { describe, expect, it } from 'vitest';
 
 import { olderStorage, projectWorld, type ProjectWindow } from '../testing/project-context.js';
@@ -15,7 +16,12 @@ describe('stored data of another version', () => {
 
     expect(window.context.storageRoot.get()).toMatchObject({
       kind: 'blocked',
-      data: { kind: 'incompatible', schema: 'projectStorage', found: 0, current: 2 },
+      data: {
+        kind: 'incompatible',
+        schema: 'projectStorage',
+        found: 0,
+        current: SCHEMA_VERSIONS.projectStorage,
+      },
       shown: true,
     });
     expect(window.run('file.create-project', { name: 'Anything' }).kind).toBe('refused');

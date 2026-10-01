@@ -4,14 +4,20 @@
  * shares one tree, one digest and one set of paths (ADR-0020, REQ-STOR-101).
  */
 
-import type { DomainResult, ProjectId } from '@audiogubbins/domain';
+import type { DomainResult, IdGenerator, ProjectId } from '@audiogubbins/domain';
 
-import { type CheckedReading, type CheckedRecords, RecordKind } from './checked-records.js';
-import { readCheckpoint, writeCheckpoint, type Checkpoint } from './checkpoint-record.js';
+import type { CheckedReading, CheckedRecords } from './checked-records.js';
+import {
+  CheckpointFiles,
+  type StoredCheckpoint,
+  type WrittenSegments,
+} from './checkpoint-files.js';
+import type { Checkpoint } from './checkpoint-record.js';
 import { CommandJournal } from './command-journal.js';
 import type { PairFiles } from './generational-pair.js';
 import { headerFiles, type ProjectHeader } from './project-header.js';
 import { newestHead } from './project-heads.js';
+import type { SegmentLedger } from './segment-ledger.js';
 import { SnapshotStore } from './state-store.js';
 import { type CheckpointId, ProjectPaths } from './storage-layout.js';
 
@@ -23,6 +29,7 @@ export class ProjectFiles {
   readonly states: SnapshotStore;
   readonly journal: CommandJournal;
   readonly header: PairFiles<ProjectHeader>;
+  private readonly checkpoints: CheckpointFiles;
 
   constructor(records: CheckedRecords, project: ProjectId) {
     this.project = project;
@@ -31,10 +38,11 @@ export class ProjectFiles {
     this.states = new SnapshotStore(records.tree, records.digest, this.paths.states);
     this.journal = new CommandJournal(records, project);
     this.header = headerFiles(this.paths);
+    this.checkpoints = new CheckpointFiles(records, (segment) => this.paths.segment(segment));
   }
 
   /** The checkpoint the newest head names, where it can be read. */
-  async newestCheckpoint(signal?: AbortSignal): Promise<Checkpoint | undefined> {
+  async newestCheckpoint(signal?: AbortSignal): Promise<StoredCheckpoint | undefined> {
     const head = await newestHead(this.records, this.paths, signal);
     if (head === undefined) return undefined;
     const read = await this.readCheckpoint(head.epoch, head.checkpoint, signal);
@@ -54,28 +62,26 @@ export class ProjectFiles {
     epoch: number,
     id: CheckpointId,
     signal?: AbortSignal,
-  ): Promise<CheckedReading<Checkpoint>> {
-    return await this.records.read(
-      this.paths.checkpoint(epoch, id),
-      RecordKind.Checkpoint,
-      readCheckpoint,
-      signal,
-    );
+  ): Promise<CheckedReading<StoredCheckpoint>> {
+    return await this.checkpoints.read(this.paths.checkpoint(epoch, id), signal);
   }
 
   /**
-   * Writes a checkpoint under the lease epoch it records, failing as
-   * {@link CheckedRecords.write} does.
+   * Writes a checkpoint under the lease epoch it records, and the segments
+   * `ledger` plans for it, each named from `ids`, failing as
+   * {@link CheckpointFiles.write} does.
    */
   async writeCheckpoint(
     id: CheckpointId,
     checkpoint: Checkpoint,
+    ledger: SegmentLedger,
+    ids: IdGenerator,
     signal?: AbortSignal,
-  ): Promise<DomainResult<void>> {
-    return await this.records.write(
+  ): Promise<DomainResult<WrittenSegments>> {
+    return await this.checkpoints.write(
       this.paths.checkpoint(checkpoint.leaseEpoch, id),
-      RecordKind.Checkpoint,
-      writeCheckpoint(checkpoint),
+      checkpoint,
+      { ledger, next: () => ids.next<'HistorySegmentId'>() },
       signal,
     );
   }

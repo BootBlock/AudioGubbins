@@ -6,15 +6,16 @@
  *
  * A generation is made from a copy of the project read from storage, so it
  * holds every change written and needs nothing of an open session. Its states
- * go first, then its checkpoint, then the record that says what it is, which is
- * what makes it a generation: a crash before the record leaves an incomplete
- * generation, listed as such and removed by pruning, and never read as a
- * backup. Media is not copied: a generation names it by content, and the
- * storage counts every generation among the roots nothing is purged from while
- * it lasts. A generation is protected by a marker beside it, whose presence
- * alone counts, so protecting and unprotecting never rewrite the generation.
- * Only the window holding the project's write lease makes, protects or removes
- * its generations.
+ * go first, then its checkpoint with the segments of history it names, which
+ * the generation holds itself so it outlasts the project's own, then the record
+ * that says what it is, which is what makes it a generation: a crash before the
+ * record leaves an incomplete generation, listed as such and removed by
+ * pruning, and never read as a backup. Media is not copied: a generation names
+ * it by content, and the storage counts every generation among the roots
+ * nothing is purged from while it lasts. A generation is protected by a marker
+ * beside it, whose presence alone counts, so protecting and unprotecting never
+ * rewrite the generation. Only the window holding the project's write lease
+ * makes, protects or removes its generations.
  */
 
 import {
@@ -22,6 +23,7 @@ import {
   fail,
   failure,
   succeed,
+  unsafeBrandId,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
@@ -40,9 +42,11 @@ import {
 
 import type { BackupGeneration, BackupReason } from './backup-planning.js';
 import { CheckedRecords, RecordKind } from './checked-records.js';
-import { readCheckpoint, writeCheckpoint, type Checkpoint } from './checkpoint-record.js';
+import { CheckpointFiles } from './checkpoint-files.js';
+import type { Checkpoint } from './checkpoint-record.js';
 import { offeredStates, type ProjectCopy } from './project-copy.js';
 import { asWholeNumber } from './record-values.js';
+import { SegmentLedger } from './segment-ledger.js';
 import { SnapshotStore } from './state-store.js';
 import { refusalsReported } from './storage-failures.js';
 import { BackupPaths, numberOfGeneration } from './storage-layout.js';
@@ -143,15 +147,25 @@ export class BackupGenerations {
         ...(model.comparison === undefined ? {} : { comparison: model.comparison }),
         leaseEpoch: 0,
       };
-      const written = await this.records.write(
+      // A generation is written once, so its segments are simply numbered.
+      let segments = 0;
+      const written = await this.checkpoints(number).write(
         this.paths.checkpoint(number),
-        RecordKind.Checkpoint,
-        writeCheckpoint(checkpoint),
+        checkpoint,
+        {
+          ledger: new SegmentLedger(),
+          next: () => unsafeBrandId(String((segments += 1)).padStart(8, '0')),
+        },
         signal,
       );
       if (!written.ok) return written;
-      const bytes =
-        states.value.bytes + ((await this.tree.openFile(this.paths.checkpoint(number)))?.size ?? 0);
+      let bytes = states.value.bytes;
+      for (const path of [
+        this.paths.checkpoint(number),
+        ...written.value.named.map((segment) => this.paths.segment(number, segment)),
+      ]) {
+        bytes += (await this.tree.openFile(path))?.size ?? 0;
+      }
       if (made.protect) await this.tree.writeFile(this.paths.protection(number), new Uint8Array(0));
       const record: GenerationRecord = { at: made.at, reason: made.reason, bytes };
       const listed = await this.records.write(
@@ -240,12 +254,7 @@ export class BackupGenerations {
       );
       const checkpoint =
         record.kind === 'valid'
-          ? await this.records.read(
-              this.paths.checkpoint(number),
-              RecordKind.Checkpoint,
-              readCheckpoint,
-              signal,
-            )
+          ? await this.checkpoints(number).read(this.paths.checkpoint(number), signal)
           : record;
       if (checkpoint.kind !== 'valid') return fail(generationMissing(this.project, number));
       const saved = checkpoint.value;
@@ -268,6 +277,11 @@ export class BackupGenerations {
         },
       });
     });
+  }
+
+  /** The checkpoint of generation `number` and its segments. */
+  private checkpoints(number: number): CheckpointFiles {
+    return new CheckpointFiles(this.records, (segment) => this.paths.segment(number, segment));
   }
 
   private get tree() {

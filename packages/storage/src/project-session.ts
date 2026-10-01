@@ -330,6 +330,7 @@ export class ProjectSession {
       position: start.recovered.position,
       keptStates: start.recovered.keptStates,
       unwritten: start.recovered.unwritten,
+      segments: start.recovered.segments,
       headerName: start.headerName,
       cadence: start.cadence,
       onChange: () => {

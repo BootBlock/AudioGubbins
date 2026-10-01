@@ -34,6 +34,8 @@ import { JOURNAL_START } from './journal-position.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHead } from './project-heads.js';
 import { writeHeader, type ImportOrigin, type ProjectHeader } from './project-header.js';
+import { SegmentLedger } from './segment-ledger.js';
+import type { CheckpointId } from './storage-layout.js';
 
 /** What a new project begins as. */
 export interface ProjectBeginning {
@@ -108,14 +110,36 @@ export async function writeProject(
   ids: IdGenerator,
   signal?: AbortSignal,
 ): Promise<DomainResult<ProjectHeader>> {
-  const { state } = contents;
   const tree = files.records.tree;
   await tree.writeFile(files.paths.unfinished, new Uint8Array(0), signal);
+  const checkpoint = await writeFirstCheckpoint(files, contents, ids, signal);
+  if (!checkpoint.ok) return checkpoint;
+
+  const head = await writeHead(
+    files.records,
+    files.paths,
+    { epoch: JOURNAL_START.epoch, checkpoint: checkpoint.value, journal: JOURNAL_START },
+    signal,
+  );
+  if (!head.ok) return head;
+
+  const header = await writeFirstHeader(files, contents, signal);
+  if (header.ok) await tree.remove(files.paths.unfinished);
+  return mapResult(header, (written) => written.value);
+}
+
+/** Writes the states a new project keeps and its first checkpoint, and gives the checkpoint. */
+async function writeFirstCheckpoint(
+  files: ProjectFiles,
+  contents: ProjectContents,
+  ids: IdGenerator,
+  signal?: AbortSignal,
+): Promise<DomainResult<CheckpointId>> {
   for (const kept of contents.kept.values()) {
     const put = await files.states.put(kept, signal);
     if (!put.ok) return put;
   }
-  const cursorState = await files.states.put(state, signal);
+  const cursorState = await files.states.put(contents.state, signal);
   if (!cursorState.ok) return cursorState;
   const history = withStateFingerprint(
     contents.history,
@@ -142,21 +166,11 @@ export async function writeProject(
       ...(comparison === undefined ? {} : { comparison: comparison.value }),
       leaseEpoch: JOURNAL_START.epoch,
     },
+    new SegmentLedger(),
+    ids,
     signal,
   );
-  if (!written.ok) return written;
-
-  const head = await writeHead(
-    files.records,
-    files.paths,
-    { epoch: JOURNAL_START.epoch, checkpoint, journal: JOURNAL_START },
-    signal,
-  );
-  if (!head.ok) return head;
-
-  const header = await writeFirstHeader(files, contents, signal);
-  if (header.ok) await tree.remove(files.paths.unfinished);
-  return mapResult(header, (written) => written.value);
+  return mapResult(written, () => checkpoint);
 }
 
 /** The header that makes a project appear in the list, written once all else is whole. */

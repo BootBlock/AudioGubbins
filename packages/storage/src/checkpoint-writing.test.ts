@@ -16,6 +16,7 @@ import { MemoryLeaseCoordinator } from './testing/memory-leases.js';
 import { PausingTree } from './testing/pausing-tree.js';
 import { WINDOW_B, madeProject, openToWrite, writable } from './testing/storage-harness.js';
 import { setName } from './testing/test-commands.js';
+import { SegmentLedger } from './segment-ledger.js';
 
 /**
  * A writer that lost the project without yet hearing of it changes nothing that
@@ -77,6 +78,8 @@ describe('a late writer moves no head', () => {
       position: { epoch: 2, sequence: 2 },
       lease: { epoch: 2, seals: [], holder: 'another-opening' },
       unwritten: new Map(),
+      ledger: new SegmentLedger(),
+      ids: test.ids,
     });
     expect(expectFailureCode(written)).toBe('storage.lease-superseded');
     expect(await readHeads(files.records, files.paths)).toEqual(heads);
@@ -95,15 +98,20 @@ describe('a late writer moves no head', () => {
     const history = expectSuccess(
       withStateFingerprint(late.history, late.history.cursor, cursorState),
     );
-    await files.writeCheckpoint(checkpoint, {
-      history,
-      cursorState,
-      keptStates: new Set([cursorState]),
-      exports: [],
-      retention: late.retention,
-      backup: late.backup,
-      leaseEpoch: 2,
-    });
+    await files.writeCheckpoint(
+      checkpoint,
+      {
+        history,
+        cursorState,
+        keptStates: new Set([cursorState]),
+        exports: [],
+        retention: late.retention,
+        backup: late.backup,
+        leaseEpoch: 2,
+      },
+      new SegmentLedger(),
+      test.ids,
+    );
     expectSuccess(
       await writeHead(files.records, files.paths, {
         epoch: 2,

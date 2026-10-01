@@ -30,6 +30,7 @@ import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHeader } from './project-header.js';
 import type { ProjectModel } from './project-model.js';
+import type { SegmentLedger } from './segment-ledger.js';
 import { isRecordTooLarge } from './storage-failures.js';
 import { WriteQueue, type SaveStatus, type WriteOutcome } from './write-queue.js';
 
@@ -52,6 +53,12 @@ export interface WriterStart {
   readonly position: JournalPosition;
   readonly keptStates: ReadonlySet<StateFingerprint>;
   readonly unwritten: ReadonlyMap<StateFingerprint, ProjectState>;
+
+  /**
+   * The segments of history the checkpoint the project was opened from names,
+   * which the writer then keeps as each later checkpoint is confirmed.
+   */
+  readonly segments: SegmentLedger;
 
   /** The name the header holds, where one could be read. */
   readonly headerName: string | undefined;
@@ -150,6 +157,8 @@ export class SessionWriter {
       position: this.last,
       lease: this.start.lease,
       unwritten: new Map(this.unwritten),
+      ledger: this.start.segments,
+      ids: this.start.ids,
     };
     return await this.queue.enqueue(async () => {
       const written = await writeCheckpointAndHead(this.start.files, request);
@@ -157,6 +166,8 @@ export class SessionWriter {
         if (written.failures[0].code === SUPERSEDED) this.start.onSuperseded();
         return this.notHeld(written);
       }
+      const { segments } = written.value;
+      this.start.segments.commit(segments.plan, segments.written);
       this.kept.clear();
       for (const state of written.value.keptStates) {
         this.kept.add(state);

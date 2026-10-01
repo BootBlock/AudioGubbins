@@ -2011,6 +2011,7 @@ Published paths
   function retainedStates(history: History): ReadonlySet<StateFingerprint>
   function startComparison(a: ComparisonSide, b: ComparisonSide): DomainResult<Comparison>
   function startHistory(project: ProjectId, origin: OriginNodeRecord): History
+  function storedPreferences(history: History): ReadonlyMap<HistoryNodeId, HistoryNodeId>
   function switchSide(comparison: Comparison, side?: SideName | undefined): Comparison
   function undo(history: History): Navigation | undefined
   function undoTarget(history: History): ChangeNode | undefined
@@ -2399,6 +2400,13 @@ Published paths
   readonly HistoryRecord.preferred: ReadonlyMap<HistoryNodeId, HistoryNodeId>
   readonly HistoryRecord.branchNames: ReadonlyMap<HistoryNodeId, HistoryLabel>
   readonly HistoryRecord.snapshots: readonly NamedSnapshot[]
+  type HistorySegmentId = string & { readonly [BrandTag]: "HistorySegmentId"; }
+  interface HistorySegmentRecord
+  readonly HistorySegmentRecord.project: ProjectId
+  readonly HistorySegmentRecord.nodes: readonly HistoryNodeRecord[]
+  interface HistorySegmentReference
+  readonly HistorySegmentReference.epoch: number
+  readonly HistorySegmentReference.id: HistorySegmentId
   interface InvocationRecord
   readonly InvocationRecord.commandId: string
   readonly InvocationRecord.arguments?: Readonly<Record<string, boolean | null | number | string>>
@@ -2472,6 +2480,14 @@ Published paths
   Reading.outcome: <TValue>(value: TValue | undefined) => DomainResult<TValue>
   type RetentionPolicy = { readonly kind: "budget"; readonly bytes: number; } | { readonly kind: "rules"; readonly rules: readonly [RetentionRule, ...RetentionRule[]]; } | { readonly kind: "unlimited"; }
   type RetentionRule = { readonly kind: "recent-changes"; readonly count: number; } | { readonly kind: "recent-days"; readonly days: number; }
+  interface SegmentedHistoryRecord
+  readonly SegmentedHistoryRecord.project: ProjectId
+  readonly SegmentedHistoryRecord.cursor: HistoryNodeId
+  readonly SegmentedHistoryRecord.segments: readonly HistorySegmentReference[]
+  readonly SegmentedHistoryRecord.fingerprints: ReadonlyMap<HistoryNodeId, StateFingerprint>
+  readonly SegmentedHistoryRecord.preferred: ReadonlyMap<HistoryNodeId, HistoryNodeId>
+  readonly SegmentedHistoryRecord.branchNames: ReadonlyMap<HistoryNodeId, HistoryLabel>
+  readonly SegmentedHistoryRecord.snapshots: readonly NamedSnapshot[]
   type SnapshotId = string & { readonly [BrandTag]: "SnapshotId"; }
   type SnapshotKind = "named" | "recovery"
   const SourceChangePolicy: { readonly Prompt: "prompt"; readonly Adopt: "adopt"; readonly Freeze: "freeze"; }
@@ -2559,6 +2575,7 @@ Published paths
   function entitiesOf<TEntity extends { readonly id: string; }>(reading: Reading, object: JsonObject, at: string, key: string, maximum: number, entity: Converter<TEntity>): ReadonlyMap<TEntity["id"], TEntity> | undefined
   function fingerprintOf(text: CanonicalJson, digest: Digest): Promise<StateFingerprint>
   function hexOf(bytes: Uint8Array<ArrayBufferLike>): string
+  function historyFromSegments(reading: Reading, history: SegmentedHistoryRecord, segments: readonly HistorySegmentRecord[], at: string): HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord> | undefined
   function historyLabelFrom(text: string): DomainResult<HistoryLabel>
   function integerConverter(minimum: number, maximum: number): Converter<number>
   function isContentId(text: string): boolean
@@ -2599,11 +2616,13 @@ Published paths
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
   const readHistoryRecord: Converter<HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>>
+  const readHistorySegment: Converter<HistorySegmentRecord>
   const readMediaSource: Converter<MediaSource>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
   const readRetentionPolicy: Converter<RetentionPolicy>
+  const readSegmentedHistory: Converter<SegmentedHistoryRecord>
   const readSnapshotRecord: Converter<NamedSnapshot>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options?: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
@@ -2624,9 +2643,11 @@ Published paths
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
   function writeHistoryRecord(history: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>): JsonObject
+  function writeHistorySegment(segment: HistorySegmentRecord): JsonObject
   function writeMediaSource(media: MediaSource): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
   function writeRetentionPolicy(policy: RetentionPolicy): JsonObject
+  function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
   function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options?: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
 
@@ -2777,6 +2798,7 @@ Published paths
   BackupGenerations.protect: (number: number, protect: boolean) => Promise<DomainResult<void>>
   BackupGenerations.remove: (numbers: readonly number[], signal?: AbortSignal) => Promise<DomainResult<void>>
   BackupGenerations.copyOf: (number: number, signal?: AbortSignal) => Promise<DomainResult<ProjectCopy>>
+  BackupGenerations.checkpoints: (number: number) => CheckpointFiles
   BackupGenerations.tree: StorageTree
   BackupGenerations.numbers: () => Promise<readonly number[]>
   interface BackupPruning
@@ -3487,7 +3509,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 2; readonly portableBundle: 1; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 3; readonly portableBundle: 1; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -4206,8 +4228,34 @@ packages/storage/src/checked-records.ts
   readonly CheckedRecords.digest: Digest
   CheckedRecords.write: (path: string, kind: RecordKind, body: JsonValue, signal?: AbortSignal) => Promise<DomainResult<void>>
   CheckedRecords.read: <TValue>(path: string, kind: RecordKind, convert: Converter<TValue>, signal?: AbortSignal) => Promise<CheckedReading<TValue>>
-  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; }
-  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "journal-record" | "lease" | "project-head" | "project-header" | "storage-root"
+  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly HistorySegment: "history-segment"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; }
+  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "history-segment" | "journal-record" | "lease" | "project-head" | "project-header" | "storage-root"
+
+packages/storage/src/checkpoint-files.ts
+  class CheckpointFiles
+  new CheckpointFiles(records: CheckedRecords, segmentPath: SegmentPath): CheckpointFiles
+  readonly CheckpointFiles.records: CheckedRecords
+  readonly CheckpointFiles.segmentPath: SegmentPath
+  CheckpointFiles.read: (path: string, signal?: AbortSignal) => Promise<CheckedReading<StoredCheckpoint>>
+  CheckpointFiles.write: (path: string, checkpoint: Checkpoint, segments: SegmentWriting, signal?: AbortSignal) => Promise<DomainResult<WrittenSegments>>
+  type SegmentPath = (segment: HistorySegmentReference) => string
+  interface SegmentWriting
+  readonly SegmentWriting.ledger: SegmentLedger
+  readonly SegmentWriting.next: () => HistorySegmentId
+  interface StoredCheckpoint extends Checkpoint
+  readonly StoredCheckpoint.segments: SegmentLedger
+  readonly StoredCheckpoint.history: History
+  readonly StoredCheckpoint.cursorState: import("packages/project-format/src/content-identity").StateFingerprint
+  readonly StoredCheckpoint.keptStates: ReadonlySet<import("packages/project-format/src/content-identity").StateFingerprint>
+  readonly StoredCheckpoint.exports: readonly import("packages/project-format/src/export-provenance").ExportRecord[]
+  readonly StoredCheckpoint.retention: import("packages/project-format/src/history-record").RetentionPolicy
+  readonly StoredCheckpoint.backup: import("packages/project-format/src/backup-policy-json").BackupPolicy
+  readonly StoredCheckpoint.comparison?: import("packages/history/src/comparison").Comparison
+  readonly StoredCheckpoint.leaseEpoch: number
+  interface WrittenSegments
+  readonly WrittenSegments.plan: SegmentPlan
+  readonly WrittenSegments.written: readonly HeldSegment[]
+  readonly WrittenSegments.named: readonly HistorySegmentReference[]
 
 packages/storage/src/checkpoint-record.ts
   interface Checkpoint
@@ -4281,10 +4329,11 @@ packages/storage/src/project-files.ts
   readonly ProjectFiles.states: SnapshotStore
   readonly ProjectFiles.journal: CommandJournal
   readonly ProjectFiles.header: PairFiles<ProjectHeader>
-  ProjectFiles.newestCheckpoint: (signal?: AbortSignal) => Promise<Checkpoint | undefined>
+  readonly ProjectFiles.checkpoints: CheckpointFiles
+  ProjectFiles.newestCheckpoint: (signal?: AbortSignal) => Promise<StoredCheckpoint | undefined>
   ProjectFiles.isUnfinished: () => Promise<boolean>
-  ProjectFiles.readCheckpoint: (epoch: number, id: CheckpointId, signal?: AbortSignal) => Promise<CheckedReading<Checkpoint>>
-  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, signal?: AbortSignal) => Promise<DomainResult<void>>
+  ProjectFiles.readCheckpoint: (epoch: number, id: CheckpointId, signal?: AbortSignal) => Promise<CheckedReading<StoredCheckpoint>>
+  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, ledger: SegmentLedger, ids: IdGenerator, signal?: AbortSignal) => Promise<DomainResult<WrittenSegments>>
 
 packages/storage/src/project-model.ts
   type SettledEvent = { readonly kind: "backup-policy"; readonly policy: BackupPolicy; } | { readonly kind: "branch-name"; readonly node: import("packages/project-format/src/history-record").HistoryNodeId; readonly name?: import("packages/project-format/src/history-record").HistoryLabel; } | { readonly kind: "comparison"; readonly choice?: import("packages/project-format/src/comparison-choice-json").ComparisonChoiceRecord; } | { readonly kind: "export"; readonly record: ExportRecord; } | { readonly kind: "retention-policy"; readonly policy: RetentionPolicy; } | { readonly kind: "snapshot-created"; readonly snapshot: import("packages/project-format/src/history-record").NamedSnapshot; } | { readonly kind: "snapshot-deleted"; readonly snapshot: import("packages/project-format/src/history-record").SnapshotId; }
@@ -4296,6 +4345,7 @@ packages/storage/src/project-recovery.ts
   readonly RecoveredProject.lastReplayed: ReadonlyMap<number, number>
   readonly RecoveredProject.keptStates: ReadonlySet<StateFingerprint>
   readonly RecoveredProject.unwritten: ReadonlyMap<StateFingerprint, ProjectState>
+  readonly RecoveredProject.segments: SegmentLedger
   readonly RecoveredProject.report: ProjectRecoveryReport
   interface RecoveryServices
   readonly RecoveryServices.bus: CommandBus<ProjectState>
@@ -4309,6 +4359,34 @@ packages/storage/src/project-snapshot.ts
   readonly SnapshotPublisher.subscribe: (listener: () => void) => (() => void)
   readonly SnapshotPublisher.getSnapshot: () => ProjectSnapshot
   SnapshotPublisher.publish: (next: ProjectSnapshot) => void
+
+packages/storage/src/segment-ledger.ts
+  interface FreshSegment
+  readonly FreshSegment.nodes: readonly HistoryNode[]
+  readonly FreshSegment.length: number
+  interface HeldSegment
+  readonly HeldSegment.reference: HistorySegmentReference
+  readonly HeldSegment.nodes: readonly HistoryNodeRecord[]
+  readonly HeldSegment.length: number | undefined
+  interface LedgerSegment
+  readonly LedgerSegment.reference: HistorySegmentReference
+  readonly LedgerSegment.nodes: readonly HistoryNodeId[]
+  readonly LedgerSegment.length: number | undefined
+  interface Placed
+  readonly Placed.segment: LedgerSegment
+  readonly Placed.parent: HistoryNodeId | undefined
+  readonly Placed.fingerprint: StateFingerprint | undefined
+  class SegmentLedger
+  new SegmentLedger(held?: readonly HeldSegment[]): SegmentLedger
+  SegmentLedger.segments: readonly LedgerSegment[]
+  readonly SegmentLedger.placed: Map<HistoryNodeId, Placed>
+  SegmentLedger.named: readonly LedgerSegment[]
+  SegmentLedger.plan: (history: History, measure: (node: HistoryNode) => number) => SegmentPlan
+  SegmentLedger.commit: (plan: SegmentPlan, written: readonly HeldSegment[]) => void
+  interface SegmentPlan
+  readonly SegmentPlan.kept: readonly LedgerSegment[]
+  readonly SegmentPlan.fresh: readonly FreshSegment[]
+  readonly SegmentPlan.fingerprints: ReadonlyMap<HistoryNodeId, StateFingerprint>
 
 packages/storage/src/session-contracts.ts
   interface SessionServices
@@ -4369,6 +4447,7 @@ packages/storage/src/session-writer.ts
   readonly WriterStart.position: JournalPosition
   readonly WriterStart.keptStates: ReadonlySet<StateFingerprint>
   readonly WriterStart.unwritten: ReadonlyMap<StateFingerprint, ProjectState>
+  readonly WriterStart.segments: SegmentLedger
   readonly WriterStart.headerName: string | undefined
   readonly WriterStart.cadence: WritingCadence
   readonly WriterStart.onChange: () => void
@@ -4385,6 +4464,8 @@ packages/storage/src/storage-layout.ts
   BackupPaths.generation: (generation: number) => string
   BackupPaths.record: (generation: number) => string
   BackupPaths.checkpoint: (generation: number) => string
+  BackupPaths.segments: (generation: number) => string
+  BackupPaths.segment: (generation: number, segment: HistorySegmentReference) => string
   BackupPaths.states: (generation: number) => string
   BackupPaths.protection: (generation: number) => string
   type CheckpointId = string & { readonly [BrandTag]: "CheckpointId"; }
@@ -4394,6 +4475,7 @@ packages/storage/src/storage-layout.ts
   readonly ProjectPaths.directory: string
   readonly ProjectPaths.heads: string
   readonly ProjectPaths.checkpoints: string
+  readonly ProjectPaths.segments: string
   readonly ProjectPaths.states: string
   readonly ProjectPaths.journal: string
   readonly ProjectPaths.quarantine: string
@@ -4402,6 +4484,7 @@ packages/storage/src/storage-layout.ts
   ProjectPaths.header: (slot: PairSlot) => string
   ProjectPaths.head: (epoch: number, generation: number) => string
   ProjectPaths.checkpoint: (epoch: number, id: CheckpointId) => string
+  ProjectPaths.segment: (segment: HistorySegmentReference) => string
   ProjectPaths.epoch: (epoch: number) => string
   ProjectPaths.record: (epoch: number, sequence: number) => string
   ProjectPaths.quarantined: (epoch: number, sequence: number) => string

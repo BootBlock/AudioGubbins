@@ -199,6 +199,17 @@ export {
 export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
 export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
 export {
+  historyFromSegments,
+  readHistorySegment,
+  readSegmentedHistory,
+  writeHistorySegment,
+  writeSegmentedHistory,
+  type HistorySegmentId,
+  type HistorySegmentRecord,
+  type HistorySegmentReference,
+  type SegmentedHistoryRecord,
+} from './history-segments.js';
+export {
   checkedRetentionPolicy,
   readRetentionPolicy,
   writeRetentionPolicy,

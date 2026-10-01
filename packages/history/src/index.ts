@@ -94,4 +94,9 @@ export { applyCompaction } from './compaction-apply.js';
 
 export { type ContentRetention, contentRetention, retainedStates } from './retention.js';
 
-export { historyFromRecord, historyRecordOf, nodeFromRecord } from './history-conversion.js';
+export {
+  historyFromRecord,
+  historyRecordOf,
+  nodeFromRecord,
+  storedPreferences,
+} from './history-conversion.js';

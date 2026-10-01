@@ -51,6 +51,7 @@ export const RecordKind = {
   ProjectHeader: 'project-header',
   ProjectHead: 'project-head',
   Checkpoint: 'checkpoint',
+  HistorySegment: 'history-segment',
   JournalRecord: 'journal-record',
   Lease: 'lease',
   CacheSeal: 'cache-seal',

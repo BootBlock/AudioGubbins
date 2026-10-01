@@ -9,6 +9,9 @@
  *   written once by the writer of its lease epoch (`project-heads.ts`).
  * - `projects/<project>/checkpoints/<epoch>-<id>.json`: a checkpoint, named by
  *   the lease epoch it was written under.
+ * - `projects/<project>/segments/<epoch>-<id>.json`: a segment of the
+ *   project's history, named by the lease epoch it was written under
+ *   (`segment-ledger.ts`).
  * - `projects/<project>/states/<fingerprint>.json`: a state.
  * - `projects/<project>/journal/e<epoch>/<sequence>.json`: a journal record.
  * - `projects/<project>/journal/quarantine/e<epoch>-<sequence>.json`: a record
@@ -28,6 +31,7 @@
  */
 
 import type { Branded, ProjectId } from '@audiogubbins/domain';
+import type { HistorySegmentReference } from '@audiogubbins/project-format';
 
 /** The storage root's file. */
 export const STORAGE_ROOT_FILE = 'storage.json';
@@ -55,7 +59,8 @@ const EPOCH_DIRECTORY = /^e([0-9]{12})$/u;
 const RECORD_FILE = /^([0-9]{12})\.json$/u;
 const LEASE_FILE = /^([0-9]{12})\.json$/u;
 const HEAD_FILE = /^([0-9]{12})-([0-9]{12})\.json$/u;
-const CHECKPOINT_FILE = /^([0-9]{12})-(.+)\.json$/u;
+/** A checkpoint's or a segment's file: the epoch it was written under, then its id. */
+const EPOCH_NAMED_FILE = /^([0-9]{12})-(.+)\.json$/u;
 const GENERATION_DIRECTORY = /^([0-9]{12})$/u;
 const QUARANTINE_DIRECTORY = 'quarantine';
 
@@ -102,7 +107,17 @@ export function headOfName(
 
 /** The lease epoch a checkpoint's name holds, or `undefined` for another name. */
 export function epochOfCheckpoint(name: string): number | undefined {
-  return numberIn(CHECKPOINT_FILE.exec(name));
+  return numberIn(EPOCH_NAMED_FILE.exec(name));
+}
+
+/** The lease epoch a segment's name holds, or `undefined` for another name. */
+export function epochOfSegment(name: string): number | undefined {
+  return numberIn(EPOCH_NAMED_FILE.exec(name));
+}
+
+/** The name of a segment's file. */
+export function segmentName(segment: HistorySegmentReference): string {
+  return `${digits(segment.epoch)}-${segment.id}.json`;
 }
 
 /** The number a backup generation's directory holds, or `undefined` for another name. */
@@ -115,6 +130,7 @@ export class ProjectPaths {
   readonly directory: string;
   readonly heads: string;
   readonly checkpoints: string;
+  readonly segments: string;
   readonly states: string;
   readonly journal: string;
   readonly quarantine: string;
@@ -127,6 +143,7 @@ export class ProjectPaths {
     this.directory = `${PROJECTS_DIRECTORY}/${project}`;
     this.heads = `${this.directory}/heads`;
     this.checkpoints = `${this.directory}/checkpoints`;
+    this.segments = `${this.directory}/segments`;
     this.states = `${this.directory}/states`;
     this.journal = `${this.directory}/journal`;
     this.quarantine = `${this.journal}/${QUARANTINE_DIRECTORY}`;
@@ -144,6 +161,10 @@ export class ProjectPaths {
 
   checkpoint(epoch: number, id: CheckpointId): string {
     return `${this.checkpoints}/${digits(epoch)}-${id}.json`;
+  }
+
+  segment(segment: HistorySegmentReference): string {
+    return `${this.segments}/${segmentName(segment)}`;
   }
 
   epoch(epoch: number): string {
@@ -183,6 +204,16 @@ export class BackupPaths {
   /** The copy of the checkpoint a generation holds. */
   checkpoint(generation: number): string {
     return `${this.generation(generation)}/checkpoint.json`;
+  }
+
+  /** The segments of the history a generation's checkpoint holds. */
+  segments(generation: number): string {
+    return `${this.generation(generation)}/segments`;
+  }
+
+  /** A segment of the history a generation's checkpoint holds. */
+  segment(generation: number, segment: HistorySegmentReference): string {
+    return `${this.segments(generation)}/${segmentName(segment)}`;
   }
 
   /** The states a generation keeps. */
