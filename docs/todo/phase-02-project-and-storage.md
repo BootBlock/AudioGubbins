@@ -209,60 +209,61 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
 
    Plan, in commits:
 
-   a. Preferences redo follows anyway are not stored. `historyRecordOf`
-      leaves out each preference that names the child a reader takes as the
-      newest (latest `at`, then identifier), and `historyFromRecord` fills
-      every node with children but no preference with that child. Behaviour is
-      unchanged (`continuationOf` falls back to the newest child), and a
-      linear history stores no preference at all, so a checkpoint no longer
-      grows by one entry for every change.
-   b. `project-format` exports the whole-graph check of an assembled history
-      record (the tree and reference checks `readHistoryRecord` runs), so a
-      history read from parts is checked by the same code.
-   c. Segments, in one format change (`projectStorage` 2 to 3):
-      - Record kind `history-segment` at
-        `projects/<p>/segments/<epoch>-<segment id>.json`, holding the project
-        id and node records as written. Fresh ids, never content addressed.
-      - The checkpoint's `history` holds `project`, `cursor`, the ordered
-        segment references `{epoch, id}`, `fingerprints` (node and state, for
-        each node whose segment copy lacks the fingerprint it now has),
-        `preferred`, `branchNames` and `snapshots`. No node is in it.
-      - A `CheckpointFiles` over a checkpoint path and a segments directory
-        reads a checkpoint whole (segments read in order, a node in two
-        segments, a missing or damaged segment or a fingerprint for an absent
-        or differently fingerprinted node refused as an invalid checkpoint)
-        and writes one. `ProjectFiles` and `BackupGenerations` each use one,
-        so a backup generation holds its own segments and stays whole after
-        the project goes.
-      - A `SegmentLedger` records what each named segment holds. Planning a
-        checkpoint scans the history (as `retainedStates` already does): a
-        segment is kept while every node in it is present with the parent it
-        was written with; the survivors of any other segment and every node in
-        no segment are written in new segments, cut at 1 MiB of text; the
-        newest segment is merged into the new one where both fit in 1 MiB, so
-        segments stay at most two per MiB of history. Compaction needs no
-        segment knowledge.
-      - Opening returns the ledger with the checkpoint; the session writer
-        keeps it, and updates it only once a head is confirmed.
-      - `removeReplaced` removes segments of its epoch or earlier that the
-        confirmed checkpoint does not name, under the same fencing argument as
-        checkpoints. The module comment says so.
-      - `writeProject` (creation, restore, tree import, fork) writes segments
-        through the same writer with an empty ledger.
-      - Media roots search the segments of projects and backups.
-      - Tests, failing first: the second checkpoint writes only the nodes
-        added since the first; a missing segment, a duplicated node and a
-        stray fingerprint are refused; compaction rewrites only touched
-        segments and the removal step drops the rest; a later epoch's segments
-        survive a late writer's removal; a backup restores after its project's
-        segments are gone; media named only in a segment survive a purge;
-        many small checkpoints keep the segment count bounded.
-   d. The bound to state in the evidence: a checkpoint grows with branch
-      points whose preference is not the newest child, with fingerprints
-      learned after a node's segment was written, snapshots, exports and
-      segment references (at most two per MiB of history). An export of a
-      whole history in one document is still bounded by the record limit and
-      is refused, never written, past it (part one).
+   - Step a: Preferences redo follows anyway are not stored. `historyRecordOf`
+     leaves out each preference that names the child a reader takes as the
+     newest (latest `at`, then identifier), and `historyFromRecord` fills
+     every node with children but no preference with that child. Behaviour is
+     unchanged (`continuationOf` falls back to the newest child), and a
+     linear history stores no preference at all, so a checkpoint no longer
+     grows by one entry for every change.
+   - Step b: `project-format` exports the whole-graph check of an assembled history
+     record (the tree and reference checks `readHistoryRecord` runs), so a
+     history read from parts is checked by the same code.
+   - Step c: Segments, in one format change (`projectStorage` 2 to 3):
+     - Record kind `history-segment` at
+       `projects/<p>/segments/<epoch>-<segment id>.json`, holding the project
+       id and node records as written. Fresh ids, never content addressed.
+     - The checkpoint's `history` holds `project`, `cursor`, the ordered
+       segment references `{epoch, id}`, `fingerprints` (node and state, for
+       each node whose segment copy lacks the fingerprint it now has),
+       `preferred`, `branchNames` and `snapshots`. No node is in it.
+     - A `CheckpointFiles` over a checkpoint path and a segments directory
+       reads a checkpoint whole (segments read in order, a node in two
+       segments, a missing or damaged segment or a fingerprint for an absent
+       or differently fingerprinted node refused as an invalid checkpoint)
+       and writes one. `ProjectFiles` and `BackupGenerations` each use one,
+       so a backup generation holds its own segments and stays whole after
+       the project goes.
+     - A `SegmentLedger` records what each named segment holds. Planning a
+       checkpoint scans the history (as `retainedStates` already does): a
+       segment is kept while every node in it is present with the parent it
+       was written with; the survivors of any other segment and every node in
+       no segment are written in new segments, cut at 1 MiB of text; the
+       newest segment is merged into the new one where both fit in 1 MiB, so
+       segments stay at most two per MiB of history. Compaction needs no
+       segment knowledge.
+     - Opening returns the ledger with the checkpoint; the session writer
+       keeps it, and updates it only once a head is confirmed.
+     - `removeReplaced` removes segments of its epoch or earlier that the
+       confirmed checkpoint does not name, under the same fencing argument as
+       checkpoints. The module comment says so.
+     - `writeProject` (creation, restore, tree import, fork) writes segments
+       through the same writer with an empty ledger.
+     - Media roots search the segments of projects and backups.
+     - Tests, failing first: the second checkpoint writes only the nodes
+       added since the first; a missing segment, a duplicated node and a
+       stray fingerprint are refused; compaction rewrites only touched
+       segments and the removal step drops the rest; a later epoch's segments
+       survive a late writer's removal; a backup restores after its project's
+       segments are gone; media named only in a segment survive a purge;
+       many small checkpoints keep the segment count bounded.
+   - Step d: The bound to state in the evidence: a checkpoint grows with branch
+     points whose preference is not the newest child, with fingerprints
+     learned after a node's segment was written, snapshots, exports and
+     segment references (at most two per MiB of history). An export of a
+     whole history in one document is still bounded by the record limit and
+     is refused, never written, past it (part one).
+
 3. F-15: the storage core in a worker behind a typed port, with a host yield
    and an `AbortSignal` passed through the long paths.
 4. Fix or accept, with a reason, every medium finding; track the low ones.
