@@ -5,7 +5,8 @@
  * The storage tree over the origin-private file system, through one dedicated
  * worker writing with synchronous access handles; the kept handles of linked
  * files and of the folder chosen for backups in IndexedDB, and finding them
- * again; the pickers and the page's file input, as files the media store takes;
+ * again; the pickers and the page's file input, as files the media store takes,
+ * and a file read in ranges wherever it was passed, a storage worker included;
  * a chosen folder read or written as a project's unpacked tree; sinks over a
  * file or folder the user chose and over a download; the write leases over Web
  * Locks and a broadcast channel; the digest; and giving the page a turn. The
@@ -52,6 +53,7 @@ export {
 } from './file-pickers.js';
 
 export { filesFromInput } from './external-files.js';
+export { fileSource } from './file-source.js';
 
 export { listedFolder, writableFolder } from './chosen-folders.js';
 

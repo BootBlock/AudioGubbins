@@ -7,7 +7,8 @@
  * storage takes and gives, so a failure the storage answers crosses as the
  * `DomainResult` it is, and a refusal of the tree crosses as its kind. Each is
  * grouped by the area of the page's client that calls it: the library of
- * projects, the projects open (`project-operations.ts`), the storage root, the
+ * projects, the projects open (`project-operations.ts`), taking projects out
+ * and bringing them in (`transfer-operations.ts`), the storage root, the
  * caches, the usage and its cleanup, and who writes each project. The values
  * all clone: none is a class with behaviour, and a cache's bytes are moved
  * rather than copied.
@@ -37,6 +38,7 @@ import type {
 } from '@audiogubbins/storage';
 
 import type { Handlers, Operation, Stream } from './operations.js';
+import type { PageOperations } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
 import type {
   ProjectHandle,
@@ -44,67 +46,69 @@ import type {
   ProjectStream,
   ProjectUpdate,
 } from './project-operations.js';
+import type { TransferOperations } from './transfer-operations.js';
 
 /** The operations the page calls on the storage worker, by area. */
-export type StorageOperations = ProjectOperations & {
-  /** Every project, deleted ones among them, in the order of their identifiers. */
-  'library.list': Operation<undefined, readonly CatalogueEntry[]>;
-  'library.create': Operation<NewProject, DomainResult<ProjectHeader>>;
-  'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>;
-  'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>;
-  'library.purge': Operation<
-    { readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation },
-    DomainResult<void>
-  >;
-  'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>;
+export type StorageOperations = ProjectOperations &
+  TransferOperations & {
+    /** Every project, deleted ones among them, in the order of their identifiers. */
+    'library.list': Operation<undefined, readonly CatalogueEntry[]>;
+    'library.create': Operation<NewProject, DomainResult<ProjectHeader>>;
+    'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>;
+    'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>;
+    'library.purge': Operation<
+      { readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation },
+      DomainResult<void>
+    >;
+    'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>;
 
-  'root.open': Operation<undefined, DomainResult<StorageRootOpening>>;
-  'root.wipe': Operation<WipeConfirmation, DomainResult<void>>;
+    'root.open': Operation<undefined, DomainResult<StorageRootOpening>>;
+    'root.wipe': Operation<WipeConfirmation, DomainResult<void>>;
 
-  /** A cache's whole bytes, where it is kept whole. */
-  'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>;
-  'caches.put': Operation<
-    { readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer> },
-    DomainResult<void>
-  >;
-  'caches.evictScope': Operation<
-    { readonly category: CacheCategory; readonly scope: CacheScope },
-    DomainResult<void>
-  >;
+    /** A cache's whole bytes, where it is kept whole. */
+    'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>;
+    'caches.put': Operation<
+      { readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer> },
+      DomainResult<void>
+    >;
+    'caches.evictScope': Operation<
+      { readonly category: CacheCategory; readonly scope: CacheScope },
+      DomainResult<void>
+    >;
 
-  /**
-   * The storage's usage, the projects open in the worker taken as they are
-   * now rather than as they were last written.
-   */
-  'usage.measure': Operation<undefined, DomainResult<StorageUsage>>;
-  'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>;
+    /**
+     * The storage's usage, the projects open in the worker taken as they are
+     * now rather than as they were last written.
+     */
+    'usage.measure': Operation<undefined, DomainResult<StorageUsage>>;
+    'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>;
 
-  /**
-   * Carries a cleanup out, through the session open under `held` for the
-   * project it holds, whose lease any other way in would find held.
-   */
-  'usage.runCleanup': Operation<
-    {
-      readonly plan: CleanupPlan;
-      readonly confirmation?: CleanupConfirmation;
-      readonly held?: ProjectHandle;
-    },
-    DomainResult<readonly StepOutcome[]>
-  >;
+    /**
+     * Carries a cleanup out, through the session open under `held` for the
+     * project it holds, whose lease any other way in would find held.
+     */
+    'usage.runCleanup': Operation<
+      {
+        readonly plan: CleanupPlan;
+        readonly confirmation?: CleanupConfirmation;
+        readonly held?: ProjectHandle;
+      },
+      DomainResult<readonly StepOutcome[]>
+    >;
 
-  /** Gives every cache up, in the order storage pressure gives them up. */
-  'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>;
+    /** Gives every cache up, in the order storage pressure gives them up. */
+    'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>;
 
-  /** The window writing a project, where one does and can be told. */
-  'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>;
+    /** The window writing a project, where one does and can be told. */
+    'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>;
 
-  /**
-   * Starts sending the changes of who writes a project on its stream, for one
-   * more listener, until that listener unsubscribes.
-   */
-  'ownership.subscribe': Operation<ProjectId, undefined>;
-  'ownership.unsubscribe': Operation<ProjectId, undefined>;
-};
+    /**
+     * Starts sending the changes of who writes a project on its stream, for one
+     * more listener, until that listener unsubscribes.
+     */
+    'ownership.subscribe': Operation<ProjectId, undefined>;
+    'ownership.unsubscribe': Operation<ProjectId, undefined>;
+  };
 
 /** A record made by one of the worker's loggers, or a measurement one took. */
 export type LogEntry =
@@ -133,12 +137,11 @@ export type StorageWorkerSide = {
 };
 
 /**
- * What the page serves the storage worker, and sends it: nothing yet. The
- * ports only the page can serve, a sink the person chose among them, arrive
- * with the transfers that write to them.
+ * What the page serves the storage worker, the ports only the page can serve
+ * (`page-operations.ts`), and sends it: no stream.
  */
 export type StoragePageSide = {
-  readonly operations: Readonly<Record<string, never>>;
+  readonly operations: PageOperations;
   readonly streams: Readonly<Record<string, never>>;
 };
 

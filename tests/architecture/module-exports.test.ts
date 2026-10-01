@@ -182,6 +182,8 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "The storage worker's client over an end of the port and a page's ports given, which the worker in memory makes so a test counts the ports the page has lent; the application connects through `connectStorage`.":
+    ['packages/storage-runtime/src/client/storage-client.ts: storageClientOver'],
   "The length a segment of history is filled to, which the ledger's tests size their nodes against to make it cut, merge or keep segments.":
     ['packages/storage/src/segment-ledger.ts: SEGMENT_LENGTH'],
   "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":

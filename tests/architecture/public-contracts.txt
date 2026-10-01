@@ -787,6 +787,7 @@ Published paths
   interface WritableFile
   WritableFile.createWritable: (options: { readonly keepExistingData: boolean; }) => Promise<FileWriteStream>
   function createLeaseCoordinator(services: WebLeaseServices): LeaseCoordinator | undefined
+  function fileSource(file: File, current?: (() => Promise<File>) | undefined): ByteSource
   function filesFromInput(files: Iterable<File>): readonly ExternalFile[]
   function filesInDirectory(directory: FileSystemDirectoryHandle, keeper: FileHandleKeeper | undefined, signal?: AbortSignal | undefined): AsyncGenerator<ExternalFile, void, undefined>
   function listedFolder(files: readonly ExternalFile[]): DirectoryReader
@@ -3279,6 +3280,15 @@ Published paths
   CacheClient.put: (key: CacheKey, bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheClient.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
   type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
+  interface FolderFile
+  readonly FolderFile.path: string
+  readonly FolderFile.file: File
+  interface HeldExport
+  readonly HeldExport.held?: RemoteProjectSession
+  interface HeldFile
+  readonly HeldFile.kind: "file"
+  readonly HeldFile.file: File
+  readonly HeldFile.handle?: FileSystemFileHandle
   interface LibraryClient
   LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
   LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
@@ -3289,6 +3299,11 @@ Published paths
   interface OwnershipClient
   OwnershipClient.ownerOf: (project: ProjectId) => Promise<LeaseOwner | undefined>
   OwnershipClient.watch: (project: ProjectId, listener: (event: OwnershipEvent) => void) => Promise<() => Promise<void>>
+  type PageBytes = HeldFile | { readonly kind: "source"; readonly source: ByteSource; }
+  type PageFile = Omit<ExternalFile, "source"> & { readonly bytes: PageBytes; }
+  type PageFolder = { readonly kind: "files"; readonly files: readonly FolderFile[]; } | { readonly kind: "reader"; readonly reader: DirectoryReader; }
+  type PageLocate = (asset: AssetId, identity: ExternalSourceIdentity, signal?: AbortSignal) => Promise<PageLocated>
+  type PageLocated = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: PageFile; }
   interface PortEndpoint
   PortEndpoint.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
   PortEndpoint.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
@@ -3339,10 +3354,18 @@ Published paths
   interface StorageClient
   readonly StorageClient.library: LibraryClient
   readonly StorageClient.projects: ProjectsClient
+  readonly StorageClient.transfers: TransfersClient
   readonly StorageClient.root: RootClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.usage: UsageClient
   readonly StorageClient.ownership: OwnershipClient
+  interface TransfersClient
+  TransfersClient.exportBundle: (project: ProjectId, sink: ByteSink, options: CopyOptions & HeldExport, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<ExportedBundle>>>
+  TransfersClient.exportBackup: (project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<ExportedBundle>>>
+  TransfersClient.exportUnpacked: (project: ProjectId, folder: DirectoryWriter, options: CopyOptions & DirectoryClaim & HeldExport, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
+  TransfersClient.importBundle: (bundle: PageBytes, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  TransfersClient.importUnpacked: (folder: PageFolder, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  TransfersClient.consolidate: (session: RemoteProjectSession, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<readonly AssetConsolidation[]>>
   interface UsageClient
   UsageClient.measure: (signal?: AbortSignal) => Promise<DomainResult<StorageUsage>>
   UsageClient.planCleanup: (selection: CleanupSelection, signal?: AbortSignal) => Promise<DomainResult<CleanupPlan>>
@@ -4362,6 +4385,15 @@ packages/storage-runtime/src/protocol/operations.ts
   readonly Transferring.value: TValue
   readonly Transferring.transfer: readonly Transferable[]
 
+packages/storage-runtime/src/protocol/page-operations.ts
+  type CrossingBytes = HeldFile | { readonly kind: "port"; readonly port: PagePort; readonly size: number; }
+  type CrossingFile = Omit<ExternalFile, "source"> & { readonly bytes: CrossingBytes; }
+  type CrossingFolder = { readonly kind: "files"; readonly files: readonly FolderFile[]; } | { readonly kind: "port"; readonly port: PagePort; }
+  type CrossingLocated = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: CrossingFile; }
+  type Lent<TArgument, TAnswer> = Operation<{ readonly port: PagePort; } & TArgument, TAnswer>
+  type PageOperations = { 'sink.write': Lent<{ readonly chunk: Uint8Array<ArrayBuffer>; }, undefined>; 'sink.close': Lent<unknown, undefined>; 'sink.abort': Lent<{ readonly reason: string | undefined; }, undefined>; 'source.read': Lent<{ readonly offset: number; readonly length: number; }, Uint8Array<ArrayBuffer>>; 'folder.list': Lent<unknown, readonly DirectoryFile[]>; 'folder.open': Lent<{ readonly path: string; }, CrossingBytes | undefined>; 'folder.create': Lent<{ readonly path: string; }, PagePort>; 'folder.remove': Lent<{ readonly path: string; }, undefined>; 'linkedFiles.locate': Lent<{ readonly asset: AssetId; readonly identity: ExternalSourceIdentity; }, CrossingLocated>; }
+  type PagePort = number
+
 packages/storage-runtime/src/protocol/port-channel.ts
   interface CallOptions
   readonly CallOptions.signal?: AbortSignal | undefined
@@ -4428,9 +4460,13 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
-  type StoragePageSide = { readonly operations: Readonly<Record<string, never>>; readonly streams: Readonly<Record<string, never>>; }
+  type StorageOperations = ProjectOperations & TransferOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
   type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; }; }
+
+packages/storage-runtime/src/protocol/transfer-operations.ts
+  type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
+  type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ProjectHeader>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ProjectHeader>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
 
 packages/storage/src/backup-generations.ts
   interface KeptStates

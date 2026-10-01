@@ -30,7 +30,8 @@ import { MemoryStorageTree, countingTokens } from '@audiogubbins/media-store/tes
 import type { StorageTree } from '@audiogubbins/project-format';
 import { MemoryLeaseCoordinator } from '@audiogubbins/storage/testing';
 
-import { connectStorage, type StorageClient } from '../client/storage-client.js';
+import { PagePorts } from '../client/page-ports.js';
+import { storageClientOver, type StorageClient } from '../client/storage-client.js';
 import {
   hostServices,
   type HostLogs,
@@ -38,6 +39,7 @@ import {
   type HostServices,
 } from '../host/host-services.js';
 import { serveStorage } from '../host/storage-host.js';
+import { PortChannel } from '../protocol/port-channel.js';
 import { portPair, type PortPair } from './port-pair.js';
 
 /** What a new project is made with in these tests. */
@@ -60,6 +62,9 @@ export interface MemoryStorage {
 
   /** Services over the worker's tree and leases, as another window's (see the module comment). */
   readonly another: HostServices;
+
+  /** How many ports the page has lent the worker now. */
+  readonly lentPorts: () => number;
 }
 
 /** How the worker in memory is made. */
@@ -133,6 +138,8 @@ export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage
       logs: createDiagnosticCentre(createLogStore(), clock),
     }),
   );
-  const client = connectStorage(pair.page, diagnostics);
-  return { client, pair, coordinator, logs, hostLogs, another };
+  const ports = new PagePorts();
+  const client = storageClientOver(new PortChannel(pair.page), ports, diagnostics);
+  const lentPorts = (): number => ports.lent;
+  return { client, pair, coordinator, logs, hostLogs, another, lentPorts };
 }

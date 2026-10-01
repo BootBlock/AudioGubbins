@@ -279,6 +279,18 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['filesInDirectory'],
   },
   '@audiogubbins/storage-runtime': {
+    "Taking projects out of the storage worker and bringing them in, and copying a project's linked files into it, with the page's own ports lent to the worker for each call: a sink, a folder, a source, a file the page holds, and the search for linked files (ADR-0022). The application's transfer store moves onto them in the commits that follow; until then the package's own tests drive them, over the port pair.":
+      [
+        'FolderFile',
+        'HeldExport',
+        'HeldFile',
+        'PageBytes',
+        'PageFile',
+        'PageFolder',
+        'PageLocate',
+        'PageLocated',
+        'TransfersClient',
+      ],
     "The page's client of the storage worker, its facades and the endpoint it is connected over (ADR-0022), which the application's stores move onto in the commits that follow; until then the package's own tests drive them, over the port pair.":
       [
         'CacheClient',

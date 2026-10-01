@@ -16,6 +16,15 @@ export { type LibraryClient } from './client/library-client.js';
 export { type ProjectsClient, type RemoteOpenedProject } from './client/projects-client.js';
 export { RemoteProjectSession, RemoteReadOnlyProject } from './client/remote-project.js';
 export { type ExportDraft } from './protocol/project-operations.js';
+export { type HeldExport, type TransfersClient } from './client/transfers-client.js';
+export {
+  type PageBytes,
+  type PageFile,
+  type PageFolder,
+  type PageLocate,
+  type PageLocated,
+} from './client/page-ports.js';
+export { type FolderFile, type HeldFile } from './protocol/page-operations.js';
 export { type RootClient } from './client/root-client.js';
 export { type CacheClient } from './client/cache-client.js';
 export { type UsageClient } from './client/usage-client.js';
