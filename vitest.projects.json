@@ -207,6 +207,17 @@
       ]
     },
     {
+      "name": "storage-runtime",
+      "root": "packages/storage-runtime",
+      "environment": "jsdom",
+      "include": [
+        "src/**/*.test.ts"
+      ],
+      "setupFiles": [
+        "../../tests/setup/browser-globals.ts"
+      ]
+    },
+    {
       "name": "test-fixtures",
       "root": "packages/test-fixtures",
       "environment": "node",

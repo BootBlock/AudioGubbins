@@ -282,6 +282,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     'The storage tree run against the origin-private file system from inside the worker (ADR-0022), which the storage worker builds its tree with in the commits that follow.':
       ['originPrivateTree'],
   },
+  '@audiogubbins/storage-runtime': {
+    'The endpoint the application hands the storage client, its dedicated worker (ADR-0022); the worker and its client arrive in the commits that follow.':
+      ['PortEndpoint'],
+  },
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
       ['viewportAtStart'],

@@ -63,6 +63,10 @@
  *   and on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
+ * - storage-runtime: the browser host of project storage, its worker, the port
+ *   to the page and the page's client (ADR-0022); depends on browser-storage,
+ *   capabilities, commands, diagnostics, domain, history, media-store,
+ *   project-commands, project-format and storage.
  *
  * The tests of the text and diagnostics packages, and of each Phase 02 package,
  * may take the fixtures package, which their own rules below leave out of what
@@ -362,6 +366,18 @@ module.exports = {
       to: {
         path: '^packages/(?!(browser-storage|diagnostics|media-store|project-format|storage)/)',
         pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'storage-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The browser host of project storage composes the storage packages and their browser ' +
+        'adapters in a worker and serves them to the page (ADR-0022). It knows nothing of the ' +
+        'interface that calls it, or of the audio packages.',
+      from: { path: '^packages/storage-runtime/' },
+      to: {
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|project-commands|project-format|storage|storage-runtime)/)',
       },
     },
     {

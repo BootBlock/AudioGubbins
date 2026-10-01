@@ -269,6 +269,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
   "The storage worker's service over any synchronous root, which the worker tests serve over a directory in memory; the worker reaches it through `serveOriginPrivateTree`, over the origin-private file system.":
     ['packages/browser-storage/src/serve-tree.ts: serveTree'],
+  "The port's channel, which the storage worker and the page's client in this package are built on (ADR-0022) in the commits that follow; until then its tests alone drive it, over the port pair.":
+    ['packages/storage-runtime/src/protocol/port-channel.ts: PortChannel'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };

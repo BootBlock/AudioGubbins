@@ -503,6 +503,20 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The browser host of project storage: the storage worker, the typed port
+    // between it and the page, and the page's client (ADR-0022).
+    dir: 'packages/storage-runtime',
+    name: '@audiogubbins/storage-runtime',
+    description:
+      "The browser host of project storage: the storage worker, the typed messages between it and the page, and the page's client.",
+    dom: true,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/project-format'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     dir: 'packages/test-fixtures',
     name: '@audiogubbins/test-fixtures',
     description:

@@ -23,6 +23,8 @@ Published paths
   @audiogubbins/project-format/testing
   @audiogubbins/renderer
   @audiogubbins/storage
+  @audiogubbins/storage-runtime
+  @audiogubbins/storage-runtime/testing
   @audiogubbins/storage/testing
   @audiogubbins/test-fixtures
   @audiogubbins/text
@@ -3268,6 +3270,23 @@ Published paths
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
+
+@audiogubbins/storage-runtime
+  interface PortEndpoint
+  PortEndpoint.postMessage: (message: unknown, transfer: Transferable[]) => void
+  PortEndpoint.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
+
+@audiogubbins/storage-runtime/testing
+  interface PortPair
+  readonly PortPair.page: PortEndpoint
+  readonly PortPair.worker: PortEndpoint
+  readonly PortPair.toWorker: readonly unknown[]
+  readonly PortPair.toPage: readonly unknown[]
+  PortPair.sendToPage: (message: unknown) => void
+  PortPair.sendToWorker: (message: unknown) => void
+  PortPair.fail: () => void
+  PortPair.spoilToPage: () => void
+  function portPair(): PortPair
 
 @audiogubbins/storage/testing
   interface LeasePlatform

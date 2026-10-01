@@ -270,6 +270,18 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/project-format',
     '@audiogubbins/storage',
   ],
+  '@audiogubbins/storage-runtime': [
+    '@audiogubbins/browser-storage',
+    '@audiogubbins/capabilities',
+    '@audiogubbins/commands',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/domain',
+    '@audiogubbins/history',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-commands',
+    '@audiogubbins/project-format',
+    '@audiogubbins/storage',
+  ],
   '@audiogubbins/test-fixtures': ['@audiogubbins/domain'],
 };
 
