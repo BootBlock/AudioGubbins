@@ -1,6 +1,5 @@
-> **Status:** In progress. 2026-09-30: review findings F-01 to F-13 fixed;
-> F-14 and F-15, the medium findings and the landing remain (see "Left to
-> do").
+> **Status:** In progress. 2026-10-01: review findings F-01 to F-14 fixed;
+> F-15, the medium findings and the landing remain (see "Left to do").
 
 # Phase 02 — Project and Storage System
 
@@ -200,7 +199,8 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
    - The export writers (the bundle's project documents and manifest, the
      unpacked tree's text files) refuse an export holding a file its importer
      would refuse.
-2. F-14, part two: incremental checkpoints. History nodes are written once, in
+2. Done (`0ef0633`, `62472ff`). F-14, part two: incremental checkpoints.
+   History nodes are written once, in
    immutable segment records of their own; a checkpoint names its segments and
    holds only what changes (cursor, branch names, snapshots, the states nodes
    name, kept states, exports, policies, comparison). A checkpoint writes only
@@ -289,4 +289,15 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
   late writer's cached name; two openers could race to one epoch number when
   one steals mid-open (holder token makes it narrow); a closed tab is not
   announced to watchers.
-- No schema version bump: nothing has been persisted by a shipped build.
+- `projectStorage` went from 1 to 2 when the storage root came to record its
+  layout (F-13), and from 2 to 3 when history moved into segments (F-14).
+  Nothing has been persisted by a shipped build, so neither carries a
+  migration: stored data of an older version meets the compatibility screen.
+- F-14's bound: a checkpoint grows with branch points whose preference is not
+  the newest child, fingerprints learned after a node's segment was written,
+  snapshots, exports and segment references (at most two per MiB of history);
+  a checkpoint writes at most 1 MiB of history beyond what changed. Planning
+  scans the history in memory once per checkpoint, as `retainedStates` already
+  did. An export of a whole history in one document is still bounded by the
+  record limit, and is refused, never written, past it. The paths past
+  2^28 characters have no direct test (too costly to build).
