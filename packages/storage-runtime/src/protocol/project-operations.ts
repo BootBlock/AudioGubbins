@@ -76,11 +76,20 @@ export interface FirstUpdate extends ProjectUpdate {
   readonly backup: BackupPolicy;
 }
 
+/**
+ * A project the worker holds under a handle, as it began to be held: its first
+ * update, whose history is the last of its slices, and how many slices of the
+ * history were sent on the handle's opening stream before it.
+ */
+export interface HeldOpening {
+  readonly first: FirstUpdate;
+  readonly slices: number;
+}
+
 /** A project opened in the worker: how, what recovery found, and the project as it opened. */
-export interface ProjectOpening {
+export interface ProjectOpening extends HeldOpening {
   readonly kind: 'writable' | 'read-only';
   readonly report: ProjectRecoveryReport;
-  readonly first: FirstUpdate;
 }
 
 /**
@@ -163,4 +172,15 @@ export type ProjectStream = `project:${string}`;
 /** The name of the stream the updates of the project open under `handle` are sent on. */
 export function projectStream(handle: ProjectHandle): ProjectStream {
   return `project:${String(handle)}`;
+}
+
+/**
+ * The stream of the slices of a project's history sent as it opens, each a
+ * delta from the slices before it, so no one message holds a long history.
+ */
+export type OpeningStream = `opening:${string}`;
+
+/** The name of the stream the history of the project opening under `handle` is sliced on. */
+export function openingStream(handle: ProjectHandle): OpeningStream {
+  return `opening:${String(handle)}`;
 }

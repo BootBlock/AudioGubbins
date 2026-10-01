@@ -182,6 +182,8 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  'How many entries of a history one slice of an opening carries, which the test of a long opening exceeds twice over so the page must apply slices in turn; the worker cuts every opening by it.':
+    ['packages/storage-runtime/src/host/project-updates.ts: SLICE_ENTRIES'],
   "The storage worker's client over an end of the port and a page's ports given, which the worker in memory makes so a test counts the ports the page has lent; the application connects through `connectStorage`.":
     ['packages/storage-runtime/src/client/storage-client.ts: storageClientOver'],
   "The length a segment of history is filled to, which the ledger's tests size their nodes against to make it cut, merge or keep segments.":

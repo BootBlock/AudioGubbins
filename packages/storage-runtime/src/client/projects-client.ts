@@ -4,24 +4,18 @@
  * REQ-STOR-098, REQ-STOR-101).
  *
  * The page names each project it opens with a handle it never names again, and
- * hears the project's stream from before the worker is asked, so no update the
- * worker sends once it holds the project is missed; one that arrives before
- * the answer waits for the copy the answer makes. An opening abandoned by its
- * signal stops hearing, and tells the worker to let go of the project should
- * it have opened it all the same.
+ * hears the project from before the worker is asked, its history in slices and
+ * every update after (`remote-opening.ts`). An opening abandoned by its signal
+ * stops hearing, and tells the worker to let go of the project should it have
+ * opened it all the same.
  */
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 import type { OpeningRequest, ProjectRecoveryReport } from '@audiogubbins/storage';
 
-import {
-  projectStream,
-  type ProjectHandle,
-  type ProjectOpening,
-  type ProjectUpdate,
-} from '../protocol/project-operations.js';
+import type { ProjectHandle } from '../protocol/project-operations.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
-import { ProjectMirror } from './project-mirror.js';
+import { heldUnder } from './remote-opening.js';
 import { RemoteProjectSession, RemoteReadOnlyProject } from './remote-project.js';
 
 /** A project opened in the worker, and what recovery found on the way. */
@@ -50,32 +44,17 @@ async function openUnder(
   request: OpeningRequest,
 ): Promise<DomainResult<RemoteOpenedProject>> {
   const { project, access, steal, signal } = request;
-  const early: ProjectUpdate[] = [];
-  let hear = (update: ProjectUpdate): void => {
-    early.push(update);
-  };
-  const stopHearing = channel.listen(projectStream(handle), (update) => {
-    hear(update);
-  });
-  let opening: DomainResult<ProjectOpening> | undefined;
-  try {
-    const asked = { handle, project, access, ...(steal === undefined ? {} : { steal }) };
-    opening = await channel.call('projects.open', asked, { signal });
-  } finally {
-    if (opening?.ok !== true) stopHearing();
-    if (opening === undefined && signal?.aborted === true) {
-      await channel.call('projects.abandon', { handle });
-    }
-  }
-  if (!opening.ok) return opening;
-
-  const { kind, report, first } = opening.value;
-  const mirror = new ProjectMirror(project, first);
-  for (const update of early) mirror.apply(update);
-  hear = (update) => {
-    mirror.apply(update);
-  };
-  const parts = { channel, handle, mirror, stopHearing };
+  const asked = { handle, project, access, ...(steal === undefined ? {} : { steal }) };
+  const held = await heldUnder(
+    channel,
+    handle,
+    project,
+    () => channel.call('projects.open', asked, { signal }),
+    signal,
+  );
+  if (!held.ok) return held;
+  const { answer, parts } = held.value;
+  const { kind, report } = answer;
   return succeed(
     kind === 'writable'
       ? { kind, report, session: new RemoteProjectSession(parts) }

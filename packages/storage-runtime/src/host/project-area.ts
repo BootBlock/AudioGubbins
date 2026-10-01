@@ -52,7 +52,7 @@ export function projectHandlers(
         signal.throwIfAborted();
       }
       const { kind, report } = opened.value;
-      return succeed({ kind, report, first: projects.hold(handle, opened.value) });
+      return succeed({ kind, report, ...projects.hold(handle, opened.value) });
     },
     'projects.abandon': async ({ handle }) => {
       const opened = projects.find(handle);

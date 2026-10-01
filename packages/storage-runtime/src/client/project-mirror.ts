@@ -6,21 +6,23 @@
  * value until the next, so its identity marks a change as the session's own
  * does for `useSyncExternalStore`. The history is made from the one before
  * and the update's delta, so it keeps every entry the update did not carry,
- * and every other member is the one before where the update left it out.
+ * and every other member is the one before where the update left it out. A
+ * project opens with the history its leading slices made, which the first
+ * update's own slice completes.
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
-import { applyHistoryDelta } from '@audiogubbins/history';
+import { applyHistoryDelta, type History } from '@audiogubbins/history';
 import type { ProjectModel, ProjectSnapshot } from '@audiogubbins/storage';
 
 import type { FirstUpdate, ProjectUpdate } from '../protocol/project-operations.js';
 
-/** The model a project opened as. */
-function openedModel(first: FirstUpdate): ProjectModel {
+/** The model a project opened as, from the history its leading slices made. */
+function openedModel(first: FirstUpdate, sliced: History | undefined): ProjectModel {
   const { state, exports, retention, backup, comparison } = first;
   const model = {
     state,
-    history: applyHistoryDelta(undefined, first.history),
+    history: applyHistoryDelta(sliced, first.history),
     exports,
     retention,
     backup,
@@ -51,9 +53,10 @@ export class ProjectMirror {
   readonly #listeners = new Set<() => void>();
   #current: ProjectSnapshot;
 
-  constructor(project: ProjectId, first: FirstUpdate) {
+  /** The copy of a project that opened with `first`, after the slices that made `sliced`. */
+  constructor(project: ProjectId, first: FirstUpdate, sliced?: History) {
     const { save, access } = first;
-    this.#current = { project, model: openedModel(first), save, access };
+    this.#current = { project, model: openedModel(first, sliced), save, access };
   }
 
   /** Calls `listener` after each update until the returned function is called. */

@@ -4,21 +4,25 @@
  *
  * A project held here is heard from as it is held, and each snapshot it
  * publishes after is sent on its stream as the update from the project last
- * sent, so the page's copy follows every change in order. A handle names one
- * project from its opening until it is released, and is never named again: a
- * call naming one not held is the page's defect, and fails as one.
+ * sent, so the page's copy follows every change in order. The history it opens
+ * with is sent in slices: every slice but the last on the handle's opening
+ * stream, as it is held, and the last in the update it opens with, so the page
+ * has the whole history once that update arrives. A handle names one project
+ * from its opening until it is released, and is never named again: a call
+ * naming one not held is the page's defect, and fails as one.
  */
 
 import type { ProjectState } from '@audiogubbins/project-format';
 import type { OpenedProject, ProjectSession, ReadOnlyProject } from '@audiogubbins/storage';
 
 import {
+  openingStream,
   projectStream,
-  type FirstUpdate,
+  type HeldOpening,
   type ProjectHandle,
 } from '../protocol/project-operations.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
-import { firstUpdate, updateSince } from './project-updates.js';
+import { firstUpdate, historySlices, updateSince } from './project-updates.js';
 
 /** A project held, and how to stop hearing it. */
 interface Held {
@@ -42,8 +46,11 @@ export class OpenProjects {
     this.#channel = channel;
   }
 
-  /** Holds a project opened under `handle`, and gives the update it opens with. */
-  hold(handle: ProjectHandle, opened: OpenedProject): FirstUpdate {
+  /**
+   * Holds a project opened under `handle`, sends the leading slices of its
+   * history, and gives the update it opens with.
+   */
+  hold(handle: ProjectHandle, opened: OpenedProject): HeldOpening {
     if (this.#held.has(handle)) {
       throw new Error(`A project is already open as handle ${String(handle)}.`);
     }
@@ -56,7 +63,11 @@ export class OpenProjects {
       sent = snapshot.model;
     });
     this.#held.set(handle, { opened, stopHearing });
-    return firstUpdate(opening);
+    const first = firstUpdate(opening);
+    const slices = historySlices(first.history);
+    const last = slices.pop() ?? first.history;
+    for (const slice of slices) this.#channel.emit(openingStream(handle), slice);
+    return { first: { ...first, history: last }, slices: slices.length };
   }
 
   /** The project open under `handle`, where one is. */

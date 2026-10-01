@@ -4352,7 +4352,7 @@ packages/renderer/src/renderer-backend.ts
 
 packages/storage-runtime/src/client/project-mirror.ts
   class ProjectMirror
-  new ProjectMirror(project: ProjectId, first: FirstUpdate): ProjectMirror
+  new ProjectMirror(project: ProjectId, first: FirstUpdate, sliced?: History | undefined): ProjectMirror
   readonly ProjectMirror.#listeners: Set<() => void>
   ProjectMirror.#current: ProjectSnapshot
   readonly ProjectMirror.subscribe: (listener: () => void) => (() => void)
@@ -4441,12 +4441,17 @@ packages/storage-runtime/src/protocol/project-operations.ts
   readonly FirstUpdate.access: ProjectAccess
   readonly FirstUpdate.history: HistoryDelta
   readonly FirstUpdate.comparison?: ComparisonUpdate
+  interface HeldOpening
+  readonly HeldOpening.first: FirstUpdate
+  readonly HeldOpening.slices: number
   type Of<TArgument, TAnswer> = Operation<{ readonly handle: ProjectHandle; } & TArgument, TAnswer>
+  type OpeningStream = `opening:${string}`
   type ProjectHandle = number
-  interface ProjectOpening
+  interface ProjectOpening extends HeldOpening
   readonly ProjectOpening.kind: "read-only" | "writable"
   readonly ProjectOpening.report: ProjectRecoveryReport
   readonly ProjectOpening.first: FirstUpdate
+  readonly ProjectOpening.slices: number
   type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
   type ProjectStream = `project:${string}`
   interface ProjectUpdate
@@ -4466,7 +4471,7 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type OwnershipStream = `ownership:${string}`
   type StorageOperations = ProjectOperations & TransferOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
-  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; }; }
+  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>

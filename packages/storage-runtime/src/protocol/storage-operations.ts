@@ -16,6 +16,7 @@
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
 import type { DomainResult, ProjectId } from '@audiogubbins/domain';
+import type { HistoryDelta } from '@audiogubbins/history';
 import type { ExternalSourceIdentity, ZipWritten } from '@audiogubbins/project-format';
 import type {
   CacheCategory,
@@ -42,6 +43,7 @@ import type { Handlers, Operation, Stream } from './operations.js';
 import type { CrossingFile, PageOperations, PagePort } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
 import type {
+  OpeningStream,
   ProjectHandle,
   ProjectOperations,
   ProjectStream,
@@ -147,6 +149,9 @@ export type StorageWorkerSide = {
 
     /** Each change of a project open in the worker, by its handle. */
     readonly [handle: ProjectStream]: Stream<ProjectUpdate>;
+
+    /** The leading slices of the history of a project opening, by its handle. */
+    readonly [handle: OpeningStream]: Stream<HistoryDelta>;
   };
 };
 
