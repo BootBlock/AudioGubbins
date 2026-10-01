@@ -195,7 +195,11 @@ export interface HistoryRecord<TInvocation extends InvocationRecord = Invocation
   /** The node the project is at. */
   readonly cursor: HistoryNodeId;
 
-  /** The child redo follows from each node that has one recorded. */
+  /**
+   * The child redo follows from a node, where it is not the node's newest child
+   * (the latest `at`, then the greatest identifier), which redo follows from a
+   * node with no entry.
+   */
   readonly preferred: ReadonlyMap<HistoryNodeId, HistoryNodeId>;
 
   /** The name of each branch, on the node the branch starts at. */

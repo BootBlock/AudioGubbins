@@ -7,6 +7,14 @@
  * references all resolve. What is left here is what the format cannot check
  * from below the command layer: each stored command identifier is branded with
  * the command layer's own check, and a record naming anything else is refused.
+ *
+ * Redo follows a node's preferred child, or its newest where it has none. The
+ * record leaves out every preference that names the child a reader takes as the
+ * newest, and the reader gives each node with children but no preference that
+ * child, so a line of changes stores no preference at all and a checkpoint
+ * grows only with the branch points a person turned back at. Newest is judged
+ * as the reader orders children, by date and then identifier, not by the order
+ * they were recorded in, which differs where the clock went back.
  */
 
 import { commandId, isCommandId, type CommandInvocation } from '@audiogubbins/commands';
@@ -22,13 +30,32 @@ import {
 import { parentOf, type History, type HistoryNode } from './history.js';
 import { persistentMapOf } from './persistent-map.js';
 
+/** Whether `left` comes after `right` in the order a reader gives children. */
+function isNewer(left: HistoryNode, right: HistoryNode): boolean {
+  return left.at > right.at || (left.at === right.at && compareCodeUnits(left.id, right.id) > 0);
+}
+
+/** The child a reader takes as the newest of a node's children. */
+function newestChild(history: History, node: HistoryNodeId): HistoryNodeId | undefined {
+  let newest: HistoryNode | undefined;
+  for (const id of history.children.get(node) ?? []) {
+    const child = history.nodes.get(id);
+    if (child !== undefined && (newest === undefined || isNewer(child, newest))) newest = child;
+  }
+  return newest?.id;
+}
+
 /** The record a history is stored as. */
 export function historyRecordOf(history: History): HistoryRecord {
+  const preferred = new Map<HistoryNodeId, HistoryNodeId>();
+  for (const [node, child] of history.preferred.entries()) {
+    if (child !== newestChild(history, node)) preferred.set(node, child);
+  }
   return {
     project: history.project,
     nodes: [...history.nodes.values()],
     cursor: history.cursor,
-    preferred: new Map(history.preferred.entries()),
+    preferred,
     branchNames: history.branchNames,
     snapshots: [...history.snapshots.values()],
   };
@@ -106,6 +133,11 @@ export function historyFromRecord(record: HistoryRecord): DomainResult<History> 
     if (held === undefined) children.set(parent, [node.id]);
     else held.push(node.id);
   }
+  const preferred = new Map(record.preferred);
+  for (const [node, held] of children) {
+    const newest = held.at(-1);
+    if (newest !== undefined && !preferred.has(node)) preferred.set(node, newest);
+  }
 
   return succeed({
     project: record.project,
@@ -113,7 +145,7 @@ export function historyFromRecord(record: HistoryRecord): DomainResult<History> 
     cursor: record.cursor,
     nodes: persistentMapOf(nodes),
     children: persistentMapOf(children),
-    preferred: persistentMapOf(record.preferred),
+    preferred: persistentMapOf(preferred),
     branchNames: record.branchNames,
     snapshots: new Map(record.snapshots.map((snapshot) => [snapshot.id, snapshot])),
   });

@@ -62,6 +62,39 @@ describe('a history kept and read back', () => {
     expect(redoTarget(expectSuccess(historyFromRecord(forgetful)))?.id).toBe(c);
   });
 
+  it('stores no preference for a line of changes, and redoes along it once read back', () => {
+    const ids = testIds(84);
+    const start = newHistory(ids);
+    let history = start;
+    for (const step of ['A', 'B', 'C', 'D', 'E']) {
+      history = grown(history, ids.next<'HistoryNodeId'>(), step);
+    }
+    const end = history.cursor;
+    expect(historyRecordOf(history).preferred.size).toBe(0);
+    let read = movedTo(throughJson(history), start.root);
+    for (let step = 0; step < 5; step += 1) {
+      const next = redoTarget(read);
+      if (next === undefined) throw new Error('A line of five changes redoes five times.');
+      read = movedTo(read, next.id);
+    }
+    expect(read.cursor).toBe(end);
+  });
+
+  it('stores a preference for a child recorded later but dated earlier than its sibling', () => {
+    const ids = testIds(85);
+    const start = newHistory(ids);
+    const later = ids.next<'HistoryNodeId'>();
+    const earlier = ids.next<'HistoryNodeId'>();
+    // The clock went back between the two: the second recorded is dated first,
+    // so a reader that orders children by date takes the first as the newest.
+    let history = grown(start, later, 'Later', start.nodes.size + 2_000_000_000_000);
+    history = grown(movedTo(history, start.root), earlier, 'Earlier', 1_000_000_000_000);
+    history = movedTo(history, start.root);
+    expect(redoTarget(history)?.id).toBe(earlier);
+    expect([...historyRecordOf(history).preferred]).toEqual([[start.root, earlier]]);
+    expect(redoTarget(throughJson(history))?.id).toBe(earlier);
+  });
+
   it('refuses a stored change naming a command by something that is not a command identifier', () => {
     const ids = testIds(82);
     const history = grown(newHistory(ids), ids.next<'HistoryNodeId'>(), 'A');
