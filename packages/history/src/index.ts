@@ -17,7 +17,9 @@
  * (REQ-REPO-186).
  */
 
-export { type PersistentMap } from './persistent-map.js';
+export { type MapChanges, type PersistentMap } from './persistent-map.js';
+
+export { type HistoryDelta, applyHistoryDelta, historyDelta } from './history-delta.js';
 
 export {
   type ChangeDraft,

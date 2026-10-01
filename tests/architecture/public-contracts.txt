@@ -1919,6 +1919,15 @@ Published paths
   readonly History.preferred: PersistentMap<HistoryNodeId, HistoryNodeId>
   readonly History.branchNames: ReadonlyMap<HistoryNodeId, HistoryLabel>
   readonly History.snapshots: ReadonlyMap<SnapshotId, NamedSnapshot>
+  interface HistoryDelta
+  readonly HistoryDelta.project: ProjectId
+  readonly HistoryDelta.root: HistoryNodeId
+  readonly HistoryDelta.cursor: HistoryNodeId
+  readonly HistoryDelta.nodes: MapChanges<HistoryNodeId, HistoryNode>
+  readonly HistoryDelta.children: MapChanges<HistoryNodeId, readonly HistoryNodeId[]>
+  readonly HistoryDelta.preferred: MapChanges<HistoryNodeId, HistoryNodeId>
+  readonly HistoryDelta.branchNames?: ReadonlyMap<HistoryNodeId, HistoryLabel>
+  readonly HistoryDelta.snapshots?: ReadonlyMap<SnapshotId, NamedSnapshot>
   type HistoryNode = ChangeNode | OriginNodeRecord
   interface HistoryPath
   readonly HistoryPath.undo: readonly ChangeNode[]
@@ -1934,6 +1943,9 @@ Published paths
   readonly HistoryRow.exports: readonly ExportRecord[]
   readonly HistoryRow.childCount: number
   type LostCapability = { readonly kind: "branch"; readonly first: HistoryNodeId; readonly forkPoint: HistoryNodeId; readonly name?: HistoryLabel; readonly changes: number; readonly latestAt: number; } | { readonly kind: "export-state"; readonly export: ExportRecordId; readonly node: HistoryNodeId; } | { readonly kind: "undo-before"; readonly root: HistoryNodeId; readonly at: number; readonly changes: number; }
+  interface MapChanges<TKey extends string, TValue>
+  readonly MapChanges.set: readonly (readonly [TKey, TValue])[]
+  readonly MapChanges.removed: readonly TKey[]
   interface Navigation
   readonly Navigation.path: HistoryPath
   readonly Navigation.invocations: readonly CommandInvocation[]
@@ -1950,6 +1962,8 @@ Published paths
   PersistentMap.keys: () => IterableIterator<TKey>
   PersistentMap.values: () => IterableIterator<TValue>
   PersistentMap.entries: () => IterableIterator<readonly [TKey, TValue]>
+  PersistentMap.changesSince: (earlier: PersistentMap<TKey, TValue>) => MapChanges<TKey, TValue>
+  PersistentMap.withChanges: (changes: MapChanges<TKey, TValue>) => PersistentMap<TKey, TValue>
   interface ProcessorDifference
   readonly ProcessorDifference.id: ProcessorId
   readonly ProcessorDifference.change: "added" | "changed" | "removed"
@@ -1987,6 +2001,7 @@ Published paths
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
   function alternativeBranches(history: History): readonly AlternativeBranch[]
   function applyCompaction(history: History, plan: CompactionPlan): DomainResult<History>
+  function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
@@ -1994,6 +2009,7 @@ Published paths
   function createSnapshot(history: History, snapshot: NamedSnapshot): DomainResult<History>
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>
   function diffStates(before: ProjectState, after: ProjectState): StateDifference
+  function historyDelta(earlier: History | undefined, later: History): HistoryDelta
   function historyFromRecord(record: HistoryRecord<InvocationRecord>): DomainResult<History>
   function historyRecordOf(history: History): HistoryRecord<InvocationRecord>
   function historyRows(history: History, query?: RowQuery, context?: RowContext): readonly HistoryRow[]

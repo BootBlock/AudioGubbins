@@ -267,7 +267,71 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      is refused, never written, past it (part one).
 
 3. F-15: the storage core in a worker behind a typed port, with a host yield
-   and an `AbortSignal` passed through the long paths.
+   and an `AbortSignal` passed through the long paths. ADR-0022 records it.
+
+   The page keeps no storage core. Today it builds every storage service and
+   only the file reads and writes cross to the worker, so parsing,
+   canonical text, fingerprints, scans, backups and ZIP checksums run on the
+   page (16k changes: 331 ms to write and 483 ms to read one checkpoint).
+
+   - A package `packages/storage-runtime` (DOM and worker; storage, history,
+     project-format, project-commands, commands, media-store, browser-storage,
+     capabilities, diagnostics, domain), shaped like `audio-runtime`: the
+     browser host of project storage, its worker and its typed messages.
+     - `protocol/`: the envelopes, read field by field as `tree-protocol.ts`
+       reads its own: a call (id, operation, arguments), a cancel, an answer,
+       a stream event, and the same three from the worker to the page for the
+       page's own ports. Arguments and answers are typed per operation by one
+       operation table both ends compile from, so no payload is described
+       twice.
+     - A call channel used in both directions: ids, one answer per call, a
+       cancel posted when the caller's signal aborts, the worker's signal
+       aborted by it, a broken channel failing every waiting call. It
+       replaces `worker-channel.ts`.
+     - `threads/storage-worker.ts`: the worker's composition root (tree,
+       digest, ids, clock, leases, bus, stores, repository, keeper, host
+       yield), serving the operation table. Its logs reach the page's
+       diagnostic centre as stream events under their own category.
+     - The page's client: one object per kind of thing the stores use
+       (library, open project, transfers, backups, usage and cleanup, the
+       storage root, the caches), each a typed facade over the channel.
+   - The tree in the worker is the origin-private file system read directly
+     through sync access handles: `TreeHandler`'s operations become a
+     `StorageTree` over `SyncDirectory` (path locks and per-file queues kept).
+     The tree's own messages (`tree-protocol.ts`, `serve-tree.ts`, the page's
+     `origin-private-tree.ts`, `origin-private-tree.worker.ts`) are deleted.
+   - An open project is a handle in the worker. The page's
+     `RemoteProjectSession` and `RemoteReadOnlyProject` keep the surface the
+     stores use (subscribe, getSnapshot, run, undo, redo, goTo, snapshots,
+     branch names, comparison, policies, compaction, checkpoint, retry,
+     transfer, close). The worker publishes snapshot updates: save status,
+     access, the state when it changed, and a history delta computed by
+     `history` (`historyDelta`, `applyHistoryDelta`: nodes added and removed,
+     cursor, preferences, branch names, snapshots), so the page's mirror keeps
+     persistent maps and identity per publish, and a change costs the page
+     one node and one state, never the history.
+   - Page ports cross as page-held handles the worker calls back: byte sinks
+     (bundle, backup, raw export, the backups folder), byte sources (an
+     imported file), directory readers and writers (the unpacked tree), and
+     `locate` for consolidation, so permission prompts stay on the page.
+     Bytes are transferred, never copied.
+   - `ProjectRepository.list` becomes a call that answers pages of entries.
+     `TreeFailure` crosses as a refusal with its kind, made again on the page.
+   - The host yield (`scheduler.yield` in the worker) is passed through every
+     long path, so a cancel or another call is heard mid-path, and every long
+     path takes the signal: `bundle-writing.ts:87-89`, `zip-reading.ts:109-122`,
+     `usage-measurement.ts:101,180`, `command-journal.ts:122`,
+     `state-store.ts:111`, `cleanup-planning.ts:386,446` (M-23), and the app
+     passes a signal to every long operation it starts.
+   - Commits, each failing first: the history delta; the direct tree; the
+     channel and envelopes; the worker and the client, area by area; the app
+     moved onto the client with the old tree messages deleted, and a
+     dependency rule that the page imports `@audiogubbins/storage` for types
+     only; the yield and signal per path. The app's test world runs the real
+     worker composition over an in-process pair that structured-clones every
+     message, as `worker-pair.ts` does. Measure again: 16k changes, a
+     checkpoint and an open, page time per publish.
+
 4. Fix or accept, with a reason, every medium finding; track the low ones.
 5. Evidence, review record, ledger entry, handoff; this note to
    `docs/todo/done/`; merge `main`; `verify:commit`; land.

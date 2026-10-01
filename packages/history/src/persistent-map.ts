@@ -9,7 +9,21 @@
  * history's length, and every earlier history value stays whole. Removal is not
  * offered: compaction, the one thing that removes nodes, rebuilds the maps once
  * from what it keeps.
+ *
+ * Two maps of one lineage share every subtree neither changed, which is how a
+ * map's changes since an earlier one are found without visiting the rest: the
+ * storage worker sends the page only what changed, and the page's copy of the
+ * history stays persistent rather than rebuilt for every change.
  */
+
+/** What changed from one map to another. */
+export interface MapChanges<TKey extends string, TValue> {
+  /** Each key set to a value the earlier map did not hold for it. */
+  readonly set: readonly (readonly [TKey, TValue])[];
+
+  /** Each key the earlier map held and the later one does not. */
+  readonly removed: readonly TKey[];
+}
 
 /** An immutable map from string keys. */
 export interface PersistentMap<TKey extends string, TValue> {
@@ -22,6 +36,18 @@ export interface PersistentMap<TKey extends string, TValue> {
   keys(): IterableIterator<TKey>;
   values(): IterableIterator<TValue>;
   entries(): IterableIterator<readonly [TKey, TValue]>;
+
+  /**
+   * What changed from `earlier` to this map, skipping every subtree the two
+   * share, so a map a few changes from `earlier` costs those changes.
+   */
+  changesSince(earlier: PersistentMap<TKey, TValue>): MapChanges<TKey, TValue>;
+
+  /**
+   * This map with `changes` made to it. A removal rebuilds the map once from
+   * what is kept, as compaction does.
+   */
+  withChanges(changes: MapChanges<TKey, TValue>): PersistentMap<TKey, TValue>;
 }
 
 /** The bits of the hash each level of the trie consumes. */
@@ -125,6 +151,29 @@ class Hamt<TKey extends string, TValue> implements PersistentMap<TKey, TValue> {
     for (const leaf of leavesOf(this.trie)) yield leaf.value;
   }
 
+  changesSince(earlier: PersistentMap<TKey, TValue>): MapChanges<TKey, TValue> {
+    if (!(earlier instanceof Hamt)) {
+      throw new Error('A persistent map is compared only with another persistent map.');
+    }
+    const set: (readonly [TKey, TValue])[] = [];
+    const removed: TKey[] = [];
+    collectChanges(earlier.trie, this.trie, { set, removed });
+    return { set, removed };
+  }
+
+  withChanges(changes: MapChanges<TKey, TValue>): PersistentMap<TKey, TValue> {
+    return changes.set.reduce<PersistentMap<TKey, TValue>>(
+      (map, [key, value]) => map.set(key, value),
+      changes.removed.length === 0 ? this : this.without(changes.removed),
+    );
+  }
+
+  /** This map without the keys given, rebuilt once from what is kept. */
+  private without(keys: readonly TKey[]): PersistentMap<TKey, TValue> {
+    const removed = new Set(keys);
+    return persistentMapOf([...this.entries()].filter(([key]) => !removed.has(key)));
+  }
+
   private leafOf(key: TKey): Leaf<TKey, TValue> | undefined {
     const hash = hashOf(key);
     let node: Trie<TKey, TValue> = this.trie;
@@ -148,6 +197,48 @@ function* leavesOf<TKey extends string, TValue>(
   if (node.kind === 'leaf') yield node;
   else if (node.kind === 'collision') yield* node.leaves;
   else for (const child of node.children) yield* leavesOf(child);
+}
+
+/** The child of a branch in the slot `bit` marks, where it has one. */
+function childAt<TKey extends string, TValue>(
+  branch: Branch<TKey, TValue>,
+  bit: number,
+): Trie<TKey, TValue> | undefined {
+  if ((branch.bitmap & bit) === 0) return undefined;
+  return branch.children[bitCount(branch.bitmap & (bit - 1))];
+}
+
+/**
+ * Adds to `changes` what differs between two nodes in one place of two tries.
+ * The same node is the same entries; two branches are compared slot by slot;
+ * any other pair is compared by the leaves under each, of which a leaf or a
+ * collision has few.
+ */
+function collectChanges<TKey extends string, TValue>(
+  earlier: Trie<TKey, TValue> | undefined,
+  later: Trie<TKey, TValue> | undefined,
+  changes: { set: (readonly [TKey, TValue])[]; removed: TKey[] },
+): void {
+  if (earlier === later) return;
+  if (earlier?.kind === 'branch' && later?.kind === 'branch') {
+    const slots = earlier.bitmap | later.bitmap;
+    for (let slot = 0; slot < 1 << BITS; slot += 1) {
+      const bit = 1 << slot;
+      if ((slots & bit) !== 0) collectChanges(childAt(earlier, bit), childAt(later, bit), changes);
+    }
+    return;
+  }
+  const before = new Map<TKey, TValue>();
+  if (earlier !== undefined) for (const leaf of leavesOf(earlier)) before.set(leaf.key, leaf.value);
+  if (later !== undefined) {
+    for (const leaf of leavesOf(later)) {
+      if (!before.has(leaf.key) || !Object.is(before.get(leaf.key), leaf.value)) {
+        changes.set.push([leaf.key, leaf.value]);
+      }
+      before.delete(leaf.key);
+    }
+  }
+  changes.removed.push(...before.keys());
 }
 
 interface Placed<TNode> {

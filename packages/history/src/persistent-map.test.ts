@@ -83,4 +83,36 @@ describe('a persistent map', () => {
     expect(new Map(map.entries())).toEqual(reference);
     expect([...map.values()].length).toBe(reference.size);
   });
+
+  it('finds what changed since an earlier map, collisions and removals included', () => {
+    const [first, second] = collidingKeys();
+    const random = seededRandom(23);
+    let earlier = persistentMapOf<string, number>([
+      [first, 1],
+      [second, 2],
+    ]);
+    for (let step = 0; step < 5_000; step += 1) earlier = earlier.set(`k${String(step)}`, step);
+    let later = earlier.set(second, 20).set('new', 7);
+    for (let step = 0; step < 50; step += 1)
+      later = later.set(`k${String(random.below(5_000))}`, -1);
+    const kept = [...later.entries()].filter(([key]) => key !== first && key !== 'k10');
+    const rebuilt = persistentMapOf(kept);
+
+    const changes = rebuilt.changesSince(earlier);
+    const expected = new Map(rebuilt.entries());
+    for (const [key, value] of earlier.entries()) {
+      if (Object.is(expected.get(key), value)) expected.delete(key);
+    }
+    expect(new Map(changes.set)).toEqual(expected);
+    expect([...changes.removed].sort()).toEqual([first, 'k10'].sort());
+    expect(new Map(earlier.withChanges(changes).entries())).toEqual(new Map(rebuilt.entries()));
+  });
+
+  it('finds no change between a map and itself, and only the change one set made', () => {
+    let map = emptyPersistentMap<string, number>();
+    for (let step = 0; step < 10_000; step += 1) map = map.set(`k${String(step)}`, step);
+    expect(map.changesSince(map)).toEqual({ set: [], removed: [] });
+    expect(map.set('k5', 50).changesSince(map)).toEqual({ set: [['k5', 50]], removed: [] });
+    expect(map.withChanges({ set: [], removed: [] })).toBe(map);
+  });
 });
