@@ -7,14 +7,14 @@
  * storage takes and gives, so a failure the storage answers crosses as the
  * `DomainResult` it is, and a refusal of the tree crosses as its kind. Each is
  * grouped by the area of the page's client that calls it: the library of
- * projects, the storage root, the caches, the usage and its cleanup, and who
- * writes each project. The values all clone: none is a class with behaviour,
- * and a cache's bytes are moved rather than copied.
+ * projects, the projects open (`project-operations.ts`), the storage root, the
+ * caches, the usage and its cleanup, and who writes each project. The values
+ * all clone: none is a class with behaviour, and a cache's bytes are moved
+ * rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
 import type { DomainResult, ProjectId } from '@audiogubbins/domain';
-import type { ProjectState } from '@audiogubbins/project-format';
 import type {
   CacheCategory,
   CacheKey,
@@ -38,9 +38,15 @@ import type {
 
 import type { Handlers, Operation, Stream } from './operations.js';
 import type { PortChannel } from './port-channel.js';
+import type {
+  ProjectHandle,
+  ProjectOperations,
+  ProjectStream,
+  ProjectUpdate,
+} from './project-operations.js';
 
 /** The operations the page calls on the storage worker, by area. */
-export type StorageOperations = {
+export type StorageOperations = ProjectOperations & {
   /** Every project, deleted ones among them, in the order of their identifiers. */
   'library.list': Operation<undefined, readonly CatalogueEntry[]>;
   'library.create': Operation<NewProject, DomainResult<ProjectHeader>>;
@@ -67,16 +73,22 @@ export type StorageOperations = {
   >;
 
   /**
-   * The storage's usage, the projects open taken as `live` holds them rather
-   * than as they were last written.
+   * The storage's usage, the projects open in the worker taken as they are
+   * now rather than as they were last written.
    */
-  'usage.measure': Operation<
-    { readonly live: readonly ProjectState[] },
-    DomainResult<StorageUsage>
-  >;
+  'usage.measure': Operation<undefined, DomainResult<StorageUsage>>;
   'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>;
+
+  /**
+   * Carries a cleanup out, through the session open under `held` for the
+   * project it holds, whose lease any other way in would find held.
+   */
   'usage.runCleanup': Operation<
-    { readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation },
+    {
+      readonly plan: CleanupPlan;
+      readonly confirmation?: CleanupConfirmation;
+      readonly held?: ProjectHandle;
+    },
     DomainResult<readonly StepOutcome[]>
   >;
 
@@ -114,6 +126,9 @@ export type StorageWorkerSide = {
     /** Every record the worker's loggers make, for the page's diagnostics to admit. */
     readonly log: Stream<LogEntry>;
     readonly [project: OwnershipStream]: Stream<OwnershipEvent>;
+
+    /** Each change of a project open in the worker, by its handle. */
+    readonly [handle: ProjectStream]: Stream<ProjectUpdate>;
   };
 };
 

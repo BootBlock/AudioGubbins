@@ -5,7 +5,6 @@
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
-import type { ProjectState } from '@audiogubbins/project-format';
 import type {
   CleanupConfirmation,
   CleanupPlan,
@@ -16,11 +15,22 @@ import type {
 } from '@audiogubbins/storage';
 
 import type { ClientChannel } from '../protocol/storage-operations.js';
+import type { RemoteProjectSession } from './remote-project.js';
+
+/** How a cleanup is carried out: through the session the page holds, and until when. */
+export interface CleanupRunOptions {
+  /**
+   * The project open to write here, cleaned through its own session, whose
+   * lease any other way in would find held, by this very window.
+   */
+  readonly held?: RemoteProjectSession;
+  readonly signal?: AbortSignal;
+}
 
 /** The storage's usage, and its cleanup. */
 export interface UsageClient {
-  /** Measures the storage, the projects open taken as `live` holds them. */
-  measure(live: readonly ProjectState[], signal?: AbortSignal): Promise<DomainResult<StorageUsage>>;
+  /** Measures the storage, the projects open taken as they are now. */
+  measure(signal?: AbortSignal): Promise<DomainResult<StorageUsage>>;
 
   /** Plans a cleanup of what was chosen, removing nothing. */
   planCleanup(
@@ -35,7 +45,7 @@ export interface UsageClient {
   runCleanup(
     plan: CleanupPlan,
     confirmation: CleanupConfirmation | undefined,
-    signal?: AbortSignal,
+    options?: CleanupRunOptions,
   ): Promise<DomainResult<readonly StepOutcome[]>>;
 
   /** Gives every cache up, in the order storage pressure gives them up, and nothing else. */
@@ -45,12 +55,16 @@ export interface UsageClient {
 /** The usage and cleanup, over the page's end of the port. */
 export function usageClient(channel: ClientChannel): UsageClient {
   return {
-    measure: (live, signal) => channel.call('usage.measure', { live }, { signal }),
+    measure: (signal) => channel.call('usage.measure', undefined, { signal }),
     planCleanup: (selection, signal) => channel.call('usage.planCleanup', selection, { signal }),
-    runCleanup: (plan, confirmation, signal) =>
+    runCleanup: (plan, confirmation, { held, signal } = {}) =>
       channel.call(
         'usage.runCleanup',
-        confirmation === undefined ? { plan } : { plan, confirmation },
+        {
+          plan,
+          ...(confirmation === undefined ? {} : { confirmation }),
+          ...(held === undefined ? {} : { held: held.handle }),
+        },
         { signal },
       ),
     relievePressure: (signal) => channel.call('usage.relievePressure', undefined, { signal }),

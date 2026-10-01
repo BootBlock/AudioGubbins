@@ -5,7 +5,9 @@
  * the digest is the environment's Web Crypto. The page's records are kept in a
  * log store of its own, admitting Info and above. A second set of services
  * over the same tree and leases lets a test look into the storage as another
- * window of the profile would.
+ * window of the profile would, and two pages given one tree and one set of
+ * leases are two tabs of one profile, each with its worker; each draws its
+ * identifiers from a seed of its own, so the two never mint one.
  */
 
 import { webDigest } from '@audiogubbins/browser-storage';
@@ -67,6 +69,12 @@ export interface MemoryStorageOptions {
 
   /** The turns the worker's storage paths take: none where not given. */
   readonly yieldToHost?: YieldToHost;
+
+  /** The leases of the profile, where another page shares them. */
+  readonly coordinator?: MemoryLeaseCoordinator;
+
+  /** The tab, as other tabs are told of it, and its identifiers' seed. */
+  readonly tab?: { readonly name: string; readonly seed: number };
 }
 
 /** A clock that moves on a second each time it is read. */
@@ -101,12 +109,13 @@ export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage
   const pair = portPair();
   const clock = steppingClock();
   const tree = options.tree ?? new MemoryStorageTree();
-  const coordinator = new MemoryLeaseCoordinator();
+  const coordinator = options.coordinator ?? new MemoryLeaseCoordinator();
+  const tab = options.tab ?? { name: 'worker', seed: 29 };
   const yieldToHost = options.yieldToHost ?? (() => Promise.resolve());
   let hostLogs: HostLogs | undefined;
   serveStorage(pair.worker, clock, (logs) => {
     hostLogs = logs;
-    return partsOf('worker', 29, { tree, clock, coordinator, yieldToHost, logs });
+    return partsOf(tab.name, tab.seed, { tree, clock, coordinator, yieldToHost, logs });
   });
   if (hostLogs === undefined) throw new Error('The worker made its services without loggers.');
 
@@ -116,7 +125,7 @@ export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage
     categoryOverrides: {},
   });
   const another = hostServices(
-    partsOf('another', 31, {
+    partsOf(`${tab.name}, another`, tab.seed + 1_000, {
       tree,
       clock,
       coordinator,

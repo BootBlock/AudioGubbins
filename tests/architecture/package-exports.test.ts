@@ -273,8 +273,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['AlternativeBranch', 'ContentRetention', 'alternativeBranches', 'contentRetention'],
     "The difference of two states, which the comparison reaches inside the package, and the move that promotes a side, which the session makes by moving to that side's node itself (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison, and for the audition of the audio engine, which promotes what it plays.":
       ['diffStates', 'promotion'],
-    "What changed from one history to a later one, and the later one made again from it (ADR-0022), which the storage worker sends the page's copy of an open project's history; the worker and its client arrive in the commits that follow.":
-      ['HistoryDelta', 'applyHistoryDelta', 'historyDelta'],
   },
   '@audiogubbins/browser-storage': {
     "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
@@ -291,6 +289,14 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'StorageClient',
         'UsageClient',
         'connectStorage',
+      ],
+    "The projects the page opens in the storage worker, as it holds them: the session and the view that stand for the worker's, the opening that gives them, and the export the worker records with an identifier and a time of its own (ADR-0022). The application's open project moves onto them in the commits that follow; until then the package's own tests drive them, over the port pair.":
+      [
+        'ExportDraft',
+        'ProjectsClient',
+        'RemoteOpenedProject',
+        'RemoteProjectSession',
+        'RemoteReadOnlyProject',
       ],
   },
   '@audiogubbins/timeline': {

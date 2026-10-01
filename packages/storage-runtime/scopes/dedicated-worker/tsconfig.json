@@ -30,6 +30,9 @@
       "path": "../../../../packages/commands"
     },
     {
+      "path": "../../../../packages/history"
+    },
+    {
       "path": "../../../../packages/project-format"
     },
     {

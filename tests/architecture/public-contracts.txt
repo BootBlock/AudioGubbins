@@ -3278,6 +3278,7 @@ Published paths
   CacheClient.read: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer> | undefined>>
   CacheClient.put: (key: CacheKey, bytes: Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheClient.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
+  type ExportDraft = { readonly recipe?: import("packages/project-format/src/export-provenance").ExportRecipeReference; readonly output: import("packages/project-format/src/export-provenance").ExportOutput; readonly problems: readonly string[]; readonly status: import("packages/project-format/src/export-provenance").ExportStatus; readonly godot?: import("packages/project-format/src/export-provenance").GodotLinkage; readonly destination: import("packages/project-format/src/export-provenance").ExportDestination; readonly stateFingerprint: import("packages/project-format/src/content-identity").StateFingerprint; readonly historyNodeId?: string; readonly engineVersions: ReadonlyMap<string, string>; readonly outputContentId?: import("packages/project-format/src/content-identity").ContentId; }
   interface LibraryClient
   LibraryClient.list: (signal?: AbortSignal) => Promise<readonly CatalogueEntry[]>
   LibraryClient.create: (project: NewProject, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
@@ -3291,19 +3292,61 @@ Published paths
   interface PortEndpoint
   PortEndpoint.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
   PortEndpoint.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
+  interface ProjectsClient
+  ProjectsClient.open: (request: OpeningRequest) => Promise<DomainResult<RemoteOpenedProject>>
+  type RemoteOpenedProject = { readonly kind: "read-only"; readonly view: RemoteReadOnlyProject; readonly report: ProjectRecoveryReport; } | { readonly kind: "writable"; readonly session: RemoteProjectSession; readonly report: ProjectRecoveryReport; }
+  class RemoteProjectSession
+  new RemoteProjectSession(parts: RemoteParts): RemoteProjectSession
+  readonly RemoteProjectSession.project: ProjectId
+  readonly RemoteProjectSession.handle: number
+  readonly RemoteProjectSession.subscribe: (listener: () => void) => () => void
+  readonly RemoteProjectSession.getSnapshot: () => ProjectSnapshot
+  readonly RemoteProjectSession.#channel: ClientChannel
+  readonly RemoteProjectSession.#stopHearing: () => void
+  readonly RemoteProjectSession.run: (invocation: CommandInvocation) => Promise<DomainResult<ChangeOutcome>>
+  readonly RemoteProjectSession.undo: () => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.redo: () => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.goTo: (node: HistoryNodeId) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.nameBranch: (node: HistoryNodeId, name: string | undefined) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.createSnapshot: (request: SnapshotRequest) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.deleteSnapshot: (snapshot: SnapshotId) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.recordExport: (draft: ExportDraft) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
+  readonly RemoteProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.planCompaction: (request: CompactionRequest) => Promise<DomainResult<CompactionPlan>>
+  readonly RemoteProjectSession.compactHistory: (plan: CompactionPlan, confirmation: CompactionConfirmation) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.setRetentionPolicy: (policy: RetentionPolicy, confirmation?: CompactionConfirmation) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.checkpoint: () => Promise<DomainResult<WriteOutcome>>
+  readonly RemoteProjectSession.retry: () => Promise<SaveStatus>
+  readonly RemoteProjectSession.answerTransfer: (request: TransferRequest, answer: TransferAnswer) => Promise<DomainResult<void>>
+  readonly RemoteProjectSession.close: () => Promise<DomainResult<void>>
+  class RemoteReadOnlyProject
+  new RemoteReadOnlyProject(parts: RemoteParts): RemoteReadOnlyProject
+  readonly RemoteReadOnlyProject.project: ProjectId
+  readonly RemoteReadOnlyProject.subscribe: (listener: () => void) => () => void
+  readonly RemoteReadOnlyProject.getSnapshot: () => ProjectSnapshot
+  readonly RemoteReadOnlyProject.#channel: ClientChannel
+  readonly RemoteReadOnlyProject.#handle: number
+  readonly RemoteReadOnlyProject.#stopHearing: () => void
+  readonly RemoteReadOnlyProject.requestTransfer: (signal?: AbortSignal) => Promise<DomainResult<TransferOutcome>>
+  readonly RemoteReadOnlyProject.close: () => Promise<void>
   interface RootClient
   RootClient.open: (signal?: AbortSignal) => Promise<DomainResult<StorageRootOpening>>
   RootClient.wipe: (confirmation: WipeConfirmation, signal?: AbortSignal) => Promise<DomainResult<void>>
   interface StorageClient
   readonly StorageClient.library: LibraryClient
+  readonly StorageClient.projects: ProjectsClient
   readonly StorageClient.root: RootClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.usage: UsageClient
   readonly StorageClient.ownership: OwnershipClient
   interface UsageClient
-  UsageClient.measure: (live: readonly ProjectState[], signal?: AbortSignal) => Promise<DomainResult<StorageUsage>>
+  UsageClient.measure: (signal?: AbortSignal) => Promise<DomainResult<StorageUsage>>
   UsageClient.planCleanup: (selection: CleanupSelection, signal?: AbortSignal) => Promise<DomainResult<CleanupPlan>>
-  UsageClient.runCleanup: (plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, signal?: AbortSignal) => Promise<DomainResult<readonly StepOutcome[]>>
+  UsageClient.runCleanup: (plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, options?: CleanupRunOptions) => Promise<DomainResult<readonly StepOutcome[]>>
   UsageClient.relievePressure: (signal?: AbortSignal) => Promise<DomainResult<PressureRelief>>
   function connectStorage(endpoint: PortEndpoint, diagnostics: Pick<DiagnosticCentre, "relay">): StorageClient
 
@@ -4279,6 +4322,115 @@ packages/media-store/src/testing/memory-tree.ts
 packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
   type Schedule = (callback: () => void, delayMs: number) => () => void
+
+packages/storage-runtime/src/client/project-mirror.ts
+  class ProjectMirror
+  new ProjectMirror(project: ProjectId, first: FirstUpdate): ProjectMirror
+  readonly ProjectMirror.#listeners: Set<() => void>
+  ProjectMirror.#current: ProjectSnapshot
+  readonly ProjectMirror.subscribe: (listener: () => void) => (() => void)
+  readonly ProjectMirror.getSnapshot: () => ProjectSnapshot
+  ProjectMirror.apply: (update: ProjectUpdate) => void
+
+packages/storage-runtime/src/client/remote-project.ts
+  interface RemoteParts
+  readonly RemoteParts.channel: ClientChannel
+  readonly RemoteParts.handle: number
+  readonly RemoteParts.mirror: ProjectMirror
+  readonly RemoteParts.stopHearing: () => void
+
+packages/storage-runtime/src/client/usage-client.ts
+  interface CleanupRunOptions
+  readonly CleanupRunOptions.held?: RemoteProjectSession
+  readonly CleanupRunOptions.signal?: AbortSignal
+
+packages/storage-runtime/src/protocol/operations.ts
+  type Answered<TValue> = TValue | Transferring<TValue>
+  type Handlers<TTable extends Readonly<Record<string, Operation<unknown, unknown>>>> = { readonly [TName in keyof TTable]: (argument: TTable[TName]["argument"], context: ServeContext) => Promise<Answered<TTable[TName]["answer"]>>; }
+  interface Operation<TArgument, TAnswer>
+  readonly Operation.argument: TArgument
+  readonly Operation.answer: TAnswer
+  interface PortSide
+  readonly PortSide.operations: Readonly<Record<string, Operation<unknown, unknown>>>
+  readonly PortSide.streams: Readonly<Record<string, Stream<unknown>>>
+  interface ServeContext
+  readonly ServeContext.signal: AbortSignal
+  interface Stream<TValue>
+  readonly Stream.value: TValue
+  class Transferring<TValue>
+  new Transferring<TValue>(value: TValue, transfer: readonly Transferable[]): Transferring<TValue>
+  readonly Transferring.value: TValue
+  readonly Transferring.transfer: readonly Transferable[]
+
+packages/storage-runtime/src/protocol/port-channel.ts
+  interface CallOptions
+  readonly CallOptions.signal?: AbortSignal | undefined
+  readonly CallOptions.transfer?: readonly Transferable[]
+  interface PendingCall
+  readonly PendingCall.settle: (outcome: CallOutcome) => void
+  readonly PendingCall.reject: (reason: Error) => void
+  class PortChannel<TOther extends PortSide, TOwn extends PortSide>
+  new PortChannel<TOther extends PortSide, TOwn extends PortSide>(endpoint: PortEndpoint): PortChannel<TOther, TOwn>
+  readonly PortChannel.#endpoint: PortEndpoint
+  readonly PortChannel.#calls: Map<number, PendingCall>
+  readonly PortChannel.#serving: Map<number, AbortController>
+  readonly PortChannel.#listeners: Map<string, Set<(value: unknown) => void>>
+  PortChannel.#handlers: Handlers<TOwn["operations"]> | undefined
+  PortChannel.#nextId: number
+  PortChannel.#broken: Error | undefined
+  PortChannel.call: <TName extends keyof TOther["operations"] & string>(operation: TName, argument: TOther["operations"][TName]["argument"], options?: CallOptions) => Promise<TOther["operations"][TName]["answer"]>
+  PortChannel.serve: (handlers: Handlers<TOwn["operations"]>) => void
+  PortChannel.emit: <TName extends keyof TOwn["streams"] & string>(stream: TName, value: TOwn["streams"][TName]["value"], transfer?: readonly Transferable[]) => void
+  PortChannel.listen: <TName extends keyof TOther["streams"] & string>(stream: TName, listener: (value: TOther["streams"][TName]["value"]) => void) => () => void
+  PortChannel.#post: (message: PortMessage, transfer: readonly Transferable[]) => void
+  PortChannel.#receive: (data: unknown) => void
+  PortChannel.#settle: (id: number, outcome: CallOutcome) => void
+  PortChannel.#serveCall: (id: number, operation: string, argument: unknown) => void
+  PortChannel.#outcomeOf: (operation: string, argument: unknown, signal: AbortSignal) => Promise<Transferring<CallOutcome>>
+  PortChannel.#answer: (id: number, answer: Transferring<CallOutcome>) => void
+  PortChannel.#break: (reason: Error) => void
+
+packages/storage-runtime/src/protocol/port-messages.ts
+  type CallOutcome = { readonly kind: "cancelled"; } | { readonly kind: "fault"; readonly message: string; } | { readonly kind: "tree-refused"; readonly failure: TreeFailureKind; readonly message: string; } | { readonly kind: "value"; readonly value: unknown; }
+  type PortMessage = { readonly type: "answer"; readonly id: number; readonly outcome: CallOutcome; } | { readonly type: "call"; readonly id: number; readonly operation: string; readonly argument: unknown; } | { readonly type: "cancel"; readonly target: number; } | { readonly type: "event"; readonly stream: string; readonly value: unknown; }
+
+packages/storage-runtime/src/protocol/project-operations.ts
+  type ComparisonUpdate = { readonly kind: "closed"; } | { readonly kind: "open"; readonly comparison: Comparison; }
+  interface FirstUpdate extends ProjectUpdate
+  readonly FirstUpdate.state: ProjectState
+  readonly FirstUpdate.exports: readonly ExportRecord[]
+  readonly FirstUpdate.retention: RetentionPolicy
+  readonly FirstUpdate.backup: BackupPolicy
+  readonly FirstUpdate.save: SaveStatus
+  readonly FirstUpdate.access: ProjectAccess
+  readonly FirstUpdate.history: HistoryDelta
+  readonly FirstUpdate.comparison?: ComparisonUpdate
+  type Of<TArgument, TAnswer> = Operation<{ readonly handle: ProjectHandle; } & TArgument, TAnswer>
+  type ProjectHandle = number
+  interface ProjectOpening
+  readonly ProjectOpening.kind: "read-only" | "writable"
+  readonly ProjectOpening.report: ProjectRecoveryReport
+  readonly ProjectOpening.first: FirstUpdate
+  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
+  type ProjectStream = `project:${string}`
+  interface ProjectUpdate
+  readonly ProjectUpdate.save: SaveStatus
+  readonly ProjectUpdate.access: ProjectAccess
+  readonly ProjectUpdate.history: HistoryDelta
+  readonly ProjectUpdate.state?: ProjectState
+  readonly ProjectUpdate.exports?: readonly ExportRecord[]
+  readonly ProjectUpdate.retention?: RetentionPolicy
+  readonly ProjectUpdate.backup?: BackupPolicy
+  readonly ProjectUpdate.comparison?: ComparisonUpdate
+  type Written<TArgument = unknown> = Operation<{ readonly handle: ProjectHandle; } & TArgument, DomainResult<WriteOutcome>>
+
+packages/storage-runtime/src/protocol/storage-operations.ts
+  type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
+  type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
+  type OwnershipStream = `ownership:${string}`
+  type StorageOperations = ProjectOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StoragePageSide = { readonly operations: Readonly<Record<string, never>>; readonly streams: Readonly<Record<string, never>>; }
+  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; }; }
 
 packages/storage/src/backup-generations.ts
   interface KeptStates

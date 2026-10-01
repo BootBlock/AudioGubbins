@@ -33,6 +33,7 @@
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
+    "@audiogubbins/history": "workspace:*",
     "@audiogubbins/project-format": "workspace:*",
     "@audiogubbins/project-commands": "workspace:*",
     "@audiogubbins/media-store": "workspace:*",

@@ -17,12 +17,14 @@ import type { ClientChannel } from '../protocol/storage-operations.js';
 import { cacheClient, type CacheClient } from './cache-client.js';
 import { libraryClient, type LibraryClient } from './library-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
+import { projectsClient, type ProjectsClient } from './projects-client.js';
 import { rootClient, type RootClient } from './root-client.js';
 import { usageClient, type UsageClient } from './usage-client.js';
 
 /** What the page asks of project storage, by area. */
 export interface StorageClient {
   readonly library: LibraryClient;
+  readonly projects: ProjectsClient;
   readonly root: RootClient;
   readonly caches: CacheClient;
   readonly usage: UsageClient;
@@ -44,6 +46,7 @@ export function connectStorage(
   });
   return {
     library: libraryClient(channel),
+    projects: projectsClient(channel),
     root: rootClient(channel),
     caches: cacheClient(channel),
     usage: usageClient(channel),

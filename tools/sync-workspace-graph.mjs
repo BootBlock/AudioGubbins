@@ -517,6 +517,7 @@ const PACKAGES = [
       '@audiogubbins/diagnostics',
       '@audiogubbins/capabilities',
       '@audiogubbins/commands',
+      '@audiogubbins/history',
       '@audiogubbins/project-format',
       '@audiogubbins/project-commands',
       '@audiogubbins/media-store',

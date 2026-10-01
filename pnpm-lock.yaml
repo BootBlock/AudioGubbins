@@ -672,6 +672,9 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/history':
+        specifier: workspace:*
+        version: link:../history
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store

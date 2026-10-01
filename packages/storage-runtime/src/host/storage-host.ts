@@ -16,7 +16,9 @@ import { cacheHandlers } from './cache-area.js';
 import { hostLogs } from './host-logs.js';
 import { hostServices, type HostLogs, type HostParts } from './host-services.js';
 import { libraryHandlers } from './library-area.js';
+import { OpenProjects } from './open-projects.js';
 import { ownershipHandlers } from './ownership-area.js';
+import { projectHandlers } from './project-area.js';
 import { rootHandlers } from './root-area.js';
 import { usageHandlers } from './usage-area.js';
 
@@ -32,11 +34,13 @@ export function serveStorage(
 ): void {
   const channel: HostChannel = new PortChannel(endpoint);
   const services = hostServices(partsOf(hostLogs(channel, clock)));
+  const projects = new OpenProjects(channel);
   channel.serve({
     ...libraryHandlers(services),
+    ...projectHandlers(services, projects),
     ...rootHandlers(services),
     ...cacheHandlers(services),
-    ...usageHandlers(services),
+    ...usageHandlers(services, projects),
     ...ownershipHandlers(services.coordinator, channel),
   });
 }
