@@ -20,6 +20,7 @@ import { OpenProjects } from './open-projects.js';
 import { ownershipHandlers } from './ownership-area.js';
 import { projectHandlers } from './project-area.js';
 import { rootHandlers } from './root-area.js';
+import { sourceHandlers } from './source-area.js';
 import { transferHandlers } from './transfer-area.js';
 import { usageHandlers } from './usage-area.js';
 
@@ -40,7 +41,8 @@ export function serveStorage(
     ...libraryHandlers(services),
     ...projectHandlers(services, projects),
     ...transferHandlers(services, projects, channel),
-    ...rootHandlers(services),
+    ...rootHandlers(services, channel),
+    ...sourceHandlers(services, channel),
     ...cacheHandlers(services),
     ...usageHandlers(services, projects),
     ...ownershipHandlers(services.coordinator, channel),

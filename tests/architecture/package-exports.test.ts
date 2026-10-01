@@ -279,6 +279,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['filesInDirectory'],
   },
   '@audiogubbins/storage-runtime': {
+    "Looking at a linked file again in the storage worker, which reads and hashes the file the page passes with the worker's digest and turns (ADR-0022). The application's source-change store moves onto it in the commits that follow; until then the package's own tests drive it, over the port pair.":
+      ['SourcesClient'],
     "Taking projects out of the storage worker and bringing them in, and copying a project's linked files into it, with the page's own ports lent to the worker for each call: a sink, a folder, a source, a file the page holds, and the search for linked files (ADR-0022). The application's transfer store moves onto them in the commits that follow; until then the package's own tests drive them, over the port pair.":
       [
         'FolderFile',

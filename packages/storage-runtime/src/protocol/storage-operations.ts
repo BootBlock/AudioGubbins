@@ -9,13 +9,14 @@
  * grouped by the area of the page's client that calls it: the library of
  * projects, the projects open (`project-operations.ts`), taking projects out
  * and bringing them in (`transfer-operations.ts`), the storage root, the
- * caches, the usage and its cleanup, and who writes each project. The values
- * all clone: none is a class with behaviour, and a cache's bytes are moved
- * rather than copied.
+ * caches, the usage and its cleanup, who writes each project, and the files
+ * linked assets were recorded from. The values all clone: none is a class with
+ * behaviour, and a cache's bytes are moved rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
 import type { DomainResult, ProjectId } from '@audiogubbins/domain';
+import type { ExternalSourceIdentity, ZipWritten } from '@audiogubbins/project-format';
 import type {
   CacheCategory,
   CacheKey,
@@ -38,7 +39,7 @@ import type {
 } from '@audiogubbins/storage';
 
 import type { Handlers, Operation, Stream } from './operations.js';
-import type { PageOperations } from './page-operations.js';
+import type { CrossingFile, PageOperations, PagePort } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
 import type {
   ProjectHandle,
@@ -64,6 +65,19 @@ export type StorageOperations = ProjectOperations &
 
     'root.open': Operation<undefined, DomainResult<StorageRootOpening>>;
     'root.wipe': Operation<WipeConfirmation, DomainResult<void>>;
+
+    /** Writes every file the storage holds, as it is, into a ZIP in the sink lent. */
+    'root.exportRaw': Operation<{ readonly sink: PagePort }, DomainResult<ZipWritten>>;
+
+    /**
+     * Looks again at a file a linked asset was recorded from, the file read
+     * here, and gives its identity now, its whole content hashed where the
+     * recorded identity knows its content.
+     */
+    'sources.examine': Operation<
+      { readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile },
+      DomainResult<ExternalSourceIdentity>
+    >;
 
     /** A cache's whole bytes, where it is kept whole. */
     'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>;

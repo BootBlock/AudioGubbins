@@ -126,7 +126,7 @@ function lentSource(channel: HostChannel, port: PagePort, size: number): ByteSou
 }
 
 /** A file the person chose, as the media store takes it. */
-function pageFile(channel: HostChannel, file: CrossingFile): ExternalFile {
+export function pageFile(channel: HostChannel, file: CrossingFile): ExternalFile {
   const { bytes, ...described } = file;
   return { ...described, source: pageBytes(channel, bytes) };
 }

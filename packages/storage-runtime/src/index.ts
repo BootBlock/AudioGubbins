@@ -26,6 +26,7 @@ export {
 } from './client/page-ports.js';
 export { type FolderFile, type HeldFile } from './protocol/page-operations.js';
 export { type RootClient } from './client/root-client.js';
+export { type SourcesClient } from './client/sources-client.js';
 export { type CacheClient } from './client/cache-client.js';
 export { type UsageClient } from './client/usage-client.js';
 export { type OwnershipClient } from './client/ownership-client.js';

@@ -21,6 +21,7 @@ import { ownershipClient, type OwnershipClient } from './ownership-client.js';
 import { PagePorts, lendingCall } from './page-ports.js';
 import { projectsClient, type ProjectsClient } from './projects-client.js';
 import { rootClient, type RootClient } from './root-client.js';
+import { sourcesClient, type SourcesClient } from './sources-client.js';
 import { transfersClient, type TransfersClient } from './transfers-client.js';
 import { usageClient, type UsageClient } from './usage-client.js';
 
@@ -30,6 +31,7 @@ export interface StorageClient {
   readonly projects: ProjectsClient;
   readonly transfers: TransfersClient;
   readonly root: RootClient;
+  readonly sources: SourcesClient;
   readonly caches: CacheClient;
   readonly usage: UsageClient;
   readonly ownership: OwnershipClient;
@@ -56,6 +58,7 @@ export function storageClientOver(
   diagnostics: Pick<DiagnosticCentre, 'relay'>,
 ): StorageClient {
   channel.serve(ports.handlers());
+  const lending = lendingCall(channel, ports);
   channel.listen('log', (entry) => {
     if (entry.kind === 'record') diagnostics.relay.write(entry.record);
     else diagnostics.relay.writePerformance(entry.record);
@@ -63,8 +66,9 @@ export function storageClientOver(
   return {
     library: libraryClient(channel),
     projects: projectsClient(channel),
-    transfers: transfersClient(lendingCall(channel, ports)),
-    root: rootClient(channel),
+    transfers: transfersClient(lending),
+    root: rootClient(channel, lending),
+    sources: sourcesClient(lending),
     caches: cacheClient(channel),
     usage: usageClient(channel),
     ownership: ownershipClient(channel),

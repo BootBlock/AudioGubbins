@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { openZip } from '@audiogubbins/project-format';
+import { memorySink } from '@audiogubbins/storage/testing';
 
 import { memoryStorage } from '../testing/memory-storage.js';
+import { madeProject } from '../testing/project-scene.js';
 
 /**
  * A storage whose root was written by an earlier version, of the schema before
@@ -45,5 +48,32 @@ describe('the storage root, asked of the storage worker', () => {
     expectSuccess(await client.root.wipe({ kind: 'incompatible', schema, found: found.found }));
 
     await expect(client.root.open()).resolves.toEqual({ ok: true, value: { kind: 'current' } });
+  });
+
+  it('takes every stored file out as it is, into a sink the page lent', async () => {
+    const storage = memoryStorage({ tree: await olderStorage() });
+    const sink = memorySink();
+
+    const written = expectSuccess(await storage.client.root.exportRaw(sink));
+
+    expect(sink.ending).toBe('closed');
+    expect(storage.lentPorts()).toBe(0);
+    const archive = expectSuccess(await openZip(memorySource(sink.bytes())));
+    expect(archive.entries.map(({ path }) => path)).toEqual(['storage.json']);
+    expect(written.entries).toBe(1);
+  });
+
+  it('takes out the files of every project the worker keeps', async () => {
+    const storage = memoryStorage();
+    expectSuccess(await storage.client.root.open());
+    const project = await madeProject(storage);
+    const sink = memorySink();
+
+    const written = expectSuccess(await storage.client.root.exportRaw(sink));
+
+    const archive = expectSuccess(await openZip(memorySource(sink.bytes())));
+    const paths = archive.entries.map(({ path }) => path);
+    expect(paths.length).toBe(written.entries);
+    expect(paths.some((path) => path.includes(project))).toBe(true);
   });
 });
