@@ -46,9 +46,9 @@ import {
 import type { BodyOpener } from './bundle-writing.js';
 import { cacheKeyOf, type CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
-import { readPair } from './generational-pair.js';
 import { writeProject, type ProjectContents } from './project-creation.js';
 import { ProjectFiles } from './project-files.js';
+import { leftOverOf, removeLeftOver } from './project-leftovers.js';
 import type { ProjectHeader } from './project-header.js';
 import { contentAs } from './project-identity.js';
 import { leaseRefused, noCoordination, refusalsReported } from './storage-failures.js';
@@ -121,16 +121,16 @@ export async function importTree(
 }
 
 /**
- * Makes the project's place free, under its lease: a project whose making was
- * cut short is removed, and one that is there is refused, since it may only be
- * brought in again as a copy.
+ * Makes the project's place free, under its lease: a project whose making or
+ * purge was cut short is removed, and one that is there is refused, since it
+ * may only be brought in again as a copy.
  */
 async function madeFree(files: ProjectFiles): Promise<DomainResult<void>> {
   const tree = files.records.tree;
   if ((await tree.list(files.paths.directory)).length === 0) return succeed(undefined);
-  const header = await readPair(files.records, files.header);
-  if (header.valid.length === 0 && (await files.isUnfinished())) {
-    await tree.remove(files.paths.directory);
+  const leftOver = await leftOverOf(files);
+  if (leftOver !== undefined) {
+    await removeLeftOver(files, leftOver);
     return succeed(undefined);
   }
   return fail(

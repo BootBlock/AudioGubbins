@@ -3077,6 +3077,7 @@ Published paths
   readonly ProjectHeader.name: string
   readonly ProjectHeader.created: number
   readonly ProjectHeader.deleted?: number
+  readonly ProjectHeader.purging?: number
   readonly ProjectHeader.imported?: ImportOrigin
   readonly ProjectHeader.generation: number
   interface ProjectModel
@@ -3699,7 +3700,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 3; readonly portableBundle: 1; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 4; readonly portableBundle: 1; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference

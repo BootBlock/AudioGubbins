@@ -44,9 +44,9 @@ import {
   type MediaPurgeRefusal,
 } from './cleanup-planning.js';
 import { compactExpiredHistory } from './expired-history.js';
-import { readPair } from './generational-pair.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
+import { leftOverBytes, leftOverOf, removeLeftOver } from './project-leftovers.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
 import type { OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
@@ -138,9 +138,11 @@ async function runStep(
     case 'unfinished-projects':
       return await eachHeld(step, step.projects, services, options, async (project) => {
         const files = new ProjectFiles(records, project);
-        const header = await readPair(records, files.header, signal);
-        if (header.valid.length > 0 || !(await files.isUnfinished())) return 0;
-        return await removedBytes(services, files.paths.directory, signal);
+        const leftOver = await leftOverOf(files, signal);
+        if (leftOver === undefined) return 0;
+        const bytes = await leftOverBytes(files, leftOver, signal);
+        await removeLeftOver(files, leftOver);
+        return bytes;
       });
     case 'expired-backups':
       return await eachHeld(step, [...step.generations.keys()], services, options, (project) =>

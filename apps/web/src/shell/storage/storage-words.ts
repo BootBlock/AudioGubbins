@@ -60,7 +60,7 @@ export function stepName(step: CleanupStep): string {
     case 'cache':
       return cacheName(step.category);
     case 'unfinished-projects':
-      return 'Projects whose making was cut short';
+      return 'Projects whose making or purge was cut short';
     case 'expired-backups':
       return 'Backups their policy no longer keeps';
     case 'expired-history':
@@ -75,7 +75,7 @@ export function stepName(step: CleanupStep): string {
 /** What each step costs. */
 const LOSSES: Readonly<Record<RecoverabilityLoss, string>> = {
   nothing: 'Made again when it is needed, so nothing is lost.',
-  'unfinished-projects': 'Nothing you finished: these were never listed as projects.',
+  'unfinished-projects': 'Nothing you kept: these were never finished, or you chose to purge them.',
   'backup-generations': 'You could no longer restore a project to these backups.',
   history: 'Undoing that far, and the branches and export states it takes, go for good.',
   'set-aside-changes': 'What these changes held could no longer be looked at.',

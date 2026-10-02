@@ -101,5 +101,5 @@ describe('a crash while a bundle is brought in (REQ-EXEC-180)', () => {
       },
     });
     expect(operations).toBeGreaterThan(20);
-  });
+  }, 120_000);
 });

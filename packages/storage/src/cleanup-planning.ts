@@ -8,7 +8,8 @@
  * 1. Caches, category by category, temporary data first, then render and
  *    analysis caches, waveform and spectrogram caches, and intermediate
  *    results. Each is made again when needed, so nothing is lost.
- * 2. Projects whose making was cut short: never finished, never listed.
+ * 2. Projects whose making was cut short, never finished and never listed, and
+ *    projects whose purge was cut short, which the person confirmed.
  * 3. Backup generations each project's retention no longer keeps, and those a
  *    crash left incomplete: restoring to them is lost.
  * 4. History each project's retention policy lets go (`expired-history.ts`):
@@ -48,9 +49,9 @@ import { CACHE_CLEANUP_ORDER, type CacheCategory, type CacheStore } from './cach
 import { CheckedRecords } from './checked-records.js';
 import { expiredHistory } from './expired-history.js';
 import { projectsIn } from './project-listing.js';
-import { readPair } from './generational-pair.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
+import { leftOverBytes, leftOverOf } from './project-leftovers.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 import { bytesUnder } from './usage-measurement.js';
@@ -72,7 +73,10 @@ export type CleanupSelection = 'everything' | readonly CleanupChoice[];
 export type RecoverabilityLoss =
   /** Nothing: a cache is made again when it is needed. */
   | 'nothing'
-  /** Nothing a person finished: only projects whose making was cut short. */
+  /**
+   * Nothing a person kept: only projects whose making was cut short, and those
+   * whose purge, which the person confirmed, was cut short.
+   */
   | 'unfinished-projects'
   /** Restoring the project to the generations removed. */
   | 'backup-generations'
@@ -207,10 +211,10 @@ async function unfinishedProjects(
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
     const files = new ProjectFiles(records, project);
-    const header = await readPair(records, files.header, signal);
-    if (header.valid.length > 0 || !(await files.isUnfinished())) continue;
+    const leftOver = await leftOverOf(files, signal);
+    if (leftOver === undefined) continue;
     projects.push(project);
-    bytes += await bytesUnder(records.tree, files.paths.directory, signal);
+    bytes += await leftOverBytes(files, leftOver, signal);
   }
   return projects.length === 0
     ? []

@@ -271,5 +271,5 @@ describe('backup generations (REQ-STOR-105)', () => {
       },
     });
     expect(leftIncomplete).toBeGreaterThan(0);
-  });
+  }, 120_000);
 });

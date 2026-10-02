@@ -106,7 +106,10 @@ once and carries a checksum; a torn file fails its check and is ignored.
 - `storage.json` at the root: format and schema version. Absent: initialise.
   Other version: the blocking compatibility screen (export raw data as a ZIP,
   cancel, or wipe after confirmation).
-- `projects/<id>/project.json`: header (name, created, deleted flag).
+- `projects/<id>/project.json`: header (name, created, deleted flag, and a
+  purging mark written before a purge removes anything, so a purge a crash
+  cut short is refused restoring and finished by a later purge, cleanup or an
+  import of the same identity).
 - `projects/<id>/head-0.json`, `head-1.json`: generation, checkpoint, lease
   epoch and journal position, checksummed. The valid head with the highest
   generation wins; the other is written next.
@@ -394,8 +397,9 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
   one steals mid-open (holder token makes it narrow); a closed tab is not
   announced to watchers.
 - `projectStorage` went from 1 to 2 when the storage root came to record its
-  layout (F-13), and from 2 to 3 when history moved into segments (F-14).
-  Nothing has been persisted by a shipped build, so neither carries a
+  layout (F-13), from 2 to 3 when history moved into segments (F-14), and
+  from 3 to 4 when the header gained the purging mark.
+  Nothing has been persisted by a shipped build, so none carries a
   migration: stored data of an older version meets the compatibility screen.
 - F-14's bound: a checkpoint grows with branch points whose preference is not
   the newest child, fingerprints learned after a node's segment was written,

@@ -101,6 +101,19 @@ export function noCoordination(): DomainFailure {
   );
 }
 
+/**
+ * The failure of restoring or deleting again a project whose purge began: a
+ * crash cut it short, so its files may be part gone, and it can only be purged.
+ */
+export function projectPurging(project: ProjectId): DomainFailure {
+  return failure(
+    'storage.project-purging',
+    FailureKind.Rejected,
+    'This project was being purged, so it can no longer be restored. Purge it to finish.',
+    { details: { project } },
+  );
+}
+
 /** The failure of an operation refused because another window holds the project. */
 export function projectBusy(project: ProjectId): DomainFailure {
   return failure(

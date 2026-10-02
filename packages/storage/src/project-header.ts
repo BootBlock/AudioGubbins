@@ -5,10 +5,13 @@
  * The name is the catalogue's copy of the name the project's state holds, which
  * is authoritative: the session writes the header again whenever the state's
  * name changes, so the list agrees with the project. Deleting is soft: the flag
- * hides the project, and everything it holds stays until an explicit purge. The
- * header changes in place, so it is a pair (`generational-pair.ts`). A project
- * brought in from a bundle or an unpacked tree says so, and which project it
- * was brought from (REQ-STOR-103).
+ * hides the project, and everything it holds stays until an explicit purge. A
+ * purge marks the header before it removes anything, and removes the header
+ * last, so a project whose purge a crash cut short says so: its files may be
+ * part gone, so it can no longer be restored, only purged again. The header
+ * changes in place, so it is a pair (`generational-pair.ts`). A project brought
+ * in from a bundle or an unpacked tree says so, and which project it was
+ * brought from (REQ-STOR-103).
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -40,6 +43,9 @@ export interface ProjectHeader extends Generational {
   /** When the project was deleted, where it has been and not restored. */
   readonly deleted?: number;
 
+  /** When a purge of the deleted project began, where one has and was cut short. */
+  readonly purging?: number;
+
   /** Where the project was brought in from a bundle or a tree: the project it was, and when. */
   readonly imported?: ImportOrigin;
 }
@@ -56,6 +62,7 @@ const HEADER_MEMBERS: ReadonlySet<string> = new Set([
   'name',
   'created',
   'deleted',
+  'purging',
   'imported',
 ]);
 const IMPORTED_MEMBERS: ReadonlySet<string> = new Set(['from', 'at']);
@@ -71,6 +78,7 @@ export function writeHeader(header: ProjectHeader): JsonObject {
     name: header.name,
     created: header.created,
     deleted: header.deleted,
+    purging: header.purging,
     imported:
       header.imported === undefined
         ? undefined
@@ -88,6 +96,7 @@ const readHeader: Converter<ProjectHeader> = (reading, value, parent, key) => {
   const name = required(reading, object, at, 'name', asName);
   const created = required(reading, object, at, 'created', asWholeNumber);
   const deleted = optional(reading, object, at, 'deleted', asWholeNumber);
+  const purging = optional(reading, object, at, 'purging', asWholeNumber);
   const imported = optional(reading, object, at, 'imported', asImportOrigin);
   if (generation === undefined || id === undefined || name === undefined || created === undefined) {
     return undefined;
@@ -98,6 +107,7 @@ const readHeader: Converter<ProjectHeader> = (reading, value, parent, key) => {
     name,
     created,
     ...(deleted === undefined ? {} : { deleted }),
+    ...(purging === undefined ? {} : { purging }),
     ...(imported === undefined ? {} : { imported }),
   };
 };

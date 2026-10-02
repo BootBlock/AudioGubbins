@@ -5,7 +5,9 @@
  * Deleting only hides a project, so everything it held is kept until it is
  * purged. Purging asks a second time, beside the sentence saying the project
  * and its backups go for good, and confirms the deletion the person was shown,
- * which the storage checks.
+ * which the storage checks. A purge that was cut short has removed part of the
+ * project already, so it cannot be restored: the person, who confirmed it
+ * once, can only finish it.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -47,6 +49,37 @@ function PurgeConfirmation({
         Keep it
       </Button>
     </span>
+  );
+}
+
+/** A deleted project whose purge was cut short, which can only be finished. */
+function CutShort({
+  header,
+  run,
+}: {
+  readonly header: Deleted;
+  readonly run: RunCommand;
+}): ReactNode {
+  const name = quoted(header.name);
+  return (
+    <li className="ag-project-row">
+      <span className="ag-project-row-name">{header.name}</span>
+      <span className="ag-project-row-note">
+        Purging was cut short, so it can no longer be restored.
+      </span>
+      <span className="ag-project-row-actions">
+        <Button
+          compact
+          tone={ButtonTone.Destructive}
+          label={`Finish purging ${name}`}
+          onClick={() =>
+            run('file.purge-project', { project: header.id, deletedAt: header.deleted })
+          }
+        >
+          Finish purging
+        </Button>
+      </span>
+    </li>
   );
 }
 
@@ -112,9 +145,13 @@ export function DeletedProjects({
     <div role="group" aria-label="Deleted projects">
       <h3 className="ag-section-heading">Deleted projects</h3>
       <ul className="ag-project-list">
-        {deleted.map((header) => (
-          <DeletedProject key={header.id} header={header} run={run} />
-        ))}
+        {deleted.map((header) =>
+          header.purging === undefined ? (
+            <DeletedProject key={header.id} header={header} run={run} />
+          ) : (
+            <CutShort key={header.id} header={header} run={run} />
+          ),
+        )}
       </ul>
     </div>
   );

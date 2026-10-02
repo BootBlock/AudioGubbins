@@ -11,8 +11,10 @@
  * (`project-creation.ts`). Deleting only marks the header, so a deleted project
  * keeps every state, record and media reference it had until the person purges
  * it, and purging needs the confirmation of the deletion they were shown;
- * purging removes the project's backup generations with it. Each change to a
- * project takes its write lease for the while, so it never races a window
+ * purging removes the project's backup generations with it. A purge marks the
+ * header first (`project-leftovers.ts`), so one a crash cut short is never
+ * restored to a project part gone: it is refused, and purged again. Each change
+ * to a project takes its write lease for the while, so it never races a window
  * writing the same project.
  */
 
@@ -46,13 +48,15 @@ import { readPair, writeNext } from './generational-pair.js';
 import { writeNewProject } from './project-creation.js';
 import { ProjectFiles } from './project-files.js';
 import { writeHeader, type ProjectHeader } from './project-header.js';
+import { removePurged } from './project-leftovers.js';
 import {
   leaseRefused,
   noCoordination,
   projectMissing,
+  projectPurging,
   refusalsReported,
 } from './storage-failures.js';
-import { BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
+import { PROJECTS_DIRECTORY } from './storage-layout.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 
 /** One entry of the list of projects. */
@@ -156,15 +160,16 @@ export class ProjectRepository {
     }));
   }
 
-  /** Restores a deleted project. */
+  /** Restores a deleted project, unless a purge of it began. */
   async restore(project: ProjectId): Promise<DomainResult<ProjectHeader>> {
     return await this.rewriteHeader(project, ({ deleted: _removed, ...header }) => header);
   }
 
   /**
    * Removes a deleted project and everything it holds, once the person has
-   * confirmed the deletion they were shown. Media it shared stays in the media
-   * store until a purge of media finds nothing retains it.
+   * confirmed the deletion they were shown, or finishes a purge of it a crash
+   * cut short. Media it shared stays in the media store until a purge of media
+   * finds nothing retains it.
    */
   async purgeProject(
     project: ProjectId,
@@ -180,16 +185,17 @@ export class ProjectRepository {
           ),
         );
       }
-      // The header goes last, so a purge a crash cut short leaves a deleted
-      // project that is purged again, never files that belong to nothing.
-      const tree = this.services.tree;
-      await tree.remove(new BackupPaths(project).directory);
-      const headerFiles = new Set([files.paths.header(0), files.paths.header(1)]);
-      for (const entry of await tree.list(files.paths.directory)) {
-        const path = `${files.paths.directory}/${entry.name}`;
-        if (!headerFiles.has(path)) await tree.remove(path);
+      if (header.purging === undefined) {
+        const purging = this.services.clock.now();
+        const marked = await writeNext(
+          this.records,
+          files.header,
+          await readPair(this.records, files.header),
+          (generation) => writeHeader({ ...header, purging, generation }),
+        );
+        if (!marked.ok) return marked;
       }
-      await tree.remove(files.paths.directory);
+      await removePurged(files);
       return succeed(undefined);
     });
   }
@@ -202,6 +208,7 @@ export class ProjectRepository {
       const current = await readPair(this.records, files.header);
       const newest = current.valid[0];
       if (newest === undefined) return fail(projectMissing(project));
+      if (newest.value.purging !== undefined) return fail(projectPurging(project));
       const written = await writeNext(this.records, files.header, current, (generation) =>
         writeHeader({ ...change(newest.value), generation }),
       );
