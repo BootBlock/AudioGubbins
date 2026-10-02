@@ -15,11 +15,8 @@ import { useState, type ReactNode } from 'react';
 import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
-import { quoted } from '../../wording.js';
+import { quoted, when } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
-
-/** How a date is written in the list. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A deleted project, as the list holds it. */
 type Deleted = ProjectHeader & { readonly deleted: number };
@@ -96,7 +93,7 @@ function DeletedProject({
   return (
     <li className="ag-project-row">
       <span className="ag-project-row-name">{header.name}</span>
-      <span className="ag-project-row-note">{`Deleted ${WHEN.format(header.deleted)}`}</span>
+      <span className="ag-project-row-note">{`Deleted ${when(header.deleted)}`}</span>
       {confirming ? (
         <PurgeConfirmation
           header={header}

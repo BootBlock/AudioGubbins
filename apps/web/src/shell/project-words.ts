@@ -16,6 +16,8 @@ import type {
   ReadOnlyReason,
 } from '@audiogubbins/storage';
 
+import { counted } from '../wording.js';
+
 /** A phrase with its first letter made a capital, to begin a sentence with. */
 function capitalised(phrase: string): string {
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
@@ -64,11 +66,6 @@ export function accessSentence(access: ProjectAccess, name: string): string | un
 /** What another tab asks, in a sentence, for the tab changing the project. */
 export function requestSentence(from: LeaseOwner, name: string): string {
   return `${capitalised(ownerPhrase(from))} asks to change ${name}. Hand it over, and this tab can only read it until you ask for it back.`;
-}
-
-/** How many of something, in words a sentence reads. */
-function counted(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
 }
 
 /**
