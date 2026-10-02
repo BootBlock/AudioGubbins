@@ -26,7 +26,7 @@ export function storageRefused(refusal: TreeFailure): DomainFailure {
   switch (refusal.kind) {
     case TreeFailureKind.Quota:
       return failure(
-        'storage.full',
+        STORAGE_FULL,
         FailureKind.Retryable,
         'The storage is full; the change is kept in memory and is written once room is made.',
       );
@@ -44,6 +44,16 @@ export function storageRefused(refusal: TreeFailure): DomainFailure {
       );
   }
 }
+
+/**
+ * Whether a failure is a write refused because the storage is full, which may
+ * pass once room is made.
+ */
+export function isStorageFull(cause: DomainFailure): boolean {
+  return cause.code === STORAGE_FULL;
+}
+
+const STORAGE_FULL = 'storage.full';
 
 /**
  * A designed failure met where only a throw can carry it out, such as a source

@@ -8,14 +8,16 @@
  * its caches are ones this build keeps, and its history is one the history
  * package accepts. A project brought in as itself keeps its identity, so a
  * project that goes to a repository and back is the same project with the same
- * files; one of an identity the storage already holds is refused, and the
- * person may bring it in as a copy instead. Media goes through the store, which
- * keeps each object once however many projects hold it, and each object must be
- * the one the tree names. The project is written as a new project is
- * (`project-creation.ts`), under its write lease, and records where it came
- * from. A failure part-way removes what was written of the project, and a crash
- * leaves it unfinished, never listed; media stored for it and never referenced
- * is left for a purge to find.
+ * files; one of an identity the storage already holds, or a window is bringing
+ * in, is refused as itself, and comes in as a copy under a new identity where
+ * the caller allows either, decided once the tree is read, so it is read once
+ * whichever it becomes. Media goes through the store, which keeps each object
+ * once however many projects hold it, and each object must be the one the tree
+ * names. The project is written as a new project is (`project-creation.ts`),
+ * under its write lease, and records where it came from. A failure part-way
+ * removes what was written of the project, and a crash leaves it unfinished,
+ * never listed; media stored for it and never referenced is left for a purge to
+ * find.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
@@ -45,17 +47,11 @@ import {
 
 import type { BodyOpener } from './bundle-writing.js';
 import { cacheKeyOf, type CacheStore } from './cache-store.js';
-import { CheckedRecords } from './checked-records.js';
 import { writeProject, type ProjectContents } from './project-creation.js';
-import { ProjectFiles } from './project-files.js';
-import { leftOverOf, removeLeftOver } from './project-leftovers.js';
-import type { ProjectHeader } from './project-header.js';
+import { claimFor, type ImportIdentity, type ImportedProject } from './import-claim.js';
 import { contentAs } from './project-identity.js';
-import { leaseRefused, noCoordination, refusalsReported } from './storage-failures.js';
+import { noCoordination, refusalsReported } from './storage-failures.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
-
-/** Whether a project is brought in as itself or as a copy under a new identity. */
-export type ImportIdentity = 'original' | 'copy';
 
 /** What bringing a project in works with, each made once by the composition root. */
 export interface ImportServices {
@@ -81,28 +77,25 @@ export async function importTree(
   identity: ImportIdentity,
   services: ImportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ProjectHeader>> {
+): Promise<DomainResult<ImportedProject>> {
   const checked = selfContained(content);
   if (!checked.ok) return checked;
-  const from = content.state.project.id;
-  const project = identity === 'copy' ? services.ids.next<'ProjectId'>() : from;
-  const at = services.clock.now();
-  const contents = await contentsOf(
-    await contentAs(content, project, services.digest),
-    at,
-    services,
-  );
-  if (!contents.ok) return contents;
-
-  const { coordinator, owner } = services;
+  const { coordinator } = services;
   if (coordinator === undefined) return fail(noCoordination());
-  const acquired = await coordinator.acquire(project, { steal: false, owner });
-  if (acquired.kind !== 'held') return fail(leaseRefused(acquired, project));
+  const from = content.state.project.id;
+  const claimed = await claimFor(from, identity, coordinator, services);
+  if (!claimed.ok) return claimed;
+  const { files, lease, asCopy } = claimed.value;
+  const { project } = files;
   const held: ContentId[] = [];
-  const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   try {
-    const free = await refusalsReported(async () => await madeFree(files));
-    if (!free.ok) return free;
+    const at = services.clock.now();
+    const contents = await contentsOf(
+      await contentAs(content, project, services.digest),
+      at,
+      services,
+    );
+    if (!contents.ok) return contents;
     const written = await refusalsReported(async () => {
       const brought = await bringBodies(content, project, open, held, services, signal);
       if (!brought.ok) return brought;
@@ -116,35 +109,15 @@ export async function importTree(
     });
     // A designed failure leaves nothing of the project behind; a crash, which
     // rejects, leaves it unfinished, for cleanup or the next import to remove.
-    if (!written.ok) await services.tree.remove(files.paths.directory);
-    return written;
+    if (!written.ok) {
+      await services.tree.remove(files.paths.directory);
+      return written;
+    }
+    return succeed({ header: written.value, asCopy });
   } finally {
     for (const contentId of held) services.store.release(contentId);
-    await acquired.lease.release();
+    await lease.release();
   }
-}
-
-/**
- * Makes the project's place free, under its lease: a project whose making or
- * purge was cut short is removed, and one that is there is refused, since it
- * may only be brought in again as a copy.
- */
-async function madeFree(files: ProjectFiles): Promise<DomainResult<void>> {
-  const tree = files.records.tree;
-  if ((await tree.list(files.paths.directory)).length === 0) return succeed(undefined);
-  const leftOver = await leftOverOf(files);
-  if (leftOver !== undefined) {
-    await removeLeftOver(files, leftOver);
-    return succeed(undefined);
-  }
-  return fail(
-    failure(
-      'storage.project-exists',
-      FailureKind.Conflict,
-      'The storage already holds this project; it can be brought in as a copy.',
-      { details: { project: files.project } },
-    ),
-  );
 }
 
 /**

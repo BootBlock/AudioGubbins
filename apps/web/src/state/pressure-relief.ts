@@ -12,13 +12,11 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
+import { isStorageFull } from '@audiogubbins/storage';
 import type { UsageClient } from '@audiogubbins/storage-runtime';
 
 import { isAbandoned } from './abandoning.js';
 import type { OpenProjectStore } from './open-project-store.js';
-
-/** The failure a write refused for want of room is reported as. */
-const FULL = 'storage.full';
 
 /**
  * Gives up caches through `usage` and tries again whenever the open project's
@@ -33,7 +31,7 @@ export function relieveWhenFull(
   return project.subscribe(() => {
     const session = project.session();
     const save = session?.getSnapshot().save;
-    const full = save?.kind === 'not-saved' && save.cause.code === FULL;
+    const full = save?.kind === 'not-saved' && isStorageFull(save.cause);
     if (!full) {
       answered = false;
       return;

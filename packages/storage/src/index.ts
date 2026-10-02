@@ -39,6 +39,7 @@ export { exportRawStorage } from './raw-export.js';
 export { MEDIA_DIRECTORY } from './storage-layout.js';
 
 export { type RecordFault } from './checked-records.js';
+export { isStorageFull } from './storage-failures.js';
 
 export {
   type CatalogueEntry,
@@ -111,7 +112,8 @@ export {
   importBundle,
   importUnpacked,
 } from './project-transfer.js';
-export { type ImportIdentity, type ImportServices } from './tree-import.js';
+export { type ImportServices } from './tree-import.js';
+export { type ImportIdentity, type ImportedProject } from './import-claim.js';
 export { packUnpacked, unpackBundle } from './bundle-conversion.js';
 export {
   type AnotherProject,

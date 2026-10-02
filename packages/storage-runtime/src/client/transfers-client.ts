@@ -21,7 +21,7 @@ import type {
   ExportAttempt,
   ExportedBundle,
   ImportIdentity,
-  ProjectHeader,
+  ImportedProject,
 } from '@audiogubbins/storage';
 
 import type { LendingCall, PageBytes, PageFolder, PageLocate } from './page-ports.js';
@@ -64,14 +64,14 @@ export interface TransfersClient {
     bundle: PageBytes,
     identity: ImportIdentity,
     signal?: AbortSignal,
-  ): Promise<DomainResult<ProjectHeader>>;
+  ): Promise<DomainResult<ImportedProject>>;
 
   /** Brings in the project a folder's unpacked tree holds, as itself or as a copy. */
   importUnpacked(
     folder: PageFolder,
     identity: ImportIdentity,
     signal?: AbortSignal,
-  ): Promise<DomainResult<ProjectHeader>>;
+  ): Promise<DomainResult<ImportedProject>>;
 
   /**
    * Copies every linked file of the project `session` writes into it, one

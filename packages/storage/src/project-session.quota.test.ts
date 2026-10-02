@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import type { ProjectId } from '@audiogubbins/domain';
-import type { StorageTree } from '@audiogubbins/project-format';
+import { TreeFailure, TreeFailureKind, type StorageTree } from '@audiogubbins/project-format';
 
 import { openProject } from './project-opening.js';
+import { isStorageFull, storageRefused } from './storage-failures.js';
 import type { ProjectSession } from './project-session.js';
 import type { WriteOutcome } from './write-queue.js';
 import { FillableTree } from './testing/fillable-tree.js';
@@ -116,6 +117,19 @@ describe('storage filling up at every write', () => {
       await openProject({ project: header.id, access: 'read' }, harness(9).services(tree)),
     );
     expect(reader.report.replayed).toBe(2);
+  });
+
+  it('says a save refused for want of room is full, and no other refusal', async () => {
+    const tree = new FillableTree(new MemoryStorageTree());
+    const { session } = await started(tree, harness());
+    tree.full = true;
+    const refused = saved(await session.run(setName('Held')));
+
+    if (refused.kind !== 'not-saved') throw new Error('Expected the change to wait.');
+    expect(isStorageFull(refused.cause)).toBe(true);
+    for (const kind of [TreeFailureKind.Io, TreeFailureKind.Unavailable]) {
+      expect(isStorageFull(storageRefused(new TreeFailure(kind, 'Refused.')))).toBe(false);
+    }
   });
 
   it('refuses to make or open a project it cannot write, and lets the lease go', async () => {

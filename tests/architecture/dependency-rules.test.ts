@@ -992,6 +992,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
       ['unstoredScope'],
     'The project a folder export was refused for holding, read from the refusal the worker answered: a pure function, which the transfer store asks the person about.':
       ['anotherProjectIn'],
+    'Whether a write the session could not make was refused for want of room: a pure function over the failure the worker answered, beside the one that makes that failure, which the pressure relief answers by giving up caches.':
+      ['isStorageFull'],
   },
   '@audiogubbins/media-store': {
     'What became of a linked file and what the person may do about it: pure decisions over the identity the worker examined, which the source change store puts to the person.':

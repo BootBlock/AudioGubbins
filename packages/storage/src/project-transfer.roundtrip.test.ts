@@ -114,7 +114,7 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
 
       const other = harness(seed + 100);
       const target = storageOf(other, new MemoryStorageTree());
-      const header = expectSuccess(
+      const { header } = expectSuccess(
         await importBundle(memorySource(bundle), 'original', target.importing),
       );
       expect(header.id).toBe(project);
@@ -158,7 +158,9 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
     };
     const once = await objects();
     expect((await importBundle(memorySource(bundle), 'original', target.importing)).ok).toBe(false);
-    const copy = expectSuccess(await importBundle(memorySource(bundle), 'copy', target.importing));
+    const { header: copy } = expectSuccess(
+      await importBundle(memorySource(bundle), 'copy', target.importing),
+    );
     expect(copy.id).not.toBe(project);
     expect(copy.imported?.from).toBe(project);
     expect(await objects()).toEqual(once);

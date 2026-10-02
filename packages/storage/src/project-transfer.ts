@@ -52,11 +52,11 @@ import {
   type DirectoryWriter,
 } from './project-directory.js';
 import { ProjectFiles } from './project-files.js';
-import type { ProjectHeader } from './project-header.js';
 import type { ProjectSession } from './project-session.js';
 import type { RecoveryServices } from './project-recovery.js';
 import { storedBodies, treeOfCopy, type CopyOptions, type TreeSources } from './tree-content.js';
-import { importTree, type ImportIdentity, type ImportServices } from './tree-import.js';
+import type { ImportIdentity, ImportedProject } from './import-claim.js';
+import { importTree, type ImportServices } from './tree-import.js';
 
 /** What taking a project out works with, each made once by the composition root. */
 export interface ExportServices extends RecoveryServices, TreeSources {
@@ -240,13 +240,13 @@ export async function exportUnpacked(
   });
 }
 
-/** Brings in the project a bundle holds, as itself or as a copy. */
+/** Brings in the project a bundle holds, as itself or as a copy, as `identity` allows. */
 export async function importBundle(
   source: ByteSource,
   identity: ImportIdentity,
   services: ImportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ProjectHeader>> {
+): Promise<DomainResult<ImportedProject>> {
   const bundle = await openBundle(source, services, signal);
   if (!bundle.ok) return bundle;
   const content = await readProjectTree(bundle.value.listing, services.digest, signal);
@@ -254,13 +254,16 @@ export async function importBundle(
   return await importTree(content.value, bundle.value.open, identity, services, signal);
 }
 
-/** Brings in the project a directory's unpacked tree holds, as itself or as a copy. */
+/**
+ * Brings in the project a directory's unpacked tree holds, as itself or as a
+ * copy, as `identity` allows.
+ */
 export async function importUnpacked(
   reader: DirectoryReader,
   identity: ImportIdentity,
   services: ImportServices,
   signal?: AbortSignal,
-): Promise<DomainResult<ProjectHeader>> {
+): Promise<DomainResult<ImportedProject>> {
   const tree = await directoryTree(reader, signal);
   if (!tree.ok) return tree;
   const content = await readProjectTree(tree.value.listing, services.digest, signal);

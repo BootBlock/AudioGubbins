@@ -3016,7 +3016,7 @@ Published paths
   readonly HeadFallback.path: string
   readonly HeadFallback.reason: HeadFallbackReason
   type HeadFallbackReason = { readonly kind: "checkpoint-invalid"; readonly fault: RecordFault; } | { readonly kind: "checkpoint-missing"; } | { readonly kind: "cursor-state-unusable"; readonly failure: DomainFailure; } | { readonly kind: "head-fenced"; } | { readonly kind: "head-invalid"; readonly fault: RecordFault; }
-  type ImportIdentity = "copy" | "original"
+  type ImportIdentity = "copy" | "original" | "original-or-copy"
   interface ImportOrigin
   readonly ImportOrigin.from: ProjectId
   readonly ImportOrigin.at: number
@@ -3030,6 +3030,9 @@ Published paths
   readonly ImportServices.coordinator?: LeaseCoordinator
   readonly ImportServices.owner: LeaseOwner
   readonly ImportServices.yieldToHost: YieldToHost
+  interface ImportedProject
+  readonly ImportedProject.header: ProjectHeader
+  readonly ImportedProject.asCopy: boolean
   interface JournalBreak
   readonly JournalBreak.at: JournalPosition
   readonly JournalBreak.reason: BreakReason
@@ -3280,8 +3283,9 @@ Published paths
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
-  function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
-  function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
+  function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
+  function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
+  function isStorageFull(cause: DomainFailure): boolean
   function measureUsage(services: UsageServices, live?: Iterable<ProjectState>, signal?: AbortSignal | undefined): Promise<DomainResult<StorageUsage>>
   function mediaSharingOf(coordinator: LeaseCoordinator | undefined): MediaSharing
   function openProject(request: OpeningRequest, services: OpeningServices): Promise<DomainResult<OpenedProject>>
@@ -3400,8 +3404,8 @@ Published paths
   TransfersClient.exportBundle: (project: ProjectId, sink: ByteSink, options: CopyOptions & HeldExport, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   TransfersClient.exportBackup: (project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   TransfersClient.exportUnpacked: (project: ProjectId, folder: DirectoryWriter, options: CopyOptions & DirectoryClaim & HeldExport, signal?: AbortSignal) => Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
-  TransfersClient.importBundle: (bundle: PageBytes, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
-  TransfersClient.importUnpacked: (folder: PageFolder, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  TransfersClient.importBundle: (bundle: PageBytes, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ImportedProject>>
+  TransfersClient.importUnpacked: (folder: PageFolder, identity: ImportIdentity, signal?: AbortSignal) => Promise<DomainResult<ImportedProject>>
   TransfersClient.consolidate: (session: RemoteProjectSession, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<readonly AssetConsolidation[]>>
   interface UsageClient
   UsageClient.measure: (signal?: AbortSignal) => Promise<DomainResult<StorageUsage>>
@@ -4549,7 +4553,7 @@ packages/storage-runtime/src/protocol/storage-operations.ts
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
-  type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ProjectHeader>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ProjectHeader>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
+  type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
 
 packages/storage/src/backup-generations.ts
   interface KeptStates

@@ -355,7 +355,7 @@ describe('backup generations, made and restored in the storage worker', () => {
     expectSuccess(attempt.written);
     const other = memoryStorage({ tab: { name: 'other', seed: 71 } });
     const bundle = { kind: 'source', source: memorySource(sink.bytes()) } as const;
-    const header = expectSuccess(await other.client.transfers.importBundle(bundle, 'original'));
+    const { header } = expectSuccess(await other.client.transfers.importBundle(bundle, 'original'));
     expect((await storedModel(other, header.id)).state.project.displayName).toBe('Ebb');
   });
 });

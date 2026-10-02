@@ -37,8 +37,7 @@ import {
   type CopyOptions,
   type ExportAttempt,
   type ExportedBundle,
-  type ImportIdentity,
-  type ProjectHeader,
+  type ImportedProject,
 } from '@audiogubbins/storage';
 import type {
   HeldExport,
@@ -54,12 +53,6 @@ import { copyOutput, type ExportRecorder, type RecordedExport } from './export-r
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
-
-/** A project brought in, and whether it came in as a copy. */
-export interface ImportedProject {
-  readonly header: ProjectHeader;
-  readonly asCopy: boolean;
-}
 
 /** An export written, whether its history records it, and the linked assets it could not carry. */
 export interface ExportedProject {
@@ -118,24 +111,6 @@ function bundleExport(target: SaveTarget, output: ExportOutput): ExportDescripti
 
 /** A backup is exported whole, as it was kept. */
 const WHOLE_HISTORY: CopyOptions = { scope: { kind: 'whole-history' }, includeCaches: false };
-
-/**
- * Why bringing a project in as itself is refused where it is taken already: the
- * storage holds it, or a window holds its lease, which a project has only where
- * it is kept or is being brought in.
- */
-const TAKEN: ReadonlySet<string> = new Set(['storage.project-exists', 'storage.project-busy']);
-
-/** Brings a project in as itself, and as a copy where the storage holds it already. */
-async function asItselfOrACopy(
-  bringIn: (identity: ImportIdentity) => Promise<DomainResult<ProjectHeader>>,
-): Promise<DomainResult<ImportedProject>> {
-  const original = await bringIn('original');
-  if (original.ok) return succeed({ header: original.value, asCopy: false });
-  if (!original.failures.some((one) => TAKEN.has(one.code))) return original;
-  const copy = await bringIn('copy');
-  return copy.ok ? succeed({ header: copy.value, asCopy: true }) : copy;
-}
 
 /**
  * Taking projects out and bringing them in. Each answers `undefined` where the
@@ -290,8 +265,8 @@ export class ProjectTransferStore implements Observable<TransferState> {
   readonly importBundle = async (): Promise<DomainResult<ImportedProject | undefined>> => {
     const bundle = await this.files.chooseBundle();
     if (bundle === undefined) return succeed(undefined);
-    return await this.bringingIn((identity) =>
-      this.transfers.importBundle(bundle.bytes, identity, this.lifetime),
+    return await this.bringingIn(() =>
+      this.transfers.importBundle(bundle.bytes, 'original-or-copy', this.lifetime),
     );
   };
 
@@ -299,8 +274,8 @@ export class ProjectTransferStore implements Observable<TransferState> {
   readonly importFolder = async (): Promise<DomainResult<ImportedProject | undefined>> => {
     const folder = await this.files.chooseFolderToRead();
     if (folder === undefined) return succeed(undefined);
-    return await this.bringingIn((identity) =>
-      this.transfers.importUnpacked(folder, identity, this.lifetime),
+    return await this.bringingIn(() =>
+      this.transfers.importUnpacked(folder, 'original-or-copy', this.lifetime),
     );
   };
 
@@ -378,10 +353,10 @@ export class ProjectTransferStore implements Observable<TransferState> {
 
   /** Brings in what `bringIn` reads, and reads the list again after. */
   private bringingIn(
-    bringIn: (identity: ImportIdentity) => Promise<DomainResult<ProjectHeader>>,
+    bringIn: () => Promise<DomainResult<ImportedProject>>,
   ): Promise<DomainResult<ImportedProject>> {
     return this.working('importing', async () => {
-      const imported = await asItselfOrACopy(bringIn);
+      const imported = await bringIn();
       await this.library.refresh();
       return imported;
     });

@@ -120,14 +120,14 @@ describe('taking projects out of the storage worker and bringing them in', () =>
     expect(storage.lentPorts()).toBe(0);
     const other = elsewhere('other', 53);
     const bundle = new File([sink.bytes()], 'Harbour.zip', { type: 'application/zip' });
-    const header = expectSuccess(
+    const { header } = expectSuccess(
       await other.client.transfers.importBundle({ kind: 'file', file: bundle }, 'original'),
     );
     expect(header.id).toBe(project);
     expect(await nameIn(other, project)).toBe('Harbour');
     expect(pageCalls(other.pair)).toEqual([]);
 
-    const copy = expectSuccess(
+    const { header: copy } = expectSuccess(
       await storage.client.transfers.importBundle(
         { kind: 'source', source: memorySource(sink.bytes()) },
         'copy',
@@ -179,7 +179,7 @@ describe('taking projects out of the storage worker and bringing them in', () =>
       { kind: 'reader', reader: folder },
       'original',
     );
-    expect(expectSuccess(read).id).toBe(project);
+    expect(expectSuccess(read).header.id).toBe(project);
     expect(await nameIn(reading, project)).toBe('Quay');
     expect(reading.lentPorts()).toBe(0);
   });
@@ -201,7 +201,7 @@ describe('taking projects out of the storage worker and bringing them in', () =>
       'original',
     );
 
-    expect(expectSuccess(brought).id).toBe(project);
+    expect(expectSuccess(brought).header.id).toBe(project);
     expect(await nameIn(given, project)).toBe('Slipway');
     expect(pageCalls(given.pair)).toEqual([]);
   });

@@ -17,7 +17,7 @@ import type {
   ExportAttempt,
   ExportedBundle,
   ImportIdentity,
-  ProjectHeader,
+  ImportedProject,
 } from '@audiogubbins/storage';
 
 import type { Operation } from './operations.js';
@@ -52,11 +52,11 @@ export type TransferOperations = {
   >;
   'transfers.importBundle': Operation<
     { readonly bundle: CrossingBytes; readonly identity: ImportIdentity },
-    DomainResult<ProjectHeader>
+    DomainResult<ImportedProject>
   >;
   'transfers.importUnpacked': Operation<
     { readonly folder: CrossingFolder; readonly identity: ImportIdentity },
-    DomainResult<ProjectHeader>
+    DomainResult<ImportedProject>
   >;
 
   /**
