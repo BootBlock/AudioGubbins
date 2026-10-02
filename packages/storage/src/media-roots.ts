@@ -44,8 +44,6 @@ import {
   FailureKind,
   failure,
   flatMapResult,
-  isWellFormedId,
-  unsafeBrandId,
   type DomainFailure,
   type ProjectId,
 } from '@audiogubbins/domain';
@@ -66,6 +64,7 @@ import { contentIdsIn } from './content-references.js';
 import { ProjectFiles } from './project-files.js';
 import { newestHead, readHeads, sameHead } from './project-heads.js';
 import { leftOverOf } from './project-leftovers.js';
+import { projectsIn } from './project-listing.js';
 import { SnapshotStore } from './state-store.js';
 import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 
@@ -112,14 +111,14 @@ async function* gather(
 ): AsyncGenerator<ContentId, void, undefined> {
   const { tree, digest } = records;
   const leftOvers = new Set<ProjectId>();
-  for (const project of await projectsUnder(tree, PROJECTS_DIRECTORY)) {
+  for (const project of await projectsIn(tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
     const files = new ProjectFiles(records, project);
     if ((await leftOverOf(files, signal)) === undefined) {
       yield* projectRetains(files, onUnreadable, signal);
     } else leftOvers.add(project);
   }
-  for (const project of await projectsUnder(tree, BACKUPS_DIRECTORY)) {
+  for (const project of await projectsIn(tree, BACKUPS_DIRECTORY)) {
     if (leftOvers.has(project)) continue;
     const paths = new BackupPaths(project);
     const listing = await new BackupGenerations(tree, digest, project).list(signal);
@@ -252,15 +251,6 @@ function headMoving(): DomainFailure {
     'storage.roots-moving',
     FailureKind.Retryable,
     'A project kept changing while the media it retains was gathered.',
-  );
-}
-
-/** The projects a directory holds one directory for each of. */
-async function projectsUnder(tree: StorageTree, directory: string): Promise<readonly ProjectId[]> {
-  return (await tree.list(directory)).flatMap((entry) =>
-    entry.kind === 'directory' && isWellFormedId(entry.name)
-      ? [unsafeBrandId<'ProjectId'>(entry.name)]
-      : [],
   );
 }
 
