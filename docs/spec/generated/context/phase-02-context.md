@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`READY` — Phase 01, its one hard dependency, has reached `PASS`; see `traceability/handoffs/phase-01.md`.
+`PASS` — completed on 2026-10-02; see `reviews/phase-02-evidence.md`, `reviews/phase-02-review.md` and `traceability/handoffs/phase-02.md`.
 
 ## Objective
 
@@ -2228,7 +2228,7 @@ mutations were not proven, as its record gives.
 {
   "phase": 2,
   "name": "Project and Storage System",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     1
   ],
@@ -2263,7 +2263,10 @@ mutations were not proven, as its record gives.
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-02-evidence.md",
+    "reviews/phase-02-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-02.md"
 }
 ```

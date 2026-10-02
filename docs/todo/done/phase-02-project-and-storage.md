@@ -1,34 +1,16 @@
-> **Status:** In progress. 2026-10-02: review findings F-01 to F-15 and every
-> medium finding fixed; F-15's measurement in a browser, the low findings, the
-> evidence and the landing remain (see "Left to do").
+> **Status:** Done. 2026-10-02: every work unit is built, and the one review
+> pass of the seven lenses found fifty-six findings, one critical and fourteen
+> high, every one fixed, accepted or tracked and written into
+> `docs/spec/reviews/phase-02-review.md`, with what the browser check found.
+> Phase 02 is closed at `PASS` in the ledger, and its handoff capsule is
+> `docs/spec/traceability/handoffs/phase-02.md`. The progress and the list of
+> what was left are those of the time they were written, brought to their end.
 
 # Phase 02 — Project and Storage System
 
 Resume note and design record. The packet is
 `docs/spec/phases/phase-02-project-and-storage-system.md`; its context pack is
 `docs/spec/generated/context/phase-02-context.md`.
-
-## Where the work is
-
-|                  |                                                             |
-| ---------------- | ----------------------------------------------------------- |
-| Primary checkout | the repository's own directory, on `main`, for reading only |
-| Worktree         | `../AudioGubbins-phase-02` — **do the work here**           |
-| Branch           | `phase-02-project-storage`                                  |
-
-## Coordination with Phase 03
-
-Phase 03 runs at the same time in `../AudioGubbins-phase-03` (branch
-`phase-03-audio-engine`). Agreed terms:
-
-- Phase 02 takes ADR-0020 to ADR-0029; Phase 03 takes ADR-0030 upward.
-- `packages/capabilities` belongs to Phase 03. Phase 02 adds its storage
-  capability checks as new files and new entries only.
-- Shared files: the ledger (own entry only), `tools/sync-workspace-graph.mjs`,
-  `tests/architecture/public-contracts.txt`, root `package.json` scripts,
-  `vitest.projects.json`, `pnpm-lock.yaml`, `.dependency-cruiser.cjs`. The
-  second to merge merges `main` in and runs `verify:commit` first.
-- Storage log categories are separate entries in `@audiogubbins/diagnostics`.
 
 ## Gates
 
@@ -190,15 +172,13 @@ fixes (`8d6599a`: lease port `unavailable`, `watchOwnership`,
 purge, history compaction, backup restore, fork fingerprint, bundle carries
 the backup policy and an open comparison).
 
-Task files beside the tree: `../AudioGubbins-phase-02-brief.md` (rules for
-every agent), `-storage-brief.md`, `-safety-brief.md` (done), and
-`-interface-brief.md` (the interface and wiring).
-
 ### Left to do, in order
 
-The review pass ran; its findings and their triage are kept outside the
-repository. Critical and high findings F-01 to F-13 are fixed. The owner ruled
-that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
+The review pass ran; its findings and their dispositions are recorded in
+`docs/spec/reviews/phase-02-review.md`, where the medium findings M-01 to M-25
+are F-16 to F-40 and the low ones L-01 to L-16 are F-41 to F-56. Critical and
+high findings F-01 to F-13 are fixed. The owner ruled that F-14 and F-15 are
+fixed in this phase, not moved to Phase 14.
 
 1. Done (`3c41371`). F-14, part one: never write a file its reader cannot
    read back.
@@ -313,9 +293,11 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      signal between projects, files and objects; checkpoint segment planning and
      compaction planning take a step per node; a read-only opening and the
      journal plan take the signal. Each has a test that fails on the old code.
-   - Left: measure in a browser at 16k changes (a checkpoint, and the page's
-     time per publish; the opening was measured in `c6f3741`).
-   - Left, measured not fixed: the `history` package's whole-graph passes are
+   - Measured in Chromium at 16k changes: no long task on the page through
+     16,000 renames, a checkpoint on hide or a reload; opening the History
+     panel took one 80 ms task, since fixed (`9901b0f`). The figures are in
+     the evidence.
+   - Measured, not fixed: the `history` package's whole-graph passes are
      synchronous (16k nodes in Node: `applyCompaction` 25 ms,
      `historyFromRecord` 30 ms, `historyRecordOf` 12 ms, `retainedStates` and
      `planCompaction` 4 ms; 100k nodes: up to 220 ms). Turns there make the
@@ -469,10 +451,24 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      - A request counts as unanswered after 30 seconds, or at once where the
        window holding the project hears no request; a request the other
        window declined offers no take over, and asking again is offered.
-5. Evidence, review record, ledger entry, handoff; this note to
-   `docs/todo/done/`; merge `main`; `verify:commit`; land.
-6. Drive the built app in a real browser for the changed surfaces, and record
-   what a user would see.
+   - The low findings, by the review record's numbers: F-41 (a commit that
+     did not build alone) made one with the next before landing; F-44 (this
+     note's working directories and task files) removed on closing; F-47
+     fixed in `fd6f354`, F-48 in `1e87e79` and F-50 in `9c10071`; F-55 fixed
+     in part in `59f32dc` and `8b755e5`, the domain's identifier generator
+     still writing hex itself since the domain depends on no package; F-51
+     fixed in part by `c77bcde`; the rest tracked to Phases 05, 09, 12 and 14
+     in the review record.
+5. Done. Evidence, review record, ledger entry and handoff, written into
+   `docs/spec/`; this note moved to `docs/todo/done/`.
+6. Done. The built application was driven in Chromium over every changed
+   surface. What it found is fixed: the History panel built every row at
+   opening (`9901b0f`) and cut a point's time rather than its description
+   (`74494b9`); a backup not made was given the save status's words
+   (`784813d`); the offer to link a chosen file was shown twice (`65b3675`);
+   every backup's keep button had one name (`2b99c6d`); a tab losing a project
+   could not name the taker when the notice came after the steal (`223b0e0`);
+   and two browser tests were brought up to date (`636894c`).
 
 ### Decisions to carry into the evidence
 
