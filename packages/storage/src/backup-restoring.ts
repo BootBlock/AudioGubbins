@@ -20,7 +20,12 @@
 import type { Clock } from '@audiogubbins/diagnostics';
 import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import { historyFromRecord, historyRecordOf } from '@audiogubbins/history';
-import { Turns, type ProjectTreeContent } from '@audiogubbins/project-format';
+import {
+  Turns,
+  type ProjectState,
+  type ProjectTreeContent,
+  type StateFingerprint,
+} from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import type { BackupGeneration } from './backup-planning.js';
@@ -85,23 +90,8 @@ async function asNewProject(
   const states = await loadedStatesOf(copy, signal);
   if (!states.ok) return states;
   const { model } = copy;
-  const content: ProjectTreeContent = {
-    state: model.state,
-    scope: {
-      kind: 'history',
-      history: {
-        record: historyRecordOf(model.history),
-        retention: model.retention,
-        states: states.value,
-        ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
-      },
-    },
-    exports: model.exports,
-    backup: model.backup,
-    media: [],
-  };
   const project = services.ids.next<'ProjectId'>();
-  const moved = await contentAs(content, project, services.digest);
+  const moved = await contentAs(contentOf(model, states.value), project, services.digest);
   const { scope } = moved;
   if (scope.kind !== 'history') throw new Error('A restored history lost its history.');
   const history = historyFromRecord(scope.history.record);
@@ -123,11 +113,36 @@ async function asNewProject(
             : { comparison: scope.history.comparison }),
           created: services.clock.now(),
         },
-        services.ids,
-        new Turns(services.yieldToHost, signal),
+        {
+          ids: services.ids,
+          turns: new Turns(services.yieldToHost, signal),
+          coordinator: services.coordinator,
+        },
       ),
   );
   return written.ok ? succeed({ kind: 'new-project', header: written.value }) : written;
+}
+
+/** A generation's project as the tree of a project carries it, with the states it keeps. */
+function contentOf(
+  model: ProjectCopy['model'],
+  states: ReadonlyMap<StateFingerprint, ProjectState>,
+): ProjectTreeContent {
+  return {
+    state: model.state,
+    scope: {
+      kind: 'history',
+      history: {
+        record: historyRecordOf(model.history),
+        retention: model.retention,
+        states,
+        ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
+      },
+    },
+    exports: model.exports,
+    backup: model.backup,
+    media: [],
+  };
 }
 
 async function inPlace(
@@ -161,6 +176,7 @@ async function inPlace(
         current.value,
         { reason: 'manual', at: services.clock.now(), protect: true },
         new Turns(services.yieldToHost, signal),
+        services.coordinator,
       )
     : current;
   // Until the project is replaced nothing of it changed, so the session closes

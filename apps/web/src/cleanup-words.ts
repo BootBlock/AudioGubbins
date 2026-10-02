@@ -4,25 +4,38 @@
  * the person the same (REQ-STOR-106, REQ-STOR-200).
  *
  * Every step left undone is said with its reason: a project another tab
- * writes, a history that moved on from its plan, and audio kept because it
- * could not be purged safely. A cleanup that did less than planned never reads
- * as one that did it all.
+ * writes, a history that moved on from its plan, what was kept because
+ * something was being saved that would have looked left over, and audio kept
+ * because it could not be purged safely. A cleanup that did less than planned
+ * never reads as one that did it all.
  */
 
-import type { MediaPurgeRefusal, StepOutcome } from '@audiogubbins/storage';
+import type { CleanupRefusal, StepOutcome } from '@audiogubbins/storage';
 
 import { describeBytes } from './wording.js';
 
 /** Why audio cannot be purged now, in a sentence. */
-export function refusalSentence(refusal: MediaPurgeRefusal): string {
+export function refusalSentence(refusal: CleanupRefusal): string {
   switch (refusal.kind) {
     case 'unreadable':
       return `Audio cannot be purged now: ${String(refusal.roots.length)} stored ${refusal.roots.length === 1 ? 'file' : 'files'} could not be read, and might need it.`;
     case 'no-coordination':
       return 'Audio cannot be purged in this browser, because it cannot keep other tabs from storing audio meanwhile.';
     case 'storing':
-      return 'Another tab is storing audio now, so none can be purged. Try again shortly.';
+      return 'Something is being saved now, so no audio can be purged. Try again shortly.';
   }
+}
+
+/**
+ * Why a step that removes what a crash left removed nothing: something was
+ * being saved that would have looked left over until it was whole.
+ */
+function keptWhileSaving(step: StepOutcome['step']): string {
+  const what =
+    step === 'unfinished-projects'
+      ? 'projects whose making or purge was cut short were'
+      : 'backups the policy no longer keeps were';
+  return `Something is being saved now, so ${what} kept. Try again shortly.`;
 }
 
 /** How many projects, as a sentence counts them. */
@@ -46,8 +59,11 @@ export function cleanedSentences(outcomes: readonly StepOutcome[]): readonly str
       `The history of ${projects(unapplied.size)} changed after the cleanup was planned, so it was kept. Plan the cleanup again to compact it.`,
     );
   }
-  for (const { refused } of outcomes) {
-    if (refused !== undefined) sentences.push(refusalSentence(refused));
+  for (const { step, refused } of outcomes) {
+    if (refused === undefined) continue;
+    sentences.push(
+      step === 'unreferenced-media' ? refusalSentence(refused) : keptWhileSaving(step),
+    );
   }
   return sentences;
 }

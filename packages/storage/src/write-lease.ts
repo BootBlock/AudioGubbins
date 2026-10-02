@@ -13,8 +13,8 @@
  * nothing that counts. The coordinator also tells a window that reads a project
  * when its writer changes or writes a checkpoint, so the reader can load the
  * latest state, and holds the one lock that spans the whole storage, which
- * keeps a purge in one window from removing media another has stored and not
- * yet referred to (REQ-STOR-102).
+ * keeps a purge or a cleanup in one window from removing what another is
+ * writing and has yet to finish (REQ-STOR-102).
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -97,14 +97,18 @@ export type OwnershipEvent =
   /** The writer wrote a checkpoint, so storage holds a newer state. */
   | { readonly kind: 'checkpointed' };
 
-/** How a window takes the lock that spans the whole storage. */
+/** How a window takes the lock that spans the whole storage (`storage-sharing.ts`). */
 export type StorageLockMode =
   /**
-   * Held by each window while it stores media it has yet to refer to, by as
-   * many as are storing at once.
+   * Held by each window while it writes what is not whole until it finishes:
+   * media it has yet to refer to, a project being made or a backup generation,
+   * by as many as are writing at once.
    */
   | 'shared'
-  /** Held by one window alone, while a purge finds what nothing refers to and removes it. */
+  /**
+   * Held by one window alone, while it removes what may be left over: media
+   * nothing refers to, projects never finished and generations left incomplete.
+   */
   | 'exclusive';
 
 /** What asking for the storage-wide lock found. */

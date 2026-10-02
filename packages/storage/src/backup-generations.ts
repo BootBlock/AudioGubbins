@@ -10,12 +10,14 @@
  * the generation holds itself so it outlasts the project's own, then the record
  * that says what it is, which is what makes it a generation: a crash before the
  * record leaves an incomplete generation, listed as such and removed by
- * pruning, and never read as a backup. Media is not copied: a generation names
- * it by content, and the storage counts every generation among the roots
- * nothing is purged from while it lasts. A generation is protected by a marker
- * beside it, whose presence alone counts, so protecting and unprotecting never
- * rewrite the generation. Only the window holding the project's write lease
- * makes, protects or removes its generations.
+ * pruning, and never read as a backup. While a generation is written the
+ * storage-wide lock is shared (`storage-sharing.ts`), so no pruning takes one
+ * being written for one a crash left incomplete. Media is not copied: a
+ * generation names it by content, and the storage counts every generation among
+ * the roots nothing is purged from while it lasts. A generation is protected by
+ * a marker beside it, whose presence alone counts, so protecting and
+ * unprotecting never rewrite the generation. Only the window holding the
+ * project's write lease makes, protects or removes its generations.
  */
 
 import {
@@ -51,6 +53,8 @@ import { SegmentLedger } from './segment-ledger.js';
 import { SnapshotStore } from './state-store.js';
 import { refusalsReported } from './storage-failures.js';
 import { BackupPaths, numberOfGeneration } from './storage-layout.js';
+import { whileWriting } from './storage-sharing.js';
+import type { LeaseCoordinator } from './write-lease.js';
 
 /** What a project's generations are, whole and not. */
 export interface GenerationListing {
@@ -129,9 +133,24 @@ export class BackupGenerations {
 
   /**
    * Makes a generation of a copy of the project, protected where asked, its
-   * history's segments planned a step of `turns` for each node.
+   * history's segments planned a step of `turns` for each node, sharing the
+   * storage-wide lock of `coordinator` while it is written.
    */
   async create(
+    copy: ProjectCopy,
+    made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean },
+    turns: Turns,
+    coordinator: LeaseCoordinator | undefined,
+  ): Promise<DomainResult<BackupGeneration>> {
+    return await whileWriting(
+      coordinator,
+      async () => await this.written(copy, made, turns),
+      turns.signal,
+    );
+  }
+
+  /** Writes a generation (see {@link create}). */
+  private async written(
     copy: ProjectCopy,
     made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean },
     turns: Turns,

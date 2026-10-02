@@ -128,6 +128,12 @@ once and carries a checksum; a torn file fails its check and is ignored.
 - `media/<content id>`: shared by every project. Roots are every project's
   retained states, snapshots, checkpoints and backups. Nothing is collected
   except by an explicit purge.
+- The storage-wide lock: a window shares it while it writes what looks left
+  over until it is whole (media not yet referred to, a project being made, a
+  backup generation); whatever removes left-overs (a purge of media, cleanup
+  of unfinished projects and incomplete generations, a scheduler's pruning of
+  incomplete ones) takes it alone without waiting and checks again under it
+  what the plan saw, so nothing being written is taken for a crash's.
 - `backups/<project>/<generation>/`: a checkpoint copy and its states; media by
   content id. An external backup directory, where offered, gets a bundle.
 - `cache/<category>/`: disposable, first to go under pressure.

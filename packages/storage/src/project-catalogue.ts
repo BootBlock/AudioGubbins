@@ -145,8 +145,11 @@ export class ProjectRepository {
         await writeNewProject(
           files,
           { state, origin: { kind: 'new' }, at: clock.now() },
-          ids,
-          new Turns(this.services.yieldToHost, signal),
+          {
+            ids,
+            turns: new Turns(this.services.yieldToHost, signal),
+            coordinator: this.services.coordinator,
+          },
         ),
     );
   }

@@ -28,7 +28,20 @@ describe('what a cleanup came to, in words', () => {
       'The cleanup freed 0 bytes.',
       '2 projects another tab has open were left as they were.',
       'The history of 1 project changed after the cleanup was planned, so it was kept. Plan the cleanup again to compact it.',
-      'Another tab is storing audio now, so none can be purged. Try again shortly.',
+      'Something is being saved now, so no audio can be purged. Try again shortly.',
+    ]);
+  });
+
+  it('says what was kept while something was being saved', () => {
+    expect(
+      cleanedSentences([
+        { step: 'unfinished-projects', freed: 0, busy: [], refused: { kind: 'storing' } },
+        { step: 'expired-backups', freed: 0, busy: [], refused: { kind: 'storing' } },
+      ]),
+    ).toEqual([
+      'The cleanup freed 0 bytes.',
+      'Something is being saved now, so projects whose making or purge was cut short were kept. Try again shortly.',
+      'Something is being saved now, so backups the policy no longer keeps were kept. Try again shortly.',
     ]);
   });
 });

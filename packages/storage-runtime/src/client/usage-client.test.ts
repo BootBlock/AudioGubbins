@@ -58,7 +58,12 @@ function assetOf(media: ManagedMedia): Asset {
 function setAsideRecordsOf(project: ProjectId): CleanupPlan {
   return {
     steps: [
-      { kind: 'set-aside-records', projects: [project], bytes: 0, loses: 'set-aside-changes' },
+      {
+        kind: 'set-aside-records',
+        records: new Map([[project, []]]),
+        bytes: 0,
+        loses: 'set-aside-changes',
+      },
     ],
     confirmationBytes: 0,
   };

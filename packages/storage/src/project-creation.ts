@@ -11,7 +11,9 @@
  * in the list, and the marker is removed last. A directory with the marker and
  * no header that can be read is unfinished: the list passes over it, and
  * cleanup may remove it. A crash after the header leaves a whole project with a
- * stale marker, which counts for nothing beside a header.
+ * stale marker, which counts for nothing beside a header. While the files are
+ * written the storage-wide lock is shared (`storage-sharing.ts`), so no cleanup
+ * takes a project being made for one a crash left unfinished.
  */
 
 import { mapResult, type DomainResult, type IdGenerator } from '@audiogubbins/domain';
@@ -37,6 +39,17 @@ import { writeHead } from './project-heads.js';
 import { writeHeader, type ImportOrigin, type ProjectHeader } from './project-header.js';
 import { SegmentLedger } from './segment-ledger.js';
 import type { CheckpointId } from './storage-layout.js';
+import { whileWriting } from './storage-sharing.js';
+import type { LeaseCoordinator } from './write-lease.js';
+
+/** What writing a project's files works with. */
+export interface ProjectWriting {
+  readonly ids: IdGenerator;
+  readonly turns: Turns;
+
+  /** The platform's lease coordination, whose storage-wide lock is shared while writing. */
+  readonly coordinator: LeaseCoordinator | undefined;
+}
 
 /** What a new project begins as. */
 export interface ProjectBeginning {
@@ -74,13 +87,12 @@ export interface ProjectContents {
 export async function writeNewProject(
   files: ProjectFiles,
   beginning: ProjectBeginning,
-  ids: IdGenerator,
-  turns: Turns,
+  writing: ProjectWriting,
 ): Promise<DomainResult<ProjectHeader>> {
   const { state, origin, at } = beginning;
   const history = startHistory(state.project.id, {
     kind: 'origin',
-    id: ids.next<'HistoryNodeId'>(),
+    id: writing.ids.next<'HistoryNodeId'>(),
     at,
     origin,
     stateFingerprint: await files.states.fingerprint(state),
@@ -96,8 +108,7 @@ export async function writeNewProject(
       backup: DEFAULT_BACKUP_POLICY,
       created: at,
     },
-    ids,
-    turns,
+    writing,
   );
 }
 
@@ -108,26 +119,32 @@ export async function writeNewProject(
 export async function writeProject(
   files: ProjectFiles,
   contents: ProjectContents,
-  ids: IdGenerator,
-  turns: Turns,
+  writing: ProjectWriting,
 ): Promise<DomainResult<ProjectHeader>> {
+  const { ids, turns, coordinator } = writing;
   const tree = files.records.tree;
   const { signal } = turns;
-  await tree.writeFile(files.paths.unfinished, new Uint8Array(0), signal);
-  const checkpoint = await writeFirstCheckpoint(files, contents, ids, turns);
-  if (!checkpoint.ok) return checkpoint;
+  return await whileWriting(
+    coordinator,
+    async () => {
+      await tree.writeFile(files.paths.unfinished, new Uint8Array(0), signal);
+      const checkpoint = await writeFirstCheckpoint(files, contents, ids, turns);
+      if (!checkpoint.ok) return checkpoint;
 
-  const head = await writeHead(
-    files.records,
-    files.paths,
-    { epoch: JOURNAL_START.epoch, checkpoint: checkpoint.value, journal: JOURNAL_START },
+      const head = await writeHead(
+        files.records,
+        files.paths,
+        { epoch: JOURNAL_START.epoch, checkpoint: checkpoint.value, journal: JOURNAL_START },
+        signal,
+      );
+      if (!head.ok) return head;
+
+      const header = await writeFirstHeader(files, contents, signal);
+      if (header.ok) await tree.remove(files.paths.unfinished);
+      return mapResult(header, (written) => written.value);
+    },
     signal,
   );
-  if (!head.ok) return head;
-
-  const header = await writeFirstHeader(files, contents, signal);
-  if (header.ok) await tree.remove(files.paths.unfinished);
-  return mapResult(header, (written) => written.value);
 }
 
 /** Writes the states a new project keeps and its first checkpoint, and gives the checkpoint. */

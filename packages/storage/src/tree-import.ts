@@ -108,7 +108,11 @@ export async function importTree(
       if (!brought.ok) return brought;
       const imported = { from, at };
       const turns = new Turns(services.yieldToHost, signal);
-      return await writeProject(files, { ...contents.value, imported }, services.ids, turns);
+      return await writeProject(
+        files,
+        { ...contents.value, imported },
+        { ids: services.ids, turns, coordinator },
+      );
     });
     // A designed failure leaves nothing of the project behind; a crash, which
     // rejects, leaves it unfinished, for cleanup or the next import to remove.

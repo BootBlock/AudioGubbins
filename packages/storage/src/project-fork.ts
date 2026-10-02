@@ -45,6 +45,7 @@ import { stateOf } from './project-identity.js';
 import type { RecoveryServices } from './project-recovery.js';
 import { NO_SUCH_NODE } from './session-failures.js';
 import { refusalsReported } from './storage-failures.js';
+import type { LeaseCoordinator } from './write-lease.js';
 
 /** Where in its source a fork begins. */
 export type ForkPoint =
@@ -66,6 +67,9 @@ export interface ForkServices extends RecoveryServices {
   readonly digest: Digest;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+
+  /** The platform's lease coordination, absent where it has none. */
+  readonly coordinator?: LeaseCoordinator;
 }
 
 /** Makes a fork (see the module comment), and gives its header. */
@@ -107,8 +111,11 @@ export async function forkProject(
           },
           at: services.clock.now(),
         },
-        services.ids,
-        new Turns(services.yieldToHost, signal),
+        {
+          ids: services.ids,
+          turns: new Turns(services.yieldToHost, signal),
+          coordinator: services.coordinator,
+        },
       ),
   );
 }

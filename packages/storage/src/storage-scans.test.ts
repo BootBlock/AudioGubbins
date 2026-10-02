@@ -114,7 +114,7 @@ describe('cleaning up', () => {
     const plan = expectSuccess(
       await planCleanup([{ kind: 'set-aside-records' }], storage.cleaning, 0),
     );
-    const { signal, reason } = abortedAt(tree, 'remove', (path) => path.endsWith('/quarantine'));
+    const { signal, reason } = abortedAt(tree, 'remove', (path) => path.includes('/quarantine/'));
 
     const running = runCleanup(plan, { bytes: plan.confirmationBytes }, storage.cleaning, {
       signal,

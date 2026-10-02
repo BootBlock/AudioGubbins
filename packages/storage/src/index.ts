@@ -96,7 +96,7 @@ export {
 } from './write-lease.js';
 
 export { type UnreadableRoot, retainedMedia } from './media-roots.js';
-export { mediaSharingOf } from './media-sharing.js';
+export { mediaSharingOf } from './storage-sharing.js';
 
 export { type BundleScope, type CopyOptions, type TreeSources } from './tree-content.js';
 export {
@@ -154,7 +154,7 @@ export {
   type CleanupSelection,
   type CleanupServices,
   type CleanupStep,
-  type MediaPurgeRefusal,
+  type CleanupRefusal,
   type RecoverabilityLoss,
   planCleanup,
 } from './cleanup-planning.js';
@@ -162,11 +162,10 @@ export {
   type CleanupConfirmation,
   type CleanupRunOptions,
   type CleanupRunServices,
-  type PressureRelief,
   type StepOutcome,
-  relieveStoragePressure,
   runCleanup,
 } from './cleanup-running.js';
+export { type PressureRelief, relieveStoragePressure } from './storage-pressure.js';
 
 export {
   type RestoreServices,

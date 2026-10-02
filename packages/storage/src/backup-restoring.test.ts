@@ -40,6 +40,7 @@ async function backedUp() {
       copy,
       { reason: 'manual', at: test.clock.now(), protect: false },
       new Turns(immediateTurns),
+      test.coordinator,
     ),
   );
   const backedUpSummary = summaryOf(session.getSnapshot().model);

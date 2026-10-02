@@ -2821,7 +2821,8 @@ Published paths
   readonly BackupGenerations.records: CheckedRecords
   readonly BackupGenerations.paths: BackupPaths
   BackupGenerations.list: (signal?: AbortSignal) => Promise<DomainResult<GenerationListing>>
-  BackupGenerations.create: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, turns: Turns) => Promise<DomainResult<BackupGeneration>>
+  BackupGenerations.create: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, turns: Turns, coordinator: LeaseCoordinator | undefined) => Promise<DomainResult<BackupGeneration>>
+  BackupGenerations.written: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, turns: Turns) => Promise<DomainResult<BackupGeneration>>
   BackupGenerations.writeStates: (copy: ProjectCopy, number: number, signal?: AbortSignal) => Promise<DomainResult<KeptStates>>
   BackupGenerations.protect: (number: number, protect: boolean) => Promise<DomainResult<void>>
   BackupGenerations.remove: (numbers: readonly number[], signal?: AbortSignal) => Promise<DomainResult<void>>
@@ -2852,6 +2853,7 @@ Published paths
   interface BackupServices extends RecoveryServices, TreeSources
   readonly BackupServices.tree: StorageTree
   readonly BackupServices.digest: Digest
+  readonly BackupServices.coordinator?: LeaseCoordinator
   readonly BackupServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly BackupServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly BackupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
@@ -2901,7 +2903,8 @@ Published paths
   interface CleanupPlan
   readonly CleanupPlan.steps: readonly CleanupStep[]
   readonly CleanupPlan.confirmationBytes: number
-  readonly CleanupPlan.mediaRefused?: MediaPurgeRefusal
+  readonly CleanupPlan.mediaRefused?: CleanupRefusal
+  type CleanupRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
   interface CleanupRunOptions
   readonly CleanupRunOptions.held?: ProjectSession
   readonly CleanupRunOptions.signal?: AbortSignal
@@ -2910,7 +2913,7 @@ Published paths
   readonly CleanupRunServices.tree: import("packages/project-format/src/storage-tree").StorageTree
   readonly CleanupRunServices.digest: import("packages/project-format/src/byte-ports").Digest
   readonly CleanupRunServices.store: import("packages/media-store/src/object-store").MediaObjectStore
-  readonly CleanupRunServices.caches: CacheStore
+  readonly CleanupRunServices.caches: import("packages/storage/src/cache-store").CacheStore
   readonly CleanupRunServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
@@ -2928,7 +2931,7 @@ Published paths
   readonly CleanupServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly CleanupServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
-  type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "set-aside-records"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unfinished-projects"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
+  type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; readonly at: number; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "set-aside-records"; readonly records: ReadonlyMap<ProjectId, readonly string[]>; } | { readonly kind: "unfinished-projects"; readonly projects: ReadonlyMap<ProjectId, LeftOver>; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
   class CommandJournal
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal
   readonly CommandJournal.records: CheckedRecords
@@ -3002,6 +3005,7 @@ Published paths
   readonly ForkServices.digest: Digest
   readonly ForkServices.clock: Clock
   readonly ForkServices.ids: IdGenerator
+  readonly ForkServices.coordinator?: LeaseCoordinator
   readonly ForkServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
   readonly ForkServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly ForkServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
@@ -3047,7 +3051,6 @@ Published paths
   readonly LeaseOwner.label: string
   type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
   const MEDIA_DIRECTORY: "media"
-  type MediaPurgeRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
   interface NewProject
   readonly NewProject.name: string
   readonly NewProject.settings: ProjectSettings
@@ -3200,7 +3203,7 @@ Published paths
   readonly RestoreServices.clock: Clock
   readonly RestoreServices.tree: import("packages/project-format/src/storage-tree").StorageTree
   readonly RestoreServices.digest: import("packages/project-format/src/byte-ports").Digest
-  readonly RestoreServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
+  readonly RestoreServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
   readonly RestoreServices.ids: import("packages/domain/src/index").IdGenerator
   readonly RestoreServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly RestoreServices.coordinator?: import("packages/storage/src/write-lease").LeaseCoordinator
@@ -3234,7 +3237,7 @@ Published paths
   readonly StepOutcome.freed: number
   readonly StepOutcome.busy: readonly ProjectId[]
   readonly StepOutcome.unapplied?: readonly ProjectId[]
-  readonly StepOutcome.refused?: MediaPurgeRefusal
+  readonly StepOutcome.refused?: CleanupRefusal
   type StorageLockMode = "exclusive" | "shared"
   type StorageLocking = { readonly kind: "busy"; } | { readonly kind: "held"; readonly release: () => Promise<void>; } | { readonly kind: "unavailable"; }
   type StorageRootOpening = { readonly kind: "current"; } | { readonly kind: "fresh"; } | { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; readonly current: number; } | { readonly kind: "unreadable"; readonly fault: RecordFault | { readonly kind: "missing"; }; }
@@ -4673,6 +4676,9 @@ packages/storage/src/project-files.ts
   ProjectFiles.isUnfinished: () => Promise<boolean>
   ProjectFiles.readCheckpoint: (epoch: number, id: CheckpointId, signal?: AbortSignal) => Promise<CheckedReading<StoredCheckpoint>>
   ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, ledger: SegmentLedger, ids: IdGenerator, turns: Turns) => Promise<DomainResult<WrittenSegments>>
+
+packages/storage/src/project-leftovers.ts
+  type LeftOver = "purging" | "unfinished"
 
 packages/storage/src/project-model.ts
   type SettledEvent = { readonly kind: "backup-policy"; readonly policy: BackupPolicy; } | { readonly kind: "branch-name"; readonly node: import("packages/project-format/src/history-record").HistoryNodeId; readonly name?: import("packages/project-format/src/history-record").HistoryLabel; } | { readonly kind: "comparison"; readonly choice?: import("packages/project-format/src/comparison-choice-json").ComparisonChoiceRecord; } | { readonly kind: "export"; readonly record: ExportRecord; } | { readonly kind: "retention-policy"; readonly policy: RetentionPolicy; } | { readonly kind: "snapshot-created"; readonly snapshot: import("packages/project-format/src/history-record").NamedSnapshot; } | { readonly kind: "snapshot-deleted"; readonly snapshot: import("packages/project-format/src/history-record").SnapshotId; }

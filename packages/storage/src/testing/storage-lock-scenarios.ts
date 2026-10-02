@@ -1,8 +1,8 @@
 /**
  * The scenarios of the lock that spans the whole storage: any number of windows
- * share it while they store media not yet referred to, a purge holds it alone
- * and is refused at once while anyone shares it, a window that would share it
- * waits out a purge, and a platform that refuses locks refuses this one too
+ * share it while they write what is not yet whole, a purge holds it alone and
+ * is refused at once while anyone shares it, a window that would share it waits
+ * out a purge, and a platform that refuses locks refuses this one too
  * (REQ-STOR-102).
  */
 

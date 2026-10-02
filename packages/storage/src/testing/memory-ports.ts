@@ -18,7 +18,7 @@ import type {
 
 import { CacheStore } from '../cache-store.js';
 import type { CleanupRunServices } from '../cleanup-running.js';
-import { mediaSharingOf } from '../media-sharing.js';
+import { mediaSharingOf } from '../storage-sharing.js';
 import type { DirectoryFile, DirectoryWriter } from '../project-directory.js';
 import type { ExportServices } from '../project-transfer.js';
 import type { ImportServices } from '../tree-import.js';

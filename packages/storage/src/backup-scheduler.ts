@@ -36,6 +36,8 @@ import { ProjectFiles } from './project-files.js';
 import type { ProjectModel } from './project-model.js';
 import type { RecoveryServices } from './project-recovery.js';
 import { refusalsReported } from './storage-failures.js';
+import { whileAlone } from './storage-sharing.js';
+import type { LeaseCoordinator } from './write-lease.js';
 import { storedBodies, treeOfCopy, type TreeSources } from './tree-content.js';
 
 /** The backup directory the person chose, where the platform lets them. */
@@ -53,6 +55,9 @@ export interface ExternalBackupTarget {
 export interface BackupServices extends RecoveryServices, TreeSources {
   readonly tree: StorageTree;
   readonly digest: Digest;
+
+  /** The platform's lease coordination, absent where it has none. */
+  readonly coordinator?: LeaseCoordinator;
 }
 
 /** What became of the copy of a generation in the chosen backup directory. */
@@ -150,6 +155,7 @@ export class BackupScheduler {
       copy.value,
       { reason, at: now, protect: reason === 'manual' },
       new Turns(this.services.yieldToHost, signal),
+      this.services.coordinator,
     );
     if (!made.ok) return made;
     this.last = { at: now };
@@ -159,7 +165,11 @@ export class BackupScheduler {
     return succeed({ kind: 'made', generation: made.value, pruned: pruned.value, external });
   }
 
-  /** Removes what the policy's retention no longer keeps, and what a crash left incomplete. */
+  /**
+   * Removes what the policy's retention no longer keeps, and what a crash left
+   * incomplete: that only with the storage-wide lock held alone, and as listed
+   * again under it, since a generation being written looks incomplete too.
+   */
   private async prune(
     model: ProjectModel,
     now: number,
@@ -172,9 +182,20 @@ export class BackupScheduler {
       backup.kind === 'automatic'
         ? planBackupPruning(listing.value.generations, backup.retention, now).removed
         : [];
-    const numbers = [...removed.map(({ number }) => number), ...listing.value.incomplete];
-    const done = await this.generations.remove(numbers, signal);
-    return done.ok ? succeed(removed) : done;
+    const done = await this.generations.remove(
+      removed.map(({ number }) => number),
+      signal,
+    );
+    if (!done.ok) return done;
+    const abandoned = await whileAlone(
+      this.services.coordinator,
+      async () => {
+        const again = await this.generations.list(signal);
+        return again.ok ? await this.generations.remove(again.value.incomplete, signal) : again;
+      },
+      signal,
+    );
+    return abandoned.kind === 'done' && !abandoned.value.ok ? abandoned.value : succeed(removed);
   }
 
   /** Writes a generation into the chosen backup directory, where the policy asks. */

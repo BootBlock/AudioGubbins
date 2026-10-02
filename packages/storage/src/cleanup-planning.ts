@@ -95,26 +95,43 @@ export type CleanupStep = {
   readonly loses: RecoverabilityLoss;
 } & (
   | { readonly kind: 'cache'; readonly category: CacheCategory }
-  | { readonly kind: 'unfinished-projects'; readonly projects: readonly ProjectId[] }
+  | {
+      readonly kind: 'unfinished-projects';
+
+      /** Each project, and what the plan found a crash had left of it. */
+      readonly projects: ReadonlyMap<ProjectId, LeftOver>;
+    }
   | {
       readonly kind: 'expired-backups';
       readonly generations: ReadonlyMap<ProjectId, readonly number[]>;
+
+      /** The moment each generation's age was judged at, in milliseconds since the epoch. */
+      readonly at: number;
     }
   | {
       readonly kind: 'expired-history';
       readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>;
     }
-  | { readonly kind: 'set-aside-records'; readonly projects: readonly ProjectId[] }
+  | {
+      readonly kind: 'set-aside-records';
+
+      /** The names of each project's records set aside, as the plan found them. */
+      readonly records: ReadonlyMap<ProjectId, readonly string[]>;
+    }
   | { readonly kind: 'unreferenced-media'; readonly collection: CollectionPlan }
 );
 
-/** Why media cannot be purged now. */
-export type MediaPurgeRefusal =
+/** Why a step of a cleanup removed nothing, or media cannot be purged now. */
+export type CleanupRefusal =
   /** Something that could retain media cannot be read. */
   | { readonly kind: 'unreadable'; readonly roots: readonly UnreadableRoot[] }
   /** The platform cannot keep other windows from storing media while a purge runs. */
   | { readonly kind: 'no-coordination' }
-  /** A window is storing media it has yet to refer to; the purge may be tried again. */
+  /**
+   * A window is writing what it has yet to finish, such as media it has yet to
+   * refer to, a project or a backup generation, which looks left over until it
+   * is whole; the cleanup may be tried again.
+   */
   | { readonly kind: 'storing' };
 
 /** A cleanup planned: its steps in the safe order, and what confirming it means. */
@@ -125,7 +142,7 @@ export interface CleanupPlan {
   readonly confirmationBytes: number;
 
   /** Why media cannot be purged, where it was chosen and cannot be. */
-  readonly mediaRefused?: MediaPurgeRefusal;
+  readonly mediaRefused?: CleanupRefusal;
 }
 
 /**
@@ -190,7 +207,7 @@ export async function planCleanup(
       steps.push(...historyStep(await expiredHistory(records, services, now, turns)));
     }
     if (has('set-aside-records')) steps.push(...(await setAsideRecords(records, signal)));
-    let mediaRefused: MediaPurgeRefusal | undefined;
+    let mediaRefused: CleanupRefusal | undefined;
     if (has('unreferenced-media')) {
       const media = await unreferencedMedia(services, signal);
       if (!media.ok) return media;
@@ -212,17 +229,17 @@ async function unfinishedProjects(
   records: CheckedRecords,
   signal?: AbortSignal,
 ): Promise<readonly CleanupStep[]> {
-  const projects: ProjectId[] = [];
+  const projects = new Map<ProjectId, LeftOver>();
   let bytes = 0;
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
     const files = new ProjectFiles(records, project);
     const leftOver = await leftOverOf(files, signal);
     if (leftOver === undefined) continue;
-    projects.push(project);
+    projects.set(project, leftOver);
     bytes += await leftOverBytes(files, leftOver, signal);
   }
-  return projects.length === 0
+  return projects.size === 0
     ? []
     : [{ kind: 'unfinished-projects', projects, bytes, loses: 'unfinished-projects' }];
 }
@@ -242,24 +259,39 @@ async function expiredBackups(
   let bytes = 0;
   for (const project of await projectsIn(records.tree, BACKUPS_DIRECTORY)) {
     signal?.throwIfAborted();
-    const listing = await new BackupGenerations(records.tree, records.digest, project).list(signal);
-    if (!listing.ok) continue;
-    const policy = await backupPolicyOf(new ProjectFiles(records, project), services, signal);
-    const expired =
-      policy?.kind === 'automatic'
-        ? planBackupPruning(listing.value.generations, policy.retention, now).removed
-        : [];
-    const paths = new BackupPaths(project);
-    const numbers = [...expired.map(({ number }) => number), ...listing.value.incomplete];
+    const numbers = await removableGenerations(project, records, services, now, signal);
     if (numbers.length === 0) continue;
     generations.set(project, numbers);
+    const paths = new BackupPaths(project);
     for (const number of numbers) {
       bytes += await bytesUnder(records.tree, paths.generation(number), signal);
     }
   }
   return generations.size === 0
     ? []
-    : [{ kind: 'expired-backups', generations, bytes, loses: 'backup-generations' }];
+    : [{ kind: 'expired-backups', generations, at: now, bytes, loses: 'backup-generations' }];
+}
+
+/**
+ * The numbers of a project's generations its retention, under the policy it
+ * holds now, does not keep at `at`, and of those incomplete: being written, or
+ * left so by a crash.
+ */
+export async function removableGenerations(
+  project: ProjectId,
+  records: CheckedRecords,
+  services: RecoveryServices,
+  at: number,
+  signal?: AbortSignal,
+): Promise<readonly number[]> {
+  const listing = await new BackupGenerations(records.tree, records.digest, project).list(signal);
+  if (!listing.ok) return [];
+  const policy = await backupPolicyOf(new ProjectFiles(records, project), services, signal);
+  const expired =
+    policy?.kind === 'automatic'
+      ? planBackupPruning(listing.value.generations, policy.retention, at).removed
+      : [];
+  return [...expired.map(({ number }) => number), ...listing.value.incomplete];
 }
 
 /** The bytes what is left of a project holds, its backups among them where it is being purged. */
@@ -302,26 +334,29 @@ async function setAsideRecords(
   records: CheckedRecords,
   signal?: AbortSignal,
 ): Promise<readonly CleanupStep[]> {
-  const projects: ProjectId[] = [];
+  const setAside = new Map<ProjectId, readonly string[]>();
   let bytes = 0;
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
     const { quarantine } = new ProjectFiles(records, project).paths;
-    const held = await bytesUnder(records.tree, quarantine, signal);
-    if ((await records.tree.list(quarantine)).length === 0) continue;
-    projects.push(project);
-    bytes += held;
+    const names: string[] = [];
+    for (const entry of await records.tree.list(quarantine)) {
+      if (entry.kind !== 'file') continue;
+      names.push(entry.name);
+      bytes += (await records.tree.openFile(`${quarantine}/${entry.name}`))?.size ?? 0;
+    }
+    if (names.length > 0) setAside.set(project, names);
   }
-  return projects.length === 0
+  return setAside.size === 0
     ? []
-    : [{ kind: 'set-aside-records', projects, bytes, loses: 'set-aside-changes' }];
+    : [{ kind: 'set-aside-records', records: setAside, bytes, loses: 'set-aside-changes' }];
 }
 
 /** The media nothing refers to, or what kept the storage from being sure. */
 async function unreferencedMedia(
   services: CleanupServices,
   signal?: AbortSignal,
-): Promise<DomainResult<{ readonly step: CleanupStep } | { readonly refused: MediaPurgeRefusal }>> {
+): Promise<DomainResult<{ readonly step: CleanupStep } | { readonly refused: CleanupRefusal }>> {
   if (services.coordinator === undefined) return succeed({ refused: { kind: 'no-coordination' } });
   const unreadable: UnreadableRoot[] = [];
   const roots = retainedMedia(

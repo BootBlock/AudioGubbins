@@ -1,8 +1,8 @@
 /**
  * The lock that spans the whole storage, over Web Locks: shared by each window
- * while it stores media it has yet to refer to, and held alone by a purge, so a
- * purge in one window never removes what another has just stored (REQ-STOR-102,
- * ADR-0020).
+ * while it writes what is not whole until it finishes, and held alone by
+ * whatever removes what a crash left, so a purge or a cleanup in one window
+ * never removes what another is writing (REQ-STOR-102, ADR-0020).
  *
  * The lock named `audiogubbins.storage` is asked for in the mode given; without
  * waiting it is asked for only if available, and with waiting until it is
