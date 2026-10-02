@@ -1,24 +1,50 @@
 /**
  * An asset an editor view can open: audio the session knows, with what it is
  * called, its rate, its layout, its length, how to describe it to the thread
- * that reads it, and the markers and regions it opens with.
+ * that reads it, what it belongs to, and the markers and regions it shows.
  *
- * No asset of a project is opened here until audio is imported into a project
- * at its own rate (ADR-0021), so the assets are the deterministic test assets
- * (`test-assets.ts`) and the sound of a reference picture the browser could
- * decode. Each keeps its native rate (REQ-ARCH-085): playback runs at the
- * asset's rate, the peaks are made at it and every position in the editor is a
- * boundary at it.
+ * Most are the open project's assets and regions (`project-assets.ts`), each
+ * its edit plan over the files its media is kept in. The rest belong to the
+ * session alone: the deterministic test assets (`test-assets.ts`) and the
+ * sound of a reference picture the browser could decode, which no project
+ * holds, so nothing marks or edits them. Each keeps its native rate
+ * (REQ-ARCH-085): playback runs at the asset's rate, the peaks are made at it
+ * and every position in the editor is a boundary at it.
  */
 
 import type {
+  Asset,
   ChannelLayout,
+  EditPlan,
   PlacedMarker,
   PlacedRegion,
+  Region,
   SampleCount,
   SampleRate,
 } from '@audiogubbins/domain';
 import type { PcmDescription } from '@audiogubbins/audio-engine';
+
+/** What an asset belongs to, which says what may be done to it. */
+export type AssetOwner =
+  | {
+      /** Audio the session made or decoded, which no project holds. */
+      readonly kind: 'session';
+      /** Why it takes no marker, region or edit, as a reader is told. */
+      readonly reason: string;
+    }
+  | {
+      /** An asset of the open project, or one of its regions. */
+      readonly kind: 'project';
+      readonly asset: Asset;
+      readonly region?: Region;
+      /** What is heard: the asset's chain, or the region's slice of it with its processing. */
+      readonly plan: EditPlan;
+      /** Where the view's first boundary lies on the asset's edited timeline. */
+      readonly offset: SampleCount;
+    };
+
+/** The owner of an asset of the open project. */
+export type ProjectOwner = Extract<AssetOwner, { readonly kind: 'project' }>;
 
 /** An asset an editor view can open. */
 export interface EditorAsset {
@@ -37,7 +63,8 @@ export interface EditorAsset {
    * transferred there, so each call gives arrays the caller may lose.
    */
   readonly describe: () => PcmDescription;
-  /** The markers and regions it opens with, at its own frames. */
+  readonly owner: AssetOwner;
+  /** Its markers and regions, at its own frames, in position order. */
   readonly markers: readonly PlacedMarker[];
   readonly regions: readonly PlacedRegion[];
 }

@@ -8,8 +8,9 @@
  * Each exercises something the editor must get right: tone bursts and a
  * full-scale impulse for zooming to single samples and seeing clipping, a 5.1
  * set that names each channel in turn, a first-order ambisonic set, a stereo
- * session of three hours for scale, and a loop whose markers and looped region
- * are the content snapping and the strip draw (ADR-0047).
+ * session of three hours for scale, and a loop that joins in phase. None is an
+ * asset of a project, so none takes a marker, a region or an edit: those are
+ * the project's (ADR-0047), and audio imported into it is what they act on.
  */
 
 import {
@@ -18,21 +19,16 @@ import {
   ambisonicLayout,
   channelCount,
   combine,
-  createDeterministicIdGenerator,
   fail,
   failure,
   FailureKind,
   flatMapResult,
   mapResult,
-  sampleCount,
   sampleRate,
   succeed,
   type ChannelLayout,
   type DomainResult,
-  type PlacedMarker,
-  type PlacedRegion,
   type SampleRate,
-  ZERO_SAMPLES,
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, signalRecipe } from '@audiogubbins/audio-engine';
 
@@ -56,13 +52,6 @@ interface ProgrammeSpec {
   readonly repeats: boolean;
 }
 
-interface RegionSpec {
-  readonly name: string;
-  readonly start: number;
-  readonly length: number;
-  readonly loop?: { readonly start: number; readonly end: number };
-}
-
 /** A test asset as written here, in frames at {@link RATE}, before it is checked. */
 interface AssetSpec {
   readonly key: string;
@@ -71,8 +60,6 @@ interface AssetSpec {
   readonly layout: DomainResult<ChannelLayout>;
   readonly length: number;
   readonly channels: readonly ProgrammeSpec[];
-  readonly markers?: readonly { readonly name: string; readonly at: number }[];
-  readonly regions?: readonly RegionSpec[];
 }
 
 const seconds = (value: number): number => Math.round(value * RATE);
@@ -178,69 +165,17 @@ const SPECS: readonly AssetSpec[] = [
   },
   {
     key: 'test:loop',
-    name: 'Loop with markers',
+    name: 'Loop',
     description:
-      'Six seconds of stereo: an attack, a sustained tone whose looped region joins in phase, and a silent tail, with markers at each.',
+      'Six seconds of stereo: an attack, a tone from 0.1 s that loops in phase between any two points a multiple of 128 frames from its start, and a silent tail.',
     layout: succeed(StandardLayouts.stereo),
     length: seconds(6),
     channels: [
       once(impulse(LOOP_ATTACK, 0.9), tone(LOOP_BODY, LOOP_PITCH, 0.5)),
       once(impulse(LOOP_ATTACK, 0.9), tone(LOOP_BODY, LOOP_PITCH * 2, 0.4)),
     ],
-    markers: [
-      { name: 'Attack', at: 0 },
-      { name: 'Sustain', at: LOOP_ATTACK },
-      { name: 'Release', at: LOOP_ATTACK + LOOP_BODY },
-    ],
-    regions: [
-      {
-        name: 'Sustained loop',
-        start: LOOP_ATTACK,
-        length: LOOP_BODY,
-        loop: { start: 128 * 375, end: 128 * 1500 },
-      },
-      {
-        name: 'Tail',
-        start: LOOP_ATTACK + LOOP_BODY,
-        length: seconds(6) - LOOP_ATTACK - LOOP_BODY,
-      },
-    ],
   },
 ];
-
-function markersOf(spec: AssetSpec, seed: number): DomainResult<readonly PlacedMarker[]> {
-  const ids = createDeterministicIdGenerator(seed);
-  return combine(
-    (spec.markers ?? []).map((marker) =>
-      mapResult(sampleCount(marker.at), (position) => ({
-        id: ids.next<'MarkerId'>(),
-        displayName: marker.name,
-        position,
-      })),
-    ),
-  );
-}
-
-function regionOf(region: RegionSpec, id: PlacedRegion['id']): DomainResult<PlacedRegion> {
-  return flatMapResult(sampleCount(region.start), (start) =>
-    flatMapResult(sampleCount(region.length), (length): DomainResult<PlacedRegion> => {
-      const base = { id, displayName: region.name, start, length, tags: [] };
-      const loop = region.loop;
-      if (loop === undefined) return succeed(base);
-      return flatMapResult(sampleCount(loop.start), (loopStart) =>
-        mapResult(sampleCount(loop.end), (loopEnd) => ({
-          ...base,
-          loop: { loopStart, loopEnd, crossfadeLength: ZERO_SAMPLES },
-        })),
-      );
-    }),
-  );
-}
-
-function regionsOf(spec: AssetSpec, seed: number): DomainResult<readonly PlacedRegion[]> {
-  const ids = createDeterministicIdGenerator(seed);
-  return combine((spec.regions ?? []).map((region) => regionOf(region, ids.next<'RegionId'>())));
-}
 
 /** A recipe whose channels do not match its layout, which no asset here should have. */
 function mismatchedChannels(spec: AssetSpec, layout: ChannelLayout): DomainResult<never> {
@@ -253,25 +188,26 @@ function mismatchedChannels(spec: AssetSpec, layout: ChannelLayout): DomainResul
   );
 }
 
-function assetOf(spec: AssetSpec, rate: SampleRate, seed: number): DomainResult<EditorAsset> {
+/** Why no test asset takes a marker, a region or an edit. */
+const NOT_IN_A_PROJECT =
+  'Test sounds are not part of a project, so they cannot be marked or edited. Import audio to mark and edit it.';
+
+function assetOf(spec: AssetSpec, rate: SampleRate): DomainResult<EditorAsset> {
   return flatMapResult(spec.layout, (layout) => {
     if (channelCount(layout) !== spec.channels.length) return mismatchedChannels(spec, layout);
-    return flatMapResult(signalRecipe({ channels: spec.channels, length: spec.length }), (recipe) =>
-      flatMapResult(markersOf(spec, seed), (markers) =>
-        mapResult(regionsOf(spec, seed + 1), (regions) => ({
-          id: spec.key,
-          name: spec.name,
-          description: spec.description,
-          sampleRate: rate,
-          layout,
-          length: recipe.length,
-          revision: revisionOf(JSON.stringify({ rate, recipe })),
-          describe: () => ({ kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }),
-          markers,
-          regions,
-        })),
-      ),
-    );
+    return mapResult(signalRecipe({ channels: spec.channels, length: spec.length }), (recipe) => ({
+      id: spec.key,
+      name: spec.name,
+      description: spec.description,
+      sampleRate: rate,
+      layout,
+      length: recipe.length,
+      revision: revisionOf(JSON.stringify({ rate, recipe })),
+      describe: () => ({ kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }),
+      owner: { kind: 'session', reason: NOT_IN_A_PROJECT },
+      markers: [],
+      regions: [],
+    }));
   });
 }
 
@@ -281,6 +217,6 @@ function assetOf(spec: AssetSpec, rate: SampleRate, seed: number): DomainResult<
  */
 export function testAssets(): DomainResult<readonly EditorAsset[]> {
   return flatMapResult(sampleRate(RATE), (rate) =>
-    combine(SPECS.map((spec, index) => assetOf(spec, rate, 1000 * (index + 1)))),
+    combine(SPECS.map((spec) => assetOf(spec, rate))),
   );
 }

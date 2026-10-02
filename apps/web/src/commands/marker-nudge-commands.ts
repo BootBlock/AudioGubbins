@@ -1,77 +1,51 @@
 /**
  * Nudging markers from the keyboard (REQ-UX-005, ADR-0047): the selected
- * markers moved back or forward by a pixel of the view or by a sample, each
- * nudge giving the move that reverses it, as every marker command does. A
- * marker was moved only by dragging it, so a person without a pointer could not
- * reposition one at all.
+ * markers moved back or forward by a pixel of the view or by a sample, as one
+ * change of the project that undo reverses. A marker was moved only by
+ * dragging it, so a person without a pointer could not reposition one at all.
  *
  * A nudge that would take any of the markers past either end of the asset moves
- * none of them, rather than stopping one at the end, so the move back always
+ * none of them, rather than stopping one at the end, so undoing it always
  * returns every marker to where it was.
  */
 
-import { unchanged, commandId, type Command, type UnchangedOutcome } from '@audiogubbins/commands';
-import {
-  sampleCount,
-  type PlacedMarker,
-  type MarkerId,
-  type SampleCount,
-} from '@audiogubbins/domain';
-import { formatPosition, samplesWithin, type TimeFormat } from '@audiogubbins/timeline';
+import { unchanged, type Command, type CommandInvocation } from '@audiogubbins/commands';
+import { sampleCount, type MarkerId, type SampleCount, type Marker } from '@audiogubbins/domain';
+import { samplesWithin } from '@audiogubbins/timeline';
 
-import type { EditorAsset } from '../assets/editor-asset.js';
 import { editorTarget, numberArgument, type EditorTarget } from './editor-target.js';
-import { assetOf, markerCommand, selectedMarkers, type Done } from './marker-commands.js';
+import {
+  markedAsset,
+  markerCommand,
+  markersNamed,
+  moveMarkers,
+  selectedMarkers,
+  type MarkedAsset,
+} from './marker-commands.js';
 import { markerIdsOf } from './selection-commands.js';
-import { textArgument } from './shell-command.js';
+import { textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** Where each of `markers` goes when moved by `frames`, or why one cannot go. */
-function destinations(
-  asset: EditorAsset,
-  markers: readonly PlacedMarker[],
-  frames: number,
-): readonly { readonly marker: PlacedMarker; readonly to: SampleCount }[] | string {
-  const placed: { readonly marker: PlacedMarker; readonly to: SampleCount }[] = [];
-  for (const marker of markers) {
-    const to = sampleCount(marker.position + frames);
-    if (!to.ok || to.value > asset.length) {
-      return `${marker.displayName} is too near the ${frames < 0 ? 'start' : 'end'} of ${asset.name} to move that far.`;
-    }
-    placed.push({ marker, to: to.value });
-  }
-  return placed;
-}
-
-/** Moves the markers of `asset` named by `ids` by `frames`, and says how to move them back. */
+/** Moves the markers named by `ids` by `frames` of the view, or says why they cannot go. */
 function movedBy(
   context: ShellContext,
-  asset: EditorAsset,
-  format: TimeFormat,
+  found: MarkedAsset,
   ids: readonly MarkerId[],
   frames: number,
-): Done | UnchangedOutcome | string {
+): BodyAnswer {
   if (frames === 0) return unchanged('editor.marker-there', 'The markers are there already.');
-  const held = context.content.of(asset).markers;
-  const markers = held.filter((marker) => ids.includes(marker.id));
-  if (markers.length !== new Set(ids).size) return `Those markers are not all in ${asset.name}.`;
-  const placed = destinations(asset, markers, frames);
-  if (typeof placed === 'string') return placed;
-  for (const { marker, to } of placed) {
-    const moved = context.content.moveMarker(asset, marker.id, to);
-    if (!moved.ok) return moved.failures[0].summary;
+  const markers = markersNamed(found, ids);
+  if (typeof markers === 'string') return markers;
+  const shown = new Map(found.asset.markers.map((marker) => [marker.id, marker.position]));
+  const moves: { readonly marker: Marker; readonly to: SampleCount }[] = [];
+  for (const marker of markers) {
+    const to = sampleCount((shown.get(marker.id) ?? 0) + frames);
+    if (!to.ok || to.value > found.asset.length) {
+      return `${marker.displayName} is too near the ${frames < 0 ? 'start' : 'end'} of ${found.asset.name} to move that far.`;
+    }
+    moves.push({ marker, to: to.value });
   }
-  const [only] = placed;
-  return {
-    inverse: {
-      commandId: commandId('editor.move-markers-by'),
-      arguments: { asset: asset.id, markers: ids.join(','), frames: -frames },
-    },
-    description:
-      placed.length === 1 && only !== undefined
-        ? `${only.marker.displayName} moved to ${formatPosition(only.to, asset.sampleRate, format)}`
-        : `${String(placed.length)} markers moved`,
-  };
+  return moveMarkers(context, found, moves);
 }
 
 /** A nudge of the selected markers by `frames` of the view it acts on. */
@@ -87,28 +61,30 @@ function nudge(
     (context, invocation) => {
       const target = editorTarget(context, invocation);
       if (typeof target === 'string') return target;
+      const found = markedAsset(context, invocation);
+      if (typeof found === 'string') return found;
       const ids = selectedMarkers(context, target.asset);
       if (typeof ids === 'string') return ids;
-      return movedBy(context, target.asset, target.state.timeFormat, ids, frames(target));
+      return movedBy(context, found, ids, frames(target));
     },
     { keywords },
   );
 }
 
-/** The move a nudge is reversed by: the markers named, by a whole number of frames. */
+/** A move of the markers named by a whole number of frames, as a macro records one. */
 function moveMarkersBy(): Command<ShellContext> {
   return markerCommand(
     'editor.move-markers-by',
     'Move markers by a distance',
-    (context, invocation) => {
-      const found = assetOf(context, invocation);
+    (context, invocation: CommandInvocation) => {
+      const found = markedAsset(context, invocation);
       if (typeof found === 'string') return found;
       const ids = markerIdsOf(textArgument(invocation, 'markers'));
       const frames = numberArgument(invocation, 'frames');
       if (ids.length === 0 || frames === undefined || !Number.isInteger(frames)) {
         return 'A move needs markers and a whole number of frames.';
       }
-      return movedBy(context, found.asset, found.format, ids, frames);
+      return movedBy(context, found, ids, frames);
     },
     { discoverable: false },
   );
@@ -118,7 +94,7 @@ function moveMarkersBy(): Command<ShellContext> {
 const aPixel = (sign: -1 | 1) => (target: EditorTarget) =>
   sign * samplesWithin(target.state.viewport, 1);
 
-/** The commands that nudge markers, and the move that reverses a nudge. */
+/** The commands that nudge markers, and the move by a distance. */
 export function markerNudgeCommands(): readonly Command<ShellContext>[] {
   const keywords = ['marker', 'nudge', 'move'];
   return [

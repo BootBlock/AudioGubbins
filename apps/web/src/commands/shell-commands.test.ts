@@ -31,6 +31,7 @@ import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { AZERTY, DVORAK, GERMAN, NAMED_LAYOUTS, RUSSIAN } from '../testing/keyboard-layouts.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
+import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import {
   DEFAULT_PROFILE_ID,
@@ -42,6 +43,8 @@ import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { markerCommands } from './marker-commands.js';
+import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
@@ -50,6 +53,8 @@ import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
+
+holdPlatformFiles();
 
 describe('the shell command set', () => {
   const commands = shellCommands(DESCRIPTORS);
@@ -66,22 +71,13 @@ describe('the shell command set', () => {
     }
   });
 
-  it('marks undoable only the commands that change an asset\u2019s content', () => {
+  it('marks no command undoable, since every change to content is the project\u2019s', () => {
     // A user pressing Undo after a mistaken edit must not find it switching
-    // their theme back instead (REQ-EDIT-073). The marker commands change the
-    // content of an asset, which the project's history takes (ADR-0047).
-    expect(commands.filter((command) => command.undoable).map((command) => command.id)).toEqual([
-      'editor.add-marker',
-      'editor.remove-markers',
-      'editor.restore-markers',
-      'editor.move-marker',
-      'editor.nudge-markers-back',
-      'editor.nudge-markers-forward',
-      'editor.nudge-markers-back-sample',
-      'editor.nudge-markers-forward-sample',
-      'editor.move-markers-by',
-      'picture.mark-frame',
-    ]);
+    // their theme back instead (REQ-EDIT-073). Markers, regions and edits are
+    // the project's, so their commands run through its session and undo
+    // reverses them in its history (ADR-0047, ADR-0051); nothing the shell
+    // holds itself is undone.
+    expect(commands.filter((command) => command.undoable).map((command) => command.id)).toEqual([]);
   });
 
   it('says only of the appearance commands that they change how the interface is drawn', () => {
@@ -770,7 +766,11 @@ describe('finding the shell commands in the palette', () => {
       ...ownershipCommands(),
       ...storageCommands(),
       ...sourceCommands(),
-    ].map((command) => command.id),
+      ...markerCommands(),
+      ...markerNudgeCommands(),
+    ]
+      .map((command): string => command.id)
+      .concat('picture.mark-frame'),
   );
 
   /** What a command is given, as an invocation carries it. */
@@ -806,6 +806,13 @@ describe('finding the shell commands in the palette', () => {
 
     /** What storage to start from, when the state has to be read from it. */
     readonly storage?: () => ReturnType<typeof ephemeralStorage>;
+
+    /**
+     * Whether the command needs an asset of a project, whose markers it acts
+     * on: the test then starts in a window whose project holds the loop,
+     * marked, open in the editor.
+     */
+    readonly inProject?: true;
   }
 
   /** A first group given a new proportion, as the dock reports a dragged edge. */
@@ -840,19 +847,15 @@ describe('finding the shell commands in the palette', () => {
     };
   }
 
-  /** The loop test's first marker, which the marker scenarios act on, or the one at `index`. */
-  function firstMarker(context: ShellContext, index = 0): string {
-    const loop = context.assets.find('test:loop');
-    const marker = loop === undefined ? undefined : context.content.of(loop).markers[index];
-    if (marker === undefined) throw new Error('The loop test has no such marker.');
-    return marker.id;
-  }
-
-  /** The loop test's Sustain marker selected, which can move either way. */
-  const sustainSelected = inEditor(
-    { before: (run, context) => run('editor.select-marker', { marker: firstMarker(context, 1) }) },
-    'test:loop',
-  );
+  /** The marked loop of the project open in the editor, its marker at `index` given. */
+  const onProjectMarker = (index = 0): Scenario => ({
+    inProject: true,
+    arguments: (context) => {
+      const marker = context.assets.get().assets[0]?.markers[index];
+      if (marker === undefined) throw new Error('The loop has no such marker.');
+      return { marker: marker.id };
+    },
+  });
 
   /** The playhead a second into the asset, which can move either way. */
   const playheadInside = inEditor({
@@ -1048,42 +1051,15 @@ describe('finding the shell commands in the palette', () => {
       before: (run) => run('editor.spectral-band-whole'),
     }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
-    'editor.select-marker': inEditor(
-      { arguments: (context) => ({ marker: firstMarker(context) }) },
-      'test:loop',
-    ),
+    'editor.select-marker': onProjectMarker(),
     'editor.clear-selection': inEditor({ before: (run) => run('editor.select-all') }),
     'editor.scope-all-channels': inEditor({
       before: (run) => run('editor.select-time', { start: 100, end: 200, channels: '0' }),
     }),
-    'editor.remove-markers': inEditor(
-      {
-        before: (run, context) => run('editor.select-marker', { marker: firstMarker(context) }),
-      },
-      'test:loop',
-    ),
-    'editor.restore-markers': inEditor({
-      arguments: () => ({
-        asset: 'test:tone-bursts',
-        markers: JSON.stringify([{ id: 'a1b2c3d4e5f60718', name: 'Back', position: 480 }]),
-      }),
-    }),
-    'editor.move-marker': inEditor(
-      { arguments: (context) => ({ marker: firstMarker(context), to: 500 }) },
-      'test:loop',
-    ),
     'editor.set-playhead': inEditor({ arguments: () => ({ position: 4800 }) }),
     'editor.selection-end-at-playhead': playheadInside,
     'editor.extend-selection-back': playheadInside,
     'editor.extend-selection-back-sample': playheadInside,
-    'editor.nudge-markers-back': sustainSelected,
-    'editor.nudge-markers-forward': sustainSelected,
-    'editor.nudge-markers-back-sample': sustainSelected,
-    'editor.nudge-markers-forward-sample': sustainSelected,
-    'editor.move-markers-by': inEditor(
-      { arguments: (context) => ({ markers: firstMarker(context, 1), frames: 10 }) },
-      'test:loop',
-    ),
     'editor.playhead-back-pixel': inEditor({
       before: (run) => run('editor.set-playhead', { position: 48_000 }),
     }),
@@ -1148,7 +1124,7 @@ describe('finding the shell commands in the palette', () => {
         },
         editorViews: [...context.editorViews.get().views],
         selections: [...context.selections.get()],
-        content: [...context.content.get()],
+        assets: context.assets.get().assets.map((asset) => asset.revision),
         cues: [...context.cues.get()],
         picture: context.picture.get(),
       },
@@ -1169,6 +1145,21 @@ describe('finding the shell commands in the palette', () => {
       );
     });
 
+  /** A window whose project holds the loop, marked, open in its editor. */
+  async function projectEditor(): Promise<ShellContext> {
+    const audio = await windowWithAudio({
+      markers: [
+        { name: 'Attack', at: 0 },
+        { name: 'Sustain', at: 4800 },
+      ],
+    });
+    const { context } = audio.window;
+    context.editorViews.open('editor', audio.asset());
+    context.editorViews.measured('editor', 1000, audio.asset().length);
+    context.editorViews.focus('editor');
+    return context;
+  }
+
   it.each(RUNS)(
     'runs %s a second time only when that changes something',
     async (_label, id, scenario) => {
@@ -1177,7 +1168,10 @@ describe('finding the shell commands in the palette', () => {
       // each is found, the next would be missed, so every command is run twice
       // here, from a state it is available in and with what it takes, and the
       // second run must change a store or be refused.
-      const { context } = buildShellContext(scenario.storage?.());
+      const context =
+        scenario.inProject === true
+          ? await projectEditor()
+          : buildShellContext(scenario.storage?.()).context;
       const registry = createCommandRegistry<ShellContext>();
       for (const command of commands) registry.register(command);
       const bus = createCommandBus(

@@ -37,6 +37,8 @@ export function sessionHandlers(
   // longer held throws, which the caller hears as the fault it is.
   return {
     'projects.run': ({ handle, invocation }) => session(handle).run(invocation),
+    'projects.runGroup': ({ handle, description, invocations }) =>
+      session(handle).runGroup(description, invocations),
     'projects.undo': ({ handle }) => session(handle).undo(),
     'projects.redo': ({ handle }) => session(handle).redo(),
     'projects.goTo': ({ handle, node }) => session(handle).goTo(node),

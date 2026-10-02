@@ -250,6 +250,9 @@ importers:
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:../../packages/capabilities
+      '@audiogubbins/clipboard':
+        specifier: workspace:*
+        version: link:../../packages/clipboard
       '@audiogubbins/commands':
         specifier: workspace:*
         version: link:../../packages/commands

@@ -24,7 +24,6 @@ import { createCueStore } from '../state/cue-store.js';
 import { createEditorViewStore } from '../state/editor-view-store.js';
 import { reconcileSelections } from '../state/selection-reconciling.js';
 import { createSelectionStore } from '../state/selection-store.js';
-import { createSessionContent } from '../state/session-content.js';
 import type { StateStorage } from '../state/state-storage.js';
 
 /**
@@ -145,7 +144,6 @@ export function fakeEditor(
 ): Pick<
   ShellContext,
   | 'assets'
-  | 'content'
   | 'selections'
   | 'cues'
   | 'editorViews'
@@ -156,12 +154,10 @@ export function fakeEditor(
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
-  const content = createSessionContent();
   const selections = createSelectionStore();
-  reconcileSelections(content, selections, assets);
+  reconcileSelections(selections, assets);
   return {
     assets,
-    content,
     selections,
     cues: createCueStore(),
     // Written at once, so a test reads back what a view keeps without waiting.

@@ -112,6 +112,11 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
       sampleRate: rate.value,
       channels: sound.channels.map((channel) => channel.slice()),
     }),
+    owner: {
+      kind: 'session',
+      reason:
+        'The sound of a reference picture is not part of a project, so it cannot be marked or edited. Import the file as audio to mark and edit it.',
+    },
     markers: [],
     regions: [],
   };

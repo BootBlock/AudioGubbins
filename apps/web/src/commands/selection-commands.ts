@@ -118,9 +118,9 @@ function markerSelection(): Command<ShellContext> {
   return selectionCommand(
     'editor.select-marker',
     'Select a marker',
-    (current, { asset }, context, invocation) => {
+    (current, { asset }, _context, invocation) => {
       const [id] = markerIdsOf(textArgument(invocation, 'marker'));
-      const markers = context.content.of(asset).markers;
+      const { markers } = asset;
       if (id === undefined || !markers.some((marker) => marker.id === id)) {
         return `That marker is not in ${asset.name}.`;
       }

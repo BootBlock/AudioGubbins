@@ -155,7 +155,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/test-fixtures': {
     'The two measures of cost the tests share (ADR-0019): the processor time one workload takes against another, for the text, diagnostics and application packages, with the longest a test of it takes, its timeout; and the comparisons of names a piece of work makes, for the commands and workspace packages, with the growth four times the names are held to, the ceiling of the larger count. Tests alone take them, as they take every fixture.':
       ['LONGEST_COST_TEST_MS', 'N_LOG_N_FOURFOLD', 'comparisonsIn', 'relativeCost'],
-    'The deterministic signals and projects REQ-REPO-191 puts here for the later phases to test against. Nothing in this phase plays or edits audio, so only their own tests read them.':
+    'The deterministic signals and projects REQ-REPO-191 puts here for the phases to test against, and a signal written as the WAV file a person imports. Tests alone read them, as they read every fixture.':
       [
         'FIXTURE_LENGTH',
         'FIXTURE_SAMPLE_RATE',
@@ -178,6 +178,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'stereo',
         'surround5_1',
         'transient',
+        'wavFile',
       ],
   },
   '@audiogubbins/input': {

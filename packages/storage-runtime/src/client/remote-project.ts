@@ -77,6 +77,13 @@ export class RemoteProjectSession {
   readonly run = (invocation: CommandInvocation): Promise<DomainResult<ChangeOutcome>> =>
     this.#channel.call('projects.run', { handle: this.handle, invocation });
 
+  /** Runs several commands as one change, which undo reverses whole. */
+  readonly runGroup = (
+    description: string,
+    invocations: readonly [CommandInvocation, ...CommandInvocation[]],
+  ): Promise<DomainResult<ChangeOutcome>> =>
+    this.#channel.call('projects.runGroup', { handle: this.handle, description, invocations });
+
   readonly undo = (): Promise<DomainResult<WriteOutcome>> =>
     this.#channel.call('projects.undo', { handle: this.handle });
 

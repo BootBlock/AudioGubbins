@@ -609,6 +609,7 @@ const PACKAGES = [
       '@audiogubbins/renderer',
       '@audiogubbins/editor-view',
       '@audiogubbins/video-reference',
+      '@audiogubbins/clipboard',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

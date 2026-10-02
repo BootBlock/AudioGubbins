@@ -43,10 +43,7 @@ import {
 
 /** What the pointer reads of its view at the moment of each event. */
 export interface PointerSnapshot {
-  readonly sources: Pick<
-    SceneSources,
-    'state' | 'asset' | 'content' | 'selection' | 'playhead' | 'picture'
-  >;
+  readonly sources: Pick<SceneSources, 'state' | 'asset' | 'selection' | 'playhead' | 'picture'>;
   readonly layout: ViewLayout;
 }
 
@@ -118,7 +115,7 @@ export class ToolPointer {
         {
           layout: snapshot.layout,
           viewport: state.viewport,
-          markers: snapshot.sources.content.markers,
+          markers: snapshot.sources.asset.markers,
           selection: selection.time,
         },
         sample.x,

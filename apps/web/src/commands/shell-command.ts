@@ -48,7 +48,7 @@ import type { ShellContext } from './shell-context.js';
  * written where a value was meant, which is not the case here.
  */
 // eslint-disable-next-line @typescript-eslint/no-invalid-void-type -- a body refuses, finds nothing to do, or returns nothing
-type BodyAnswer = string | Reasons | UnchangedOutcome | void;
+export type BodyAnswer = string | Reasons | UnchangedOutcome | void;
 
 /** What a shell command may be given besides its identity. */
 export interface ShellCommandOptions {

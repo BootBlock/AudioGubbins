@@ -44,6 +44,7 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { abandonment } from '../state/abandoning.js';
+import { followProjectAssets } from '../state/project-catalogue.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
 import { StorageRoot } from '../state/storage-root-store.js';
@@ -286,6 +287,7 @@ async function windowOver(
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
   const context: ShellContext = { ...base, storageRoot: root, projects };
+  followProjectAssets(projects, context.assets);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
   const bus = createCommandBus(registry, context.diagnostics.loggerFor('commands'));

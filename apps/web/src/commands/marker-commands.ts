@@ -1,35 +1,35 @@
 /**
- * The marker commands (ADR-0047): adding, moving and removing an asset's
- * markers for the session, each giving the invocation that reverses it, so they
- * join the project's history unchanged when the project holds them (ADR-0021).
- * A marker made from a tool, a key, the palette or the picture panel is made
- * here, and every view of the asset shows it (REQ-EDIT-061).
+ * The marker commands (ADR-0047): adding, moving and removing the markers of an
+ * asset of the project, each one project command, or one change of several,
+ * that the project's history keeps and undo reverses. A marker made from a
+ * tool, a key, the palette or the picture panel is made here, and every view of
+ * the asset shows it (REQ-EDIT-061). Audio no project holds takes no marker,
+ * and the commands say why.
  *
- * A command names its asset with the `asset` argument, as a reversal does, or
- * acts on the asset of the view it names or of the editor last in use.
+ * A command names its asset with the `asset` argument, or acts on the asset of
+ * the view it names or of the editor last in use. Positions are the view's: a
+ * region's view places a marker on its asset at the region's start plus the
+ * position, anchored to the asset's chain as it stands.
  */
 
 import {
   CommandCategory,
-  commandId,
-  refusal,
+  unchanged,
   type Command,
   type CommandInvocation,
-  type CommandOutcome,
-  type UnchangedOutcome,
-  unchanged,
 } from '@audiogubbins/commands';
 import {
-  combine,
-  mapResult,
-  sampleCount,
-  unsafeBrandId,
   isWellFormedId,
-  type DomainResult,
-  type PlacedMarker,
+  unsafeBrandId,
+  type Marker,
   type MarkerId,
   type SampleCount,
 } from '@audiogubbins/domain';
+import {
+  addMarkerInvocation,
+  removeMarkerInvocation,
+  setMarkerInvocation,
+} from '@audiogubbins/project-commands';
 import {
   SelectionFacet,
   TimeFormatKind,
@@ -40,20 +40,28 @@ import {
 } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { boundaryArgument, editorTarget, playheadOf, selectedTarget } from './editor-target.js';
 import {
-  boundaryArgument,
-  editorTarget,
-  needsEditor,
-  playheadOf,
-  selectedTarget,
-} from './editor-target.js';
-import { isRecord } from '../state/stored-value.js';
+  changeProject,
+  currentBasis,
+  needsProjectAsset,
+  onAsset,
+  projectTarget,
+  type ProjectTarget,
+} from './project-edits.js';
 import { markerIdsOf } from './selection-commands.js';
-import { textArgument } from './shell-command.js';
+import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** The asset a marker command acts on, the format it speaks positions in, or why there is none. */
-export function assetOf(
+/** An asset a marker command acts on, the format it speaks positions in, and its project. */
+export interface MarkedAsset {
+  readonly asset: EditorAsset;
+  readonly format: TimeFormat;
+  readonly project: ProjectTarget;
+}
+
+/** The asset a command names, or the asset of its view; the format it speaks in; or why none. */
+function assetOf(
   context: ShellContext,
   invocation: CommandInvocation,
 ): { readonly asset: EditorAsset; readonly format: TimeFormat } | string {
@@ -70,140 +78,90 @@ export function assetOf(
     : { asset: target.asset, format: target.state.timeFormat };
 }
 
-/** What a marker command did: how to reverse it, and what to call it. */
-export interface Done {
-  readonly inverse: CommandInvocation;
-  readonly description: string;
+/** The asset a marker command acts on, as the project holds it, or why there is none. */
+export function markedAsset(
+  context: ShellContext,
+  invocation: CommandInvocation,
+): MarkedAsset | string {
+  const found = assetOf(context, invocation);
+  if (typeof found === 'string') return found;
+  const project = projectTarget(context, found.asset);
+  return typeof project === 'string' ? project : { ...found, project };
 }
 
-/** An undoable command that changes markers, saying what it did. */
-export function markerCommand(
-  id: string,
-  label: string,
-  run: (context: ShellContext, invocation: CommandInvocation) => Done | UnchangedOutcome | string,
-  extra: {
-    readonly keywords?: readonly string[];
-    readonly discoverable?: boolean;
-    readonly availability?: Command<ShellContext>['availability'];
-  } = {},
-): Command<ShellContext> {
-  const { availability = needsEditor, ...rest } = extra;
-  return {
-    id: commandId(id),
-    label,
-    category: CommandCategory.Edit,
-    undoable: true,
-    availability,
-    run(context, invocation): CommandOutcome<ShellContext> {
-      const done = run(context, invocation);
-      if (typeof done === 'string') return refusal(`${id}.refused`, done);
-      if ('kind' in done) return done;
-      context.interaction.announce(`${done.description}.`);
-      return {
-        kind: 'applied',
-        next: context,
-        inverse: done.inverse,
-        description: done.description,
-      };
-    },
-    ...rest,
-  };
+/** The markers of the asset `project` shows, as the project holds them. */
+function heldMarkers(project: ProjectTarget): readonly Marker[] {
+  const id = project.owner.asset.id;
+  return [...project.state.project.markers.values()].filter((marker) => marker.assetId === id);
 }
 
-/** The first "Marker n" not in use in `markers`. */
-function nextName(markers: readonly PlacedMarker[]): string {
+/** The first "Marker n" not in use on the asset. */
+function nextName(markers: readonly Marker[]): string {
   const taken = new Set(markers.map((marker) => marker.displayName));
   let number = markers.length + 1;
   while (taken.has(`Marker ${String(number)}`)) number += 1;
   return `Marker ${String(number)}`;
 }
 
-/** Markers as a reversal carries them: identity, name and position. */
-function written(markers: readonly PlacedMarker[]): string {
-  return JSON.stringify(
-    markers.map((marker) => ({
-      id: marker.id,
-      name: marker.displayName,
-      position: marker.position,
-    })),
-  );
-}
-
-/** Markers a reversal carries, each checked as a marker is checked anywhere, or why not. */
-function readWritten(text: string | undefined): DomainResult<readonly PlacedMarker[]> | string {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text ?? '');
-  } catch {
-    return 'The markers to restore could not be read.';
-  }
-  if (!Array.isArray(parsed)) return 'The markers to restore could not be read.';
-  const markers: DomainResult<PlacedMarker>[] = [];
-  for (const value of parsed) {
-    if (!isRecord(value)) return 'A marker to restore is not one.';
-    const { id, name, position } = value;
-    if (typeof id !== 'string' || !isWellFormedId(id) || typeof name !== 'string') {
-      return 'A marker to restore has no usable identity or name.';
-    }
-    if (typeof position !== 'number') return 'A marker to restore has no position.';
-    markers.push(
-      mapResult(sampleCount(position), (at) => ({
-        id: unsafeBrandId<'MarkerId'>(id),
-        displayName: name,
-        position: at,
-      })),
-    );
-  }
-  return combine(markers);
+/** A marker command, available where the editor last in use shows an asset of the project. */
+export function markerCommand(
+  id: string,
+  label: string,
+  run: (context: ShellContext, invocation: CommandInvocation) => BodyAnswer,
+  extra: {
+    readonly keywords?: readonly string[];
+    readonly discoverable?: boolean;
+    readonly availability?: Command<ShellContext>['availability'];
+  } = {},
+): Command<ShellContext> {
+  const { availability = needsProjectAsset, ...rest } = extra;
+  return shellCommand(id, label, CommandCategory.Edit, run, { availability, ...rest });
 }
 
 /**
- * Adds a marker to `asset` at `position`, named `name` or the next free
- * "Marker n", under identity `id` or a new one: what the add reverses by.
+ * Adds a marker to the asset at `position` of its view, named `name` or the
+ * next free "Marker n", under identity `id` or a new one.
  */
-export function addedMarker(
+export function addMarker(
   context: ShellContext,
-  asset: EditorAsset,
-  format: TimeFormat,
+  found: MarkedAsset,
   position: SampleCount,
   options: { readonly id?: string; readonly name?: string } = {},
-): Done | string {
-  const marker: PlacedMarker = {
+): void {
+  const { asset, format, project } = found;
+  const marker: Marker = {
     id:
       options.id !== undefined && isWellFormedId(options.id)
         ? unsafeBrandId<'MarkerId'>(options.id)
         : context.ids.next<'MarkerId'>(),
-    displayName: options.name ?? nextName(context.content.of(asset).markers),
-    position,
+    assetId: project.owner.asset.id,
+    displayName: options.name ?? nextName(heldMarkers(project)),
+    basis: currentBasis(project.owner),
+    position: onAsset(project.owner, position),
   };
-  const added = context.content.addMarker(asset, marker);
-  if (!added.ok) return added.failures[0].summary;
-  return {
-    inverse: {
-      commandId: commandId('editor.remove-markers'),
-      arguments: { asset: asset.id, markers: marker.id },
-    },
-    description: `${marker.displayName} added at ${formatPosition(position, asset.sampleRate, format)}`,
-  };
+  changeProject(context, project.session, {
+    description: `Add ${marker.displayName}`,
+    invocations: [addMarkerInvocation(marker)],
+    said: `${marker.displayName} added at ${formatPosition(position, asset.sampleRate, format)}.`,
+  });
 }
 
-function addMarker(): Command<ShellContext> {
+function addMarkerCommand(): Command<ShellContext> {
   return markerCommand(
     'editor.add-marker',
     'Add a marker at the playhead',
     (context, invocation) => {
-      const found = assetOf(context, invocation);
+      const found = markedAsset(context, invocation);
       if (typeof found === 'string') return found;
-      const { asset, format } = found;
       const id = textArgument(invocation, 'id');
       const name = textArgument(invocation, 'name');
-      return addedMarker(
+      addMarker(
         context,
-        asset,
-        format,
-        boundaryArgument(invocation, 'at', asset) ?? playheadOf(context, asset),
+        found,
+        boundaryArgument(invocation, 'at', found.asset) ?? playheadOf(context, found.asset),
         { ...(id === undefined ? {} : { id }), ...(name === undefined ? {} : { name }) },
       );
+      return undefined;
     },
     { keywords: ['marker', 'add', 'mark', 'cue', 'point'] },
   );
@@ -228,97 +186,90 @@ export function selectedMarkers(
   return target.objects.ids;
 }
 
-function removeMarkers(): Command<ShellContext> {
+/** The markers named, as the project holds them, or why one of them is not the asset's. */
+export function markersNamed(
+  found: MarkedAsset,
+  ids: readonly MarkerId[],
+): readonly [Marker, ...Marker[]] | string {
+  const named = heldMarkers(found.project).filter((marker) => ids.includes(marker.id));
+  const [first, ...rest] = named;
+  if (first === undefined || named.length !== new Set(ids).size) {
+    return `Those markers are not all in ${found.asset.name}.`;
+  }
+  return [first, ...rest];
+}
+
+function removeMarkersCommand(): Command<ShellContext> {
   return markerCommand(
     'editor.remove-markers',
     'Remove the selected markers',
     (context, invocation) => {
-      const found = assetOf(context, invocation);
+      const found = markedAsset(context, invocation);
       if (typeof found === 'string') return found;
-      const { asset } = found;
       const named = markerIdsOf(textArgument(invocation, 'markers'));
-      const ids = named.length > 0 ? named : selectedMarkers(context, asset);
+      const ids = named.length > 0 ? named : selectedMarkers(context, found.asset);
       if (typeof ids === 'string') return ids;
-      const removed: PlacedMarker[] = [];
-      for (const id of ids) {
-        const gone = context.content.removeMarker(asset, id);
-        if (gone.ok) removed.push(gone.value);
-      }
-      if (removed.length === 0) return `None of those markers is in ${asset.name}.`;
-      return {
-        inverse: {
-          commandId: commandId('editor.restore-markers'),
-          arguments: { asset: asset.id, markers: written(removed) },
-        },
-        description:
-          removed.length === 1
-            ? `${removed[0]?.displayName ?? 'The marker'} removed`
-            : `${String(removed.length)} markers removed`,
-      };
+      const markers = markersNamed(found, ids);
+      if (typeof markers === 'string') return markers;
+      const [first, ...rest] = markers;
+      const many = `${String(markers.length)} markers`;
+      changeProject(context, found.project.session, {
+        description: rest.length === 0 ? `Remove ${first.displayName}` : `Remove ${many}`,
+        invocations: [removeMarkerInvocation(first), ...rest.map(removeMarkerInvocation)],
+        said: rest.length === 0 ? `${first.displayName} removed.` : `${many} removed.`,
+      });
+      return undefined;
     },
     { keywords: ['marker', 'remove', 'delete', 'clear'] },
   );
 }
 
-function restoreMarkers(): Command<ShellContext> {
-  return markerCommand(
-    'editor.restore-markers',
-    'Restore markers',
-    (context, invocation) => {
-      const found = assetOf(context, invocation);
-      if (typeof found === 'string') return found;
-      const read = readWritten(textArgument(invocation, 'markers'));
-      if (typeof read === 'string') return read;
-      if (!read.ok) return read.failures[0].summary;
-      for (const marker of read.value) {
-        const added = context.content.addMarker(found.asset, marker);
-        if (!added.ok) return added.failures[0].summary;
-      }
-      return {
-        inverse: {
-          commandId: commandId('editor.remove-markers'),
-          arguments: {
-            asset: found.asset.id,
-            markers: read.value.map((marker) => marker.id).join(','),
-          },
-        },
-        description:
-          read.value.length === 1
-            ? 'A marker restored'
-            : `${String(read.value.length)} markers restored`,
-      };
-    },
-    { discoverable: false },
-  );
+/**
+ * Moves each marker to where `to` places it on the asset's view, as one
+ * change; unchanged where every one is there already.
+ */
+export function moveMarkers(
+  context: ShellContext,
+  found: MarkedAsset,
+  moves: readonly { readonly marker: Marker; readonly to: SampleCount }[],
+): BodyAnswer {
+  const { asset, format, project } = found;
+  const placed = new Map(asset.markers.map((marker) => [marker.id, marker.position]));
+  const moving = moves.filter(({ marker, to }) => placed.get(marker.id) !== to);
+  const [first, ...rest] = moving;
+  if (first === undefined) {
+    return unchanged('editor.marker-there', 'The markers are there already.');
+  }
+  const basis = currentBasis(project.owner);
+  const setAt = ({ marker, to }: (typeof moving)[number]): CommandInvocation =>
+    setMarkerInvocation({ ...marker, basis, position: onAsset(project.owner, to) });
+  const many = `${String(moving.length)} markers`;
+  changeProject(context, project.session, {
+    description: rest.length === 0 ? `Move ${first.marker.displayName}` : `Move ${many}`,
+    invocations: [setAt(first), ...rest.map(setAt)],
+    said:
+      rest.length === 0
+        ? `${first.marker.displayName} moved to ${formatPosition(first.to, asset.sampleRate, format)}.`
+        : `${many} moved.`,
+  });
+  return undefined;
 }
 
-function moveMarker(): Command<ShellContext> {
+function moveMarkerCommand(): Command<ShellContext> {
   return markerCommand(
     'editor.move-marker',
     'Move a marker',
     (context, invocation) => {
-      const found = assetOf(context, invocation);
+      const found = markedAsset(context, invocation);
       if (typeof found === 'string') return found;
-      const { asset, format } = found;
       const [id] = markerIdsOf(textArgument(invocation, 'marker'));
-      const to = boundaryArgument(invocation, 'to', asset);
+      const to = boundaryArgument(invocation, 'to', found.asset);
       if (id === undefined || to === undefined) {
         return 'A move needs a marker and a position within the asset.';
       }
-      const moved = context.content.moveMarker(asset, id, to);
-      if (!moved.ok) return moved.failures[0].summary;
-      if (moved.value === to)
-        return unchanged('editor.marker-there', 'The marker is there already.');
-      const name = context.content
-        .of(asset)
-        .markers.find((marker) => marker.id === id)?.displayName;
-      return {
-        inverse: {
-          commandId: commandId('editor.move-marker'),
-          arguments: { asset: asset.id, marker: id, to: moved.value },
-        },
-        description: `${name ?? 'The marker'} moved to ${formatPosition(to, asset.sampleRate, format)}`,
-      };
+      const markers = markersNamed(found, [id]);
+      if (typeof markers === 'string') return markers;
+      return moveMarkers(context, found, [{ marker: markers[0], to }]);
     },
     { discoverable: false },
   );
@@ -326,5 +277,5 @@ function moveMarker(): Command<ShellContext> {
 
 /** The commands that add, move and remove markers. */
 export function markerCommands(): readonly Command<ShellContext>[] {
-  return [addMarker(), removeMarkers(), restoreMarkers(), moveMarker()];
+  return [addMarkerCommand(), removeMarkersCommand(), moveMarkerCommand()];
 }

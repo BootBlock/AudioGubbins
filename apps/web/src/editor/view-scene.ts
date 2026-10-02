@@ -37,7 +37,6 @@ import {
 
 import { channelNames } from '../assets/channel-names.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
-import type { AssetContent } from '../state/session-content.js';
 
 /** The fewest CSS pixels between two labelled ticks of the ruler. */
 const LABEL_SPACING = 88;
@@ -49,7 +48,6 @@ const MOST_FRAMES = 2_000;
 export interface SceneSources {
   readonly state: EditorViewState;
   readonly asset: EditorAsset;
-  readonly content: AssetContent;
   readonly audio: KnownAudio;
   readonly selection: SelectionSet;
   readonly playhead: SampleCount | undefined;
@@ -76,7 +74,6 @@ export function frameInputsOf(sources: SceneSources, waiting: boolean): readonly
   return [
     sources.state,
     sources.asset,
-    sources.content,
     sources.selection,
     sources.playhead,
     sources.picture,
@@ -136,8 +133,8 @@ export function sceneOf(
     content: {
       length: asset.length,
       channelNames: namesOf(asset),
-      markers: sources.content.markers,
-      regions: sources.content.regions,
+      markers: asset.markers,
+      regions: asset.regions,
     },
     audio: sources.audio,
     selection: sources.selection,
@@ -162,7 +159,7 @@ export interface SnapExclusions {
 
 /** The targets a pointer in the view is offered, the zero crossing found near it among them. */
 export function snapTargetsFor(
-  sources: Pick<SceneSources, 'state' | 'asset' | 'content' | 'selection' | 'playhead' | 'picture'>,
+  sources: Pick<SceneSources, 'state' | 'asset' | 'selection' | 'playhead' | 'picture'>,
   zeroCrossing: SampleCount | undefined,
   exclusions: SnapExclusions,
 ): readonly SnapTarget[] {
@@ -176,8 +173,8 @@ export function snapTargetsFor(
     LABEL_SPACING,
   );
   return snapTargetsOf({
-    markers: sources.content.markers.filter((marker) => marker.id !== exclusions.marker),
-    regions: sources.content.regions,
+    markers: asset.markers.filter((marker) => marker.id !== exclusions.marker),
+    regions: asset.regions,
     playhead: sources.playhead,
     selection: exclusions.selectionEdges === true ? undefined : sources.selection.time,
     grid: gridPositions(ruler),

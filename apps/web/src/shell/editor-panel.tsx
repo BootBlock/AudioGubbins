@@ -244,10 +244,7 @@ function EditorView({
     <section className="ag-panel ag-editor">
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
-      <p className="ag-panel-note">
-        Markers and selections last for this session. Keeping them in a project arrives with
-        importing audio into projects.
-      </p>
+      {asset.owner.kind === 'session' && <p className="ag-panel-note">{asset.owner.reason}</p>}
       <EditorToolbar
         panel={panel}
         asset={asset}
@@ -269,7 +266,7 @@ function EditorView({
         panel={panel}
         asset={asset}
         state={state}
-        markers={parts.stores.content.of(asset).markers}
+        markers={asset.markers}
         selection={selection}
         parts={parts}
       />
@@ -299,15 +296,13 @@ export function EditorPanel({
   useSyncExternalStore(stores.selections.subscribe, () =>
     asset === undefined ? undefined : stores.selections.of(asset.id),
   );
-  useSyncExternalStore(stores.content.subscribe, () =>
-    asset === undefined ? undefined : stores.content.of(asset),
-  );
   useSyncExternalStore(stores.cues.subscribe, () =>
     asset === undefined ? undefined : stores.playhead(asset),
   );
   useSyncExternalStore(stores.audio.subscribe, () =>
     asset === undefined ? false : stores.playing(asset.id),
   );
+  const unopened = entry === undefined ? undefined : parts.assets.get().unopened.get(entry.asset);
   if (entry !== undefined && asset !== undefined) {
     return (
       <EditorView panel={panel} title={title} asset={asset} state={entry.state} parts={parts} />
@@ -316,7 +311,12 @@ export function EditorPanel({
   return (
     <section className="ag-panel ag-editor">
       <h2 className="ag-panel-title">{title}</h2>
-      {entry !== undefined && (
+      {unopened !== undefined && (
+        <p className="ag-panel-note" role="status">
+          {unopened.name} cannot be shown yet. {unopened.reason}
+        </p>
+      )}
+      {entry !== undefined && unopened === undefined && (
         <p className="ag-panel-note">The asset this view showed is not open in this session.</p>
       )}
       <AssetChooser panel={panel} parts={parts} />

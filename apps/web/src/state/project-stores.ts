@@ -25,6 +25,7 @@ import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
 import { checkSourcesOnOpening, keepListInStep } from './project-follow-ups.js';
 import { ProjectLibraryStore } from './project-library-store.js';
+import { ProjectMediaStore } from './project-media-store.js';
 import {
   createProjectPreferencesStore,
   type ProjectPreferencesStore,
@@ -46,6 +47,8 @@ export interface ProjectStores {
   readonly backups: BackupStore;
   readonly backupFolder: BackupFolderStore;
   readonly sources: SourceChangeStore;
+  /** The file behind each asset of the open project, for the audio threads. */
+  readonly media: ProjectMediaStore;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
 }
@@ -111,6 +114,7 @@ export function createProjectStores(
     ),
     backupFolder,
     sources,
+    media: new ProjectMediaStore({ media: client.media, project, sources, linkedFiles, logger }),
     preferences,
     files,
   };

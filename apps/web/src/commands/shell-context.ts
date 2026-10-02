@@ -17,10 +17,11 @@
  * (REQ-STOR-021), so a shell command cannot change a project by any other
  * route: the dependency direction REQ-EXEC-136.4 asks for rather than a rule to
  * remember. The audio engine is here as the transport and the test signal's
- * renderer. The editor's assets, their markers, selections and playheads, and
- * the views of them, are the session's (ADR-0047), held in memory until audio
- * is imported into a project at its own rate (ADR-0021), and the reference
- * picture is reference media, never project state.
+ * renderer. The editor opens the project's assets and regions, whose markers,
+ * regions and edits are the project's and change only through its commands
+ * (ADR-0047, ADR-0051); their selections and playheads, and the views of them,
+ * are the session's, and the reference picture is reference media, never
+ * project state.
  */
 
 import type { CapabilityRegistry, StorageCapabilityAbsence } from '@audiogubbins/capabilities';
@@ -42,7 +43,6 @@ import type { ChosenFiles } from '../state/chosen-files.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { SelectionStore } from '../state/selection-store.js';
-import type { SessionContent } from '../state/session-content.js';
 import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
 import type { ProjectStores } from '../state/project-stores.js';
@@ -131,9 +131,6 @@ export interface ShellContext {
 
   /** The assets an editor view can open this session. */
   readonly assets: AssetCatalogue;
-
-  /** Each asset's markers and regions for the session. */
-  readonly content: SessionContent;
 
   /** What is selected in each asset. */
   readonly selections: SelectionStore;

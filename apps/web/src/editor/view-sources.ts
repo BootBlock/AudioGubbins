@@ -20,7 +20,6 @@ import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { Observable } from '../state/observable.js';
-import type { SessionContent } from '../state/session-content.js';
 import { stripImages } from './picture-strip.js';
 import type { SceneSources } from './view-scene.js';
 
@@ -28,9 +27,9 @@ import type { SceneSources } from './view-scene.js';
 export interface SurfaceStores {
   readonly editorViews: Pick<EditorViewStore, 'get' | 'subscribe' | 'entry' | 'measured'>;
   readonly selections: Observable<unknown> & { readonly of: (asset: string) => SelectionSet };
-  readonly content: Pick<SessionContent, 'get' | 'subscribe' | 'of'>;
   readonly cues: Pick<CueStore, 'get' | 'subscribe'>;
-  readonly assets: Pick<AssetCatalogue, 'find'>;
+  /** The assets a view opens, whose markers and regions change with the project. */
+  readonly assets: Pick<AssetCatalogue, 'find' | 'subscribe'>;
   readonly picture: Pick<ReferencePicture, 'get' | 'subscribe' | 'filmstrip'>;
   /** What the transport is doing, which moves the playhead. */
   readonly audio: Observable<unknown>;
@@ -57,7 +56,6 @@ export function viewSources(
   return {
     state,
     asset,
-    content: stores.content.of(asset),
     selection: stores.selections.of(asset.id),
     playhead: stores.playhead(asset),
     picture: bound,

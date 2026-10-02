@@ -45,6 +45,8 @@ export {
 
 export { type ProjectFixture, emptyProject, sampleProject } from './projects.js';
 
+export { wavFile } from './wav-files.js';
+
 export { N_LOG_N_FOURFOLD, comparisonsIn } from './comparisons.js';
 
 export { LONGEST_COST_TEST_MS, relativeCost } from './processor-cost.js';

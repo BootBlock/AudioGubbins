@@ -124,7 +124,7 @@ export class EditorSurface {
     for (const store of [
       stores.editorViews,
       stores.selections,
-      stores.content,
+      stores.assets,
       stores.cues,
       stores.picture,
       stores.audio,

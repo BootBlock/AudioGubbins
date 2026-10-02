@@ -109,6 +109,9 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
 
   /** The signal of the latest look at the project's files. */
   private latest: AbortSignal | undefined;
+
+  /** The session whose files were last looked at to the end. */
+  private lookedAt: RemoteProjectSession | undefined;
   private readonly files: TransferFiles;
   private readonly linkedFiles: LinkedFilesPort;
   private readonly state = observable<SourceChangeState>({
@@ -145,7 +148,9 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     this.latest = signal;
     this.state.set({ changes: [], applied: [], checking: true });
     try {
-      this.state.set({ ...(await this.looked(session, signal)), checking: false });
+      const looked = await this.looked(session, signal);
+      this.lookedAt = session;
+      this.state.set({ ...looked, checking: false });
     } catch (error) {
       // Given up with no newer look under way, as when the project is let go:
       // nothing is being looked at, and nothing found is the person's now.
@@ -155,6 +160,13 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
       throw error;
     }
   };
+
+  /**
+   * Whether the files of the project `session` writes were looked at to the
+   * end, so a linked file with no change waiting is the one the project
+   * recorded.
+   */
+  readonly hasLooked = (session: RemoteProjectSession): boolean => this.lookedAt === session;
 
   /**
    * Asks the person, in the handler of their gesture, for leave to read a
