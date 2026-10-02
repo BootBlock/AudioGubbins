@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectAccess } from '@audiogubbins/storage';
 
@@ -24,6 +24,10 @@ async function twoWindows(): Promise<{
   expect(await reader.runAndHear('file.open', { project })).toBe('"Harbour" is open to read.');
   return { writer, reader };
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('a project another window is changing', () => {
   it('opens to read, naming the window changing it', async () => {
@@ -80,9 +84,33 @@ describe('a project another window is changing', () => {
     expect(accessOf(reader)?.kind).toBe('read-only');
   });
 
-  it('is taken over after the explicit decision, and the window that lost it is told who took it', async () => {
+  it('is not offered to take over while the window changing it may yet answer, or after it kept it', async () => {
     const { writer, reader } = await twoWindows();
 
+    expect(reader.run('project.take-over')).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'Ask the tab changing it first. It can be taken over once a request goes unanswered.',
+        },
+      ],
+    });
+    const answered = reader.nextSaid();
+    reader.run('project.request-control');
+    await expect.poll(() => writer.run('project.keep').kind).toBe('applied');
+    await answered;
+    expect(reader.run('project.take-over').kind).toBe('refused');
+  });
+
+  it('is taken over once a request went unanswered and the decision is made, and the window that lost it is told who took it', async () => {
+    const { writer, reader } = await twoWindows();
+    // The window changing it does not answer in time.
+    vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => AbortSignal.abort());
+
+    expect(await reader.runAndHear('project.request-control')).toBe(
+      'The tab changing "Harbour" did not answer. You can take it over instead.',
+    );
     expect(await reader.runAndHear('project.take-over')).toBe(
       '"Harbour" is yours to change. The other tab can no longer change it.',
     );
@@ -105,6 +133,41 @@ describe('a project another window is changing', () => {
     expect(writer.run('project.take-over').kind).toBe('refused');
     expect(writer.run('project.open-to-read').kind).toBe('refused');
     expect(reader.run('project.open-to-read').kind).toBe('refused');
+  });
+});
+
+describe('a project a window holds that can no longer answer', () => {
+  it('is asked for first, and a request gone unanswered no longer stands once the window lets it go', async () => {
+    const world = projectWorld();
+    const maker = await world.window();
+    await maker.runAndHear('file.create-project', { name: 'Harbour' });
+    await maker.runAndHear('file.close-project');
+    const [entry] = maker.projects.library.get().entries;
+    const project = entry?.kind === 'project' ? entry.header.id : undefined;
+    if (project === undefined) throw new Error('No project was made.');
+    // A window that took the project and stopped: it hears no request.
+    const stopped = await world.coordinator.acquire(project, {
+      steal: false,
+      owner: { instance: 'stopped', label: 'a tab that stopped' },
+    });
+    const reader = await world.window();
+    await reader.runAndHear('file.open', { project });
+
+    expect(reader.run('project.take-over').kind).toBe('refused');
+    expect(await reader.runAndHear('project.request-control')).toBe(
+      'The tab changing "Harbour" did not answer. You can take it over instead.',
+    );
+    const open = reader.projects.project.get();
+    expect(open.kind === 'open' && open.request).toBe('unanswered');
+
+    if (stopped.kind !== 'held') throw new Error('The stopped window holds no lease.');
+    await stopped.lease.release();
+    await expect
+      .poll(() => accessOf(reader))
+      .toEqual({ kind: 'read-only', reason: { kind: 'released' } });
+    const after = reader.projects.project.get();
+    expect(after.kind === 'open' && after.request).toBeUndefined();
+    expect(reader.run('project.take-over').kind).toBe('refused');
   });
 });
 

@@ -110,7 +110,7 @@ describe('the project strip, with projects to reach', () => {
     expect(within(strip).queryAllByRole('button')).toEqual([]);
   });
 
-  it('names the tab changing a project open to read, and asks for it or takes it over once the cost is read', async () => {
+  it('names the tab changing a project open to read, and asks for it before anything else', async () => {
     const { run, strip } = banner(
       { kind: 'ready' },
       openWith({ kind: 'read-only', reason: { kind: 'busy', owner: OTHER } }),
@@ -122,6 +122,28 @@ describe('the project strip, with projects to reach', () => {
       ),
     ).toBeVisible();
     await userEvent.click(within(strip).getByRole('button', { name: 'Ask to change it' }));
+    expect(run).toHaveBeenLastCalledWith('project.request-control');
+    expect(within(strip).queryByRole('button', { name: 'Take over…' })).toBeNull();
+  });
+
+  it('offers to take the project over once a request went unanswered, and only once the cost is read', async () => {
+    const { run, strip } = banner(
+      { kind: 'ready' },
+      {
+        ...openWith({ kind: 'read-only', reason: { kind: 'busy', owner: OTHER } }),
+        request: 'unanswered',
+      },
+    );
+
+    expect(
+      within(strip).getByText(
+        '"Harbour" is open to read here, because the tab opened at 10:02:00 is changing it.',
+      ),
+    ).toBeVisible();
+    expect(
+      within(strip).getByText('The tab changing it did not answer, so you can take it over.'),
+    ).toBeVisible();
+    await userEvent.click(within(strip).getByRole('button', { name: 'Ask again' }));
     expect(run).toHaveBeenLastCalledWith('project.request-control');
 
     await userEvent.click(within(strip).getByRole('button', { name: 'Take over…' }));
@@ -143,7 +165,10 @@ describe('the project strip, with projects to reach', () => {
   it('keeps the request button in reach while it waits, doing nothing when pressed', async () => {
     const { run, strip } = banner(
       { kind: 'ready' },
-      { ...openWith({ kind: 'read-only', reason: { kind: 'busy', owner: OTHER } }), asking: true },
+      {
+        ...openWith({ kind: 'read-only', reason: { kind: 'busy', owner: OTHER } }),
+        request: 'asking',
+      },
     );
 
     const asking = within(strip).getByRole('button', { name: 'Asking…' });

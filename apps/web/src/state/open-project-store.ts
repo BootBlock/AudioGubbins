@@ -13,9 +13,12 @@
  * opening is given up once another opening or a close replaces it, and the work
  * done for a project once it is let go (`abandoning.ts`). What recovery found
  * on opening stays until the person dismisses it, where it found anything. A
- * window that handed the project over reads it at once, so it keeps seeing the
- * work; one that lost it keeps saying so, and who took it, until the person
- * reopens it. Its members are properties, so each can be handed on unbound.
+ * request for the project that the window changing it did not answer stands
+ * while that window holds the project, and lets the person take it over
+ * (REQ-STOR-098). A window that handed the project over reads it at once, so it
+ * keeps seeing the work; one that lost it keeps saying so, and who took it,
+ * until the person reopens it. Its members are properties, so each can be
+ * handed on unbound.
  */
 
 import {
@@ -54,9 +57,32 @@ export type OpenProjectState =
       /** What recovery found on opening, where it found anything, until dismissed. */
       readonly report?: ProjectRecoveryReport;
 
-      /** Whether this window is waiting for an answer to its request for the project. */
-      readonly asking?: boolean;
+      /** Where this window's request for the project stands, where it made one. */
+      readonly request?: ControlRequest;
     };
+
+/**
+ * A request for the project from a window reading it: waiting for the window
+ * changing it to answer, or gone unanswered, by a window that is not there to
+ * answer or did not in time.
+ */
+export type ControlRequest = 'asking' | 'unanswered';
+
+/**
+ * Whether a request gone unanswered still stands in `after`: the project is
+ * still held by the window that did not answer, so it may be taken over.
+ */
+function unansweredStill(before: ProjectSnapshot, after: ProjectSnapshot): boolean {
+  const was = before.access;
+  const is = after.access;
+  return (
+    was.kind === 'read-only' &&
+    was.reason.kind === 'busy' &&
+    is.kind === 'read-only' &&
+    is.reason.kind === 'busy' &&
+    is.reason.owner?.instance === was.reason.owner?.instance
+  );
+}
 
 /** How a project is opened. */
 export interface OpeningChoice {
@@ -225,10 +251,15 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     const view = this.view();
     const current = this.state.get();
     if (view === undefined || current.kind !== 'open') return fail(NOTHING_TO_ASK_FOR);
-    this.state.set({ ...current, asking: true });
+    this.state.set({ ...current, request: 'asking' });
     const asked = await view.requestTransfer(AbortSignal.timeout(REQUEST_PATIENCE_MILLISECONDS));
     const after = this.state.get();
-    if (after.kind === 'open') this.state.set({ ...after, asking: false });
+    if (after.kind === 'open') {
+      const { request: _answered, ...rest } = after;
+      this.state.set(
+        asked.ok && asked.value === 'unreachable' ? { ...rest, request: 'unanswered' } : rest,
+      );
+    }
     if (!asked.ok || asked.value !== 'granted') return asked;
     const opened = await this.open(view.project, { access: 'write' });
     return opened.ok ? asked : opened;
@@ -277,10 +308,21 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     this.preferences.remember(publisher.project);
   }
 
-  /** Republishes what the project publishes, keeping what the store adds. */
+  /**
+   * Republishes what the project publishes, keeping what the store adds, but a
+   * request gone unanswered once the window that did not answer no longer holds
+   * the project.
+   */
   private republish(snapshot: ProjectSnapshot): void {
     const current = this.state.get();
-    this.state.set(current.kind === 'open' ? { ...current, snapshot } : { kind: 'open', snapshot });
+    if (current.kind !== 'open') {
+      this.state.set({ kind: 'open', snapshot });
+    } else if (current.request === 'unanswered' && !unansweredStill(current.snapshot, snapshot)) {
+      const { request: _gone, ...rest } = current;
+      this.state.set({ ...rest, snapshot });
+    } else {
+      this.state.set({ ...current, snapshot });
+    }
     if (snapshot.access.kind === 'handed-over' && this.following === undefined) {
       this.following = followHandover(
         this.services.client.ownership,

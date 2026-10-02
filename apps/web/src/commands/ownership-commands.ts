@@ -6,8 +6,9 @@
  * report and saving (REQ-STOR-021, REQ-STOR-101).
  *
  * Taking over stops the other tab at once, and what it had not saved is lost
- * with it, so the command is run only from the confirmation that says so, never
- * offered on its own in the palette.
+ * with it, so it is available only once a request went unanswered, by a tab
+ * gone, stopped or too busy to answer, and run only from the confirmation that
+ * says so, never offered on its own in the palette.
  */
 
 import {
@@ -98,8 +99,16 @@ function takeOverCommand(): Command<ShellContext> {
     },
     {
       discoverable: false,
-      availability: (context) =>
-        whenAccess(context, readByBusy, 'No other tab is changing this project.'),
+      availability: (context) => {
+        const busy = whenAccess(context, readByBusy, 'No other tab is changing this project.');
+        if (!busy.available) return busy;
+        const open = context.projects?.project.get();
+        return open?.kind === 'open' && open.request === 'unanswered'
+          ? AVAILABLE
+          : unavailable(
+              'Ask the tab changing it first. It can be taken over once a request goes unanswered.',
+            );
+      },
     },
   );
 }

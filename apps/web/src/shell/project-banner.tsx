@@ -3,13 +3,14 @@
  * may use it, with the action that answers each thing it says (REQ-STOR-098,
  * REQ-STOR-021, REQ-STOR-052, REQ-UX-005).
  *
- * A project open to read names the tab changing it and offers to ask for it or
- * to take it over, which says what taking over costs before it is done; the tab
- * changing a project is shown each request for it, to hand it over or keep it;
- * a tab that lost a project says who took it and what was lost. Where no
- * project can be opened, it says why. Each action runs a command. A change of
- * how this tab may use the project is said aloud as well as shown, and focus
- * never falls to the page when the button that had it goes.
+ * A project open to read names the tab changing it and offers to ask for it,
+ * and to take it over once a request goes unanswered, saying what taking over
+ * costs before it is done; the tab changing a project is shown each request for
+ * it, to hand it over or keep it; a tab that lost a project says who took it
+ * and what was lost. Where no project can be opened, it says why. Each action
+ * runs a command. A change of how this tab may use the project is said aloud as
+ * well as shown, and focus never falls to the page when the button that had it
+ * goes.
  */
 
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';
@@ -116,7 +117,7 @@ function OpenProject({
           {said}
         </p>
       )}
-      <OwnershipActions snapshot={snapshot} name={name} asking={open.asking === true} run={run} />
+      <OwnershipActions snapshot={snapshot} name={name} request={open.request} run={run} />
       {open.report !== undefined && (
         <RecoveryReportNotice report={open.report} name={name} run={run} />
       )}

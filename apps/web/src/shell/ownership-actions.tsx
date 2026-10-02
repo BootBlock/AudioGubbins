@@ -2,15 +2,21 @@
  * What a person can do about which tab changes the open project, beside what
  * the banner says of it (REQ-STOR-098, REQ-UX-005).
  *
- * Taking a project over is explained before it is done: the button that takes
- * it over is behind a second one, beside the sentence saying the other tab
- * stops at once and loses what it had not saved. Every action runs a command.
+ * A project another tab is changing is asked for first. Taking it over is
+ * offered only once a request went unanswered, by a tab that is gone, stopped
+ * or too busy to answer in time, since a tab that answers can hand it over or
+ * keep it, and taking over loses what it had not saved (REQ-STOR-098). Taking
+ * over is explained before it is done: the button that takes it over is behind
+ * a second one, beside the sentence saying the other tab stops at once and
+ * loses what it had not saved. Every action runs a command.
  */
 
 import { useState, type ReactNode } from 'react';
 
 import { Button, ButtonTone } from '@audiogubbins/design-system';
 import type { ProjectSnapshot } from '@audiogubbins/storage';
+
+import type { ControlRequest } from '../state/open-project-store.js';
 
 import { requestSentence } from './project-words.js';
 import type { RunCommand } from './settings/section.js';
@@ -22,8 +28,8 @@ interface OwnershipActionsProps {
   /** The project's name, quoted. */
   readonly name: string;
 
-  /** Whether this tab is waiting for an answer to its request. */
-  readonly asking: boolean;
+  /** Where this tab's request for the project stands, where it made one. */
+  readonly request: ControlRequest | undefined;
   readonly run: RunCommand;
 }
 
@@ -57,14 +63,19 @@ function TakeOverConfirmation({
   );
 }
 
-/** Asking for the project, and taking it over once the cost is read. */
+/**
+ * Asking for the project, and taking it over once a request went unanswered and
+ * the cost is read.
+ */
 function AskOrTakeOver({
-  asking,
+  request,
   run,
 }: {
-  readonly asking: boolean;
+  readonly request: ControlRequest | undefined;
   readonly run: RunCommand;
 }): ReactNode {
+  const asking = request === 'asking';
+  const ask = request === 'unanswered' ? 'Ask again' : 'Ask to change it';
   const [confirming, setConfirming] = useState(false);
   if (confirming) {
     return (
@@ -87,16 +98,23 @@ function AskOrTakeOver({
           if (!asking) run('project.request-control');
         }}
       >
-        {asking ? 'Asking…' : 'Ask to change it'}
+        {asking ? 'Asking…' : ask}
       </Button>
-      <Button
-        compact
-        onClick={() => {
-          setConfirming(true);
-        }}
-      >
-        Take over…
-      </Button>
+      {request === 'unanswered' && (
+        <>
+          <p className="ag-project-banner-text" data-ag-status="reduced">
+            The tab changing it did not answer, so you can take it over.
+          </p>
+          <Button
+            compact
+            onClick={() => {
+              setConfirming(true);
+            }}
+          >
+            Take over…
+          </Button>
+        </>
+      )}
     </>
   );
 }
@@ -105,7 +123,7 @@ function AskOrTakeOver({
 export function OwnershipActions({
   snapshot,
   name,
-  asking,
+  request,
   run,
 }: OwnershipActionsProps): ReactNode {
   const { access } = snapshot;
@@ -136,7 +154,7 @@ export function OwnershipActions({
       );
     }
     case 'read-only':
-      if (access.reason.kind === 'busy') return <AskOrTakeOver asking={asking} run={run} />;
+      if (access.reason.kind === 'busy') return <AskOrTakeOver request={request} run={run} />;
       if (access.reason.kind === 'no-coordination') return null;
       return (
         <Button compact onClick={() => run('project.open-to-change')}>
