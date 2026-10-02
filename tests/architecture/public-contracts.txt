@@ -2216,7 +2216,6 @@ Published paths
   readonly StoredObject.byteLength: number
   type TokenSource = () => string
   type UnavailableReason = "no-retained-copy"
-  type YieldToHost = () => Promise<void>
   function classifySource(recorded: ExternalSourceIdentity, observation: SourceObservation, candidate?: ExternalSourceIdentity | undefined): SourceClassification
   function collect(store: MediaObjectStore, plan: CollectionPlan, confirmation: PurgeConfirmation, freshRoots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionReport>>
   function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
@@ -2543,9 +2542,17 @@ Published paths
   interface TreeMedia
   readonly TreeMedia.contentId: ContentId
   readonly TreeMedia.byteLength: number
+  class Turns
+  new Turns(yieldToHost: YieldToHost, signal?: AbortSignal | undefined): Turns
+  readonly Turns.signal: AbortSignal | undefined
+  readonly Turns.#yieldToHost: YieldToHost
+  Turns.#steps: number
+  Turns.afterStep: () => Promise<void>
+  Turns.afterHeavyStep: () => Promise<void>
   interface VerifiedReadingOptions
   readonly VerifiedReadingOptions.signal?: AbortSignal
-  readonly VerifiedReadingOptions.yieldToHost?: () => Promise<void>
+  readonly VerifiedReadingOptions.yieldToHost: YieldToHost
+  type YieldToHost = () => Promise<void>
   interface ZipArchive
   readonly ZipArchive.entries: readonly ZipEntry[]
   interface ZipEntry
@@ -2561,11 +2568,12 @@ Published paths
   readonly ZipLimits.maxDirectoryBytes: number
   interface ZipReadingOptions
   readonly ZipReadingOptions.signal?: AbortSignal
+  readonly ZipReadingOptions.yieldToHost: YieldToHost
   readonly ZipReadingOptions.limits?: Partial<ZipLimits>
   interface ZipWritingOptions
   readonly ZipWritingOptions.signal?: AbortSignal
   readonly ZipWritingOptions.onProgress?: (written: number) => void
-  readonly ZipWritingOptions.yieldToHost?: () => Promise<void>
+  readonly ZipWritingOptions.yieldToHost: YieldToHost
   interface ZipWritten
   readonly ZipWritten.entries: number
   readonly ZipWritten.bytes: number
@@ -2612,7 +2620,7 @@ Published paths
   function numberConverter(minimum: number, maximum: number): Converter<number>
   function objectOf(reading: Reading, value: JsonValue, parent: string, key: number | string, members: ReadonlySet<string>): JsonObject | undefined
   function oneOfConverter<TValue extends string>(values: readonly TValue[]): Converter<TValue>
-  function openZip(source: ByteSource, options?: ZipReadingOptions): Promise<DomainResult<ZipArchive>>
+  function openZip(source: ByteSource, options: ZipReadingOptions): Promise<DomainResult<ZipArchive>>
   function optional<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
   function parseJson(text: string, limits: JsonLimits): DomainResult<JsonValue>
   function parseProjectDocument(text: string): DomainResult<ProjectState>
@@ -2639,7 +2647,7 @@ Published paths
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSegmentedHistory: Converter<SegmentedHistoryRecord>
   const readSnapshotRecord: Converter<NamedSnapshot>
-  function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options?: VerifiedReadingOptions): Promise<DomainResult<void>>
+  function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
   function serialiseProjectDocument(state: ProjectState): DomainResult<string>
   function sortedBy<TValue>(values: Iterable<TValue>, keyOf: (value: TValue) => string, write: (value: TValue) => JsonValue): JsonArray
@@ -2664,9 +2672,12 @@ Published paths
   function writeRetentionPolicy(policy: RetentionPolicy): JsonObject
   function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
-  function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options?: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
+  function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
 
 @audiogubbins/project-format/testing
+  interface CountedTurns
+  readonly CountedTurns.yieldToHost: YieldToHost
+  readonly CountedTurns.asked: number
   interface Random
   Random.next: () => number
   Random.below: (bound: number) => number
@@ -2678,6 +2689,8 @@ Published paths
   readonly SampleProject.assets: { readonly footstep: Asset; readonly ambience: Asset; }
   readonly SampleProject.tracks: { readonly foley: Track; readonly background: Track; }
   function contentIdOfDigit(digit: string): ContentId
+  function countedTurns(onTurn?: (asked: number) => void): CountedTurns
+  const immediateTurns: YieldToHost
   function randomAssetRecord(random: Random, ids: IdGenerator, projectId: ProjectId): AssetRecord
   function randomContentId(random: Random): ContentId
   function randomIdentity(random: Random): ExternalSourceIdentity
@@ -2841,6 +2854,7 @@ Published paths
   readonly BackupServices.digest: Digest
   readonly BackupServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly BackupServices.logger: import("packages/diagnostics/src/logger").Logger
+  readonly BackupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly BackupServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly BackupServices.caches: import("packages/storage/src/cache-store").CacheStore
   type BackupTick = { readonly kind: "busy"; } | { readonly kind: "made"; readonly generation: BackupGeneration; readonly pruned: readonly BackupGeneration[]; readonly external: ExternalCopy; } | { readonly kind: "not-due"; }
@@ -2902,6 +2916,7 @@ Published paths
   readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupRunServices.owner: import("packages/storage/src/write-lease").LeaseOwner
   readonly CleanupRunServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
+  readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   type CleanupSelection = "everything" | readonly CleanupChoice[]
   interface CleanupServices
   readonly CleanupServices.tree: StorageTree
@@ -2960,6 +2975,7 @@ Published paths
   readonly ExportServices.digest: Digest
   readonly ExportServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly ExportServices.logger: import("packages/diagnostics/src/logger").Logger
+  readonly ExportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly ExportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly ExportServices.caches: import("packages/storage/src/cache-store").CacheStore
   interface ExportSource
@@ -2984,6 +3000,7 @@ Published paths
   readonly ForkServices.ids: IdGenerator
   readonly ForkServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
   readonly ForkServices.logger: import("packages/diagnostics/src/logger").Logger
+  readonly ForkServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   interface GenerationListing
   readonly GenerationListing.generations: readonly BackupGeneration[]
   readonly GenerationListing.incomplete: readonly number[]
@@ -3004,6 +3021,7 @@ Published paths
   readonly ImportServices.caches: CacheStore
   readonly ImportServices.coordinator?: LeaseCoordinator
   readonly ImportServices.owner: LeaseOwner
+  readonly ImportServices.yieldToHost: YieldToHost
   interface JournalBreak
   readonly JournalBreak.at: JournalPosition
   readonly JournalBreak.reason: BreakReason
@@ -3045,6 +3063,7 @@ Published paths
   readonly OpeningServices.coordinator?: LeaseCoordinator
   readonly OpeningServices.owner: LeaseOwner
   readonly OpeningServices.cadence?: SessionCadence
+  readonly OpeningServices.yieldToHost: YieldToHost
   type OwnershipEvent = { readonly kind: "acquired"; readonly owner?: LeaseOwner; } | { readonly kind: "checkpointed"; } | { readonly kind: "released"; }
   type PassedOverReason = "changed" | AbsenceReason
   interface PressureRelief
@@ -3182,6 +3201,7 @@ Published paths
   readonly RestoreServices.coordinator?: import("packages/storage/src/write-lease").LeaseCoordinator
   readonly RestoreServices.owner: import("packages/storage/src/write-lease").LeaseOwner
   readonly RestoreServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
+  readonly RestoreServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   type RestoreTarget = "new-project" | "replace-current"
   type RestoredBackup = { readonly kind: "new-project"; readonly header: ProjectHeader; } | { readonly kind: "replaced"; readonly previous: BackupGeneration; readonly session: ProjectSession; readonly saved: WriteOutcome; }
   type SaveStatus = { readonly kind: "not-saved"; readonly pending: number; readonly cause: DomainFailure; } | { readonly kind: "saved"; } | { readonly kind: "saving"; readonly pending: number; } | { readonly kind: "stopped"; readonly unsaved: number; }
@@ -3247,7 +3267,7 @@ Published paths
   function consolidate(session: ProjectSession, services: ConsolidationServices, signal?: AbortSignal | undefined): Promise<DomainResult<readonly AssetConsolidation[]>>
   function exportBackup(project: ProjectId, generation: number, sink: ByteSink, options: CopyOptions, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
-  function exportRawStorage(tree: StorageTree, sink: ByteSink, options?: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
+  function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
@@ -3256,14 +3276,14 @@ Published paths
   function mediaSharingOf(coordinator: LeaseCoordinator | undefined): MediaSharing
   function openProject(request: OpeningRequest, services: OpeningServices): Promise<DomainResult<OpenedProject>>
   function openStorageRoot(tree: StorageTree, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<StorageRootOpening>>
-  function packUnpacked(reader: DirectoryReader, sink: ByteSink, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ZipWritten>>
+  function packUnpacked(reader: DirectoryReader, sink: ByteSink, services: BundleServices, signal?: AbortSignal | undefined): Promise<DomainResult<ZipWritten>>
   function planBackupPruning(generations: readonly BackupGeneration[], retention: BackupRetention, now: number): BackupPruning
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
-  function unpackBundle(source: ByteSource, writer: DirectoryWriter, digest: Digest, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
+  function unpackBundle(source: ByteSource, writer: DirectoryWriter, services: BundleServices, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
@@ -3383,7 +3403,6 @@ Published paths
 @audiogubbins/storage-runtime/testing
   interface HostServices extends OpeningServices, CleanupRunServices
   readonly HostServices.repository: ProjectRepository
-  readonly HostServices.yieldToHost: YieldToHost
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
@@ -3393,6 +3412,7 @@ Published paths
   readonly HostServices.coordinator?: LeaseCoordinator
   readonly HostServices.owner: LeaseOwner
   readonly HostServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
+  readonly HostServices.yieldToHost: YieldToHost
   readonly HostServices.store: MediaObjectStore
   readonly HostServices.caches: CacheStore
   interface MemoryStorageOptions
@@ -4528,6 +4548,11 @@ packages/storage/src/backup-generations.ts
   readonly KeptStates.cursorState: StateFingerprint
   readonly KeptStates.history: History
 
+packages/storage/src/bundle-reading.ts
+  interface BundleServices
+  readonly BundleServices.digest: Digest
+  readonly BundleServices.yieldToHost: YieldToHost
+
 packages/storage/src/checked-records.ts
   type CheckedReading<TValue> = { readonly kind: "absent"; } | { readonly kind: "invalid"; readonly fault: RecordFault; } | { readonly kind: "valid"; readonly value: TValue; }
   class CheckedRecords
@@ -4658,6 +4683,7 @@ packages/storage/src/project-recovery.ts
   interface RecoveryServices
   readonly RecoveryServices.bus: CommandBus<ProjectState>
   readonly RecoveryServices.logger: Logger
+  readonly RecoveryServices.yieldToHost: YieldToHost
 
 packages/storage/src/project-snapshot.ts
   class SnapshotPublisher

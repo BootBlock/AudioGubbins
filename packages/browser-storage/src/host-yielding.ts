@@ -10,7 +10,7 @@
  * is given back at once.
  */
 
-import type { YieldToHost } from '@audiogubbins/media-store';
+import type { YieldToHost } from '@audiogubbins/project-format';
 
 /** How the page is given a turn, as the capabilities package reads it. */
 export type HostYieldingMethod =

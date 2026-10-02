@@ -17,11 +17,10 @@ import {
   readProjectTree,
   type ByteSink,
   type ByteSource,
-  type Digest,
   type ZipWritten,
 } from '@audiogubbins/project-format';
 
-import { openBundle } from './bundle-reading.js';
+import { openBundle, type BundleServices } from './bundle-reading.js';
 import { writeBundle } from './bundle-writing.js';
 import {
   claimDirectory,
@@ -39,13 +38,13 @@ import {
 export async function unpackBundle(
   source: ByteSource,
   writer: DirectoryWriter,
-  digest: Digest,
+  services: BundleServices,
   claim: DirectoryClaim = {},
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
-  const bundle = await openBundle(source, digest, signal);
+  const bundle = await openBundle(source, services, signal);
   if (!bundle.ok) return bundle;
-  const content = await readProjectTree(bundle.value.listing, digest, signal);
+  const content = await readProjectTree(bundle.value.listing, services.digest, signal);
   if (!content.ok) return content;
   const claimed = await claimDirectory(writer, content.value.state.project.id, claim, signal);
   if (!claimed.ok) return claimed;
@@ -58,9 +57,10 @@ export async function unpackBundle(
 export async function packUnpacked(
   reader: DirectoryReader,
   sink: ByteSink,
-  digest: Digest,
+  services: BundleServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ZipWritten>> {
+  const { digest, yieldToHost } = services;
   const tree = await directoryTree(reader, signal);
   if (!tree.ok) {
     await sink.abort(tree.failures[0]);
@@ -80,6 +80,7 @@ export async function packUnpacked(
     open: tree.value.open,
     digest,
     proveMedia: true,
+    yieldToHost,
     ...(signal === undefined ? {} : { signal }),
   });
 }

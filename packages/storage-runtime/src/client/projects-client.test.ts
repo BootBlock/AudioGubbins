@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { YieldToHost } from '@audiogubbins/media-store';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import type { YieldToHost } from '@audiogubbins/project-format';
 import { MemoryLeaseCoordinator } from '@audiogubbins/storage/testing';
 
 import { memoryStorage, type MemoryStorage } from '../testing/memory-storage.js';

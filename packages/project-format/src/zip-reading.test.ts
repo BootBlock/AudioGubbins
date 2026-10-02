@@ -4,9 +4,11 @@ import { FailureKind, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { ByteSource } from './byte-ports.js';
+import { countedTurns, immediateTurns } from './testing/host-turns.js';
 import { contentOf, opened, patternBytes, spySource, zipOf } from './testing/zip-archives.js';
 import { encodeUtf8 } from './utf8.js';
 import { openZip, readVerified, type ZipArchive, type ZipEntry } from './zip-reading.js';
+import type { ZipEntryInput } from './zip-writing.js';
 
 const MIB = 1_048_576;
 
@@ -59,7 +61,7 @@ function refusal<TValue>(result: DomainResult<TValue>): readonly [string, string
 
 /** Opening `bytes`, as the code and kind it is refused with. */
 async function openRefusal(bytes: Uint8Array): Promise<readonly [string, string]> {
-  return refusal(await openZip(spySource(bytes)));
+  return refusal(await openZip(spySource(bytes), { yieldToHost: immediateTurns }));
 }
 
 /** Opening the one entry of `bytes`, as the code and kind it is refused with. */
@@ -73,6 +75,12 @@ const TWO = await zipOf([
   { path: 'abcd', source: encodeUtf8('first') },
   { path: 'wxyz', source: encodeUtf8('second') },
 ]);
+
+/** Enough files that their records are read many to a turn. */
+const MANY_FILES: readonly ZipEntryInput[] = Array.from({ length: 2_000 }, (_, index) => ({
+  path: `file-${String(index)}`,
+  source: new Uint8Array(1),
+}));
 
 describe('openZip then readVerified: round trips', () => {
   it('opens an empty archive with no entries', async () => {
@@ -127,15 +135,19 @@ describe('openZip then readVerified: round trips', () => {
     const size = 6 * MIB + 321;
     const bytes = await zipOf([{ path: 'long.wav', source: patternBytes(size, 11) }]);
     const source = spySource(bytes);
-    const archive = expectSuccess(await openZip(source));
+    const archive = expectSuccess(await openZip(source, { yieldToHost: immediateTurns }));
     const opening = source.reads.length;
 
     const lengths: number[] = [];
     expectSuccess(
-      await readVerified(at(archive.entries, 0), (chunk) => {
-        lengths.push(chunk.length);
-        return Promise.resolve();
-      }),
+      await readVerified(
+        at(archive.entries, 0),
+        (chunk) => {
+          lengths.push(chunk.length);
+          return Promise.resolve();
+        },
+        { yieldToHost: immediateTurns },
+      ),
     );
     expect(source.reads.slice(0, opening).every(({ length }) => length <= 65_557)).toBe(true);
     expect(source.reads.every(({ length }) => length <= MIB)).toBe(true);
@@ -146,7 +158,7 @@ describe('openZip then readVerified: round trips', () => {
   it('reads the end of the archive alone when opening it', async () => {
     const bytes = await zipOf([{ path: 'long', source: patternBytes(3 * MIB, 3) }]);
     const source = spySource(bytes);
-    expectSuccess(await openZip(source));
+    expectSuccess(await openZip(source, { yieldToHost: immediateTurns }));
     expect(source.reads.every(({ offset }) => offset >= bytes.length - 65_557)).toBe(true);
     expect(source.reads.every(({ length }) => length <= 65_557)).toBe(true);
   });
@@ -216,7 +228,7 @@ describe('openZip: refusals', () => {
     const bytes = mutated(ONE, (view, _, layout) => {
       view.setUint16(at(layout.central, 0) + 10, 8, true);
     });
-    const result = await openZip(spySource(bytes));
+    const result = await openZip(spySource(bytes), { yieldToHost: immediateTurns });
     expect(refusal(result)).toEqual(['zip.compressed', FailureKind.Rejected]);
     expect(result.ok || result.failures[0].details).toEqual({ method: 8 });
     expect(result.ok || result.failures[0].summary).toContain('method 8');
@@ -324,20 +336,31 @@ describe('openZip: refusals', () => {
 
   it('refuses more entries than the limit, and accepts as many', async () => {
     const three = await zipOf(['a', 'b', 'c'].map((path) => ({ path, source: new Uint8Array(1) })));
-    expect(refusal(await openZip(spySource(three), { limits: { maxEntries: 2 } }))).toEqual([
-      'zip.too-many-entries',
-      FailureKind.Rejected,
-    ]);
-    expectSuccess(await openZip(spySource(three), { limits: { maxEntries: 3 } }));
+    expect(
+      refusal(
+        await openZip(spySource(three), { yieldToHost: immediateTurns, limits: { maxEntries: 2 } }),
+      ),
+    ).toEqual(['zip.too-many-entries', FailureKind.Rejected]);
+    expectSuccess(
+      await openZip(spySource(three), { yieldToHost: immediateTurns, limits: { maxEntries: 3 } }),
+    );
   });
 
   it('refuses a directory larger than the limit before reading it', async () => {
     const source = spySource(TWO);
     const directorySize = TWO.length - 22 - layoutOf(TWO).directory;
-    const result = await openZip(source, { limits: { maxDirectoryBytes: directorySize - 1 } });
+    const result = await openZip(source, {
+      yieldToHost: immediateTurns,
+      limits: { maxDirectoryBytes: directorySize - 1 },
+    });
     expect(refusal(result)).toEqual(['zip.directory-too-large', FailureKind.Rejected]);
     expect(source.reads).toEqual([{ offset: 0, length: TWO.length }]);
-    expectSuccess(await openZip(spySource(TWO), { limits: { maxDirectoryBytes: directorySize } }));
+    expectSuccess(
+      await openZip(spySource(TWO), {
+        yieldToHost: immediateTurns,
+        limits: { maxDirectoryBytes: directorySize },
+      }),
+    );
   });
 
   it('refuses a stored entry whose two sizes differ', async () => {
@@ -434,7 +457,7 @@ describe('openZip: refusals', () => {
       size: ONE.length,
       read: (offset, length) => Promise.resolve(ONE.slice(offset, offset + length - 1)),
     };
-    expect(refusal(await openZip(source))).toEqual([
+    expect(refusal(await openZip(source, { yieldToHost: immediateTurns }))).toEqual([
       'zip.short-read',
       FailureKind.IntegrityViolation,
     ]);
@@ -443,9 +466,35 @@ describe('openZip: refusals', () => {
   it('rejects with the reason when the signal has aborted', async () => {
     const controller = new AbortController();
     controller.abort(new Error('Cancelled.'));
-    await expect(openZip(spySource(ONE), { signal: controller.signal })).rejects.toThrow(
-      'Cancelled.',
-    );
+    await expect(
+      openZip(spySource(ONE), { yieldToHost: immediateTurns, signal: controller.signal }),
+    ).rejects.toThrow('Cancelled.');
+  });
+
+  // The directory is read a mebibyte at a time, so its records are read from
+  // memory, and a directory of a million would otherwise hold the host
+  // throughout.
+  it('asks the host for a turn as it reads the records of a large directory', async () => {
+    const archive = await zipOf(MANY_FILES);
+    const turns = countedTurns();
+    expectSuccess(await openZip(spySource(archive), { yieldToHost: turns.yieldToHost }));
+    // Two passes over 2,000 records: reading them, and ordering them by offset.
+    expect(turns.asked).toBeGreaterThanOrEqual(30);
+  });
+
+  it('stops reading the directory at the turn its signal aborts in', async () => {
+    const archive = await zipOf(MANY_FILES);
+    const controller = new AbortController();
+    const reason = new Error('Cancelled.');
+    const turns = countedTurns(() => {
+      controller.abort(reason);
+    });
+    const opening = openZip(spySource(archive), {
+      yieldToHost: turns.yieldToHost,
+      signal: controller.signal,
+    });
+    await expect(opening).rejects.toBe(reason);
+    expect(turns.asked).toBe(1);
   });
 });
 
@@ -522,10 +571,14 @@ describe('readVerified', () => {
     const archive: ZipArchive = await opened(bytes);
     const entry: ZipEntry = at(archive.entries, 0);
     const chunks: Uint8Array[] = [];
-    const result = await readVerified(entry, (chunk) => {
-      chunks.push(chunk);
-      return Promise.resolve();
-    });
+    const result = await readVerified(
+      entry,
+      (chunk) => {
+        chunks.push(chunk);
+        return Promise.resolve();
+      },
+      { yieldToHost: immediateTurns },
+    );
     return [result, chunks];
   }
 
@@ -546,9 +599,11 @@ describe('readVerified', () => {
       read: (offset, length) =>
         Promise.resolve(bytes.slice(offset, offset + length - (changing.shortened ? 1 : 0))),
     };
-    const archive = expectSuccess(await openZip(source));
+    const archive = expectSuccess(await openZip(source, { yieldToHost: immediateTurns }));
     changing.shortened = true;
-    const result = await readVerified(at(archive.entries, 0), () => Promise.resolve());
+    const result = await readVerified(at(archive.entries, 0), () => Promise.resolve(), {
+      yieldToHost: immediateTurns,
+    });
     expect(refusal(result)).toEqual(['zip.short-read', FailureKind.IntegrityViolation]);
   });
 

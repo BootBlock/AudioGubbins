@@ -14,11 +14,12 @@ import type {
   Digest,
   ExternalSourceIdentity,
   HashingOptions,
+  YieldToHost,
 } from '@audiogubbins/project-format';
 
 import { checkedFile, type ExternalFile } from './external-file.js';
 import { identityOutdated } from './media-failures.js';
-import { hashProgressively, type YieldToHost } from './progressive-hashing.js';
+import { hashProgressively } from './progressive-hashing.js';
 import { sampleSource } from './source-sampling.js';
 
 /** What completing an identity needs from the host. */

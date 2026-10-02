@@ -31,6 +31,7 @@ import {
   type Digest,
   type ManifestEntry,
   type ProjectTreeFile,
+  type YieldToHost,
   type ZipEntryInput,
   type ZipWritten,
 } from '@audiogubbins/project-format';
@@ -51,6 +52,9 @@ interface BundleWriting {
 
   /** Whether media is hashed to prove it, where it does not come from the store. */
   readonly proveMedia: boolean;
+
+  /** Asked as the archive is written, whose chunks may be read and checksummed at once. */
+  readonly yieldToHost: YieldToHost;
   readonly signal?: AbortSignal;
 }
 
@@ -90,6 +94,7 @@ export async function writeBundle(
     return await refusalsReported(
       async () =>
         await writeZip(zipEntries(ordered, writing), sink, {
+          yieldToHost: writing.yieldToHost,
           ...(writing.signal === undefined ? {} : { signal: writing.signal }),
         }),
     );

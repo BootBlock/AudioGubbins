@@ -7,6 +7,7 @@ import { FailureKind } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { PYTHON, pythonReads } from './testing/python-zip.js';
+import { immediateTurns } from './testing/host-turns.js';
 import { contentOf, opened, patternBytes, spySource, zipOf } from './testing/zip-archives.js';
 import { openZip } from './zip-reading.js';
 
@@ -69,7 +70,7 @@ function mutated(edit: (fields: DataView) => void): Uint8Array<ArrayBuffer> {
 }
 
 async function openRefusal(bytes: Uint8Array): Promise<readonly [string, string]> {
-  const result = await openZip(spySource(bytes));
+  const result = await openZip(spySource(bytes), { yieldToHost: immediateTurns });
   return [expectFailureCode(result), result.ok ? '' : result.failures[0].kind];
 }
 
@@ -287,9 +288,14 @@ describe('openZip: ZIP64 refusals', () => {
   });
 
   it('holds the ZIP64 count to the limit', async () => {
-    const result = await openZip(spySource(ARCHIVE), { limits: { maxEntries: 3 } });
+    const result = await openZip(spySource(ARCHIVE), {
+      yieldToHost: immediateTurns,
+      limits: { maxEntries: 3 },
+    });
     expect(expectFailureCode(result)).toBe('zip.too-many-entries');
-    expectSuccess(await openZip(spySource(ARCHIVE), { limits: { maxEntries: 4 } }));
+    expectSuccess(
+      await openZip(spySource(ARCHIVE), { yieldToHost: immediateTurns, limits: { maxEntries: 4 } }),
+    );
   });
 
   it('refuses a ZIP64 directory offset that does not add up', async () => {

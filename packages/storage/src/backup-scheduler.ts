@@ -209,6 +209,7 @@ export class BackupScheduler {
         open: storedBodies(this.services),
         digest: this.services.digest,
         proveMedia: false,
+        yieldToHost: this.services.yieldToHost,
         ...(signal === undefined ? {} : { signal }),
       });
     });

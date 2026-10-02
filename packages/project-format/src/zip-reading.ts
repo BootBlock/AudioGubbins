@@ -15,6 +15,7 @@ import { FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { ByteSource } from './byte-ports.js';
 import { crc32 } from './crc32.js';
+import { Turns, type YieldToHost } from './work-turns.js';
 import { readCentralDirectory, type DirectoryRecord } from './zip-directory.js';
 import type { ZipLimits } from './zip-end-records.js';
 import { resolveZip64 } from './zip-extra.js';
@@ -27,6 +28,9 @@ const DEFAULT_LIMITS: ZipLimits = { maxEntries: 1_000_000, maxDirectoryBytes: 26
 /** What opening an archive may be told. */
 export interface ZipReadingOptions {
   readonly signal?: AbortSignal;
+
+  /** Asked between records of the directory, which are read from memory. */
+  readonly yieldToHost: YieldToHost;
 
   /**
    * The most entries and directory bytes to accept, by default 1,000,000 and
@@ -58,8 +62,8 @@ export interface ZipArchive {
 export interface VerifiedReadingOptions {
   readonly signal?: AbortSignal;
 
-  /** Awaited between chunks, so a caller on the interface thread stays responsive. */
-  readonly yieldToHost?: () => Promise<void>;
+  /** Asked after each chunk is checksummed, since its read may resolve at once. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /**
@@ -71,10 +75,11 @@ export interface VerifiedReadingOptions {
  */
 export async function openZip(
   source: ByteSource,
-  options: ZipReadingOptions = {},
+  options: ZipReadingOptions,
 ): Promise<DomainResult<ZipArchive>> {
   const limits = { ...DEFAULT_LIMITS, ...options.limits };
-  const directory = await readCentralDirectory(source, limits, options.signal);
+  const turns = new Turns(options.yieldToHost, options.signal);
+  const directory = await readCentralDirectory(source, limits, turns);
   if (!directory.ok) return directory;
   const { records, start } = directory.value;
 
@@ -86,6 +91,7 @@ export async function openZip(
     .toSorted((one, other) => one.record.offset - other.record.offset);
   const inDirectoryOrder: (ZipEntry | undefined)[] = new Array<undefined>(records.length);
   for (const [at, { record, index }] of byOffset.entries()) {
+    await turns.afterStep();
     const limit = byOffset[at + 1]?.record.offset ?? start;
     if (dataStart(record, record.nameBytes.length) + record.size > limit) return overlapping();
     if (!record.folder) inDirectoryOrder[index] = new StoredEntry(source, record, limit);
@@ -104,9 +110,10 @@ export async function openZip(
 export async function readVerified(
   entry: ZipEntry,
   consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>,
-  options: VerifiedReadingOptions = {},
+  options: VerifiedReadingOptions,
 ): Promise<DomainResult<void>> {
-  const { signal, yieldToHost } = options;
+  const { signal } = options;
+  const turns = new Turns(options.yieldToHost, signal);
   const opened = await entry.open(signal);
   if (!opened.ok) return opened;
   const data = opened.value;
@@ -119,7 +126,7 @@ export async function readVerified(
     if (chunk.length !== length) return shortRead(at);
     crc = crc32(chunk, crc);
     await consume(chunk);
-    await yieldToHost?.();
+    await turns.afterHeavyStep();
   }
   if (crc !== entry.crc32) {
     return refuse(

@@ -25,13 +25,13 @@ import {
   type ContentId,
   type Digest,
   type ExternalSourceIdentity,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import { checkedFile, type ExternalFile } from './external-file.js';
 import { identityOutdated } from './media-failures.js';
 import type { MediaObjectStore } from './object-store.js';
 import type { PutOptions } from './object-writing.js';
-import type { YieldToHost } from './progressive-hashing.js';
 import { completeIdentity, observeFile } from './source-observation.js';
 import { sampleSource } from './source-sampling.js';
 

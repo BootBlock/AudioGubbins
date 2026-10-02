@@ -25,7 +25,7 @@ import { refusalsReported } from './storage-failures.js';
 export async function exportRawStorage(
   tree: StorageTree,
   sink: ByteSink,
-  options: ZipWritingOptions = {},
+  options: ZipWritingOptions,
 ): Promise<DomainResult<ZipWritten>> {
   return await refusalsReported(async () => await writeZip(filesOf(tree, ''), sink, options));
 }

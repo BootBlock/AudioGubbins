@@ -14,6 +14,7 @@ import { FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { ByteSource } from './byte-ports.js';
 import { decodeUtf8 } from './utf8.js';
+import type { Turns } from './work-turns.js';
 import { locateDirectory, type ZipLimits } from './zip-end-records.js';
 import { resolveZip64 } from './zip-extra.js';
 import { ArchiveNames, entryNameBytes } from './zip-paths.js';
@@ -41,21 +42,23 @@ export interface CentralDirectory {
 
 /**
  * Reads and checks the central directory of the archive in `source`, holding
- * it to `limits` before any of it is read.
+ * it to `limits` before any of it is read. A record is read from a chunk
+ * already in memory, so each takes a step of `turns`.
  */
 export async function readCentralDirectory(
   source: ByteSource,
   limits: ZipLimits,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<DomainResult<CentralDirectory>> {
-  const located = await locateDirectory(source, limits, signal);
+  const located = await locateDirectory(source, limits, turns.signal);
   if (!located.ok) return located;
   const { start, size, count } = located.value;
 
-  const cursor = new DirectoryCursor(source, start, start + size, signal);
+  const cursor = new DirectoryCursor(source, start, start + size, turns.signal);
   const names = new ArchiveNames();
   const records: DirectoryRecord[] = [];
   for (let index = 0; index < count; index += 1) {
+    await turns.afterStep();
     const record = await readRecord(cursor, index);
     if (!record.ok) return record;
 

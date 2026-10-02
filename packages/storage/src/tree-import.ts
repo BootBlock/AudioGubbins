@@ -39,6 +39,7 @@ import {
   type Digest,
   type ProjectTreeContent,
   type StorageTree,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import type { BodyOpener } from './bundle-writing.js';
@@ -67,6 +68,9 @@ export interface ImportServices {
   /** The platform's lease coordination, absent where it has none. */
   readonly coordinator?: LeaseCoordinator;
   readonly owner: LeaseOwner;
+
+  /** Asked through work over records or bytes held in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** Brings a project in from its tree, whose media and caches `open` reads. */

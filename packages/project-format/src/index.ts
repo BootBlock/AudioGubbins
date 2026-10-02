@@ -41,6 +41,8 @@ export { parseJson } from './json-parsing.js';
 
 export { type ByteSink, type ByteSource, type Digest } from './byte-ports.js';
 
+export { Turns, type YieldToHost } from './work-turns.js';
+
 export {
   type StorageTree,
   type TreeEntry,

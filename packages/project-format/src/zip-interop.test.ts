@@ -12,6 +12,7 @@ import {
   pythonWrites,
   type PythonArchive,
 } from './testing/python-zip.js';
+import { immediateTurns } from './testing/host-turns.js';
 import { contentOf, opened, patternBytes, spySource, zipOf } from './testing/zip-archives.js';
 import { encodeUtf8 } from './utf8.js';
 import { openZip } from './zip-reading.js';
@@ -64,7 +65,9 @@ describe.skipIf(PYTHON === undefined)('ZIP interoperability with Python’s zipf
   );
 
   it('refuses what Python compresses, naming the method', async () => {
-    const result = await openZip(spySource(pythonWrites('deflated', 10)));
+    const result = await openZip(spySource(pythonWrites('deflated', 10)), {
+      yieldToHost: immediateTurns,
+    });
     expect(expectFailureCode(result)).toBe('zip.compressed');
     expect(result.ok || result.failures[0].details).toEqual({ method: 8 });
   });

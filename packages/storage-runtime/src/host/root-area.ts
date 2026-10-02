@@ -14,12 +14,12 @@ import { pageSink } from './remote-page-ports.js';
 
 /** The storage root's operations, over the worker's tree and the sinks the page lends. */
 export function rootHandlers(
-  { tree, digest }: HostServices,
+  { tree, digest, yieldToHost }: HostServices,
   channel: HostChannel,
 ): AreaHandlers<'root'> {
   return {
     'root.exportRaw': ({ sink }, { signal }) =>
-      exportRawStorage(tree, pageSink(channel, sink), { signal }),
+      exportRawStorage(tree, pageSink(channel, sink), { signal, yieldToHost }),
     'root.open': (_nothing, { signal }) => openStorageRoot(tree, digest, signal),
     'root.wipe': (confirmation, { signal }) => wipeStorage(tree, digest, confirmation, signal),
   };

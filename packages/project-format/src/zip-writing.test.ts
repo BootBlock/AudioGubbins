@@ -6,6 +6,7 @@ import { FailureKind } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { ByteSource } from './byte-ports.js';
+import { immediateTurns } from './testing/host-turns.js';
 import {
   contentOf,
   memorySink,
@@ -93,7 +94,7 @@ describe('writeZip: the records it writes', () => {
       entries.map(({ path, source }) => ({ path, source: spySource(source) })),
     );
     const sink = memorySink();
-    expectSuccess(await writeZip(streamed(entries), sink));
+    expectSuccess(await writeZip(streamed(entries), sink, { yieldToHost: immediateTurns }));
 
     expect(Buffer.compare(again, first)).toBe(0);
     expect(Buffer.compare(asSources, first)).toBe(0);
@@ -104,7 +105,9 @@ describe('writeZip: the records it writes', () => {
     const size = 5 * MIB + 123;
     const source = spySource(patternBytes(size, 4));
     const sink = memorySink();
-    expectSuccess(await writeZip([{ path: 'long.wav', source }], sink));
+    expectSuccess(
+      await writeZip([{ path: 'long.wav', source }], sink, { yieldToHost: immediateTurns }),
+    );
 
     expect(source.reads.every(({ length }) => length <= MIB)).toBe(true);
     expect(source.reads.map(({ offset }) => offset)).toEqual(
@@ -181,6 +184,7 @@ describe('writeZip: the names it accepts', () => {
         { path, source: new Uint8Array(1) },
       ],
       sink,
+      { yieldToHost: immediateTurns },
     );
     expect(expectFailureCode(result)).toBe('zip.unsafe-path');
     expect(result.ok || result.failures[0].kind).toBe(FailureKind.Rejected);
@@ -195,6 +199,7 @@ describe('writeZip: the names it accepts', () => {
         { path: 'a/b', source: new Uint8Array(2) },
       ],
       sink,
+      { yieldToHost: immediateTurns },
     );
     expect(expectFailureCode(result)).toBe('zip.duplicate-path');
     expect(sink.ending.state).toBe('aborted');
@@ -208,6 +213,7 @@ describe('writeZip: the names it accepts', () => {
     const result = await writeZip(
       paths.map((path) => ({ path, source: new Uint8Array(0) })),
       sink,
+      { yieldToHost: immediateTurns },
     );
     expect(expectFailureCode(result)).toBe('zip.file-and-folder');
     expect(sink.ending.state).toBe('aborted');
@@ -221,7 +227,7 @@ describe('writeZip: failure', () => {
       size: 10,
       read: () => Promise.resolve(new Uint8Array(4)),
     };
-    const result = await writeZip([{ path: 'a', source }], sink);
+    const result = await writeZip([{ path: 'a', source }], sink, { yieldToHost: immediateTurns });
     expect(expectFailureCode(result)).toBe('zip.short-read');
     expect(result.ok || result.failures[0].kind).toBe(FailureKind.IntegrityViolation);
     expect(sink.ending.state).toBe('aborted');
@@ -240,7 +246,10 @@ describe('writeZip: failure', () => {
     };
     const sink = memorySink();
     await expect(
-      writeZip([{ path: 'a', source }], sink, { signal: controller.signal }),
+      writeZip([{ path: 'a', source }], sink, {
+        yieldToHost: immediateTurns,
+        signal: controller.signal,
+      }),
     ).rejects.toBe(reason);
     expect(sink.ending).toEqual({ state: 'aborted', reason });
   });
@@ -249,7 +258,9 @@ describe('writeZip: failure', () => {
     const broken = new Error('The file vanished.');
     const failingSource: ByteSource = { size: 5, read: () => Promise.reject(broken) };
     const sink = memorySink();
-    await expect(writeZip([{ path: 'a', source: failingSource }], sink)).rejects.toBe(broken);
+    await expect(
+      writeZip([{ path: 'a', source: failingSource }], sink, { yieldToHost: immediateTurns }),
+    ).rejects.toBe(broken);
     expect(sink.ending).toEqual({ state: 'aborted', reason: broken });
 
     async function* failingEntries(): AsyncGenerator<ZipEntryInput> {
@@ -258,7 +269,9 @@ describe('writeZip: failure', () => {
       throw broken;
     }
     const second = memorySink();
-    await expect(writeZip(failingEntries(), second)).rejects.toBe(broken);
+    await expect(writeZip(failingEntries(), second, { yieldToHost: immediateTurns })).rejects.toBe(
+      broken,
+    );
     expect(second.ending.state).toBe('aborted');
 
     const refusing = memorySink();
@@ -271,7 +284,9 @@ describe('writeZip: failure', () => {
         await refusing.write(chunk);
       },
     };
-    await expect(writeZip([{ path: 'a', source: new Uint8Array(3) }], third)).rejects.toBe(broken);
+    await expect(
+      writeZip([{ path: 'a', source: new Uint8Array(3) }], third, { yieldToHost: immediateTurns }),
+    ).rejects.toBe(broken);
     expect(refusing.ending.state).toBe('aborted');
   });
 
@@ -280,7 +295,10 @@ describe('writeZip: failure', () => {
     controller.abort(new Error('Too late.'));
     const sink = memorySink();
     await expect(
-      writeZip([{ path: 'a', source: new Uint8Array(1) }], sink, { signal: controller.signal }),
+      writeZip([{ path: 'a', source: new Uint8Array(1) }], sink, {
+        yieldToHost: immediateTurns,
+        signal: controller.signal,
+      }),
     ).rejects.toThrow('Too late.');
     expect(sink.chunks).toEqual([]);
     expect(sink.ending.state).toBe('aborted');
@@ -288,7 +306,9 @@ describe('writeZip: failure', () => {
 
   it('throws on a source whose size is not a whole number of bytes', async () => {
     const source: ByteSource = { size: 1.5, read: () => Promise.resolve(new Uint8Array(0)) };
-    await expect(writeZip([{ path: 'a', source }], memorySink())).rejects.toThrow(RangeError);
+    await expect(
+      writeZip([{ path: 'a', source }], memorySink(), { yieldToHost: immediateTurns }),
+    ).rejects.toThrow(RangeError);
   });
 });
 

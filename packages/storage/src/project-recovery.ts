@@ -32,7 +32,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import { restorationOf, retainedStates } from '@audiogubbins/history';
-import type { ProjectState, StateFingerprint } from '@audiogubbins/project-format';
+import type { ProjectState, StateFingerprint, YieldToHost } from '@audiogubbins/project-format';
 
 import type { RecordFault } from './checked-records.js';
 import type { StoredCheckpoint } from './checkpoint-files.js';
@@ -110,6 +110,9 @@ export interface RecoveredProject {
 export interface RecoveryServices {
   readonly bus: CommandBus<ProjectState>;
   readonly logger: Logger;
+
+  /** Asked through work over history, records or bytes held in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** Rebuilds a project from storage under the lease's seals. */

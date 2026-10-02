@@ -24,6 +24,7 @@ import {
 import {
   BUNDLE_MANIFEST_PATH,
   LONGEST_MANIFEST,
+  Turns,
   contentIdOf,
   openZip,
   readBundleManifest,
@@ -32,11 +33,20 @@ import {
   type Digest,
   type ManifestEntry,
   type ProjectTreeListing,
+  type YieldToHost,
   type ZipEntry,
 } from '@audiogubbins/project-format';
 
 import type { BodyOpener } from './bundle-writing.js';
 import { bytesSource } from './byte-streams.js';
+
+/** What a bundle is read with, each made once by the composition root. */
+export interface BundleServices {
+  readonly digest: Digest;
+
+  /** Asked between entries and chunks, which are checked in memory. */
+  readonly yieldToHost: YieldToHost;
+}
 
 /** A bundle opened and held to its manifest. */
 interface OpenedBundle {
@@ -50,37 +60,30 @@ interface OpenedBundle {
 /** Opens a bundle (see the module comment). */
 export async function openBundle(
   source: ByteSource,
-  digest: Digest,
+  services: BundleServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<OpenedBundle>> {
-  const archive = await openZip(source, signal === undefined ? {} : { signal });
+  const { yieldToHost } = services;
+  const archive = await openZip(source, {
+    yieldToHost,
+    ...(signal === undefined ? {} : { signal }),
+  });
   if (!archive.ok) return archive;
   const entries = new Map(archive.value.entries.map((entry) => [entry.path, entry]));
   const manifestEntry = entries.get(BUNDLE_MANIFEST_PATH);
   if (manifestEntry === undefined) return fail(bundleProblem('bundle.no-manifest'));
   if (manifestEntry.size > LONGEST_MANIFEST)
     return fail(bundleProblem('bundle.manifest-too-large'));
-  const manifestBytes = await wholeEntry(manifestEntry, signal);
+  const manifestBytes = await wholeEntry(manifestEntry, yieldToHost, signal);
   if (!manifestBytes.ok) return manifestBytes;
   const manifest = readBundleManifest(manifestBytes.value);
   if (!manifest.ok) return manifest;
 
   const listed = new Map(manifest.value.entries.map((entry) => [entry.path, entry]));
-  const problems = [...entries.keys()].flatMap((path) => {
-    if (path === BUNDLE_MANIFEST_PATH) return [];
-    const expected = listed.get(path);
-    if (expected === undefined) return [bundleProblem('bundle.unlisted-entry', path)];
-    return expected.size === entries.get(path)?.size
-      ? []
-      : [bundleProblem('bundle.length-mismatch', path)];
-  });
-  for (const path of listed.keys()) {
-    if (!entries.has(path)) problems.push(bundleProblem('bundle.missing-entry', path));
-  }
-  const [first, ...rest] = problems;
+  const [first, ...rest] = await problemsOf(entries, listed, new Turns(yieldToHost, signal));
   if (first !== undefined) return fail(first, ...rest);
 
-  const checked = new CheckedEntries(entries, listed, digest);
+  const checked = new CheckedEntries(entries, listed, services);
   return succeed({
     listing: {
       files: manifest.value.entries.map(({ path, size }) => ({ path, size })),
@@ -90,27 +93,54 @@ export async function openBundle(
   });
 }
 
+/**
+ * Where the archive and its manifest disagree: an entry the manifest does not
+ * list or lists at another length, and one it lists that is missing. A bundle
+ * may hold a million entries, so each takes a step of `turns`.
+ */
+async function problemsOf(
+  entries: ReadonlyMap<string, ZipEntry>,
+  listed: ReadonlyMap<string, ManifestEntry>,
+  turns: Turns,
+): Promise<DomainFailure[]> {
+  const problems: DomainFailure[] = [];
+  for (const [path, entry] of entries) {
+    await turns.afterStep();
+    if (path === BUNDLE_MANIFEST_PATH) continue;
+    const expected = listed.get(path);
+    if (expected === undefined) problems.push(bundleProblem('bundle.unlisted-entry', path));
+    else if (expected.size !== entry.size) {
+      problems.push(bundleProblem('bundle.length-mismatch', path));
+    }
+  }
+  for (const path of listed.keys()) {
+    await turns.afterStep();
+    if (!entries.has(path)) problems.push(bundleProblem('bundle.missing-entry', path));
+  }
+  return problems;
+}
+
 /** A bundle's entries, each given only once it is proved the entry its manifest lists. */
 class CheckedEntries {
   private readonly entries: ReadonlyMap<string, ZipEntry>;
   private readonly listed: ReadonlyMap<string, ManifestEntry>;
-  private readonly digest: Digest;
+  private readonly services: BundleServices;
 
   constructor(
     entries: ReadonlyMap<string, ZipEntry>,
     listed: ReadonlyMap<string, ManifestEntry>,
-    digest: Digest,
+    services: BundleServices,
   ) {
     this.entries = entries;
     this.listed = listed;
-    this.digest = digest;
+    this.services = services;
   }
 
   /** A metadata file's bytes, checked. */
   async read(path: string, signal?: AbortSignal): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
     const entry = this.entries.get(path);
     if (entry === undefined) return fail(bundleProblem('bundle.missing-entry', path));
-    const bytes = await wholeEntry(entry, signal);
+    const bytes = await wholeEntry(entry, this.services.yieldToHost, signal);
     if (!bytes.ok) return bytes;
     const proved = await this.prove(path, bytesSource(bytes.value), signal);
     return proved.ok ? succeed(bytes.value) : proved;
@@ -131,7 +161,8 @@ class CheckedEntries {
     source: ByteSource,
     signal?: AbortSignal,
   ): Promise<DomainResult<void>> {
-    const identity = await contentIdOf(source, this.digest, signal === undefined ? {} : { signal });
+    const { digest } = this.services;
+    const identity = await contentIdOf(source, digest, signal === undefined ? {} : { signal });
     if (!identity.ok) return identity;
     return identity.value.contentId === this.listed.get(path)?.contentId
       ? succeed(undefined)
@@ -142,6 +173,7 @@ class CheckedEntries {
 /** An entry's bytes whole, checked against its CRC-32: only for a metadata file. */
 async function wholeEntry(
   entry: ZipEntry,
+  yieldToHost: YieldToHost,
   signal?: AbortSignal,
 ): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
   const bytes = new Uint8Array(entry.size);
@@ -153,7 +185,7 @@ async function wholeEntry(
       at += chunk.length;
       return Promise.resolve();
     },
-    signal === undefined ? {} : { signal },
+    { yieldToHost, ...(signal === undefined ? {} : { signal }) },
   );
   return read.ok ? succeed(bytes) : read;
 }

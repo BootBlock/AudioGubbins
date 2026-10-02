@@ -12,17 +12,16 @@
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 import {
+  Turns,
   createContentHasher,
   type ByteSource,
   type ContentIdentity,
   type Digest,
   type HashingOptions,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import { forEachChunk } from './chunk-reading.js';
-
-/** Lets the host run whatever it has waiting, resolving when hashing may go on. */
-export type YieldToHost = () => Promise<void>;
 
 /**
  * The content identity of every byte of `source`, yielding to the host after
@@ -36,11 +35,12 @@ export async function hashProgressively(
   options: HashingOptions = {},
 ): Promise<DomainResult<ContentIdentity>> {
   const hasher = createContentHasher(digest);
+  const turns = new Turns(yieldToHost, options.signal);
   const read = await forEachChunk(
     source,
     async (chunk) => {
       await hasher.update(chunk);
-      await yieldToHost();
+      await turns.afterHeavyStep();
     },
     { signal: options.signal, onChunk: options.onProgress },
   );

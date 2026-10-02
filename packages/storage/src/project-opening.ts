@@ -25,7 +25,7 @@ import {
   type IdGenerator,
   type ProjectId,
 } from '@audiogubbins/domain';
-import type { Digest, ProjectState, StorageTree } from '@audiogubbins/project-format';
+import type { Digest, ProjectState, StorageTree, YieldToHost } from '@audiogubbins/project-format';
 
 import { CheckedRecords } from './checked-records.js';
 import { readPair } from './generational-pair.js';
@@ -67,6 +67,9 @@ export interface OpeningServices {
   /** This window, as another would be told of it. */
   readonly owner: LeaseOwner;
   readonly cadence?: SessionCadence;
+
+  /** Asked through work over history, records or bytes held in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** Which project to open, and how. */

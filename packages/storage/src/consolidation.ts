@@ -27,7 +27,6 @@ import {
   type AbsenceReason,
   type ExternalFile,
   type MediaObjectStore,
-  type YieldToHost,
 } from '@audiogubbins/media-store';
 import {
   SourceChangePolicy,
@@ -37,6 +36,7 @@ import {
   type ExternalSourceIdentity,
   type ManagedMedia,
   type MediaSource,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import type { ProjectSession } from './project-session.js';

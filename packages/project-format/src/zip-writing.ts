@@ -17,6 +17,7 @@ import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogu
 
 import type { ByteSink, ByteSource } from './byte-ports.js';
 import { crc32 } from './crc32.js';
+import { Turns, type YieldToHost } from './work-turns.js';
 import { ArchiveNames, entryNameBytes } from './zip-paths.js';
 import {
   EXTERNAL_ATTRIBUTES,
@@ -55,10 +56,10 @@ export interface ZipWritingOptions {
   readonly onProgress?: (written: number) => void;
 
   /**
-   * Awaited between chunks, so a caller on the interface thread can let it
-   * paint and take input while a large entry is written.
+   * Asked after each chunk is checksummed and each directory record made,
+   * since a source's reads and the sink's writes may resolve at once.
    */
-  readonly yieldToHost?: () => Promise<void>;
+  readonly yieldToHost: YieldToHost;
 }
 
 /** What an archive that was written holds. */
@@ -81,7 +82,7 @@ export interface ZipWritten {
 export async function writeZip(
   entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>,
   sink: ByteSink,
-  options: ZipWritingOptions = {},
+  options: ZipWritingOptions,
 ): Promise<DomainResult<ZipWritten>> {
   const archive = new ArchiveWriter(sink, options);
   let written: ZipWritten;
@@ -118,6 +119,7 @@ interface WrittenEntry {
 class ArchiveWriter {
   private readonly sink: ByteSink;
   private readonly options: ZipWritingOptions;
+  private readonly turns: Turns;
   private readonly names = new ArchiveNames();
   private readonly written: WrittenEntry[] = [];
   private offset = 0;
@@ -125,6 +127,7 @@ class ArchiveWriter {
   constructor(sink: ByteSink, options: ZipWritingOptions) {
     this.sink = sink;
     this.options = options;
+    this.turns = new Turns(options.yieldToHost, options.signal);
   }
 
   /** Writes one entry: its local header, its data and its data descriptor. */
@@ -201,7 +204,7 @@ class ArchiveWriter {
 
   /** Copies `source` in chunks, giving its CRC-32, or `undefined` on a short read. */
   private async copy(source: ByteSource): Promise<number | undefined> {
-    const { signal, yieldToHost } = this.options;
+    const { signal } = this.options;
     let crc = 0;
     for (let at = 0; at < source.size; at += ZIP_CHUNK_BYTES) {
       signal?.throwIfAborted();
@@ -210,7 +213,7 @@ class ArchiveWriter {
       if (chunk.length !== length) return undefined;
       crc = crc32(chunk, crc);
       await this.write(chunk);
-      await yieldToHost?.();
+      await this.turns.afterHeavyStep();
     }
     return crc;
   }
@@ -224,12 +227,12 @@ class ArchiveWriter {
     let batch: Uint8Array[] = [];
     let batchBytes = 0;
     for (const entry of this.written) {
+      await this.turns.afterStep();
       const record = centralHeader(entry);
       batch.push(record);
       batchBytes += record.length;
       if (batchBytes >= ZIP_CHUNK_BYTES) {
         await this.write(joined(batch, batchBytes));
-        await this.options.yieldToHost?.();
         batch = [];
         batchBytes = 0;
       }

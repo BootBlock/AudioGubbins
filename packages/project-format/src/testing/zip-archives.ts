@@ -12,6 +12,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { ByteSink, ByteSource } from '../byte-ports.js';
 import { openZip, type ZipArchive, type ZipEntry, readVerified } from '../zip-reading.js';
 import { writeZip, type ZipEntryInput, type ZipWritingOptions } from '../zip-writing.js';
+import { immediateTurns } from './host-turns.js';
 import { seededRandom } from './random-values.js';
 
 /** One read a source was asked for. */
@@ -100,26 +101,30 @@ export function patternBytes(length: number, seed = 1): Uint8Array<ArrayBuffer> 
 /** The archive of `entries`, which must write. */
 export async function zipOf(
   entries: readonly ZipEntryInput[],
-  options: ZipWritingOptions = {},
+  options: Partial<ZipWritingOptions> = {},
 ): Promise<Uint8Array<ArrayBuffer>> {
   const sink = memorySink();
-  expectSuccess(await writeZip(entries, sink, options));
+  expectSuccess(await writeZip(entries, sink, { yieldToHost: immediateTurns, ...options }));
   return sink.bytes();
 }
 
 /** The archive in `bytes`, which must open. */
 export async function opened(bytes: Uint8Array): Promise<ZipArchive> {
-  return expectSuccess(await openZip(spySource(bytes)));
+  return expectSuccess(await openZip(spySource(bytes), { yieldToHost: immediateTurns }));
 }
 
 /** Every byte of `entry`, read and checked against its CRC-32. */
 export async function contentOf(entry: ZipEntry): Promise<Uint8Array<ArrayBuffer>> {
   const chunks: Uint8Array[] = [];
   expectSuccess(
-    await readVerified(entry, (chunk) => {
-      chunks.push(chunk);
-      return Promise.resolve();
-    }),
+    await readVerified(
+      entry,
+      (chunk) => {
+        chunks.push(chunk);
+        return Promise.resolve();
+      },
+      { yieldToHost: immediateTurns },
+    ),
   );
   const bytes = new Uint8Array(entry.size);
   let offset = 0;

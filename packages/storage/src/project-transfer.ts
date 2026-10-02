@@ -192,6 +192,7 @@ async function writeCopy(
     open: storedBodies(services),
     digest: services.digest,
     proveMedia: false,
+    yieldToHost: services.yieldToHost,
     ...(signal === undefined ? {} : { signal }),
   });
   return succeed({
@@ -246,7 +247,7 @@ export async function importBundle(
   services: ImportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ProjectHeader>> {
-  const bundle = await openBundle(source, services.digest, signal);
+  const bundle = await openBundle(source, services, signal);
   if (!bundle.ok) return bundle;
   const content = await readProjectTree(bundle.value.listing, services.digest, signal);
   if (!content.ok) return content;

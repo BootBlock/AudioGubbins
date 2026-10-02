@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import { openZip } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 import { memorySink } from '@audiogubbins/storage/testing';
 
 import { memoryStorage } from '../testing/memory-storage.js';
@@ -58,7 +59,9 @@ describe('the storage root, asked of the storage worker', () => {
 
     expect(sink.ending).toBe('closed');
     expect(storage.lentPorts()).toBe(0);
-    const archive = expectSuccess(await openZip(memorySource(sink.bytes())));
+    const archive = expectSuccess(
+      await openZip(memorySource(sink.bytes()), { yieldToHost: immediateTurns }),
+    );
     expect(archive.entries.map(({ path }) => path)).toEqual(['storage.json']);
     expect(written.entries).toBe(1);
   });
@@ -71,7 +74,9 @@ describe('the storage root, asked of the storage worker', () => {
 
     const written = expectSuccess(await storage.client.root.exportRaw(sink));
 
-    const archive = expectSuccess(await openZip(memorySource(sink.bytes())));
+    const archive = expectSuccess(
+      await openZip(memorySource(sink.bytes()), { yieldToHost: immediateTurns }),
+    );
     const paths = archive.entries.map(({ path }) => path);
     expect(paths.length).toBe(written.entries);
     expect(paths.some((path) => path.includes(project))).toBe(true);

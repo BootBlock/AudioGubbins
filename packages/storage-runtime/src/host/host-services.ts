@@ -13,9 +13,9 @@
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
-import { MediaObjectStore, type YieldToHost } from '@audiogubbins/media-store';
+import { MediaObjectStore } from '@audiogubbins/media-store';
 import { projectCommands } from '@audiogubbins/project-commands';
-import type { Digest, ProjectState, StorageTree } from '@audiogubbins/project-format';
+import type { Digest, ProjectState, StorageTree, YieldToHost } from '@audiogubbins/project-format';
 import {
   CacheStore,
   MEDIA_DIRECTORY,
@@ -56,7 +56,6 @@ export interface HostParts {
 /** Everything the areas serving the page work with, each made once. */
 export interface HostServices extends OpeningServices, CleanupRunServices {
   readonly repository: ProjectRepository;
-  readonly yieldToHost: YieldToHost;
 }
 
 /** The services made from their parts (see the module comment). */

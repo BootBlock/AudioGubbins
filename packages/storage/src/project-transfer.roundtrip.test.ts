@@ -14,6 +14,7 @@ import {
   type ManifestEntry,
   type StorageTree,
 } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { packUnpacked, unpackBundle } from './bundle-conversion.js';
@@ -35,6 +36,9 @@ import { seededRandom } from './testing/seeded-random.js';
 import { addAsset } from './testing/test-commands.js';
 import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 import { harness, nodeDigest } from './testing/node-services.js';
+
+/** How the tests' bundles are read and written outside a storage. */
+const BUNDLES = { digest: nodeDigest, yieldToHost: immediateTurns };
 
 /**
  * Bundles and unpacked trees round-trip (REQ-STOR-103, REQ-STOR-099): a project
@@ -119,9 +123,9 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
 
       // Unpacked and packed again, the bundle is the same, byte for byte.
       const directory = new MemoryDirectory();
-      expectSuccess(await unpackBundle(memorySource(bundle), directory, nodeDigest));
+      expectSuccess(await unpackBundle(memorySource(bundle), directory, BUNDLES));
       const packed = memorySink();
-      expectSuccess(await packUnpacked(directory, packed, nodeDigest));
+      expectSuccess(await packUnpacked(directory, packed, BUNDLES));
       expect(packed.bytes()).toEqual(bundle);
 
       // The tree the storage writes is the tree the bundle holds.
@@ -223,15 +227,21 @@ async function rebuilt(
   manifest: 'listing the edits' | 'as it was' = 'listing the edits',
   move: (path: string) => string = (path) => path,
 ): Promise<Uint8Array<ArrayBuffer>> {
-  const archive = expectSuccess(await openZip(memorySource(bundle)));
+  const archive = expectSuccess(
+    await openZip(memorySource(bundle), { yieldToHost: immediateTurns }),
+  );
   const files: { path: string; bytes: Uint8Array<ArrayBuffer> }[] = [];
   for (const entry of archive.entries) {
     const chunks: Uint8Array[] = [];
     expectSuccess(
-      await readVerified(entry, (chunk) => {
-        chunks.push(chunk.slice());
-        return Promise.resolve();
-      }),
+      await readVerified(
+        entry,
+        (chunk) => {
+          chunks.push(chunk.slice());
+          return Promise.resolve();
+        },
+        { yieldToHost: immediateTurns },
+      ),
     );
     const whole = new Uint8Array(entry.size);
     let at = 0;
@@ -258,6 +268,7 @@ async function rebuilt(
             : bytes,
       })),
       sink,
+      { yieldToHost: immediateTurns },
     ),
   );
   return sink.bytes();
@@ -433,14 +444,16 @@ describe('bringing in a bundle refuses what it cannot trust (REQ-STOR-052)', () 
 
   it('refuses an archive holding what its manifest does not list', async () => {
     const bundle = await sampleBundle();
-    const archive = expectSuccess(await openZip(memorySource(bundle)));
+    const archive = expectSuccess(
+      await openZip(memorySource(bundle), { yieldToHost: immediateTurns }),
+    );
     const sink = memorySink();
     const entries = [];
     for (const entry of archive.entries) {
       entries.push({ path: entry.path, source: expectSuccess(await entry.open()) });
     }
     entries.push({ path: 'project/extra.json', source: new TextEncoder().encode('{}') });
-    expectSuccess(await writeZip(entries, sink));
+    expectSuccess(await writeZip(entries, sink, { yieldToHost: immediateTurns }));
     const target = storageOf(harness(24), new MemoryStorageTree());
     const imported = await importBundle(memorySource(sink.bytes()), 'original', target.importing);
     expect(imported.ok).toBe(false);

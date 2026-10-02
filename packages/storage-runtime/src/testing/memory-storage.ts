@@ -29,9 +29,8 @@ import {
   type ProjectSettings,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { YieldToHost } from '@audiogubbins/media-store';
 import { MemoryStorageTree, countingTokens } from '@audiogubbins/media-store/testing';
-import type { StorageTree } from '@audiogubbins/project-format';
+import type { StorageTree, YieldToHost } from '@audiogubbins/project-format';
 import { MemoryLeaseCoordinator } from '@audiogubbins/storage/testing';
 
 import { PagePorts } from '../client/page-ports.js';

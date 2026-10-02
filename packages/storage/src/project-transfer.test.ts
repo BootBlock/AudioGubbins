@@ -7,10 +7,13 @@ import {
   TreeFailureKind,
   contentIdOf,
   stateFingerprintOf,
+  writeZip,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
+import { countedTurns, immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { anotherProjectIn, type DirectoryWriter } from './project-directory.js';
-import { exportBundle, exportUnpacked } from './project-transfer.js';
+import { exportBundle, exportUnpacked, importBundle } from './project-transfer.js';
 import { FillableTree } from './testing/fillable-tree.js';
 import { MemoryDirectory, memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
@@ -212,5 +215,82 @@ describe('the provenance an export answers', () => {
 
     expect(expectFailureCode(missing)).toBe('storage.project-missing');
     expect(sink.ending).toBe('aborted');
+  });
+});
+
+/** A media file of four mebibytes and a byte: five chunks of the archive. */
+const LONG_MEDIA_BYTES = 4 * 1_048_576 + 1;
+
+/** A project holding a long media file, in a storage whose work asks `yieldToHost`. */
+async function longMediaProject(yieldToHost: YieldToHost) {
+  const test = harness(75);
+  const storage = storageOf(test, new MemoryStorageTree(), yieldToHost);
+  const media = await storedMedia(storage.store, 75, LONG_MEDIA_BYTES);
+  const header = await madeProject(test, storage.tree);
+  const session = await openToWrite(test, storage.tree, header.id);
+  expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
+  expectSuccess(await session.close());
+  return { storage, project: header.id };
+}
+
+describe('the turns a bundle takes', () => {
+  // The store's reads resolve at once, as the worker's do, so only the
+  // archive's turns let the host hear a cancel while a long file is copied.
+  it('asks the host for a turn for each mebibyte of media it writes', async () => {
+    const turns = countedTurns();
+    const { storage, project } = await longMediaProject(turns.yieldToHost);
+    const before = turns.asked;
+
+    const attempt = expectSuccess(
+      await exportBundle(project, memorySink(), WHOLE, storage.exporting),
+    );
+
+    expectSuccess(attempt.written);
+    expect(turns.asked - before).toBeGreaterThanOrEqual(5);
+  });
+
+  it('stops copying the media, and abandons the bundle, at the turn its signal aborts in', async () => {
+    const controller = new AbortController();
+    const reason = new Error('Given up.');
+    let armed = false;
+    const turns = countedTurns(() => {
+      if (armed) controller.abort(reason);
+    });
+    const { storage, project } = await longMediaProject(turns.yieldToHost);
+    const sink = memorySink();
+    armed = true;
+
+    const exporting = exportBundle(project, sink, WHOLE, storage.exporting, controller.signal);
+
+    await expect(exporting).rejects.toBe(reason);
+    expect(sink.ending).toBe('aborted');
+    expect(sink.bytes().length).toBeLessThan(LONG_MEDIA_BYTES);
+  });
+
+  // A bundle may list a million entries, each read from a directory in
+  // memory, before any of them is checked against the manifest.
+  it('asks the host for turns as it reads a large bundle, and stops at the one its signal aborts in', async () => {
+    const sink = memorySink();
+    const entries = Array.from({ length: 2_000 }, (_, index) => ({
+      path: `extra-${String(index)}`,
+      source: new Uint8Array(1),
+    }));
+    expectSuccess(await writeZip(entries, sink, { yieldToHost: immediateTurns }));
+    const controller = new AbortController();
+    const reason = new Error('Given up.');
+    const turns = countedTurns(() => {
+      controller.abort(reason);
+    });
+    const storage = storageOf(harness(76), new MemoryStorageTree(), turns.yieldToHost);
+
+    const importing = importBundle(
+      memorySource(sink.bytes()),
+      'original',
+      storage.importing,
+      controller.signal,
+    );
+
+    await expect(importing).rejects.toBe(reason);
+    expect(turns.asked).toBe(1);
   });
 });

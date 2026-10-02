@@ -8,7 +8,13 @@
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MediaObjectStore } from '@audiogubbins/media-store';
 import { countingTokens, generatedSource, memorySource } from '@audiogubbins/media-store/testing';
-import type { ByteSink, ByteSource, ContentId, StorageTree } from '@audiogubbins/project-format';
+import type {
+  ByteSink,
+  ByteSource,
+  ContentId,
+  StorageTree,
+  YieldToHost,
+} from '@audiogubbins/project-format';
 
 import { CacheStore } from '../cache-store.js';
 import type { CleanupRunServices } from '../cleanup-running.js';
@@ -101,8 +107,15 @@ export interface TestStorage {
   readonly cleaning: CleanupRunServices;
 }
 
-/** The storage of one window of a test over a tree. */
-export function storageOf(test: Harness, tree: StorageTree): TestStorage {
+/**
+ * The storage of one window of a test over a tree, whose long work asks
+ * `yieldToHost` for its turns where it is given.
+ */
+export function storageOf(
+  test: Harness,
+  tree: StorageTree,
+  yieldToHost?: YieldToHost,
+): TestStorage {
   const { digest } = test;
   const store = new MediaObjectStore({
     tree,
@@ -112,7 +125,7 @@ export function storageOf(test: Harness, tree: StorageTree): TestStorage {
     sharing: mediaSharingOf(test.coordinator),
   });
   const caches = new CacheStore(tree, digest);
-  const services = test.services(tree);
+  const services = test.services(tree, yieldToHost === undefined ? {} : { yieldToHost });
   return {
     tree,
     store,
@@ -128,6 +141,7 @@ export function storageOf(test: Harness, tree: StorageTree): TestStorage {
       caches,
       coordinator: test.coordinator,
       owner: services.owner,
+      yieldToHost: services.yieldToHost,
     },
   };
 }

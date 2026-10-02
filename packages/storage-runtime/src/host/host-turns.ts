@@ -12,8 +12,13 @@
  * within a slice.
  */
 
-import type { YieldToHost } from '@audiogubbins/media-store';
-import type { ByteSink, ByteSource, StorageTree, TreeEntry } from '@audiogubbins/project-format';
+import type {
+  ByteSink,
+  ByteSource,
+  StorageTree,
+  TreeEntry,
+  YieldToHost,
+} from '@audiogubbins/project-format';
 
 /**
  * Turns given once `slice` milliseconds have run since the last, by

@@ -10,6 +10,7 @@ import {
   readVerified,
   type ByteSink,
 } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
@@ -151,19 +152,27 @@ describe('the storage root', () => {
   it('exports every file raw into a ZIP that opens back to the same bytes', async () => {
     const tree = await olderStorage();
     const sink = keptSink();
-    const written = expectSuccess(await exportRawStorage(tree, sink));
+    const written = expectSuccess(
+      await exportRawStorage(tree, sink, { yieldToHost: immediateTurns }),
+    );
     expect(written.entries).toBe(3);
 
-    const archive = expectSuccess(await openZip(memorySource(sink.bytes())));
+    const archive = expectSuccess(
+      await openZip(memorySource(sink.bytes()), { yieldToHost: immediateTurns }),
+    );
     const held = tree.snapshot();
     expect(archive.entries.map((entry) => entry.path)).toEqual(tree.paths());
     for (const entry of archive.entries) {
       const read: Uint8Array[] = [];
       expectSuccess(
-        await readVerified(entry, (chunk) => {
-          read.push(chunk);
-          return Promise.resolve();
-        }),
+        await readVerified(
+          entry,
+          (chunk) => {
+            read.push(chunk);
+            return Promise.resolve();
+          },
+          { yieldToHost: immediateTurns },
+        ),
       );
       const bytes = Uint8Array.from(read.flatMap((chunk) => [...chunk]));
       const original = held.get(entry.path);

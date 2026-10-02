@@ -15,7 +15,8 @@ import {
   type ProjectSettings,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { Digest, StorageTree } from '@audiogubbins/project-format';
+import type { Digest, StorageTree, YieldToHost } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { ProjectRepository } from '../project-catalogue.js';
 import type { ProjectHeader } from '../project-header.js';
@@ -63,6 +64,7 @@ export interface Harness {
       readonly owner?: LeaseOwner;
       readonly cadence?: SessionCadence;
       readonly coordinator?: LeaseCoordinator | 'none';
+      readonly yieldToHost?: YieldToHost;
     },
   ): OpeningServices;
 
@@ -92,6 +94,7 @@ export function harnessOver(digest: Digest, seed = 11): Harness {
         ids,
         logger,
         owner: options.owner ?? WINDOW_A,
+        yieldToHost: options.yieldToHost ?? immediateTurns,
         ...(chosen === 'none' ? {} : { coordinator: chosen }),
         ...(options.cadence === undefined ? {} : { cadence: options.cadence }),
       };

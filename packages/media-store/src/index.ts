@@ -41,8 +41,6 @@ export {
   importMedia,
 } from './media-import.js';
 
-export { type YieldToHost } from './progressive-hashing.js';
-
 export { type CompletionServices, completeIdentity, examineFile } from './source-observation.js';
 
 export {
