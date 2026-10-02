@@ -2022,7 +2022,7 @@ Published paths
   function recordChange(history: History, node: ChangeNode): DomainResult<History>
   function redo(history: History): Navigation | undefined
   function redoTarget(history: History): ChangeNode | undefined
-  function restorationOf(history: History, target: HistoryNodeId, isKept: (state: StateFingerprint) => boolean): DomainResult<Restoration>
+  function restorationOf(history: History, target: HistoryNodeId, isKept: (state: StateFingerprint) => boolean, within?: number): DomainResult<Restoration>
   function retainedStates(history: History): ReadonlySet<StateFingerprint>
   function startComparison(a: ComparisonSide, b: ComparisonSide): DomainResult<Comparison>
   function startHistory(project: ProjectId, origin: OriginNodeRecord): History

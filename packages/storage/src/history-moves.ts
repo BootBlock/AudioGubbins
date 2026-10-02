@@ -16,7 +16,13 @@
 import type { CommandBus, CommandInvocation } from '@audiogubbins/commands';
 import type { Logger } from '@audiogubbins/diagnostics';
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
-import { moveTo, pathBetween, restorationOf, type History } from '@audiogubbins/history';
+import {
+  moveTo,
+  pathBetween,
+  restorationOf,
+  type History,
+  type HistoryPath,
+} from '@audiogubbins/history';
 import type { HistoryNodeId, ProjectState, StateFingerprint } from '@audiogubbins/project-format';
 
 import { replayRefused } from './storage-failures.js';
@@ -69,10 +75,30 @@ export async function stateAt(
   if (target === history.cursor) return succeed(state);
   const planned = pathBetween(history, history.cursor, target);
   if (!planned.ok) return planned;
-  const path = planned.value;
+  return await stateAlong(history, state, target, planned.value, services, signal);
+}
 
-  const restoration = restorationOf(history, target, (kept) => services.states.isKept(kept));
-  if (restoration.ok && restoration.value.redo.length < path.undo.length + path.redo.length) {
+/**
+ * The state at `target`, `path` from the cursor, by the way with fewer changes
+ * to replay. The way from a kept state is looked for only as far up as it
+ * could be the shorter, so a short move never climbs the history.
+ */
+async function stateAlong(
+  history: History,
+  state: ProjectState,
+  target: HistoryNodeId,
+  path: HistoryPath,
+  services: MoveServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<ProjectState>> {
+  const length = path.undo.length + path.redo.length;
+  const restoration = restorationOf(
+    history,
+    target,
+    (kept) => services.states.isKept(kept),
+    length - 1,
+  );
+  if (restoration.ok) {
     const base = await services.states.load(restoration.value.baseState, signal);
     if (base.ok) {
       return replayInvocations(
@@ -107,6 +133,8 @@ export async function arriveAt(
 ): Promise<DomainResult<Arrival>> {
   const moved = moveTo(history, target);
   if (!moved.ok) return moved;
-  const reached = await stateAt(history, state, target, services, signal);
+  if (target === history.cursor) return succeed({ history: moved.value.history, state });
+  const { path } = moved.value;
+  const reached = await stateAlong(history, state, target, path, services, signal);
   return reached.ok ? succeed({ history: moved.value.history, state: reached.value }) : reached;
 }

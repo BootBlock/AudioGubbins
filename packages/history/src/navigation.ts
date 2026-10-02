@@ -8,7 +8,9 @@
  * their nearest common ancestor: the changes from the first node up to it are
  * reversed, newest first, and those from it down to the second are replayed,
  * oldest first. Moving never removes a node, so an undone branch stays for as
- * long as retention keeps it.
+ * long as retention keeps it. The ancestor is found by climbing from both
+ * nodes a step at a time, so a move costs the length of its path, and undo or
+ * redo a few steps however deep the history is.
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
@@ -64,19 +66,49 @@ export function pathBetween(
   if (!history.nodes.has(from)) return fail(unknownNode(from));
   if (!history.nodes.has(to)) return fail(unknownNode(to));
 
-  const fromLine = [...ancestry(history, from)];
-  const depthOf = new Map(fromLine.map((node, index) => [node.id, index]));
-  const redo: ChangeNode[] = [];
-  let common: number | undefined;
-  for (const node of ancestry(history, to)) {
-    common = depthOf.get(node.id);
-    if (common !== undefined) break;
-    redo.push(asChange(node));
+  // The first node either climb steps onto that the other has passed is the
+  // nearest common ancestor: each climbs in order, so both pass it before any
+  // common ancestor above it.
+  const up = climbFrom(history, from);
+  const down = climbFrom(history, to);
+  for (;;) {
+    const passed = climb(history, up);
+    if (passed !== undefined && down.depths.has(passed.id)) return pathMeeting(up, down, passed);
+    const reached = climb(history, down);
+    if (reached !== undefined && up.depths.has(reached.id)) return pathMeeting(up, down, reached);
+    if (passed === undefined && reached === undefined) {
+      throw new Error('Two nodes of one history share no ancestor.');
+    }
   }
-  if (common === undefined) {
-    throw new Error('Two nodes of one history share no ancestor.');
-  }
-  return succeed({ undo: fromLine.slice(0, common).map(asChange), redo: redo.reverse() });
+}
+
+/** A climb from a node towards the root: the nodes passed, and how far up each is. */
+interface Climb {
+  readonly passed: HistoryNode[];
+  readonly depths: Map<HistoryNodeId, number>;
+  next: HistoryNode | undefined;
+}
+
+function climbFrom(history: History, id: HistoryNodeId): Climb {
+  return { passed: [], depths: new Map(), next: history.nodes.get(id) };
+}
+
+/** Takes one step of a climb, giving the node stepped onto, or `undefined` past the root. */
+function climb(history: History, from: Climb): HistoryNode | undefined {
+  const node = from.next;
+  if (node === undefined) return undefined;
+  from.depths.set(node.id, from.passed.length);
+  from.passed.push(node);
+  const parent = parentOf(node);
+  from.next = parent === undefined ? undefined : history.nodes.get(parent);
+  return node;
+}
+
+/** The path of two climbs that met at `common`. */
+function pathMeeting(up: Climb, down: Climb, common: HistoryNode): DomainResult<HistoryPath> {
+  const undo = up.passed.slice(0, up.depths.get(common.id)).map(asChange);
+  const redo = down.passed.slice(0, down.depths.get(common.id)).map(asChange);
+  return succeed({ undo, redo: redo.reverse() });
 }
 
 /**
@@ -155,18 +187,22 @@ export interface Restoration {
  * The restoration of `target` from the nearest kept state at or above it: the
  * safe way back to a state when the path from the cursor is long, or when
  * replaying it has failed (REQ-STOR-193). `isKept` says whether the storage
- * layer holds a state. Refused where no node at or above the target has one.
+ * layer holds a state. Refused where no node at or above the target has one
+ * with at most `within` changes to replay, so a caller weighing it against a
+ * shorter way never climbs further than that way is long.
  */
 export function restorationOf(
   history: History,
   target: HistoryNodeId,
   isKept: (state: StateFingerprint) => boolean,
+  within = Number.POSITIVE_INFINITY,
 ): DomainResult<Restoration> {
   const moved = moveTo(history, target);
   if (!moved.ok) return moved;
 
   const redo: ChangeNode[] = [];
   for (const node of ancestry(history, target)) {
+    if (redo.length > within) break;
     if (node.stateFingerprint !== undefined && isKept(node.stateFingerprint)) {
       return succeed({
         base: node,

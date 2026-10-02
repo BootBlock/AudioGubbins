@@ -21,6 +21,7 @@ import {
   invocation,
   movedTo,
   newHistory,
+  readCounted,
   testIds,
 } from './testing/histories.js';
 
@@ -91,6 +92,41 @@ describe('the path between two nodes', () => {
     expect(path.undo[0]?.description).toBe('Left 4999');
     expect(path.redo[0]?.description).toBe('Right 0');
     expect(expectSuccess(pathBetween(history, history.root, right)).redo).toHaveLength(10_000);
+  });
+});
+
+/** A line of `depth` changes from a new project's origin, its cursor at the newest. */
+function lineOf(depth: number): History {
+  const generator = testIds(5);
+  let history = newHistory(generator);
+  for (let step = 0; step < depth; step += 1) {
+    history = grown(history, generator.next<'HistoryNodeId'>(), `Step ${String(step)}`);
+  }
+  return history;
+}
+
+/** How many nodes planning one undo and one redo reads, at the end of a line `depth` deep. */
+function nodesReadForOneStep(depth: number): number {
+  const deep = lineOf(depth);
+  const { history, reads } = readCounted(deep);
+  const undone = expectMove(undo(history));
+  const counted = readCounted(undone.history);
+  expectMove(redo(counted.history));
+  return reads() + counted.reads();
+}
+
+describe('one step of undo or redo', () => {
+  it('reads as many nodes ten thousand changes deep as ten changes deep', () => {
+    expect(nodesReadForOneStep(10_000)).toBe(nodesReadForOneStep(10));
+  });
+
+  it('plans the path between two nodes a few steps apart by those steps alone', () => {
+    const deep = lineOf(10_000);
+    const above = [...activeLine(deep)].at(-4)?.id;
+    if (above === undefined) throw new Error('No node three steps up.');
+    const { history, reads } = readCounted(deep);
+    expect(expectSuccess(pathBetween(history, history.cursor, above)).undo).toHaveLength(3);
+    expect(reads()).toBeLessThan(20);
   });
 });
 

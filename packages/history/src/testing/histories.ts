@@ -22,6 +22,7 @@ import {
 
 import { changeNodeOf, nameBranch, recordChange, startHistory, type History } from '../history.js';
 import { moveTo } from '../navigation.js';
+import type { MapChanges, PersistentMap } from '../persistent-map.js';
 import { createSnapshot } from '../snapshots.js';
 
 /** The project every test history is of. */
@@ -142,4 +143,64 @@ export function randomHistory(seed: number, size: number): History {
     }
   }
   return history;
+}
+
+/**
+ * A history whose nodes count how often they are read, so a test can say how
+ * much of the history a walk visits.
+ */
+export function readCounted(history: History): {
+  readonly history: History;
+  readonly reads: () => number;
+} {
+  const nodes = new CountingMap(history.nodes);
+  return { history: { ...history, nodes }, reads: () => nodes.reads };
+}
+
+/** A map that counts its reads and passes every call through. */
+class CountingMap<TKey extends string, TValue> implements PersistentMap<TKey, TValue> {
+  reads = 0;
+  readonly #inner: PersistentMap<TKey, TValue>;
+
+  constructor(inner: PersistentMap<TKey, TValue>) {
+    this.#inner = inner;
+  }
+
+  get size(): number {
+    return this.#inner.size;
+  }
+
+  get(key: TKey): TValue | undefined {
+    this.reads += 1;
+    return this.#inner.get(key);
+  }
+
+  has(key: TKey): boolean {
+    this.reads += 1;
+    return this.#inner.has(key);
+  }
+
+  set(key: TKey, value: TValue): PersistentMap<TKey, TValue> {
+    return this.#inner.set(key, value);
+  }
+
+  keys(): IterableIterator<TKey> {
+    return this.#inner.keys();
+  }
+
+  values(): IterableIterator<TValue> {
+    return this.#inner.values();
+  }
+
+  entries(): IterableIterator<readonly [TKey, TValue]> {
+    return this.#inner.entries();
+  }
+
+  changesSince(earlier: PersistentMap<TKey, TValue>): MapChanges<TKey, TValue> {
+    return this.#inner.changesSince(earlier);
+  }
+
+  withChanges(changes: MapChanges<TKey, TValue>): PersistentMap<TKey, TValue> {
+    return this.#inner.withChanges(changes);
+  }
 }
