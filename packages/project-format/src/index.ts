@@ -212,7 +212,12 @@ export {
   readHistoryNodeRecord,
   writeHistoryNodeRecord,
 } from './history-node-json.js';
-export { readHistoryLabel, readSnapshotRecord, writeSnapshotRecord } from './snapshot-json.js';
+export {
+  LONGEST_SNAPSHOT_NOTES,
+  readHistoryLabel,
+  readSnapshotRecord,
+  writeSnapshotRecord,
+} from './snapshot-json.js';
 export { readHistoryRecord, writeHistoryRecord } from './history-json.js';
 export {
   historyFromSegments,

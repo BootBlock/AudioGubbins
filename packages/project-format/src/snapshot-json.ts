@@ -30,7 +30,7 @@ import { asId, asStateFingerprint, oneOfConverter, textConverter } from './scala
 import { MAXIMUM_NESTED_ITEMS, NAME_RULE, asName, asWholeQuantity } from './value-reading.js';
 
 /** The longest notes a snapshot carries, in UTF-16 code units. */
-const LONGEST_NOTES = 16_384;
+export const LONGEST_SNAPSHOT_NOTES = 16_384;
 
 const SNAPSHOT_KINDS: readonly SnapshotKind[] = ['named', 'recovery'];
 
@@ -53,7 +53,7 @@ const asLabelText = textConverter({
   shape: 'a name without edge spaces or control characters',
 });
 const asSnapshotKind = oneOfConverter(SNAPSHOT_KINDS);
-const asNotes = textConverter({ maximumLength: LONGEST_NOTES });
+const asNotes = textConverter({ maximumLength: LONGEST_SNAPSHOT_NOTES });
 const asApplication = textConverter({ maximumLength: NAME_RULE.maximumLength });
 const asExports = listConverter(MAXIMUM_NESTED_ITEMS, asId<'ExportRecordId'>);
 

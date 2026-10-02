@@ -178,6 +178,17 @@ function affects(node: HistoryNode, entity: EntityReference): boolean {
   return ids.includes(entity.id);
 }
 
+/**
+ * Every entity a change affected, kind by kind in the order the panel lists
+ * kinds; the start of the project affected none.
+ */
+export function* affectedEntities(node: HistoryNode): Generator<EntityReference> {
+  if (node.kind !== 'change') return;
+  for (const [kind, list] of AFFECTED_LISTS) {
+    for (const id of node.affects[list]) yield { kind, id };
+  }
+}
+
 /** Every text of a row a search looks in. */
 function* searchedText(row: HistoryRow, context: RowContext): Generator<string> {
   const { node } = row;
@@ -188,11 +199,9 @@ function* searchedText(row: HistoryRow, context: RowContext): Generator<string> 
     if (snapshot.notes !== undefined) yield snapshot.notes;
   }
   const { nameOf } = context;
-  if (node.kind !== 'change' || nameOf === undefined) return;
-  for (const [kind, list] of AFFECTED_LISTS) {
-    for (const id of node.affects[list]) {
-      const name = nameOf({ kind, id });
-      if (name !== undefined) yield name;
-    }
+  if (nameOf === undefined) return;
+  for (const entity of affectedEntities(node)) {
+    const name = nameOf(entity);
+    if (name !== undefined) yield name;
   }
 }

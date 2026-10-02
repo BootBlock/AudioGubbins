@@ -1315,6 +1315,7 @@ Published paths
   readonly ValueSliderProps.displayValue?: string
   readonly ValueSliderProps.disabled?: boolean
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
+  const WINDOW_ROW: "data-ag-window-row"
   type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
   function accentLabel(accent: "amber" | "blue" | "green" | "magenta" | "orange" | "red" | "teal" | "violet"): string
   function clampBrightness(value: number): number
@@ -1326,6 +1327,7 @@ Published paths
   function resolveTheme(preferences: ThemePreferences, system: SystemAppearance): Theme
   function srgbToOklch(colour: Srgb): Oklch
   function usePublishedBlockSize(element: RefObject<HTMLElement | null>, property: string): void
+  function useRowWindow(viewport: RefObject<HTMLElement | null>, count: number, props: RowWindowOptions): RowWindow
   function useTheme(): Theme
 
 @audiogubbins/diagnostics
@@ -1998,6 +2000,7 @@ Published paths
   readonly StateDifference.effectChains: readonly ChainDifference[]
   function activeLine(history: History): readonly HistoryNode[]
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
+  function affectedEntities(node: HistoryNode): Generator<EntityReference, any, any>
   function applyCompaction(history: History, plan: CompactionPlan): DomainResult<History>
   function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
@@ -2464,6 +2467,7 @@ Published paths
   const LONGEST_HISTORY_LABEL: 1024
   const LONGEST_MANIFEST: number
   const LONGEST_NAME: 1024
+  const LONGEST_SNAPSHOT_NOTES: 16384
   interface ManagedMedia
   readonly ManagedMedia.kind: "managed"
   readonly ManagedMedia.contentId: ContentId
@@ -4374,6 +4378,18 @@ packages/design-system/src/primitives/overlays.tsx
   readonly DropdownMenuProps.trigger: ReactNode
   readonly DropdownMenuProps.groups: readonly MenuGroup[]
   readonly DropdownMenuProps.label: string
+
+packages/design-system/src/primitives/row-window.ts
+  interface RowWindow
+  readonly RowWindow.rows: readonly WindowRow[]
+  readonly RowWindow.after: number
+  interface RowWindowOptions
+  readonly RowWindowOptions.estimate: number
+  readonly RowWindowOptions.keep?: number
+  readonly RowWindowOptions.overscan?: number
+  interface WindowRow
+  readonly WindowRow.index: number
+  readonly WindowRow.before: number
 
 packages/editor-view/src/batch-buffers.ts
   class BuilderPool

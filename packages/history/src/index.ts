@@ -84,6 +84,7 @@ export {
   type HistoryRow,
   type RowContext,
   type RowQuery,
+  affectedEntities,
   historyRows,
 } from './history-rows.js';
 

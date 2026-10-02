@@ -5,13 +5,15 @@
  * REQ-STOR-195, REQ-STOR-197, REQ-STOR-200, REQ-UX-005).
  *
  * The rows are the history package's, so no branching rule is decided here.
- * What the panel shows is plain language: changes a person made and the points
- * they kept, never the journal beneath. The words searched for, the scope and
- * the point chosen are the panel's own view state; everything that changes the
- * project is a command.
+ * What the panel shows is plain language: changes a person made, what each
+ * affected, and the points they kept with their notes, never the journal
+ * beneath. The words searched for, the scope, the entity whose changes alone
+ * are shown and the point chosen are the panel's own view state; everything
+ * that changes the project is a command. The rows are worked out again only
+ * when the history or what finds them changes.
  */
 
-import { useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
 import {
@@ -21,7 +23,7 @@ import {
   type HistoryRow,
   type RowQuery,
 } from '@audiogubbins/history';
-import type { HistoryNodeId, ProjectState } from '@audiogubbins/project-format';
+import type { HistoryNodeId } from '@audiogubbins/project-format';
 import type { ProjectModel } from '@audiogubbins/storage';
 
 import { ProjectPanelKinds } from '../../panel-kinds.js';
@@ -32,8 +34,10 @@ import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { RunCommand } from '../settings/section.js';
 import { CompactionReview } from './compaction-review.js';
 import { ComparisonView } from './comparison-view.js';
+import { entityNamesOf, type EntityNames } from './entity-names.js';
 import { HistoryActions } from './history-actions.js';
 import { HistoryList } from './history-list.js';
+import { AffectingFilter, PointDetails } from './point-details.js';
 import { SnapshotField } from './snapshot-field.js';
 
 /** What the panel reads and runs. */
@@ -63,23 +67,25 @@ function summaryOf(history: History): string {
   return `${String(changes)} ${changes === 1 ? 'change' : 'changes'}, ${String(branches)} other ${branches === 1 ? 'branch' : 'branches'} and ${String(snapshots)} ${snapshots === 1 ? 'snapshot' : 'snapshots'}.`;
 }
 
-/** The name a person knows an asset by, for finding the changes to it. */
-function namesOf(state: ProjectState): (entity: EntityReference) => string | undefined {
-  const names = new Map<string, string>();
-  for (const [id, asset] of state.project.assets) names.set(id, asset.displayName);
-  return (entity) => (entity.kind === 'asset' ? names.get(entity.id) : undefined);
+/** What finds the rows: the words typed, the scope chosen, and the entity whose changes alone are shown. */
+interface Finding {
+  readonly text: string;
+  readonly scope: string;
+  readonly affecting: EntityReference | undefined;
 }
 
-/** The rows the words typed and the scope chosen ask for. */
-function rowsFor(model: ProjectModel, text: string, scope: string): readonly HistoryRow[] {
+/** The rows `finding` asks for. */
+function rowsFor(
+  model: ProjectModel,
+  names: EntityNames,
+  { text, scope, affecting }: Finding,
+): readonly HistoryRow[] {
   const query: RowQuery = {
     text,
     scope: SCOPES.find((one) => one.value === scope)?.value ?? 'all',
+    ...(affecting === undefined ? {} : { affecting }),
   };
-  return historyRows(model.history, query, {
-    exports: model.exports,
-    nameOf: namesOf(model.state),
-  });
+  return historyRows(model.history, query, { exports: model.exports, nameOf: names });
 }
 
 /** What is open for review: the snapshot field, the comparison, and a plan to remove history. */
@@ -116,11 +122,13 @@ function Reviewing({
 /** The points found, or a line saying none is. */
 function Points({
   rows,
+  names,
   chosen,
   onChoose,
   run,
 }: {
   readonly rows: readonly HistoryRow[];
+  readonly names: EntityNames;
   readonly chosen: HistoryNodeId | undefined;
   readonly onChoose: (node: HistoryNodeId) => void;
   readonly run: RunCommand;
@@ -130,10 +138,27 @@ function Points({
   ) : (
     <HistoryList
       rows={rows}
+      names={names}
       chosen={chosen}
       onChoose={onChoose}
       onGo={(node) => run('history.go-to', { node })}
     />
+  );
+}
+
+/** How much history there is, and the way to what it takes up. */
+function Summary({ history, run }: { readonly history: History; readonly run: RunCommand }) {
+  return (
+    <p className="ag-panel-note">
+      {summaryOf(history)}{' '}
+      <Button
+        compact
+        tone="quiet"
+        onClick={() => run(showPanelCommandId(ProjectPanelKinds.Storage))}
+      >
+        What it takes up
+      </Button>
+    </p>
   );
 }
 
@@ -150,35 +175,35 @@ function OpenHistory({
 }): ReactNode {
   const [text, setText] = useState('');
   const [scope, setScope] = useState<string>('all');
+  const [affecting, setAffecting] = useState<EntityReference | undefined>(undefined);
   const [chosen, setChosen] = useState<HistoryNodeId | undefined>(undefined);
-  const rows = rowsFor(model, text, scope);
+  const names = useMemo(() => entityNamesOf(model.state), [model.state]);
+  const rows = useMemo(
+    () => rowsFor(model, names, { text, scope, affecting }),
+    [model, names, text, scope, affecting],
+  );
   const row = rows.find((one) => one.node.id === (chosen ?? model.history.cursor));
 
   return (
     <section className="ag-panel ag-history">
       <h2 className="ag-panel-title">{title}</h2>
-      <p className="ag-panel-note">
-        {summaryOf(model.history)}{' '}
-        <Button
-          compact
-          tone="quiet"
-          onClick={() => run(showPanelCommandId(ProjectPanelKinds.Storage))}
-        >
-          What it takes up
-        </Button>
-      </p>
+      <Summary history={model.history} run={run} />
       <div className="ag-settings-row" role="group" aria-label="Find in the history">
         <TextField label="Find" value={text} onValueChange={setText} />
         <OptionSelect label="Show" value={scope} options={SCOPES} onValueChange={setScope} />
       </div>
-      <Points rows={rows} chosen={row?.node.id} onChoose={setChosen} run={run} />
+      <AffectingFilter affecting={affecting} names={names} onAffecting={setAffecting} />
+      <Points rows={rows} names={names} chosen={row?.node.id} onChoose={setChosen} run={run} />
       {row !== undefined && (
-        <HistoryActions
-          row={row}
-          chosen={reviewing.chosen}
-          run={run}
-          unavailableReason={unavailableReason}
-        />
+        <>
+          <PointDetails row={row} names={names} affecting={affecting} onAffecting={setAffecting} />
+          <HistoryActions
+            row={row}
+            chosen={reviewing.chosen}
+            run={run}
+            unavailableReason={unavailableReason}
+          />
+        </>
       )}
       <Reviewing
         model={model}

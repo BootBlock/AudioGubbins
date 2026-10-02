@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { observable } from '../../state/observable.js';
+import { addLinkedAsset, linkedFile } from '../../testing/linked-assets.js';
 import { projectWorld, type ProjectWindow } from '../../testing/project-context.js';
 import { HistoryPanel } from './history-panel.js';
 
@@ -170,6 +171,48 @@ describe('the History panel', () => {
     );
     expect(run).toHaveBeenLastCalledWith('history.snapshot', { name: 'Before the mix' });
     expect(screen.getByRole('textbox', { name: /^Snapshot name/ })).toHaveValue('');
+  });
+
+  it('keeps a snapshot with the notes typed', async () => {
+    const window = await branched();
+    const { run } = panelOver(window);
+
+    await userEvent.type(screen.getByRole('textbox', { name: /^Snapshot name/ }), 'Approved');
+    await userEvent.type(screen.getByRole('textbox', { name: /^Notes/ }), 'Signed off{Enter}');
+    expect(run).toHaveBeenLastCalledWith('history.snapshot', {
+      name: 'Approved',
+      notes: 'Signed off',
+    });
+  });
+
+  it('says what each change affected and a snapshot’s notes, and shows only the changes to one entity', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'A' });
+    await addLinkedAsset(window, linkedFile('kick.wav', 'kick'), { name: 'Kick' });
+    await window.runAndHear('file.rename-project', { name: 'B' });
+    await window.runAndHear('history.snapshot', { name: 'Mixed', notes: 'The kick is too loud.' });
+    const { list } = panelOver(window);
+
+    const [, added, renamed] = within(list()).getAllByRole('option');
+    expect(within(added ?? list()).getByText('Changed asset "Kick"')).toBeVisible();
+    expect(
+      within(renamed ?? list()).getByText('Changed the project · The kick is too loud.'),
+    ).toBeVisible();
+    expect(screen.getByText('The kick is too loud.')).toBeVisible();
+
+    await userEvent.click(added ?? list());
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show only the changes to asset "Kick"' }),
+    );
+    expect(
+      within(list())
+        .getAllByRole('option')
+        .map((option) => option.querySelector('.ag-history-row-description')?.textContent),
+    ).toEqual(['Add asset “Kick”']);
+    expect(screen.getByText('Showing only the changes to asset "Kick".')).toBeVisible();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show every change' }));
+    expect(within(list()).getAllByRole('option')).toHaveLength(3);
   });
 
   it('shows the comparison open, what differs, and switches, keeps and stops by command', async () => {
