@@ -76,6 +76,10 @@ describe('the backup settings', () => {
     const minutes = screen.getByRole('textbox', { name: 'After this many minutes of work' });
     expect(minutes).toHaveValue('30');
     await userEvent.type(screen.getByRole('textbox', { name: 'After this many changes' }), '50');
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Keep as many as fit in this many MB' }),
+      '512',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Save the backup settings' }));
     expect(run).toHaveBeenLastCalledWith('backup.set-policy', {
       kind: 'automatic',
@@ -83,8 +87,27 @@ describe('the backup settings', () => {
       everyChanges: 50,
       keepCount: 10,
       keepDays: 0,
+      keepBytes: 512 * 2 ** 20,
       external: false,
     });
+  });
+
+  it('shows the size a policy keeps backups within, in megabytes', async () => {
+    const window = await withBackup();
+    expect(
+      await window.runAndHear('backup.set-policy', {
+        kind: 'automatic',
+        everyMinutes: 30,
+        keepBytes: 3 * 2 ** 20,
+      }),
+    ).toBe('Backups are made on their own as you set.');
+    render(
+      <Backups projects={window.projects} run={recorder()} unavailableReason={() => undefined} />,
+    );
+
+    expect(
+      screen.getByRole('textbox', { name: 'Keep as many as fit in this many MB' }),
+    ).toHaveValue('3');
   });
 
   it('lists each backup kept, and restores in place only from its confirmation', async () => {

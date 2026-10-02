@@ -12,6 +12,7 @@ import { retainedMedia } from './media-roots.js';
 import { openProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { exportBackup, importBundle } from './project-transfer.js';
+import { FillableTree } from './testing/fillable-tree.js';
 import { ProjectPaths } from './storage-layout.js';
 import { sweepCrashes } from './testing/crash-sweep.js';
 import { summaryOf } from './testing/model-summary.js';
@@ -239,6 +240,29 @@ describe('backup generations (REQ-STOR-105)', () => {
         .paths()
         .filter((path) => path.startsWith('backups/')),
     ).toEqual([]);
+  });
+
+  it('leaves nothing of a generation storage could not hold, however often it is tried', async () => {
+    const tree = new FillableTree(new MemoryStorageTree());
+    const setup = await setUp(EVERY_THREE, undefined, tree);
+    await changes(setup, 3);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      // Storage fills part-way through each attempt, after its first files.
+      tree.full = false;
+      tree.writes = 0;
+      tree.fullAtWrite = 3;
+      const failed = await setup.scheduler.tick(
+        setup.test.clock.now(),
+        setup.session.getSnapshot().model,
+      );
+      expect(failed.ok ? failed.value.kind : failed.failures[0].code).toBe('storage.full');
+      expect(expectSuccess(await setup.generations.list()).incomplete).toEqual([]);
+    }
+
+    tree.full = false;
+    tree.fullAtWrite = undefined;
+    expect((await tick(setup)).kind).toBe('made');
+    expect(await numbers(setup)).toHaveLength(1);
   });
 
   it('never lists a generation a crash cut short as a backup, and prunes what it left', async () => {

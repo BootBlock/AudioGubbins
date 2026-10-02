@@ -10,8 +10,10 @@
  * setting it, and never a protected one. Where the policy says so and the
  * person chose a backup directory, the new generation is written there as a
  * bundle too; failing to write it there is reported beside the generation made,
- * which stands whatever became of the copy. One tick at a time: a tick while
- * one runs is told the scheduler is busy.
+ * which stands whatever became of the copy. A generation that could not be
+ * written whole is removed as the attempt fails, so a policy that ticks while
+ * storage is full does not leave a part-written generation at each tick. One
+ * tick at a time: a tick while one runs is told the scheduler is busy.
  */
 
 import {
@@ -163,7 +165,14 @@ export class BackupScheduler {
       new Turns(this.services.yieldToHost, signal),
       this.services.coordinator,
     );
-    if (!made.ok) return made;
+    if (!made.ok) {
+      // What the attempt wrote is no backup, and the reason it failed, most
+      // often full storage, would fail the next attempt too. The attempt's
+      // own failure is the one to report: one removing its leavings meets is
+      // met again, and reported, by the next generation made.
+      await this.removeIncomplete(signal);
+      return made;
+    }
     this.last = { at: now };
     const pruned = await this.prune(model, now, signal);
     if (!pruned.ok) return pruned;
@@ -171,11 +180,7 @@ export class BackupScheduler {
     return succeed({ kind: 'made', generation: made.value, pruned: pruned.value, external });
   }
 
-  /**
-   * Removes what the policy's retention no longer keeps, and what a crash left
-   * incomplete: that only with the storage-wide lock held alone, and as listed
-   * again under it, since a generation being written looks incomplete too.
-   */
+  /** Removes what the policy's retention no longer keeps, and what was left incomplete. */
   private async prune(
     model: ProjectModel,
     now: number,
@@ -193,6 +198,17 @@ export class BackupScheduler {
       signal,
     );
     if (!done.ok) return done;
+    const abandoned = await this.removeIncomplete(signal);
+    return abandoned.ok ? succeed(removed) : abandoned;
+  }
+
+  /**
+   * Removes the generations left incomplete, by a crash or an attempt that
+   * failed: only with the storage-wide lock held alone, and as listed again
+   * under it, since a generation another window is writing looks incomplete
+   * too. Where a window is writing, nothing is removed until a later tick.
+   */
+  private async removeIncomplete(signal?: AbortSignal): Promise<DomainResult<void>> {
     const abandoned = await whileAlone(
       this.services.coordinator,
       async () => {
@@ -201,7 +217,7 @@ export class BackupScheduler {
       },
       signal,
     );
-    return abandoned.kind === 'done' && !abandoned.value.ok ? abandoned.value : succeed(removed);
+    return abandoned.kind === 'done' && !abandoned.value.ok ? abandoned.value : succeed(undefined);
   }
 
   /** Writes a generation into the chosen backup directory, where the policy asks. */

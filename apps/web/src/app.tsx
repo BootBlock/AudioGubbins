@@ -34,6 +34,7 @@ import { shellMenus } from './shell/menus.js';
 import { panelContextOf, renderPanel } from './shell/panels.js';
 import { ProjectBanner } from './shell/project-banner.js';
 import { ProjectSurfaces } from './shell/project-surfaces.js';
+import { BackupStatus } from './shell/backup-status.js';
 import { SaveStatus } from './shell/save-status.js';
 import { SettingsDialog } from './shell/settings-dialog.js';
 import { StatusBar } from './shell/status-bar.js';
@@ -227,7 +228,18 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               persistence={persistence}
               recovery={recovery}
               missingCapabilities={missingCapabilities.length + context.storageAbsences.length}
-              saving={<SaveStatus open={project.open} run={runNamed} announce={announce} />}
+              saving={
+                <>
+                  <SaveStatus open={project.open} run={runNamed} announce={announce} />
+                  {context.projects !== undefined && (
+                    <BackupStatus
+                      backups={context.projects.backups}
+                      run={runNamed}
+                      announce={announce}
+                    />
+                  )}
+                </>
+              }
               run={run}
             />
 

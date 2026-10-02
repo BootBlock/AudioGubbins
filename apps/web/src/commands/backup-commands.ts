@@ -38,12 +38,12 @@ function countArgument(invocation: CommandInvocation, name: string): number | un
 /** The backup policy the arguments describe, or why they describe none. */
 function backupPolicyFrom(invocation: CommandInvocation): BackupPolicy | string {
   if (textArgument(invocation, 'kind') === 'off') return { kind: 'off' };
-  const counts = ['everyMinutes', 'everyChanges', 'keepCount', 'keepDays'].map((name) =>
-    countArgument(invocation, name),
+  const counts = ['everyMinutes', 'everyChanges', 'keepCount', 'keepDays', 'keepBytes'].map(
+    (name) => countArgument(invocation, name),
   );
   const refused = counts.find((count) => typeof count === 'string');
   if (refused !== undefined) return refused;
-  const [minutes, changes, count, days] = counts.map((one) =>
+  const [minutes, changes, count, days, bytes] = counts.map((one) =>
     typeof one === 'number' ? one : undefined,
   );
   if (minutes === undefined && changes === undefined) {
@@ -56,6 +56,7 @@ function backupPolicyFrom(invocation: CommandInvocation): BackupPolicy | string 
   const retention: BackupRetention = {
     ...(count === undefined ? {} : { count }),
     ...(days === undefined ? {} : { days }),
+    ...(bytes === undefined ? {} : { bytes }),
   };
   // Asked for by name, so a policy set without it copies nothing out.
   const external = invocation.arguments?.['external'] === true;

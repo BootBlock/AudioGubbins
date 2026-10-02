@@ -2899,6 +2899,7 @@ Published paths
   BackupScheduler.newest: (signal?: AbortSignal) => Promise<DomainResult<number | undefined>>
   BackupScheduler.make: (reason: BackupReason, now: number, model: ProjectModel, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupScheduler.prune: (model: ProjectModel, now: number, signal?: AbortSignal) => Promise<DomainResult<readonly BackupGeneration[]>>
+  BackupScheduler.removeIncomplete: (signal?: AbortSignal) => Promise<DomainResult<void>>
   BackupScheduler.copyOut: (generation: BackupGeneration, model: ProjectModel, signal?: AbortSignal) => Promise<ExternalCopy>
   interface BackupServices extends RecoveryServices, TreeCopying
   readonly BackupServices.tree: StorageTree

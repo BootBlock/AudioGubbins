@@ -2,8 +2,8 @@
  * The form a project's backup policy is set with: whether backups are made on
  * their own, after how much work, how many are kept, and whether each is also
  * copied to the backups folder where the browser gives one (REQ-STOR-105,
- * REQ-STOR-106). The numbers are sent as typed, and checked by the command that
- * sets the policy.
+ * REQ-STOR-106). The numbers are sent as typed, the size in megabytes as the
+ * bytes it is, and checked by the command that sets the policy.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -20,8 +20,12 @@ interface PolicyForm {
   readonly everyChanges: string;
   readonly keepCount: string;
   readonly keepDays: string;
+  readonly keepMegabytes: string;
   readonly external: boolean;
 }
+
+/** The bytes in a megabyte, as the size a policy keeps is typed in. */
+const MEGABYTE = 2 ** 20;
 
 /** The form a policy starts it from. */
 function formOf(policy: BackupPolicy): PolicyForm {
@@ -32,6 +36,7 @@ function formOf(policy: BackupPolicy): PolicyForm {
       everyChanges: '',
       keepCount: '',
       keepDays: '',
+      keepMegabytes: '',
       external: false,
     };
   }
@@ -42,6 +47,9 @@ function formOf(policy: BackupPolicy): PolicyForm {
     everyChanges: text(policy.trigger.everyChanges),
     keepCount: text(policy.retention.count),
     keepDays: text(policy.retention.days),
+    keepMegabytes: text(
+      policy.retention.bytes === undefined ? undefined : policy.retention.bytes / MEGABYTE,
+    ),
     external: policy.external === true,
   };
 }
@@ -52,7 +60,19 @@ const FIELDS = [
   ['everyChanges', 'After this many changes'],
   ['keepCount', 'Keep the newest'],
   ['keepDays', 'Keep those from the last days'],
+  ['keepMegabytes', 'Keep as many as fit in this many MB'],
 ] as const;
+
+/** The policy's numbers as the command takes them, from the form. */
+function numbersOf(form: PolicyForm): Readonly<Record<string, number>> {
+  return {
+    everyMinutes: Number(form.everyMinutes),
+    everyChanges: Number(form.everyChanges),
+    keepCount: Number(form.keepCount),
+    keepDays: Number(form.keepDays),
+    keepBytes: Math.round(Number(form.keepMegabytes) * MEGABYTE),
+  };
+}
 
 /** When automatic backups are made, how many are kept, and whether each is copied out. */
 function AutomaticFields({
@@ -105,7 +125,6 @@ export function PolicyFormView({
   readonly run: RunCommand;
 }): ReactNode {
   const [form, setForm] = useState(formOf(policy));
-  const numbers = Object.fromEntries(FIELDS.map(([field]) => [field, Number(form[field])]));
   return (
     <div className="ag-settings-section">
       <OptionSelect
@@ -124,7 +143,11 @@ export function PolicyFormView({
       )}
       <Button
         onClick={() =>
-          run('backup.set-policy', { kind: form.kind, ...numbers, external: form.external })
+          run('backup.set-policy', {
+            kind: form.kind,
+            ...numbersOf(form),
+            external: form.external,
+          })
         }
       >
         Save the backup settings

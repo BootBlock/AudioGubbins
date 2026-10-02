@@ -13,8 +13,10 @@
  * the project, the project is opened again as it was. A backup is also copied
  * to the backups folder where the project's policy asks, which the page lends
  * the worker for each backup, and what became of the latest copy is kept to be
- * shown beside the backups. The work done for a project is given up once it is
- * let go, and a listing once a newer one replaces it.
+ * shown beside the backups. A backup the policy asked for that was not made is
+ * kept, with why, until one is made, so the status bar can say so: the person
+ * relies on backups they never see being made. The work done for a project is
+ * given up once it is let go, and a listing once a newer one replaces it.
  */
 
 import {
@@ -59,6 +61,9 @@ export interface BackupState {
 
   /** What became of the latest copy to the backups folder, where one was asked for. */
   readonly copied?: Exclude<ExternalCopy, { readonly kind: 'not-asked' }>;
+
+  /** Why the last backup the policy asked for was not made, until one is made. */
+  readonly missed?: string;
 }
 
 /** Where a generation is restored: as a new project, or in place of the project open. */
@@ -114,11 +119,13 @@ export class BackupStore implements Observable<BackupState> {
     if (session === undefined) return;
     const ticked = await this.backups.tick(session, this.folder, this.project.scope());
     if (!ticked.ok) {
-      this.services.logger.warning('A scheduled backup was not made.', {
-        code: ticked.failures[0].code,
-      });
+      const [cause] = ticked.failures;
+      this.services.logger.warning('A scheduled backup was not made.', { code: cause.code });
+      if (this.state.get().missed !== cause.summary) {
+        this.state.update((current) => ({ ...current, missed: cause.summary }));
+      }
     } else if (ticked.value.kind === 'made') {
-      this.noteCopy(ticked.value.external);
+      this.noteMade(ticked.value.external);
       await this.list(session.project);
     }
   };
@@ -129,7 +136,7 @@ export class BackupStore implements Observable<BackupState> {
       const session = this.project.session();
       if (session === undefined) return fail(NOT_WRITABLE);
       const done = await this.backups.backUpNow(session, this.folder, this.project.scope());
-      if (done.ok && done.value.kind === 'made') this.noteCopy(done.value.external);
+      if (done.ok && done.value.kind === 'made') this.noteMade(done.value.external);
       return done;
     });
 
@@ -176,10 +183,15 @@ export class BackupStore implements Observable<BackupState> {
     return session === undefined ? fail(NOT_WRITABLE) : await session.setBackupPolicy(policy);
   };
 
-  /** Keeps what became of a copy to the backups folder, where one was asked for. */
-  private noteCopy(copy: ExternalCopy): void {
+  /**
+   * Keeps what became of a backup's copy to the backups folder, where one was
+   * asked for, and forgets a backup missed, since one is made now.
+   */
+  private noteMade(copy: ExternalCopy): void {
+    this.state.update(({ missed: _made, ...current }) =>
+      copy.kind === 'not-asked' ? current : { ...current, copied: copy },
+    );
     if (copy.kind === 'not-asked') return;
-    this.state.update((current) => ({ ...current, copied: copy }));
     if (copy.kind === 'failed') {
       this.services.logger.warning('A backup was not copied to the backups folder.', {
         code: copy.failure.code,

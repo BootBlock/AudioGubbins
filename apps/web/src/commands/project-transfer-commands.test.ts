@@ -369,13 +369,14 @@ describe('backups of the open project', () => {
         kind: 'automatic',
         everyChanges: 5,
         keepCount: 3,
+        keepBytes: 2 ** 30,
       }),
     ).toBe('Backups are made on their own as you set.');
     const open = window.projects.project.get();
     expect(open.kind === 'open' && open.snapshot.model.backup).toEqual({
       kind: 'automatic',
       trigger: { everyChanges: 5 },
-      retention: { count: 3 },
+      retention: { count: 3, bytes: 2 ** 30 },
     });
 
     expect(window.run('backup.set-policy', { kind: 'automatic', everyMinutes: -2 }).kind).toBe(
