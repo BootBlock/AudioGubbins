@@ -142,6 +142,7 @@ describe('the backup settings', () => {
 
     const list = screen.getByRole('list', { name: 'Backups' });
     expect(within(list).queryByText(/kept until you let it go/)).toBeNull();
+    expect(within(list).getByRole('button', { name: /^Keep the backup of / })).toBeVisible();
     await userEvent.click(within(list).getByRole('button', { name: /^Delete the backup of .*…$/ }));
     expect(run).not.toHaveBeenCalled();
     expect(within(list).getByText(/cannot be brought back/)).toBeVisible();
@@ -157,7 +158,7 @@ describe('the backup settings', () => {
 
     const list = screen.getByRole('list', { name: 'Backups' });
     await userEvent.click(within(list).getByRole('button', { name: /^Export the backup of / }));
-    await userEvent.click(within(list).getByRole('button', { name: 'Let it go' }));
+    await userEvent.click(within(list).getByRole('button', { name: /^Let the backup of .* go$/ }));
     expect(run.mock.calls).toEqual([
       ['backup.export', { generation: generation?.number }],
       ['backup.protect', { generation: generation?.number, keep: false }],

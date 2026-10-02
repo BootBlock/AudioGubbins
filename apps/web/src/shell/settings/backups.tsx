@@ -147,6 +147,7 @@ function GenerationActions({
       </Button>
       <Button
         compact
+        label={generation.protected ? `Let the backup of ${when} go` : `Keep the backup of ${when}`}
         onClick={() => run('backup.protect', { generation: number, keep: !generation.protected })}
       >
         {generation.protected ? 'Let it go' : 'Keep it'}
