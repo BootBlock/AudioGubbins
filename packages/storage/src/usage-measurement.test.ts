@@ -2,22 +2,28 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import type { ContentId, MediaSource } from '@audiogubbins/project-format';
 
 import { BackupScheduler } from './backup-scheduler.js';
 import { CacheCategory } from './cache-store.js';
 import { storageOf, storedMedia } from './testing/memory-ports.js';
 import { harness } from './testing/node-services.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
-import { addAsset, setName } from './testing/test-commands.js';
+import { addAsset, setMedia, setName } from './testing/test-commands.js';
 import { measureUsage } from './usage-measurement.js';
 
 /**
- * Usage by category (REQ-STOR-200): media in use, media only the history keeps
- * and media nothing keeps are told apart; so are the journal, the states of
- * snapshots, of alternative branches and of the line the project is on, the
- * caches and the backups; and every byte of a project's files is counted in
- * exactly one category.
+ * Usage by category (REQ-STOR-200): media in use, media only the history keeps,
+ * by what keeps it, and media nothing keeps are told apart; so are the journal,
+ * the states of snapshots, of alternative branches and of the line the project
+ * is on, the history of other branches, the caches and the backups; and every
+ * byte of a project's files is counted in exactly one category.
  */
+
+/** Media kept by nothing but `elsewhere`, a backup or the journal. */
+function keptElsewhere(elsewhere: number) {
+  return { namedSnapshots: 0, undo: 0, alternativeBranches: 0, elsewhere };
+}
 
 function sizeUnder(tree: MemoryStorageTree, prefix: string): number {
   return [...tree.snapshot()]
@@ -60,12 +66,18 @@ describe('usage by category (REQ-STOR-200)', () => {
     );
     expect(open.journal).toBeGreaterThan(0);
     expect(open.sourceMedia).toBe(1_000);
-    expect(open.retainedDeletedMedia).toBe(2_000);
+    expect(open.retainedDeletedMedia).toEqual(keptElsewhere(2_000));
     expect(open.unreferencedMedia).toBe(4_000);
 
     expectSuccess(await session.close());
     const closed = expectSuccess(await measureUsage(storage.exporting));
     expect(closed.journal).toBe(0);
+    expect(closed.retainedDeletedMedia).toEqual({
+      namedSnapshots: 0,
+      undo: 0,
+      alternativeBranches: 2_000,
+      elsewhere: 0,
+    });
     expect(closed.namedSnapshots).toBeGreaterThan(0);
     expect(closed.alternativeBranches).toBeGreaterThan(0);
     expect(closed.recoveryCheckpoints).toBeGreaterThan(0);
@@ -97,7 +109,7 @@ describe('usage by category (REQ-STOR-200)', () => {
     expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), added)));
 
     const without = expectSuccess(await measureUsage(storage.exporting));
-    expect(without.retainedDeletedMedia).toBe(1_500);
+    expect(without.retainedDeletedMedia).toEqual(keptElsewhere(1_500));
     const live = expectSuccess(
       await measureUsage(storage.exporting, [session.getSnapshot().model.state]),
     );
@@ -108,5 +120,51 @@ describe('usage by category (REQ-STOR-200)', () => {
     const backedUp = expectSuccess(await measureUsage(storage.exporting));
     expect(backedUp.backups).toBe(sizeUnder(tree, 'backups/'));
     expect(backedUp.backups).toBeGreaterThan(0);
+  });
+
+  it('tells apart the media a snapshot, the line and another branch alone keep, and the history of other branches', async () => {
+    const test = harness(6);
+    const tree = new MemoryStorageTree();
+    const storage = storageOf(test, tree);
+    const snapshotted = await storedMedia(storage.store, 11, 1_100);
+    const undone = await storedMedia(storage.store, 12, 1_200);
+    const branched = await storedMedia(storage.store, 13, 1_300);
+    const inUse = await storedMedia(storage.store, 14, 1_400);
+    const managed = (contentId: ContentId): MediaSource => ({
+      kind: 'managed',
+      contentId,
+      byteLength: 1,
+      mediaType: 'audio/wav',
+    });
+    const header = await madeProject(test, tree);
+    // No state is kept beside the checkpoints, so only the history's own
+    // segments hold the branch.
+    const session = await openToWrite(test, tree, header.id, {
+      cadence: { checkpointAfter: 1_000, keepStateEvery: 1_000 },
+    });
+    const asset = test.ids.next<'AssetId'>();
+    expectSuccess(await session.run(addAsset(asset, snapshotted)));
+    expectSuccess(await session.createSnapshot({ name: 'First take' }));
+    expectSuccess(await session.run(setMedia(asset, managed(undone))));
+    expectSuccess(await session.run(setMedia(asset, managed(inUse))));
+    expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), branched)));
+    expectSuccess(await session.run(setName('Left behind')));
+    expectSuccess(await session.undo());
+    expectSuccess(await session.undo());
+    expectSuccess(await session.run(setName('The line the project is on')));
+    expectSuccess(await session.close());
+
+    const usage = expectSuccess(await measureUsage(storage.exporting));
+    expect(usage.sourceMedia).toBe(1_400);
+    expect(usage.alternativeBranches).toBeGreaterThan(0);
+    expect(usage.retainedDeletedMedia).toEqual({
+      namedSnapshots: 1_100,
+      undo: 1_200,
+      alternativeBranches: 1_300,
+      elsewhere: 0,
+    });
+    expect(
+      usage.journal + usage.namedSnapshots + usage.alternativeBranches + usage.recoveryCheckpoints,
+    ).toBe(sizeUnder(tree, 'projects/'));
   });
 });

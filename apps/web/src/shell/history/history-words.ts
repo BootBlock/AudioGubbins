@@ -8,7 +8,7 @@
  * of the point it was made from, never a change of its own.
  */
 
-import type { CompactionPlan, HistoryNode } from '@audiogubbins/history';
+import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
 import type { ExportRecord } from '@audiogubbins/project-format';
 
 import { describeBytes, quoted } from '../../wording.js';
@@ -43,8 +43,23 @@ export function describeExport(record: ExportRecord): string {
 }
 
 /** How many of something, in words. */
-function counted(count: number, one: string, many: string): string {
+export function counted(count: number, one: string, many: string): string {
   return `${String(count)} ${count === 1 ? one : many}`;
+}
+
+/** What letting history go takes away, in a sentence. */
+export function lostSentence(
+  lost: LostCapability,
+  exportName: (id: string) => string | undefined,
+): string {
+  switch (lost.kind) {
+    case 'undo-before':
+      return `You could no longer undo past ${when(lost.at)}, ${counted(lost.changes, 'change', 'changes')} back.`;
+    case 'branch':
+      return `The branch ${lost.name === undefined ? '' : `${quoted(lost.name)} `}of ${counted(lost.changes, 'change', 'changes')}, last used ${when(lost.latestAt)}, would go.`;
+    case 'export-state':
+      return `You could no longer go back to the state ${exportName(lost.export) ?? 'an export'} was made from.`;
+  }
 }
 
 /** What a compaction would free and take away, a sentence each. */
@@ -56,25 +71,7 @@ export function compactionSentences(
   const said = [
     `This removes ${counted(plan.removable.length, 'point', 'points')} of the history for good, and frees ${describeBytes(plan.reclaimableBytes)}.`,
   ];
-  for (const lost of plan.lost) {
-    switch (lost.kind) {
-      case 'undo-before':
-        said.push(
-          `You could no longer undo past ${when(lost.at)}, ${counted(lost.changes, 'change', 'changes')} back.`,
-        );
-        break;
-      case 'branch':
-        said.push(
-          `The branch ${lost.name === undefined ? '' : `${quoted(lost.name)} `}of ${counted(lost.changes, 'change', 'changes')}, last used ${when(lost.latestAt)}, would go.`,
-        );
-        break;
-      case 'export-state':
-        said.push(
-          `You could no longer go back to the state ${exportName(lost.export) ?? 'an export'} was made from.`,
-        );
-        break;
-    }
-  }
+  for (const lost of plan.lost) said.push(lostSentence(lost, exportName));
   if (!plan.withinBudget)
     said.push('Even so, the history would still be larger than the limit set.');
   return said;

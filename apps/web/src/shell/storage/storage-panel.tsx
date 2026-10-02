@@ -99,6 +99,7 @@ export function StoragePanel({
         <CleanupPlanView
           key={state.plan.steps.map(choiceOf).join(',')}
           plan={state.plan}
+          nameOf={(project) => headers.find((header) => header.id === project)?.name}
           run={run}
         />
       )}

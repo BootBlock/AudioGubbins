@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { unsafeBrandId } from '@audiogubbins/domain';
 import { CacheCategory, type CleanupPlan, type StorageUsage } from '@audiogubbins/storage';
 
 import { observable } from '../../state/observable.js';
@@ -15,7 +16,12 @@ const USAGE: StorageUsage = {
   alternativeBranches: 1_024,
   recoveryCheckpoints: 4_096,
   sourceMedia: 3 * 2 ** 20,
-  retainedDeletedMedia: 0,
+  retainedDeletedMedia: {
+    namedSnapshots: 2 ** 20,
+    undo: 2 * 2 ** 20,
+    alternativeBranches: 4_096,
+    elsewhere: 256,
+  },
   unreferencedMedia: 512,
   caches: new Map([[CacheCategory.Waveform, 10_240]]),
   backups: 8_192,
@@ -36,10 +42,58 @@ const PLAN: CleanupPlan = {
   confirmationBytes: 512,
 };
 
+/** A project the library lists, which a cleanup's steps name. */
+const HARBOUR = unsafeBrandId<'ProjectId'>('00000000-0000-4000-8000-00000000b0b0');
+
+/** A plan letting history of the project go, and backups of it. */
+const HISTORY_PLAN: CleanupPlan = {
+  steps: [
+    {
+      kind: 'expired-backups',
+      bytes: 4_096,
+      loses: 'backup-generations',
+      generations: new Map([[HARBOUR, [1, 2]]]),
+      at: 1_790_000_000_000,
+    },
+    {
+      kind: 'expired-history',
+      bytes: 8_192,
+      loses: 'history',
+      compactions: new Map([
+        [
+          HARBOUR,
+          {
+            project: HARBOUR,
+            removable: [],
+            reclaimableBytes: 8_192,
+            remainingBytes: 0,
+            withinBudget: true,
+            lost: [
+              {
+                kind: 'branch',
+                first: unsafeBrandId<'HistoryNodeId'>('n1'),
+                forkPoint: unsafeBrandId<'HistoryNodeId'>('n0'),
+                changes: 3,
+                latestAt: 1_790_000_000_000,
+              },
+            ],
+          },
+        ],
+      ]),
+    },
+  ],
+  confirmationBytes: 12_288,
+};
+
 /** Draws the panel over the usage given, and what it runs. */
 function panelOver(usage: StorageUsageState, unavailable?: string) {
   const run = vi.fn((_id: string, _args?: unknown) => true);
-  const library = observable<LibraryState>({ entries: [], loaded: true });
+  const library = observable<LibraryState>({
+    entries: [
+      { kind: 'project', header: { generation: 1, id: HARBOUR, name: 'Harbour', created: 1 } },
+    ],
+    loaded: true,
+  });
   render(
     <StoragePanel
       title="Storage"
@@ -75,6 +129,25 @@ describe('the Storage panel', () => {
     expect(parts).toContainEqual(['Recent changes not yet in a save point', '2 kB']);
     expect(parts).toContainEqual(['Audio nothing uses', '512 bytes']);
     expect(parts).toContainEqual(['Waveforms', '10 kB']);
+    expect(parts).toContainEqual(['Audio kept for snapshots', '1 MB']);
+    expect(parts).toContainEqual(['Audio kept for undo', '2 MB']);
+    expect(parts).toContainEqual(['Audio kept only by other branches', '4 kB']);
+    expect(parts).toContainEqual(['Audio kept only by backups and recent changes', '256 bytes']);
+  });
+
+  it('says what each step of a cleanup takes, item by item', () => {
+    panelOver({ usage: USAGE, plan: HISTORY_PLAN });
+
+    const backups = screen.getByRole('list', {
+      name: 'What Backups their policy no longer keeps takes',
+    });
+    expect(within(backups).getByText('2 backups of "Harbour"')).toBeVisible();
+    const history = screen.getByRole('list', {
+      name: 'What History the retention settings let go takes',
+    });
+    expect(
+      within(history).getByText(/^"Harbour": The branch of 3 changes, last used .*, would go\.$/),
+    ).toBeVisible();
   });
 
   it('shows a cleanup safest first, each step with its cost, and removes for good only from its confirmation', async () => {

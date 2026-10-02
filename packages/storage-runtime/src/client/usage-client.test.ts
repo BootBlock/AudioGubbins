@@ -87,7 +87,13 @@ describe('the usage, asked of the storage worker', () => {
     const usage = expectSuccess(await storage.client.usage.measure());
 
     expect(usage.sourceMedia).toBe(3_000);
-    expect(usage.retainedDeletedMedia + usage.unreferencedMedia).toBe(0);
+    expect(usage.retainedDeletedMedia).toEqual({
+      namedSnapshots: 0,
+      undo: 0,
+      alternativeBranches: 0,
+      elsewhere: 0,
+    });
+    expect(usage.unreferencedMedia).toBe(0);
     expect(usage.caches.get(CacheCategory.Waveform)).toBeGreaterThanOrEqual(100);
     expect(usage.recoveryCheckpoints).toBeGreaterThan(0);
     expect(usage.unreadable).toEqual([]);

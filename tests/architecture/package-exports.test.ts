@@ -262,8 +262,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/history': {
-    "Which parts of a history retain each piece of media: the current state, the active line, snapshots or only other branches (REQ-STOR-200). The usage measurement puts media only under held now or retained, so nothing calls it yet; it is kept for the Storage panel's split of retained media by what retains it, which REQ-STOR-200's categories ask for in this phase.":
-      ['ContentRetention', 'contentRetention'],
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
   },

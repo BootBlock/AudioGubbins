@@ -440,6 +440,13 @@
   gap: var(--ag-space-small);
 }
 
+.ag-cleanup-lost {
+  margin: var(--ag-space-tiny) 0 0;
+  padding-inline-start: var(--ag-space-large);
+  color: var(--ag-chrome-text-secondary);
+  font-size: var(--ag-text-small);
+}
+
 /* Panels. */
 
 /*

@@ -3,30 +3,35 @@
  * with what it frees and what it costs, the ones to leave out, and the
  * confirmation that carries it out (REQ-STOR-106, REQ-STOR-102, REQ-STOR-200).
  *
- * A plan of caches alone is carried out at a press, since nothing is lost by
- * it. A plan reaching past the caches says how much it removes for good, and
- * the button that carries it out says it too; the bytes it names are the ones
- * the storage checks. Leaving a step out plans again with the others, so what
- * is confirmed is always a plan the storage made.
+ * Each step says what it costs in a sentence, then what it takes item by item:
+ * each project, backup and part of a history. A plan of caches alone is carried
+ * out at a press, since nothing is lost by it. A plan reaching past the caches
+ * says how much it removes for good, and the button that carries it out says it
+ * too; the bytes it names are the ones the storage checks. Leaving a step out
+ * plans again with the others, so what is confirmed is always a plan the
+ * storage made.
  */
 
 import { useState, type ReactNode } from 'react';
 
 import { Button, ButtonTone, ToggleSwitch } from '@audiogubbins/design-system';
+import type { ProjectId } from '@audiogubbins/domain';
 import type { CleanupPlan } from '@audiogubbins/storage';
 
 import { describeBytes } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
 import { refusalSentence } from '../../cleanup-words.js';
-import { choiceOf, lossOf, stepName } from './storage-words.js';
+import { choiceOf, lossOf, stepDetails, stepName } from './storage-words.js';
 
 /** The steps, each with what it frees and costs, and whether it is left out. */
 function Steps({
   plan,
+  nameOf,
   leftOut,
   onLeaveOut,
 }: {
   readonly plan: CleanupPlan;
+  readonly nameOf: (project: ProjectId) => string | undefined;
   readonly leftOut: ReadonlySet<string>;
   readonly onLeaveOut: (choice: string, out: boolean) => void;
 }): ReactNode {
@@ -35,6 +40,7 @@ function Steps({
     <ol className="ag-cleanup-steps">
       {plan.steps.map((step) => {
         const choice = choiceOf(step);
+        const details = stepDetails(step, nameOf);
         return (
           <li key={choice} className="ag-cleanup-step">
             <ToggleSwitch
@@ -45,6 +51,13 @@ function Steps({
                 onLeaveOut(choice, !included);
               }}
             />
+            {details.length > 0 && (
+              <ul className="ag-cleanup-lost" aria-label={`What ${stepName(step)} takes`}>
+                {details.map((detail) => (
+                  <li key={detail}>{detail}</li>
+                ))}
+              </ul>
+            )}
           </li>
         );
       })}
@@ -101,9 +114,13 @@ function Decision({
 /** The plan (see the module comment). */
 export function CleanupPlanView({
   plan,
+  nameOf,
   run,
 }: {
   readonly plan: CleanupPlan;
+
+  /** The name of a project a step names, where the library holds it. */
+  readonly nameOf: (project: ProjectId) => string | undefined;
   readonly run: RunCommand;
 }): ReactNode {
   const [leftOut, setLeftOut] = useState<ReadonlySet<string>>(new Set());
@@ -119,7 +136,7 @@ export function CleanupPlanView({
       {plan.mediaRefused !== undefined && (
         <p data-ag-status="reduced">{refusalSentence(plan.mediaRefused)}</p>
       )}
-      <Steps plan={plan} leftOut={leftOut} onLeaveOut={leaveOut} />
+      <Steps plan={plan} nameOf={nameOf} leftOut={leftOut} onLeaveOut={leaveOut} />
       <div className="ag-settings-row">
         <Decision plan={plan} leftOut={leftOut} run={run} />
         <Button compact onClick={() => run('storage.dismiss-cleanup')}>

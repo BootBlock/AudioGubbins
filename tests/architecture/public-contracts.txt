@@ -3322,7 +3322,7 @@ Published paths
   readonly StorageUsage.alternativeBranches: number
   readonly StorageUsage.recoveryCheckpoints: number
   readonly StorageUsage.sourceMedia: number
-  readonly StorageUsage.retainedDeletedMedia: number
+  readonly StorageUsage.retainedDeletedMedia: RetainedMediaUsage
   readonly StorageUsage.unreferencedMedia: number
   readonly StorageUsage.caches: ReadonlyMap<CacheCategory, number>
   readonly StorageUsage.backups: number
@@ -4984,6 +4984,13 @@ packages/storage/src/testing/memory-leases.ts
   interface Waiting
   readonly Waiting.project: ProjectId
   readonly Waiting.settle: (outcome: TransferOutcome) => void
+
+packages/storage/src/usage-measurement.ts
+  interface RetainedMediaUsage
+  readonly RetainedMediaUsage.namedSnapshots: number
+  readonly RetainedMediaUsage.undo: number
+  readonly RetainedMediaUsage.alternativeBranches: number
+  readonly RetainedMediaUsage.elsewhere: number
 
 packages/storage/src/write-queue.ts
   interface Queued
