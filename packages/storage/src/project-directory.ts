@@ -7,17 +7,18 @@
  * files a folder input gave; nothing here knows which. A repository keeps its
  * own files beside the tree, such as `.git` or a read-me, so only the tree's
  * header and what lies in its directories are read, and a file there that no
- * tree has is refused rather than passed over. Writing replaces the tree's
- * files and removes those of the tree that the project no longer has, and
- * leaves every other file as it was. A media file already there under its
- * content identity, at its length, is not written again. A directory is
+ * tree has is refused rather than passed over. A media file or a cache is read
+ * unproved, for whatever takes it to hash (`tree-bodies.ts`). Writing replaces
+ * the tree's files and removes those of the tree that the project no longer
+ * has, and leaves every other file as it was. A media file already there under
+ * its content identity, at its length, is not written again. A directory is
  * claimed for a project before anything is written into it: one that holds no
  * tree, or the same project's, is claimed at once, and one that holds another
  * project's tree, or a tree whose header cannot be read, only where the person
  * confirmed replacing it, so no write ever takes another project's files
- * unasked. The directory cannot be changed atomically: a write cut short
- * leaves a tree the next write completes, and the reader refuses one that does
- * not agree with itself, and says whether it changed the directory at all.
+ * unasked. The directory cannot be changed atomically: a write cut short leaves
+ * a tree the next write completes, and the reader refuses one that does not
+ * agree with itself, and says whether it changed the directory at all.
  */
 
 import {
@@ -39,9 +40,9 @@ import {
   type ProjectTreeListing,
 } from '@audiogubbins/project-format';
 
-import type { BodyOpener } from './bundle-writing.js';
 import { bytesSource, streamInto } from './byte-streams.js';
 import { refusalsReported } from './storage-failures.js';
+import type { BodyOpener, UnprovedBodies } from './tree-bodies.js';
 
 /** A file of a directory, by its path inside it with `/` between segments. */
 export interface DirectoryFile {
@@ -74,7 +75,7 @@ export interface DirectoryWriter extends DirectoryReader {
 function treeOf(
   reader: DirectoryReader,
   listed: readonly DirectoryFile[],
-): { readonly listing: ProjectTreeListing; readonly open: BodyOpener } {
+): { readonly listing: ProjectTreeListing; readonly open: UnprovedBodies } {
   const files = listed.filter(({ path }) => isWithinProjectTree(path));
   const opened = async (path: string) => {
     const source = await reader.open(path);
@@ -91,7 +92,11 @@ function treeOf(
           return bytes.length === source.value.size ? succeed(bytes) : fail(fileVanished(path));
         }),
     },
-    open: async ({ path }) => await refusalsReported(async () => await opened(path)),
+    open: async ({ path }) =>
+      await refusalsReported(async () => {
+        const source = await opened(path);
+        return source.ok ? succeed({ unproved: source.value }) : source;
+      }),
   };
 }
 
@@ -99,7 +104,7 @@ function treeOf(
 export async function directoryTree(
   reader: DirectoryReader,
   signal?: AbortSignal,
-): Promise<DomainResult<{ readonly listing: ProjectTreeListing; readonly open: BodyOpener }>> {
+): Promise<DomainResult<{ readonly listing: ProjectTreeListing; readonly open: UnprovedBodies }>> {
   return await refusalsReported(async () => succeed(treeOf(reader, await reader.list(signal))));
 }
 
@@ -172,7 +177,8 @@ export interface TreeWrite {
 
 /**
  * Writes a tree's files into a claimed directory, each media file and cache
- * read by `open`, and removes the tree's files the project no longer has.
+ * read by `open` and proved as it is read, and removes the tree's files the
+ * project no longer has.
  */
 export async function writeTreeInto(
   claimed: ClaimedDirectory,

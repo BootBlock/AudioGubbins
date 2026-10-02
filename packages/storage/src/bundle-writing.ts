@@ -6,16 +6,14 @@
  * The entries are written in the order of their paths, the manifest among them,
  * each streamed from wherever it is kept and never held whole, so one tree
  * always gives the same archive, byte for byte, and a bundle unpacked and
- * packed again is the bundle it was. Every identity in the manifest is taken
- * from the bytes, but for media and caches the storage keeps, whose identity it
- * took when it kept them and which are proved again as they are written into
- * the archive (`proved-bytes.ts`); media and caches from anywhere else are
- * hashed and must be the bytes the tree names.
+ * packed again is the bundle it was. A metadata file's identity in the manifest
+ * is taken from its bytes; a media file's or a cache's is the one the tree
+ * names for it, and its bytes are proved to be those as they are written into
+ * the archive (`tree-bodies.ts`), so each is read and hashed once.
  */
 
 import {
   FailureKind,
-  fail,
   failure,
   succeed,
   type DomainFailure,
@@ -28,7 +26,6 @@ import {
   writeBundleManifest,
   writeZip,
   type ByteSink,
-  type ByteSource,
   type Digest,
   type ManifestEntry,
   type ProjectTreeFile,
@@ -38,22 +35,14 @@ import {
 } from '@audiogubbins/project-format';
 
 import { bytesSource } from './byte-streams.js';
-import { cacheNotListed } from './cache-store.js';
-import { CarriedFailure, mediaDamaged, refusalsReported } from './storage-failures.js';
-
-/** How the bytes of a media file or a cache of a tree are read. */
-export type BodyOpener = (
-  file: ProjectTreeFile,
-  signal?: AbortSignal,
-) => Promise<DomainResult<ByteSource>>;
+import { CarriedFailure, refusalsReported } from './storage-failures.js';
+import type { BodyOpener } from './tree-bodies.js';
 
 /** How a bundle is written. */
 interface BundleWriting {
+  /** Each media file and cache, proved against what the tree names as it is read. */
   readonly open: BodyOpener;
   readonly digest: Digest;
-
-  /** Whether media and caches are hashed to prove them, where they do not come from storage. */
-  readonly proveMedia: boolean;
 
   /** Asked as the archive is written, whose chunks may be read and checksummed at once. */
   readonly yieldToHost: YieldToHost;
@@ -116,29 +105,18 @@ async function manifestEntries(
   writing: BundleWriting,
 ): Promise<DomainResult<readonly ManifestEntry[]>> {
   const entries: ManifestEntry[] = [];
-  for (const file of files) {
-    const { path, body } = file;
-    if (body.kind !== 'text' && !writing.proveMedia) {
+  for (const { path, body } of files) {
+    if (body.kind !== 'text') {
       entries.push({ path, size: body.byteLength, contentId: body.contentId });
       continue;
     }
-    const source =
-      body.kind === 'text'
-        ? succeed(bytesSource(body.bytes))
-        : await writing.open(file, writing.signal);
-    if (!source.ok) return source;
     const identity = await contentIdOf(
-      source.value,
+      bytesSource(body.bytes),
       writing.digest,
       writing.signal === undefined ? {} : { signal: writing.signal },
     );
     if (!identity.ok) return identity;
     const { contentId, byteLength } = identity.value;
-    if (body.kind !== 'text' && contentId !== body.contentId) {
-      return fail(
-        body.kind === 'media' ? mediaDamaged(path, body.contentId) : cacheNotListed(body.path),
-      );
-    }
     entries.push({ path, size: byteLength, contentId });
   }
   return succeed(entries);

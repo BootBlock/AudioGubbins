@@ -6,9 +6,9 @@
  * The bundle is exactly the tree and its manifest, and both directions read the
  * whole project and check it before writing it, then write it as the format
  * writes a project, so a bundle unpacked and packed again is the bundle it was,
- * byte for byte, and nothing of the project is lost either way. A directory's
- * media is hashed as it is packed and must be the media its name says; a
- * bundle's is checked against its manifest as it is unpacked.
+ * byte for byte, and nothing of the project is lost either way. Each media file
+ * and cache is hashed once, as it is copied, and must be the bytes the tree
+ * names (`tree-bodies.ts`).
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -30,6 +30,7 @@ import {
   type DirectoryReader,
   type DirectoryWriter,
 } from './project-directory.js';
+import { provedBodies } from './tree-bodies.js';
 
 /**
  * Writes the tree a bundle holds into a directory, claimed for its project
@@ -50,7 +51,14 @@ export async function unpackBundle(
   if (!claimed.ok) return claimed;
   const tree = projectTree(content.value);
   if (!tree.ok) return tree;
-  return (await writeTreeInto(claimed.value, tree.value, bundle.value.open, signal)).written;
+  return (
+    await writeTreeInto(
+      claimed.value,
+      tree.value,
+      provedBodies(bundle.value.open, services.digest),
+      signal,
+    )
+  ).written;
 }
 
 /** Writes the tree a directory holds as a bundle into `sink`, and closes it. */
@@ -77,9 +85,8 @@ export async function packUnpacked(
     return files;
   }
   return await writeBundle(files.value, sink, {
-    open: tree.value.open,
+    open: provedBodies(tree.value.open, digest),
     digest,
-    proveMedia: true,
     yieldToHost,
     ...(signal === undefined ? {} : { signal }),
   });

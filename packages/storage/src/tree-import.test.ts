@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
-import type { ByteSource } from '@audiogubbins/project-format';
+import { CONTENT_CHUNK_BYTES, type ByteSource, type Digest } from '@audiogubbins/project-format';
 
 import { CacheCategory, type CacheKey } from './cache-store.js';
 import { exportBundle, exportUnpacked, importBundle, importUnpacked } from './project-transfer.js';
@@ -14,9 +14,9 @@ import {
   storedMedia,
   type TestStorage,
 } from './testing/memory-ports.js';
-import { madeProject, openToWrite } from './testing/storage-harness.js';
+import { harnessOver, madeProject, openToWrite } from './testing/storage-harness.js';
 import { addAsset, setName } from './testing/test-commands.js';
-import { harness } from './testing/node-services.js';
+import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * Bringing a project in from its tree (REQ-STOR-103, REQ-STOR-099,
@@ -29,10 +29,10 @@ const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as cons
 const WITH_CACHES = { ...WHOLE, includeCaches: true } as const;
 
 /** A project with media, a change and a cache of each kind it carries, closed, in its storage. */
-async function cachedProject(seed: number) {
+async function cachedProject(seed: number, mediaSize?: number) {
   const test = harness(seed);
   const storage = storageOf(test, new MemoryStorageTree());
-  const media = await storedMedia(storage.store, seed);
+  const media = await storedMedia(storage.store, seed, mediaSize);
   const header = await madeProject(test, storage.tree);
   const session = await openToWrite(test, storage.tree, header.id);
   expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
@@ -254,3 +254,57 @@ function moveCache(directory: MemoryDirectory, from: string, to: string): void {
   const text = new TextDecoder().decode(index).replace(`"${from}"`, `"${to}"`);
   directory.files.set('caches/index.json', new TextEncoder().encode(text));
 }
+
+describe('the media a bundle brings in', () => {
+  /** Media of three whole chunks and a part of one. */
+  const SIZE = 3 * CONTENT_CHUNK_BYTES + 1_234;
+
+  /** A digest that counts the whole chunks it hashes, each one pass over a chunk of media. */
+  function countedDigest(): { readonly digest: Digest; readonly chunks: () => number } {
+    let chunks = 0;
+    return {
+      digest: async (bytes) => {
+        if (bytes.length === CONTENT_CHUNK_BYTES) chunks += 1;
+        return await nodeDigest(bytes);
+      },
+      chunks: () => chunks,
+    };
+  }
+
+  it('reads and hashes each piece once, and none the storage holds already', async () => {
+    const { project, storage } = await cachedProject(341, SIZE);
+    const bundle = await bundleOf(storage, project);
+    const counted = countedDigest();
+    const target = storageOf(harnessOver(counted.digest, 342), new MemoryStorageTree());
+    const first = countedSource(bundle);
+
+    expectSuccess(await importBundle(first, 'original', target.importing));
+    const firstChunks = counted.chunks();
+    const again = countedSource(bundle);
+    expectSuccess(await importBundle(again, 'copy', target.importing));
+
+    expect(firstChunks).toBe(3);
+    // The second proves the object the store holds where it lies, once.
+    expect(counted.chunks() - firstChunks).toBe(3);
+    expect(again.bytesRead).toBeLessThanOrEqual(first.bytesRead - SIZE);
+  });
+
+  it('mends media the storage holds that was damaged in place, from the bundle', async () => {
+    const { project, storage, media } = await cachedProject(343);
+    const bundle = await bundleOf(storage, project);
+    const tree = new MemoryStorageTree();
+    const target = storageOf(harness(344), tree);
+    const kept = await storedMedia(target.store, 343);
+    expect(kept).toBe(media);
+    const object = `media/${media.slice(3, 5)}/${media}`;
+    const damaged = tree.snapshot().get(object)?.slice();
+    if (damaged === undefined) throw new Error('The store holds no such object.');
+    damaged[10] = (damaged[10] ?? 0) ^ 0xff;
+    await tree.writeFile(object, damaged);
+    expect(expectFailureCode(await target.store.verify(media))).toBe('media.object-damaged');
+
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+
+    expect(expectSuccess(await target.store.verify(media)).contentId).toBe(media);
+  });
+});

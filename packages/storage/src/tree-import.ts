@@ -47,12 +47,12 @@ import {
   type YieldToHost,
 } from '@audiogubbins/project-format';
 
-import type { BodyOpener } from './bundle-writing.js';
 import { cacheKeyOf, type CacheScope, type CacheStore } from './cache-store.js';
 import { writeProject, type ProjectContents } from './project-creation.js';
 import { claimFor, type ImportIdentity, type ImportedProject } from './import-claim.js';
 import { contentAs } from './project-identity.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
+import type { UnprovedBodies } from './tree-bodies.js';
 import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 
 /** What bringing a project in works with, each made once by the composition root. */
@@ -75,7 +75,7 @@ export interface ImportServices {
 /** Brings a project in from its tree, whose media and caches `open` reads. */
 export async function importTree(
   content: ProjectTreeContent,
-  open: BodyOpener,
+  open: UnprovedBodies,
   identity: ImportIdentity,
   services: ImportServices,
   signal?: AbortSignal,
@@ -236,7 +236,7 @@ async function contentsOf(
 async function bringBodies(
   content: ProjectTreeContent,
   project: ProjectId,
-  open: BodyOpener,
+  open: UnprovedBodies,
   held: ContentId[],
   services: ImportServices,
   signal?: AbortSignal,
@@ -256,21 +256,29 @@ async function bringBodies(
   return succeed(undefined);
 }
 
-/** Keeps a piece of the tree's media in the store, which must be the media its name says. */
+/**
+ * Keeps a piece of the tree's media in the store under the identity its name
+ * says, which the store proves as it writes it, or by hashing the object it
+ * holds already without reading the tree's at all.
+ */
 async function bringMedia(
   file: ProjectTreeFile,
   named: ContentId,
-  open: BodyOpener,
+  open: UnprovedBodies,
   held: ContentId[],
   services: ImportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
-  const source = await open(file, signal);
-  if (!source.ok) return source;
-  const stored = await services.store.put(source.value, signal === undefined ? {} : { signal });
+  const opened = await open(file, signal);
+  if (!opened.ok) return opened;
+  const stored = await services.store.putNamed(
+    opened.value.unproved,
+    named,
+    signal === undefined ? {} : { signal },
+  );
   if (!stored.ok) return stored;
   held.push(stored.value.contentId);
-  return stored.value.contentId === named ? succeed(undefined) : fail(mediaNotNamed(file.path));
+  return succeed(undefined);
 }
 
 /**
@@ -285,7 +293,7 @@ async function bringCache(
   file: ProjectTreeFile,
   body: Extract<TreeFileBody, { readonly kind: 'cache' }>,
   identity: { readonly from: ProjectId; readonly project: ProjectId },
-  open: BodyOpener,
+  open: UnprovedBodies,
   services: ImportServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
@@ -300,16 +308,12 @@ async function bringCache(
     key.scope.kind === 'project' && key.scope.project === identity.from
       ? { kind: 'project', project: identity.project }
       : key.scope;
-  const source = await open(file, signal);
-  if (!source.ok) return source;
-  return await services.caches.putListed({ ...key, scope }, source.value, body.contentId, signal);
-}
-
-function mediaNotNamed(path: string): DomainFailure {
-  return failure(
-    'storage.media-damaged',
-    FailureKind.IntegrityViolation,
-    'A media file is not the media its name says it is.',
-    { details: { file: path } },
+  const opened = await open(file, signal);
+  if (!opened.ok) return opened;
+  return await services.caches.putListed(
+    { ...key, scope },
+    opened.value.unproved,
+    body.contentId,
+    signal,
   );
 }

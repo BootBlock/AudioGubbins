@@ -191,7 +191,6 @@ async function writeCopy(
   const written = await writeBundle(tree.value.files, hashing, {
     open: storedBodies(services),
     digest: services.digest,
-    proveMedia: false,
     yieldToHost: services.yieldToHost,
     ...(signal === undefined ? {} : { signal }),
   });

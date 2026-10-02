@@ -17,6 +17,17 @@
  *   5. Write the seal.
  *   6. Remove the intent, then `incoming/<t>`.
  *
+ * Bytes whose identity the caller already knows, such as media a bundle lists
+ * ({@link MediaObjectStore.putNamed}), skip receiving, so they are read and
+ * hashed once and copied once:
+ *
+ *   1. If the identity is stored whole, hash the stored object where it lies.
+ *      Its name is the hash of its bytes, so a sound object is the media, and
+ *      the source is never read: go to 6. A damaged one is replaced.
+ *   2. Steps 3 to 5, streaming the source straight under the object's name,
+ *      hashing as it is written; bytes that are not the named media are
+ *      refused, and the object undone, before any seal.
+ *
  * Removal under a collection warrant writes an intent, removes the object, then
  * the seal, then the intent. Recovery reads every intent: an object it names
  * that is not whole (sealed, and of its sealed length) is removed with its
@@ -60,6 +71,7 @@ import { objectDamaged, objectMissing, refusalsReported } from './media-failures
 import {
   discard,
   receive,
+  storeNamed,
   storeReceived,
   type ObjectFiles,
   type PutOptions,
@@ -153,10 +165,36 @@ export class MediaObjectStore {
    * leaving nothing named by an identity.
    */
   async put(source: ByteSource, options: PutOptions = {}): Promise<DomainResult<PutOutcome>> {
+    return await this.#holding(options, async () => await this.#stored(source, options));
+  }
+
+  /**
+   * Stores `source`, which whoever gives it names `contentId`, or finds it
+   * stored, as {@link put} does, but reading and hashing it once at most: an
+   * object stored whole already is proved where it lies and `source` is not
+   * read, and otherwise `source` is written straight under its name and
+   * refused, with nothing kept, where its bytes are not that media.
+   */
+  async putNamed(
+    source: ByteSource,
+    contentId: ContentId,
+    options: PutOptions = {},
+  ): Promise<DomainResult<PutOutcome>> {
+    return await this.#holding(
+      options,
+      async () => await this.#storedNamed(source, contentId, options),
+    );
+  }
+
+  /** Runs a store sharing the storage-wide lock, held while what it stored is held. */
+  async #holding(
+    options: PutOptions,
+    store: () => Promise<DomainResult<PutOutcome>>,
+  ): Promise<DomainResult<PutOutcome>> {
     const unshare = await this.#sharing.share(options.signal);
     let held = false;
     try {
-      const outcome = await this.#stored(source, options);
+      const outcome = await store();
       if (outcome.ok) {
         const { contentId } = outcome.value;
         this.#holds.set(contentId, [...(this.#holds.get(contentId) ?? []), unshare]);
@@ -191,6 +229,39 @@ export class MediaObjectStore {
           }
         }),
     );
+  }
+
+  /** Stores `source`, named `contentId`, or finds it stored and sound, within this instance's gate. */
+  async #storedNamed(
+    source: ByteSource,
+    contentId: ContentId,
+    options: PutOptions,
+  ): Promise<DomainResult<PutOutcome>> {
+    return await this.#gate.shared(
+      async () =>
+        await refusalsReported(
+          async () =>
+            await this.#settling.run(contentId, async (): Promise<DomainResult<PutOutcome>> => {
+              const sound = await this.#sound(contentId, options.signal);
+              if (sound !== undefined) return succeed({ ...sound, deduplicated: true });
+              const token = this.#nextToken();
+              const stored = await storeNamed(this.#files, source, contentId, token, options);
+              return stored.ok ? succeed({ ...stored.value, deduplicated: false }) : stored;
+            }),
+        ),
+    );
+  }
+
+  /** The object, where it is stored whole and its bytes are still the ones it is named by. */
+  async #sound(contentId: ContentId, signal?: AbortSignal): Promise<StoredObject | undefined> {
+    const whole = await this.#whole(contentId, signal);
+    if (whole === undefined) return undefined;
+    const hashed = await contentIdOf(
+      whole,
+      this.#files.digest,
+      signal === undefined ? {} : { signal },
+    );
+    return hashed.ok && hashed.value.contentId === contentId ? hashed.value : undefined;
   }
 
   /**

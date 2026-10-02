@@ -6,11 +6,12 @@
  * refused with the version it was found to be before its project is looked at.
  * Then the archive must hold exactly what the manifest lists, each entry of the
  * length listed; an entry the manifest does not list, or one it lists that is
- * missing, refuses the bundle. Every entry is checked against its content
- * identity before its bytes are given to anyone: a metadata file as it is read,
- * and a media file or a cache by hashing it as it streams, before the caller
- * streams it again, so nothing from a bundle is ever kept that is not what the
- * bundle says. Nothing is held whole but a metadata file.
+ * missing, refuses the bundle. A metadata file is checked against its content
+ * identity as it is read. A media file or a cache is given unproved, once the
+ * manifest is found to list it as the bytes the tree names, for whatever takes
+ * it to hash as it writes it (`tree-bodies.ts`), so each is read and hashed
+ * once and nothing from a bundle is kept that is not what the bundle says.
+ * Nothing is held whole but a metadata file.
  */
 
 import {
@@ -32,13 +33,14 @@ import {
   type ByteSource,
   type Digest,
   type ManifestEntry,
+  type ProjectTreeFile,
   type ProjectTreeListing,
   type YieldToHost,
   type ZipEntry,
 } from '@audiogubbins/project-format';
 
-import type { BodyOpener } from './bundle-writing.js';
 import { bytesSource } from './byte-streams.js';
+import type { UnprovedBody, UnprovedBodies } from './tree-bodies.js';
 
 /** What a bundle is read with, each made once by the composition root. */
 export interface BundleServices {
@@ -53,8 +55,8 @@ interface OpenedBundle {
   /** The project's tree, each metadata file checked as it is read. */
   readonly listing: ProjectTreeListing;
 
-  /** A media file or a cache, checked against its identity before it is given. */
-  readonly open: BodyOpener;
+  /** A media file or a cache, unproved, once its manifest entry is found to name its bytes as the tree does. */
+  readonly open: UnprovedBodies;
 }
 
 /** Opens a bundle (see the module comment). */
@@ -89,7 +91,7 @@ export async function openBundle(
       files: manifest.value.entries.map(({ path, size }) => ({ path, size })),
       read: async (path, readSignal) => await checked.read(path, readSignal),
     },
-    open: async ({ path }, openSignal) => await checked.open(path, openSignal),
+    open: async (file, openSignal) => await checked.open(file, openSignal),
   });
 }
 
@@ -146,14 +148,21 @@ class CheckedEntries {
     return proved.ok ? succeed(bytes.value) : proved;
   }
 
-  /** A file's bytes to stream, once they are hashed and found to be the ones listed. */
-  async open(path: string, signal?: AbortSignal): Promise<DomainResult<ByteSource>> {
+  /**
+   * A media file's or a cache's bytes to stream, unproved, where the manifest
+   * lists them as the bytes the tree names: the two must agree.
+   */
+  async open(
+    { path, body }: ProjectTreeFile,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<UnprovedBody>> {
     const entry = this.entries.get(path);
     if (entry === undefined) return fail(bundleProblem('bundle.missing-entry', path));
+    if (body.kind === 'text' || this.listed.get(path)?.contentId !== body.contentId) {
+      return fail(bundleProblem('bundle.entry-damaged', path));
+    }
     const opened = await entry.open(signal);
-    if (!opened.ok) return opened;
-    const proved = await this.prove(path, opened.value, signal);
-    return proved.ok ? opened : proved;
+    return opened.ok ? succeed({ unproved: opened.value }) : opened;
   }
 
   private async prove(

@@ -229,7 +229,6 @@ export class BackupScheduler {
       return await writeBundle(tree.value.files, sink, {
         open: storedBodies(this.services),
         digest: this.services.digest,
-        proveMedia: false,
         yieldToHost: this.services.yieldToHost,
         ...(signal === undefined ? {} : { signal }),
       });

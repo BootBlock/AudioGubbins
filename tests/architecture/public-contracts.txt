@@ -2160,7 +2160,11 @@ Published paths
   readonly MediaObjectStore.#settling: KeyedQueue<ContentId>
   readonly MediaObjectStore.#holds: Map<ContentId, (() => void)[]>
   MediaObjectStore.put: (source: ByteSource, options?: PutOptions) => Promise<DomainResult<PutOutcome>>
+  MediaObjectStore.putNamed: (source: ByteSource, contentId: ContentId, options?: PutOptions) => Promise<DomainResult<PutOutcome>>
+  MediaObjectStore.#holding: (options: PutOptions, store: () => Promise<DomainResult<PutOutcome>>) => Promise<DomainResult<PutOutcome>>
   MediaObjectStore.#stored: (source: ByteSource, options: PutOptions) => Promise<DomainResult<PutOutcome>>
+  MediaObjectStore.#storedNamed: (source: ByteSource, contentId: ContentId, options: PutOptions) => Promise<DomainResult<PutOutcome>>
+  MediaObjectStore.#sound: (contentId: ContentId, signal?: AbortSignal) => Promise<StoredObject | undefined>
   MediaObjectStore.release: (contentId: ContentId) => void
   MediaObjectStore.isHeld: (contentId: ContentId) => boolean
   MediaObjectStore.find: (contentId: ContentId) => Promise<DomainResult<StoredObject | undefined>>

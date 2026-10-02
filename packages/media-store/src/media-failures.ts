@@ -85,6 +85,19 @@ export function objectDamaged(contentId: ContentId, reason: string): DomainFailu
   );
 }
 
+/**
+ * The failure of bytes given under a name that are not the media it names, such
+ * as a bundle's entry damaged since its manifest was written.
+ */
+export function notTheNamedMedia(contentId: ContentId): DomainFailure {
+  return failure(
+    'media.not-as-named',
+    FailureKind.IntegrityViolation,
+    'The bytes given are not the media they were named as.',
+    { details: { contentId } },
+  );
+}
+
 /** Reports the tree's refusals as designed failures (REQ-EXEC-136.15). */
 export async function refusalsReported<TValue>(
   work: () => Promise<DomainResult<TValue>>,

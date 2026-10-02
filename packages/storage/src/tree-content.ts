@@ -40,7 +40,6 @@ import {
   type TreeMedia,
 } from '@audiogubbins/project-format';
 
-import type { BodyOpener } from './bundle-writing.js';
 import { bytesSource } from './byte-streams.js';
 import { CACHE_CLEANUP_ORDER, cacheKeyOf, cachePathOf, type CacheStore } from './cache-store.js';
 import { choiceOf } from './comparison-record.js';
@@ -48,6 +47,7 @@ import { contentIdsIn } from './content-references.js';
 import { offeredStates, type ProjectCopy } from './project-copy.js';
 import { provedBytes } from './proved-bytes.js';
 import { mediaDamaged, refusalsReported } from './storage-failures.js';
+import type { BodyOpener } from './tree-bodies.js';
 
 /**
  * How much of a project a bundle or tree holds: the whole history, with full
