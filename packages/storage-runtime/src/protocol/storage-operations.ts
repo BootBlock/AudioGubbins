@@ -9,10 +9,10 @@
  * grouped by the area of the page's client that calls it: the library of
  * projects, the projects open (`project-operations.ts`), taking projects out
  * and bringing them in (`transfer-operations.ts`), their backup generations
- * (`backup-operations.ts`), audio files (`media-operations.ts`), the storage root, the caches, the usage and its
- * cleanup, who writes each project, and the files linked assets were recorded
- * from. The values all clone: none is a class with behaviour, and a cache's
- * bytes are moved rather than copied.
+ * (`backup-operations.ts`), audio files (`media-operations.ts`), the storage
+ * root, the caches, the usage and its cleanup, who writes each project, and the
+ * files linked assets were recorded from. The values all clone: none is a class
+ * with behaviour, and a cache's bytes are moved rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';

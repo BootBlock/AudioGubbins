@@ -40,7 +40,7 @@ import {
   type SourceAudioShape,
 } from '@audiogubbins/project-format';
 
-import { releaseOnceSaved } from './media-holds.js';
+import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
 import type { ChangeOutcome } from './session-contracts.js';
 
@@ -102,9 +102,35 @@ export async function importAudio(
   );
   if (!imported.ok) return imported;
   const { source, held } = imported.value;
-  const asset: Asset = {
+  const asset = importedAsset(request, name.value, format, source);
+  const ran = await runHolding(
+    session,
+    () => {
+      if (held !== undefined) services.store.release(held);
+    },
+    async () => {
+      signal?.throwIfAborted();
+      return await session.run(services.invocation(asset, source));
+    },
+  );
+  if (!ran.ok) return ran;
+  return succeed({
+    outcome: ran.value,
+    asset,
+    shortfall: format.declaredFrames - format.frames,
+  });
+}
+
+/** The asset an import adds: the shape the reader found, under the request's identity. */
+function importedAsset(
+  request: AudioImport,
+  displayName: string,
+  format: AudioFormatDescriptor,
+  source: AssetSource,
+): Asset {
+  return {
     id: request.assetId,
-    displayName: name.value,
+    displayName,
     origin: AssetOrigin.Imported,
     sampleRate: format.sampleRate,
     channelLayout: format.layout,
@@ -112,26 +138,6 @@ export async function importAudio(
     storageKey: storageKeyOf(request.assetId, source.media),
     edits: [],
   };
-
-  let ran: DomainResult<ChangeOutcome> | undefined;
-  try {
-    signal?.throwIfAborted();
-    ran = await session.run(services.invocation(asset, source));
-  } finally {
-    if (held !== undefined) {
-      const release = (): void => {
-        services.store.release(held);
-      };
-      if (ran?.ok === true && ran.value.kind === 'applied') releaseOnceSaved(session, release);
-      else release();
-    }
-  }
-  if (!ran.ok) return ran;
-  return succeed({
-    outcome: ran.value,
-    asset,
-    shortfall: format.declaredFrames - format.frames,
-  });
 }
 
 /** The name an imported file's asset takes: its file name without the extension. */

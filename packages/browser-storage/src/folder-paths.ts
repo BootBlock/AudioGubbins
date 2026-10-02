@@ -1,8 +1,8 @@
 /**
- * Walking a path of names down from a directory handle, for a folder the
- * person chose and for the origin-private file system alike: every refusal of
- * the platform becomes a `TreeFailure` of its kind, and a file or a folder that
- * is not there is absent rather than a failure, as the storage ports ask.
+ * Walking a path of names down from a directory handle, for a folder the person
+ * chose and for the origin-private file system alike: every refusal of the
+ * platform becomes a `TreeFailure` of its kind, and a file or a folder that is
+ * not there is absent rather than a failure, as the storage ports ask.
  */
 
 import { meansAbsent, treeFailureOf } from './platform-failures.js';

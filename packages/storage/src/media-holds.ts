@@ -8,7 +8,10 @@
  * has stopped writing, after which nothing it holds will reach storage.
  */
 
+import type { DomainResult } from '@audiogubbins/domain';
+
 import type { ProjectSession } from './project-session.js';
+import type { ChangeOutcome } from './session-contracts.js';
 
 /**
  * Calls `release` once the session has written everything it holds, or has
@@ -28,4 +31,23 @@ export function releaseOnceSaved(session: ProjectSession, release: () => void): 
     stop();
     release();
   });
+}
+
+/**
+ * Runs `change`, the change made of media held for it, then lets the media go
+ * once storage holds the change, or at once where no change was made.
+ */
+export async function runHolding(
+  session: ProjectSession,
+  release: () => void,
+  change: () => Promise<DomainResult<ChangeOutcome>>,
+): Promise<DomainResult<ChangeOutcome>> {
+  let ran: DomainResult<ChangeOutcome> | undefined;
+  try {
+    ran = await change();
+    return ran;
+  } finally {
+    if (ran?.ok === true && ran.value.kind === 'applied') releaseOnceSaved(session, release);
+    else release();
+  }
 }

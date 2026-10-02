@@ -61,9 +61,9 @@
  *   project-format.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
- * - storage: keeping projects over a backend port; depends on domain +
- *   codecs + commands + diagnostics + history + media-store + project-format +
- *   version, and on no browser API.
+ * - storage: keeping projects over a backend port; depends on domain + codecs +
+ *   commands + diagnostics + history + media-store + project-format + version,
+ *   and on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
  * - storage-runtime: the browser host of project storage, its worker, the port

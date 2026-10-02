@@ -2,7 +2,7 @@ import { Blob as PlatformBlob, File as PlatformFile } from 'node:buffer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { webDigest } from '@audiogubbins/browser-storage';
-import { unsafeBrandId } from '@audiogubbins/domain';
+import { derivedSampleCount, unsafeBrandId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling } from '@audiogubbins/media-store';
 import { memorySource } from '@audiogubbins/media-store/testing';
@@ -67,7 +67,7 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
     const bytes = monoWav(Array.from({ length: 4_800 }, (_, index) => (index % 200) - 100));
 
     const imported = expectSuccess(
-      await storage.client.media.import(session, {
+      await storage.client.media.importFile(session, {
         file: pageFileOf(bytes, 'Kick drum.wav'),
         choice: { mode: SourceHandling.Copy },
         assetId: ASSET,
@@ -94,7 +94,7 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
     const ogg = new Uint8Array(1_024);
     ogg.set([0x4f, 0x67, 0x67, 0x53]);
 
-    const refused = await storage.client.media.import(session, {
+    const refused = await storage.client.media.importFile(session, {
       file: pageFileOf(ogg, 'Rain.ogg'),
       choice: { mode: SourceHandling.Copy },
       assetId: ASSET,
@@ -110,5 +110,39 @@ describe('audio files, through the storage worker (ADR-0052)', () => {
     expect(expectFailureCode(await storage.client.media.file(contentId))).toBe(
       'media.object-missing',
     );
+  });
+
+  it('runs a planned paste in the worker as one change, lending the search for linked files only for the call', async () => {
+    const { storage, session } = await projectScene();
+    expectSuccess(
+      await storage.client.media.importFile(session, {
+        file: pageFileOf(monoWav(Array.from({ length: 960 }, () => 0)), 'Hush.wav'),
+        choice: { mode: SourceHandling.Copy },
+        assetId: ASSET,
+        importedAt: IMPORTED_AT,
+      }),
+    );
+    const deletion = {
+      id: unsafeBrandId<'EditOperationId'>('0000aaaa-0000-4000-8000-0000000000e1'),
+      kind: 'delete',
+      range: { start: derivedSampleCount(0), end: derivedSampleCount(480) },
+    } as const;
+    let searched = 0;
+
+    const outcome = expectSuccess(
+      await storage.client.media.paste(
+        session,
+        { description: 'Paste into “Hush”', records: [], asset: ASSET, operations: [deletion] },
+        () => {
+          searched += 1;
+          return Promise.resolve({ kind: 'absent', reason: 'not-found' });
+        },
+      ),
+    );
+
+    expect(outcome.kind).toBe('applied');
+    expect(session.getSnapshot().model.state.project.assets.get(ASSET)?.edits).toEqual([deletion]);
+    expect(searched).toBe(0);
+    expect(storage.lentPorts()).toBe(0);
   });
 });
