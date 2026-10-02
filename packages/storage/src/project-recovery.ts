@@ -106,6 +106,20 @@ export interface RecoveredProject {
   readonly report: ProjectRecoveryReport;
 }
 
+/**
+ * Whether the checkpoint a project was opened from holds it as opened: nothing
+ * replayed after it, and every state it keeps held whole as it names it.
+ */
+export function isAsCheckpointed(recovered: RecoveredProject): boolean {
+  const { report, unwritten } = recovered;
+  return (
+    report.replayed === 0 &&
+    unwritten.size === 0 &&
+    report.rebuiltCursorState === undefined &&
+    report.missingStates.length === 0
+  );
+}
+
 /** What recovery needs besides the project's files. */
 export interface RecoveryServices {
   readonly bus: CommandBus<ProjectState>;

@@ -7,9 +7,12 @@
  * it is applied, so nothing waits for a save. A checkpoint follows once enough
  * records have been written since the last, or when the session asks for one,
  * as it does when the page is hidden; it captures the project as of the last
- * record queued before it, and queues behind that record. The header follows
- * the project's name whenever the name the state holds changes. Every write
- * goes through one {@link WriteQueue}, so the order is the order of events.
+ * record queued before it, and queues behind that record. One asked for when
+ * storage's checkpoint already holds the project as of that record writes
+ * nothing, unless the project was replaced outside the journal, as compaction
+ * replaces it. The header follows the project's name whenever the name the
+ * state holds changes. Every write goes through one {@link WriteQueue}, so the
+ * order is the order of events.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -30,7 +33,7 @@ import type {
 import { writeCheckpointAndHead } from './checkpoint-writing.js';
 import { readPair, writeNext } from './generational-pair.js';
 import type { JournalEvent } from './journal-events.js';
-import type { JournalPosition } from './journal-position.js';
+import { comparePositions, type JournalPosition } from './journal-position.js';
 import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHeader } from './project-header.js';
@@ -59,6 +62,12 @@ export interface WriterStart {
 
   /** The last record the project as opened includes. */
   readonly position: JournalPosition;
+
+  /**
+   * Whether the checkpoint the project was opened from holds it as opened, so
+   * a checkpoint before any change would write the same again.
+   */
+  readonly checkpointed: boolean;
   readonly keptStates: ReadonlySet<StateFingerprint>;
   readonly unwritten: ReadonlyMap<StateFingerprint, ProjectState>;
 
@@ -98,6 +107,9 @@ export class SessionWriter {
   private readonly start: WriterStart;
   private nextSequence = 1;
   private last: JournalPosition;
+
+  /** The record storage's checkpoint holds the project as of, where it does. */
+  private confirmed: JournalPosition | undefined;
   private sinceCheckpoint = 0;
   private headerName: string | undefined;
 
@@ -107,6 +119,7 @@ export class SessionWriter {
     this.kept = new Set(start.keptStates);
     this.unwritten = new Map(start.unwritten);
     this.last = start.position;
+    this.confirmed = start.checkpointed ? start.position : undefined;
     this.headerName = start.headerName;
   }
 
@@ -152,12 +165,28 @@ export class SessionWriter {
   }
 
   /**
-   * Queues a checkpoint of `model`, as of the last record queued. A checkpoint
-   * larger than storage can read back is not written, and nothing it would have
-   * replaced is removed: the journal holds every change still, and the next
-   * checkpoint due tries again.
+   * Queues a checkpoint of `model`, as of the last record queued, which writes
+   * nothing where storage's checkpoint is as of that record already. Its
+   * outcome is still that of every write queued before it.
    */
   async checkpoint(model: ProjectModel): Promise<WriteOutcome> {
+    return await this.queueCheckpoint(model, false);
+  }
+
+  /**
+   * Queues a checkpoint of `model`, which replaced the project outside the
+   * journal, so it is written even where no record was queued since the last.
+   */
+  async checkpointReplaced(model: ProjectModel): Promise<WriteOutcome> {
+    return await this.queueCheckpoint(model, true);
+  }
+
+  /**
+   * A checkpoint larger than storage can read back is not written, and nothing
+   * it would have replaced is removed: the journal holds every change still,
+   * and the next checkpoint due tries again.
+   */
+  private async queueCheckpoint(model: ProjectModel, replaced: boolean): Promise<WriteOutcome> {
     this.sinceCheckpoint = 0;
     const request = {
       id: this.start.ids.next<'CheckpointId'>(),
@@ -170,11 +199,18 @@ export class SessionWriter {
       yieldToHost: this.start.yieldToHost,
     };
     return await this.queue.enqueue(async () => {
+      // Decided as the write's turn comes, once every checkpoint queued before
+      // it has been confirmed or not.
+      const current = this.confirmed;
+      if (!replaced && current !== undefined && comparePositions(current, request.position) === 0)
+        return succeed(undefined);
+      this.confirmed = undefined;
       const written = await writeCheckpointAndHead(this.start.files, request);
       if (!written.ok) {
         if (written.failures[0].code === SUPERSEDED) this.start.onSuperseded();
         return this.notHeld(written);
       }
+      this.confirmed = request.position;
       const { segments } = written.value;
       this.start.segments.commit(segments.plan, segments.written);
       this.kept.clear();

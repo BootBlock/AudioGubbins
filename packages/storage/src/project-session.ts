@@ -83,6 +83,7 @@ import {
   retentionUnconfirmed,
   unsavedChanges,
 } from './session-failures.js';
+import { isAsCheckpointed } from './project-recovery.js';
 import { SessionOwnership } from './session-ownership.js';
 import { SessionWriter } from './session-writer.js';
 import type { TransferAnswer, TransferRequest } from './write-lease.js';
@@ -343,6 +344,7 @@ export class ProjectSession {
       yieldToHost: services.yieldToHost,
       lease: start.leaseRecord,
       position: start.recovered.position,
+      checkpointed: isAsCheckpointed(start.recovered),
       keptStates: start.recovered.keptStates,
       unwritten: start.recovered.unwritten,
       segments: start.recovered.segments,
@@ -432,7 +434,7 @@ export class ProjectSession {
       this.writer.unwritten.set(fingerprint, state);
     this.model = compacted.model;
     this.publish();
-    return await this.writer.checkpoint(this.model);
+    return await this.writer.checkpointReplaced(this.model);
   }
 
   /** Adopts the model an event made and writes the event. */

@@ -4857,12 +4857,15 @@ packages/storage/src/session-writer.ts
   readonly SessionWriter.start: WriterStart
   SessionWriter.nextSequence: number
   SessionWriter.last: JournalPosition
+  SessionWriter.confirmed: JournalPosition | undefined
   SessionWriter.sinceCheckpoint: number
   SessionWriter.headerName: string | undefined
   SessionWriter.status: SaveStatus
   SessionWriter.append: (event: JournalEvent, model: ProjectModel) => Promise<WriteOutcome>
   SessionWriter.keep: (state: ProjectState, fingerprint: StateFingerprint) => Promise<WriteOutcome>
   SessionWriter.checkpoint: (model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.checkpointReplaced: (model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.queueCheckpoint: (model: ProjectModel, replaced: boolean) => Promise<WriteOutcome>
   SessionWriter.notHeld: (written: DomainFailureResult) => DomainResult<void>
   SessionWriter.followName: (name: string) => Promise<WriteOutcome>
   interface WriterStart
@@ -4872,6 +4875,7 @@ packages/storage/src/session-writer.ts
   readonly WriterStart.yieldToHost: YieldToHost
   readonly WriterStart.lease: LeaseRecord
   readonly WriterStart.position: JournalPosition
+  readonly WriterStart.checkpointed: boolean
   readonly WriterStart.keptStates: ReadonlySet<StateFingerprint>
   readonly WriterStart.unwritten: ReadonlyMap<StateFingerprint, ProjectState>
   readonly WriterStart.segments: SegmentLedger
