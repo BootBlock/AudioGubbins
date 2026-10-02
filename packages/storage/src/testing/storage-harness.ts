@@ -100,7 +100,15 @@ export function harnessOver(digest: Digest, seed = 11): Harness {
       };
     },
     repository: (tree) =>
-      new ProjectRepository({ tree, digest, clock, ids, coordinator, owner: WINDOW_A }),
+      new ProjectRepository({
+        tree,
+        digest,
+        clock,
+        ids,
+        coordinator,
+        owner: WINDOW_A,
+        yieldToHost: immediateTurns,
+      }),
   };
 }
 

@@ -53,7 +53,8 @@ export function sessionHandlers(
     'projects.switchSide': ({ handle, side }) => session(handle).switchSide(side),
     'projects.closeComparison': ({ handle }) => session(handle).closeComparison(),
     'projects.promote': ({ handle, side }) => session(handle).promote(side),
-    'projects.planCompaction': ({ handle, request }) => session(handle).planCompaction(request),
+    'projects.planCompaction': ({ handle, request }, { signal }) =>
+      session(handle).planCompaction(request, signal),
     'projects.compactHistory': ({ handle, plan, confirmation }) =>
       session(handle).compactHistory(plan, confirmation),
     'projects.setRetentionPolicy': ({ handle, policy, confirmation }) =>

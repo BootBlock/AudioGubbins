@@ -2,7 +2,8 @@
  * A view of a storage tree that lets a test act at a chosen operation, such
  * as giving up the work at the read of a chosen file, and counts every
  * operation made through it from then on, so the test sees whether the work
- * stopped there or ran on.
+ * stopped there or ran on. A read or write given an aborted signal rejects
+ * with its reason, as a platform's does.
  */
 
 import type { ByteSink, ByteSource, StorageTree, TreeEntry } from '@audiogubbins/project-format';
@@ -38,6 +39,7 @@ export class WatchedTree implements StorageTree {
 
   async readFile(path: string, signal?: AbortSignal): Promise<Uint8Array<ArrayBuffer> | undefined> {
     this.#note('read', path);
+    signal?.throwIfAborted();
     return await this.#inner.readFile(path, signal);
   }
 
@@ -48,6 +50,7 @@ export class WatchedTree implements StorageTree {
 
   async writeFile(path: string, bytes: Uint8Array, signal?: AbortSignal): Promise<void> {
     this.#note('write', path);
+    signal?.throwIfAborted();
     await this.#inner.writeFile(path, bytes, signal);
   }
 

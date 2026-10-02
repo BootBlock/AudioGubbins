@@ -22,6 +22,7 @@ import {
   type HistorySegmentId,
   type HistorySegmentRecord,
   type HistorySegmentReference,
+  type Turns,
 } from '@audiogubbins/project-format';
 
 import {
@@ -117,15 +118,16 @@ export class CheckpointFiles {
    * Writes the segments the ledger plans for `checkpoint`'s history, then the
    * checkpoint at `path`, failing as {@link CheckedRecords.write} does. The
    * ledger is left as it was, for the caller to commit once the checkpoint is
-   * confirmed.
+   * confirmed. Planning looks at every node, a step of `turns` each.
    */
   async write(
     path: string,
     checkpoint: Checkpoint,
     segments: SegmentWriting,
-    signal?: AbortSignal,
+    turns: Turns,
   ): Promise<DomainResult<WrittenSegments>> {
-    const plan = segments.ledger.plan(checkpoint.history, measured);
+    const { signal } = turns;
+    const plan = await segments.ledger.plan(checkpoint.history, measured, turns);
     const written: HeldSegment[] = [];
     for (const fresh of plan.fresh) {
       const reference = { epoch: checkpoint.leaseEpoch, id: segments.next() };

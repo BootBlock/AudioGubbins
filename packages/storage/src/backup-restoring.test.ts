@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import { Turns } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { BackupGenerations } from './backup-generations.js';
 import { restoreBackup } from './backup-restoring.js';
@@ -34,7 +36,11 @@ async function backedUp() {
   const generations = new BackupGenerations(tree, nodeDigest, header.id);
   const copy = expectSuccess(await readProjectCopy(files, test.services(tree)));
   const made = expectSuccess(
-    await generations.create(copy, { reason: 'manual', at: test.clock.now(), protect: false }),
+    await generations.create(
+      copy,
+      { reason: 'manual', at: test.clock.now(), protect: false },
+      new Turns(immediateTurns),
+    ),
   );
   const backedUpSummary = summaryOf(session.getSnapshot().model);
   expectSuccess(await session.run(setName('After the backup')));

@@ -4,6 +4,8 @@ import type { ProjectId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { withStateFingerprint } from '@audiogubbins/history';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import { Turns } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { CheckedRecords } from './checked-records.js';
 import { writeCheckpointAndHead } from './checkpoint-writing.js';
@@ -80,6 +82,7 @@ describe('a late writer moves no head', () => {
       unwritten: new Map(),
       ledger: new SegmentLedger(),
       ids: test.ids,
+      yieldToHost: immediateTurns,
     });
     expect(expectFailureCode(written)).toBe('storage.lease-superseded');
     expect(await readHeads(files.records, files.paths)).toEqual(heads);
@@ -111,6 +114,7 @@ describe('a late writer moves no head', () => {
       },
       new SegmentLedger(),
       test.ids,
+      new Turns(immediateTurns),
     );
     expectSuccess(
       await writeHead(files.records, files.paths, {

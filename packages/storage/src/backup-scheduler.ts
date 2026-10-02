@@ -20,7 +20,7 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import type { ByteSink, Digest, StorageTree } from '@audiogubbins/project-format';
+import { Turns, type ByteSink, type Digest, type StorageTree } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import {
@@ -149,7 +149,7 @@ export class BackupScheduler {
     const made = await this.generations.create(
       copy.value,
       { reason, at: now, protect: reason === 'manual' },
-      signal,
+      new Turns(this.services.yieldToHost, signal),
     );
     if (!made.ok) return made;
     this.last = { at: now };

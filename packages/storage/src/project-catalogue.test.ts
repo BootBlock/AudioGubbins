@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import { encodeUtf8, type StorageTree } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { ProjectRepository, type CatalogueEntry } from './project-catalogue.js';
 import { openProject } from './project-opening.js';
@@ -116,6 +117,7 @@ describe('the project catalogue (REQ-STOR-025, REQ-STOR-102)', () => {
       clock: test.clock,
       ids: test.ids,
       owner: WINDOW_A,
+      yieldToHost: immediateTurns,
     });
     expect(expectFailureCode(await uncoordinated.softDelete(header.id))).toBe(
       'storage.no-coordination',

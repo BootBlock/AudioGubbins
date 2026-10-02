@@ -25,6 +25,7 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import {
+  Turns,
   readProjectDocument,
   writeProjectDocument,
   type Digest,
@@ -107,7 +108,7 @@ export async function forkProject(
           at: services.clock.now(),
         },
         services.ids,
-        signal,
+        new Turns(services.yieldToHost, signal),
       ),
   );
 }

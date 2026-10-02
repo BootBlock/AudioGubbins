@@ -5,6 +5,7 @@
  */
 
 import type { DomainResult, IdGenerator, ProjectId } from '@audiogubbins/domain';
+import type { Turns } from '@audiogubbins/project-format';
 
 import type { CheckedReading, CheckedRecords } from './checked-records.js';
 import {
@@ -76,13 +77,13 @@ export class ProjectFiles {
     checkpoint: Checkpoint,
     ledger: SegmentLedger,
     ids: IdGenerator,
-    signal?: AbortSignal,
+    turns: Turns,
   ): Promise<DomainResult<WrittenSegments>> {
     return await this.checkpoints.write(
       this.paths.checkpoint(checkpoint.leaseEpoch, id),
       checkpoint,
       { ledger, next: () => ids.next<'HistorySegmentId'>() },
-      signal,
+      turns,
     );
   }
 }

@@ -20,7 +20,7 @@
 import type { Clock } from '@audiogubbins/diagnostics';
 import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import { historyFromRecord, historyRecordOf } from '@audiogubbins/history';
-import type { ProjectTreeContent } from '@audiogubbins/project-format';
+import { Turns, type ProjectTreeContent } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import type { BackupGeneration } from './backup-planning.js';
@@ -124,7 +124,7 @@ async function asNewProject(
           created: services.clock.now(),
         },
         services.ids,
-        signal,
+        new Turns(services.yieldToHost, signal),
       ),
   );
   return written.ok ? succeed({ kind: 'new-project', header: written.value }) : written;
@@ -160,7 +160,7 @@ async function inPlace(
     ? await generations.create(
         current.value,
         { reason: 'manual', at: services.clock.now(), protect: true },
-        signal,
+        new Turns(services.yieldToHost, signal),
       )
     : current;
   // Until the project is replaced nothing of it changed, so the session closes

@@ -49,7 +49,12 @@ import {
   type IdGenerator,
 } from '@audiogubbins/domain';
 import { retainedStates, withStateFingerprint, type History } from '@audiogubbins/history';
-import type { ProjectState, StateFingerprint } from '@audiogubbins/project-format';
+import {
+  Turns,
+  type ProjectState,
+  type StateFingerprint,
+  type YieldToHost,
+} from '@audiogubbins/project-format';
 
 import type { WrittenSegments } from './checkpoint-files.js';
 import type { Checkpoint } from './checkpoint-record.js';
@@ -87,6 +92,9 @@ export interface CheckpointRequest {
 
   /** Where new segments are named from. */
   readonly ids: IdGenerator;
+
+  /** Asked as the history's segments are planned, every node looked at in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** A checkpoint written and made current. */
@@ -137,7 +145,7 @@ export async function writeCheckpointAndHead(
     checkpoint,
     request.ledger,
     request.ids,
-    signal,
+    new Turns(request.yieldToHost, signal),
   );
   if (!written.ok) return written;
 

@@ -18,6 +18,7 @@
 
 import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import type { CompactionPlan } from '@audiogubbins/history';
+import type { Turns } from '@audiogubbins/project-format';
 
 import type { CheckedRecords } from './checked-records.js';
 import { planHistoryCompaction } from './history-compaction.js';
@@ -44,8 +45,9 @@ export interface HistoryCompactions {
 export async function expiredHistory(
   records: CheckedRecords,
   now: number,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<ReadonlyMap<ProjectId, CompactionPlan>> {
+  const { signal } = turns;
   const compactions = new Map<ProjectId, CompactionPlan>();
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
@@ -59,7 +61,7 @@ export async function expiredHistory(
       checkpoint,
       { kind: 'policy', policy: checkpoint.retention },
       now,
-      signal,
+      turns,
     );
     if (!plan.ok || plan.value.removable.length === 0) continue;
     compactions.set(project, plan.value);

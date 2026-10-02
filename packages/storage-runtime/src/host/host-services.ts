@@ -81,7 +81,15 @@ export function hostServices(parts: HostParts): HostServices {
       sharing: mediaSharingOf(coordinator),
     }),
     caches: new CacheStore(tree, digest),
-    repository: new ProjectRepository({ tree, digest, clock, ids, owner, ...coordinated }),
+    repository: new ProjectRepository({
+      tree,
+      digest,
+      clock,
+      ids,
+      owner,
+      yieldToHost: parts.yieldToHost,
+      ...coordinated,
+    }),
     yieldToHost: parts.yieldToHost,
     ...coordinated,
   };

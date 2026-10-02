@@ -7,6 +7,7 @@
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import type { Digest, StorageTree } from '@audiogubbins/project-format';
+import { immediateTurns } from '@audiogubbins/project-format/testing';
 
 import { ProjectRepository } from '../project-catalogue.js';
 import type { ProjectHeader } from '../project-header.js';
@@ -71,6 +72,7 @@ export function sceneOf(platform: LeasePlatform, seed?: number): Scene {
         ids: test.ids,
         coordinator: windows.coordinatorFor(WINDOW_A),
         owner: WINDOW_A,
+        yieldToHost: immediateTurns,
       }),
   };
 }

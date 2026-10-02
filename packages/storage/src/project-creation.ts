@@ -26,6 +26,7 @@ import {
   type ProjectState,
   type RetentionPolicy,
   type StateFingerprint,
+  type Turns,
 } from '@audiogubbins/project-format';
 
 import { readPair, writeNext, type Slotted } from './generational-pair.js';
@@ -74,7 +75,7 @@ export async function writeNewProject(
   files: ProjectFiles,
   beginning: ProjectBeginning,
   ids: IdGenerator,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<DomainResult<ProjectHeader>> {
   const { state, origin, at } = beginning;
   const history = startHistory(state.project.id, {
@@ -96,7 +97,7 @@ export async function writeNewProject(
       created: at,
     },
     ids,
-    signal,
+    turns,
   );
 }
 
@@ -108,11 +109,12 @@ export async function writeProject(
   files: ProjectFiles,
   contents: ProjectContents,
   ids: IdGenerator,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<DomainResult<ProjectHeader>> {
   const tree = files.records.tree;
+  const { signal } = turns;
   await tree.writeFile(files.paths.unfinished, new Uint8Array(0), signal);
-  const checkpoint = await writeFirstCheckpoint(files, contents, ids, signal);
+  const checkpoint = await writeFirstCheckpoint(files, contents, ids, turns);
   if (!checkpoint.ok) return checkpoint;
 
   const head = await writeHead(
@@ -133,8 +135,9 @@ async function writeFirstCheckpoint(
   files: ProjectFiles,
   contents: ProjectContents,
   ids: IdGenerator,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<DomainResult<CheckpointId>> {
+  const { signal } = turns;
   for (const kept of contents.kept.values()) {
     const put = await files.states.put(kept, signal);
     if (!put.ok) return put;
@@ -168,7 +171,7 @@ async function writeFirstCheckpoint(
     },
     new SegmentLedger(),
     ids,
-    signal,
+    turns,
   );
   return mapResult(written, () => checkpoint);
 }

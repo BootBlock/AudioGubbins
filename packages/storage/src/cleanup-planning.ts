@@ -35,7 +35,12 @@ import {
   type CollectionPlan,
   type MediaObjectStore,
 } from '@audiogubbins/media-store';
-import type { Digest, StorageTree } from '@audiogubbins/project-format';
+import {
+  Turns,
+  type Digest,
+  type StorageTree,
+  type YieldToHost,
+} from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import { planBackupPruning } from './backup-planning.js';
@@ -126,6 +131,9 @@ export interface CleanupServices {
 
   /** The platform's lease coordination, absent where it has none. */
   readonly coordinator?: LeaseCoordinator;
+
+  /** Asked through the passes over each project's history in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 const EVERY_CHOICE: readonly CleanupChoice[] = [
@@ -151,6 +159,7 @@ export async function planCleanup(
 ): Promise<DomainResult<CleanupPlan>> {
   return await refusalsReported(async () => {
     const chosen = selection === 'everything' ? EVERY_CHOICE : selection;
+    const turns = new Turns(services.yieldToHost, signal);
     const records = new CheckedRecords(services.tree, services.digest);
     const steps: CleanupStep[] = [];
     const cacheUsage = await services.caches.usage(signal);
@@ -169,7 +178,7 @@ export async function planCleanup(
     if (has('unfinished-projects')) steps.push(...(await unfinishedProjects(records, signal)));
     if (has('expired-backups')) steps.push(...(await expiredBackups(records, now, signal)));
     if (has('expired-history'))
-      steps.push(...historyStep(await expiredHistory(records, now, signal)));
+      steps.push(...historyStep(await expiredHistory(records, now, turns)));
     if (has('set-aside-records')) steps.push(...(await setAsideRecords(records, signal)));
     let mediaRefused: MediaPurgeRefusal | undefined;
     if (has('unreferenced-media')) {

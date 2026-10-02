@@ -32,11 +32,13 @@ import {
   type ProjectSettings,
 } from '@audiogubbins/domain';
 import {
+  Turns,
   emptyProjectState,
   readProjectDocument,
   writeProjectDocument,
   type Digest,
   type StorageTree,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import { CheckedRecords, type RecordFault } from './checked-records.js';
@@ -87,6 +89,9 @@ export interface CatalogueServices {
   /** The platform's lease coordination, absent where it has none. */
   readonly coordinator?: LeaseCoordinator;
   readonly owner: LeaseOwner;
+
+  /** Asked as a new project's history is written. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** The projects the storage holds (see the module comment). */
@@ -137,7 +142,7 @@ export class ProjectRepository {
           files,
           { state, origin: { kind: 'new' }, at: clock.now() },
           ids,
-          signal,
+          new Turns(this.services.yieldToHost, signal),
         ),
     );
   }

@@ -29,6 +29,7 @@ import {
   type HistoryNodeRecord,
   type HistorySegmentReference,
   type StateFingerprint,
+  type Turns,
 } from '@audiogubbins/project-format';
 
 /** The text a segment is filled to, in UTF-16 code units: 1 MiB. */
@@ -102,22 +103,15 @@ export class SegmentLedger {
 
   /**
    * The plan of the next checkpoint of `history` (see the module comment).
-   * `measure` gives the length of a node's text.
+   * `measure` gives the length of a node's text. Every node is looked at and
+   * many measured, so each takes a step of `turns`.
    */
-  plan(history: History, measure: (node: HistoryNode) => number): SegmentPlan {
-    const dirty = new Set<LedgerSegment>();
-    const fresh: HistoryNode[] = [];
-    const learned: [HistoryNodeId, StateFingerprint, LedgerSegment][] = [];
-    for (const node of history.nodes.values()) {
-      const placed = this.placed.get(node.id);
-      if (placed === undefined) {
-        fresh.push(node);
-      } else if (!isAsWritten(node, placed)) {
-        dirty.add(placed.segment);
-      } else if (node.stateFingerprint !== undefined && placed.fingerprint === undefined) {
-        learned.push([node.id, node.stateFingerprint, placed.segment]);
-      }
-    }
+  async plan(
+    history: History,
+    measure: (node: HistoryNode) => number,
+    turns: Turns,
+  ): Promise<SegmentPlan> {
+    const { dirty, fresh, learned } = await this.#placing(history, turns);
     // Every node is either fresh or placed, so fewer placed than the ledger
     // holds means some were removed, and only then is each segment looked at.
     if (history.nodes.size - fresh.length < this.placed.size) {
@@ -128,7 +122,7 @@ export class SegmentLedger {
     fresh.sort((left, right) => left.at - right.at || compareCodeUnits(left.id, right.id));
     const survivors = [...dirty].flatMap((segment) => nodesOf(history, segment.nodes));
     let kept = this.segments.filter((segment) => !dirty.has(segment));
-    let written = [...survivors, ...fresh].map((node) => ({ node, length: measure(node) }));
+    let written = await measuredNodes([...survivors, ...fresh], measure, turns);
     const newest = kept.at(-1);
     const length = written.reduce((sum, item) => sum + item.length, 0);
     let start = 0;
@@ -153,6 +147,29 @@ export class SegmentLedger {
           .map(([node, fingerprint]) => [node, fingerprint]),
       ),
     };
+  }
+
+  /**
+   * Where each node of `history` stands against the ledger: placed as it was
+   * written, in no segment yet, or changed since, which dirties its segment;
+   * and the fingerprints learned of nodes placed as they were.
+   */
+  async #placing(history: History, turns: Turns) {
+    const dirty = new Set<LedgerSegment>();
+    const fresh: HistoryNode[] = [];
+    const learned: [HistoryNodeId, StateFingerprint, LedgerSegment][] = [];
+    for (const node of history.nodes.values()) {
+      await turns.afterStep();
+      const placed = this.placed.get(node.id);
+      if (placed === undefined) {
+        fresh.push(node);
+      } else if (!isAsWritten(node, placed)) {
+        dirty.add(placed.segment);
+      } else if (node.stateFingerprint !== undefined && placed.fingerprint === undefined) {
+        learned.push([node.id, node.stateFingerprint, placed.segment]);
+      }
+    }
+    return { dirty, fresh, learned };
   }
 
   /**
@@ -206,11 +223,26 @@ function nodesOf(history: History, ids: readonly HistoryNodeId[]): HistoryNode[]
   });
 }
 
+/** Each node with the length of its text, a step of `turns` each. */
+async function measuredNodes(
+  nodes: readonly HistoryNode[],
+  measure: (node: HistoryNode) => number,
+  turns: Turns,
+): Promise<Measured[]> {
+  const measured: Measured[] = [];
+  for (const node of nodes) {
+    await turns.afterStep();
+    measured.push({ node, length: measure(node) });
+  }
+  return measured;
+}
+
 /**
  * The nodes cut into segments of at most {@link SEGMENT_LENGTH}, save a node
  * longer than that alone. The first segment starts `start` long, for the nodes
  * of a segment merged into it, which are given no length of their own.
  */
+
 function cut(measured: readonly Measured[], start: number): FreshSegment[] {
   const segments: FreshSegment[] = [];
   let nodes: HistoryNode[] = [];

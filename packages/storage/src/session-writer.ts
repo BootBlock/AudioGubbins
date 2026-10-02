@@ -20,7 +20,12 @@ import {
   type DomainResult,
   type IdGenerator,
 } from '@audiogubbins/domain';
-import type { HistoryNodeId, ProjectState, StateFingerprint } from '@audiogubbins/project-format';
+import type {
+  HistoryNodeId,
+  ProjectState,
+  StateFingerprint,
+  YieldToHost,
+} from '@audiogubbins/project-format';
 
 import { writeCheckpointAndHead } from './checkpoint-writing.js';
 import { readPair, writeNext } from './generational-pair.js';
@@ -45,6 +50,9 @@ export interface WriterStart {
   readonly files: ProjectFiles;
   readonly ids: IdGenerator;
   readonly logger: Logger;
+
+  /** Asked as each checkpoint's segments are planned. */
+  readonly yieldToHost: YieldToHost;
 
   /** The lease the session holds, whose epoch its records are written under. */
   readonly lease: LeaseRecord;
@@ -159,6 +167,7 @@ export class SessionWriter {
       unwritten: new Map(this.unwritten),
       ledger: this.start.segments,
       ids: this.start.ids,
+      yieldToHost: this.start.yieldToHost,
     };
     return await this.queue.enqueue(async () => {
       const written = await writeCheckpointAndHead(this.start.files, request);

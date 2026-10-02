@@ -9,7 +9,7 @@ import type { CommandBus } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
 import type { StateDifference } from '@audiogubbins/history';
-import type { ProjectState, SnapshotKind } from '@audiogubbins/project-format';
+import type { ProjectState, SnapshotKind, YieldToHost } from '@audiogubbins/project-format';
 
 import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
@@ -26,6 +26,9 @@ export interface SessionServices {
   readonly ids: IdGenerator;
   readonly logger: Logger;
   readonly coordinator: LeaseCoordinator;
+
+  /** Asked through work over the history held in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** How often a session checkpoints and keeps a state whole along the way. */

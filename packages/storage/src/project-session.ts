@@ -40,6 +40,7 @@ import {
   type SideName,
 } from '@audiogubbins/history';
 import {
+  Turns,
   historyLabelFrom,
   type BackupPolicy,
   type ExportRecord,
@@ -215,8 +216,9 @@ export class ProjectSession {
    */
   readonly planCompaction = async (
     request: CompactionRequest,
+    signal?: AbortSignal,
   ): Promise<DomainResult<CompactionPlan>> =>
-    await this.exclusive(async () => await this.planned(request));
+    await this.exclusive(async () => await this.planned(request, signal));
 
   /**
    * Carries out a compaction the person confirmed, keeping the new root's state
@@ -326,6 +328,7 @@ export class ProjectSession {
       files: services.files,
       ids: services.ids,
       logger: services.logger,
+      yieldToHost: services.yieldToHost,
       lease: start.leaseRecord,
       position: start.recovered.position,
       keptStates: start.recovered.keptStates,
@@ -394,9 +397,13 @@ export class ProjectSession {
     });
   }
 
-  private async planned(request: CompactionRequest): Promise<DomainResult<CompactionPlan>> {
-    const now = this.services.clock.now();
-    return await planHistoryCompaction(this.services.files, this.model, request, now);
+  private async planned(
+    request: CompactionRequest,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<CompactionPlan>> {
+    const { files, clock, yieldToHost } = this.services;
+    const turns = new Turns(yieldToHost, signal);
+    return await planHistoryCompaction(files, this.model, request, clock.now(), turns);
   }
 
   /**

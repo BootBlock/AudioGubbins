@@ -2821,7 +2821,7 @@ Published paths
   readonly BackupGenerations.records: CheckedRecords
   readonly BackupGenerations.paths: BackupPaths
   BackupGenerations.list: (signal?: AbortSignal) => Promise<DomainResult<GenerationListing>>
-  BackupGenerations.create: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, signal?: AbortSignal) => Promise<DomainResult<BackupGeneration>>
+  BackupGenerations.create: (copy: ProjectCopy, made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean; }, turns: Turns) => Promise<DomainResult<BackupGeneration>>
   BackupGenerations.writeStates: (copy: ProjectCopy, number: number, signal?: AbortSignal) => Promise<DomainResult<KeptStates>>
   BackupGenerations.protect: (number: number, protect: boolean) => Promise<DomainResult<void>>
   BackupGenerations.remove: (numbers: readonly number[], signal?: AbortSignal) => Promise<DomainResult<void>>
@@ -2893,6 +2893,7 @@ Published paths
   readonly CatalogueServices.ids: IdGenerator
   readonly CatalogueServices.coordinator?: LeaseCoordinator
   readonly CatalogueServices.owner: LeaseOwner
+  readonly CatalogueServices.yieldToHost: YieldToHost
   type ChangeOutcome = { readonly kind: "applied"; readonly saved: WriteOutcome; } | { readonly kind: "unchanged"; readonly code: string; readonly reason: string; }
   type CleanupChoice = { readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; } | { readonly kind: "expired-history"; } | { readonly kind: "set-aside-records"; } | { readonly kind: "unfinished-projects"; } | { readonly kind: "unreferenced-media"; }
   interface CleanupConfirmation
@@ -2910,13 +2911,13 @@ Published paths
   readonly CleanupRunServices.digest: import("packages/project-format/src/byte-ports").Digest
   readonly CleanupRunServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly CleanupRunServices.caches: CacheStore
+  readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly CleanupRunServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly CleanupRunServices.clock: import("packages/diagnostics/src/logger").Clock
   readonly CleanupRunServices.ids: import("packages/domain/src/index").IdGenerator
   readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupRunServices.owner: import("packages/storage/src/write-lease").LeaseOwner
   readonly CleanupRunServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
-  readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   type CleanupSelection = "everything" | readonly CleanupChoice[]
   interface CleanupServices
   readonly CleanupServices.tree: StorageTree
@@ -2924,6 +2925,7 @@ Published paths
   readonly CleanupServices.store: MediaObjectStore
   readonly CleanupServices.caches: CacheStore
   readonly CleanupServices.coordinator?: LeaseCoordinator
+  readonly CleanupServices.yieldToHost: YieldToHost
   type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "set-aside-records"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unfinished-projects"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
   class CommandJournal
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal
@@ -2931,7 +2933,7 @@ Published paths
   readonly CommandJournal.paths: ProjectPaths
   CommandJournal.append: (position: JournalPosition, event: JournalEvent, signal?: AbortSignal) => Promise<DomainResult<void>>
   CommandJournal.read: (position: JournalPosition, signal?: AbortSignal) => Promise<CheckedReading<JournalEvent>>
-  CommandJournal.readAfter: (from: JournalPosition, lease: LeaseRecord) => Promise<JournalPlan>
+  CommandJournal.readAfter: (from: JournalPosition, lease: LeaseRecord, signal?: AbortSignal) => Promise<JournalPlan>
   CommandJournal.prune: (head: JournalPosition, lease: LeaseRecord) => Promise<void>
   CommandJournal.setAside: (position: JournalPosition) => Promise<void>
   CommandJournal.epochsFrom: (first: number, lease: LeaseRecord) => Promise<readonly number[]>
@@ -3127,7 +3129,7 @@ Published paths
   readonly ProjectSession.deleteSnapshot: (snapshot: SnapshotId) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.recordExport: (record: ExportRecord) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.setRetentionPolicy: (policy: RetentionPolicy, confirmation?: CompactionConfirmation) => Promise<DomainResult<WriteOutcome>>
-  readonly ProjectSession.planCompaction: (request: CompactionRequest) => Promise<DomainResult<CompactionPlan>>
+  readonly ProjectSession.planCompaction: (request: CompactionRequest, signal?: AbortSignal) => Promise<DomainResult<CompactionPlan>>
   readonly ProjectSession.compactHistory: (plan: CompactionPlan, confirmation: CompactionConfirmation) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
@@ -3144,7 +3146,7 @@ Published paths
   ProjectSession.change: (execute: (state: ProjectState) => ExecutionResult<ProjectState>) => Promise<DomainResult<ChangeOutcome>>
   ProjectSession.moveTowards: (targetOf: (history: History, model: ProjectModel) => HistoryNodeId | undefined, nowhere: DomainFailure) => Promise<DomainResult<WriteOutcome>>
   ProjectSession.settle: (event: SettledEvent) => Promise<DomainResult<WriteOutcome>>
-  ProjectSession.planned: (request: CompactionRequest) => Promise<DomainResult<CompactionPlan>>
+  ProjectSession.planned: (request: CompactionRequest, signal?: AbortSignal) => Promise<DomainResult<CompactionPlan>>
   ProjectSession.adoptCompaction: (compacted: { readonly model: ProjectModel; readonly states: ReadonlyMap<StateFingerprint, ProjectState>; }) => Promise<WriteOutcome>
   ProjectSession.commit: (event: JournalEvent, next: ProjectModel) => Promise<WriteOutcome>
   ProjectSession.whileWritable: <TValue>(work: () => Promise<DomainResult<TValue>>) => Promise<DomainResult<TValue>>
@@ -4571,7 +4573,7 @@ packages/storage/src/checkpoint-files.ts
   readonly CheckpointFiles.records: CheckedRecords
   readonly CheckpointFiles.segmentPath: SegmentPath
   CheckpointFiles.read: (path: string, signal?: AbortSignal) => Promise<CheckedReading<StoredCheckpoint>>
-  CheckpointFiles.write: (path: string, checkpoint: Checkpoint, segments: SegmentWriting, signal?: AbortSignal) => Promise<DomainResult<WrittenSegments>>
+  CheckpointFiles.write: (path: string, checkpoint: Checkpoint, segments: SegmentWriting, turns: Turns) => Promise<DomainResult<WrittenSegments>>
   type SegmentPath = (segment: HistorySegmentReference) => string
   interface SegmentWriting
   readonly SegmentWriting.ledger: SegmentLedger
@@ -4667,7 +4669,7 @@ packages/storage/src/project-files.ts
   ProjectFiles.newestCheckpoint: (signal?: AbortSignal) => Promise<StoredCheckpoint | undefined>
   ProjectFiles.isUnfinished: () => Promise<boolean>
   ProjectFiles.readCheckpoint: (epoch: number, id: CheckpointId, signal?: AbortSignal) => Promise<CheckedReading<StoredCheckpoint>>
-  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, ledger: SegmentLedger, ids: IdGenerator, signal?: AbortSignal) => Promise<DomainResult<WrittenSegments>>
+  ProjectFiles.writeCheckpoint: (id: CheckpointId, checkpoint: Checkpoint, ledger: SegmentLedger, ids: IdGenerator, turns: Turns) => Promise<DomainResult<WrittenSegments>>
 
 packages/storage/src/project-model.ts
   type SettledEvent = { readonly kind: "backup-policy"; readonly policy: BackupPolicy; } | { readonly kind: "branch-name"; readonly node: import("packages/project-format/src/history-record").HistoryNodeId; readonly name?: import("packages/project-format/src/history-record").HistoryLabel; } | { readonly kind: "comparison"; readonly choice?: import("packages/project-format/src/comparison-choice-json").ComparisonChoiceRecord; } | { readonly kind: "export"; readonly record: ExportRecord; } | { readonly kind: "retention-policy"; readonly policy: RetentionPolicy; } | { readonly kind: "snapshot-created"; readonly snapshot: import("packages/project-format/src/history-record").NamedSnapshot; } | { readonly kind: "snapshot-deleted"; readonly snapshot: import("packages/project-format/src/history-record").SnapshotId; }
@@ -4716,7 +4718,8 @@ packages/storage/src/segment-ledger.ts
   SegmentLedger.segments: readonly LedgerSegment[]
   readonly SegmentLedger.placed: Map<HistoryNodeId, Placed>
   SegmentLedger.named: readonly LedgerSegment[]
-  SegmentLedger.plan: (history: History, measure: (node: HistoryNode) => number) => SegmentPlan
+  SegmentLedger.plan: (history: History, measure: (node: HistoryNode) => number, turns: Turns) => Promise<SegmentPlan>
+  SegmentLedger.#placing: (history: History, turns: Turns) => Promise<{ dirty: Set<LedgerSegment>; fresh: HistoryNode[]; learned: [HistoryNodeId, StateFingerprint, LedgerSegment][]; }>
   SegmentLedger.commit: (plan: SegmentPlan, written: readonly HeldSegment[]) => void
   interface SegmentPlan
   readonly SegmentPlan.kept: readonly LedgerSegment[]
@@ -4731,6 +4734,7 @@ packages/storage/src/session-contracts.ts
   readonly SessionServices.ids: IdGenerator
   readonly SessionServices.logger: Logger
   readonly SessionServices.coordinator: LeaseCoordinator
+  readonly SessionServices.yieldToHost: YieldToHost
   interface SessionStart
   readonly SessionStart.recovered: RecoveredProject
   readonly SessionStart.lease: ProjectWriteLease
@@ -4778,6 +4782,7 @@ packages/storage/src/session-writer.ts
   readonly WriterStart.files: ProjectFiles
   readonly WriterStart.ids: IdGenerator
   readonly WriterStart.logger: Logger
+  readonly WriterStart.yieldToHost: YieldToHost
   readonly WriterStart.lease: LeaseRecord
   readonly WriterStart.position: JournalPosition
   readonly WriterStart.keptStates: ReadonlySet<StateFingerprint>

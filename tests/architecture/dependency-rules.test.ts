@@ -2688,7 +2688,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The workspace partition's one owner of state: every operation on the layout on screen and the saved workspaces, the restore of a deleted one and the discard of text that could not be read among them, updates the layout, the list, the notices, the wait for room, the unread text and the deletions in one observable update. Each rule it applies is a module of its own — the custody of unread text, the reading of a stored layout, the naming of a workspace — so what is left is the state and the methods that change it together; split, two halves would each need the whole state to publish one update.",
     ],
     'packages/storage/src/project-session.ts': [
-      341,
+      354,
       'The one route every change to an open project takes: running, grouping, undoing, redoing and moving through history, snapshots, branch names, comparison, compaction, exports and checkpoints. Each operation is a few lines over the shared ordering, writing and publishing, and the parts they share are modules of their own — the writer, the write queue, ownership, the events, compaction and the history moves — so what is left is the session state and the operations that change it together; split, each half would need the whole state and the one queue that keeps records in order.',
     ],
     'packages/diagnostics/src/path-finding.ts': [

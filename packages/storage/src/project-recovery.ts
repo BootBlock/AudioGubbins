@@ -296,7 +296,7 @@ async function replayJournal(
   context: ReplayContext,
   signal?: AbortSignal,
 ): Promise<Replay> {
-  const plan = await context.files.journal.readAfter(from, lease);
+  const plan = await context.files.journal.readAfter(from, lease, signal);
   let model = start;
   let position = from;
   let replayed = 0;

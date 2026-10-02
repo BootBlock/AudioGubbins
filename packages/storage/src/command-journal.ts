@@ -123,13 +123,18 @@ export class CommandJournal {
   }
 
   /** Plans the records after `from` under the seals of `lease`. */
-  async readAfter(from: JournalPosition, lease: LeaseRecord): Promise<JournalPlan> {
+  async readAfter(
+    from: JournalPosition,
+    lease: LeaseRecord,
+    signal?: AbortSignal,
+  ): Promise<JournalPlan> {
     const readable: JournalPosition[] = [];
     const fenced: JournalPosition[] = [];
     const beyond: JournalPosition[] = [];
     let missing: JournalPosition | undefined;
 
     for (const epoch of await this.epochsFrom(from.epoch, lease)) {
+      signal?.throwIfAborted();
       // An epoch newer than the lease's was never opened to write under, so
       // anything in it is fenced as a sealed epoch's excess is.
       const seal = epoch > lease.epoch ? 0 : sealOf(lease, epoch);

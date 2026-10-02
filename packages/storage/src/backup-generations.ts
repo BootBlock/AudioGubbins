@@ -38,6 +38,7 @@ import {
   type ProjectState,
   type StateFingerprint,
   type StorageTree,
+  type Turns,
 } from '@audiogubbins/project-format';
 
 import type { BackupGeneration, BackupReason } from './backup-planning.js';
@@ -126,12 +127,16 @@ export class BackupGenerations {
     });
   }
 
-  /** Makes a generation of a copy of the project, protected where asked. */
+  /**
+   * Makes a generation of a copy of the project, protected where asked, its
+   * history's segments planned a step of `turns` for each node.
+   */
   async create(
     copy: ProjectCopy,
     made: { readonly reason: BackupReason; readonly at: number; readonly protect: boolean },
-    signal?: AbortSignal,
+    turns: Turns,
   ): Promise<DomainResult<BackupGeneration>> {
+    const { signal } = turns;
     return await refusalsReported(async () => {
       const number = Math.max(0, ...(await this.numbers())) + 1;
       const states = await this.writeStates(copy, number, signal);
@@ -156,7 +161,7 @@ export class BackupGenerations {
           ledger: new SegmentLedger(),
           next: () => unsafeBrandId(String((segments += 1)).padStart(8, '0')),
         },
-        signal,
+        turns,
       );
       if (!written.ok) return written;
       let bytes = states.value.bytes;

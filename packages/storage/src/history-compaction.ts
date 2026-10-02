@@ -32,6 +32,7 @@ import {
   type HistoryNodeId,
   type ProjectState,
   type StateFingerprint,
+  type Turns,
 } from '@audiogubbins/project-format';
 
 import { stateAt, type MoveServices } from './history-moves.js';
@@ -64,7 +65,7 @@ async function compactionContext(
   files: ProjectFiles,
   model: Pick<ProjectModel, 'history' | 'comparison' | 'exports'>,
   now: number,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<CompactionContext> {
   const { history, comparison } = model;
   const namings = new Map<StateFingerprint, number>();
@@ -78,7 +79,7 @@ async function compactionContext(
   }
   const alone = new Map<HistoryNodeId, number>();
   for (const node of history.nodes.values()) {
-    signal?.throwIfAborted();
+    await turns.afterStep();
     const state = node.stateFingerprint;
     const stateBytes =
       state !== undefined && namings.get(state) === 1
@@ -99,15 +100,18 @@ function recordBytes(node: HistoryNode): number {
   return encodeUtf8(canonicalJson(writeHistoryNodeRecord(node))).length;
 }
 
-/** A plan of what `request` lets go of a kept project's history. */
+/**
+ * A plan of what `request` lets go of a kept project's history. The text of
+ * every node is measured, so each takes a step of `turns`.
+ */
 export async function planHistoryCompaction(
   files: ProjectFiles,
   model: Pick<ProjectModel, 'history' | 'comparison' | 'exports'>,
   request: CompactionRequest,
   now: number,
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<DomainResult<CompactionPlan>> {
-  return planCompaction(model.history, request, await compactionContext(files, model, now, signal));
+  return planCompaction(model.history, request, await compactionContext(files, model, now, turns));
 }
 
 /**

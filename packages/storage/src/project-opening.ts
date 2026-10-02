@@ -109,22 +109,21 @@ export async function openProject(
   if (!header.ok) return header;
 
   const { coordinator } = services;
-  if (request.access === 'read') return await openToRead(files, { kind: 'requested' }, services);
-  if (coordinator === undefined)
-    return await openToRead(files, { kind: 'no-coordination' }, services);
+  const reading = async (reason: ReadOnlyReason): Promise<DomainResult<OpenedProject>> =>
+    await openToRead(files, reason, services, signal);
+  if (request.access === 'read') return await reading({ kind: 'requested' });
+  if (coordinator === undefined) return await reading({ kind: 'no-coordination' });
   if (header.value.deleted !== undefined) return fail(projectDeleted(project));
 
   const acquired = await coordinator.acquire(project, {
     steal: request.steal ?? false,
     owner: services.owner,
   });
-  if (acquired.kind === 'unavailable') {
-    return await openToRead(files, { kind: 'no-coordination' }, services);
-  }
+  if (acquired.kind === 'unavailable') return await reading({ kind: 'no-coordination' });
   if (acquired.kind === 'busy') {
-    const reason: ReadOnlyReason =
-      acquired.owner === undefined ? { kind: 'busy' } : { kind: 'busy', owner: acquired.owner };
-    return await openToRead(files, reason, services);
+    return await reading(
+      acquired.owner === undefined ? { kind: 'busy' } : { kind: 'busy', owner: acquired.owner },
+    );
   }
 
   const lease = acquired.lease;
@@ -154,9 +153,10 @@ async function openToRead(
   files: ProjectFiles,
   reason: ReadOnlyReason,
   services: OpeningServices,
+  signal?: AbortSignal,
 ): Promise<DomainResult<OpenedProject>> {
   return await refusalsReported(async () => {
-    const recovered = await recoverAsItIs(files, services);
+    const recovered = await recoverAsItIs(files, services, signal);
     if (!recovered.ok) return recovered;
     // Where writers are not coordinated there is no writer to watch or ask.
     const { coordinator } = services;
@@ -164,9 +164,9 @@ async function openToRead(
     const view = new ReadOnlyProject(files.project, recovered.value.model, reason, {
       owner: services.owner,
       logger: services.logger,
-      reload: async (signal) =>
+      reload: async (reloading) =>
         await refusalsReported(async () =>
-          mapResult(await recoverAsItIs(files, services, signal), ({ model }) => model),
+          mapResult(await recoverAsItIs(files, services, reloading), ({ model }) => model),
         ),
       ...(coordinated ? { coordinator } : {}),
     });
@@ -217,6 +217,7 @@ async function openToWrite(
       ids: services.ids,
       logger: services.logger,
       coordinator,
+      yieldToHost: services.yieldToHost,
     },
     {
       recovered: recovered.value,

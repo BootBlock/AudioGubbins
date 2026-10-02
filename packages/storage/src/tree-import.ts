@@ -33,6 +33,7 @@ import { historyFromRecord, startHistory, type History } from '@audiogubbins/his
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
 import {
   DEFAULT_RETENTION_POLICY,
+  Turns,
   projectTree,
   stateFingerprintOf,
   type ContentId,
@@ -106,7 +107,8 @@ export async function importTree(
       const brought = await bringBodies(content, project, open, held, services, signal);
       if (!brought.ok) return brought;
       const imported = { from, at };
-      return await writeProject(files, { ...contents.value, imported }, services.ids, signal);
+      const turns = new Turns(services.yieldToHost, signal);
+      return await writeProject(files, { ...contents.value, imported }, services.ids, turns);
     });
     // A designed failure leaves nothing of the project behind; a crash, which
     // rejects, leaves it unfinished, for cleanup or the next import to remove.
