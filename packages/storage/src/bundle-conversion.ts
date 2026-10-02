@@ -45,7 +45,7 @@ export async function unpackBundle(
 ): Promise<DomainResult<void>> {
   const bundle = await openBundle(source, services, signal);
   if (!bundle.ok) return bundle;
-  const content = await readProjectTree(bundle.value.listing, services.digest, signal);
+  const content = await readProjectTree(bundle.value.listing, services, signal);
   if (!content.ok) return content;
   const claimed = await claimDirectory(writer, content.value.state.project.id, claim, signal);
   if (!claimed.ok) return claimed;
@@ -66,7 +66,7 @@ export async function packUnpacked(
     await sink.abort(tree.failures[0]);
     return tree;
   }
-  const content = await readProjectTree(tree.value.listing, digest, signal);
+  const content = await readProjectTree(tree.value.listing, services, signal);
   if (!content.ok) {
     await sink.abort(content.failures[0]);
     return content;

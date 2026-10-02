@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { ContentId } from '@audiogubbins/project-format';
 
 import { BackupScheduler, type ExternalBackupTarget } from './backup-scheduler.js';
@@ -19,7 +20,10 @@ import { addAsset } from './testing/test-commands.js';
  * that could never be brought in again.
  */
 
-const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
 
 /** A closed project holding one piece of media, whose bytes in the store are then damaged. */
 async function damagedMedia() {

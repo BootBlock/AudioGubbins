@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { ProvenanceLevel } from '@audiogubbins/project-format';
 
 import { planCleanup } from './cleanup-planning.js';
 import { runCleanup } from './cleanup-running.js';
@@ -40,7 +41,10 @@ async function sampleBundle(test: Harness) {
       await exportBundle(
         header.id,
         sink,
-        { scope: { kind: 'whole-history' }, includeCaches: false },
+        {
+          scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+          includeCaches: false,
+        },
         source.exporting,
       ),
     ).written,

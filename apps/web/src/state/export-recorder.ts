@@ -18,7 +18,6 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import type { DomainResult, ProjectId } from '@audiogubbins/domain';
 import {
   ExportStatus,
-  ProvenanceLevel,
   type ContentIdentity,
   type ExportDestination,
   type ExportOutput,
@@ -66,7 +65,7 @@ export function copyOutput(
     container,
     settings: new Map<string, string | number | boolean>([
       ['scope', scope.kind],
-      ['provenance', scope.kind === 'current-state' ? scope.provenance : ProvenanceLevel.Full],
+      ['provenance', scope.provenance],
       ['caches', includeCaches],
       ...Object.entries(more),
     ]),

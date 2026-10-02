@@ -247,6 +247,10 @@ const SUMMARIES: ReadonlyMap<string, string> = new Map([
   ['tree.cache-unlisted', 'The tree holds a cache its index of caches does not list.'],
   ['tree.cache-missing', 'The tree lacks a cache its index of caches lists.'],
   ['tree.cache-length', 'A cache is not the length its index of caches lists.'],
+  [
+    'tree.provenance-kept',
+    'A file keeps more of where the audio came from than the tree’s header says the tree keeps.',
+  ],
 ]);
 
 /** The failure of a metadata file longer than {@link LONGEST_METADATA}. */

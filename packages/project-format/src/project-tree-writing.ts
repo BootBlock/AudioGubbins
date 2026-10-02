@@ -8,7 +8,10 @@
  * for byte, in the same order. Media and caches are named, never inlined: the
  * caller streams their bytes from wherever it keeps them. The provenance level
  * of a tree of the state alone is applied here, so what the header says the
- * tree keeps is what it keeps.
+ * tree keeps is what it keeps. A whole history is given at its level already
+ * (`history-stripping.ts`), since stripping one reads the states it keeps and
+ * takes the command layer's word on which arguments of a change hold
+ * provenance; the reader holds both to the level the header says.
  *
  * A history may keep more states, and hold more nodes, than fit in memory as
  * text at once (REQ-EXEC-216), so a text file's bytes are made only when its
@@ -51,9 +54,9 @@ import {
 } from './project-tree-layout.js';
 import { TreeFiles, type ProjectTreeFile } from './project-tree-texts.js';
 import {
-  ProvenanceLevel,
   stripAssetProvenance,
   stripExportRecords,
+  type ProvenanceLevel,
 } from './provenance-stripping.js';
 import { writeRetentionPolicy } from './retention-json.js';
 import { writeBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
@@ -98,11 +101,15 @@ export interface ProjectTreeHistory {
 }
 
 /**
- * How much of a project a tree holds: the history, which keeps full provenance,
- * or the state alone at the provenance level chosen.
+ * How much of a project a tree holds, the history or the state alone, and the
+ * provenance level it keeps: a history's content is at that level already.
  */
 export type ProjectTreeScope =
-  | { readonly kind: 'history'; readonly history: ProjectTreeHistory }
+  | {
+      readonly kind: 'history';
+      readonly history: ProjectTreeHistory;
+      readonly provenance: ProvenanceLevel;
+    }
   | { readonly kind: 'state'; readonly provenance: ProvenanceLevel };
 
 /** Everything a project's tree holds. */
@@ -130,8 +137,9 @@ export interface ProjectTreeContent {
 export function projectTree(content: ProjectTreeContent): readonly ProjectTreeFile[] {
   const files = new TreeFiles();
   const { scope } = content;
-  const provenance = scope.kind === 'state' ? scope.provenance : ProvenanceLevel.Full;
-  const state = stripAssetProvenance(content.state, provenance);
+  const { provenance } = scope;
+  const state =
+    scope.kind === 'state' ? stripAssetProvenance(content.state, provenance) : content.state;
 
   files.text(TREE_HEADER_PATH, () =>
     writeTreeHeader({

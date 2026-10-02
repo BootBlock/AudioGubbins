@@ -32,6 +32,7 @@ import {
   readVerified,
   type ByteSource,
   type Digest,
+  type InvocationProvenance,
   type ManifestEntry,
   type ProjectTreeFile,
   type ProjectTreeListing,
@@ -45,6 +46,12 @@ import type { UnprovedBody, UnprovedBodies } from './tree-bodies.js';
 /** What a bundle is read with, each made once by the composition root. */
 export interface BundleServices {
   readonly digest: Digest;
+
+  /**
+   * Which arguments of a change hold provenance, as the command layer
+   * declares, to hold a history kept at less than all of it to its level.
+   */
+  readonly invocationProvenance: InvocationProvenance;
 
   /** Asked between entries and chunks, which are checked in memory. */
   readonly yieldToHost: YieldToHost;

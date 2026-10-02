@@ -43,6 +43,7 @@ import {
   stateFingerprintOf,
   type ContentId,
   type Digest,
+  type InvocationProvenance,
   type ProjectState,
   type ProjectTreeContent,
   type ProjectTreeFile,
@@ -64,6 +65,12 @@ import type { LeaseCoordinator, LeaseOwner } from './write-lease.js';
 export interface ImportServices {
   readonly tree: StorageTree;
   readonly digest: Digest;
+
+  /**
+   * Which arguments of a change hold provenance, as the command layer
+   * declares, to hold a history kept at less than all of it to its level.
+   */
+  readonly invocationProvenance: InvocationProvenance;
   readonly clock: Clock;
   readonly ids: IdGenerator;
   readonly store: MediaObjectStore;

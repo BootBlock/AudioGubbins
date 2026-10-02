@@ -2424,6 +2424,10 @@ Published paths
   type HistoryLabel = string & { readonly [BrandTag]: "HistoryLabel"; }
   type HistoryNodeId = string & { readonly [BrandTag]: "HistoryNodeId"; }
   type HistoryNodeRecord<TInvocation extends InvocationRecord = InvocationRecord> = ChangeNodeRecord<TInvocation> | OriginNodeRecord
+  interface HistoryProvenanceParts
+  readonly HistoryProvenanceParts.state: ProjectState
+  readonly HistoryProvenanceParts.history: ProjectTreeHistory
+  readonly HistoryProvenanceParts.exports: readonly ExportRecord[]
   interface HistoryRecord<TInvocation extends InvocationRecord = InvocationRecord>
   readonly HistoryRecord.project: ProjectId
   readonly HistoryRecord.nodes: readonly HistoryNodeRecord<TInvocation>[]
@@ -2438,6 +2442,10 @@ Published paths
   interface HistorySegmentReference
   readonly HistorySegmentReference.epoch: number
   readonly HistorySegmentReference.id: HistorySegmentId
+  interface HistoryStrippingServices
+  readonly HistoryStrippingServices.invocationProvenance: InvocationProvenance
+  readonly HistoryStrippingServices.digest: Digest
+  readonly HistoryStrippingServices.turns: Turns
   type InvocationProvenance = (invocation: InvocationRecord, rewrite: SourceRewrite) => DomainResult<InvocationRecord>
   interface InvocationRecord
   readonly InvocationRecord.commandId: string
@@ -2504,7 +2512,7 @@ Published paths
   interface ProjectTreeListing
   readonly ProjectTreeListing.files: readonly TreeListedFile[]
   ProjectTreeListing.read: (path: string, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer>>>
-  type ProjectTreeScope = { readonly kind: "history"; readonly history: ProjectTreeHistory; } | { readonly kind: "state"; readonly provenance: ProvenanceLevel; }
+  type ProjectTreeScope = { readonly kind: "history"; readonly history: ProjectTreeHistory; readonly provenance: ProvenanceLevel; } | { readonly kind: "state"; readonly provenance: ProvenanceLevel; }
   const ProvenanceArgument: { readonly AssetRecord: "asset-record"; readonly MediaSource: "media-source"; readonly ExternalIdentity: "external-identity"; }
   type ProvenanceArgument = "asset-record" | "external-identity" | "media-source"
   type ProvenanceArguments = { readonly [x: string]: ProvenanceArgument; }
@@ -2569,6 +2577,9 @@ Published paths
   interface TreeMedia
   readonly TreeMedia.contentId: ContentId
   readonly TreeMedia.byteLength: number
+  interface TreeReadingServices
+  readonly TreeReadingServices.digest: Digest
+  readonly TreeReadingServices.invocationProvenance: InvocationProvenance
   interface TreeStates
   readonly TreeStates.fingerprints: readonly StateFingerprint[]
   TreeStates.load: (fingerprint: StateFingerprint, signal?: AbortSignal) => Promise<DomainResult<ProjectState | undefined>>
@@ -2674,7 +2685,7 @@ Published paths
   const readHistorySegment: Converter<HistorySegmentRecord>
   const readMediaSource: Converter<MediaSource>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
-  function readProjectTree(listing: ProjectTreeListing, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
+  function readProjectTree(listing: ProjectTreeListing, services: TreeReadingServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSegmentedHistory: Converter<SegmentedHistoryRecord>
@@ -2689,7 +2700,9 @@ Published paths
   function storageKeyOf(assetId: AssetId, media: MediaSource): string
   function stripAssetProvenance(state: ProjectState, level: ProvenanceLevel): ProjectState
   function stripExportRecords(records: readonly ExportRecord[], level: ProvenanceLevel): readonly ExportRecord[]
+  function stripHistory(parts: HistoryProvenanceParts, level: ProvenanceLevel, services: HistoryStrippingServices): Promise<DomainResult<HistoryProvenanceParts>>
   function textConverter(rule: TextRule): Converter<string>
+  function withStateFingerprints(record: HistoryRecord<InvocationRecord>, renamed: ReadonlyMap<StateFingerprint, StateFingerprint>): HistoryRecord<InvocationRecord>
   function writeAssetRecord(record: AssetRecord): JsonObject
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
   function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
@@ -2882,7 +2895,7 @@ Published paths
   BackupScheduler.make: (reason: BackupReason, now: number, model: ProjectModel, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupScheduler.prune: (model: ProjectModel, now: number, signal?: AbortSignal) => Promise<DomainResult<readonly BackupGeneration[]>>
   BackupScheduler.copyOut: (generation: BackupGeneration, model: ProjectModel, signal?: AbortSignal) => Promise<ExternalCopy>
-  interface BackupServices extends RecoveryServices, TreeSources
+  interface BackupServices extends RecoveryServices, TreeCopying
   readonly BackupServices.tree: StorageTree
   readonly BackupServices.digest: Digest
   readonly BackupServices.coordinator?: LeaseCoordinator
@@ -2891,9 +2904,12 @@ Published paths
   readonly BackupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly BackupServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly BackupServices.caches: import("packages/storage/src/cache-store").CacheStore
+  readonly BackupServices.invocationProvenance: import("packages/project-format/src/invocation-provenance").InvocationProvenance
   type BackupTick = { readonly kind: "busy"; } | { readonly kind: "made"; readonly generation: BackupGeneration; readonly pruned: readonly BackupGeneration[]; readonly external: ExternalCopy; } | { readonly kind: "not-due"; }
   type BreakReason = { readonly kind: "invalid"; readonly fault: RecordFault; } | { readonly kind: "missing"; } | { readonly kind: "refused"; readonly failure: DomainFailure; }
-  type BundleScope = { readonly kind: "current-state"; readonly provenance: ProvenanceLevel; } | { readonly kind: "whole-history"; }
+  interface BundleScope
+  readonly BundleScope.kind: "current-state" | "whole-history"
+  readonly BundleScope.provenance: ProvenanceLevel
   const CACHE_CLEANUP_ORDER: readonly CacheCategory[]
   const CacheCategory: { readonly Temporary: "temporary"; readonly Render: "render"; readonly Analysis: "analysis"; readonly Waveform: "waveform"; readonly Spectrogram: "spectrogram"; readonly Intermediate: "intermediate"; }
   type CacheCategory = "analysis" | "intermediate" | "render" | "spectrogram" | "temporary" | "waveform"
@@ -3013,7 +3029,7 @@ Published paths
   readonly ExportAttempt.partial?: true
   interface ExportFrom
   readonly ExportFrom.held?: ProjectSession
-  interface ExportServices extends RecoveryServices, TreeSources
+  interface ExportServices extends RecoveryServices, TreeCopying
   readonly ExportServices.tree: StorageTree
   readonly ExportServices.digest: Digest
   readonly ExportServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
@@ -3021,6 +3037,7 @@ Published paths
   readonly ExportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly ExportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly ExportServices.caches: import("packages/storage/src/cache-store").CacheStore
+  readonly ExportServices.invocationProvenance: import("packages/project-format/src/invocation-provenance").InvocationProvenance
   interface ExportSource
   readonly ExportSource.state: StateFingerprint
   readonly ExportSource.node: HistoryNodeId
@@ -3059,6 +3076,7 @@ Published paths
   interface ImportServices
   readonly ImportServices.tree: StorageTree
   readonly ImportServices.digest: Digest
+  readonly ImportServices.invocationProvenance: InvocationProvenance
   readonly ImportServices.clock: Clock
   readonly ImportServices.ids: IdGenerator
   readonly ImportServices.store: MediaObjectStore
@@ -3297,6 +3315,12 @@ Published paths
   interface TransferRequest
   readonly TransferRequest.id: string
   readonly TransferRequest.from: LeaseOwner
+  interface TreeCopying extends TreeSources, HistoryStrippingParts
+  readonly TreeCopying.store: MediaObjectStore
+  readonly TreeCopying.caches: CacheStore
+  readonly TreeCopying.digest: Digest
+  readonly TreeCopying.invocationProvenance: import("packages/project-format/src/invocation-provenance").InvocationProvenance
+  readonly TreeCopying.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   interface TreeSources
   readonly TreeSources.store: MediaObjectStore
   readonly TreeSources.caches: CacheStore
@@ -4602,6 +4626,7 @@ packages/storage/src/backup-generations.ts
 packages/storage/src/bundle-reading.ts
   interface BundleServices
   readonly BundleServices.digest: Digest
+  readonly BundleServices.invocationProvenance: InvocationProvenance
   readonly BundleServices.yieldToHost: YieldToHost
 
 packages/storage/src/cache-store.ts
@@ -4666,6 +4691,12 @@ packages/storage/src/command-journal.ts
   readonly JournalPlan.beyond: readonly JournalPosition[]
   JournalPlan.breakAt: (at: JournalPosition, reason: BreakReason) => JournalBreak
   JournalPlan.end: () => JournalBreak | undefined
+
+packages/storage/src/copied-history.ts
+  interface HistoryStrippingParts
+  readonly HistoryStrippingParts.invocationProvenance: InvocationProvenance
+  readonly HistoryStrippingParts.digest: Digest
+  readonly HistoryStrippingParts.yieldToHost: YieldToHost
 
 packages/storage/src/generational-pair.ts
   interface Generational

@@ -42,7 +42,7 @@ function copyOptionsFrom(invocation: CommandInvocation): CopyOptions | string {
     return { scope: { kind: 'current-state', provenance }, includeCaches };
   }
   return provenance === ProvenanceLevel.Full
-    ? { scope: { kind: 'whole-history' }, includeCaches }
+    ? { scope: { kind: 'whole-history', provenance }, includeCaches }
     : 'A whole history keeps all of where its audio came from, since its changes record it. Export the current state alone to leave any of it out.';
 }
 

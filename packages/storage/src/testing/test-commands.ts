@@ -32,14 +32,17 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
+  ProvenanceArgument,
   canonicalJson,
   contentIdFrom,
+  invocationProvenance,
   parseJson,
   readMediaSource,
   startReading,
   storageKeyOf,
   writeMediaSource,
   type ContentId,
+  type InvocationProvenance,
   type MediaSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -221,6 +224,19 @@ function setMediaCommand(): Command<ProjectState> {
     };
   });
 }
+
+/**
+ * What the test commands declare of the provenance their arguments hold, as
+ * the project commands declare theirs: only setting media carries any.
+ */
+export const TEST_INVOCATION_PROVENANCE: InvocationProvenance = invocationProvenance(
+  new Map([
+    [SET_NAME, {}],
+    [ADD_ASSET, {}],
+    [REMOVE_ASSET, {}],
+    [SET_MEDIA, { media: ProvenanceArgument.MediaSource }],
+  ]),
+);
 
 /** A bus running the test commands. */
 export function testBus(): CommandBus<ProjectState> {

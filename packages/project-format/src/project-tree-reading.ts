@@ -17,6 +17,10 @@
  * each is checked as it is read: of the tree's project, and the state its name
  * promises. Whatever brings the tree in refuses it at the first that is not.
  *
+ * A tree is held to the provenance level its header says, and refused where a
+ * part keeps more, never stripped again (`tree-provenance-checks.ts`), so what
+ * is read is what was written.
+ *
  * Every problem is reported, each at the path of its file. Media and caches are
  * placed by their paths and lengths and never read here: their bytes are the
  * caller's to stream and check, media against the identity its name is and a
@@ -36,6 +40,7 @@ import type { ExportRecord } from './export-provenance.js';
 import { readExportRecord } from './export-record-json.js';
 import { readHistoryRecord } from './history-json.js';
 import type { HistoryRecord, RetentionPolicy } from './history-record.js';
+import type { InvocationProvenance } from './invocation-provenance.js';
 import {
   PROJECT_DOCUMENT_FORMAT,
   readProjectDocument,
@@ -64,7 +69,7 @@ import {
   snapshotPath,
 } from './project-tree-layout.js';
 import type { ProjectTreeContent, ProjectTreeHistory, TreeStates } from './project-tree-writing.js';
-import { stripAssetProvenance, stripExportRecords } from './provenance-stripping.js';
+import { ProvenanceCheck } from './tree-provenance-checks.js';
 import { readRetentionPolicy } from './retention-json.js';
 import { readBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
 import { readCacheIndex, type TreeCache } from './cache-index-json.js';
@@ -83,23 +88,34 @@ export async function readProjectTreeHeader(
   return await new TreeReading(listing, signal).header();
 }
 
+/** What a tree is read with. */
+export interface TreeReadingServices {
+  readonly digest: Digest;
+
+  /** Which arguments of a change hold provenance, as the command layer declares. */
+  readonly invocationProvenance: InvocationProvenance;
+}
+
 /** Reads a tree (see the module comment). */
 export async function readProjectTree(
   listing: ProjectTreeListing,
-  digest: Digest,
+  services: TreeReadingServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ProjectTreeContent>> {
   const tree = new TreeReading(listing, signal);
   const header = await tree.header();
   if (!header.ok) return header;
   tree.placeEvery(header.value);
+  const check = new ProvenanceCheck(header.value, services.invocationProvenance);
 
   const state = await readState(tree, header.value);
+  if (state !== undefined) check.checkState(tree, state);
   const backup = await readBackup(tree);
   const history = header.value.history
-    ? await readHistory(tree, header.value, state, digest)
+    ? await readHistory(tree, header.value, state, { digest: services.digest, check })
     : undefined;
   const exports = await readExports(tree);
+  check.checkExports(tree, exports);
   const media = tree.ofKind('media').map(({ place, size }) => ({
     contentId: place.contentId,
     byteLength: size,
@@ -118,9 +134,12 @@ export async function readProjectTree(
   }
   const { provenance } = header.value;
   return succeed({
-    state: stripAssetProvenance(state, provenance),
-    scope: history === undefined ? { kind: 'state', provenance } : { kind: 'history', history },
-    exports: stripExportRecords(exports, provenance),
+    state,
+    scope:
+      history === undefined
+        ? { kind: 'state', provenance }
+        : { kind: 'history', history, provenance },
+    exports,
     backup,
     media,
     ...(caches === undefined ? {} : { caches }),
@@ -171,17 +190,24 @@ const HISTORY_MEMBER_FILES: ReadonlyMap<string, string> = new Map([
   ['branchNames', BRANCH_NAMES_PATH],
 ]);
 
+/** What a history's parts are checked with. */
+interface HistoryChecks {
+  readonly digest: Digest;
+  readonly check: ProvenanceCheck;
+}
+
 /** The history from its files, with the states it keeps, each checked. */
 async function readHistory(
   tree: TreeReading,
   header: TreeHeader,
   state: ProjectState | undefined,
-  digest: Digest,
+  { digest, check }: HistoryChecks,
 ): Promise<ProjectTreeHistory | undefined> {
   const record = await readRecord(tree, header);
+  if (record !== undefined) check.checkHistory(tree, record);
   const retention = await readRetention(tree);
   const comparison = record === undefined ? undefined : await readComparison(tree, record);
-  const states = treeStates(tree, header, digest);
+  const states = treeStates(tree, header, { digest, check });
   if (record === undefined || retention === undefined || state === undefined) return undefined;
 
   const kept = new Set(states.fingerprints);
@@ -279,9 +305,14 @@ const anyValue: Converter<JsonValue> = (_reading, value) => value;
 
 /**
  * The states the tree keeps, each read when it is asked for and checked to be
- * of the tree's project and the state its name promises.
+ * of the tree's project, at the tree's provenance level, and the state its
+ * name promises.
  */
-function treeStates(tree: TreeReading, header: TreeHeader, digest: Digest): TreeStates {
+function treeStates(
+  tree: TreeReading,
+  header: TreeHeader,
+  { digest, check }: HistoryChecks,
+): TreeStates {
   const files = new Map(tree.ofKind('state').map((file) => [file.place.fingerprint, file]));
   return {
     fingerprints: [...files.keys()],
@@ -294,6 +325,9 @@ function treeStates(tree: TreeReading, header: TreeHeader, digest: Digest): Tree
       if (!state.ok) return atFileEach(state, file.path);
       if (state.value.project.id !== header.project) {
         return fail(treeProblem('tree.foreign-state', file.path));
+      }
+      if (!check.holdsState(state.value)) {
+        return fail(treeProblem('tree.provenance-kept', file.path));
       }
       return (await stateFingerprintOf(state.value, digest)) === fingerprint
         ? state

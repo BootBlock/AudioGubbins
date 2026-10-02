@@ -20,6 +20,10 @@
  *   (its length, time, type, signature, fingerprint and content identity) is
  *   identity rather than provenance, and every level keeps it.
  *
+ * A whole history is stripped to the same level, with one difference: its
+ * changes compare the handle, name and path of a linked file, so each is
+ * replaced by a placeholder rather than dropped (`provenance-placeholders.ts`).
+ *
  * And for export records:
  *
  * - `full` keeps everything.
@@ -30,7 +34,9 @@
  * - `none` keeps no record.
  *
  * An asset's display name is project content the user edits, not provenance,
- * and no level changes it.
+ * and no level changes it. Every rewrite here gives back the very value it was
+ * given where it changes nothing, so a value is at a level exactly where
+ * stripping it to that level gives it back: how a reader checks one.
  */
 
 import type { AssetId } from '@audiogubbins/domain';
@@ -42,6 +48,7 @@ import type {
   MediaSource,
   ProjectState,
 } from './project-state.js';
+import { PlaceholderKind, type Placeholders } from './provenance-placeholders.js';
 
 /** How much provenance a project or an export keeps. */
 export const ProvenanceLevel = {
@@ -66,42 +73,108 @@ export interface SourceRewrite {
 
 /** The state with each asset's provenance stripped to `level`. */
 export function stripAssetProvenance(state: ProjectState, level: ProvenanceLevel): ProjectState {
-  if (level === ProvenanceLevel.Full) return state;
+  return rewriteSources(state, stateStripping(level));
+}
 
-  const sources = new Map<AssetId, AssetSource>();
+/** The rewrite the state alone is stripped to `level` with. */
+export function stateStripping(level: ProvenanceLevel): SourceRewrite {
+  return sourceStripping(level, withoutLocation);
+}
+
+/**
+ * The rewrite a whole history's states and changes are stripped to `level`
+ * with: as the state alone is, but with each name, handle and path given by
+ * `placeholders` rather than dropped.
+ */
+export function historyStripping(
+  level: ProvenanceLevel,
+  placeholders: Placeholders,
+): SourceRewrite {
+  return sourceStripping(level, (identity) => withPlaceholders(identity, placeholders));
+}
+
+/** The state with each source rewritten, or the state itself where none changed. */
+export function rewriteSources(state: ProjectState, rewrite: SourceRewrite): ProjectState {
+  let sources: Map<AssetId, AssetSource> | undefined;
   for (const [assetId, source] of state.sources) {
-    sources.set(assetId, strippedSource(source, level));
+    const rewritten = rewrite.source(source);
+    if (rewritten === source) continue;
+    sources ??= new Map(state.sources);
+    sources.set(assetId, rewritten);
   }
-  return { project: state.project, sources };
+  return sources === undefined ? state : { project: state.project, sources };
 }
 
-/** One source stripped to a level below `full`. */
-function strippedSource(source: AssetSource, level: 'minimal' | 'none'): AssetSource {
-  const media = strippedMedia(source.media);
-  if (level === ProvenanceLevel.None || source.provenance === undefined) return { media };
-
-  const { originalFileName: _originalFileName, ...kept } = source.provenance;
-  return { media, provenance: kept };
+/** The rewrite to `level` that treats an external identity with `identity`. */
+function sourceStripping(
+  level: ProvenanceLevel,
+  identity: (identity: ExternalSourceIdentity) => ExternalSourceIdentity,
+): SourceRewrite {
+  if (level === ProvenanceLevel.Full) return KEEP_EVERYTHING;
+  const media = (value: MediaSource): MediaSource => {
+    if (value.kind === 'managed') return value;
+    const rewritten = identity(value.identity);
+    return rewritten === value.identity ? value : { ...value, identity: rewritten };
+  };
+  const source = (value: AssetSource): AssetSource => {
+    const rewritten = media(value.media);
+    const provenance = strippedProvenance(value, level);
+    if (rewritten === value.media && provenance === value.provenance) return value;
+    return { media: rewritten, ...(provenance === undefined ? {} : { provenance }) };
+  };
+  return { source, media, identity };
 }
 
-/** Media with an external identity's names and handle removed. */
-function strippedMedia(media: MediaSource): MediaSource {
-  if (media.kind === 'managed') return media;
-  return { ...media, identity: strippedIdentity(media.identity) };
-}
+const KEEP_EVERYTHING: SourceRewrite = {
+  source: (source) => source,
+  media: (media) => media,
+  identity: (identity) => identity,
+};
 
-/** An external identity without what names or reaches the user's file. */
-function strippedIdentity(identity: ExternalSourceIdentity): ExternalSourceIdentity {
-  const {
-    handleKey: _handleKey,
-    fileName: _fileName,
-    relativePath: _relativePath,
-    ...kept
-  } = identity;
+/** A source's provenance at a level below `full`. */
+function strippedProvenance(
+  source: AssetSource,
+  level: 'minimal' | 'none',
+): AssetSource['provenance'] {
+  const { provenance } = source;
+  if (provenance === undefined || level === ProvenanceLevel.None) return undefined;
+  if (provenance.originalFileName === undefined) return provenance;
+  const { originalFileName: _originalFileName, ...kept } = provenance;
   return kept;
 }
 
-/** The export records stripped to `level`. */
+/** An external identity without what names or reaches the user's file. */
+function withoutLocation(identity: ExternalSourceIdentity): ExternalSourceIdentity {
+  const { handleKey, fileName, relativePath, ...kept } = identity;
+  return handleKey === undefined && fileName === undefined && relativePath === undefined
+    ? identity
+    : kept;
+}
+
+/** An external identity with a placeholder for each name, handle and path it holds. */
+function withPlaceholders(
+  identity: ExternalSourceIdentity,
+  placeholders: Placeholders,
+): ExternalSourceIdentity {
+  const { handleKey, fileName, relativePath, ...kept } = identity;
+  const standIn = (kind: PlaceholderKind, value: string | undefined) =>
+    value === undefined ? undefined : placeholders(kind, value);
+  const handle = standIn(PlaceholderKind.Handle, handleKey);
+  const file = standIn(PlaceholderKind.File, fileName);
+  const path = standIn(PlaceholderKind.Path, relativePath);
+  if (handle === handleKey && file === fileName && path === relativePath) return identity;
+  return {
+    ...(handle === undefined ? {} : { handleKey: handle }),
+    ...(file === undefined ? {} : { fileName: file }),
+    ...(path === undefined ? {} : { relativePath: path }),
+    ...kept,
+  };
+}
+
+/**
+ * The export records stripped to `level`, each record that is at the level
+ * already given back as it was.
+ */
 export function stripExportRecords(
   records: readonly ExportRecord[],
   level: ProvenanceLevel,
@@ -113,8 +186,14 @@ export function stripExportRecords(
       return [];
     case ProvenanceLevel.Minimal:
       return records.map((record) => {
-        const { godot: _godot, ...kept } = record;
-        return { ...kept, destination: { kind: record.destination.kind }, problems: [] };
+        const { godot, ...kept } = record;
+        const stripped =
+          godot === undefined &&
+          record.destination.label === undefined &&
+          record.problems.length === 0;
+        return stripped
+          ? record
+          : { ...kept, destination: { kind: record.destination.kind }, problems: [] };
       });
   }
 }

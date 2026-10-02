@@ -4,6 +4,7 @@ import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
+  ProvenanceLevel,
   Turns,
   type ByteSink,
   type ByteSource,
@@ -30,7 +31,10 @@ import { harness, nodeDigest } from './testing/node-services.js';
  * pass through: how many were read, at the most, before anything was written.
  */
 
-const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
 
 /** How many kept states have been read since anything was last written, at the most. */
 class Holding {
@@ -187,6 +191,37 @@ describe('a whole history holds one kept state at a time', () => {
     expectSuccess(attempt.written);
     expect(holding.peak).toBeLessThanOrEqual(2);
   });
+
+  it.each([ProvenanceLevel.Minimal, ProvenanceLevel.None])(
+    'as it is stripped to %s and written as a bundle, each state read to learn it and to write it',
+    async (provenance) => {
+      const test = harness(406);
+      const tree = new MemoryStorageTree();
+      const project = await longHistory(test, tree);
+      const reads = new Map<string, number>();
+      const counting = new HoldingTree(tree, new Holding(), (path) => {
+        reads.set(path, (reads.get(path) ?? 0) + 1);
+        return true;
+      });
+      let turns = 0;
+      const source = storageOf(test, counting, () => {
+        turns += 1;
+        return Promise.resolve();
+      });
+      const options = { ...WHOLE, scope: { kind: 'whole-history', provenance } } as const;
+
+      const attempt = expectSuccess(
+        await exportBundle(project, memorySink(), options, source.exporting),
+      );
+
+      expectSuccess(attempt.written);
+      const kept = tree.paths().filter((path) => STATE_FILE.test(path)).length;
+      expect(reads.size).toBe(kept);
+      // Learnt, written, and the first once more for what its media is.
+      expect(Math.max(...reads.values())).toBeLessThanOrEqual(3);
+      expect(turns).toBeGreaterThanOrEqual(kept);
+    },
+  );
 
   it.each(['original', 'copy'] as const)(
     'as it is brought in from a folder, as the %s',

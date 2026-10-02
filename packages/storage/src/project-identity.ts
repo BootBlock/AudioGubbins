@@ -18,12 +18,13 @@
 
 import { succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import { historyFromRecord } from '@audiogubbins/history';
-import type {
-  HistoryRecord,
-  ProjectState,
-  ProjectTreeHistory,
-  StateFingerprint,
-  TreeStates,
+import {
+  withStateFingerprints,
+  type HistoryRecord,
+  type ProjectState,
+  type ProjectTreeHistory,
+  type StateFingerprint,
+  type TreeStates,
 } from '@audiogubbins/project-format';
 
 import type { ProjectContents } from './project-creation.js';
@@ -60,19 +61,7 @@ function historyOver(
   renamed: ReadonlyMap<StateFingerprint, StateFingerprint>,
 ): HistoryRecord {
   if (record.project === project && [...renamed].every(([from, to]) => from === to)) return record;
-  return {
-    ...record,
-    project,
-    nodes: record.nodes.map((node) => {
-      const { stateFingerprint, ...rest } = node;
-      const carried = stateFingerprint === undefined ? undefined : renamed.get(stateFingerprint);
-      return carried === undefined ? rest : { ...rest, stateFingerprint: carried };
-    }),
-    snapshots: record.snapshots.map((snapshot) => ({
-      ...snapshot,
-      stateFingerprint: renamed.get(snapshot.stateFingerprint) ?? snapshot.stateFingerprint,
-    })),
-  };
+  return { ...withStateFingerprints(record, renamed), project };
 }
 
 /**

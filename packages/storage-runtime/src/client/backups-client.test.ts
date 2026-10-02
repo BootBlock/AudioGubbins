@@ -4,6 +4,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { History } from '@audiogubbins/history';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import {
+  ProvenanceLevel,
   TreeFailure,
   TreeFailureKind,
   type BackupPolicy,
@@ -347,7 +348,7 @@ describe('backup generations, made and restored in the storage worker', () => {
 
     const attempt = expectSuccess(
       await storage.client.transfers.exportBackup(project, made.generation.number, sink, {
-        scope: { kind: 'whole-history' },
+        scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
         includeCaches: false,
       }),
     );

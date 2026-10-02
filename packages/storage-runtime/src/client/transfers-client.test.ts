@@ -13,6 +13,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { generatedSource, memorySource, observeFile } from '@audiogubbins/media-store/testing';
 import { addAssetInvocation } from '@audiogubbins/project-commands';
 import {
+  ProvenanceLevel,
   SourceChangePolicy,
   TreeFailure,
   TreeFailureKind,
@@ -29,7 +30,10 @@ import type { PortPair } from '../testing/port-pair.js';
 import { projectScene, rename, storedModel, type ProjectScene } from '../testing/project-scene.js';
 import type { PageFile } from './page-ports.js';
 
-const WHOLE: CopyOptions = { scope: { kind: 'whole-history' }, includeCaches: false };
+const WHOLE: CopyOptions = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+};
 
 const ASSET = unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-000000000001');
 

@@ -33,12 +33,16 @@ import {
 import { randomStep } from './testing/random-sessions.js';
 import type { CopyOptions } from './tree-content.js';
 import { seededRandom } from './testing/seeded-random.js';
-import { addAsset } from './testing/test-commands.js';
+import { TEST_INVOCATION_PROVENANCE, addAsset } from './testing/test-commands.js';
 import { madeProject, openToWrite, type Harness } from './testing/storage-harness.js';
 import { harness, nodeDigest } from './testing/node-services.js';
 
 /** How the tests' bundles are read and written outside a storage. */
-const BUNDLES = { digest: nodeDigest, yieldToHost: immediateTurns };
+const BUNDLES = {
+  digest: nodeDigest,
+  yieldToHost: immediateTurns,
+  invocationProvenance: TEST_INVOCATION_PROVENANCE,
+};
 
 /**
  * Bundles and unpacked trees round-trip (REQ-STOR-103, REQ-STOR-099): a project
@@ -50,7 +54,10 @@ const BUNDLES = { digest: nodeDigest, yieldToHost: immediateTurns };
  * it in.
  */
 
-const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
 const SEEDS = Array.from({ length: 12 }, (_, index) => index + 1);
 
 /** The nodes a summary holds, which a copy under a new identity keeps as they were. */

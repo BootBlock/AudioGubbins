@@ -14,6 +14,7 @@ import { readProjectTree } from './project-tree-reading.js';
 import { projectTree, type ProjectTreeContent } from './project-tree-writing.js';
 import { ProvenanceLevel, stripAssetProvenance } from './provenance-stripping.js';
 import { nodeDigest } from './testing/node-digest.js';
+import { TREE_READING } from './testing/tree-reading.js';
 import { referenceState } from './testing/project-states.js';
 import {
   everyState,
@@ -73,7 +74,7 @@ async function contentText(content: ProjectTreeContent): Promise<string> {
 
 async function roundTrip(content: ProjectTreeContent) {
   const files = expectSuccess(await writtenFiles(projectTree(content)));
-  const read = expectSuccess(await readProjectTree(listingOf(files), nodeDigest));
+  const read = expectSuccess(await readProjectTree(listingOf(files), TREE_READING));
   return { files, read, again: expectSuccess(await writtenFiles(projectTree(read))) };
 }
 

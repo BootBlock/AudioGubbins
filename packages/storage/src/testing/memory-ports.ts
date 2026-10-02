@@ -23,6 +23,7 @@ import type { DirectoryFile, DirectoryWriter } from '../project-directory.js';
 import type { ExportServices } from '../project-transfer.js';
 import type { ImportServices } from '../tree-import.js';
 import type { Harness } from './storage-harness.js';
+import { TEST_INVOCATION_PROVENANCE } from './test-commands.js';
 
 /** A sink that keeps every chunk, and says how it ended. */
 export interface MemorySink extends ByteSink {
@@ -130,11 +131,12 @@ export function storageOf(
     tree,
     store,
     caches,
-    exporting: { ...services, store, caches },
+    exporting: { ...services, store, caches, invocationProvenance: TEST_INVOCATION_PROVENANCE },
     cleaning: { ...services, store, caches },
     importing: {
       tree,
       digest,
+      invocationProvenance: TEST_INVOCATION_PROVENANCE,
       clock: test.clock,
       ids: test.ids,
       store,

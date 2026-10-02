@@ -36,7 +36,7 @@ import { openProject, type OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { noCoordination, projectBusy, refusalsReported } from './storage-failures.js';
 import type { WriteOutcome } from './write-queue.js';
-import { copiedStates } from './tree-content.js';
+import { copiedStates } from './copied-history.js';
 
 /** Where a generation is restored to. */
 export type RestoreTarget = 'new-project' | 'replace-current';

@@ -10,6 +10,7 @@ import { readProjectTree } from './project-tree-reading.js';
 import { projectTree } from './project-tree-writing.js';
 import { CACHE_INDEX_PATH, placeOf } from './project-tree-layout.js';
 import { nodeDigest } from './testing/node-digest.js';
+import { TREE_READING } from './testing/tree-reading.js';
 import { referenceState } from './testing/project-states.js';
 import {
   historyContent,
@@ -63,7 +64,7 @@ function pathOf(files: readonly WrittenFile[], prefix: string): string {
 }
 
 async function problemsOf(files: readonly WrittenFile[]) {
-  const read: DomainResult<unknown> = await readProjectTree(listingOf(files), nodeDigest);
+  const read: DomainResult<unknown> = await readProjectTree(listingOf(files), TREE_READING);
   if (read.ok) throw new Error('The tree was read.');
   return read.failures.map(({ code, details }) => [code, details?.['file']]);
 }
@@ -79,7 +80,7 @@ describe('reading a project tree (REQ-STOR-103)', () => {
       ...header,
       schemaVersion: SCHEMA_VERSIONS.portableBundle + 1,
     }));
-    const read = await readProjectTree(listingOf(files), nodeDigest);
+    const read = await readProjectTree(listingOf(files), TREE_READING);
     expect(read.ok).toBe(false);
     if (read.ok) return;
     expect(read.failures[0].code).toBe('format.schema-incompatible');
@@ -94,7 +95,7 @@ describe('reading a project tree (REQ-STOR-103)', () => {
       ...header,
       projectDocumentSchemaVersion: SCHEMA_VERSIONS.projectDocument + 3,
     }));
-    const read = await readProjectTree(listingOf(files), nodeDigest);
+    const read = await readProjectTree(listingOf(files), TREE_READING);
     expect(read.ok).toBe(false);
     if (read.ok) return;
     expect(read.failures[0].details).toMatchObject({
@@ -103,14 +104,31 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     });
   });
 
-  it('refuses a history kept at less than full provenance', async () => {
+  it('refuses each file that keeps more of where the audio came from than the header says', async () => {
     const files = edited(await sampleTree(), 'audiogubbins-project.json', (header) => ({
       ...header,
       provenance: 'minimal',
     }));
-    expect((await problemsOf(files)).map(([code]) => code)).toContain(
-      'tree.history-without-provenance',
-    );
+    const named = [...referenceState(sampleProject()).sources]
+      .filter(([, { media, provenance }]) => {
+        const identity = media.kind === 'external' ? media.identity : undefined;
+        return [
+          provenance?.originalFileName,
+          identity?.handleKey,
+          identity?.fileName,
+          identity?.relativePath,
+        ].some((value) => value !== undefined);
+      })
+      .map(([asset]) => `project/assets/${asset}.source.json`);
+    const exports = files.map(({ path }) => path).filter((path) => path.startsWith('exports/'));
+
+    const kept = (await problemsOf(files))
+      .filter(([code]) => code === 'tree.provenance-kept')
+      .map(([, file]) => file);
+
+    expect(named.length).toBeGreaterThan(0);
+    expect(exports).toHaveLength(2);
+    expect(kept.toSorted()).toEqual([...named, ...exports].toSorted());
   });
 
   it('refuses a file no tree has, and reports every problem at its file', async () => {
@@ -142,7 +160,7 @@ describe('reading a project tree (REQ-STOR-103)', () => {
       ...value,
       project: { ...(value['project'] as Json), displayName: 'Altered' },
     }));
-    const read = expectSuccess(await readProjectTree(listingOf(changed), nodeDigest));
+    const read = expectSuccess(await readProjectTree(listingOf(changed), TREE_READING));
     if (read.scope.kind !== 'history') throw new Error('The tree lost its history.');
     const named = state.slice('history/states/'.length, -'.json'.length);
     const loaded = await read.scope.history.states.load(expectSuccess(stateFingerprintFrom(named)));
@@ -208,7 +226,7 @@ describe('reading a project tree (REQ-STOR-103)', () => {
   it('lists each cache with the identity of its bytes, and refuses one the list does not hold to', async () => {
     const files = await sampleTree();
     const cache = pathOf(files, 'caches/waveform/');
-    const read = expectSuccess(await readProjectTree(listingOf(files), nodeDigest));
+    const read = expectSuccess(await readProjectTree(listingOf(files), TREE_READING));
     expect(read.caches).toEqual([
       expect.objectContaining({
         path: cache.slice('caches/'.length),
@@ -241,7 +259,7 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     expectSuccess(
       await readProjectTree(
         listingOf(files, (path) => read.push(path)),
-        nodeDigest,
+        TREE_READING,
       ),
     );
     const streamed = read.filter((path) => {

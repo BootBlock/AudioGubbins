@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
+  ProvenanceLevel,
   canonicalJson,
   writeMediaSource,
   type ContentId,
@@ -62,7 +63,7 @@ describe('the media a change names inside a nested value (REQ-STOR-102)', () => 
   it('travels with a whole history whose kept state refers to it', async () => {
     const { storage, project } = await undoneMedia(161, { checkpointAfter: 1, keepStateEvery: 1 });
     const sink = memorySink();
-    const scope = { kind: 'whole-history' } as const;
+    const scope = { kind: 'whole-history', provenance: ProvenanceLevel.Full } as const;
 
     const attempt = await exportBundle(
       project,

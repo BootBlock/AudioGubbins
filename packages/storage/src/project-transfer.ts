@@ -54,12 +54,12 @@ import {
 import { ProjectFiles } from './project-files.js';
 import type { ProjectSession } from './project-session.js';
 import type { RecoveryServices } from './project-recovery.js';
-import { storedBodies, treeOfCopy, type CopyOptions, type TreeSources } from './tree-content.js';
+import { storedBodies, treeOfCopy, type CopyOptions, type TreeCopying } from './tree-content.js';
 import type { ImportIdentity, ImportedProject } from './import-claim.js';
 import { importTree, type ImportServices } from './tree-import.js';
 
 /** What taking a project out works with, each made once by the composition root. */
-export interface ExportServices extends RecoveryServices, TreeSources {
+export interface ExportServices extends RecoveryServices, TreeCopying {
   readonly tree: StorageTree;
   readonly digest: Digest;
 }
@@ -248,7 +248,7 @@ export async function importBundle(
 ): Promise<DomainResult<ImportedProject>> {
   const bundle = await openBundle(source, services, signal);
   if (!bundle.ok) return bundle;
-  const content = await readProjectTree(bundle.value.listing, services.digest, signal);
+  const content = await readProjectTree(bundle.value.listing, services, signal);
   if (!content.ok) return content;
   return await importTree(content.value, bundle.value.open, identity, services, signal);
 }
@@ -265,7 +265,7 @@ export async function importUnpacked(
 ): Promise<DomainResult<ImportedProject>> {
   const tree = await directoryTree(reader, signal);
   if (!tree.ok) return tree;
-  const content = await readProjectTree(tree.value.listing, services.digest, signal);
+  const content = await readProjectTree(tree.value.listing, services, signal);
   if (!content.ok) return content;
   return await importTree(content.value, tree.value.open, identity, services, signal);
 }

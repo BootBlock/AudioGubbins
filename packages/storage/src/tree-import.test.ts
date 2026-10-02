@@ -3,7 +3,12 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
-import { CONTENT_CHUNK_BYTES, type ByteSource, type Digest } from '@audiogubbins/project-format';
+import {
+  ProvenanceLevel,
+  CONTENT_CHUNK_BYTES,
+  type ByteSource,
+  type Digest,
+} from '@audiogubbins/project-format';
 
 import { CacheCategory, type CacheKey } from './cache-store.js';
 import { exportBundle, exportUnpacked, importBundle, importUnpacked } from './project-transfer.js';
@@ -25,7 +30,10 @@ import { harness, nodeDigest } from './testing/node-services.js';
  * for it and none kept over a cache of shared media the storage holds.
  */
 
-const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
 const WITH_CACHES = { ...WHOLE, includeCaches: true } as const;
 
 /** A project with media, a change and a cache of each kind it carries, closed, in its storage. */

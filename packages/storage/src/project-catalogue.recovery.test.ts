@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { ProvenanceLevel } from '@audiogubbins/project-format';
 
 import { BackupScheduler } from './backup-scheduler.js';
 import { planCleanup } from './cleanup-planning.js';
@@ -47,7 +48,10 @@ describe('a crash while a deleted project is purged (REQ-STOR-102)', () => {
         await exportBundle(
           header.id,
           sink,
-          { scope: { kind: 'whole-history' }, includeCaches: false },
+          {
+            scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+            includeCaches: false,
+          },
           storage.exporting,
         ),
       ).written,

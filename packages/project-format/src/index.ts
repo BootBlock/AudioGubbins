@@ -111,6 +111,12 @@ export {
   type ProvenanceArguments,
   invocationProvenance,
 } from './invocation-provenance.js';
+export {
+  type HistoryProvenanceParts,
+  type HistoryStrippingServices,
+  stripHistory,
+  withStateFingerprints,
+} from './history-stripping.js';
 
 export {
   type Converter,
@@ -252,7 +258,11 @@ export { type ProjectTreeFile, type TreeFileBody, type TreeText } from './projec
 export { type TreeCache } from './cache-index-json.js';
 export { isProjectTreePath, isWithinProjectTree } from './project-tree-layout.js';
 export { type ProjectTreeListing, type TreeListedFile } from './project-tree-files.js';
-export { readProjectTree, readProjectTreeHeader } from './project-tree-reading.js';
+export {
+  type TreeReadingServices,
+  readProjectTree,
+  readProjectTreeHeader,
+} from './project-tree-reading.js';
 export { type TreeHeader } from './project-tree-header.js';
 export {
   BUNDLE_MANIFEST_PATH,

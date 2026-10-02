@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { StorageTree } from '@audiogubbins/project-format';
 
 import type { CatalogueEntry } from './project-catalogue.js';
@@ -39,7 +40,10 @@ describe('bringing a bundle into a full storage (REQ-EXEC-216)', () => {
         await exportBundle(
           header.id,
           sink,
-          { scope: { kind: 'whole-history' }, includeCaches: false },
+          {
+            scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+            includeCaches: false,
+          },
           source.exporting,
         ),
       ).written,

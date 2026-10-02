@@ -99,7 +99,12 @@ export {
 export { type UnreadableRoot, retainedMedia } from './media-roots.js';
 export { mediaSharingOf } from './storage-sharing.js';
 
-export { type BundleScope, type CopyOptions, type TreeSources } from './tree-content.js';
+export {
+  type BundleScope,
+  type CopyOptions,
+  type TreeCopying,
+  type TreeSources,
+} from './tree-content.js';
 export {
   type ExportAttempt,
   type ExportFrom,

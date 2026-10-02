@@ -20,7 +20,13 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { Turns, type ByteSink, type Digest, type StorageTree } from '@audiogubbins/project-format';
+import {
+  ProvenanceLevel,
+  Turns,
+  type ByteSink,
+  type Digest,
+  type StorageTree,
+} from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import {
@@ -38,7 +44,7 @@ import type { RecoveryServices } from './project-recovery.js';
 import { refusalsReported } from './storage-failures.js';
 import { whileAlone } from './storage-sharing.js';
 import type { LeaseCoordinator } from './write-lease.js';
-import { storedBodies, treeOfCopy, type TreeSources } from './tree-content.js';
+import { storedBodies, treeOfCopy, type TreeCopying } from './tree-content.js';
 
 /** The backup directory the person chose, where the platform lets them. */
 export interface ExternalBackupTarget {
@@ -52,7 +58,7 @@ export interface ExternalBackupTarget {
 }
 
 /** What making generations works with, each made once by the composition root. */
-export interface BackupServices extends RecoveryServices, TreeSources {
+export interface BackupServices extends RecoveryServices, TreeCopying {
   readonly tree: StorageTree;
   readonly digest: Digest;
 
@@ -213,7 +219,10 @@ export class BackupScheduler {
     const tree = copy.ok
       ? await treeOfCopy(
           copy.value,
-          { scope: { kind: 'whole-history' }, includeCaches: false },
+          {
+            scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+            includeCaches: false,
+          },
           this.services,
           signal,
         )

@@ -24,6 +24,7 @@
 import { succeed, type AssetId, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import {
   ExportDestinationKind,
+  ProvenanceLevel,
   SourceChangePolicy,
   type ContentIdentity,
   type ExportDestination,
@@ -110,7 +111,10 @@ function bundleExport(target: SaveTarget, output: ExportOutput): ExportDescripti
 }
 
 /** A backup is exported whole, as it was kept. */
-const WHOLE_HISTORY: CopyOptions = { scope: { kind: 'whole-history' }, includeCaches: false };
+const WHOLE_HISTORY: CopyOptions = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+};
 
 /**
  * Taking projects out and bringing them in. Each answers `undefined` where the

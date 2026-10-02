@@ -6,10 +6,11 @@
  * The header is read before anything else, and a tree of another
  * `portableBundle` schema version, or whose project files were written with
  * another `projectDocument` version, is refused with the version it was found
- * to be, and read no further: before 1.0 nothing migrates. A tree holds its
- * history only at full provenance, since the history's changes carry the
- * provenance they were made with, and stripping the state alone would leave the
- * history restoring what was stripped.
+ * to be, and read no further: before 1.0 nothing migrates. A tree keeps its
+ * history at any provenance level: below full, the history's changes are
+ * stripped with its states, each linked file's name, handle and path a
+ * placeholder, so undo and redo restore nothing that was left out
+ * (`history-stripping.ts`).
  */
 
 import {
@@ -47,7 +48,7 @@ export interface TreeHeader {
   /** Whether the tree holds disposable caches. */
   readonly caches: boolean;
 
-  /** How much provenance the state and the export records keep. */
+  /** How much provenance the state, the history and the export records keep. */
   readonly provenance: ProvenanceLevel;
 }
 
@@ -131,13 +132,6 @@ export function readTreeHeader(value: JsonValue): DomainResult<TreeHeader> {
   const displayName = required(reading, object, '', 'displayName', asDisplayName);
   const includes = required(reading, object, '', 'includes', asIncludes);
   const provenance = required(reading, object, '', 'provenance', asProvenance);
-  if (includes?.history === true && provenance !== undefined && provenance !== 'full') {
-    reading.refuse(
-      'tree.history-without-provenance',
-      'A tree holds its history only with full provenance.',
-      'provenance',
-    );
-  }
   return reading.outcome(
     project === undefined ||
       displayName === undefined ||

@@ -8,17 +8,15 @@
  * object its kept states refer to and every one its changes name that the store
  * holds, so undo and redo work where it is opened. A history may keep more
  * states than fit in memory (REQ-EXEC-216), so its kept states are read only as
- * the tree is written, one at a time. Every state of a history is the state of
- * its first node changed by the changes on the way, so what its kept states
- * refer to is what that first state refers to and what the changes name, which
- * is known before any is written; each kept state is held to it as it is read,
- * and refused where it refers to media the tree does not carry. A tree of the
- * state alone keeps provenance at the level the person chose; a whole history
- * keeps all of it, since its changes carry the provenance they were made with.
- * The caches go only where asked for, and only those derived from the project
- * or from media it carries. An asset linked to a file outside the storage, with
- * no copy the store keeps, cannot travel as bytes and is reported, so the
- * person can consolidate first.
+ * the tree is written, one at a time. What its kept states refer to is known
+ * before any is written (`copied-history.ts`); each kept state is held to it as
+ * it is read, and refused where it refers to media the tree does not carry. A
+ * tree keeps provenance at the level the person chose: the state alone is
+ * stripped as the tree is written, and a whole history before it. The caches go
+ * only where asked for, and only those derived from the project or from media
+ * it carries. An asset linked to a file outside the storage, with no copy the
+ * store keeps, cannot travel as bytes and is reported, so the person can
+ * consolidate first.
  */
 
 import {
@@ -30,17 +28,13 @@ import {
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
-import { historyRecordOf } from '@audiogubbins/history';
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
 import {
   projectTree,
-  writeHistoryNodeRecord,
   type ContentId,
   type Digest,
-  type HistoryRecord,
   type ProjectState,
   type ProjectTreeFile,
-  type ProjectTreeScope,
   type ProvenanceLevel,
   type TreeCache,
   type TreeMedia,
@@ -48,20 +42,20 @@ import {
 } from '@audiogubbins/project-format';
 
 import { CACHE_CLEANUP_ORDER, cacheKeyOf, cachePathOf, type CacheStore } from './cache-store.js';
-import { choiceOf } from './comparison-record.js';
-import { contentIdsIn } from './content-references.js';
-import { offeredStates, type ProjectCopy } from './project-copy.js';
+import { historyScope, type CopiedScope, type HistoryStrippingParts } from './copied-history.js';
+import type { ProjectCopy } from './project-copy.js';
 import { provedBytes } from './proved-bytes.js';
 import { mediaDamaged, refusalsReported } from './storage-failures.js';
 import type { BodyOpener } from './tree-bodies.js';
 
 /**
- * How much of a project a bundle or tree holds: the whole history, with full
- * provenance, or the state alone at the provenance level chosen.
+ * How much of a project a bundle or tree holds, the whole history or the state
+ * alone, and how much of where its audio came from it keeps.
  */
-export type BundleScope =
-  | { readonly kind: 'whole-history' }
-  | { readonly kind: 'current-state'; readonly provenance: ProvenanceLevel };
+export interface BundleScope {
+  readonly kind: 'whole-history' | 'current-state';
+  readonly provenance: ProvenanceLevel;
+}
 
 /** What a bundle or tree of a project holds. */
 export interface CopyOptions {
@@ -80,6 +74,9 @@ export interface TreeSources {
   readonly digest: Digest;
 }
 
+/** What a tree of a copied project is made with. */
+export interface TreeCopying extends TreeSources, HistoryStrippingParts {}
+
 /** A project's tree, and what of it could not travel as bytes. */
 interface CopiedTree {
   readonly files: readonly ProjectTreeFile[];
@@ -92,28 +89,28 @@ interface CopiedTree {
 export async function treeOfCopy(
   copy: ProjectCopy,
   options: CopyOptions,
-  sources: TreeSources,
+  sources: TreeCopying,
   signal?: AbortSignal,
 ): Promise<DomainResult<CopiedTree>> {
   const { model } = copy;
-  const scoped = await scopeOf(copy, options.scope, signal);
+  const scoped = await scopeOf(copy, options.scope, sources, signal);
   if (!scoped.ok) return scoped;
-  const { scope, required, wanted } = scoped.value;
+  const { scope, required, wanted, state, exports } = scoped.value;
   const media = await mediaOf(sources.store, required, wanted);
   if (!media.ok) return media;
   const carried = new Set(media.value.map(({ contentId }) => contentId));
   const caches = options.includeCaches ? await cachesOf(copy, carried, sources, signal) : undefined;
   if (caches !== undefined && !caches.ok) return caches;
   const files = projectTree({
-    state: model.state,
+    state,
     scope:
       scope.kind === 'history'
         ? {
-            kind: 'history',
+            ...scope,
             history: { ...scope.history, states: carriedStates(scope.history.states, carried) },
           }
         : scope,
-    exports: model.exports,
+    exports,
     backup: model.backup,
     media: media.value,
     ...(caches === undefined ? {} : { caches: caches.value }),
@@ -121,119 +118,26 @@ export async function treeOfCopy(
   return succeed({ files, linked: linkedAssets(model.state) });
 }
 
-/** How much of a copy its tree holds, and the media the tree must and may carry. */
-interface CopiedScope {
-  readonly scope: ProjectTreeScope;
-
-  /** Referred to by the state or the states kept, so the tree is refused without it. */
-  readonly required: ReadonlySet<ContentId>;
-
-  /** Named by the history's changes, and carried where the store holds it. */
-  readonly wanted: ReadonlySet<ContentId>;
-}
-
 /** What of a copy its tree holds, as `scope` asks (see the module comment). */
 async function scopeOf(
   copy: ProjectCopy,
   scope: BundleScope,
+  services: TreeCopying,
   signal?: AbortSignal,
 ): Promise<DomainResult<CopiedScope>> {
   const { model } = copy;
+  const { provenance } = scope;
   const required = new Set(contentReferencedBy(model.state));
   if (scope.kind === 'current-state') {
     return succeed({
-      scope: { kind: 'state', provenance: scope.provenance },
+      scope: { kind: 'state', provenance },
+      state: model.state,
+      exports: model.exports,
       required,
       wanted: new Set(),
     });
   }
-  const states = copiedStates(copy);
-  if (!states.ok) return states;
-  const record = historyRecordOf(model.history);
-  const first = await firstReferences(record, states.value, signal);
-  if (!first.ok) return first;
-  for (const each of first.value) required.add(each);
-  const wanted = new Set<ContentId>();
-  for (const node of record.nodes) {
-    for (const each of contentIdsIn(writeHistoryNodeRecord(node))) wanted.add(each);
-  }
-  const history = {
-    record,
-    retention: model.retention,
-    states: states.value,
-    ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
-  };
-  return succeed({ scope: { kind: 'history', history }, required, wanted });
-}
-
-/**
- * The states a copy's history keeps, each read only when it is asked for. One
- * that cannot be read is left out, and the history reaches its node by replay
- * instead; a snapshot's must be read, since a restore point would be lost, and
- * the copy is refused at once where one is not kept at all.
- */
-export function copiedStates(copy: ProjectCopy): DomainResult<TreeStates> {
-  const snapshotted = new Set(
-    [...copy.model.history.snapshots.values()].map((snapshot) => snapshot.stateFingerprint),
-  );
-  const fingerprints = offeredStates(copy);
-  const offered = new Set(fingerprints);
-  for (const fingerprint of snapshotted) {
-    if (!offered.has(fingerprint)) {
-      return fail(
-        failure(
-          'storage.snapshot-state-missing',
-          FailureKind.IntegrityViolation,
-          'A snapshot’s state is not kept, so the project cannot be copied whole.',
-          { details: { state: fingerprint } },
-        ),
-      );
-    }
-  }
-  return succeed({
-    fingerprints,
-    load: async (fingerprint, signal) => {
-      const state = await copy.states.load(fingerprint, signal);
-      return state.ok || snapshotted.has(fingerprint) ? state : succeed(undefined);
-    },
-  });
-}
-
-/**
- * What the state the history begins from refers to, which with what its changes
- * name is what every state it keeps refers to; where that state is not kept or
- * cannot be read, what every kept state that can be read refers to, each read
- * in turn.
- */
-async function firstReferences(
-  record: HistoryRecord,
-  states: TreeStates,
-  signal?: AbortSignal,
-): Promise<DomainResult<ReadonlySet<ContentId>>> {
-  const root = record.nodes.find((node) => node.kind === 'origin' || node.parent === undefined);
-  const first = root?.stateFingerprint;
-  if (first !== undefined && states.fingerprints.includes(first)) {
-    const state = await states.load(first, signal);
-    if (!state.ok) return state;
-    if (state.value !== undefined) return succeed(new Set(contentReferencedBy(state.value)));
-  }
-  return await everyReference(states, signal);
-}
-
-/** What every kept state that can be read refers to, each read in turn. */
-async function everyReference(
-  states: TreeStates,
-  signal?: AbortSignal,
-): Promise<DomainResult<ReadonlySet<ContentId>>> {
-  const referred = new Set<ContentId>();
-  for (const fingerprint of states.fingerprints) {
-    const state = await states.load(fingerprint, signal);
-    if (!state.ok) return state;
-    for (const each of state.value === undefined ? [] : contentReferencedBy(state.value)) {
-      referred.add(each);
-    }
-  }
-  return succeed(referred);
+  return await historyScope(copy, provenance, required, services, signal);
 }
 
 /**

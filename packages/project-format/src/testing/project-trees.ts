@@ -136,6 +136,7 @@ export async function historyContent(
     state,
     scope: {
       kind: 'history',
+      provenance: 'full',
       history: {
         record: {
           project: state.project.id,

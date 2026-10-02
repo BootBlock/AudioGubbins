@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { BackupPolicy, ByteSink, ContentId, StorageTree } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
@@ -157,7 +158,10 @@ describe('backup generations (REQ-STOR-105)', () => {
           setup.project,
           made.generation.number,
           sink,
-          { scope: { kind: 'whole-history' }, includeCaches: false },
+          {
+            scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+            includeCaches: false,
+          },
           setup.storage.exporting,
         ),
       ).written,

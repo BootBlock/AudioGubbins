@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import {
+  ProvenanceLevel,
   TreeFailure,
   TreeFailureKind,
   contentIdOf,
@@ -28,7 +29,10 @@ import { harness, nodeDigest } from './testing/node-services.js';
  * it records from.
  */
 
-const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
 
 /** A project with media and a change, open to write, and its storage. */
 async function changedProject() {
