@@ -92,11 +92,13 @@ async function* gather(
 ): AsyncGenerator<ContentId, void, undefined> {
   const { tree, digest } = records;
   for (const project of await projectsUnder(tree, PROJECTS_DIRECTORY)) {
+    signal?.throwIfAborted();
     yield* projectRetains(new ProjectFiles(records, project), onUnreadable, signal);
   }
   for (const project of await projectsUnder(tree, BACKUPS_DIRECTORY)) {
     const paths = new BackupPaths(project);
     for (const entry of await tree.list(paths.directory)) {
+      signal?.throwIfAborted();
       const generation = numberOfGeneration(entry.name);
       if (generation === undefined) continue;
       const states = new SnapshotStore(tree, digest, paths.states(generation));

@@ -136,14 +136,14 @@ async function runStep(
       return freed.ok ? succeed({ step: step.kind, freed: freed.value, busy: [] }) : freed;
     }
     case 'unfinished-projects':
-      return await eachHeld(step, step.projects, services, held, async (project) => {
+      return await eachHeld(step, step.projects, services, options, async (project) => {
         const files = new ProjectFiles(records, project);
-        const header = await readPair(records, files.header);
+        const header = await readPair(records, files.header, signal);
         if (header.valid.length > 0 || !(await files.isUnfinished())) return 0;
-        return await removedBytes(services, files.paths.directory);
+        return await removedBytes(services, files.paths.directory, signal);
       });
     case 'expired-backups':
-      return await eachHeld(step, [...step.generations.keys()], services, held, (project) =>
+      return await eachHeld(step, [...step.generations.keys()], services, options, (project) =>
         expiredGenerationsRemoved(project, step.generations, services, signal),
       );
     case 'expired-history': {
@@ -156,9 +156,9 @@ async function runStep(
       }));
     }
     case 'set-aside-records':
-      return await eachHeld(step, step.projects, services, held, async (project) => {
+      return await eachHeld(step, step.projects, services, options, async (project) => {
         const files = new ProjectFiles(records, project);
-        return await removedBytes(services, files.paths.quarantine);
+        return await removedBytes(services, files.paths.quarantine, signal);
       });
     case 'unreferenced-media':
       return await purgedMedia(step, services, signal);
@@ -196,13 +196,13 @@ async function expiredGenerationsRemoved(
  * Runs `work` on each project under its write lease, passing over, and
  * reporting, each another window holds; the project of `held` runs under the
  * lease its session holds while it still writes. `work` gives the bytes it
- * freed.
+ * freed. The run is given up between two projects.
  */
 async function eachHeld(
   step: CleanupStep,
   projects: readonly ProjectId[],
   services: CleanupRunServices,
-  held: ProjectSession | undefined,
+  { held, signal }: CleanupRunOptions,
   work: (project: ProjectId) => Promise<number>,
 ): Promise<DomainResult<StepOutcome>> {
   const { coordinator, owner } = services;
@@ -210,6 +210,7 @@ async function eachHeld(
   const busy: ProjectId[] = [];
   let freed = 0;
   for (const project of projects) {
+    signal?.throwIfAborted();
     if (held?.project === project) {
       if (writes(held)) freed += await work(project);
       else busy.push(project);
@@ -235,8 +236,13 @@ function writes(session: ProjectSession): boolean {
   return session.getSnapshot().access.kind === 'writable';
 }
 
-async function removedBytes(services: CleanupRunServices, directory: string): Promise<number> {
-  const bytes = await bytesUnder(services.tree, directory);
+/** Removes a directory once its bytes are counted, given up only before the removal. */
+async function removedBytes(
+  services: CleanupRunServices,
+  directory: string,
+  signal?: AbortSignal,
+): Promise<number> {
+  const bytes = await bytesUnder(services.tree, directory, signal);
   await services.tree.remove(directory);
   return bytes;
 }

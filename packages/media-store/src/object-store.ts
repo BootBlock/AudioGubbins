@@ -261,8 +261,9 @@ export class MediaObjectStore {
       );
       for (const name of files) {
         if (!isObjectName(name) || !files.has(sealNameOf(name))) continue;
+        signal?.throwIfAborted();
         const sealPath = `${this.#files.layout.shard(shard.name)}/${sealNameOf(name)}`;
-        const sealed = await this.#sealNamed(name, sealPath);
+        const sealed = await this.#sealNamed(name, sealPath, signal);
         if (sealed !== undefined) yield sealed;
       }
     }
@@ -307,7 +308,9 @@ export class MediaObjectStore {
           const removed: StoredObject[] = [];
           for (const { contentId } of warrant.objects) {
             signal?.throwIfAborted();
-            const whole = this.#holds.has(contentId) ? undefined : await this.#whole(contentId);
+            const whole = this.#holds.has(contentId)
+              ? undefined
+              : await this.#whole(contentId, signal);
             if (whole === undefined) continue;
             const intent = this.#files.layout.intent(this.#nextToken());
             await this.#files.tree.writeFile(
@@ -325,16 +328,20 @@ export class MediaObjectStore {
   }
 
   /** The object's bytes, where it is sealed and of its sealed length. */
-  async #whole(contentId: ContentId): Promise<ByteSource | undefined> {
-    const sealed = await this.#sealNamed(contentId, this.#files.layout.seal(contentId));
+  async #whole(contentId: ContentId, signal?: AbortSignal): Promise<ByteSource | undefined> {
+    const sealed = await this.#sealNamed(contentId, this.#files.layout.seal(contentId), signal);
     if (sealed === undefined) return undefined;
     const object = await this.#files.tree.openFile(this.#files.layout.object(contentId));
     return object?.size === sealed.byteLength ? object : undefined;
   }
 
   /** The object a valid seal at `path` describes, where it names `name`. */
-  async #sealNamed(name: string, path: string): Promise<StoredObject | undefined> {
-    const bytes = await this.#files.tree.readFile(path);
+  async #sealNamed(
+    name: string,
+    path: string,
+    signal?: AbortSignal,
+  ): Promise<StoredObject | undefined> {
+    const bytes = await this.#files.tree.readFile(path, signal);
     const seal = bytes === undefined ? undefined : await readSeal(bytes, this.#files.digest);
     return seal?.contentId === name ? seal : undefined;
   }

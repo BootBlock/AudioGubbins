@@ -2169,8 +2169,8 @@ Published paths
   MediaObjectStore.list: (signal?: AbortSignal) => AsyncGenerator<StoredObject, void, undefined>
   MediaObjectStore.recoverIncomplete: () => Promise<DomainResult<RecoveryReport>>
   MediaObjectStore.remove: (warrant: CollectionWarrant, signal?: AbortSignal) => Promise<DomainResult<readonly StoredObject[]>>
-  MediaObjectStore.#whole: (contentId: ContentId) => Promise<ByteSource | undefined>
-  MediaObjectStore.#sealNamed: (name: string, path: string) => Promise<StoredObject | undefined>
+  MediaObjectStore.#whole: (contentId: ContentId, signal?: AbortSignal) => Promise<ByteSource | undefined>
+  MediaObjectStore.#sealNamed: (name: string, path: string, signal?: AbortSignal) => Promise<StoredObject | undefined>
   interface MediaSharing
   MediaSharing.share: (signal?: AbortSignal) => Promise<() => void>
   interface MediaStoreServices
@@ -3261,6 +3261,7 @@ Published paths
   readonly UsageServices.digest: Digest
   readonly UsageServices.store: MediaObjectStore
   readonly UsageServices.caches: CacheStore
+  readonly UsageServices.yieldToHost: YieldToHost
   type WipeConfirmation = { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; } | { readonly kind: "unreadable"; }
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined

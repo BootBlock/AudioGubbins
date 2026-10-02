@@ -8,6 +8,7 @@ import {
   contentIdOf,
   type ByteSource,
   type ContentId,
+  type Digest,
 } from '@audiogubbins/project-format';
 
 import { MediaObjectStore } from './object-store.js';
@@ -183,6 +184,48 @@ describe('storing media by its content', () => {
     );
 
     expect(expectFailureCode(refused)).toBe('media.storage-unavailable');
+  });
+});
+
+describe('listing stored media', () => {
+  it('stops between two objects of one shard once its signal aborts', async () => {
+    // Every identity in one shard, so a listing given up only between shards
+    // would read every seal in the store before it stopped.
+    const oneShard: Digest = async (bytes) => {
+      const digest = await nodeDigest(bytes);
+      digest[0] = 0;
+      return digest;
+    };
+    let sealsRead = 0;
+    class CountingTree extends MemoryStorageTree {
+      override async readFile(path: string): Promise<Uint8Array<ArrayBuffer> | undefined> {
+        if (path.endsWith('.seal')) sealsRead += 1;
+        return await super.readFile(path);
+      }
+    }
+    const store = new MediaObjectStore({
+      tree: new CountingTree(),
+      root: 'media',
+      digest: oneShard,
+      nextToken: countingTokens(),
+      sharing: countedSharing(),
+    });
+    for (let seed = 0; seed < 5; seed += 1) {
+      expectSuccess(await store.put(generatedSource(100, seed)));
+    }
+    sealsRead = 0;
+    const controller = new AbortController();
+    const reason = new Error('Replaced by a newer one.');
+
+    const listing = (async () => {
+      for await (const object of store.list(controller.signal)) {
+        expect(object.contentId.slice(3, 5)).toBe('00');
+        controller.abort(reason);
+      }
+    })();
+
+    await expect(listing).rejects.toBe(reason);
+    expect(sealsRead).toBe(1);
   });
 });
 

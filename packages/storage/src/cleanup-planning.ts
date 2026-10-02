@@ -166,11 +166,11 @@ export async function planCleanup(
     }
     const has = (kind: CleanupChoice['kind']): boolean =>
       chosen.some((choice) => choice.kind === kind);
-    if (has('unfinished-projects')) steps.push(...(await unfinishedProjects(records)));
+    if (has('unfinished-projects')) steps.push(...(await unfinishedProjects(records, signal)));
     if (has('expired-backups')) steps.push(...(await expiredBackups(records, now, signal)));
     if (has('expired-history'))
       steps.push(...historyStep(await expiredHistory(records, now, signal)));
-    if (has('set-aside-records')) steps.push(...(await setAsideRecords(records)));
+    if (has('set-aside-records')) steps.push(...(await setAsideRecords(records, signal)));
     let mediaRefused: MediaPurgeRefusal | undefined;
     if (has('unreferenced-media')) {
       const media = await unreferencedMedia(services, signal);
@@ -189,16 +189,19 @@ export async function planCleanup(
   });
 }
 
-async function unfinishedProjects(records: CheckedRecords): Promise<readonly CleanupStep[]> {
+async function unfinishedProjects(
+  records: CheckedRecords,
+  signal?: AbortSignal,
+): Promise<readonly CleanupStep[]> {
   const projects: ProjectId[] = [];
   let bytes = 0;
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
+    signal?.throwIfAborted();
     const files = new ProjectFiles(records, project);
-    if ((await readPair(records, files.header)).valid.length > 0 || !(await files.isUnfinished())) {
-      continue;
-    }
+    const header = await readPair(records, files.header, signal);
+    if (header.valid.length > 0 || !(await files.isUnfinished())) continue;
     projects.push(project);
-    bytes += await bytesUnder(records.tree, files.paths.directory);
+    bytes += await bytesUnder(records.tree, files.paths.directory, signal);
   }
   return projects.length === 0
     ? []
@@ -217,6 +220,7 @@ async function expiredBackups(
   const generations = new Map<ProjectId, readonly number[]>();
   let bytes = 0;
   for (const project of await projectsIn(records.tree, BACKUPS_DIRECTORY)) {
+    signal?.throwIfAborted();
     const listing = await new BackupGenerations(records.tree, records.digest, project).list(signal);
     if (!listing.ok) continue;
     const policy = await backupPolicyOf(new ProjectFiles(records, project), signal);
@@ -228,7 +232,9 @@ async function expiredBackups(
     const numbers = [...expired.map(({ number }) => number), ...listing.value.incomplete];
     if (numbers.length === 0) continue;
     generations.set(project, numbers);
-    for (const number of numbers) bytes += await bytesUnder(records.tree, paths.generation(number));
+    for (const number of numbers) {
+      bytes += await bytesUnder(records.tree, paths.generation(number), signal);
+    }
   }
   return generations.size === 0
     ? []
@@ -249,12 +255,16 @@ async function backupPolicyOf(files: ProjectFiles, signal?: AbortSignal) {
   return (await files.newestCheckpoint(signal))?.backup;
 }
 
-async function setAsideRecords(records: CheckedRecords): Promise<readonly CleanupStep[]> {
+async function setAsideRecords(
+  records: CheckedRecords,
+  signal?: AbortSignal,
+): Promise<readonly CleanupStep[]> {
   const projects: ProjectId[] = [];
   let bytes = 0;
   for (const project of await projectsIn(records.tree, PROJECTS_DIRECTORY)) {
+    signal?.throwIfAborted();
     const { quarantine } = new ProjectFiles(records, project).paths;
-    const held = await bytesUnder(records.tree, quarantine);
+    const held = await bytesUnder(records.tree, quarantine, signal);
     if ((await records.tree.list(quarantine)).length === 0) continue;
     projects.push(project);
     bytes += held;

@@ -24,12 +24,14 @@
 import { isWellFormedId, succeed, unsafeBrandId, type DomainResult } from '@audiogubbins/domain';
 import { activeLine, type History } from '@audiogubbins/history';
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
-import type {
-  ContentId,
-  Digest,
-  ProjectState,
-  StateFingerprint,
-  StorageTree,
+import {
+  Turns,
+  type ContentId,
+  type Digest,
+  type ProjectState,
+  type StateFingerprint,
+  type StorageTree,
+  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import type { CacheCategory, CacheStore } from './cache-store.js';
@@ -61,6 +63,9 @@ export interface UsageServices {
   readonly digest: Digest;
   readonly store: MediaObjectStore;
   readonly caches: CacheStore;
+
+  /** Asked through the passes over histories and media held in memory. */
+  readonly yieldToHost: YieldToHost;
 }
 
 /** The bytes of each category of the projects' own files. */
@@ -78,7 +83,8 @@ export async function measureUsage(
   signal?: AbortSignal,
 ): Promise<DomainResult<StorageUsage>> {
   return await refusalsReported(async () => {
-    const { tree, digest, store } = services;
+    const { tree, digest } = services;
+    const turns = new Turns(services.yieldToHost, signal);
     const records = new CheckedRecords(tree, digest);
     const unreadable: UnreadableRoot[] = [];
     const bytes: ProjectBytes = {
@@ -88,39 +94,54 @@ export async function measureUsage(
       recoveryCheckpoints: 0,
     };
     const current = new Set<ContentId>();
-    for (const state of live)
+    for (const state of live) {
+      await turns.afterStep();
       for (const content of contentReferencedBy(state)) current.add(content);
+    }
     for (const entry of await tree.list(PROJECTS_DIRECTORY)) {
       signal?.throwIfAborted();
       if (entry.kind !== 'directory' || !isWellFormedId(entry.name)) continue;
       const files = new ProjectFiles(records, unsafeBrandId<'ProjectId'>(entry.name));
-      await measureProject(files, bytes, current, unreadable, signal);
+      await measureProject(files, bytes, current, unreadable, turns);
     }
-
-    const retained = new Set<ContentId>();
-    for await (const content of retainedMedia(tree, digest, (root) => unreadable.push(root))) {
-      retained.add(content);
-    }
-    let sourceMedia = 0;
-    let retainedDeletedMedia = 0;
-    let unreferencedMedia = 0;
-    for await (const { contentId, byteLength } of store.list(signal)) {
-      if (current.has(contentId)) sourceMedia += byteLength;
-      else if (retained.has(contentId)) retainedDeletedMedia += byteLength;
-      else unreferencedMedia += byteLength;
-    }
+    const media = await mediaBytes(services, current, unreadable, turns);
     const caches = await services.caches.usage(signal);
     if (!caches.ok) return caches;
     return succeed({
       ...bytes,
-      sourceMedia,
-      retainedDeletedMedia,
-      unreferencedMedia,
+      ...media,
       caches: caches.value,
-      backups: await bytesUnder(tree, BACKUPS_DIRECTORY),
+      backups: await bytesUnder(tree, BACKUPS_DIRECTORY, signal),
       unreadable: dedupedByPath(unreadable),
     });
   });
+}
+
+/** The bytes of the media the store keeps, by whether a project holds it now or retains it. */
+async function mediaBytes(
+  { tree, digest, store }: UsageServices,
+  current: ReadonlySet<ContentId>,
+  unreadable: UnreadableRoot[],
+  turns: Turns,
+): Promise<Pick<StorageUsage, 'sourceMedia' | 'retainedDeletedMedia' | 'unreferencedMedia'>> {
+  const { signal } = turns;
+  const retained = new Set<ContentId>();
+  const noteUnreadable = (root: UnreadableRoot): void => {
+    unreadable.push(root);
+  };
+  for await (const content of retainedMedia(tree, digest, noteUnreadable, signal)) {
+    await turns.afterStep();
+    retained.add(content);
+  }
+  let sourceMedia = 0;
+  let retainedDeletedMedia = 0;
+  let unreferencedMedia = 0;
+  for await (const { contentId, byteLength } of store.list(signal)) {
+    if (current.has(contentId)) sourceMedia += byteLength;
+    else if (retained.has(contentId)) retainedDeletedMedia += byteLength;
+    else unreferencedMedia += byteLength;
+  }
+  return { sourceMedia, retainedDeletedMedia, unreferencedMedia };
 }
 
 /** Adds one project's files to the categories, and its current media to `current`. */
@@ -129,14 +150,15 @@ async function measureProject(
   bytes: ProjectBytes,
   current: Set<ContentId>,
   unreadable: UnreadableRoot[],
-  signal?: AbortSignal,
+  turns: Turns,
 ): Promise<void> {
   const tree = files.records.tree;
-  bytes.journal += await bytesUnder(tree, files.paths.journal);
+  const { signal } = turns;
+  bytes.journal += await bytesUnder(tree, files.paths.journal, signal);
   bytes.recoveryCheckpoints +=
-    (await bytesUnder(tree, files.paths.directory)) -
-    (await bytesUnder(tree, files.paths.journal)) -
-    (await bytesUnder(tree, files.paths.states));
+    (await bytesUnder(tree, files.paths.directory, signal)) -
+    (await bytesUnder(tree, files.paths.journal, signal)) -
+    (await bytesUnder(tree, files.paths.states, signal));
 
   const checkpoint = await files.newestCheckpoint(signal);
   const history = checkpoint?.history;
@@ -150,8 +172,9 @@ async function measureProject(
       });
   }
   const kinds: ReadonlyMap<StateFingerprint, StateKind> =
-    history === undefined ? new Map() : stateKinds(history);
+    history === undefined ? new Map() : await stateKinds(history, turns);
   for (const fingerprint of await files.states.list()) {
+    signal?.throwIfAborted();
     const size = (await tree.openFile(files.states.path(fingerprint)))?.size ?? 0;
     bytes[kinds.get(fingerprint) ?? 'recoveryCheckpoints'] += size;
   }
@@ -159,14 +182,22 @@ async function measureProject(
 
 type StateKind = 'namedSnapshots' | 'alternativeBranches' | 'recoveryCheckpoints';
 
-/** The category of each state a history names: a snapshot's, the line's, or a branch's. */
-function stateKinds(history: History): ReadonlyMap<StateFingerprint, StateKind> {
+/**
+ * The category of each state a history names: a snapshot's, the line's, or a
+ * branch's. A history may hold a million nodes, so each takes a step.
+ */
+async function stateKinds(
+  history: History,
+  turns: Turns,
+): Promise<ReadonlyMap<StateFingerprint, StateKind>> {
   const kinds = new Map<StateFingerprint, StateKind>();
   for (const node of history.nodes.values()) {
+    await turns.afterStep();
     if (node.stateFingerprint !== undefined)
       kinds.set(node.stateFingerprint, 'alternativeBranches');
   }
   for (const node of activeLine(history)) {
+    await turns.afterStep();
     if (node.stateFingerprint !== undefined)
       kinds.set(node.stateFingerprint, 'recoveryCheckpoints');
   }
@@ -177,13 +208,18 @@ function stateKinds(history: History): ReadonlyMap<StateFingerprint, StateKind> 
 }
 
 /** The bytes of every file under a directory. */
-export async function bytesUnder(tree: StorageTree, directory: string): Promise<number> {
+export async function bytesUnder(
+  tree: StorageTree,
+  directory: string,
+  signal?: AbortSignal,
+): Promise<number> {
   let bytes = 0;
   for (const entry of await tree.list(directory)) {
+    signal?.throwIfAborted();
     const path = `${directory}/${entry.name}`;
     bytes +=
       entry.kind === 'directory'
-        ? await bytesUnder(tree, path)
+        ? await bytesUnder(tree, path, signal)
         : ((await tree.openFile(path))?.size ?? 0);
   }
   return bytes;
