@@ -2911,21 +2911,23 @@ Published paths
   readonly CleanupRunServices.digest: import("packages/project-format/src/byte-ports").Digest
   readonly CleanupRunServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly CleanupRunServices.caches: CacheStore
-  readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly CleanupRunServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
+  readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
+  readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   readonly CleanupRunServices.clock: import("packages/diagnostics/src/logger").Clock
   readonly CleanupRunServices.ids: import("packages/domain/src/index").IdGenerator
-  readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupRunServices.owner: import("packages/storage/src/write-lease").LeaseOwner
   readonly CleanupRunServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
   type CleanupSelection = "everything" | readonly CleanupChoice[]
-  interface CleanupServices
+  interface CleanupServices extends RecoveryServices
   readonly CleanupServices.tree: StorageTree
   readonly CleanupServices.digest: Digest
   readonly CleanupServices.store: MediaObjectStore
   readonly CleanupServices.caches: CacheStore
   readonly CleanupServices.coordinator?: LeaseCoordinator
-  readonly CleanupServices.yieldToHost: YieldToHost
+  readonly CleanupServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
+  readonly CleanupServices.logger: import("packages/diagnostics/src/logger").Logger
+  readonly CleanupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
   type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "set-aside-records"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unfinished-projects"; readonly projects: readonly ProjectId[]; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
   class CommandJournal
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal

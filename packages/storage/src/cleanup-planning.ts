@@ -38,9 +38,9 @@ import {
 } from '@audiogubbins/media-store';
 import {
   Turns,
+  type BackupPolicy,
   type Digest,
   type StorageTree,
-  type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
@@ -50,8 +50,10 @@ import { CheckedRecords } from './checked-records.js';
 import { expiredHistory } from './expired-history.js';
 import { projectsIn } from './project-listing.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { readProjectCopy } from './project-copy.js';
 import { ProjectFiles } from './project-files.js';
 import { leftOverOf, type LeftOver } from './project-leftovers.js';
+import type { RecoveryServices } from './project-recovery.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 import { bytesUnder } from './usage-measurement.js';
@@ -126,8 +128,12 @@ export interface CleanupPlan {
   readonly mediaRefused?: MediaPurgeRefusal;
 }
 
-/** What planning a cleanup works with. */
-export interface CleanupServices {
+/**
+ * What planning a cleanup works with: what reading a project as recovery does,
+ * which each project's policies are read by, its journal included, and the
+ * stores.
+ */
+export interface CleanupServices extends RecoveryServices {
   readonly tree: StorageTree;
   readonly digest: Digest;
   readonly store: MediaObjectStore;
@@ -135,9 +141,6 @@ export interface CleanupServices {
 
   /** The platform's lease coordination, absent where it has none. */
   readonly coordinator?: LeaseCoordinator;
-
-  /** Asked through the passes over each project's history in memory. */
-  readonly yieldToHost: YieldToHost;
 }
 
 const EVERY_CHOICE: readonly CleanupChoice[] = [
@@ -180,9 +183,12 @@ export async function planCleanup(
     const has = (kind: CleanupChoice['kind']): boolean =>
       chosen.some((choice) => choice.kind === kind);
     if (has('unfinished-projects')) steps.push(...(await unfinishedProjects(records, signal)));
-    if (has('expired-backups')) steps.push(...(await expiredBackups(records, now, signal)));
-    if (has('expired-history'))
-      steps.push(...historyStep(await expiredHistory(records, now, turns)));
+    if (has('expired-backups')) {
+      steps.push(...(await expiredBackups(records, services, now, signal)));
+    }
+    if (has('expired-history')) {
+      steps.push(...historyStep(await expiredHistory(records, services, now, turns)));
+    }
     if (has('set-aside-records')) steps.push(...(await setAsideRecords(records, signal)));
     let mediaRefused: MediaPurgeRefusal | undefined;
     if (has('unreferenced-media')) {
@@ -222,11 +228,13 @@ async function unfinishedProjects(
 }
 
 /**
- * The generations each project's retention no longer keeps, and those a crash
- * left incomplete. A project whose policy cannot be read keeps every whole one.
+ * The generations each project's retention no longer keeps, under the policy
+ * it holds now, and those a crash left incomplete. A project whose policy
+ * cannot be read keeps every whole one.
  */
 async function expiredBackups(
   records: CheckedRecords,
+  services: RecoveryServices,
   now: number,
   signal?: AbortSignal,
 ): Promise<readonly CleanupStep[]> {
@@ -236,7 +244,7 @@ async function expiredBackups(
     signal?.throwIfAborted();
     const listing = await new BackupGenerations(records.tree, records.digest, project).list(signal);
     if (!listing.ok) continue;
-    const policy = await backupPolicyOf(new ProjectFiles(records, project), signal);
+    const policy = await backupPolicyOf(new ProjectFiles(records, project), services, signal);
     const expired =
       policy?.kind === 'automatic'
         ? planBackupPruning(listing.value.generations, policy.retention, now).removed
@@ -277,9 +285,17 @@ function historyStep(compactions: ReadonlyMap<ProjectId, CompactionPlan>): reado
     : [{ kind: 'expired-history', compactions, bytes, loses: 'history' }];
 }
 
-/** A project's backup policy, as its newest checkpoint records it. */
-async function backupPolicyOf(files: ProjectFiles, signal?: AbortSignal) {
-  return (await files.newestCheckpoint(signal))?.backup;
+/**
+ * A project's backup policy as recovery reads it, its journal included, or
+ * `undefined` where the project cannot be read whole.
+ */
+async function backupPolicyOf(
+  files: ProjectFiles,
+  services: RecoveryServices,
+  signal?: AbortSignal,
+): Promise<BackupPolicy | undefined> {
+  const copy = await readProjectCopy(files, services, signal);
+  return copy.ok ? copy.value.model.backup : undefined;
 }
 
 async function setAsideRecords(

@@ -245,6 +245,31 @@ describe('cleanup (REQ-STOR-106, REQ-STOR-102)', () => {
     expect(await numbers()).toEqual([3, 1]);
   });
 
+  it('plans expired backups under the policy the project holds now, its journal included', async () => {
+    const { services, storage, test, project, current } = await world();
+    const session = await openToWrite(test, storage.tree, project);
+    const policy = (count: number) =>
+      session.setBackupPolicy({
+        kind: 'automatic',
+        trigger: { everyChanges: 1 },
+        retention: { count },
+      });
+    expectSuccess(await policy(10));
+    const scheduler = new BackupScheduler(project, storage.exporting);
+    for (let round = 0; round < 3; round += 1) {
+      expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), current)));
+      expectSuccess(await scheduler.tick(test.clock.now(), session.getSnapshot().model));
+    }
+    expectSuccess(await policy(1));
+    expectSuccess(await session.checkpoint());
+    // The checkpoint keeps one generation; the window since keeps ten again,
+    // which only its journal holds yet.
+    expectSuccess(await policy(10));
+
+    const plan = expectSuccess(await planCleanup([{ kind: 'expired-backups' }], services, 0));
+    expect(plan.steps).toEqual([]);
+  });
+
   it('removes the expired backups of the project this window writes, under its own lease', async () => {
     const { services, storage, test, project, current } = await world();
     const session = await openToWrite(test, storage.tree, project);

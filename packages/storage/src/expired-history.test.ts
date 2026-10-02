@@ -42,6 +42,18 @@ function historyStep(steps: readonly CleanupStep[]) {
 }
 
 describe('compacting expired history in a cleanup', () => {
+  it('plans under the policy the project holds now, its journal included', async () => {
+    const { test, tree, storage, header } = await expiring();
+    // The checkpoint keeps one change; a window since set the project to keep
+    // everything, which only its journal holds yet.
+    const session = await openToWrite(test, tree, header.id);
+    expectSuccess(await session.setRetentionPolicy({ kind: 'unlimited' }));
+    const plan = expectSuccess(
+      await planCleanup([{ kind: 'expired-history' }], storage.cleaning, test.clock.now()),
+    );
+    expect(plan.steps).toEqual([]);
+  });
+
   it('plans each project’s compaction with what it loses, and carries it out on confirmation', async () => {
     const { test, tree, storage, header } = await expiring();
     const plan = expectSuccess(
