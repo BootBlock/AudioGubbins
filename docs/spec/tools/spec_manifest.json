@@ -60,7 +60,10 @@
       "adr/ADR-0045-signal-recipes.md",
       "adr/ADR-0046-video-reference-binding.md",
       "adr/ADR-0047-session-annotations.md",
-      "adr/ADR-0050-native-rate-reading-in-phase-05.md"
+      "adr/ADR-0050-native-rate-reading-in-phase-05.md",
+      "adr/ADR-0051-edit-model.md",
+      "adr/ADR-0052-read-contract-and-media-threads.md",
+      "adr/ADR-0053-clipboard-and-quick-edit.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",
