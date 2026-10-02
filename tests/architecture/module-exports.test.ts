@@ -203,8 +203,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/timeline/src/zoom.ts: ONE_SAMPLE_PER_PIXEL',
       'packages/timeline/src/zoom.ts: zoomShowing',
     ],
-  'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
-    ['packages/waveform/src/peak-codec.ts: crc32'],
   'Which element is a text field, and which control keeps a key pressed alone, asked of every kind of element by the listener tests; the listener asks each of an event target alone.':
     [
       'apps/web/src/input/use-shortcuts.ts: isTextField',

@@ -1659,6 +1659,7 @@ Published paths
   function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
   function containsSample(start: SampleCount, length: SampleCount, inner: SampleCount): boolean
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
+  function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
   function createDeterministicIdGenerator(seed: number): IdGenerator
   function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
   function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project

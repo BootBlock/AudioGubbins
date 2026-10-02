@@ -3,8 +3,22 @@ import { crc32 as zlibCrc32 } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 
 import { crc32 } from './crc32.js';
-import { encodeUtf8 } from './utf8.js';
-import { patternBytes } from './testing/zip-archives.js';
+
+/** The bytes of `text` as UTF-8. */
+function encodeUtf8(text: string): Uint8Array {
+  return new TextEncoder().encode(text);
+}
+
+/** `length` bytes of a seeded sequence, the same every run. */
+function patternBytes(length: number, seed: number): Uint8Array {
+  let state = seed >>> 0;
+  const bytes = new Uint8Array(length);
+  for (let index = 0; index < length; index += 1) {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0;
+    bytes[index] = state >>> 24;
+  }
+  return bytes;
+}
 
 describe('crc32', () => {
   it('gives the check value of the ZIP polynomial for "123456789"', () => {

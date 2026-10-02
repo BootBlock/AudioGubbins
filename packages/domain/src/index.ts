@@ -155,3 +155,5 @@ export {
   projectLength,
   tracksInOrder,
 } from './project/project.js';
+
+export { crc32 } from './integrity/crc32.js';
