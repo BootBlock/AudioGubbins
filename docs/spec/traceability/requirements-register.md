@@ -1,6 +1,6 @@
 # Requirements Traceability Register
 
-Canonical requirement groups: **215**.
+Canonical requirement groups: **216**.
 
 > Machine-readable source: `requirements-register.json`. This Markdown table is generated for human review.
 
@@ -221,3 +221,4 @@ Canonical requirement groups: **215**.
 | `REQ-EXEC-217` — Specification Hardening Milestone Before Production Implementation | `CURRENT` | Phase 00 | `SATISFIED_BASELINE` | `SPEC-LINT`, `SPEC-BUILD`, `SPEC-ADVERSARIAL` |
 | `REQ-EXEC-218` — Adversarial Specification Review | `CURRENT` | Phase 00 | `SATISFIED_BASELINE` | `SPEC-LINT`, `SPEC-BUILD`, `SPEC-ADVERSARIAL` |
 | `REQ-EXEC-219` — Compiled Specification Generation | `CURRENT` | Phase 00 | `SATISFIED_BASELINE` | `SPEC-LINT`, `SPEC-BUILD`, `SPEC-ADVERSARIAL` |
+| `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio | `CURRENT` | Phase 05 | `PENDING` | `CODEC-UNIT`, `CODEC-FIXTURES`, `CODEC-MALFORMED`, `DATA-ROUNDTRIP`, `EDIT-E2E` |

@@ -3929,6 +3929,25 @@
       ],
       "legacy_source_section": 219,
       "evidence": []
+    },
+    {
+      "id": "REQ-AUDIO-220",
+      "title": "Native-Rate Reading of Uncompressed Audio",
+      "category": "audio",
+      "scope": "CURRENT",
+      "owner_phase": 5,
+      "owner_phase_name": "Core Non-Destructive Editing",
+      "phase_file": "phases/phase-05-core-non-destructive-editing.md",
+      "status": "PENDING",
+      "verification_plan": [
+        "CODEC-UNIT",
+        "CODEC-FIXTURES",
+        "CODEC-MALFORMED",
+        "DATA-ROUNDTRIP",
+        "EDIT-E2E"
+      ],
+      "legacy_source_section": null,
+      "evidence": []
     }
   ]
 }

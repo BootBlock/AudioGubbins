@@ -25,6 +25,8 @@ Users can import common audio formats, render projects/regions through the canon
 - `REQ-AUDIO-050` — Presets and Advanced Codec Controls (`CURRENT`)
 - `REQ-ARCH-054` — Export Collision Policy (`CURRENT`)
 
+Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-010` as `REQ-AUDIO-220` and is Phase 05's (`ADR-0050`); this phase's codecs extend the read contract Phase 05 introduces in `packages/codecs`.
+
 ## Referenced Global Execution Requirements
 
 - `REQ-EXEC-136`
@@ -45,26 +47,26 @@ Users can import common audio formats, render projects/regions through the canon
 ## In Scope
 
 - [ ] Codec registry/abstraction
-- [ ] WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A support where legally/technically viable
-- [ ] WAV integer/float bit depths and sample rates
+- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`)
+- [ ] WAV integer/float bit depths and sample rates for writing
 - [ ] Multichannel metadata/layout preservation
 - [ ] Metadata/loop metadata
-- [ ] Import analysis/progress/cancellation
+- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import
 - [ ] Export quality/expert controls
 - [ ] Collision policy
 - [ ] Deterministic/application-owned codecs where required
 - [ ] Streaming/chunked I/O
-- [ ] Importing audio into the open project at its native rate, and opening the project's assets in the editor, whose per-asset markers and regions then move into the project as project commands with the same inverses, removing the session holder (`ADR-0047`, `ADR-0021`)
 
 ## Explicitly Out of Scope
 
 - Godot-specific live export semantics
 - Batch variation generation
 - Cloud encoding
+- Importing uncompressed WAV and AIFF at the native rate, opening the project's assets in the editor, and moving the markers and regions into the project, which are Phase 05's (`ADR-0050`, amending `ADR-0021`)
 
 ## Owned Modules / Packages
 
-- `packages/codecs`
+- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; this phase adds its registry, decoders and writers, `ADR-0050`)
 - `packages/import-export`
 - `packages/export-recipes core`
 - `crates/codec-* as selected`
@@ -81,7 +83,7 @@ Users can import common audio formats, render projects/regions through the canon
 - CodecCapability
 - ImportJob
 - ExportJob
-- AudioFormatDescriptor
+- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here)
 - MetadataMap
 - ExportSettings
 - CollisionPolicy
@@ -107,8 +109,8 @@ Users can import common audio formats, render projects/regions through the canon
 
 ### WU-09.A — Codec contracts and WAV
 
-- [ ] Implement registry, sniffing and streaming interfaces
-- [ ] Implement comprehensive WAV read/write including float/integer/multichannel/metadata
+- [ ] Implement the registry and capability descriptors over Phase 05's read contract, and the streaming write interface
+- [ ] Implement comprehensive WAV writing, the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
 
 ### WU-09.B — Common codecs
 

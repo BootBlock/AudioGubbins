@@ -225,7 +225,7 @@
     "05": {
       "phase": 5,
       "name": "Core Non-Destructive Editing",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         2,
         3,
@@ -235,7 +235,8 @@
       "requirements": [
         "REQ-EDIT-008",
         "REQ-EDIT-014",
-        "REQ-EDIT-015"
+        "REQ-EDIT-015",
+        "REQ-AUDIO-220"
       ],
       "open_verified_findings": [],
       "commits": [],
