@@ -121,6 +121,16 @@ export function sampleCount(value: number): DomainResult<SampleCount> {
 export const ZERO_SAMPLES = 0 as SampleCount;
 
 /**
+ * A count made by arithmetic on counts already checked, such as a segment cut
+ * at a boundary inside it, which cannot leave the range `sampleCount` allows.
+ * Never for a value from outside the domain: that is `sampleCount`'s.
+ */
+export function derivedSampleCount(value: number): SampleCount {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- the operands were checked, and the arithmetic stays within their range
+  return value as SampleCount;
+}
+
+/**
  * Adds two sample counts.
  *
  * Returns a failure rather than an inexact number if the sum leaves the range

@@ -35,6 +35,7 @@ export {
   type Branded,
   type BusId,
   type ClipId,
+  type EditOperationId,
   type EffectChainId,
   type EntityId,
   type MarkerId,
@@ -60,6 +61,7 @@ export {
   addSamples,
   containsSample,
   convertSampleRate,
+  derivedSampleCount,
   sampleCount,
   sampleRate,
   samplesToSeconds,
@@ -101,16 +103,89 @@ export {
 } from './project/asset.js';
 
 export {
+  type AnchoredLoop,
   type Clip,
   type LoopDefinition,
   type Marker,
+  type PlacedMarker,
+  type PlacedRegion,
   type Region,
-  type TimelineEntity,
+  RegionBoundary,
   clipAssetId,
   clipEnd,
   clipsOverlap,
   regionEnd,
 } from './project/timeline.js';
+
+export {
+  type ChannelEdit,
+  type ChannelEditOperation,
+  type EditOperation,
+  type EditRange,
+  type EditTarget,
+  type LevelEdit,
+  type RangeEdit,
+  type RegionOperation,
+  FadeDirection,
+  FadeShape,
+  MAXIMUM_EDIT_GAIN,
+  TIME_CHANGING_KINDS,
+  isLevelEdit,
+} from './editing/operations.js';
+
+export {
+  type ClipboardPayload,
+  type EditPlan,
+  type FadeCurve,
+  type GainCurve,
+  type PlanSegment,
+  type PlanSource,
+  type PlanStage,
+  type PlanStream,
+  convertedFrameCount,
+  fadeShapeAt,
+  gainAt,
+  planReadsAsset,
+  streamLength,
+} from './editing/plan.js';
+
+export { type EditShape, shapeAfter, shapesOf, sourceShape } from './editing/edit-shape.js';
+
+export {
+  Affinity,
+  type AnchorResolver,
+  type Span,
+  anchorResolver,
+  carryPosition,
+  carrySpan,
+} from './editing/anchors.js';
+
+export {
+  type ChannelMatrix,
+  conversionMatrix,
+  identityMatrix,
+} from './editing/channel-matrices.js';
+
+export { assetPlan } from './editing/plan-building.js';
+export { type BlockPlace, applyStages } from './editing/stage-arithmetic.js';
+export { slicePlan } from './editing/plan-slicing.js';
+export { type MediaShape, validatePlan } from './editing/plan-validation.js';
+export { editPlanFrom } from './editing/plan-decoding.js';
+export { validateChain, validateOperation } from './editing/operation-validation.js';
+export {
+  lastConversion,
+  namesChannels,
+  validateMarker,
+  validateRegion,
+} from './editing/placement-validation.js';
+export {
+  markersInRegion,
+  placeMarkers,
+  placeRegion,
+  placeRegions,
+  regionPlan,
+  regionSpan,
+} from './editing/placement.js';
 
 export {
   type Bus,
@@ -148,7 +223,9 @@ export { type ProcessorLatency } from './processing/processor-latency.js';
 
 export {
   type Project,
+  type AssetUsers,
   type ProjectSettings,
+  assetUsers,
   clipsOnTrack,
   createProject,
   isAssetInUse,
