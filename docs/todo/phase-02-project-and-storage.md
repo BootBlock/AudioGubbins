@@ -284,8 +284,27 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      A rule in `dependency-rules.test.ts` holds the page to types, and a
      listed value each with its reason, from `storage`, `media-store` and
      `browser-storage`.
+   - The host yield and the signal through the packages (`21134c4`, `4547282`,
+     `74d0ee8`): one helper, `Turns` in `project-format`, takes a piece of
+     work's turns through the injected `YieldToHost` port (moved there from
+     `media-store`): a light step asks every 128, a heavy one (a mebibyte
+     checksummed) every time, and the signal is checked at each. The worker
+     passes the port its tree takes turns with, through the services. ZIP
+     reading and writing require it (directory records, chunks); bundle export,
+     import and conversion, backups and the raw export pass it; usage, cleanup
+     planning and running, the media roots and the store's listing take the
+     signal between projects, files and objects; checkpoint segment planning and
+     compaction planning take a step per node; a read-only opening and the
+     journal plan take the signal. Each has a test that fails on the old code.
    - Left: measure in a browser at 16k changes (a checkpoint, and the page's
      time per publish; the opening was measured in `c6f3741`).
+   - Left, measured not fixed: the `history` package's whole-graph passes are
+     synchronous (16k nodes in Node: `applyCompaction` 25 ms,
+     `historyFromRecord` 30 ms, `historyRecordOf` 12 ms, `retainedStates` and
+     `planCompaction` 4 ms; 100k nodes: up to 220 ms). Turns there make the
+     package's API asynchronous, a design decision of its own. A purge, a wipe
+     and a soft delete are not given up part-way by design, since a half-removed
+     project is worse than a finished removal.
 
    The page keeps no storage core. Before this it built every storage service
    and only the file reads and writes crossed to the worker, so parsing,
@@ -352,6 +371,8 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      checkpoint and an open, page time per publish.
 
 4. Fix or accept, with a reason, every medium finding; track the low ones.
+   - M-23 (no signal and no host yield through the long paths): fixed, the app
+     in `59f32dc` and the packages in `21134c4`, `4547282` and `74d0ee8`.
 5. Evidence, review record, ledger entry, handoff; this note to
    `docs/todo/done/`; merge `main`; `verify:commit`; land.
 6. Drive the built app in a real browser for the changed surfaces, and record
