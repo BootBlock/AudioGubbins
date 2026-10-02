@@ -81,12 +81,32 @@ const SCOPES = [
   { value: 'current-state', label: 'The current state alone' },
 ] as const;
 
-/** How much of where the audio came from an export of the state alone keeps. */
+/**
+ * How much of where the audio came from an export keeps, each level named by
+ * what it leaves out (`provenance-stripping.ts` says what each one does).
+ */
 const PROVENANCE = [
   { value: 'full', label: 'Keep all of it' },
-  { value: 'minimal', label: 'Keep file names only' },
-  { value: 'none', label: 'Leave it out' },
+  { value: 'minimal', label: 'Leave out names and places' },
+  { value: 'none', label: 'Leave it all out' },
 ] as const;
+
+/** Exactly what each level keeps and leaves out, shown beside the choice. */
+const PROVENANCE_KEPT: ReadonlyMap<string, string> = new Map([
+  ['full', 'Keeps every file’s name and folder, when it came in, and where each export went.'],
+  [
+    'minimal',
+    'Keeps when each file came in, what it was and the project it first came into. Leaves out the names and folders of files, and where each export went, with its Godot links and messages.',
+  ],
+  [
+    'none',
+    'Leaves out how each file came in and every export. A linked file keeps only its length, type, time and fingerprints, which tell it again.',
+  ],
+]);
+
+/** Why a whole history keeps all of where its audio came from. */
+const WHOLE_HISTORY_KEEPS =
+  'A whole history keeps all of it, since its changes record where the audio came from. Export the current state alone to leave any of it out.';
 
 /** The two ways out, each a command and its button's words. */
 const EXPORTS = [
@@ -102,7 +122,9 @@ function ExportChoices({
   const [scope, setScope] = useState('whole-history');
   const [provenance, setProvenance] = useState('full');
   const [caches, setCaches] = useState(false);
-  const args = { scope, provenance, caches };
+  const wholeHistory = scope === 'whole-history';
+  const kept = wholeHistory ? 'full' : provenance;
+  const args = { scope, provenance: kept, caches };
   return (
     <div role="group" aria-label="Export">
       <h3 className="ag-section-heading">Export</h3>
@@ -113,15 +135,17 @@ function ExportChoices({
           onValueChange={setScope}
           options={SCOPES}
         />
-        {scope === 'current-state' && (
-          <OptionSelect
-            label="Where the audio came from"
-            value={provenance}
-            onValueChange={setProvenance}
-            options={PROVENANCE}
-          />
-        )}
+        <OptionSelect
+          label="Where the audio came from"
+          value={kept}
+          onValueChange={setProvenance}
+          options={PROVENANCE}
+          disabled={wholeHistory}
+        />
       </div>
+      <p className="ag-settings-note">
+        {wholeHistory ? WHOLE_HISTORY_KEEPS : PROVENANCE_KEPT.get(kept)}
+      </p>
       <ToggleSwitch
         label="Include caches"
         description="Waveforms and analysis are made again when needed, so they only make the export larger."

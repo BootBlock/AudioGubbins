@@ -390,6 +390,15 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
 4. Fix or accept, with a reason, every medium finding; track the low ones.
    - M-23 (no signal and no host yield through the long paths): fixed, the app
      in `59f32dc` and the packages in `21134c4`, `4547282` and `74d0ee8`.
+   - M-02 (import decided by matching failure codes, read twice): fixed in
+     `d060de8`. M-04 (media caches replaced, tree caches unchecked): fixed in
+     `c77bcde`. M-22 (media hashed three times on import): fixed in
+     `dd92f7d`. M-21 (whole histories held in memory): fixed in `c22a531`.
+   - M-03 (provenance labels): the labels and words now say what each level
+     keeps, with a test per level, and a whole history is shown and refused
+     at less than full provenance. Exporting a whole history with less waits
+     for an owner decision: `docs/todo/whole-history-provenance.md`.
+   - The torn-segment bound on media purges is removed (`2e9ca23`).
 5. Evidence, review record, ledger entry, handoff; this note to
    `docs/todo/done/`; merge `main`; `verify:commit`; land.
 6. Drive the built app in a real browser for the changed surfaces, and record

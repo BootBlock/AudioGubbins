@@ -6,7 +6,9 @@
  * Each command asks for its file or folder as the first thing it does, in the
  * handler of the gesture that ran it, since a browser opens no chooser
  * otherwise. A bundle holds the whole history unless it is asked for the state
- * alone, and then keeps the provenance at the level asked for.
+ * alone, and then keeps the provenance at the level asked for. A whole history
+ * keeps all of it, since its changes record it, so it is refused where less is
+ * asked for, rather than written with more than was asked.
  */
 
 import {
@@ -33,14 +35,15 @@ import type { ShellContext } from './shell-context.js';
 /** How much of the project a bundle or folder holds, as the arguments ask. */
 function copyOptionsFrom(invocation: CommandInvocation): CopyOptions | string {
   const includeCaches = invocation.arguments?.['caches'] === true;
-  if (textArgument(invocation, 'scope') !== 'current-state') {
-    return { scope: { kind: 'whole-history' }, includeCaches };
-  }
   const named = textArgument(invocation, 'provenance') ?? ProvenanceLevel.Full;
   const provenance = Object.values(ProvenanceLevel).find((level) => level === named);
-  return provenance === undefined
-    ? `There is no provenance level ${named}.`
-    : { scope: { kind: 'current-state', provenance }, includeCaches };
+  if (provenance === undefined) return `There is no provenance level ${named}.`;
+  if (textArgument(invocation, 'scope') === 'current-state') {
+    return { scope: { kind: 'current-state', provenance }, includeCaches };
+  }
+  return provenance === ProvenanceLevel.Full
+    ? { scope: { kind: 'whole-history' }, includeCaches }
+    : 'A whole history keeps all of where its audio came from, since its changes record it. Export the current state alone to leave any of it out.';
 }
 
 /** The project open here, and the name it goes by, or why there is none. */

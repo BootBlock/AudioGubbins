@@ -136,6 +136,22 @@ describe('taking a project out as a bundle and bringing it back', () => {
     ).toBe('refused');
   });
 
+  it('refuses a whole history asked to keep less of where its audio came from, and writes nothing', async () => {
+    const { window } = await withProject();
+    const before = window.files.saved.length;
+
+    for (const command of ['file.export-bundle', 'file.export-folder']) {
+      for (const provenance of ['minimal', 'none']) {
+        expect(window.run(command, { scope: 'whole-history', provenance })).toMatchObject({
+          kind: 'refused',
+        });
+      }
+    }
+    expect(window.files.saved).toHaveLength(before);
+    await window.runAndHear('file.export-bundle', { scope: 'whole-history', provenance: 'full' });
+    expect(window.files.saved).toHaveLength(before + 1);
+  });
+
   it('says nothing and writes nothing where the person dismisses the chooser', async () => {
     const { window } = await withProject();
     window.files.dismissSave = true;
