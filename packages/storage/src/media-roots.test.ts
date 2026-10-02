@@ -11,6 +11,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { sweepCrashes } from './testing/crash-sweep.js';
 import { ProjectPaths } from './storage-layout.js';
 import { addAsset, contentOf, setName } from './testing/test-commands.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
@@ -18,7 +19,7 @@ import { harness, nodeDigest } from './testing/node-services.js';
 
 /**
  * A tree that lets another window's work run once the scan has listed a
- * project's checkpoints, and hands the scan the listing as it was before.
+ * project's journal, and hands the scan the listing as it was before.
  */
 class InterruptedTree implements StorageTree {
   private readonly inner: StorageTree;
@@ -49,7 +50,7 @@ class InterruptedTree implements StorageTree {
   async list(directory: string): Promise<readonly TreeEntry[]> {
     const listed = await this.inner.list(directory);
     const interruption = this.interruption;
-    if (interruption !== undefined && directory.endsWith('/checkpoints')) {
+    if (interruption !== undefined && directory.endsWith('/journal')) {
       if (!this.every) this.interruption = undefined;
       await interruption();
     }
@@ -83,16 +84,30 @@ describe('the media every project retains (REQ-STOR-102, REQ-STOR-193)', () => {
     expect((await rootsOf(tree)).roots).toEqual(new Set([contentOf(1), contentOf(2)]));
   });
 
-  it('keeps media only a segment of a project’s history names', async () => {
+  it('keeps media a segment a head’s checkpoint names, and none a segment nothing names', async () => {
     const test = harness();
     const tree = new MemoryStorageTree();
     const header = await madeProject(test, tree);
+    const session = await openToWrite(test, tree, header.id);
+    expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), contentOf(6))));
+    expectSuccess(await session.close());
     const segments = new ProjectPaths(header.id).segments;
+    const named = tree.paths().filter((path) => path.startsWith(`${segments}/`));
+    const [segment] = named;
+    if (segment === undefined) throw new Error('The checkpoint names no segment.');
+    expect(new TextDecoder().decode(tree.snapshot().get(segment))).toContain(contentOf(6));
+    // Neither can be restored, so neither retains anything nor holds a purge back.
     await tree.writeFile(
-      `${segments}/000000000001-0000aaaa.json`,
+      `${segments}/000000000009-0000aaaa.json`,
       encodeUtf8(JSON.stringify({ body: { content: contentOf(7) } })),
     );
-    expect((await rootsOf(tree)).roots).toContain(contentOf(7));
+    await tree.writeFile(`${segments}/000000000009-0000bbbb.json`, new Uint8Array([123, 34]));
+
+    const { roots, unreadable } = await rootsOf(tree);
+
+    expect(roots).toContain(contentOf(6));
+    expect(roots).not.toContain(contentOf(7));
+    expect(unreadable).toEqual([]);
   });
 
   it('keeps a deleted project’s media until the project is purged', async () => {
@@ -159,4 +174,33 @@ describe('the media every project retains (REQ-STOR-102, REQ-STOR-193)', () => {
     const { unreadable } = await rootsOf(tree);
     expect(unreadable.map((problem) => problem.path)).toEqual([record]);
   });
+});
+
+describe('the media a crash while checkpointing leaves retained (REQ-EXEC-180)', () => {
+  it('holds no purge back for what the crash tore, and keeps what the project names', async () => {
+    const test = harness(61);
+    const from = new MemoryStorageTree();
+    const header = await madeProject(test, from);
+    const first = await openToWrite(test, from, header.id);
+    expectSuccess(await first.run(addAsset(test.ids.next<'AssetId'>(), contentOf(1))));
+    expectSuccess(await first.close());
+    // A change only the journal holds, which the checkpoint swept folds in.
+    const second = await openToWrite(test, from, header.id);
+    expectSuccess(await second.run(addAsset(test.ids.next<'AssetId'>(), contentOf(2))));
+
+    const operations = await sweepCrashes({
+      from,
+      run: async (tree) => {
+        const session = await openToWrite(harness(62), tree, header.id);
+        return await session.close();
+      },
+      check: async (found) => {
+        const { roots, unreadable } = await rootsOf(found);
+        expect(unreadable).toEqual([]);
+        expect(roots).toContain(contentOf(1));
+        expect(roots).toContain(contentOf(2));
+      },
+    });
+    expect(operations).toBeGreaterThan(10);
+  }, 120_000);
 });

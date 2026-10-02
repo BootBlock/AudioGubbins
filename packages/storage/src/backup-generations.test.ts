@@ -258,6 +258,13 @@ describe('backup generations (REQ-STOR-105)', () => {
             await new BackupGenerations(after, nodeDigest, setup.project).copyOf(number),
           );
         }
+        // What the crash left of a generation is no backup, so it holds no purge back.
+        const unreadable: string[] = [];
+        const roots = new Set<ContentId>();
+        const gathered = retainedMedia(after, nodeDigest, ({ path }) => unreadable.push(path));
+        for await (const root of gathered) roots.add(root);
+        expect(unreadable).toEqual([]);
+        expect(roots).toContain(setup.media);
         if (outcome !== undefined) return;
         if (listing.incomplete.length > 0) leftIncomplete += 1;
         // The next generation made prunes what the crash left.

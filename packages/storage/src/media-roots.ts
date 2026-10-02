@@ -10,13 +10,20 @@
  * or of its purge retains nothing (`project-leftovers.ts`): nothing refers to a
  * project never finished, whose writer holds the media it stores until the
  * project is whole, and a project being purged, with its backups, is gone for
- * good once the purge is finished. So every project's states are read by the
- * media store's own rule, `contentReferencedBy`, and every checkpoint, segment
- * of history and journal record is searched for any content identifier it holds
- * anywhere, which errs, as it must, on the side of keeping. Every backup
- * generation retains what its states, its checkpoint and its segments name, the
- * generations of a purged project among them, until they are removed
- * themselves.
+ * good once the purge is finished. So the checkpoint each of a project's heads
+ * names is read, with each segment of history and each state it names, and
+ * every journal record: the states by the media store's own rule,
+ * `contentReferencedBy`, and the rest searched for any content identifier they
+ * hold anywhere, which errs, as it must, on the side of keeping. What is named
+ * is what can be restored: a checkpoint no head names, and a segment or a state
+ * no such checkpoint names, was replaced or never finished, so it retains
+ * nothing and is not read, and what a crash tore of a checkpoint's writing
+ * holds no purge back. A state no checkpoint names yet is the state at a node
+ * of the history the journal or a named segment holds, which names its media
+ * too. Every whole backup generation retains what its checkpoint, and the
+ * segments and states that checkpoint names, name, the generations of a purged
+ * project among them, until they are removed themselves; an incomplete one is
+ * never read as a backup, so it retains nothing.
  *
  * A file that cannot be read cannot say what it retains, so it is reported to
  * the caller, which must not purge as though it retained nothing. The roots are
@@ -51,18 +58,16 @@ import {
   type StorageTree,
 } from '@audiogubbins/project-format';
 
-import { CheckedRecords } from './checked-records.js';
+import { BackupGenerations } from './backup-generations.js';
+import { CheckedRecords, RecordKind, type RecordFault } from './checked-records.js';
+import { readCheckpointRecord } from './checkpoint-record.js';
+import type { SegmentPath } from './checkpoint-files.js';
 import { contentIdsIn } from './content-references.js';
 import { ProjectFiles } from './project-files.js';
-import { newestHead, sameHead } from './project-heads.js';
+import { newestHead, readHeads, sameHead } from './project-heads.js';
 import { leftOverOf } from './project-leftovers.js';
 import { SnapshotStore } from './state-store.js';
-import {
-  BACKUPS_DIRECTORY,
-  BackupPaths,
-  PROJECTS_DIRECTORY,
-  numberOfGeneration,
-} from './storage-layout.js';
+import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 
 /** A file whose retained media could not be told, and why. */
 export interface UnreadableRoot {
@@ -75,6 +80,16 @@ const SEARCH_LIMITS = { maximumLength: 2 ** 28, maximumDepth: 32 } as const;
 
 /** How many times a project's files are gathered before a moving head is given up on. */
 const MOST_PASSES = 4;
+
+/**
+ * Where the files a checkpoint names lie, and the paths one gathering has read
+ * already, since checkpoints one after another name many of the same.
+ */
+interface NamedFiles {
+  readonly segment: SegmentPath;
+  readonly states: SnapshotStore;
+  readonly read: Set<string>;
+}
 
 /**
  * Every content identifier every project retains, each project's in turn; an
@@ -107,18 +122,19 @@ async function* gather(
   for (const project of await projectsUnder(tree, BACKUPS_DIRECTORY)) {
     if (leftOvers.has(project)) continue;
     const paths = new BackupPaths(project);
-    for (const entry of await tree.list(paths.directory)) {
+    const listing = await new BackupGenerations(tree, digest, project).list(signal);
+    if (!listing.ok) {
+      onUnreadable({ path: paths.directory, failure: listing.failures[0] });
+      continue;
+    }
+    for (const { number } of listing.value.generations) {
       signal?.throwIfAborted();
-      const generation = numberOfGeneration(entry.name);
-      if (generation === undefined) continue;
-      const states = new SnapshotStore(tree, digest, paths.states(generation));
-      yield* statesRetain(states, onUnreadable, signal);
-      const checkpoint = paths.checkpoint(generation);
-      yield* searched(await tree.readFile(checkpoint, signal), checkpoint, onUnreadable);
-      for await (const path of filesUnder(tree, paths.segments(generation))) {
-        signal?.throwIfAborted();
-        yield* searched(await tree.readFile(path, signal), path, onUnreadable);
-      }
+      const named: NamedFiles = {
+        segment: (segment) => paths.segment(number, segment),
+        states: new SnapshotStore(tree, digest, paths.states(number)),
+        read: new Set(),
+      };
+      yield* checkpointRetains(records, paths.checkpoint(number), named, onUnreadable, signal);
     }
   }
 }
@@ -131,19 +147,25 @@ async function* projectRetains(
 ): AsyncGenerator<ContentId, void, undefined> {
   const { tree } = files.records;
   for (let pass = 0; pass < MOST_PASSES; pass += 1) {
-    const before = await newestHead(files.records, files.paths, signal);
+    const heads = await readHeads(files.records, files.paths, signal);
+    const before = heads.valid[0];
     const problems: UnreadableRoot[] = [];
     const noteProblem = (problem: UnreadableRoot): void => {
       problems.push(problem);
     };
-    yield* statesRetain(files.states, noteProblem, signal);
-    for (const directory of [files.paths.checkpoints, files.paths.segments, files.paths.journal]) {
-      for await (const path of filesUnder(tree, directory)) {
-        signal?.throwIfAborted();
-        const bytes = await tree.readFile(path, signal);
-        if (bytes === undefined) noteProblem({ path, failure: rootGone(path) });
-        else yield* searched(bytes, path, noteProblem);
-      }
+    const named: NamedFiles = {
+      segment: (segment) => files.paths.segment(segment),
+      states: files.states,
+      read: new Set(),
+    };
+    for (const { epoch, checkpoint } of heads.valid) {
+      signal?.throwIfAborted();
+      const path = files.paths.checkpoint(epoch, checkpoint);
+      yield* checkpointRetains(files.records, path, named, noteProblem, signal);
+    }
+    for await (const path of filesUnder(tree, files.paths.journal)) {
+      signal?.throwIfAborted();
+      yield* fileRetains(tree, path, noteProblem, signal);
     }
     if (sameHead(before, await newestHead(files.records, files.paths, signal))) {
       for (const problem of problems) onUnreadable(problem);
@@ -151,6 +173,69 @@ async function* projectRetains(
     }
   }
   onUnreadable({ path: files.paths.heads, failure: headMoving() });
+}
+
+/**
+ * What a checkpoint retains, with the segments of history and the states it
+ * names, each read once in a gathering.
+ */
+async function* checkpointRetains(
+  records: CheckedRecords,
+  path: string,
+  named: NamedFiles,
+  onUnreadable: (root: UnreadableRoot) => void,
+  signal?: AbortSignal,
+): AsyncGenerator<ContentId, void, undefined> {
+  if (!firstRead(named, path)) return;
+  const record = await records.read(path, RecordKind.Checkpoint, readCheckpointRecord, signal);
+  if (record.kind !== 'valid') {
+    const failure = record.kind === 'absent' ? rootGone(path) : rootUnreadable(path, record.fault);
+    onUnreadable({ path, failure });
+    return;
+  }
+  yield* fileRetains(records.tree, path, onUnreadable, signal);
+  for (const segment of record.value.history.segments) {
+    const segmentPath = named.segment(segment);
+    if (!firstRead(named, segmentPath)) continue;
+    signal?.throwIfAborted();
+    yield* fileRetains(records.tree, segmentPath, onUnreadable, signal);
+  }
+  for (const fingerprint of new Set([record.value.cursorState, ...record.value.keptStates])) {
+    const statePath = named.states.path(fingerprint);
+    if (!firstRead(named, statePath)) continue;
+    signal?.throwIfAborted();
+    const state = await named.states.get(fingerprint, signal);
+    if (state.ok) yield* contentReferencedBy(state.value);
+    else onUnreadable({ path: statePath, failure: state.failures[0] });
+  }
+}
+
+/** Whether a gathering reads `path` for the first time, which it then has. */
+function firstRead(named: NamedFiles, path: string): boolean {
+  if (named.read.has(path)) return false;
+  named.read.add(path);
+  return true;
+}
+
+/** What a file of JSON retains, or that it is gone or cannot be read. */
+async function* fileRetains(
+  tree: StorageTree,
+  path: string,
+  onUnreadable: (root: UnreadableRoot) => void,
+  signal?: AbortSignal,
+): AsyncGenerator<ContentId, void, undefined> {
+  const bytes = await tree.readFile(path, signal);
+  if (bytes === undefined) onUnreadable({ path, failure: rootGone(path) });
+  else yield* searched(bytes, path, onUnreadable);
+}
+
+function rootUnreadable(path: string, fault: RecordFault): DomainFailure {
+  return failure(
+    'storage.root-unreadable',
+    FailureKind.IntegrityViolation,
+    'A checkpoint that may retain media cannot be read.',
+    { details: { path, fault: fault.kind } },
+  );
 }
 
 function rootGone(path: string): DomainFailure {
@@ -177,20 +262,6 @@ async function projectsUnder(tree: StorageTree, directory: string): Promise<read
       ? [unsafeBrandId<'ProjectId'>(entry.name)]
       : [],
   );
-}
-
-/** What every state of a store refers to. */
-async function* statesRetain(
-  states: SnapshotStore,
-  onUnreadable: (root: UnreadableRoot) => void,
-  signal?: AbortSignal,
-): AsyncGenerator<ContentId, void, undefined> {
-  for (const fingerprint of await states.list()) {
-    signal?.throwIfAborted();
-    const state = await states.get(fingerprint, signal);
-    if (state.ok) yield* contentReferencedBy(state.value);
-    else onUnreadable({ path: states.path(fingerprint), failure: state.failures[0] });
-  }
 }
 
 /** Every file under a directory, in name order. */
