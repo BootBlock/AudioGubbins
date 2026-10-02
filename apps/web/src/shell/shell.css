@@ -351,9 +351,27 @@
   text-overflow: ellipsis;
 }
 
+/*
+ * The description gives way to the time and the marks: it is cut short, and
+ * they are drawn whole, however narrow the panel.
+ */
 .ag-history-row-line {
   display: flex;
+  align-items: baseline;
   gap: var(--ag-space-small);
+}
+
+.ag-history-row-description {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ag-history-row-time,
+.ag-history-row-mark {
+  flex: none;
 }
 
 .ag-history-row-detail {

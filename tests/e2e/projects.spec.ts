@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { expect, type Locator, type Page } from '@playwright/test';
 
+import { runCommand } from './editor.js';
 import { menuBarMenu, openFresh } from './shell.js';
 import { test } from './test.js';
 
@@ -125,6 +126,31 @@ test.describe('projects kept in the browser', () => {
     // The first tab changes it, which the second could not.
     await renameProject(page, 'Harbour, taken back');
     await expectSaved(page);
+  });
+
+  test('fits each point of the History panel to its width, cutting the description short and not the time or marks', async ({
+    page,
+  }) => {
+    await openFresh(page);
+    await makeProject(page, 'Harbour');
+    await renameProject(page, 'Harbour seen from the far end of the long sea wall at dusk');
+    await expectSaved(page);
+    await runCommand(page, 'Show the History panel');
+
+    const list = page.getByRole('listbox', { name: 'Points in the history' });
+    const current = list.getByRole('option').last();
+    await expect(current.getByText('Current', { exact: true })).toBeVisible();
+    const line = await current.locator('.ag-history-row-line').boundingBox();
+    if (line === null) throw new Error('The point is not drawn.');
+    for (const part of await current.locator('.ag-history-row-time, .ag-history-row-mark').all()) {
+      const box = await part.boundingBox();
+      expect(box, 'a time or a mark is drawn').not.toBeNull();
+      expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(line.x + line.width + 0.5);
+    }
+    const description = current.locator('.ag-history-row-description');
+    expect(await description.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+      true,
+    );
   });
 
   test('exports a project as a bundle and brings the bundle back in', async ({ page }, info) => {
