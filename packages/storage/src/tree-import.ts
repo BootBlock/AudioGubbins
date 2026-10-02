@@ -34,10 +34,8 @@ import {
   type IdGenerator,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { startHistory } from '@audiogubbins/history';
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
 import {
-  DEFAULT_RETENTION_POLICY,
   Turns,
   projectTree,
   stateFingerprintOf,
@@ -54,7 +52,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { cacheKeyOf, type CacheScope, type CacheStore } from './cache-store.js';
-import { NO_KEPT_STATES, writeProject, type ProjectContents } from './project-creation.js';
+import { begunHistory, writeProject, type ProjectContents } from './project-creation.js';
 import { claimFor, type ImportIdentity, type ImportedProject } from './import-claim.js';
 import { movedHistory, stateOf } from './project-identity.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
@@ -228,27 +226,27 @@ async function contentsOf(
 ): Promise<DomainResult<Omit<ProjectContents, 'imported'>>> {
   const { scope } = content;
   const state = stateOf(content.state, project);
-  let written: Pick<ProjectContents, 'history' | 'kept'>;
+  let written: Pick<ProjectContents, 'history' | 'kept' | 'retention'>;
   if (scope.kind === 'history') {
     const kept = carriedStates(scope.history.states, carriedBy(content));
     const moved = movedHistory(scope.history, project, kept);
     if (!moved.ok) return moved;
-    written = moved.value;
+    written = { ...moved.value, retention: scope.history.retention };
   } else {
-    const history = startHistory(project, {
-      kind: 'origin',
-      id: services.ids.next<'HistoryNodeId'>(),
-      at,
-      origin: { kind: 'import' },
-      stateFingerprint: await stateFingerprintOf(state, services.digest),
-    });
-    written = { history: () => succeed(history), kept: NO_KEPT_STATES };
+    written = begunHistory(
+      {
+        project,
+        origin: { kind: 'import' },
+        at,
+        stateFingerprint: await stateFingerprintOf(state, services.digest),
+      },
+      services.ids,
+    );
   }
   return succeed({
     state,
     ...written,
     exports: content.exports,
-    retention: scope.kind === 'history' ? scope.history.retention : DEFAULT_RETENTION_POLICY,
     backup: content.backup,
     ...(scope.kind === 'history' && scope.history.comparison !== undefined
       ? { comparison: scope.history.comparison }
