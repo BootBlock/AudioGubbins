@@ -39,6 +39,7 @@ import { writeTreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
   BRANCH_NAMES_PATH,
+  CACHE_INDEX_PATH,
   COMPARISON_PATH,
   CURSOR_PATH,
   ENTITY_DIRECTORIES,
@@ -62,6 +63,7 @@ import {
 } from './provenance-stripping.js';
 import { writeRetentionPolicy } from './retention-json.js';
 import { writeBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
+import { writeCacheIndex, type TreeCache } from './cache-index-json.js';
 import { writeComparisonChoice, type ComparisonChoiceRecord } from './comparison-choice-json.js';
 import { LONGEST_METADATA, TREE_JSON_LIMITS, atFile, fileTooLarge } from './project-tree-files.js';
 import { encodeUtf8 } from './utf8.js';
@@ -69,12 +71,6 @@ import { encodeUtf8 } from './utf8.js';
 /** A piece of managed media a tree carries. */
 export interface TreeMedia {
   readonly contentId: ContentId;
-  readonly byteLength: number;
-}
-
-/** A cache a tree carries, by its path under `caches/`, which its keeper reads. */
-export interface TreeCache {
-  readonly path: string;
   readonly byteLength: number;
 }
 
@@ -119,7 +115,12 @@ export interface ProjectTreeContent {
 export type TreeFileBody =
   | { readonly kind: 'text'; readonly bytes: Uint8Array<ArrayBuffer> }
   | { readonly kind: 'media'; readonly contentId: ContentId; readonly byteLength: number }
-  | { readonly kind: 'cache'; readonly path: string; readonly byteLength: number };
+  | {
+      readonly kind: 'cache';
+      readonly path: string;
+      readonly byteLength: number;
+      readonly contentId: ContentId;
+    };
 
 /** One file of a tree. */
 export interface ProjectTreeFile {
@@ -159,8 +160,12 @@ export function projectTree(content: ProjectTreeContent): DomainResult<readonly 
   for (const { contentId, byteLength } of content.media) {
     files.add(mediaPath(contentId), { kind: 'media', contentId, byteLength });
   }
-  for (const { path, byteLength } of content.caches ?? []) {
-    files.add(cachePath(path), { kind: 'cache', path, byteLength });
+  if (content.caches !== undefined) {
+    const caches = [...content.caches].sort((one, other) => compareCodeUnits(one.path, other.path));
+    files.text(CACHE_INDEX_PATH, writeCacheIndex(caches));
+    for (const { path, byteLength, contentId } of caches) {
+      files.add(cachePath(path), { kind: 'cache', path, byteLength, contentId });
+    }
   }
   return files.sorted();
 }

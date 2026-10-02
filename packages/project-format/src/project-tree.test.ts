@@ -7,6 +7,7 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { readProjectTree } from './project-tree-reading.js';
 import { projectTree, type ProjectTreeFile } from './project-tree-writing.js';
+import { CACHE_INDEX_PATH, placeOf } from './project-tree-layout.js';
 import { nodeDigest } from './testing/node-digest.js';
 import { referenceState } from './testing/project-states.js';
 import { historyContent, listingOf } from './testing/project-trees.js';
@@ -194,6 +195,36 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     ]);
   });
 
+  it('lists each cache with the identity of its bytes, and refuses one the list does not hold to', async () => {
+    const files = await sampleTree();
+    const cache = pathOf(files, 'caches/waveform/');
+    const read = expectSuccess(await readProjectTree(listingOf(files), nodeDigest));
+    expect(read.caches).toEqual([
+      expect.objectContaining({
+        path: cache.slice('caches/'.length),
+        contentId: expect.any(String),
+      }),
+    ]);
+
+    const moved = renamedFile(files, cache, `${cache}-moved`);
+    expect(await problemsOf(moved)).toEqual([
+      ['tree.cache-missing', cache],
+      ['tree.cache-unlisted', `${cache}-moved`],
+    ]);
+    const longer = edited(files, CACHE_INDEX_PATH, (index) => {
+      const caches: unknown = index['caches'];
+      if (!Array.isArray(caches)) throw new Error('The index lists no caches.');
+      return {
+        caches: caches.map((each: unknown) =>
+          typeof each === 'object' && each !== null ? { ...each, byteLength: 13 } : each,
+        ),
+      };
+    });
+    expect(await problemsOf(longer)).toEqual([['tree.cache-length', cache]]);
+    const unindexed = files.filter(({ path }) => path !== CACHE_INDEX_PATH);
+    expect(await problemsOf(unindexed)).toContainEqual(['tree.missing-file', CACHE_INDEX_PATH]);
+  });
+
   it('never reads a media file or a cache, which are the caller’s to stream', async () => {
     const files = await sampleTree();
     const read: string[] = [];
@@ -203,8 +234,11 @@ describe('reading a project tree (REQ-STOR-103)', () => {
         nodeDigest,
       ),
     );
-    expect(read.filter((path) => path.startsWith('media/') || path.startsWith('caches/'))).toEqual(
-      [],
-    );
+    const streamed = read.filter((path) => {
+      const kind = placeOf(path)?.kind;
+      return kind === 'media' || kind === 'cache';
+    });
+    expect(streamed).toEqual([]);
+    expect(read).toContain(CACHE_INDEX_PATH);
   });
 });

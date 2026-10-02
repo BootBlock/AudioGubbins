@@ -237,8 +237,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/project-format': {
     "The reader of a whole history record, which the unpacked tree reads a project's history with; the history package's tests read a history back through it, as an export and import of the project would.":
       ['readHistoryRecord'],
-    "Members of the format's reading kit, which the storage and history packages read their own records with; these are used inside the package so far, and are offered with the rest so a record another package keeps reads a flag, a list, a number, a content identifier, a set of entities or a state fingerprint as the project document does.":
-      ['asBoolean', 'asContentId', 'entitiesOf', 'isStateFingerprint', 'listOf', 'numberConverter'],
+    "Members of the format's reading kit, which the storage and history packages read their own records with; these are used inside the package so far, and are offered with the rest so a record another package keeps reads a flag, a list, a number, a set of entities or a state fingerprint as the project document does.":
+      ['asBoolean', 'entitiesOf', 'isStateFingerprint', 'listOf', 'numberConverter'],
     "The project document's own header, format name and text forms, which the package reads and writes the document and the unpacked tree with. Offered for a tool that reads a document without the storage, such as the unpacked tree's inspection outside AudioGubbins that REQ-STOR-103 asks to be possible; nothing in the application reads a document but through the storage.":
       [
         'FormatHeader',

@@ -136,7 +136,10 @@ once and carries a checksum; a torn file fails its check and is ignored.
   what the plan saw, so nothing being written is taken for a crash's.
 - `backups/<project>/<generation>/`: a checkpoint copy and its states; media by
   content id. An external backup directory, where offered, gets a bundle.
-- `cache/<category>/`: disposable, first to go under pressure.
+- `cache/<category>/`: disposable, first to go under pressure; each sealed
+  with its length and the identity of its bytes. A tree carries its caches
+  with an index of their identities, each checked as it is brought in, and a
+  cache of media brought in never replaces one the storage keeps.
 
 ### Content identity
 
@@ -409,7 +412,9 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
   unreadable, and so refuses, until the project's next checkpoint removes it.
 - `projectStorage` went from 1 to 2 when the storage root came to record its
   layout (F-13), from 2 to 3 when history moved into segments (F-14), and
-  from 3 to 4 when the header gained the purging mark.
+  from 3 to 4 when the header gained the purging mark, and from 4 to 5 when
+  a cache's seal came to hold the identity of its bytes. `portableBundle` went
+  from 1 to 2 when a tree came to list its caches with their identities.
   Nothing has been persisted by a shipped build, so none carries a
   migration: stored data of an older version meets the compatibility screen.
 - F-14's bound: a checkpoint grows with branch points whose preference is not

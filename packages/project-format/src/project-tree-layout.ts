@@ -20,7 +20,8 @@
  * - `history/states/<fingerprint>.json`: a state the history keeps whole.
  * - `exports/<id>.json`: one export record.
  * - `media/<content id>`: managed media, as binary.
- * - `caches/<path>`: disposable caches, present only where asked for.
+ * - `caches/<path>`: disposable caches, present only where asked for, with
+ *   `caches/index.json` listing each one's length and content identity.
  *
  * One entity to a file, named by its stable identifier, is what keeps a change
  * to a project a change to the few files it touched, and a merge of two
@@ -67,6 +68,7 @@ export const BRANCH_NAMES_PATH = 'history/branch-names.json';
 export const RETENTION_PATH = 'history/retention.json';
 export const BACKUP_POLICY_PATH = 'project/backup-policy.json';
 export const COMPARISON_PATH = 'history/comparison.json';
+export const CACHE_INDEX_PATH = 'caches/index.json';
 
 const ENTITY_FILE = /^project\/([a-z-]+)\/([0-9a-f-]+)\.json$/u;
 const SOURCE_FILE = /^project\/assets\/([0-9a-f-]+)\.source\.json$/u;
@@ -94,6 +96,7 @@ export type TreePlace =
   | { readonly kind: 'state'; readonly fingerprint: StateFingerprint }
   | { readonly kind: 'export'; readonly id: string }
   | { readonly kind: 'media'; readonly contentId: ContentId }
+  | { readonly kind: 'cache-index' }
   | { readonly kind: 'cache'; readonly path: string };
 
 const FIXED_PLACES: ReadonlyMap<string, TreePlace> = new Map<string, TreePlace>([
@@ -105,6 +108,8 @@ const FIXED_PLACES: ReadonlyMap<string, TreePlace> = new Map<string, TreePlace>(
   [RETENTION_PATH, { kind: 'retention' }],
   [BACKUP_POLICY_PATH, { kind: 'backup-policy' }],
   [COMPARISON_PATH, { kind: 'comparison' }],
+  // Never a cache's path, which has a category, a scope and a name.
+  [CACHE_INDEX_PATH, { kind: 'cache-index' }],
 ]);
 
 /** What the file at `path` holds, or `undefined` for a path the tree never has. */

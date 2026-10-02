@@ -41,12 +41,14 @@ import {
   type ContentId,
   type Digest,
   type ProjectTreeContent,
+  type ProjectTreeFile,
   type StorageTree,
+  type TreeFileBody,
   type YieldToHost,
 } from '@audiogubbins/project-format';
 
 import type { BodyOpener } from './bundle-writing.js';
-import { cacheKeyOf, type CacheStore } from './cache-store.js';
+import { cacheKeyOf, type CacheScope, type CacheStore } from './cache-store.js';
 import { writeProject, type ProjectContents } from './project-creation.js';
 import { claimFor, type ImportIdentity, type ImportedProject } from './import-claim.js';
 import { contentAs } from './project-identity.js';
@@ -228,9 +230,8 @@ async function contentsOf(
 
 /**
  * Keeps the tree's media in the store and its caches in the cache store, each
- * read from where the tree was, and a cache derived from the project under the
- * identity the project is kept under. The identity of each object stored is
- * held in `held` until the project that refers to it is written.
+ * read from where the tree was. The identity of each object stored is held in
+ * `held` until the project that refers to it is written.
  */
 async function bringBodies(
   content: ProjectTreeContent,
@@ -246,25 +247,62 @@ async function bringBodies(
   for (const file of files.value) {
     const { body } = file;
     if (body.kind === 'text') continue;
-    const source = await open(file, signal);
-    if (!source.ok) return source;
-    if (body.kind === 'media') {
-      const stored = await services.store.put(source.value, signal === undefined ? {} : { signal });
-      if (!stored.ok) return stored;
-      held.push(stored.value.contentId);
-      if (stored.value.contentId !== body.contentId) return fail(mediaNotNamed(file.path));
-      continue;
-    }
-    const key = cacheKeyOf(body.path);
-    if (key === undefined) continue;
-    const scope =
-      key.scope.kind === 'project' && key.scope.project === from
-        ? { kind: 'project' as const, project }
-        : key.scope;
-    const kept = await services.caches.put({ ...key, scope }, source.value, signal);
-    if (!kept.ok) return kept;
+    const brought =
+      body.kind === 'media'
+        ? await bringMedia(file, body.contentId, open, held, services, signal)
+        : await bringCache(file, body, { from, project }, open, services, signal);
+    if (!brought.ok) return brought;
   }
   return succeed(undefined);
+}
+
+/** Keeps a piece of the tree's media in the store, which must be the media its name says. */
+async function bringMedia(
+  file: ProjectTreeFile,
+  named: ContentId,
+  open: BodyOpener,
+  held: ContentId[],
+  services: ImportServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<void>> {
+  const source = await open(file, signal);
+  if (!source.ok) return source;
+  const stored = await services.store.put(source.value, signal === undefined ? {} : { signal });
+  if (!stored.ok) return stored;
+  held.push(stored.value.contentId);
+  return stored.value.contentId === named ? succeed(undefined) : fail(mediaNotNamed(file.path));
+}
+
+/**
+ * Keeps a cache the tree carries, refused where its bytes are not the ones the
+ * tree's index lists: one derived from the project under the identity the
+ * project is kept under, and one derived from media only where the storage
+ * keeps none under its key. Media is shared, and so are its caches: one the
+ * storage made serves every project holding the media, and one brought in
+ * never replaces it.
+ */
+async function bringCache(
+  file: ProjectTreeFile,
+  body: Extract<TreeFileBody, { readonly kind: 'cache' }>,
+  identity: { readonly from: ProjectId; readonly project: ProjectId },
+  open: BodyOpener,
+  services: ImportServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<void>> {
+  // A cache of no key this build keeps was refused before anything was written.
+  const key = cacheKeyOf(body.path);
+  if (key === undefined) return succeed(undefined);
+  if (key.scope.kind === 'media') {
+    const kept = await services.caches.holds(key, signal);
+    if (!kept.ok || kept.value) return kept.ok ? succeed(undefined) : kept;
+  }
+  const scope: CacheScope =
+    key.scope.kind === 'project' && key.scope.project === identity.from
+      ? { kind: 'project', project: identity.project }
+      : key.scope;
+  const source = await open(file, signal);
+  if (!source.ok) return source;
+  return await services.caches.putListed({ ...key, scope }, source.value, body.contentId, signal);
 }
 
 function mediaNotNamed(path: string): DomainFailure {

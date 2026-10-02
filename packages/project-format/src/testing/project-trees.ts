@@ -165,7 +165,13 @@ export async function historyContent(
       { contentId: contentIdOfDigit('a'), byteLength: 9_600 },
       { contentId: contentIdOfDigit('b'), byteLength: 0 },
     ],
-    caches: [{ path: `waveform/${contentIdOfDigit('a')}/peaks-256`, byteLength: 12 }],
+    caches: [
+      {
+        path: `waveform/${contentIdOfDigit('a')}/peaks-256`,
+        byteLength: 12,
+        contentId: contentIdOfDigit('c'),
+      },
+    ],
   };
 }
 

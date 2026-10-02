@@ -1,24 +1,35 @@
 import { describe, expect, it } from 'vitest';
 
+import type { ProjectId } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import type { ByteSource } from '@audiogubbins/project-format';
 
-import { exportBundle, importBundle } from './project-transfer.js';
-import { memorySink, storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
+import { CacheCategory, type CacheKey } from './cache-store.js';
+import { exportBundle, exportUnpacked, importBundle, importUnpacked } from './project-transfer.js';
+import {
+  MemoryDirectory,
+  memorySink,
+  storageOf,
+  storedMedia,
+  type TestStorage,
+} from './testing/memory-ports.js';
 import { madeProject, openToWrite } from './testing/storage-harness.js';
 import { addAsset, setName } from './testing/test-commands.js';
 import { harness } from './testing/node-services.js';
 
 /**
- * Bringing a project in from its tree (REQ-STOR-103, REQ-STOR-099): the
- * identity it is kept under, decided once the tree is read.
+ * Bringing a project in from its tree (REQ-STOR-103, REQ-STOR-099,
+ * REQ-STOR-027): the identity it is kept under, decided once the tree is read,
+ * and the caches it carries, each checked against the identity the tree lists
+ * for it and none kept over a cache of shared media the storage holds.
  */
 
 const WHOLE = { scope: { kind: 'whole-history' }, includeCaches: false } as const;
+const WITH_CACHES = { ...WHOLE, includeCaches: true } as const;
 
-/** A project with media and a change, closed, and its bundle. */
-async function bundledProject(seed: number) {
+/** A project with media, a change and a cache of each kind it carries, closed, in its storage. */
+async function cachedProject(seed: number) {
   const test = harness(seed);
   const storage = storageOf(test, new MemoryStorageTree());
   const media = await storedMedia(storage.store, seed);
@@ -27,11 +38,54 @@ async function bundledProject(seed: number) {
   expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
   expectSuccess(await session.run(setName('Brought in')));
   expectSuccess(await session.close());
+  const preview: CacheKey = {
+    category: CacheCategory.Render,
+    scope: { kind: 'project', project: header.id },
+    name: 'preview',
+  };
+  const peaks: CacheKey = {
+    category: CacheCategory.Waveform,
+    scope: { kind: 'media', content: media },
+    name: 'peaks',
+  };
+  expectSuccess(await storage.caches.put(preview, new Uint8Array([1, 2, 3])));
+  expectSuccess(await storage.caches.put(peaks, new Uint8Array([4, 5, 6, 7])));
+  return { project: header.id, storage, media, preview, peaks };
+}
+
+/** A project's bundle, with its caches where asked. */
+async function bundleOf(
+  storage: TestStorage,
+  project: ProjectId,
+  options: typeof WHOLE | typeof WITH_CACHES = WHOLE,
+) {
   const sink = memorySink();
   expectSuccess(
-    expectSuccess(await exportBundle(header.id, sink, WHOLE, storage.exporting)).written,
+    expectSuccess(await exportBundle(project, sink, options, storage.exporting)).written,
   );
-  return { project: header.id, bundle: sink.bytes() };
+  return sink.bytes();
+}
+
+/** A project with media and a change, closed, and its bundle. */
+async function bundledProject(seed: number) {
+  const { project, storage } = await cachedProject(seed);
+  return { project, bundle: await bundleOf(storage, project) };
+}
+
+/** A project's unpacked tree, caches and all. */
+async function unpackedTree(storage: TestStorage, project: ProjectId) {
+  const directory = new MemoryDirectory();
+  const attempt = expectSuccess(
+    await exportUnpacked(project, directory, WITH_CACHES, storage.exporting),
+  );
+  expectSuccess(attempt.written);
+  return directory;
+}
+
+/** The bytes of the cache kept under `key`, or `undefined` where none is kept. */
+async function cacheBytes(storage: TestStorage, key: CacheKey) {
+  const opened = expectSuccess(await storage.caches.open(key));
+  return opened === undefined ? undefined : await opened.read(0, opened.size);
 }
 
 /** `bytes` as a source that counts every byte read from it. */
@@ -122,3 +176,81 @@ describe('the identity a project is brought in under', () => {
     expect(await listed()).toEqual(before);
   });
 });
+
+describe('the caches a project brings in', () => {
+  it('keeps a cache of the project under the identity of the copy, beside the original one', async () => {
+    const { project, storage, preview } = await cachedProject(311);
+    const bundle = await bundleOf(storage, project, WITH_CACHES);
+    const target = storageOf(harness(312), new MemoryStorageTree());
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+    expectSuccess(await target.caches.put(preview, new Uint8Array([9])));
+
+    const { header } = expectSuccess(
+      await importBundle(memorySource(bundle), 'copy', target.importing),
+    );
+
+    const copied: CacheKey = { ...preview, scope: { kind: 'project', project: header.id } };
+    expect(await cacheBytes(target, copied)).toEqual(new Uint8Array([1, 2, 3]));
+    expect(await cacheBytes(target, preview)).toEqual(new Uint8Array([9]));
+  });
+
+  it('keeps a cache of media the project carries', async () => {
+    const { project, storage, peaks } = await cachedProject(313);
+    const bundle = await bundleOf(storage, project, WITH_CACHES);
+    const target = storageOf(harness(314), new MemoryStorageTree());
+
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+
+    expect(await cacheBytes(target, peaks)).toEqual(new Uint8Array([4, 5, 6, 7]));
+  });
+
+  it('refuses a cache of media the project does not carry, and keeps nothing', async () => {
+    const { project, storage, media } = await cachedProject(315);
+    const elsewhere = await storedMedia(storage.store, 316);
+    const directory = await unpackedTree(storage, project);
+    moveCache(directory, `waveform/${media}/peaks`, `waveform/${elsewhere}/peaks`);
+    const target = storageOf(harness(317), new MemoryStorageTree());
+
+    const refused = await importUnpacked(directory, 'original', target.importing);
+
+    expect(expectFailureCode(refused)).toBe('storage.bundle-cache-foreign');
+    expect(await target.tree.list('projects')).toEqual([]);
+  });
+
+  it('never replaces a cache of media the storage holds already', async () => {
+    const { project, storage, peaks } = await cachedProject(318);
+    const bundle = await bundleOf(storage, project, WITH_CACHES);
+    const target = storageOf(harness(319), new MemoryStorageTree());
+    expectSuccess(await target.caches.put(peaks, new Uint8Array([8, 8])));
+
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+
+    expect(await cacheBytes(target, peaks)).toEqual(new Uint8Array([8, 8]));
+  });
+
+  it('refuses a cache of an unpacked tree whose bytes are not the ones the tree lists', async () => {
+    const { project, storage, preview } = await cachedProject(320);
+    const directory = await unpackedTree(storage, project);
+    const path = `caches/render/${project}/preview`;
+    expect(directory.files.get(path)).toEqual(new Uint8Array([1, 2, 3]));
+    directory.files.set(path, new Uint8Array([1, 2, 4]));
+    const target = storageOf(harness(321), new MemoryStorageTree());
+
+    const refused = await importUnpacked(directory, 'original', target.importing);
+
+    expect(expectFailureCode(refused)).toBe('storage.cache-damaged');
+    expect(await target.tree.list('projects')).toEqual([]);
+    expect(await cacheBytes(target, preview)).toBeUndefined();
+  });
+});
+
+/** Moves a cache of an unpacked tree from one path under `caches/` to another, index and all. */
+function moveCache(directory: MemoryDirectory, from: string, to: string): void {
+  const bytes = directory.files.get(`caches/${from}`);
+  const index = directory.files.get('caches/index.json');
+  if (bytes === undefined || index === undefined) throw new Error('The tree carries no cache.');
+  directory.files.delete(`caches/${from}`);
+  directory.files.set(`caches/${to}`, bytes);
+  const text = new TextDecoder().decode(index).replace(`"${from}"`, `"${to}"`);
+  directory.files.set('caches/index.json', new TextEncoder().encode(text));
+}

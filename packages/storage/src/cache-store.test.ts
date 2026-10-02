@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree, generatedSource } from '@audiogubbins/media-store/testing';
+import { contentIdOf } from '@audiogubbins/project-format';
 
 import {
   CACHE_CLEANUP_ORDER,
@@ -13,6 +14,7 @@ import {
   unstoredScope,
   type CacheKey,
 } from './cache-store.js';
+import { bytesSource } from './byte-streams.js';
 import { sweepCrashes } from './testing/crash-sweep.js';
 import { contentOf } from './testing/test-commands.js';
 import { nodeDigest } from './testing/node-services.js';
@@ -92,7 +94,10 @@ describe('the cache store (REQ-STOR-027, REQ-STOR-106)', () => {
 
     const entries = [];
     for await (const entry of store.entries(CacheCategory.Waveform)) entries.push(entry);
-    expect(entries).toEqual([{ key: PEAKS, byteLength: 10 }]);
+    const { contentId } = expectSuccess(
+      await contentIdOf(bytesSource(new Uint8Array(10)), nodeDigest),
+    );
+    expect(entries).toEqual([{ key: PEAKS, byteLength: 10, contentId }]);
     const usage = expectSuccess(await store.usage());
     expect(usage.get(CacheCategory.Render)).toBeGreaterThan(30);
 

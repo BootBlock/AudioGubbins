@@ -46,8 +46,8 @@ import { CACHE_CLEANUP_ORDER, cacheKeyOf, cachePathOf, type CacheStore } from '.
 import { choiceOf } from './comparison-record.js';
 import { contentIdsIn } from './content-references.js';
 import { offeredStates, type ProjectCopy } from './project-copy.js';
-import { provedMedia } from './proved-media.js';
-import { refusalsReported } from './storage-failures.js';
+import { provedBytes } from './proved-bytes.js';
+import { mediaDamaged, refusalsReported } from './storage-failures.js';
 
 /**
  * How much of a project a bundle or tree holds: the whole history, with full
@@ -211,12 +211,12 @@ async function cachesOf(
   return await refusalsReported(async () => {
     const caches: TreeCache[] = [];
     for (const category of CACHE_CLEANUP_ORDER) {
-      for await (const { key, byteLength } of sources.caches.entries(category, signal)) {
+      for await (const { key, byteLength, contentId } of sources.caches.entries(category, signal)) {
         const { scope } = key;
         const derived =
           (scope.kind === 'media' && carried.has(scope.content)) ||
           (scope.kind === 'project' && scope.project === copy.project);
-        if (derived) caches.push({ path: cachePathOf(key), byteLength });
+        if (derived) caches.push({ path: cachePathOf(key), byteLength, contentId });
       }
     }
     return succeed(caches);
@@ -239,7 +239,12 @@ export function storedBodies(sources: TreeSources): BodyOpener {
       case 'media': {
         const opened = await sources.store.open(body.contentId);
         return opened.ok
-          ? await provedMedia(opened.value, body.contentId, path, sources.digest)
+          ? await provedBytes(
+              opened.value,
+              body.contentId,
+              sources.digest,
+              mediaDamaged(path, body.contentId),
+            )
           : opened;
       }
       case 'cache': {
@@ -247,15 +252,17 @@ export function storedBodies(sources: TreeSources): BodyOpener {
         const opened =
           key === undefined ? succeed(undefined) : await sources.caches.open(key, signal);
         if (!opened.ok) return opened;
+        // A cache given up or made again since the tree was listed is not the
+        // cache the tree lists, which proving finds as it is read.
+        const changed = failure(
+          'storage.cache-gone',
+          FailureKind.Conflict,
+          'A cache was given up or made again while the project was being copied.',
+          { details: { cache: body.path } },
+        );
         return opened.value === undefined
-          ? fail(
-              failure(
-                'storage.cache-gone',
-                FailureKind.Conflict,
-                'A cache was given up while the project was being copied.',
-              ),
-            )
-          : succeed(opened.value);
+          ? fail(changed)
+          : await provedBytes(opened.value, body.contentId, sources.digest, changed);
       }
     }
   };

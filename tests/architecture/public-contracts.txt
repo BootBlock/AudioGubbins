@@ -2521,6 +2521,7 @@ Published paths
   interface TreeCache
   readonly TreeCache.path: string
   readonly TreeCache.byteLength: number
+  readonly TreeCache.contentId: ContentId
   interface TreeEntry
   readonly TreeEntry.name: string
   readonly TreeEntry.kind: "directory" | "file"
@@ -2529,7 +2530,7 @@ Published paths
   readonly TreeFailure.kind: TreeFailureKind
   const TreeFailureKind: { readonly Quota: "quota"; readonly Unavailable: "unavailable"; readonly Io: "io"; }
   type TreeFailureKind = "io" | "quota" | "unavailable"
-  type TreeFileBody = { readonly kind: "cache"; readonly path: string; readonly byteLength: number; } | { readonly kind: "media"; readonly contentId: ContentId; readonly byteLength: number; } | { readonly kind: "text"; readonly bytes: Uint8Array<ArrayBuffer>; }
+  type TreeFileBody = { readonly kind: "cache"; readonly path: string; readonly byteLength: number; readonly contentId: ContentId; } | { readonly kind: "media"; readonly contentId: ContentId; readonly byteLength: number; } | { readonly kind: "text"; readonly bytes: Uint8Array<ArrayBuffer>; }
   interface TreeHeader
   readonly TreeHeader.project: ProjectId
   readonly TreeHeader.displayName: string
@@ -2868,6 +2869,7 @@ Published paths
   interface CacheEntry
   readonly CacheEntry.key: CacheKey
   readonly CacheEntry.byteLength: number
+  readonly CacheEntry.contentId: ContentId
   interface CacheKey
   readonly CacheKey.category: CacheCategory
   readonly CacheKey.scope: CacheScope
@@ -2877,7 +2879,10 @@ Published paths
   new CacheStore(tree: StorageTree, digest: Digest): CacheStore
   readonly CacheStore.records: CheckedRecords
   CacheStore.put: (key: CacheKey, bytes: ByteSource | Uint8Array<ArrayBuffer>, signal?: AbortSignal) => Promise<DomainResult<void>>
+  CacheStore.putListed: (key: CacheKey, source: ByteSource, expected: ContentId, signal?: AbortSignal) => Promise<DomainResult<void>>
+  CacheStore.holds: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<boolean>>
   CacheStore.open: (key: CacheKey, signal?: AbortSignal) => Promise<DomainResult<ByteSource | undefined>>
+  CacheStore.written: (key: CacheKey, source: ByteSource, expected: ContentId | undefined, signal?: AbortSignal) => Promise<DomainResult<void>>
   CacheStore.evict: (key: CacheKey) => Promise<DomainResult<void>>
   CacheStore.evictScope: (category: CacheCategory, scope: CacheScope) => Promise<DomainResult<void>>
   CacheStore.evictCategory: (category: CacheCategory, signal?: AbortSignal) => Promise<DomainResult<number>>
@@ -2885,7 +2890,7 @@ Published paths
   CacheStore.usage: (signal?: AbortSignal) => Promise<DomainResult<ReadonlyMap<CacheCategory, number>>>
   CacheStore.tree: StorageTree
   CacheStore.path: (key: CacheKey) => string
-  CacheStore.whole: (path: string, signal?: AbortSignal) => Promise<ByteSource | undefined>
+  CacheStore.whole: (path: string, signal?: AbortSignal) => Promise<WholeCache | undefined>
   CacheStore.filesOf: (category: CacheCategory, signal?: AbortSignal) => AsyncGenerator<string, void, undefined>
   type CatalogueEntry = { readonly kind: "project"; readonly header: ProjectHeader; } | { readonly kind: "unreadable"; readonly name: string; readonly faults: readonly RecordFault[]; }
   interface CatalogueServices
@@ -3710,7 +3715,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 4; readonly portableBundle: 1; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 5; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -4566,6 +4571,11 @@ packages/storage/src/bundle-reading.ts
   interface BundleServices
   readonly BundleServices.digest: Digest
   readonly BundleServices.yieldToHost: YieldToHost
+
+packages/storage/src/cache-store.ts
+  interface WholeCache
+  readonly WholeCache.source: ByteSource
+  readonly WholeCache.contentId: ContentId
 
 packages/storage/src/checked-records.ts
   type CheckedReading<TValue> = { readonly kind: "absent"; } | { readonly kind: "invalid"; readonly fault: RecordFault; } | { readonly kind: "valid"; readonly value: TValue; }

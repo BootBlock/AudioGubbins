@@ -368,11 +368,16 @@ describe('the caches a bundle carries (REQ-STOR-027)', () => {
     // Brought in, it would be kept as though derived from something this
     // storage holds, where nothing it holds made it.
     const { preview, peaks, bundle } = await projectWithCaches(32);
-    const planted = await rebuilt(
-      bundle,
-      (_path, bytes) => bytes,
-      'listing the edits',
-      (path) => (path === `caches/${cachePathOf(preview)}` ? `caches/${cachePathOf(peaks)}` : path),
+    // The index of caches lists it where it now lies, so the tree agrees with
+    // itself and only what the cache was made from is wrong.
+    const listedWhereMoved = (path: string, bytes: Uint8Array<ArrayBuffer>) =>
+      path === 'caches/index.json'
+        ? new TextEncoder().encode(
+            new TextDecoder().decode(bytes).replace(cachePathOf(preview), cachePathOf(peaks)),
+          )
+        : bytes;
+    const planted = await rebuilt(bundle, listedWhereMoved, 'listing the edits', (path) =>
+      path === `caches/${cachePathOf(preview)}` ? `caches/${cachePathOf(peaks)}` : path,
     );
 
     const target = storageOf(harness(132), new MemoryStorageTree());

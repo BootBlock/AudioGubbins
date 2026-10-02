@@ -14,9 +14,11 @@
  *
  * Every problem is reported, each at the path of its file. Media and caches are
  * placed by their paths and lengths and never read here: their bytes are the
- * caller's to stream and check. What is read round-trips: the files written
- * from it are the files it was read from, where those were written by
- * {@link projectTree}.
+ * caller's to stream and check, media against the identity its name is and a
+ * cache against the one the tree's index of caches lists for it, which must
+ * list every cache the tree holds at its length. What is read round-trips: the
+ * files written from it are the files it was read from, where those were
+ * written by {@link projectTree}.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -41,18 +43,21 @@ import type { TreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
   BRANCH_NAMES_PATH,
+  CACHE_INDEX_PATH,
   COMPARISON_PATH,
   CURSOR_PATH,
   ENTITY_DIRECTORIES,
   RETENTION_PATH,
   SETTINGS_PATH,
   TRACK_ORDER_PATH,
+  cachePath,
   snapshotPath,
 } from './project-tree-layout.js';
-import type { ProjectTreeContent, ProjectTreeHistory, TreeCache } from './project-tree-writing.js';
+import type { ProjectTreeContent, ProjectTreeHistory } from './project-tree-writing.js';
 import { stripAssetProvenance, stripExportRecords } from './provenance-stripping.js';
 import { readRetentionPolicy } from './retention-json.js';
 import { readBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
+import { readCacheIndex, type TreeCache } from './cache-index-json.js';
 import { readComparisonChoice, type ComparisonChoiceRecord } from './comparison-choice-json.js';
 
 const CURSOR_MEMBERS: ReadonlySet<string> = new Set(['cursor', 'preferred']);
@@ -89,16 +94,15 @@ export async function readProjectTree(
     contentId: place.contentId,
     byteLength: size,
   }));
-  const caches: TreeCache[] = tree
-    .ofKind('cache')
-    .map(({ place, size }) => ({ path: place.path, byteLength: size }));
+  const caches = header.value.caches ? await readCaches(tree) : undefined;
 
   const [first, ...rest] = tree.problems;
   if (first !== undefined) return fail(first, ...rest);
   if (
     state === undefined ||
     backup === undefined ||
-    (header.value.history && history === undefined)
+    (header.value.history && history === undefined) ||
+    (header.value.caches && caches === undefined)
   ) {
     throw new Error('A tree read with no problem found must have given its parts.');
   }
@@ -109,7 +113,7 @@ export async function readProjectTree(
     exports: stripExportRecords(exports, provenance),
     backup,
     media,
-    ...(header.value.caches ? { caches } : {}),
+    ...(caches === undefined ? {} : { caches }),
   });
 }
 
@@ -284,6 +288,30 @@ async function readStates(
     }
   }
   return states;
+}
+
+/**
+ * The caches the tree's index lists, each held by the tree at the length
+ * listed, and refused where the tree holds a cache the index does not list.
+ */
+async function readCaches(tree: TreeReading): Promise<readonly TreeCache[] | undefined> {
+  const index = await tree.single('cache-index', CACHE_INDEX_PATH);
+  const listed =
+    index === undefined ? undefined : tree.convertedValue(index, CACHE_INDEX_PATH, readCacheIndex);
+  const held = new Map(tree.ofKind('cache').map(({ path, size }) => [path, size]));
+  if (listed === undefined) return undefined;
+  const named = new Set<string>();
+  for (const { path, byteLength } of listed) {
+    const file = cachePath(path);
+    named.add(file);
+    const size = held.get(file);
+    if (size === undefined) tree.refuse('tree.cache-missing', file);
+    else if (size !== byteLength) tree.refuse('tree.cache-length', file);
+  }
+  for (const file of held.keys()) {
+    if (!named.has(file)) tree.refuse('tree.cache-unlisted', file);
+  }
+  return listed;
 }
 
 /** The export log, oldest first, and by identifier where two share a time. */

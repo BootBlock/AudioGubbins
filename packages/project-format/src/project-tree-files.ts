@@ -101,7 +101,7 @@ export class TreeReading {
       else if (place === undefined) this.refuse('tree.unknown-file', path);
       else if (
         (HISTORY_PLACES.has(place.kind) && !header.history) ||
-        (place.kind === 'cache' && !header.caches)
+        ((place.kind === 'cache' || place.kind === 'cache-index') && !header.caches)
       ) {
         this.refuse('tree.unexpected-file', path);
       } else this.placed.push({ path, size, place });
@@ -230,6 +230,9 @@ const SUMMARIES: ReadonlyMap<string, string> = new Map([
   ['tree.state-mismatch', 'A kept state is not the state its name promises.'],
   ['tree.snapshot-state-missing', 'A snapshot’s state is not in the tree.'],
   ['tree.cursor-state-mismatch', 'The project’s state is not the one its history is at.'],
+  ['tree.cache-unlisted', 'The tree holds a cache its index of caches does not list.'],
+  ['tree.cache-missing', 'The tree lacks a cache its index of caches lists.'],
+  ['tree.cache-length', 'A cache is not the length its index of caches lists.'],
 ]);
 
 /** The failure of a metadata file longer than {@link LONGEST_METADATA}. */

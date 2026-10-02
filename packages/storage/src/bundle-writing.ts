@@ -7,10 +7,10 @@
  * each streamed from wherever it is kept and never held whole, so one tree
  * always gives the same archive, byte for byte, and a bundle unpacked and
  * packed again is the bundle it was. Every identity in the manifest is taken
- * from the bytes, but for media the store keeps, whose identity the store
- * proved when it kept it and which is proved again as it is written into the
- * archive (`proved-media.ts`); media from anywhere else is hashed and must be
- * the media its name says.
+ * from the bytes, but for media and caches the storage keeps, whose identity it
+ * took when it kept them and which are proved again as they are written into
+ * the archive (`proved-bytes.ts`); media and caches from anywhere else are
+ * hashed and must be the bytes the tree names.
  */
 
 import {
@@ -38,6 +38,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { bytesSource } from './byte-streams.js';
+import { cacheNotListed } from './cache-store.js';
 import { CarriedFailure, mediaDamaged, refusalsReported } from './storage-failures.js';
 
 /** How the bytes of a media file or a cache of a tree are read. */
@@ -51,7 +52,7 @@ interface BundleWriting {
   readonly open: BodyOpener;
   readonly digest: Digest;
 
-  /** Whether media is hashed to prove it, where it does not come from the store. */
+  /** Whether media and caches are hashed to prove them, where they do not come from storage. */
   readonly proveMedia: boolean;
 
   /** Asked as the archive is written, whose chunks may be read and checksummed at once. */
@@ -117,7 +118,7 @@ async function manifestEntries(
   const entries: ManifestEntry[] = [];
   for (const file of files) {
     const { path, body } = file;
-    if (body.kind === 'media' && !writing.proveMedia) {
+    if (body.kind !== 'text' && !writing.proveMedia) {
       entries.push({ path, size: body.byteLength, contentId: body.contentId });
       continue;
     }
@@ -133,8 +134,10 @@ async function manifestEntries(
     );
     if (!identity.ok) return identity;
     const { contentId, byteLength } = identity.value;
-    if (body.kind === 'media' && contentId !== body.contentId) {
-      return fail(mediaDamaged(path, body.contentId));
+    if (body.kind !== 'text' && contentId !== body.contentId) {
+      return fail(
+        body.kind === 'media' ? mediaDamaged(path, body.contentId) : cacheNotListed(body.path),
+      );
     }
     entries.push({ path, size: byteLength, contentId });
   }

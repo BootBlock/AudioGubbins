@@ -10,20 +10,28 @@
  * built-in test signal or the sound of a reference picture, the digest of the
  * identity it is known by, so its caches are counted and given up with the rest
  * (ADR-0043). The tree writes nothing atomically, so a cache is trusted only
- * once a checked seal beside it says how long it is; one that was torn, or
- * whose seal is missing, reads as absent, which is what losing a cache must
- * mean: the caller makes it again, and nothing authoritative ever depends on
- * it. The categories are ranked in the order storage pressure gives them up.
+ * once a checked seal beside it says how long it is and the identity of its
+ * bytes, taken as they were written; one that was torn, or whose seal is
+ * missing, reads as absent, which is what losing a cache must mean: the caller
+ * makes it again, and nothing authoritative ever depends on it. A cache copied
+ * out is proved against that identity as it is read, and one brought in from a
+ * bundle or a tree is refused where its bytes are not the ones the tree lists.
+ * The categories are ranked in the order storage pressure gives them up.
  */
 
 import {
+  FailureKind,
+  fail,
+  failure,
   isWellFormedId,
   succeed,
   unsafeBrandId,
+  type DomainFailure,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
 import {
+  asContentId,
   contentIdFrom,
   isContentId,
   isTreeSegment,
@@ -39,6 +47,7 @@ import {
 
 import { bytesSource, streamInto } from './byte-streams.js';
 import { CheckedRecords, RecordKind } from './checked-records.js';
+import { HashingSink } from './hashing-sink.js';
 import { asWholeNumber } from './record-values.js';
 import { refusalsReported } from './storage-failures.js';
 import { CACHE_DIRECTORY } from './storage-layout.js';
@@ -121,20 +130,37 @@ export interface CacheKey {
   readonly name: string;
 }
 
-/** A cache kept whole, and its length. */
+/** A cache kept whole, its length, and the identity of its bytes. */
 export interface CacheEntry {
   readonly key: CacheKey;
   readonly byteLength: number;
+  readonly contentId: ContentId;
+}
+
+/** What a cache's seal says of it. */
+interface CacheSeal {
+  readonly byteLength: number;
+  readonly contentId: ContentId;
+}
+
+/** A cache kept whole: its bytes, and the identity its seal gives them. */
+interface WholeCache {
+  readonly source: ByteSource;
+  readonly contentId: ContentId;
 }
 
 const SEAL_SUFFIX = '.seal';
-const SEAL_MEMBERS: ReadonlySet<string> = new Set(['byteLength']);
+const SEAL_MEMBERS: ReadonlySet<string> = new Set(['byteLength', 'contentId']);
 
-const readSeal: Converter<number> = (reading, value, parent, key) => {
+const readSeal: Converter<CacheSeal> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, SEAL_MEMBERS);
-  return object === undefined
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const byteLength = required(reading, object, at, 'byteLength', asWholeNumber);
+  const contentId = required(reading, object, at, 'contentId', asContentId);
+  return byteLength === undefined || contentId === undefined
     ? undefined
-    : required(reading, object, pathOf(parent, key), 'byteLength', asWholeNumber);
+    : { byteLength, contentId };
 };
 
 /** The path of a cache under the cache directory: `<category>/<scope>/<name>`. */
@@ -188,29 +214,70 @@ export class CacheStore {
     bytes: ByteSource | Uint8Array<ArrayBuffer>,
     signal?: AbortSignal,
   ): Promise<DomainResult<void>> {
-    if (!isCacheName(key.name)) throw new Error(`Not a cache's name: ${key.name}`);
     // Told apart by what the bytes are, not by `instanceof`, which answers for
     // one realm's arrays alone and so not for bytes cloned from another's.
     const source = ArrayBuffer.isView(bytes) ? bytesSource(bytes) : bytes;
-    const path = this.path(key);
-    return await refusalsReported(async () => {
-      // The seal goes first, so a cache torn while it is replaced is never
-      // taken for whole under the seal of the one before it.
-      await this.tree.remove(`${path}${SEAL_SUFFIX}`);
-      const written = await streamInto(source, await this.tree.createFile(path), signal);
-      if (!written.ok) return written;
-      return await this.records.write(
-        `${path}${SEAL_SUFFIX}`,
-        RecordKind.CacheSeal,
-        { byteLength: source.size },
-        signal,
-      );
-    });
+    return await refusalsReported(async () => await this.written(key, source, undefined, signal));
+  }
+
+  /**
+   * Keeps a cache brought in from a bundle or a tree, which lists its bytes as
+   * `expected`, replacing any under its key; refused, with nothing kept, where
+   * its bytes are not those.
+   */
+  async putListed(
+    key: CacheKey,
+    source: ByteSource,
+    expected: ContentId,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<void>> {
+    return await refusalsReported(async () => await this.written(key, source, expected, signal));
+  }
+
+  /** Whether a cache is kept whole under a key. */
+  async holds(key: CacheKey, signal?: AbortSignal): Promise<DomainResult<boolean>> {
+    return await refusalsReported(async () =>
+      succeed((await this.whole(this.path(key), signal)) !== undefined),
+    );
   }
 
   /** The cache under a key, where it is kept whole. */
   async open(key: CacheKey, signal?: AbortSignal): Promise<DomainResult<ByteSource | undefined>> {
-    return await refusalsReported(async () => succeed(await this.whole(this.path(key), signal)));
+    return await refusalsReported(async () =>
+      succeed((await this.whole(this.path(key), signal))?.source),
+    );
+  }
+
+  /**
+   * Writes a cache and then its seal, hashing the bytes as they are written;
+   * where they are not `expected`, removes them and fails.
+   */
+  private async written(
+    key: CacheKey,
+    source: ByteSource,
+    expected: ContentId | undefined,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<void>> {
+    if (!isCacheName(key.name)) throw new Error(`Not a cache's name: ${key.name}`);
+    const path = this.path(key);
+    // The seal goes first, so a cache torn while it is replaced is never
+    // taken for whole under the seal of the one before it.
+    await this.tree.remove(`${path}${SEAL_SUFFIX}`);
+    const sink = new HashingSink(await this.tree.createFile(path), this.records.digest);
+    const streamed = await streamInto(source, sink, signal);
+    if (!streamed.ok) return streamed;
+    const { contentId } = sink.identity;
+    if (expected !== undefined && contentId !== expected) {
+      await this.tree.remove(path);
+      return fail(cacheNotListed(cachePathOf(key)));
+    }
+    const seal: CacheSeal = { byteLength: source.size, contentId };
+    return await this.records.write(
+      `${path}${SEAL_SUFFIX}`,
+      RecordKind.CacheSeal,
+      { ...seal },
+      signal,
+    );
   }
 
   /** Gives up the cache under a key. */
@@ -258,7 +325,9 @@ export class CacheStore {
       const key = cacheKeyOf(path.slice(CACHE_DIRECTORY.length + 1));
       if (key === undefined) continue;
       const whole = await this.whole(path, signal);
-      if (whole !== undefined) yield { key, byteLength: whole.size };
+      if (whole !== undefined) {
+        yield { key, byteLength: whole.source.size, contentId: whole.contentId };
+      }
     }
   }
 
@@ -286,7 +355,7 @@ export class CacheStore {
   }
 
   /** The cache at a path, where its seal is valid and its length is the seal's. */
-  private async whole(path: string, signal?: AbortSignal): Promise<ByteSource | undefined> {
+  private async whole(path: string, signal?: AbortSignal): Promise<WholeCache | undefined> {
     const seal = await this.records.read(
       `${path}${SEAL_SUFFIX}`,
       RecordKind.CacheSeal,
@@ -295,7 +364,9 @@ export class CacheStore {
     );
     if (seal.kind !== 'valid') return undefined;
     const data = await this.tree.openFile(path);
-    return data?.size === seal.value ? data : undefined;
+    return data?.size === seal.value.byteLength
+      ? { source: data, contentId: seal.value.contentId }
+      : undefined;
   }
 
   /** Every file of a category, seals among them, in path order. */
@@ -316,4 +387,14 @@ export class CacheStore {
       }
     }
   }
+}
+
+/** The failure of a cache brought in whose bytes are not the ones listed for it. */
+export function cacheNotListed(path: string): DomainFailure {
+  return failure(
+    'storage.cache-damaged',
+    FailureKind.IntegrityViolation,
+    'A cache is not the cache the project lists.',
+    { details: { cache: path } },
+  );
 }
