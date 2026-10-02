@@ -1,7 +1,8 @@
 /**
  * The ports the page lent the storage worker, as the storage's own ports: a
- * sink, a source, a folder to read or write and the search for a linked file,
- * each calling the page by the number it was lent as (ADR-0022).
+ * sink, a source, a folder to read or write, the backups folder and the search
+ * for a linked file, each calling the page by the number it was lent as
+ * (ADR-0022).
  *
  * The storage works through these as through any other, so a refusal the page
  * meets, such as a file system refusing a write, reaches the storage as the
@@ -19,6 +20,7 @@ import type {
   ConsolidationServices,
   DirectoryReader,
   DirectoryWriter,
+  ExternalBackupTarget,
 } from '@audiogubbins/storage';
 
 import type {
@@ -163,6 +165,14 @@ export function pageWriter(channel: HostChannel, port: PagePort): DirectoryWrite
     remove: async (path) => {
       await channel.call('folder.remove', { port, path });
     },
+  };
+}
+
+/** The backups folder the page lent as `port`. */
+export function pageBackupFolder(channel: HostChannel, port: PagePort): ExternalBackupTarget {
+  return {
+    create: async (generation) =>
+      pageSink(channel, await channel.call('backupFolder.create', { port, generation })),
   };
 }
 

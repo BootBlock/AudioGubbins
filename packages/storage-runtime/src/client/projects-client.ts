@@ -63,13 +63,24 @@ async function openUnder(
 }
 
 /** The projects the page opens, over the page's end of the port. */
-export function projectsClient(channel: ClientChannel): ProjectsClient {
-  let next: ProjectHandle = 0;
+export function projectsClient(
+  channel: ClientChannel,
+  nextHandle: () => ProjectHandle,
+): ProjectsClient {
   return {
-    open: async (request) => {
-      const handle = next;
-      next += 1;
-      return await openUnder(channel, handle, request);
-    },
+    open: async (request) => await openUnder(channel, nextHandle(), request),
+  };
+}
+
+/**
+ * The handles the page names the projects it holds by, each new: one counter
+ * for every way a project comes to be held, an opening or a restore.
+ */
+export function handleCounter(): () => ProjectHandle {
+  let next: ProjectHandle = 0;
+  return () => {
+    const handle = next;
+    next += 1;
+    return handle;
   };
 }

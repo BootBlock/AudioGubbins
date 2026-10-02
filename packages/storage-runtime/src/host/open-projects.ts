@@ -13,7 +13,7 @@
  */
 
 import type { ProjectState } from '@audiogubbins/project-format';
-import type { OpenedProject, ProjectSession, ReadOnlyProject } from '@audiogubbins/storage';
+import type { ProjectSession, ReadOnlyProject } from '@audiogubbins/storage';
 
 import {
   openingStream,
@@ -24,16 +24,24 @@ import {
 import type { HostChannel } from '../protocol/storage-operations.js';
 import { firstUpdate, historySlices, updateSince } from './project-updates.js';
 
+/**
+ * A project open in the worker, to write or to read: one opened, or the
+ * session a restore left open.
+ */
+export type HeldProject =
+  | { readonly kind: 'writable'; readonly session: ProjectSession }
+  | { readonly kind: 'read-only'; readonly view: ReadOnlyProject };
+
 /** A project held, and how to stop hearing it. */
 interface Held {
-  readonly opened: OpenedProject;
+  readonly opened: HeldProject;
   readonly stopHearing: () => void;
 }
 
 /** What a session and a view both offer: their snapshots. */
 type Published = Pick<ProjectSession, 'subscribe' | 'getSnapshot'>;
 
-function publisherOf(opened: OpenedProject): Published {
+function publisherOf(opened: HeldProject): Published {
   return opened.kind === 'writable' ? opened.session : opened.view;
 }
 
@@ -50,7 +58,7 @@ export class OpenProjects {
    * Holds a project opened under `handle`, sends the leading slices of its
    * history, and gives the update it opens with.
    */
-  hold(handle: ProjectHandle, opened: OpenedProject): HeldOpening {
+  hold(handle: ProjectHandle, opened: HeldProject): HeldOpening {
     if (this.#held.has(handle)) {
       throw new Error(`A project is already open as handle ${String(handle)}.`);
     }
@@ -71,7 +79,7 @@ export class OpenProjects {
   }
 
   /** The project open under `handle`, where one is. */
-  find(handle: ProjectHandle): OpenedProject | undefined {
+  find(handle: ProjectHandle): HeldProject | undefined {
     return this.#held.get(handle)?.opened;
   }
 

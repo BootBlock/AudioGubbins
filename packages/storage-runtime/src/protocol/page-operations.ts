@@ -2,19 +2,20 @@
  * What the page serves the storage worker: the ports only the page can serve,
  * which the worker calls back while it works (ADR-0022).
  *
- * A sink the person chose, a folder they picked and the search for a linked
- * file, which may need a permission prompt, belong to the page. The page lends
- * each to the worker for one call, under a number of its own, and the worker
- * reaches it by that number; the page lets it go once the call settles. Bytes
- * cross transferred, so a chunk is copied once at most. A file the page holds
- * crosses as itself, since a `File` clones and the worker reads it as well as
- * the page can, so only bytes the page alone can read are read through it.
+ * A sink the person chose, a folder they picked, the backups folder and the
+ * search for a linked file, which may need a permission prompt, belong to the
+ * page. The page lends each to the worker for one call, under a number of its
+ * own, and the worker reaches it by that number; the page lets it go once the
+ * call settles. Bytes cross transferred, so a chunk is copied once at most. A
+ * file the page holds crosses as itself, since a `File` clones and the worker
+ * reads it as well as the page can, so only bytes the page alone can read are
+ * read through it.
  */
 
 import type { AssetId } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { DirectoryFile } from '@audiogubbins/storage';
+import type { DirectoryFile, ExternalBackupTarget } from '@audiogubbins/storage';
 
 import type { Operation } from './operations.js';
 
@@ -54,6 +55,9 @@ export type CrossingLocated =
   | { readonly kind: 'found'; readonly file: CrossingFile }
   | { readonly kind: 'absent'; readonly reason: AbsenceReason };
 
+/** One backup generation's copy, as the backups folder is asked to name it. */
+export type BackupCopy = Parameters<ExternalBackupTarget['create']>[0];
+
 /** An operation of the port lent as `port`. */
 type Lent<TArgument, TAnswer> = Operation<{ readonly port: PagePort } & TArgument, TAnswer>;
 
@@ -77,6 +81,9 @@ export type PageOperations = {
   /** A sink for a file of the folder, lent for the rest of the call that lent the folder. */
   'folder.create': Lent<{ readonly path: string }, PagePort>;
   'folder.remove': Lent<{ readonly path: string }, undefined>;
+
+  /** A sink for one generation's copy, lent for the rest of the call that lent the folder. */
+  'backupFolder.create': Lent<{ readonly generation: BackupCopy }, PagePort>;
   'linkedFiles.locate': Lent<
     { readonly asset: AssetId; readonly identity: ExternalSourceIdentity },
     CrossingLocated

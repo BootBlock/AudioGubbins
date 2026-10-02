@@ -15,11 +15,12 @@ import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
 
 import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
+import { backupsClient, type BackupsClient } from './backups-client.js';
 import { cacheClient, type CacheClient } from './cache-client.js';
 import { libraryClient, type LibraryClient } from './library-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
 import { PagePorts, lendingCall } from './page-ports.js';
-import { projectsClient, type ProjectsClient } from './projects-client.js';
+import { handleCounter, projectsClient, type ProjectsClient } from './projects-client.js';
 import { rootClient, type RootClient } from './root-client.js';
 import { sourcesClient, type SourcesClient } from './sources-client.js';
 import { transfersClient, type TransfersClient } from './transfers-client.js';
@@ -30,6 +31,7 @@ export interface StorageClient {
   readonly library: LibraryClient;
   readonly projects: ProjectsClient;
   readonly transfers: TransfersClient;
+  readonly backups: BackupsClient;
   readonly root: RootClient;
   readonly sources: SourcesClient;
   readonly caches: CacheClient;
@@ -59,14 +61,16 @@ export function storageClientOver(
 ): StorageClient {
   channel.serve(ports.handlers());
   const lending = lendingCall(channel, ports);
+  const nextHandle = handleCounter();
   channel.listen('log', (entry) => {
     if (entry.kind === 'record') diagnostics.relay.write(entry.record);
     else diagnostics.relay.writePerformance(entry.record);
   });
   return {
     library: libraryClient(channel),
-    projects: projectsClient(channel),
+    projects: projectsClient(channel, nextHandle),
     transfers: transfersClient(lending),
+    backups: backupsClient(channel, lending, nextHandle),
     root: rootClient(channel, lending),
     sources: sourcesClient(lending),
     caches: cacheClient(channel),

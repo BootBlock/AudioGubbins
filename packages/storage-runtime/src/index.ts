@@ -18,6 +18,11 @@ export { RemoteProjectSession, RemoteReadOnlyProject } from './client/remote-pro
 export { type ExportDraft } from './protocol/project-operations.js';
 export { type HeldExport, type TransfersClient } from './client/transfers-client.js';
 export {
+  type BackupsClient,
+  type RemoteRestoredBackup,
+  type RestoreTarget,
+} from './client/backups-client.js';
+export {
   type PageBytes,
   type PageFile,
   type PageFolder,

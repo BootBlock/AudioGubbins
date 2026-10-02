@@ -58,7 +58,14 @@ function entriesOf(history: History) {
   };
 }
 
-describe('a project opening with a long history', () => {
+/**
+ * How long a test that makes a long history may take: over a thousand changes
+ * take about a second alone, which the whole suite's load can stretch past the
+ * default.
+ */
+const LONG_HISTORY_TIMEOUT = 30_000;
+
+describe('a project opening with a long history', { timeout: LONG_HISTORY_TIMEOUT }, () => {
   it('cuts a history into slices that, applied in turn, make it again', async () => {
     const scene = await projectScene();
     await renamed(scene, 5);

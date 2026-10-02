@@ -12,6 +12,7 @@ import type { Clock } from '@audiogubbins/diagnostics';
 
 import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import type { HostChannel } from '../protocol/storage-operations.js';
+import { backupHandlers } from './backup-area.js';
 import { cacheHandlers } from './cache-area.js';
 import { hostLogs } from './host-logs.js';
 import { hostServices, type HostLogs, type HostParts } from './host-services.js';
@@ -41,6 +42,7 @@ export function serveStorage(
     ...libraryHandlers(services),
     ...projectHandlers(services, projects),
     ...transferHandlers(services, projects, channel),
+    ...backupHandlers(services, projects, channel),
     ...rootHandlers(services, channel),
     ...sourceHandlers(services, channel),
     ...cacheHandlers(services),

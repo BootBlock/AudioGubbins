@@ -14,15 +14,18 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 import { succeed } from '@audiogubbins/domain';
-import { openProject, type OpenedProject } from '@audiogubbins/storage';
+import { openProject } from '@audiogubbins/storage';
 
 import type { AreaHandlers } from '../protocol/storage-operations.js';
 import type { HostServices } from './host-services.js';
-import type { OpenProjects } from './open-projects.js';
+import type { HeldProject, OpenProjects } from './open-projects.js';
 import { sessionHandlers } from './session-area.js';
 
-/** Closes a project nothing will reach, which has nothing unsaved, being just opened. */
-async function letGo(opened: OpenedProject, logger: Logger): Promise<void> {
+/**
+ * Closes a project nothing will reach, which has nothing unsaved, being just
+ * opened or restored.
+ */
+export async function letGo(opened: HeldProject, logger: Logger): Promise<void> {
   if (opened.kind === 'read-only') {
     opened.view.close();
     return;

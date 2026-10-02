@@ -15,7 +15,7 @@
 import type { AssetId } from '@audiogubbins/domain';
 import type { AbsenceReason, ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource, ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
+import type { DirectoryReader, DirectoryWriter, ExternalBackupTarget } from '@audiogubbins/storage';
 
 import { Transferring, type Handlers } from '../protocol/operations.js';
 import type {
@@ -59,6 +59,7 @@ export interface Lender {
   file(file: PageFile): CrossingFile;
   folder(folder: PageFolder): CrossingFolder;
   writer(writer: DirectoryWriter): PagePort;
+  backupFolder(target: ExternalBackupTarget): PagePort;
   locate(locate: PageLocate): PagePort;
 }
 
@@ -67,6 +68,7 @@ type PageObject =
   | { readonly kind: 'source'; readonly source: ByteSource }
   | { readonly kind: 'reader'; readonly reader: DirectoryReader }
   | { readonly kind: 'writer'; readonly writer: DirectoryWriter }
+  | { readonly kind: 'backupFolder'; readonly target: ExternalBackupTarget }
   | { readonly kind: 'locate'; readonly locate: PageLocate };
 
 type ObjectOf<TKind extends PageObject['kind']> = Extract<PageObject, { readonly kind: TKind }>;
@@ -77,6 +79,11 @@ function isOf<TKind extends PageObject['kind']>(
 ): object is ObjectOf<TKind> {
   return object.kind === kind;
 }
+
+/** The service of the operations of some kinds of port, named `<kind>.<verb>`. */
+type PageHandlers<TKind extends string> = Handlers<
+  Pick<PageOperations, Extract<keyof PageOperations, `${TKind}.${string}`>>
+>;
 
 /** The ports one call lent, let go together once it settled. */
 interface Call {
@@ -111,6 +118,11 @@ export class PagePorts {
 
   /** The service of the worker's calls on the ports lent. */
   handlers(): Handlers<PageOperations> {
+    return { ...this.#bytesHandlers(), ...this.#folderHandlers() };
+  }
+
+  /** The service of the sinks and sources lent. */
+  #bytesHandlers(): PageHandlers<'sink' | 'source'> {
     return {
       'sink.write': async ({ port, chunk }) => {
         await this.#object(port, 'sink').sink.write(chunk);
@@ -136,6 +148,12 @@ export class PagePorts {
         const copy = bytes.slice();
         return new Transferring(copy, [copy.buffer]);
       },
+    };
+  }
+
+  /** The service of the folders lent, the backups folder and the search for linked files. */
+  #folderHandlers(): PageHandlers<'folder' | 'backupFolder' | 'linkedFiles'> {
+    return {
       'folder.list': ({ port }, { signal }) => this.#reader(port).list(signal),
       'folder.open': async ({ port, path }) => {
         const call = this.#callOf(port);
@@ -151,6 +169,11 @@ export class PagePorts {
       'folder.remove': async ({ port, path }) => {
         await this.#object(port, 'writer').writer.remove(path);
         return undefined;
+      },
+      'backupFolder.create': async ({ port, generation }) => {
+        const call = this.#callOf(port);
+        const sink = await this.#object(port, 'backupFolder').target.create(generation);
+        return await this.#lendOpened(sink, call);
       },
       'linkedFiles.locate': async ({ port, asset, identity }, { signal }) => {
         const call = this.#callOf(port);
@@ -173,6 +196,7 @@ export class PagePorts {
       file: ({ bytes: offered, ...described }) => ({ ...described, bytes: bytes(offered) }),
       folder: (folder) => (folder.kind === 'files' ? folder : { kind: 'port', port: lend(folder) }),
       writer: (writer) => lend({ kind: 'writer', writer }),
+      backupFolder: (target) => lend({ kind: 'backupFolder', target }),
       locate: (locate) => lend({ kind: 'locate', locate }),
     };
   }
