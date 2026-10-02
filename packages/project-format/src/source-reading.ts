@@ -6,8 +6,9 @@
  * An external identity with no length or fast fingerprint is refused: a file
  * known only by its name or path cannot be told from another file put in its
  * place (REQ-STOR-104). The aggregate's own invariants are checked here too:
- * one source for every asset, one asset for every source, and each asset's
- * storage key derived from its source.
+ * one source for every asset, one asset for every source, each asset's
+ * storage key derived from its source, and the audio shape its provenance
+ * keeps agreeing with it.
  *
  * The readers of one source entry, one media source and one identity are
  * offered alone as well, so a value a command carries is read by the rules
@@ -29,13 +30,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
-import {
-  asContentId,
-  asId,
-  integerConverter,
-  oneOfConverter,
-  textConverter,
-} from './scalar-reading.js';
+import { asContentId, asId, oneOfConverter, textConverter } from './scalar-reading.js';
 import {
   SourceChangePolicy,
   storageKeyOf,
@@ -46,6 +41,7 @@ import {
   type ManagedMedia,
   type MediaSource,
 } from './project-state.js';
+import { checkAudioAgainstAsset, readSourceAudioShape } from './source-audio-reading.js';
 import { asFileName, asHandleKey, asRelativePath } from './source-rules.js';
 import { MAXIMUM_ENTITIES, asMediaType, asWholeQuantity } from './value-reading.js';
 
@@ -81,7 +77,7 @@ const PROVENANCE_MEMBERS: ReadonlySet<string> = new Set([
   'byteLength',
   'mediaType',
   'originProjectId',
-  'bitDepth',
+  'audio',
 ]);
 
 const asMediaKind = oneOfConverter(['managed', 'external'] as const);
@@ -98,9 +94,6 @@ const asSignature = textConverter({
   pattern: /^(?:[0-9a-f]{2}){0,16}$/u,
   shape: 'up to 16 bytes in lower-case hexadecimal',
 });
-
-/** Bits per sample, as a container states them. */
-const asBitDepth = integerConverter(1, 64);
 
 /**
  * A converter reading the sources, checked against the project's assets where
@@ -149,9 +142,10 @@ export function sourcesConverter(
 
 /**
  * Checks a source at `at` against the asset it belongs to, among `assets`: the
- * asset must be there, and its storage key must be the one the source gives.
- * True where the source passed; false where it was refused, or where `assets`
- * could not be read and nothing was checked.
+ * asset must be there, its storage key must be the one the source gives, and
+ * the audio shape its provenance keeps must agree with it. True where the
+ * source passed; false where it was refused, or where `assets` could not be
+ * read and nothing was checked.
  */
 export function checkAgainstAsset(
   reading: Reading,
@@ -181,7 +175,11 @@ export function checkAgainstAsset(
     );
     return false;
   }
-  return true;
+  const audio = source.provenance?.audio;
+  return (
+    audio === undefined ||
+    checkAudioAgainstAsset(reading, audio, asset, pathOf(pathOf(at, 'provenance'), 'audio'))
+  );
 }
 
 /** Reads one source entry: an asset's source and the asset it belongs to. */
@@ -305,7 +303,7 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
   const byteLength = required(reading, object, at, 'byteLength', asWholeQuantity);
   const mediaType = required(reading, object, at, 'mediaType', asMediaType);
   const originProjectId = required(reading, object, at, 'originProjectId', asId<'ProjectId'>);
-  const bitDepth = optional(reading, object, at, 'bitDepth', asBitDepth);
+  const audio = optional(reading, object, at, 'audio', readSourceAudioShape);
 
   if (
     importedAt === undefined ||
@@ -323,6 +321,6 @@ const asProvenance: Converter<AssetProvenance> = (reading, value, parent, key) =
     byteLength,
     mediaType,
     originProjectId,
-    ...(bitDepth === undefined ? {} : { bitDepth }),
+    ...(audio === undefined ? {} : { audio }),
   };
 };

@@ -38,6 +38,7 @@ import { asProject } from './project-reading.js';
 import type { ProjectState } from './project-state.js';
 import { writeProject, writeSources } from './project-writing.js';
 import { sourcesConverter } from './source-reading.js';
+import { LONGEST_PROJECT_DOCUMENT } from './value-reading.js';
 
 /** The format name a project document carries. */
 export const PROJECT_DOCUMENT_FORMAT = 'audiogubbins.project';
@@ -45,12 +46,15 @@ export const PROJECT_DOCUMENT_FORMAT = 'audiogubbins.project';
 /**
  * The bounds a project document's text is read within.
  *
- * 2^28 code units, a quarter of a gibibyte and below the longest string every
- * engine builds, holds a project of hundreds of thousands of entities; the
- * document nests nine levels deep, and 32 leaves room without letting a hostile
- * file recurse.
+ * {@link LONGEST_PROJECT_DOCUMENT} holds a project of hundreds of thousands of
+ * entities. The document nests fifteen levels deep, at a row of a channel
+ * matrix in a stage of a paste in an asset's edits, and 32 leaves room without
+ * letting a hostile file recurse.
  */
-const PROJECT_DOCUMENT_LIMITS: JsonLimits = { maximumLength: 2 ** 28, maximumDepth: 32 };
+const PROJECT_DOCUMENT_LIMITS: JsonLimits = {
+  maximumLength: LONGEST_PROJECT_DOCUMENT,
+  maximumDepth: 32,
+};
 
 const DOCUMENT_MEMBERS: ReadonlySet<string> = new Set([
   'format',

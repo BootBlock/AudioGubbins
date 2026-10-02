@@ -1,10 +1,13 @@
 /**
- * Reading a project document's assets and timeline: clips, regions and markers
- * (REQ-STOR-026, REQ-EXEC-136.12).
+ * Reading a project document's assets and its timeline's clips (REQ-STOR-026,
+ * REQ-EXEC-136.12).
  *
  * Each entity is checked against what it refers to as it is read, so every
  * refusal names the member at fault: a clip's track and asset must exist and
- * its range must lie inside the asset, and a loop must lie inside its region.
+ * its range must lie inside the asset. An asset's chain of edits is read here
+ * by its shape; whether each operation may stand where it does needs every
+ * asset a paste reads, so the project's reader checks it once all are read.
+ * Regions and markers belong to an asset (`placement-reading.ts`).
  */
 
 import {
@@ -15,35 +18,16 @@ import {
   type AssetId,
   type AssetRange,
   type Clip,
-  type LoopDefinition,
-  type Marker,
-  type Region,
   type SampleCount,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
 
-import { compareCodeUnits } from './canonical-json.js';
-import {
-  listConverter,
-  objectOf,
-  optional,
-  pathOf,
-  required,
-  type Converter,
-  type Reading,
-} from './document-reading.js';
+import { objectOf, pathOf, required, type Converter, type Reading } from './document-reading.js';
+import { asEditChain } from './edit-reading.js';
 import { asAssetName } from './given-names.js';
 import { asBoolean, asId, oneOfConverter, textConverter } from './scalar-reading.js';
-import {
-  MAXIMUM_NESTED_ITEMS,
-  asChannelLayout,
-  asGain,
-  asKey,
-  asName,
-  asSampleCount,
-  asSampleRate,
-} from './value-reading.js';
+import { asChannelLayout, asGain, asName, asSampleCount, asSampleRate } from './value-reading.js';
 
 const ASSET_MEMBERS: ReadonlySet<string> = new Set([
   'id',
@@ -53,6 +37,7 @@ const ASSET_MEMBERS: ReadonlySet<string> = new Set([
   'channelLayout',
   'length',
   'storageKey',
+  'edits',
 ]);
 const CLIP_MEMBERS: ReadonlySet<string> = new Set([
   'id',
@@ -67,22 +52,6 @@ const CLIP_MEMBERS: ReadonlySet<string> = new Set([
   'muted',
 ]);
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['assetId', 'start', 'length']);
-const REGION_MEMBERS: ReadonlySet<string> = new Set([
-  'id',
-  'displayName',
-  'start',
-  'length',
-  'loop',
-  'tags',
-]);
-const LOOP_MEMBERS: ReadonlySet<string> = new Set(['loopStart', 'loopEnd', 'crossfadeLength']);
-const MARKER_MEMBERS: ReadonlySet<string> = new Set([
-  'id',
-  'displayName',
-  'position',
-  'paletteKey',
-]);
-
 const asOrigin = oneOfConverter(Object.values(AssetOrigin));
 
 /**
@@ -90,8 +59,6 @@ const asOrigin = oneOfConverter(Object.values(AssetOrigin));
  * asset's source once the sources are read.
  */
 const asStorageKey = textConverter({ maximumLength: 256 });
-
-const asTags = listConverter(MAXIMUM_NESTED_ITEMS, textConverter({ maximumLength: 256 }));
 
 /** Reads one asset. */
 export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
@@ -106,6 +73,7 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   const channelLayout = required(reading, object, at, 'channelLayout', asChannelLayout);
   const length = required(reading, object, at, 'length', asSampleCount);
   const storageKey = required(reading, object, at, 'storageKey', asStorageKey);
+  const edits = required(reading, object, at, 'edits', asEditChain);
 
   if (
     id === undefined ||
@@ -114,11 +82,12 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
     sampleRate === undefined ||
     channelLayout === undefined ||
     length === undefined ||
-    storageKey === undefined
+    storageKey === undefined ||
+    edits === undefined
   ) {
     return undefined;
   }
-  return { id, displayName, origin, sampleRate, channelLayout, length, storageKey };
+  return { id, displayName, origin, sampleRate, channelLayout, length, storageKey, edits };
 };
 
 /**
@@ -248,97 +217,4 @@ const asRange: Converter<AssetRange> = (reading, value, parent, key) => {
   return assetId === undefined || start === undefined || length === undefined
     ? undefined
     : { assetId, start, length };
-};
-
-/** Reads one region. */
-export const asRegion: Converter<Region> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, REGION_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-
-  const id = required(reading, object, at, 'id', asId<'RegionId'>);
-  const displayName = required(reading, object, at, 'displayName', asName);
-  const start = required(reading, object, at, 'start', asSampleCount);
-  const length = required(reading, object, at, 'length', asSampleCount);
-  const loop = optional(reading, object, at, 'loop', asLoop);
-  const tags = required(reading, object, at, 'tags', asTags);
-
-  if (
-    id === undefined ||
-    displayName === undefined ||
-    start === undefined ||
-    length === undefined ||
-    tags === undefined
-  ) {
-    return undefined;
-  }
-  checkEnd(reading, start, length, pathOf(at, 'length'));
-  if (loop !== undefined) checkLoop(reading, loop, length, pathOf(at, 'loop'));
-
-  // Tags are held sorted and without repeats, so equal sets compare equal.
-  if (tags.some((tag, index) => index > 0 && compareCodeUnits(tags[index - 1] ?? '', tag) >= 0)) {
-    reading.refuse(
-      'project.region-tags-not-canonical',
-      'A region holds its tags sorted and without repeats.',
-      pathOf(at, 'tags'),
-    );
-  }
-  return { id, displayName, start, length, tags, ...(loop === undefined ? {} : { loop }) };
-};
-
-/** Reads a region's loop. */
-const asLoop: Converter<LoopDefinition> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, LOOP_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-
-  const loopStart = required(reading, object, at, 'loopStart', asSampleCount);
-  const loopEnd = required(reading, object, at, 'loopEnd', asSampleCount);
-  const crossfadeLength = required(reading, object, at, 'crossfadeLength', asSampleCount);
-  return loopStart === undefined || loopEnd === undefined || crossfadeLength === undefined
-    ? undefined
-    : { loopStart, loopEnd, crossfadeLength };
-};
-
-/**
- * Checks a loop against its region: it starts before it ends, ends within the
- * region, and crossfades over no more than the loop itself.
- */
-function checkLoop(
-  reading: Reading,
-  loop: LoopDefinition,
-  regionLength: SampleCount,
-  at: string,
-): void {
-  if (loop.loopStart >= loop.loopEnd || loop.loopEnd > regionLength) {
-    reading.refuse(
-      'project.loop-outside-region',
-      'A loop starts before it ends and ends within its region.',
-      at,
-      {
-        regionLength,
-      },
-    );
-  } else if (loop.crossfadeLength > loop.loopEnd - loop.loopStart) {
-    reading.refuse(
-      'project.loop-crossfade-too-long',
-      'A loop crossfades over no more than the loop.',
-      pathOf(at, 'crossfadeLength'),
-    );
-  }
-}
-
-/** Reads one marker. */
-export const asMarker: Converter<Marker> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, MARKER_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-
-  const id = required(reading, object, at, 'id', asId<'MarkerId'>);
-  const displayName = required(reading, object, at, 'displayName', asName);
-  const position = required(reading, object, at, 'position', asSampleCount);
-  const paletteKey = optional(reading, object, at, 'paletteKey', asKey);
-
-  if (id === undefined || displayName === undefined || position === undefined) return undefined;
-  return { id, displayName, position, ...(paletteKey === undefined ? {} : { paletteKey }) };
 };

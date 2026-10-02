@@ -172,6 +172,11 @@ describe('a seeded property: every valid state survives the document', () => {
       managed: 0,
       loops: 0,
       busSends: 0,
+      edits: 0,
+      pastes: 0,
+      conversions: 0,
+      regionProcessing: 0,
+      audioShapes: 0,
     };
     for (let seed = 1; seed <= 400; seed += 1) {
       const { project, sources } = randomState(seed);
@@ -188,7 +193,18 @@ describe('a seeded property: every valid state survives the document', () => {
       totals.busSends += [...project.buses.values()].filter(
         (bus) => bus.output?.kind === 'bus',
       ).length;
-      for (const source of sources.values()) totals[source.media.kind] += 1;
+      for (const source of sources.values()) {
+        totals[source.media.kind] += 1;
+        if (source.provenance?.audio !== undefined) totals.audioShapes += 1;
+      }
+      for (const asset of project.assets.values()) {
+        totals.edits += asset.edits.length;
+        totals.pastes += asset.edits.filter((edit) => edit.kind === 'insert').length;
+        totals.conversions += asset.edits.filter((edit) => edit.kind === 'convert-layout').length;
+      }
+      for (const region of project.regions.values()) {
+        totals.regionProcessing += region.operations.length;
+      }
     }
     for (const [kind, total] of Object.entries(totals)) expect(total, kind).toBeGreaterThan(50);
   });
@@ -229,9 +245,8 @@ interface Refusal {
 }
 
 const clipLength = numberAt(['project', 'clips', 0, 'timelineLength']);
-const regionLength = numberAt(['project', 'regions', 0, 'length']);
-const loopStart = numberAt(['project', 'regions', 0, 'loop', 'loopStart']);
-const loopEnd = numberAt(['project', 'regions', 0, 'loop', 'loopEnd']);
+const loopStart = numberAt(['project', 'regions', 0, 'loop', 'start']);
+const loopEnd = numberAt(['project', 'regions', 0, 'loop', 'end']);
 const clipAssetIndex = (() => {
   const assets = valueAt(DOCUMENT, ['project', 'assets']);
   const assetId = valueAt(DOCUMENT, ['project', 'clips', 0, 'source', 'assetId']);
@@ -250,6 +265,20 @@ const trackIds = (() => {
 const busId = valueAt(DOCUMENT, ['project', 'buses', 0, 'id']);
 const externalAt = ['sources', EXTERNAL, 'media'] as const;
 const managedAt = ['sources', MANAGED, 'media'] as const;
+const managedAudioAt = ['sources', MANAGED, 'provenance', 'audio'] as const;
+
+/** The length of the asset the document's thing at `path` names by its `assetId`. */
+function lengthOfAssetAt(path: readonly Step[]): number {
+  const assetId = valueAt(DOCUMENT, [...path, 'assetId']);
+  const assets = valueAt(DOCUMENT, ['project', 'assets']);
+  const index = isJsonArray(assets)
+    ? assets.findIndex((asset) => valueAt(asset, ['id']) === assetId)
+    : -1;
+  return numberAt(['project', 'assets', index, 'length']);
+}
+const regionAssetLength = lengthOfAssetAt(['project', 'regions', 0]);
+const markerAssetLength = lengthOfAssetAt(['project', 'markers', 0]);
+const managedAssetLength = lengthOfAssetAt(['sources', MANAGED]);
 
 const REFUSALS: Readonly<Record<string, Refusal>> = {
   'a member that should be an object': {
@@ -537,17 +566,16 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
     code: 'project.clip-fades-exceed-length',
     at: 'project.clips[0].fadeOutLength',
   },
-  'a loop that ends past its region': {
+  'a loop that ends past its asset': {
     edit: (document) =>
-      withValue(document, ['project', 'regions', 0, 'loop', 'loopEnd'], regionLength + 1),
-    code: 'project.loop-outside-region',
-    at: 'project.regions[0].loop',
+      withValue(document, ['project', 'regions', 0, 'loop', 'end'], regionAssetLength + 1),
+    code: 'project.region-off-asset',
+    at: 'project.regions[0]',
   },
   'a loop that ends where it starts': {
-    edit: (document) =>
-      withValue(document, ['project', 'regions', 0, 'loop', 'loopEnd'], loopStart),
-    code: 'project.loop-outside-region',
-    at: 'project.regions[0].loop',
+    edit: (document) => withValue(document, ['project', 'regions', 0, 'loop', 'end'], loopStart),
+    code: 'project.region-off-asset',
+    at: 'project.regions[0]',
   },
   'a crossfade longer than its loop': {
     edit: (document) =>
@@ -556,8 +584,81 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
         ['project', 'regions', 0, 'loop', 'crossfadeLength'],
         loopEnd - loopStart + 1,
       ),
-    code: 'project.loop-crossfade-too-long',
-    at: 'project.regions[0].loop.crossfadeLength',
+    code: 'project.region-off-asset',
+    at: 'project.regions[0]',
+  },
+  'a region that ends past its asset': {
+    edit: (document) =>
+      withValue(document, ['project', 'regions', 0, 'end'], regionAssetLength + 1),
+    code: 'project.region-off-asset',
+    at: 'project.regions[0]',
+  },
+  'a region placed on edits its asset does not have': {
+    edit: (document) => withValue(document, ['project', 'regions', 0, 'basis'], 1),
+    code: 'project.region-off-asset',
+    at: 'project.regions[0]',
+  },
+  'a region of an asset the project does not have': {
+    edit: (document) => withValue(document, ['project', 'regions', 0, 'assetId'], UNKNOWN_ID),
+    code: 'project.unknown-asset',
+    at: 'project.regions[0].assetId',
+  },
+  'a marker past the end of its asset': {
+    edit: (document) =>
+      withValue(document, ['project', 'markers', 0, 'position'], markerAssetLength + 1),
+    code: 'project.marker-off-asset',
+    at: 'project.markers[0]',
+  },
+  'a marker of an asset the project does not have': {
+    edit: (document) => withValue(document, ['project', 'markers', 0, 'assetId'], UNKNOWN_ID),
+    code: 'project.unknown-asset',
+    at: 'project.markers[0].assetId',
+  },
+  'a basis no chain could reach': {
+    edit: (document) => withValue(document, ['project', 'markers', 0, 'basis'], 1_000_001),
+    code: 'schema.number-out-of-range',
+    at: 'project.markers[0].basis',
+  },
+  'an asset with no edits member': {
+    edit: (document) => without(document, ['project', 'assets', 0, 'edits']),
+    code: 'schema.missing-member',
+    at: 'project.assets[0].edits',
+  },
+  'a region with no processing member': {
+    edit: (document) => without(document, ['project', 'regions', 0, 'operations']),
+    code: 'schema.missing-member',
+    at: 'project.regions[0].operations',
+  },
+  'provenance whose file is at another rate than its asset': {
+    edit: (document) => withValue(document, [...managedAudioAt, 'sampleRate'], 44_100),
+    code: 'source.audio-rate-mismatch',
+    at: `sources[${String(MANAGED)}].provenance.audio.sampleRate`,
+  },
+  'provenance whose file read more frames than its asset holds': {
+    edit: (document) =>
+      withValue(
+        withValue(document, [...managedAudioAt, 'frames'], managedAssetLength + 1),
+        [...managedAudioAt, 'declaredFrames'],
+        managedAssetLength + 1,
+      ),
+    code: 'source.audio-length-mismatch',
+    at: `sources[${String(MANAGED)}].provenance.audio.frames`,
+  },
+  'provenance that read more frames than its file declared': {
+    edit: (document) =>
+      withValue(document, [...managedAudioAt, 'declaredFrames'], managedAssetLength - 1),
+    code: 'source.audio-frames-past-declared',
+    at: `sources[${String(MANAGED)}].provenance.audio.frames`,
+  },
+  'provenance naming a container the format does not read': {
+    edit: (document) => withValue(document, [...managedAudioAt, 'container'], 'flac'),
+    code: 'schema.unknown-value',
+    at: `sources[${String(MANAGED)}].provenance.audio.container`,
+  },
+  'provenance with a member its audio shape does not define': {
+    edit: (document) => withValue(document, [...managedAudioAt, 'bitsPerSample'], 16),
+    code: 'schema.unknown-member',
+    at: `sources[${String(MANAGED)}].provenance.audio`,
   },
   'tags out of order': {
     edit: (document) =>

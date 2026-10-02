@@ -14,25 +14,26 @@ import type {
   Asset,
   AssetId,
   Bus,
-  ChannelLayout,
   Clip,
   EffectChain,
-  Marker,
   ProcessorInstance,
   Project,
-  Region,
   RoutingTarget,
   Track,
 } from '@audiogubbins/domain';
 
 import type { JsonArray, JsonObject } from './canonical-json.js';
 import { presentMembers, sortedBy } from './document-writing.js';
+import { writeEditOperation } from './edit-writing.js';
+import { writeMarker, writeRegion } from './placement-writing.js';
 import type {
   AssetProvenance,
   AssetSource,
   ExternalSourceIdentity,
   MediaSource,
+  SourceAudioShape,
 } from './project-state.js';
+import { writeLayout } from './value-writing.js';
 
 /** Writes the domain project. */
 export function writeProject(project: Project): JsonObject {
@@ -55,24 +56,6 @@ export function writeProject(project: Project): JsonObject {
   };
 }
 
-/** Writes a layout whole: its roles, and its labels or its ambisonic convention where it has them. */
-function writeLayout(layout: ChannelLayout): JsonObject {
-  const { labels, ambisonic } = layout;
-  return {
-    roles: [...layout.roles],
-    ...(labels === undefined ? {} : { labels: [...labels] }),
-    ...(ambisonic === undefined
-      ? {}
-      : {
-          ambisonic: {
-            order: ambisonic.order,
-            ordering: ambisonic.ordering,
-            normalisation: ambisonic.normalisation,
-          },
-        }),
-  };
-}
-
 /** Writes one asset, as the project's list of assets holds it. */
 export function writeAsset(asset: Asset): JsonObject {
   return {
@@ -83,6 +66,7 @@ export function writeAsset(asset: Asset): JsonObject {
     channelLayout: writeLayout(asset.channelLayout),
     length: asset.length,
     storageKey: asset.storageKey,
+    edits: asset.edits.map(writeEditOperation),
   };
 }
 
@@ -130,33 +114,6 @@ function writeClip(clip: Clip): JsonObject {
     fadeOutLength: clip.fadeOutLength,
     muted: clip.muted,
   };
-}
-
-function writeRegion(region: Region): JsonObject {
-  return presentMembers({
-    id: region.id,
-    displayName: region.displayName,
-    start: region.start,
-    length: region.length,
-    loop:
-      region.loop === undefined
-        ? undefined
-        : {
-            loopStart: region.loop.loopStart,
-            loopEnd: region.loop.loopEnd,
-            crossfadeLength: region.loop.crossfadeLength,
-          },
-    tags: [...region.tags],
-  });
-}
-
-function writeMarker(marker: Marker): JsonObject {
-  return presentMembers({
-    id: marker.id,
-    displayName: marker.displayName,
-    position: marker.position,
-    paletteKey: marker.paletteKey,
-  });
 }
 
 function writeEffectChain(chain: EffectChain): JsonObject {
@@ -237,6 +194,20 @@ function writeProvenance(provenance: AssetProvenance): JsonObject {
     byteLength: provenance.byteLength,
     mediaType: provenance.mediaType,
     originProjectId: provenance.originProjectId,
-    bitDepth: provenance.bitDepth,
+    audio: provenance.audio === undefined ? undefined : writeSourceAudioShape(provenance.audio),
+  });
+}
+
+/** Writes the audio shape of an imported file. */
+function writeSourceAudioShape(audio: SourceAudioShape): JsonObject {
+  return presentMembers({
+    container: audio.container,
+    sampleRate: audio.sampleRate,
+    encoding: audio.encoding,
+    bitDepth: audio.bitDepth,
+    byteOrder: audio.byteOrder,
+    statedLayout: audio.statedLayout === undefined ? undefined : writeLayout(audio.statedLayout),
+    frames: audio.frames,
+    declaredFrames: audio.declaredFrames,
   });
 }

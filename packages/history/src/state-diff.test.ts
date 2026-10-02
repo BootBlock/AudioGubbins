@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   StandardLayouts,
+  derivedSampleCount,
+  unsafeBrandId,
+  type EditOperation,
   type EffectChain,
   type Marker,
   type ParameterId,
   type Region,
+  type RegionOperation,
 } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { sampleProject } from '@audiogubbins/test-fixtures';
@@ -71,7 +75,9 @@ describe('the difference of two states (REQ-STOR-195)', () => {
     const { firstStep, secondStep } = fixture.clips;
     const extra: Marker = {
       id: fixture.ids.next<'MarkerId'>(),
+      assetId: fixture.markers.start.assetId,
       displayName: 'Scuff',
+      basis: fixture.markers.start.basis,
       position: fixture.markers.start.position,
     };
     const after: ProjectState = {
@@ -111,10 +117,7 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       project: {
         ...state.project,
         regions: new Map([
-          [
-            loop.id,
-            { ...loop, tags: [...loop.tags], loop: { ...current, loopEnd: current.loopStart } },
-          ],
+          [loop.id, { ...loop, tags: [...loop.tags], loop: { ...current, end: current.start } }],
         ]),
         clips: new Map([
           ...state.project.clips,
@@ -131,10 +134,13 @@ describe('the difference of two states (REQ-STOR-195)', () => {
 
     const withoutLoop: Region = {
       id: loop.id,
+      assetId: loop.assetId,
       displayName: loop.displayName,
+      basis: loop.basis,
       start: loop.start,
-      length: loop.length,
+      end: loop.end,
       tags: loop.tags,
+      operations: loop.operations,
     };
     const unlooped: ProjectState = {
       ...state,
@@ -143,6 +149,88 @@ describe('the difference of two states (REQ-STOR-195)', () => {
     expect(diffStates(state, unlooped).regions.changed).toEqual([
       { id: loop.id, fields: ['loop'] },
     ]);
+  });
+
+  it('compares an asset’s edits and a region’s processing by what they hold', () => {
+    const { state, fixture } = fixtureState(sampleProject());
+    const { footstep } = fixture.assets;
+    const { loop } = fixture.regions;
+    const range = { start: derivedSampleCount(0), end: derivedSampleCount(100) };
+    const louder = (gain: number): EditOperation => ({
+      id: unsafeBrandId<'EditOperationId'>('0000eeee-0001'),
+      kind: 'process',
+      range: { ...range },
+      channels: [0],
+      edit: { kind: 'gain', gain },
+    });
+    const inverted = (basis: number): RegionOperation => ({
+      id: unsafeBrandId<'EditOperationId'>('0000eeee-0002'),
+      basis,
+      range: { ...range },
+      edit: { kind: 'invert' },
+    });
+    const edited = (gain: number, basis: number): ProjectState => ({
+      ...state,
+      project: {
+        ...state.project,
+        assets: new Map([
+          ...state.project.assets,
+          [footstep.id, { ...footstep, edits: [louder(gain)] }],
+        ]),
+        regions: new Map([[loop.id, { ...loop, operations: [inverted(basis)] }]]),
+      },
+    });
+
+    // Built apart, so only what they hold can say they are the same.
+    expect(diffStates(edited(0.5, 0), edited(0.5, 0)).assets.changed).toEqual([]);
+    expect(diffStates(edited(0.5, 0), edited(0.5, 0)).regions.changed).toEqual([]);
+
+    const difference = diffStates(edited(0.5, 0), edited(0.25, 1));
+    expect(difference.assets.changed).toEqual([{ id: footstep.id, fields: ['edits'] }]);
+    expect(difference.regions.changed).toEqual([{ id: loop.id, fields: ['operations'] }]);
+    expect(diffStates(state, edited(0.5, 0)).assets.changed).toEqual([
+      { id: footstep.id, fields: ['edits'] },
+    ]);
+  });
+
+  it('names a source whose file’s audio shape changed', () => {
+    const { state, fixture } = fixtureState(sampleProject());
+    const { footstep } = fixture.assets;
+    const source = state.sources.get(footstep.id);
+    if (source === undefined) throw new Error('Every fixture asset has a source.');
+    const withAudio = (declared: number): ProjectState => ({
+      ...state,
+      sources: new Map([
+        ...state.sources,
+        [
+          footstep.id,
+          {
+            ...source,
+            provenance: {
+              importedAt: 1,
+              byteLength: 1,
+              mediaType: 'audio/wav',
+              originProjectId: state.project.id,
+              audio: {
+                container: 'wav',
+                sampleRate: footstep.sampleRate,
+                encoding: 'integer',
+                bitDepth: 24,
+                byteOrder: 'little',
+                frames: footstep.length,
+                declaredFrames: derivedSampleCount(declared),
+              },
+            },
+          },
+        ],
+      ]),
+    });
+    expect(
+      diffStates(withAudio(footstep.length), withAudio(footstep.length)).sources.changed,
+    ).toEqual([]);
+    expect(
+      diffStates(withAudio(footstep.length), withAudio(footstep.length + 1)).sources.changed,
+    ).toEqual([{ id: footstep.id, fields: ['provenance'] }]);
   });
 
   it('names an asset whose media changed among the sources', () => {

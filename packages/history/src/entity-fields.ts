@@ -10,22 +10,29 @@
 
 import {
   layoutsMatch,
+  type AnchoredLoop,
   type Asset,
   type AssetRange,
   type Bus,
   type ChannelLayout,
   type Clip,
-  type LoopDefinition,
+  type EditOperation,
   type Marker,
   type Region,
+  type RegionOperation,
   type RoutingTarget,
   type Track,
 } from '@audiogubbins/domain';
-import type {
-  AssetProvenance,
-  AssetSource,
-  ExternalSourceIdentity,
-  MediaSource,
+import {
+  canonicalJson,
+  writeEditOperation,
+  writeRegionOperation,
+  type AssetProvenance,
+  type AssetSource,
+  type ExternalSourceIdentity,
+  type JsonValue,
+  type MediaSource,
+  type SourceAudioShape,
 } from '@audiogubbins/project-format';
 
 /** Whether two values of a field are the same. */
@@ -92,7 +99,35 @@ const sameTarget: Comparison<RoutingTarget> = (before, after) =>
 
 const sameRange = whole<AssetRange>({ assetId: same, start: same, length: same });
 
-const sameLoop = whole<LoopDefinition>({ loopStart: same, loopEnd: same, crossfadeLength: same });
+const sameLoop = whole<AnchoredLoop>({
+  basis: same,
+  start: same,
+  end: same,
+  crossfadeLength: same,
+});
+
+/**
+ * Two lists of values the same item by item, where an item is the same value
+ * or written alike: an edit is a deep value, and the project format's writer
+ * is the one statement of every member it has, so comparing what it writes
+ * misses none. Items a change kept are the same object, so only the items it
+ * made are written.
+ */
+function sameWritten<TValue>(write: (value: TValue) => JsonValue): Comparison<readonly TValue[]> {
+  return (before, after) =>
+    before === after ||
+    (before.length === after.length &&
+      before.every((value, index) => {
+        const other = after[index];
+        return (
+          other !== undefined &&
+          (value === other || canonicalJson(write(value)) === canonicalJson(write(other)))
+        );
+      }));
+}
+
+const sameEdits = sameWritten<EditOperation>(writeEditOperation);
+const sameProcessing = sameWritten<RegionOperation>(writeRegionOperation);
 
 const sameIdentity = whole<ExternalSourceIdentity>({
   handleKey: same,
@@ -131,7 +166,18 @@ const sameProvenance = whole<AssetProvenance>({
   byteLength: same,
   mediaType: same,
   originProjectId: same,
-  bitDepth: same,
+  audio: optionally(
+    whole<SourceAudioShape>({
+      container: same,
+      sampleRate: same,
+      encoding: same,
+      bitDepth: same,
+      byteOrder: same,
+      statedLayout: optionally(sameLayout),
+      frames: same,
+      declaredFrames: same,
+    }),
+  ),
 });
 
 export const ASSET_FIELDS: FieldComparisons<Asset> = {
@@ -142,6 +188,7 @@ export const ASSET_FIELDS: FieldComparisons<Asset> = {
   channelLayout: sameLayout,
   length: same,
   storageKey: same,
+  edits: sameEdits,
 };
 
 export const SOURCE_FIELDS: FieldComparisons<AssetSource> = {
@@ -187,16 +234,21 @@ export const CLIP_FIELDS: FieldComparisons<Clip> = {
 
 export const REGION_FIELDS: FieldComparisons<Region> = {
   id: same,
+  assetId: same,
   displayName: same,
+  basis: same,
   start: same,
-  length: same,
+  end: same,
   loop: optionally(sameLoop),
   tags: sameList,
+  operations: sameProcessing,
 };
 
 export const MARKER_FIELDS: FieldComparisons<Marker> = {
   id: same,
+  assetId: same,
   displayName: same,
+  basis: same,
   position: same,
   paletteKey: same,
 };

@@ -82,6 +82,9 @@ export {
   type ManagedMedia,
   type MediaSource,
   type ProjectState,
+  SOURCE_CONTAINERS,
+  type SourceAudioShape,
+  type SourceContainer,
   SourceChangePolicy,
   emptyProjectState,
   storageKeyOf,
@@ -166,6 +169,13 @@ export { type AssetRecord, readAssetRecord, writeAssetRecord } from './asset-rec
 export { readExternalIdentity, readMediaSource } from './source-reading.js';
 export { writeExternalIdentity, writeMediaSource } from './project-writing.js';
 export { isFileName, isHandleKey, isRelativePath } from './source-rules.js';
+
+export { readEditOperation, readRegionOperation } from './edit-reading.js';
+export { writeEditOperation, writeRegionOperation } from './edit-writing.js';
+export { readEditPlan } from './plan-reading.js';
+export { writeEditPlan } from './plan-writing.js';
+export { readAnchoredLoop, readMarker, readRegion } from './placement-reading.js';
+export { writeAnchoredLoop, writeMarker, writeRegion } from './placement-writing.js';
 export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
 
 export { asProjectName, givenName, writtenName } from './given-names.js';

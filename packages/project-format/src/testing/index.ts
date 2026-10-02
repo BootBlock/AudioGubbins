@@ -13,6 +13,7 @@
 export {
   type SampleProject,
   contentIdOfDigit,
+  editedReferenceState,
   referenceState,
   withSources,
 } from './project-states.js';

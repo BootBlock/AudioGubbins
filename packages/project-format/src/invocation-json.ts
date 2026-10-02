@@ -31,7 +31,7 @@ const MAXIMUM_ARGUMENTS = 1_024;
  * room for a command that carries a pasted selection, well within the length a
  * stored history document may be.
  */
-const LONGEST_ARGUMENT_TEXT = 2 ** 24;
+export const LONGEST_ARGUMENT_TEXT = 2 ** 24;
 
 /**
  * The shape of a command identifier. The same pattern as

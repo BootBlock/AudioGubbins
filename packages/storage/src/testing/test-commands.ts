@@ -33,6 +33,7 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
   ProvenanceArgument,
+  NESTED_ARGUMENT_LIMITS,
   canonicalJson,
   contentIdFrom,
   invocationProvenance,
@@ -143,6 +144,7 @@ function addAssetCommand(): Command<ProjectState> {
       channelLayout: StandardLayouts.mono,
       length: LENGTH,
       storageKey: storageKeyOf(id, media),
+      edits: [],
     };
     return {
       kind: 'applied',
@@ -178,7 +180,7 @@ function removeAssetCommand(): Command<ProjectState> {
 function mediaIn(invocation: CommandInvocation): MediaSource | undefined {
   const text = invocation.arguments?.['media'];
   if (typeof text !== 'string') return undefined;
-  const parsed = parseJson(text, { maximumLength: 65_536, maximumDepth: 8 });
+  const parsed = parseJson(text, NESTED_ARGUMENT_LIMITS);
   if (!parsed.ok) return undefined;
   const reading = startReading();
   const media = reading.outcome(readMediaSource(reading, parsed.value, '', 'media'));
@@ -203,6 +205,7 @@ function setMediaCommand(): Command<ProjectState> {
       channelLayout: StandardLayouts.mono,
       length: LENGTH,
       storageKey: '',
+      edits: [],
     };
     return {
       kind: 'applied',
