@@ -54,7 +54,7 @@
  * Phase 02's packages sit between the domain and the application (ADR-0020):
  *
  * - project-format: the authoritative, versioned project and the forms it is
- *   written in; depends on domain + version.
+ *   written in; depends on domain + text + version.
  * - project-commands: the commands that change a project; depends on domain +
  *   commands + project-format.
  * - history: branching history as values; depends on domain + commands +
@@ -302,11 +302,11 @@ module.exports = {
       severity: 'error',
       comment:
         'The project format sits just above the domain it writes, so every Phase 02 package ' +
-        'can read it and it can read none of them (ADR-0020). Its tests may take the fixtures ' +
-        'package.',
+        'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
+        'rule a given name is held to. Its tests may take the fixtures package.',
       from: { path: '^packages/project-format/' },
       to: {
-        path: '^packages/(?!(domain|project-format|version)/)',
+        path: '^packages/(?!(domain|project-format|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

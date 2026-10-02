@@ -168,6 +168,8 @@ export { writeExternalIdentity, writeMediaSource } from './project-writing.js';
 export { isFileName, isHandleKey, isRelativePath } from './source-rules.js';
 export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
 
+export { asProjectName, givenName, writtenName } from './given-names.js';
+
 export { readExportRecord, writeExportRecord } from './export-record-json.js';
 
 export {

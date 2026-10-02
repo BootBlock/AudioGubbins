@@ -26,6 +26,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   Turns,
+  givenName,
   readProjectDocument,
   writeProjectDocument,
   type Digest,
@@ -78,10 +79,8 @@ export async function forkProject(
   services: ForkServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<ProjectHeader>> {
-  const name = request.name.trim();
-  if (name === '') {
-    return fail(failure('project.name-empty', FailureKind.Rejected, 'A project needs a name.'));
-  }
+  const name = givenName('project', request.name);
+  if (!name.ok) return name;
   const records = new CheckedRecords(services.tree, services.digest);
   const source = new ProjectFiles(records, request.source);
   const copy = await readProjectCopy(source, services, signal);
@@ -92,7 +91,7 @@ export async function forkProject(
 
   const project = services.ids.next<'ProjectId'>();
   const forked = stateOf(reached.value.state, project);
-  const state = { ...forked, project: { ...forked.project, displayName: name } };
+  const state = { ...forked, project: { ...forked.project, displayName: name.value } };
   // The document reader is the one authority on what a project may hold, so a
   // name it would refuse is refused here before anything is written.
   const readable = readProjectDocument(writeProjectDocument(state));

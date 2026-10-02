@@ -26,6 +26,7 @@ import {
   type ProjectSettings,
 } from '@audiogubbins/domain';
 import { ProjectCommandId } from '@audiogubbins/project-commands';
+import { givenName } from '@audiogubbins/project-format';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
 import { ProjectsSection } from '../state/interaction-store.js';
@@ -118,8 +119,9 @@ function createProjectCommand(): Command<ShellContext> {
     (context, invocation) => {
       const stores = readyProjects(context);
       if (typeof stores === 'string') return stores;
-      const name = textArgument(invocation, 'name')?.trim();
-      if (name === undefined || name === '') return 'Type a name for the new project.';
+      const named = givenName('project', textArgument(invocation, 'name'));
+      if (!named.ok) return named.failures[0].summary;
+      const name = named.value;
       const settings = settingsFrom(invocation);
       if (!settings.ok) return settings.failures[0].summary;
       sayWhenSettled(
@@ -193,8 +195,9 @@ function renameProjectCommand(): Command<ShellContext> {
     (context, invocation) => {
       const session = sessionOf(context);
       if (typeof session === 'string') return session;
-      const name = textArgument(invocation, 'name')?.trim();
-      if (name === undefined || name === '') return 'Type a new name for the project.';
+      const named = givenName('project', textArgument(invocation, 'name'));
+      if (!named.ok) return named.failures[0].summary;
+      const name = named.value;
       const work = session.run({ commandId: ProjectCommandId.Rename, arguments: { name } });
       sayWhenSettled(context, work, (outcome) =>
         outcome.kind === 'applied' ? `The project is now called ${quoted(name)}.` : outcome.reason,
@@ -215,18 +218,18 @@ function forkProjectCommand(): Command<ShellContext> {
       if (typeof stores === 'string') return stores;
       const open = stores.project.get();
       if (open.kind !== 'open') return 'No project is open.';
-      const name = textArgument(invocation, 'name')?.trim();
-      if (name === undefined || name === '') return 'Type a name for the fork.';
+      const name = givenName('project', textArgument(invocation, 'name'));
+      if (!name.ok) return name.failures[0].summary;
       const { history } = open.snapshot.model;
-      const named =
+      const at =
         textArgument(invocation, 'node') === undefined
           ? { id: history.cursor }
           : idArgument<'HistoryNodeId'>(invocation, 'node', 'point of the history');
-      if ('refused' in named) return named.refused;
+      if ('refused' in at) return at.refused;
       const work = stores.library.fork({
         source: open.snapshot.project,
-        from: { kind: 'node', node: named.id },
-        name,
+        from: { kind: 'node', node: at.id },
+        name: name.value,
       });
       sayWhenSettled(
         context,

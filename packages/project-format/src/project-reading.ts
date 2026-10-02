@@ -24,7 +24,8 @@ import { effectChainConverter } from './processing-reading.js';
 import { readBuses, trackConverter } from './routing-reading.js';
 import { asId } from './scalar-reading.js';
 import { asAsset, asMarker, asRegion, clipConverter } from './timeline-reading.js';
-import { MAXIMUM_ENTITIES, asChannelLayout, asName, asSampleRate } from './value-reading.js';
+import { asProjectName } from './given-names.js';
+import { MAXIMUM_ENTITIES, asChannelLayout, asSampleRate } from './value-reading.js';
 
 const PROJECT_MEMBERS: ReadonlySet<string> = new Set([
   'id',
@@ -53,7 +54,7 @@ export const asProject: Converter<Project> = (reading, value, parent, key) => {
   const at = pathOf(parent, key);
 
   const id = required(reading, object, at, 'id', asId<'ProjectId'>);
-  const displayName = required(reading, object, at, 'displayName', asName);
+  const displayName = required(reading, object, at, 'displayName', asProjectName);
   const settings = required(reading, object, at, 'settings', asSettings);
   const contents = readContents(reading, object, at);
   return id === undefined ||

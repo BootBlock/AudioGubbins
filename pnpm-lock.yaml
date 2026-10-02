@@ -603,6 +603,9 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
       '@audiogubbins/version':
         specifier: workspace:*
         version: link:../version

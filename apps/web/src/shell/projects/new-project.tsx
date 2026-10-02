@@ -11,7 +11,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { ButtonTone, OptionSelect, TextField } from '@audiogubbins/design-system';
-import { LONGEST_NAME } from '@audiogubbins/project-format';
+import { LONGEST_NAME, givenName } from '@audiogubbins/project-format';
 
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
@@ -41,10 +41,10 @@ export function NewProject({
   const [name, setName] = useState('');
   const [rate, setRate] = useState<string>(SAMPLE_RATES[0].value);
   const [channels, setChannels] = useState<string>(CHANNELS[0].value);
-  const chosen = name.trim();
+  const named = givenName('project', name);
 
   const make = (): void => {
-    run('file.create-project', { name: chosen, sampleRate: Number(rate), channels });
+    run('file.create-project', { name, sampleRate: Number(rate), channels });
   };
 
   return (
@@ -75,7 +75,7 @@ export function NewProject({
       </div>
       <ReasonedButton
         tone={ButtonTone.Primary}
-        reason={unavailable ?? (chosen === '' ? 'Type a name for the new project.' : undefined)}
+        reason={unavailable ?? (named.ok ? undefined : named.failures[0].summary)}
         onPress={make}
       >
         Make the project

@@ -55,7 +55,7 @@ describe('the Projects dialogue', () => {
 
     const make = within(dialogue).getByRole('button', { name: 'Make the project' });
     expect(make).toHaveAttribute('aria-disabled', 'true');
-    expect(make).toHaveAccessibleDescription('Type a name for the new project.');
+    expect(make).toHaveAccessibleDescription('A project needs a name.');
     await userEvent.click(make);
     expect(run).not.toHaveBeenCalled();
 

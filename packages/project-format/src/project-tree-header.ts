@@ -25,14 +25,9 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import type { JsonObject, JsonValue } from './canonical-json.js';
 import { compatibilityOf, readCompatibleHeader } from './compatibility.js';
 import { objectOf, pathOf, required, startReading, type Converter } from './document-reading.js';
+import { asProjectName } from './given-names.js';
 import { ProvenanceLevel } from './provenance-stripping.js';
-import {
-  asBoolean,
-  asId,
-  integerConverter,
-  oneOfConverter,
-  textConverter,
-} from './scalar-reading.js';
+import { asBoolean, asId, integerConverter, oneOfConverter } from './scalar-reading.js';
 
 /** The format name a tree's header carries. */
 const PROJECT_TREE_FORMAT = 'audiogubbins.project-tree';
@@ -63,7 +58,6 @@ const HEADER_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 const INCLUDES_MEMBERS: ReadonlySet<string> = new Set(['history', 'caches']);
 
-const asDisplayName = textConverter({ maximumLength: 1_024 });
 const asVersion = integerConverter(1, Number.MAX_SAFE_INTEGER);
 const asProvenance = oneOfConverter([
   ProvenanceLevel.Full,
@@ -129,7 +123,7 @@ export function readTreeHeader(value: JsonValue): DomainResult<TreeHeader> {
     }
   }
   const project = required(reading, object, '', 'project', asId<'ProjectId'>);
-  const displayName = required(reading, object, '', 'displayName', asDisplayName);
+  const displayName = required(reading, object, '', 'displayName', asProjectName);
   const includes = required(reading, object, '', 'includes', asIncludes);
   const provenance = required(reading, object, '', 'provenance', asProvenance);
   return reading.outcome(

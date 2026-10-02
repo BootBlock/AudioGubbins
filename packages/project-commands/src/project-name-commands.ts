@@ -13,10 +13,9 @@ import {
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
-import type { ProjectState } from '@audiogubbins/project-format';
+import { givenName, writtenName, type ProjectState } from '@audiogubbins/project-format';
 
 import { refusedBy, textArgument } from './invocation-arguments.js';
-import { heldName, typedName, type NameRule } from './names.js';
 import {
   NO_PROVENANCE,
   ProjectCommandId,
@@ -35,7 +34,7 @@ export function projectNameCommands(): readonly ProjectCommand[] {
       label: 'Rename project',
       category: CommandCategory.File,
       description: 'Gives the project a new name. The name is trimmed and cannot be blank.',
-      run: (state, invocation) => rename(state, invocation, typedName),
+      run: (state, invocation) => rename(state, invocation, givenName),
       provenance: NO_PROVENANCE,
     }),
     projectCommand({
@@ -44,7 +43,7 @@ export function projectNameCommands(): readonly ProjectCommand[] {
       category: CommandCategory.File,
       description:
         'Sets the project name exactly as given, which is how undo restores the name it had.',
-      run: (state, invocation) => rename(state, invocation, heldName),
+      run: (state, invocation) => rename(state, invocation, writtenName),
       provenance: NO_PROVENANCE,
     }),
   ];
@@ -53,7 +52,7 @@ export function projectNameCommands(): readonly ProjectCommand[] {
 function rename(
   state: ProjectState,
   invocation: CommandInvocation,
-  rule: NameRule,
+  rule: typeof givenName,
 ): CommandOutcome<ProjectState> {
   const text = textArgument(invocation, 'name');
   if (!text.ok) return refusedBy(text);

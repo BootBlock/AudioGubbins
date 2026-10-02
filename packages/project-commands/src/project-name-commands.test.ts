@@ -42,8 +42,10 @@ describe('project.rename', () => {
     expect(appliedOf(bus.execute(appliedOf(result).next, inverse[0])).next).toEqual(state);
   });
 
-  it('refuses a blank name', () => {
+  it('refuses a blank name, one of code points nobody sees among them', () => {
     expect(refusalCodeOf(bus.execute(state, rename(' \t\n ')))).toBe('project.name-blank');
+    expect(refusalCodeOf(bus.execute(state, rename('\u200B')))).toBe('project.name-blank');
+    expect(refusalCodeOf(bus.execute(state, rename(' \u200D\uFEFF ')))).toBe('project.name-blank');
   });
 
   it('refuses a name longer than the project document holds, saying the bound', () => {
@@ -79,8 +81,9 @@ describe('project.set-name', () => {
     expect(appliedOf(undone).next).toEqual(padded);
   });
 
-  it('sets a blank name, which a document may hold, but not one past the bound', () => {
-    expect(appliedOf(bus.execute(state, setName(''))).next.project.displayName).toBe('');
+  it('refuses a blank name, which no document holds, and one past the bound', () => {
+    expect(refusalCodeOf(bus.execute(state, setName('')))).toBe('project.name-blank');
+    expect(refusalCodeOf(bus.execute(state, setName(' \u200B ')))).toBe('project.name-blank');
     expect(refusalCodeOf(bus.execute(state, setName('x'.repeat(1_025))))).toBe(
       'project.name-too-long',
     );

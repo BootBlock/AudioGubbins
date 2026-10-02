@@ -21,8 +21,10 @@ import type { AssetId } from '@audiogubbins/domain';
 import {
   ProvenanceArgument,
   canonicalJson,
+  givenName,
   readAssetRecord,
   writeAssetRecord,
+  writtenName,
   type ProjectState,
 } from '@audiogubbins/project-format';
 
@@ -33,7 +35,6 @@ import {
   targetAsset,
   textArgument,
 } from './invocation-arguments.js';
-import { heldName, typedName, type NameRule } from './names.js';
 import {
   NO_PROVENANCE,
   ProjectCommandId,
@@ -73,7 +74,7 @@ export function assetCommands(): readonly ProjectCommand[] {
       category: CommandCategory.Edit,
       description: 'Gives an asset a new name. The name is trimmed and cannot be blank.',
       availability: assetAvailability,
-      run: (state, invocation) => renameAsset(state, invocation, typedName),
+      run: (state, invocation) => renameAsset(state, invocation, givenName),
       provenance: NO_PROVENANCE,
     }),
     projectCommand({
@@ -83,7 +84,7 @@ export function assetCommands(): readonly ProjectCommand[] {
       description:
         'Sets an asset name exactly as given, which is how undo restores the name it had.',
       availability: assetAvailability,
-      run: (state, invocation) => renameAsset(state, invocation, heldName),
+      run: (state, invocation) => renameAsset(state, invocation, writtenName),
       provenance: NO_PROVENANCE,
     }),
   ];
@@ -142,7 +143,7 @@ function removeAsset(
 function renameAsset(
   state: ProjectState,
   invocation: CommandInvocation,
-  rule: NameRule,
+  rule: typeof givenName,
 ): CommandOutcome<ProjectState> {
   const target = targetAsset(state, invocation);
   if (!target.ok) return refusedBy(target);

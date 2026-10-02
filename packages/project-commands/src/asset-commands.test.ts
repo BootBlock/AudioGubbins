@@ -211,6 +211,9 @@ describe('project.rename-asset and project.set-asset-name', () => {
     expect(refusalCodeOf(bus.execute(state, renameAsset(assets.rain.id, '   ')))).toBe(
       'asset.name-blank',
     );
+    expect(refusalCodeOf(bus.execute(state, renameAsset(assets.rain.id, '\u200B')))).toBe(
+      'asset.name-blank',
+    );
     expect(refusalCodeOf(bus.execute(state, renameAsset(assets.rain.id, 'r'.repeat(1_025))))).toBe(
       'asset.name-too-long',
     );

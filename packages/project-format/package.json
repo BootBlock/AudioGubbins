@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*"
   },
   "devDependencies": {

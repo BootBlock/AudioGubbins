@@ -33,6 +33,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
+import { asAssetName } from './given-names.js';
 import { asBoolean, asId, oneOfConverter, textConverter } from './scalar-reading.js';
 import {
   MAXIMUM_NESTED_ITEMS,
@@ -99,7 +100,7 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   const at = pathOf(parent, key);
 
   const id = required(reading, object, at, 'id', asId<'AssetId'>);
-  const displayName = required(reading, object, at, 'displayName', asName);
+  const displayName = required(reading, object, at, 'displayName', asAssetName);
   const origin = required(reading, object, at, 'origin', asOrigin);
   const sampleRate = required(reading, object, at, 'sampleRate', asSampleRate);
   const channelLayout = required(reading, object, at, 'channelLayout', asChannelLayout);

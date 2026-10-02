@@ -309,8 +309,18 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'a name past its bound': {
     edit: (document) => withValue(document, ['project', 'displayName'], 'x'.repeat(1_025)),
-    code: 'schema.text-too-long',
+    code: 'project.name-too-long',
     at: 'project.displayName',
+  },
+  'a project name of nothing a reader sees': {
+    edit: (document) => withValue(document, ['project', 'displayName'], ' \u200B '),
+    code: 'project.name-blank',
+    at: 'project.displayName',
+  },
+  'a blank asset name': {
+    edit: (document) => withValue(document, ['project', 'assets', 0, 'displayName'], '\u2060'),
+    code: 'asset.name-blank',
+    at: 'project.assets[0].displayName',
   },
   'a media type of another shape': {
     edit: (document) => withValue(document, [...managedAt, 'mediaType'], 'Audio WAV'),

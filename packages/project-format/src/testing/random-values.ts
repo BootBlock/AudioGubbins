@@ -29,6 +29,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { AssetRecord } from '../asset-record-json.js';
 import { contentIdFrom, type ContentId } from '../content-identity.js';
+import { writtenName } from '../given-names.js';
 import {
   SourceChangePolicy,
   storageKeyOf,
@@ -116,6 +117,15 @@ export function randomName(random: Random): string {
   const pieces = random.below(5);
   for (let index = 0; index < pieces; index += 1) name += random.pick(NAME_PIECES);
   return name;
+}
+
+/**
+ * A random name a project or an asset holds: as {@link randomName}, sometimes
+ * padded, but never blank, which the rule for such a name refuses.
+ */
+export function randomHeldName(random: Random): string {
+  const name = randomName(random);
+  return writtenName('asset', name).ok ? name : `${name}Footstep`;
 }
 
 /** A random count of samples, up to `most`. */
@@ -235,7 +245,7 @@ export function randomAssetRecord(
   const media = randomMedia(random);
   const asset: Asset = {
     id,
-    displayName: randomName(random),
+    displayName: randomHeldName(random),
     origin: random.pick(Object.values(AssetOrigin)),
     sampleRate: expectSuccess(sampleRate(random.pick(RATES))),
     channelLayout: randomLayout(random),

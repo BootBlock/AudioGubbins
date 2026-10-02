@@ -2627,6 +2627,7 @@ Published paths
   const asBoolean: Converter<boolean>
   const asContentId: Converter<ContentId>
   function asId<TBrand extends string>(reading: Reading, value: JsonValue, parent: string, key: number | string): Branded<TBrand> | undefined
+  const asProjectName: Converter<string>
   function canonicalJson(value: JsonValue): CanonicalJson
   function canonicalJsonWithin(value: JsonValue, limits: JsonLimits): DomainResult<CanonicalJson>
   function checkMembers(reading: Reading, object: JsonObject, at: string, members: ReadonlySet<string>): void
@@ -2643,6 +2644,7 @@ Published paths
   function encodeUtf8(text: string): Uint8Array<ArrayBuffer>
   function entitiesOf<TEntity extends { readonly id: string; }>(reading: Reading, object: JsonObject, at: string, key: string, maximum: number, entity: Converter<TEntity>): ReadonlyMap<TEntity["id"], TEntity> | undefined
   function fingerprintOf(text: CanonicalJson, digest: Digest): Promise<StateFingerprint>
+  function givenName(subject: NamedSubject, value: unknown): DomainResult<string>
   function hexOf(bytes: Uint8Array<ArrayBufferLike>): string
   function historyFromSegments(reading: Reading, history: SegmentedHistoryRecord, segments: readonly HistorySegmentRecord[], at: string): HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord> | undefined
   function historyLabelFrom(text: string): DomainResult<HistoryLabel>
@@ -2720,6 +2722,7 @@ Published paths
   function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
   function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
+  function writtenName(subject: NamedSubject, value: unknown): DomainResult<string>
 
 @audiogubbins/project-format/testing
   interface CountedTurns
@@ -4484,6 +4487,9 @@ packages/media-store/src/testing/memory-tree.ts
   FileBody.length: number
   FileBody.append: (chunk: Uint8Array) => void
   FileBody.slice: (start: number, end: number) => Uint8Array<ArrayBuffer>
+
+packages/project-format/src/given-names.ts
+  type NamedSubject = "asset" | "project"
 
 packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }

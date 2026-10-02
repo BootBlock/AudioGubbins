@@ -36,6 +36,7 @@ import {
 import {
   Turns,
   emptyProjectState,
+  givenName,
   readProjectDocument,
   writeProjectDocument,
   type Digest,
@@ -128,10 +129,9 @@ export class ProjectRepository {
 
   /** Makes a new, empty project and gives its header. */
   async create(request: NewProject, signal?: AbortSignal): Promise<DomainResult<ProjectHeader>> {
-    const name = request.name.trim();
-    if (name === '') {
-      return fail(failure('project.name-empty', FailureKind.Rejected, 'A project needs a name.'));
-    }
+    const named = givenName('project', request.name);
+    if (!named.ok) return named;
+    const name = named.value;
     const { ids, clock } = this.services;
     const state = emptyProjectState(createProject(ids.next<'ProjectId'>(), name, request.settings));
     // The document reader is the one authority on what a project may hold, so a

@@ -40,6 +40,7 @@ import {
   randomAssetRecord,
   randomCount,
   randomLayout,
+  randomHeldName,
   randomName,
   seededRandom,
   type Random,
@@ -80,7 +81,7 @@ class StateBuilder {
         : new Map<ClipId, Clip>();
 
     const project = {
-      ...createProject(projectId, randomName(this.random), {
+      ...createProject(projectId, randomHeldName(this.random), {
         sampleRate: expectSuccess(sampleRate(this.random.pick(RATES))),
         channelLayout: randomLayout(this.random),
       }),

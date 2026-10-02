@@ -410,7 +410,7 @@ const PACKAGES = [
       'The authoritative, versioned AudioGubbins project and the forms it is written in: its validated document, content identity, the portable bundle and the unpacked tree.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/version'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/text', '@audiogubbins/version'],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},

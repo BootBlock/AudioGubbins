@@ -40,8 +40,10 @@ describe('the project catalogue (REQ-STOR-025, REQ-STOR-102)', () => {
     const tree = new MemoryStorageTree();
     const repository = test.repository(tree);
     expect(expectFailureCode(await repository.create({ name: '   ', settings: SETTINGS }))).toBe(
-      'project.name-empty',
+      'project.name-blank',
     );
+    const unseen = await repository.create({ name: ' \u200B ', settings: SETTINGS });
+    expect(expectFailureCode(unseen)).toBe('project.name-blank');
     const tooLong = await repository.create({ name: 'x'.repeat(2_000), settings: SETTINGS });
     expect(tooLong.ok).toBe(false);
     expect(tree.paths()).toEqual([]);

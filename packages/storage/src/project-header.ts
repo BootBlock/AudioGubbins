@@ -17,12 +17,12 @@
 import type { ProjectId } from '@audiogubbins/domain';
 import {
   asId,
+  asProjectName,
   objectOf,
   optional,
   pathOf,
   presentMembers,
   required,
-  textConverter,
   type Converter,
   type JsonObject,
 } from '@audiogubbins/project-format';
@@ -68,7 +68,6 @@ const HEADER_MEMBERS: ReadonlySet<string> = new Set([
 const IMPORTED_MEMBERS: ReadonlySet<string> = new Set(['from', 'at']);
 
 /** The longest name, as the project document holds one. */
-const asName = textConverter({ maximumLength: 1_024 });
 
 /** Writes a header. */
 export function writeHeader(header: ProjectHeader): JsonObject {
@@ -93,7 +92,7 @@ const readHeader: Converter<ProjectHeader> = (reading, value, parent, key) => {
   const at = pathOf(parent, key);
   const generation = required(reading, object, at, 'generation', asCountingNumber);
   const id = required(reading, object, at, 'id', asId<'ProjectId'>);
-  const name = required(reading, object, at, 'name', asName);
+  const name = required(reading, object, at, 'name', asProjectName);
   const created = required(reading, object, at, 'created', asWholeNumber);
   const deleted = optional(reading, object, at, 'deleted', asWholeNumber);
   const purging = optional(reading, object, at, 'purging', asWholeNumber);

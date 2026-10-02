@@ -22,7 +22,7 @@ describe('the library, asked of the storage worker', () => {
 
     const refused = await client.library.create({ name: '  ', settings: SETTINGS });
 
-    expect(expectFailureCode(refused)).toBe('project.name-empty');
+    expect(expectFailureCode(refused)).toBe('project.name-blank');
     await expect(client.library.list()).resolves.toEqual([]);
   });
 
@@ -69,5 +69,13 @@ describe('the library, asked of the storage worker', () => {
       entry.kind === 'project' ? entry.header.name : entry.name,
     );
     expect(names.toSorted()).toEqual(['Harbour', 'Harbour at dusk']);
+
+    const unseen = await client.library.fork({
+      source: source.id,
+      from: { kind: 'node', node: root },
+      name: '\u200B',
+    });
+    expect(expectFailureCode(unseen)).toBe('project.name-blank');
+    expect(await client.library.list()).toHaveLength(2);
   });
 });

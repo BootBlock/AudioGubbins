@@ -17,7 +17,7 @@ import {
   TextField,
   ToggleSwitch,
 } from '@audiogubbins/design-system';
-import { LONGEST_NAME } from '@audiogubbins/project-format';
+import { LONGEST_NAME, givenName } from '@audiogubbins/project-format';
 import type { AnotherProject } from '@audiogubbins/storage';
 
 import { quoted } from '../../wording.js';
@@ -52,9 +52,9 @@ function NamedAction({
   readonly unavailable: string | undefined;
 }): ReactNode {
   const [name, setName] = useState(initial);
-  const chosen = name.trim();
+  const named = givenName('project', name);
   const go = (): void => {
-    run(command, { name: chosen });
+    run(command, { name });
   };
   return (
     <div className="ag-settings-row">
@@ -66,7 +66,7 @@ function NamedAction({
         maxLength={LONGEST_NAME}
       />
       <ReasonedButton
-        reason={unavailable ?? (chosen === '' ? 'Type a name first.' : undefined)}
+        reason={unavailable ?? (named.ok ? undefined : named.failures[0].summary)}
         onPress={go}
       >
         {action}

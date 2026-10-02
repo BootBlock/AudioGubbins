@@ -78,7 +78,11 @@ describe('making, opening and closing a project', () => {
 
     expect(window.run('file.create-project', { name: '   ' })).toMatchObject({
       kind: 'refused',
-      failures: [{ summary: 'Type a name for the new project.' }],
+      failures: [{ summary: 'A project needs a name.' }],
+    });
+    expect(window.run('file.create-project', { name: '\u200B' })).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'A project needs a name.' }],
     });
     expect(window.run('file.create-project', { name: 'Loud', sampleRate: 3 }).kind).toBe('refused');
     expect(headers(window)).toEqual([]);
