@@ -162,7 +162,11 @@ describe('the Projects dialogue', () => {
       'Leave it all out',
     ]);
     await user.click(screen.getByRole('option', { name: 'Leave it all out' }));
-    expect(within(dialogue).getByText(/Leaves out how each file came in/u)).toBeVisible();
+    expect(
+      within(dialogue).getByText(
+        /Leaves out how each file came in, every export and who made each snapshot/u,
+      ),
+    ).toBeVisible();
     expect(within(dialogue).getByText(/so undo and redo still work/u)).toBeVisible();
     await user.click(within(dialogue).getByRole('button', { name: 'Export as a bundle…' }));
     expect(run).toHaveBeenLastCalledWith('file.export-bundle', {

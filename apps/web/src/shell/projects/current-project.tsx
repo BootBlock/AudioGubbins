@@ -107,17 +107,22 @@ const PROVENANCE_KEPT: ReadonlyMap<string, string> = new Map([
 /**
  * What each level keeps of a whole history, whose changes compare the names,
  * handles and paths of linked files, so below full each is kept as a stand-in
- * rather than left out (`history-stripping.ts` in the project format).
+ * rather than left out; the name of who made each snapshot is a name too, and
+ * nothing compares it, so it is left out (`history-stripping.ts` in the
+ * project format).
  */
 const WHOLE_HISTORY_KEPT: ReadonlyMap<string, string> = new Map([
-  ['full', PROVENANCE_KEPT.get('full') ?? ''],
+  [
+    'full',
+    'Keeps every file’s name and folder, when it came in, where each export went, and who made each snapshot.',
+  ],
   [
     'minimal',
-    'Keeps when each file came in, what it was and the project it first came into. Each file’s name and folder becomes a stand-in that says only which files were the same, so undo and redo still work; where each export went is left out, with its Godot links and messages.',
+    'Keeps when each file came in, what it was and the project it first came into. Each file’s name and folder becomes a stand-in that says only which files were the same, so undo and redo still work; where each export went is left out, with its Godot links and messages, and so is who made each snapshot.',
   ],
   [
     'none',
-    'Leaves out how each file came in and every export. A linked file keeps its length, type, time and fingerprints, and its name and folder become a stand-in that says only which files were the same, so undo and redo still work.',
+    'Leaves out how each file came in, every export and who made each snapshot. A linked file keeps its length, type, time and fingerprints, and its name and folder become a stand-in that says only which files were the same, so undo and redo still work.',
   ],
 ]);
 

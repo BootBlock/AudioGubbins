@@ -5,8 +5,9 @@
 > (`6a5a903`, `5b8523b`); media a change names inside a nested value is found,
 > which the replay test showed was not (`8e0c07b`); and the export dialogue
 > and commands offer every level for a whole history (the commit that moves
-> this note here). Not decided here: a snapshot keeps its author's name at
-> every level.
+> this note here). A snapshot's author's name, left open here, is kept only
+> at full: below it the name is left out, the dialogue says so, and the
+> reader refuses a snapshot that keeps one.
 
 # Exporting a whole history with less provenance
 

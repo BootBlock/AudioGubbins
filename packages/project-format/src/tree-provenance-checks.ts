@@ -13,7 +13,8 @@
  * stripped, with placeholders that keep only what is a placeholder already, so
  * a name, handle or path that is not one is refused, and a change's arguments
  * are found through the command layer's port. The export log, and every
- * snapshot's list of exports, are held to it as the log is stripped.
+ * snapshot's list of exports, are held to it as the log is stripped, and below
+ * full no snapshot may name its author.
  */
 
 import type { ExportRecord } from './export-provenance.js';
@@ -71,7 +72,8 @@ export class ProvenanceCheck {
 
   /**
    * Refuses each change of the history whose invocations keep more than the
-   * level, and each snapshot naming an export where the level keeps none.
+   * level, each snapshot naming its author, and each naming an export where
+   * the level keeps none.
    */
   checkHistory(tree: TreeReading, record: HistoryRecord): void {
     if (this.#level === ProvenanceLevel.Full) return;
@@ -80,9 +82,9 @@ export class ProvenanceCheck {
         this.#checkInvocations(tree, nodePath(node.id), [...node.forward, ...node.inverse]);
       }
     }
-    if (this.#level !== ProvenanceLevel.None) return;
+    const noExports = this.#level === ProvenanceLevel.None;
     for (const snapshot of record.snapshots) {
-      if (snapshot.exports.length > 0) {
+      if (snapshot.author !== undefined || (noExports && snapshot.exports.length > 0)) {
         tree.refuse('tree.provenance-kept', snapshotPath(snapshot.id));
       }
     }

@@ -121,6 +121,10 @@ describe('reading a project tree (REQ-STOR-103)', () => {
       })
       .map(([asset]) => `project/assets/${asset}.source.json`);
     const exports = files.map(({ path }) => path).filter((path) => path.startsWith('exports/'));
+    // Every snapshot of the sample names the person who made it.
+    const snapshots = files
+      .map(({ path }) => path)
+      .filter((path) => path.startsWith('history/snapshots/'));
 
     const kept = (await problemsOf(files))
       .filter(([code]) => code === 'tree.provenance-kept')
@@ -128,7 +132,8 @@ describe('reading a project tree (REQ-STOR-103)', () => {
 
     expect(named.length).toBeGreaterThan(0);
     expect(exports).toHaveLength(2);
-    expect(kept.toSorted()).toEqual([...named, ...exports].toSorted());
+    expect(snapshots.length).toBeGreaterThan(0);
+    expect(kept.toSorted()).toEqual([...named, ...exports, ...snapshots].toSorted());
   });
 
   it('refuses a file no tree has, and reports every problem at its file', async () => {

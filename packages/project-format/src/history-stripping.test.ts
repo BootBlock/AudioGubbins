@@ -45,6 +45,7 @@ const PRIVATE_TEXT = [
   'Moved/',
   'Sounds for the level',
   'One file was not written.',
+  'A person',
 ];
 
 const AFFECTS = {
@@ -259,6 +260,27 @@ describe('a whole history stripped to a level (REQ-STOR-166)', () => {
     expect(
       read.ok ? [] : read.failures.map(({ code, details }) => [code, details?.['file']]),
     ).toEqual([['tree.provenance-kept', path]]);
+  });
+
+  it('refuses a stripped tree where a snapshot keeps the name of the person who made it', async () => {
+    const files = await strippedTree(await namedHistory(), ProvenanceLevel.Minimal);
+    const snapshot = files.find(({ path }) => path.startsWith('history/snapshots/'));
+    if (snapshot === undefined) throw new Error('The history keeps no snapshot.');
+    const kept = { ...JSON.parse(textAt(files, snapshot.path)), author: 'A person' };
+    const edited = files.map((file) =>
+      file.path === snapshot.path
+        ? {
+            path: file.path,
+            body: { kind: 'text', bytes: encodeUtf8(JSON.stringify(kept)) } as const,
+          }
+        : file,
+    );
+
+    const read = await readProjectTree(listingOf(edited), TREE_READING);
+
+    expect(
+      read.ok ? [] : read.failures.map(({ code, details }) => [code, details?.['file']]),
+    ).toEqual([['tree.provenance-kept', snapshot.path]]);
   });
 
   it('learns the stripped states’ fingerprints holding one state at a time', async () => {

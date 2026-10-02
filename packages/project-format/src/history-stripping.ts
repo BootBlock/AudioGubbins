@@ -18,8 +18,10 @@
  * the tree is written: a history may keep more states than fit in memory. A
  * node names the new fingerprint where its state is kept, and none where it is
  * not, which only means a move to it replays; a snapshot's state is always
- * kept. Where the level keeps no export record, no snapshot names one. An
- * export record's fingerprint is of the state that was exported, as it was.
+ * kept. Below full no snapshot keeps the name of the person who made it, a
+ * name like a file's, and where the level keeps no export record, no snapshot
+ * names one. An export record's fingerprint is of the state that was exported,
+ * as it was.
  */
 
 import { succeed, type DomainResult } from '@audiogubbins/domain';
@@ -82,7 +84,7 @@ export async function stripHistory(
     state,
     history: {
       ...history,
-      record: level === ProvenanceLevel.None ? withoutExports(record) : record,
+      record: strippedSnapshots(record, level),
       states: strippedStates(history.states, learnt.value, rewrite),
     },
     exports: stripExportRecords(parts.exports, level),
@@ -173,13 +175,17 @@ export function withStateFingerprints(
   };
 }
 
-/** The record with no snapshot naming an export, where the level keeps none. */
-function withoutExports(record: HistoryRecord): HistoryRecord {
+/**
+ * The record with no snapshot keeping its author's name below full, and none
+ * naming an export where the level keeps none.
+ */
+function strippedSnapshots(record: HistoryRecord, level: ProvenanceLevel): HistoryRecord {
   return {
     ...record,
-    snapshots: record.snapshots.map((snapshot) =>
-      snapshot.exports.length === 0 ? snapshot : { ...snapshot, exports: [] },
-    ),
+    snapshots: record.snapshots.map((snapshot) => {
+      const { author: _left, ...kept } = snapshot;
+      return level === ProvenanceLevel.None ? { ...kept, exports: [] } : kept;
+    }),
   };
 }
 
