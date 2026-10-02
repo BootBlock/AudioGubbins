@@ -46,7 +46,10 @@
  *   workspace       docking; depends on diagnostics + text + version
  *   test-fixtures   deterministic fixtures and the measures of a cost; depends
  *                   on domain; never shipped
- *   apps/web        composition root; may depend on every public entry point
+ *   apps/web        composition root; may depend on every public entry point,
+ *                   but takes only types and listed values from the packages
+ *                   that keep projects, whose core runs in the storage worker
+ *                   (ADR-0022; tests/architecture/dependency-rules.test.ts)
  *
  * Phase 02's packages sit between the domain and the application (ADR-0020):
  *

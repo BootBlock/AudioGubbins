@@ -1,5 +1,6 @@
-> **Status:** In progress. 2026-10-01: review findings F-01 to F-14 fixed;
-> F-15, the medium findings and the landing remain (see "Left to do").
+> **Status:** In progress. 2026-10-02: review findings F-01 to F-15 fixed;
+> F-15's measurement in a browser, the medium findings and the landing remain
+> (see "Left to do").
 
 # Phase 02 — Project and Storage System
 
@@ -266,12 +267,29 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      whole history in one document is still bounded by the record limit and
      is refused, never written, past it (part one).
 
-3. F-15: the storage core in a worker behind a typed port, with a host yield
-   and an `AbortSignal` passed through the long paths. ADR-0022 records it.
+3. Done in code (`0db234d`, `83a82e7`, `0c459fd` to `c4734d3`, `59f32dc`, and
+   the page's import rule after it); one measurement is left. F-15: the
+   storage core in a worker behind a typed port, with a host yield and an
+   `AbortSignal` passed through the long paths. ADR-0022 records it.
 
-   The page keeps no storage core. Today it builds every storage service and
-   only the file reads and writes cross to the worker, so parsing,
-   canonical text, fingerprints, scans, backups and ZIP checksums run on the
+   - What landed beyond the plan: the application holds only the client, the
+     kept handles, the digest that names its caches and a logger. Its stores
+     use the client's session and view directly, with no interface between,
+     since the page has no other kind and its tests run the worker itself.
+     Every long operation it starts takes a signal: replaced by a newer
+     request (an opening, the list, a measurement, a plan, a backup listing,
+     a look at linked files), given up when its project is let go, or when
+     the project system is taken down; work given up is neither said nor
+     logged. Files the person chose cross as themselves, with their handles.
+     A rule in `dependency-rules.test.ts` holds the page to types, and a
+     listed value each with its reason, from `storage`, `media-store` and
+     `browser-storage`.
+   - Left: measure in a browser at 16k changes (a checkpoint, and the page's
+     time per publish; the opening was measured in `c6f3741`).
+
+   The page keeps no storage core. Before this it built every storage service
+   and only the file reads and writes crossed to the worker, so parsing,
+   canonical text, fingerprints, scans, backups and ZIP checksums ran on the
    page (16k changes: 331 ms to write and 483 ms to read one checkpoint).
 
    - A package `packages/storage-runtime` (DOM and worker; storage, history,
@@ -314,8 +332,9 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      (bundle, backup, raw export, the backups folder), byte sources (an
      imported file), directory readers and writers (the unpacked tree), and
      `locate` for consolidation, so permission prompts stay on the page.
-     Bytes are transferred, never copied.
-   - `ProjectRepository.list` becomes a call that answers pages of entries.
+     Bytes are transferred, copied at most once.
+   - `ProjectRepository.list` becomes a call that answers the entries, read
+     whole in the worker.
      `TreeFailure` crosses as a refusal with its kind, made again on the page.
    - The host yield (`scheduler.yield` in the worker) is passed through every
      long path, so a cancel or another call is heard mid-path, and every long
@@ -329,7 +348,7 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      dependency rule that the page imports `@audiogubbins/storage` for types
      only; the yield and signal per path. The app's test world runs the real
      worker composition over an in-process pair that structured-clones every
-     message, as `worker-pair.ts` does. Measure again: 16k changes, a
+     message, as the tree's own test pair did. Measure again: 16k changes, a
      checkpoint and an open, page time per publish.
 
 4. Fix or accept, with a reason, every medium finding; track the low ones.

@@ -32,6 +32,7 @@ import {
   read,
   sourcesMatching,
 } from './source-reading.js';
+import { valuesTaken } from './value-imports.js';
 
 /**
  * Executable architecture constraints (REQ-EXEC-184).
@@ -976,6 +977,130 @@ describe('third-party libraries stay behind their adapters', () => {
     );
 
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The values the page may take from the packages that keep projects, each
+ * under the reason the work is the page's own (see the rule below).
+ */
+const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+  '@audiogubbins/storage': {
+    'The kinds of cache and the order a cleanup offers them in, constants the storage commands and the peak cache name a cache by.':
+      ['CACHE_CLEANUP_ORDER', 'CacheCategory'],
+    'The scope of a cache kept for audio the storage does not hold, made from the digest of its identity: a pure function, which the peak cache names each cache by before the worker keeps it.':
+      ['unstoredScope'],
+    'The project a folder export was refused for holding, read from the refusal the worker answered: a pure function, which the transfer store asks the person about.':
+      ['anotherProjectIn'],
+  },
+  '@audiogubbins/media-store': {
+    'What became of a linked file and what the person may do about it: pure decisions over the identity the worker examined, which the source change store puts to the person.':
+      ['classifySource', 'resolutionsFor'],
+  },
+  '@audiogubbins/browser-storage': {
+    'The kept handles of linked files and of the backups folder, and the tokens they are kept under, which only the page may ask the person leave to use.':
+      [
+        'FileHandleKeeper',
+        'FolderUse',
+        'randomTokens',
+        'reopenKeptFile',
+        'reopenKeptFolder',
+        'requestKeptFileAccess',
+        'requestKeptFolderAccess',
+      ],
+    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture.":
+      ['filesFromInput', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
+    'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
+      ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
+    "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
+  },
+};
+
+describe('the page keeps no storage core of its own (ADR-0022)', () => {
+  /** The values listed for a package, or none where it is not one that keeps projects. */
+  const allowed = (pkg: string): ReadonlySet<string> =>
+    new Set(Object.values(PAGE_VALUES[pkg] ?? {}).flat());
+
+  // Every application file that ships, its tests and their support excluded:
+  // a test world owns both ends of the port, and prepares storage as another
+  // window would.
+  const PAGE_FILES = PRODUCTION_FILES.filter((path) => path.startsWith('apps/web/src/'));
+
+  /** Each value a page file takes from a package that keeps projects, or by a computed name. */
+  const takenByThePage = (): readonly {
+    readonly where: string;
+    readonly pkg: string;
+    readonly name: string;
+  }[] =>
+    PAGE_FILES.flatMap((path) =>
+      valuesTaken(parse(path)).flatMap(({ module, name }) => {
+        const pkg = module === '(computed)' ? module : packageOf(module);
+        return pkg !== undefined && (pkg in PAGE_VALUES || pkg === '(computed)')
+          ? [{ where: `${path}: ${module} ${name}`, pkg, name }]
+          : [];
+      }),
+    );
+
+  it('takes types from the packages that keep projects, and only the values listed with their reason', () => {
+    // ADR-0022 keeps the storage core in one worker, so the page holds no
+    // project, history, tree or store of its own and asks the worker for
+    // everything through the storage runtime's client. The page may still name
+    // what those packages describe, since a type is gone before the code runs,
+    // but the only values it takes from them are the ones listed, each for work
+    // that is the page's own. A value of the storage, such as `openProject` or
+    // `ProjectRepository`, or of the tree beneath it, would be a storage core
+    // on the page again.
+    const unlisted = takenByThePage()
+      .filter(({ pkg, name }) => !allowed(pkg).has(name))
+      .map(({ where }) => where);
+
+    expect(unlisted).toEqual([]);
+  });
+
+  it('takes every value it lists, so the list says what the page does', () => {
+    const taken = new Set(takenByThePage().map(({ pkg, name }) => `${pkg} ${name}`));
+    const listed = Object.entries(PAGE_VALUES).flatMap(([pkg, reasons]) =>
+      Object.values(reasons)
+        .flat()
+        .map((name) => `${pkg} ${name}`),
+    );
+
+    expect(listed.filter((value) => !taken.has(value))).toEqual([]);
+  });
+
+  it('reads the page, which names many of their types and connects to the worker', () => {
+    const naming = PAGE_FILES.filter((path) =>
+      importsOf(path).some((specifier) => packageOf(specifier) === '@audiogubbins/storage'),
+    );
+
+    expect(naming.length).toBeGreaterThan(20);
+    expect(
+      valuesTaken(parse('apps/web/src/storage/project-services.ts')).map(({ name }) => name),
+    ).toContain('connectStorage');
+  });
+
+  it.each([
+    ['a named value', "import { openProject } from '@audiogubbins/storage';", ['openProject']],
+    [
+      'a value beside a type',
+      "import { type ProjectSession, openProject as open } from '@audiogubbins/storage';",
+      ['openProject'],
+    ],
+    ['a type alone', "import type { ProjectSession } from '@audiogubbins/storage';", []],
+    ['types named one by one', "import { type ProjectSession } from '@audiogubbins/storage';", []],
+    ['a default import', "import storage from '@audiogubbins/storage';", ['default']],
+    ['a namespace', "import * as storage from '@audiogubbins/storage';", ['*']],
+    ['an import for its effect', "import '@audiogubbins/storage';", ['(effect)']],
+    ['a re-export', "export { openProject } from '@audiogubbins/storage';", ['openProject']],
+    ['a re-export of everything', "export * from '@audiogubbins/storage';", ['*']],
+    ['a re-export of types', "export type { ProjectSession } from '@audiogubbins/storage';", []],
+    ['a dynamic import', "const storage = await import('@audiogubbins/storage');", ['*']],
+  ])('reads %s as the values it takes', (_form, code, names) => {
+    const file = ts.createSourceFile('control.ts', code, ts.ScriptTarget.Latest, true);
+
+    expect(valuesTaken(file)).toEqual(
+      names.map((name) => ({ module: '@audiogubbins/storage', name })),
+    );
   });
 });
 
