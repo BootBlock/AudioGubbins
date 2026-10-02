@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, SimulatedCrash, memorySource } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 
 import { planCleanup } from './cleanup-planning.js';
 import { runCleanup } from './cleanup-running.js';
 import type { CatalogueEntry } from './project-catalogue.js';
 import { openProject } from './project-opening.js';
 import { exportBundle, importBundle } from './project-transfer.js';
+import { sweepCrashes } from './testing/crash-sweep.js';
 import { summaryOf } from './testing/model-summary.js';
 import { memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
 import { harness } from './testing/node-services.js';
@@ -66,47 +67,39 @@ describe('a crash while a bundle is brought in (REQ-EXEC-180)', () => {
   it('leaves nothing listed or the whole project, at every operation', async () => {
     const test = harness(31);
     const { project, bundle, summary } = await sampleBundle(test);
-    let crashes = 0;
-    for (let crashAt = 1; ; crashAt += 1) {
-      const tree = new MemoryStorageTree({ crashAt });
-      const storage = storageOf(test, tree);
-      const imported = await importBundle(
-        memorySource(bundle),
-        'original',
-        storage.importing,
-      ).catch((error: unknown) => {
-        if (error instanceof SimulatedCrash) return undefined;
-        throw error;
-      });
-      const after = tree.restarted();
-      const entries = await listed(test, after);
-      if (imported !== undefined) {
-        expectSuccess(imported);
-        expect(entries).toHaveLength(1);
-        break;
-      }
-      crashes += 1;
-      expect(entries.every((entry) => entry.kind === 'project')).toBe(true);
-      if (entries.length === 1) {
-        const opened = expectSuccess(
-          await openProject({ project, access: 'read' }, test.services(after)),
-        );
-        if (opened.kind !== 'read-only') throw new Error('Expected read-only.');
-        expect(withoutStoragePolicies(summaryOf(opened.view.getSnapshot().model))).toEqual(
-          withoutStoragePolicies(summary),
-        );
-        continue;
-      }
+    const operations = await sweepCrashes({
+      from: new MemoryStorageTree(),
+      run: async (tree) =>
+        await importBundle(memorySource(bundle), 'original', storageOf(test, tree).importing),
+      check: async (after, { outcome }) => {
+        const entries = await listed(test, after);
+        if (outcome !== undefined) {
+          expectSuccess(outcome);
+          expect(entries).toHaveLength(1);
+          return;
+        }
+        expect(entries.every((entry) => entry.kind === 'project')).toBe(true);
+        if (entries.length === 1) {
+          const opened = expectSuccess(
+            await openProject({ project, access: 'read' }, test.services(after)),
+          );
+          if (opened.kind !== 'read-only') throw new Error('Expected read-only.');
+          expect(withoutStoragePolicies(summaryOf(opened.view.getSnapshot().model))).toEqual(
+            withoutStoragePolicies(summary),
+          );
+          return;
+        }
 
-      // Whatever the crash left is cleaned up, and the bundle comes in whole.
-      const restarted = storageOf(test, after);
-      expectSuccess(await restarted.store.recoverIncomplete());
-      const services = restarted.cleaning;
-      const plan = expectSuccess(await planCleanup('everything', services, 0));
-      expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, services));
-      expectSuccess(await importBundle(memorySource(bundle), 'original', restarted.importing));
-      expect(await listed(test, after)).toHaveLength(1);
-    }
-    expect(crashes).toBeGreaterThan(20);
+        // Whatever the crash left is cleaned up, and the bundle comes in whole.
+        const restarted = storageOf(test, after);
+        expectSuccess(await restarted.store.recoverIncomplete());
+        const services = restarted.cleaning;
+        const plan = expectSuccess(await planCleanup('everything', services, 0));
+        expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, services));
+        expectSuccess(await importBundle(memorySource(bundle), 'original', restarted.importing));
+        expect(await listed(test, after)).toHaveLength(1);
+      },
+    });
+    expect(operations).toBeGreaterThan(20);
   });
 });

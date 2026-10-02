@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { MemoryStorageTree, SimulatedCrash, memorySource } from '@audiogubbins/media-store/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
 import type { BackupPolicy, ByteSink, ContentId, StorageTree } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
@@ -12,6 +12,7 @@ import { openProject } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { exportBackup, importBundle } from './project-transfer.js';
 import { ProjectPaths } from './storage-layout.js';
+import { sweepCrashes } from './testing/crash-sweep.js';
 import { summaryOf } from './testing/model-summary.js';
 import { memorySink, storageOf, storedMedia, type TestStorage } from './testing/memory-ports.js';
 import { addAsset, setName } from './testing/test-commands.js';
@@ -239,38 +240,36 @@ describe('backup generations (REQ-STOR-105)', () => {
   it('never lists a generation a crash cut short as a backup, and prunes what it left', async () => {
     const setup = await setUp();
     await changes(setup, 3);
-    const tree = setup.storage.tree as MemoryStorageTree;
-    // Crash the generation's writing at each operation in turn until it finishes.
     let leftIncomplete = 0;
-    for (let crashAt = 1; ; crashAt += 1) {
-      const crashing = tree.restarted({ crashAt });
-      const storage = storageOf(setup.test, crashing);
-      const scheduler = new BackupScheduler(setup.project, storage.exporting);
-      const outcome = await scheduler
-        .tick(setup.test.clock.now(), setup.session.getSnapshot().model)
-        .catch((error: unknown) => {
-          if (error instanceof SimulatedCrash) return undefined;
-          throw error;
-        });
-      const after = crashing.restarted();
-      const listing = expectSuccess(
-        await new BackupGenerations(after, nodeDigest, setup.project).list(),
-      );
-      // Whatever the crash cut short, every generation listed is whole.
-      for (const { number } of listing.generations) {
-        expectSuccess(await new BackupGenerations(after, nodeDigest, setup.project).copyOf(number));
-      }
-      if (outcome !== undefined) break;
-      if (listing.incomplete.length > 0) leftIncomplete += 1;
-      // The next generation made prunes what the crash left.
-      const next = new BackupScheduler(setup.project, storageOf(setup.test, after).exporting);
-      expectSuccess(await next.tick(setup.test.clock.now(), setup.session.getSnapshot().model));
-      const tidied = expectSuccess(
-        await new BackupGenerations(after, nodeDigest, setup.project).list(),
-      );
-      expect(tidied.incomplete).toEqual([]);
-      expect(tidied.generations.length).toBeGreaterThan(0);
-    }
+    await sweepCrashes({
+      from: setup.storage.tree as MemoryStorageTree,
+      run: async (crashing) =>
+        await new BackupScheduler(setup.project, storageOf(setup.test, crashing).exporting).tick(
+          setup.test.clock.now(),
+          setup.session.getSnapshot().model,
+        ),
+      check: async (after, { outcome }) => {
+        const listing = expectSuccess(
+          await new BackupGenerations(after, nodeDigest, setup.project).list(),
+        );
+        // Whatever the crash cut short, every generation listed is whole.
+        for (const { number } of listing.generations) {
+          expectSuccess(
+            await new BackupGenerations(after, nodeDigest, setup.project).copyOf(number),
+          );
+        }
+        if (outcome !== undefined) return;
+        if (listing.incomplete.length > 0) leftIncomplete += 1;
+        // The next generation made prunes what the crash left.
+        const next = new BackupScheduler(setup.project, storageOf(setup.test, after).exporting);
+        expectSuccess(await next.tick(setup.test.clock.now(), setup.session.getSnapshot().model));
+        const tidied = expectSuccess(
+          await new BackupGenerations(after, nodeDigest, setup.project).list(),
+        );
+        expect(tidied.incomplete).toEqual([]);
+        expect(tidied.generations.length).toBeGreaterThan(0);
+      },
+    });
     expect(leftIncomplete).toBeGreaterThan(0);
   });
 });
