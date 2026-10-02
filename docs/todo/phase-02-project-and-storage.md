@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-10-02: review findings F-01 to F-15 fixed;
-> F-15's measurement in a browser, the medium findings and the landing remain
-> (see "Left to do").
+> **Status:** In progress. 2026-10-02: review findings F-01 to F-15 and every
+> medium finding fixed; F-15's measurement in a browser, the low findings, the
+> evidence and the landing remain (see "Left to do").
 
 # Phase 02 — Project and Storage System
 
@@ -388,22 +388,87 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      checkpoint and an open, page time per publish.
 
 4. Fix or accept, with a reason, every medium finding; track the low ones.
+   Every medium finding is fixed; the limits accepted with them are listed
+   after the fixes.
    - M-23 (no signal and no host yield through the long paths): fixed, the app
      in `59f32dc` and the packages in `21134c4`, `4547282` and `74d0ee8`.
    - M-02 (import decided by matching failure codes, read twice): fixed in
      `d060de8`. M-04 (media caches replaced, tree caches unchecked): fixed in
      `c77bcde`. M-22 (media hashed three times on import): fixed in
      `dd92f7d`. M-21 (whole histories held in memory): fixed in `c22a531`.
-   - M-03 (provenance labels): the labels and words now say what each level
-     keeps, with a test per level, and a whole history is shown and refused
-     at less than full provenance. Exporting a whole history with less waits
-     for an owner decision: `docs/todo/whole-history-provenance.md`.
-   - M-03 follow-up: the owner chose option 2, and a whole history is
-     exported at every level with its undo kept (`6a5a903`, `5b8523b`, and
-     the dialogue with the note's move to
-     `docs/todo/done/whole-history-provenance.md`). Media a change names
-     inside a nested value is now found for exports and purges (`8e0c07b`).
+   - M-03 (provenance labels): the labels and words say what each level keeps,
+     with a test per level (`f3e0c04`). The owner chose to export a whole
+     history at every level with its undo kept (`6a5a903`, `5b8523b`,
+     `066e096`; a snapshot's author is left out below full in `1814752`; the
+     note is `docs/todo/done/whole-history-provenance.md`). Media a change
+     names inside a nested value is found for exports and purges (`8e0c07b`).
    - The torn-segment bound on media purges is removed (`2e9ca23`).
+   - M-05 (cleanup acting on what is still being written): every writer of a
+     project or a backup generation shares the storage-wide lock until it is
+     whole, and what removes left-overs takes it alone and looks again
+     (`a0b4dec`). M-06 (expired history planned from the newest checkpoint's
+     policy): planned from the journal (`a5456cb`).
+   - M-07 (a purge cut short restored as a broken project): the header is
+     marked purging first, and restore refuses it (`6741876`). M-09 (crash
+     injection missing): one shared crash harness, and every storage operation
+     swept (`93a7f44`, `1abe098`). M-10 (round-trip oracle blind to most of a
+     project): it compares whole projects (`24fb824`). M-08 (comparison of a
+     snapshot untested across a reload): the random sessions and the crash
+     script compare snapshots (`98f0aa8`).
+   - M-19 (export never proving managed media): media is proved as it is
+     copied out (`eed3e7d`). M-20 (a checkpoint at every hide): none is written
+     where nothing changed (`36f4299`). M-24 (one undo walking the history
+     three times): a path costs its own length (`a9495ee`).
+   - M-25 (half-wired exports): promotion goes through the history's own
+     (`8d3efc1`); the exports with no use were removed there, and
+     `contentRetention` is used by usage (M-15). M-18 (relinking dropped the
+     protected copy): kept, through the worker (`270672b`). M-13 (A/B only
+     against the cursor, counts only): any two states, said entity by entity,
+     worked out again after a reload (`86590d6`). M-11 (retention never ran on
+     its own; no recovery snapshot): it runs after each checkpoint, and a
+     restore in place keeps a recovery snapshot (`cc9ea53`).
+   - M-01 (the project-name rule in several places): one rule in
+     `project-format`, built on the text package's, held by the commands, the
+     catalogue, forks, the readers every import passes through, and the page
+     (`6df63ff`).
+   - M-12 (backup budget unreachable, scheduled failures only logged, partial
+     generations piling up): the size is set in the settings and kept; a
+     scheduled backup not made is said in the status bar beside the save
+     status, and aloud once, until one is made; a failed attempt's leavings
+     are removed as it fails (`185598f`).
+   - M-14 (History panel): each row says what its change affected and a
+     snapshot's notes, the chosen point lists them with a filter to one
+     entity's changes, and snapshots take notes; the list draws only the rows
+     in sight through the design system's row window, rows are memoised, and
+     the chosen row is scrolled to only when the choice moves (`b73d8c5`).
+   - M-15 (usage categories, the cleanup plan's one sentence): segments are
+     split between the line and the other branches, retained audio is split
+     by what keeps it through `contentRetention`, and each cleanup step lists
+     what it takes (`13053b8`).
+   - M-16 (per-asset source policy, the copy or link setting read by
+     nothing): the question about changed linked files sets each asset's
+     policy through a command; the import pipeline takes a link's policy and
+     its copy or link choice from the media store's one definition the
+     setting holds (`69cbf7a`).
+   - M-17 (take over offered against a live owner): asking comes first, and
+     taking over is offered only once a request went unanswered, by a window
+     gone, stopped or too slow to answer, while that window holds the project
+     (`46a1b15`).
+   - Accepted limits:
+     - The import of audio from the interface arrives with the codec phase
+       (Phase 09, "Importing audio into the open project"), so nothing in this
+       phase runs the import pipeline: the copy or link setting is read, and a
+       policy is given to a new asset, by that import job. Until then the
+       question about changed linked files is the one place an asset's policy
+       is set in the interface.
+     - The History list draws rows of one height, two lines cut short where
+       they are long; the chosen point says all of it.
+     - A history segment's bytes are split by the length of the text of the
+       nodes it holds on and off the line, which leaves its header with the
+       line's share.
+     - A request counts as unanswered after 30 seconds, or at once where the
+       window holding the project hears no request; a request the other
+       window declined offers no take over, and asking again is offered.
 5. Evidence, review record, ledger entry, handoff; this note to
    `docs/todo/done/`; merge `main`; `verify:commit`; land.
 6. Drive the built app in a real browser for the changed surfaces, and record
