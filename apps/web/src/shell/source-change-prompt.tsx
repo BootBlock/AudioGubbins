@@ -7,20 +7,26 @@
  * the person's: take the new version, link another file, keep playing the copy
  * kept of the version the project was made with, or keep the asset offline. A
  * choice that cannot be taken is shown with the reason rather than left out.
- * What an asset's own policy did without asking is said too. Closing the
- * question decides later, and leaves every asset offline.
+ * Beside them, what the asset does the next time its file changes: ask, take
+ * the new version, or keep the version the project used where a copy of it is
+ * kept, the asset's own policy (REQ-STOR-053). What an asset's own policy did
+ * without asking is said too. Closing the question decides later, and leaves
+ * every asset offline.
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ModalDialog } from '@audiogubbins/design-system';
+import { Button, ModalDialog, OptionSelect } from '@audiogubbins/design-system';
+import type { AssetId } from '@audiogubbins/domain';
 import type {
   ResolutionChoice,
   ResolutionKind,
   SourceClassification,
 } from '@audiogubbins/media-store';
+import { SourceChangePolicy, type MediaSource } from '@audiogubbins/project-format';
 
 import type { Observable } from '../state/observable.js';
+import type { OpenProjectState } from '../state/open-project-store.js';
 import { wantsLeave, type SourceChange, type SourceChangeState } from '../state/source-changes.js';
 import { offeredSentence } from '../commands/source-commands.js';
 import { quoted } from '../wording.js';
@@ -66,12 +72,53 @@ function reasonOf(choice: ResolutionChoice): string | undefined {
     : 'No copy of the version the project used was kept, so it cannot be kept playing.';
 }
 
-/** One changed file and its choices. */
+/** What each policy is called where the person chooses it. */
+const POLICY_LABELS: Readonly<Record<SourceChangePolicy, string>> = {
+  prompt: 'Ask me',
+  adopt: 'Use the new version',
+  freeze: 'Keep the version the project used',
+};
+
+/** What a linked asset does the next time its file changes, and the choice of it. */
+function NextTime({
+  asset,
+  media,
+  run,
+}: {
+  readonly asset: AssetId;
+  readonly media: MediaSource | undefined;
+  readonly run: RunCommand;
+}): ReactNode {
+  if (media?.kind !== 'external') return null;
+  const keepsCopy = media.retainedCopy !== undefined;
+  const options = Object.values(SourceChangePolicy)
+    .filter((policy) => keepsCopy || policy !== SourceChangePolicy.Freeze)
+    .map((policy) => ({ value: policy, label: POLICY_LABELS[policy] }));
+  return (
+    <>
+      <OptionSelect
+        label="The next time its file changes"
+        value={media.policy}
+        options={options}
+        onValueChange={(policy) => run('source.set-policy', { asset, policy })}
+      />
+      {!keepsCopy && (
+        <p className="ag-settings-note">
+          Keeping the version the project used needs a copy of it, which this asset does not keep.
+        </p>
+      )}
+    </>
+  );
+}
+
+/** One changed file, its choices, and what it does the next time. */
 function ChangedFile({
   change,
+  media,
   run,
 }: {
   readonly change: SourceChange;
+  readonly media: MediaSource | undefined;
   readonly run: RunCommand;
 }): ReactNode {
   const name = quoted(change.name);
@@ -103,6 +150,7 @@ function ChangedFile({
           </ReasonedButton>
         ))}
       </div>
+      <NextTime asset={change.asset} media={media} run={run} />
     </li>
   );
 }
@@ -110,12 +158,18 @@ function ChangedFile({
 /** The question (see the module comment). */
 export function SourceChangePrompt({
   sources,
+  project,
   run,
 }: {
   readonly sources: Observable<SourceChangeState>;
+
+  /** The open project, whose assets say what each does the next time. */
+  readonly project: Observable<OpenProjectState>;
   readonly run: RunCommand;
 }): ReactNode {
   const state = useSyncExternalStore(sources.subscribe, sources.get);
+  const open = useSyncExternalStore(project.subscribe, project.get);
+  const held = open.kind === 'open' ? open.snapshot.model.state.sources : undefined;
   return (
     <ModalDialog
       open={state.changes.length > 0 || state.applied.length > 0}
@@ -127,7 +181,12 @@ export function SourceChangePrompt({
     >
       <ul className="ag-source-changes">
         {state.changes.map((change) => (
-          <ChangedFile key={change.asset} change={change} run={run} />
+          <ChangedFile
+            key={change.asset}
+            change={change}
+            media={held?.get(change.asset)?.media}
+            run={run}
+          />
         ))}
       </ul>
       {state.applied.map((done) => (

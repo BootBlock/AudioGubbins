@@ -1,7 +1,8 @@
 /**
  * What the person chose about their projects outside any one project: whether a
- * file is brought in as a copy or as a link by default (REQ-STOR-025), and
- * which project to open again at the next start (REQ-STOR-021).
+ * file is brought in as a copy or as a link by default (REQ-STOR-025), one of
+ * the choices the import pipeline takes, and which project to open again at the
+ * next start (REQ-STOR-021).
  *
  * Each is one value, stored as it is written: a choice from a short list and a
  * project's identifier, each checked as it is read, so there is no structure to
@@ -12,21 +13,10 @@
 
 import type { Logger } from '@audiogubbins/diagnostics';
 import { isWellFormedId, unsafeBrandId, type ProjectId } from '@audiogubbins/domain';
+import { SourceHandling } from '@audiogubbins/media-store';
 
 import { observable, type Observable } from './observable.js';
 import { PersistedPart, type StateStorage } from './state-storage.js';
-
-/** How a file is brought into a project. */
-export const SourceHandling = {
-  /** A copy kept in the project, which nothing outside can change or take away. */
-  Copy: 'copy',
-
-  /** A link to the file where it lies, which takes no room and follows its changes. */
-  Link: 'link',
-} as const;
-
-/** How a file is brought into a project. */
-export type SourceHandling = (typeof SourceHandling)[keyof typeof SourceHandling];
 
 /** The person's choices about their projects. */
 export interface ProjectPreferences {

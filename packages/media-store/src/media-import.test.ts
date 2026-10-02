@@ -116,12 +116,12 @@ describe('importing by copy', () => {
   });
 });
 
-describe('importing by reference', () => {
+describe('importing by link', () => {
   it('records the whole identity with the prompting policy, and stores nothing', async () => {
     const { services, tree } = servicesOver();
 
     const imported = expectSuccess(
-      await importMedia(requestFor({ mode: 'reference', keepProtectedCopy: false }), services),
+      await importMedia(requestFor({ mode: 'link', keepProtectedCopy: false }), services),
     );
 
     const sample = expectSuccess(await sampleSource(generatedSource(SIZE, 7), nodeDigest));
@@ -163,7 +163,7 @@ describe('importing by reference', () => {
     const { services, store } = servicesOver();
 
     const imported = expectSuccess(
-      await importMedia(requestFor({ mode: 'reference', keepProtectedCopy: true }), services),
+      await importMedia(requestFor({ mode: 'link', keepProtectedCopy: true }), services),
     );
 
     const { contentId } = expectSuccess(await contentIdOf(generatedSource(SIZE, 7), nodeDigest));
@@ -180,6 +180,29 @@ describe('importing by reference', () => {
     );
   });
 
+  it('records the policy the person chose for what happens when the file changes', async () => {
+    const { services } = servicesOver();
+
+    const adopting = expectSuccess(
+      await importMedia(
+        requestFor({ mode: 'link', keepProtectedCopy: false, policy: 'adopt' }),
+        services,
+      ),
+    );
+    const freezing = expectSuccess(
+      await importMedia(
+        requestFor({ mode: 'link', keepProtectedCopy: true, policy: 'freeze' }),
+        services,
+      ),
+    );
+
+    expect(adopting.source.media).toMatchObject({ kind: 'external', policy: 'adopt' });
+    expect(freezing.source.media).toMatchObject({ kind: 'external', policy: 'freeze' });
+    expect([...throughTheDocument(freezing.source).sources.values()]).toContainEqual(
+      freezing.source,
+    );
+  });
+
   it('refuses a file that changes while its copy is kept, and holds nothing', async () => {
     const { services, store } = servicesOver();
     let reads = 0;
@@ -193,7 +216,7 @@ describe('importing by reference', () => {
     };
 
     const refused = await importMedia(
-      requestFor({ mode: 'reference', keepProtectedCopy: true }, { source: changing }),
+      requestFor({ mode: 'link', keepProtectedCopy: true }, { source: changing }),
       services,
     );
 
@@ -206,7 +229,7 @@ describe('importing by reference', () => {
     const { services } = servicesOver();
 
     const refused = await importMedia(
-      requestFor({ mode: 'reference', keepProtectedCopy: false }, { relativePath: '../x.wav' }),
+      requestFor({ mode: 'link', keepProtectedCopy: false }, { relativePath: '../x.wav' }),
       services,
     );
 

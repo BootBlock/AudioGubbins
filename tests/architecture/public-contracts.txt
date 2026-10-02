@@ -2140,7 +2140,7 @@ Published paths
   readonly ExternalFile.lastModified: number
   readonly ExternalFile.handleKey?: string | undefined
   readonly ExternalFile.relativePath?: string | undefined
-  type ImportChoice = { readonly mode: "copy"; } | { readonly mode: "reference"; readonly keepProtectedCopy: boolean; }
+  type ImportChoice = { readonly mode: typeof SourceHandling.Copy; } | { readonly mode: typeof SourceHandling.Link; readonly keepProtectedCopy: false; readonly policy?: Exclude<SourceChangePolicy, "freeze">; } | { readonly mode: typeof SourceHandling.Link; readonly keepProtectedCopy: true; readonly policy?: SourceChangePolicy; }
   interface ImportRequest
   readonly ImportRequest.file: ExternalFile
   readonly ImportRequest.choice: ImportChoice
@@ -2216,6 +2216,8 @@ Published paths
   readonly SignalEvidence.relativePath: SignalMatch
   type SignalMatch = "different" | "same" | "unknown"
   type SourceClassification = { readonly kind: "missing"; readonly reason: AbsenceReason; } | { readonly kind: "modified"; readonly evidence: SignalEvidence; } | { readonly kind: "relinked-identical"; readonly confidence: MatchConfidence; readonly candidate: ExternalSourceIdentity; readonly evidence: SignalEvidence; } | { readonly kind: "replaced"; readonly evidence: SignalEvidence; } | { readonly kind: "unchanged"; readonly confidence: MatchConfidence; readonly evidence: SignalEvidence; }
+  const SourceHandling: { readonly Copy: "copy"; readonly Link: "link"; }
+  type SourceHandling = "copy" | "link"
   type SourceObservation = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "present"; readonly file: ExternalSourceIdentity; }
   interface StoreProgress
   readonly StoreProgress.stage: "receiving" | "storing"

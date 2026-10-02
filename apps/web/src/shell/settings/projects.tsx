@@ -16,9 +16,10 @@
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
+import { SourceHandling } from '@audiogubbins/media-store';
 import type { ExportRecord, RetentionPolicy } from '@audiogubbins/project-format';
 
-import { CANNOT_LINK, SourceHandling } from '../../state/project-preferences-store.js';
+import { CANNOT_LINK } from '../../state/project-preferences-store.js';
 import type { HistoryReviewState, PendingCompaction } from '../../state/history-review-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';

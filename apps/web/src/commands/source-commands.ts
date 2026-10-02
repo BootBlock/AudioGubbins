@@ -1,21 +1,24 @@
 /**
- * The files a project links to: the default way files are brought in, and the
- * answer to a linked file that changed, went or was replaced, including a file
- * chosen in its place that is not the one recorded, and the leave to read one
- * the browser asks the person for again (REQ-STOR-025, REQ-STOR-053,
- * REQ-STOR-104).
+ * The files a project links to: the default way files are brought in, what each
+ * linked asset does when its file changes, and the answer to a linked file that
+ * changed, went or was replaced, including a file chosen in its place that is
+ * not the one recorded, and the leave to read one the browser asks the person
+ * for again (REQ-STOR-025, REQ-STOR-053, REQ-STOR-104).
  */
 
 import { CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
-import type { ResolutionKind } from '@audiogubbins/media-store';
+import { SourceHandling, type ResolutionKind } from '@audiogubbins/media-store';
+import { ProjectCommandId } from '@audiogubbins/project-commands';
+import { SourceChangePolicy } from '@audiogubbins/project-format';
 
-import { SourceHandling } from '../state/project-preferences-store.js';
 import type { GivenAccess, OfferedFile } from '../state/source-changes.js';
 import {
   idArgument,
   projectsAvailability,
   readyProjects,
   sayWhenSettled,
+  sessionAvailability,
+  sessionOf,
 } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -41,6 +44,39 @@ function sourceHandlingCommand(): Command<ShellContext> {
       return undefined;
     },
     { discoverable: false, availability: projectsAvailability },
+  );
+}
+
+/** What is said once an asset's policy is set, by the policy. */
+const POLICY_SET: Readonly<Record<SourceChangePolicy, string>> = {
+  prompt: 'You are asked what to do the next time its file changes.',
+  adopt: 'The new version is used the next time its file changes.',
+  freeze: 'The version the project used is kept the next time its file changes.',
+};
+
+function setPolicyCommand(): Command<ShellContext> {
+  return shellCommand(
+    'source.set-policy',
+    'Choose what happens when a linked file changes',
+    CommandCategory.Edit,
+    (context, invocation) => {
+      const session = sessionOf(context);
+      if (typeof session === 'string') return session;
+      const asset = idArgument<'AssetId'>(invocation, 'asset', 'asset');
+      if ('refused' in asset) return asset.refused;
+      const named = textArgument(invocation, 'policy');
+      const policy = Object.values(SourceChangePolicy).find((one) => one === named);
+      if (policy === undefined) return 'Choose what happens when the file changes.';
+      const work = session.run({
+        commandId: ProjectCommandId.SetSourcePolicy,
+        arguments: { assetId: asset.id, policy },
+      });
+      sayWhenSettled(context, work, (outcome) =>
+        outcome.kind === 'applied' ? POLICY_SET[policy] : outcome.reason,
+      );
+      return undefined;
+    },
+    { discoverable: false, availability: sessionAvailability },
   );
 }
 
@@ -154,6 +190,7 @@ function decideLaterCommand(): Command<ShellContext> {
 export function sourceCommands(): readonly Command<ShellContext>[] {
   return [
     sourceHandlingCommand(),
+    setPolicyCommand(),
     resolveCommand(),
     linkOfferedCommand(),
     giveAccessCommand(),

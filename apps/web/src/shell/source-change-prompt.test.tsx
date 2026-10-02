@@ -5,9 +5,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { unsafeBrandId } from '@audiogubbins/domain';
 
 import { observable } from '../state/observable.js';
+import type { OpenProjectState } from '../state/open-project-store.js';
 import type { SourceChangeState } from '../state/source-changes.js';
 import { renderInTheShell } from '../testing/in-the-shell.js';
-import { linkedFile } from '../testing/linked-assets.js';
+import { addLinkedAsset, linkedFile } from '../testing/linked-assets.js';
+import { projectWorld } from '../testing/project-context.js';
 import { SourceChangePrompt } from './source-change-prompt.js';
 
 const KICK = unsafeBrandId<'AssetId'>('0a1b2c3d-4e5f6a7b-8c9d0e1f-2a3b4c5d');
@@ -27,7 +29,13 @@ const SAME = {
 /** Draws the prompt over the changes given, and what it runs. */
 function promptOver(state: SourceChangeState) {
   const run = vi.fn((_id: string, _args?: unknown) => true);
-  renderInTheShell(<SourceChangePrompt sources={observable(state)} run={run} />);
+  renderInTheShell(
+    <SourceChangePrompt
+      sources={observable(state)}
+      project={observable<OpenProjectState>({ kind: 'none' })}
+      run={run}
+    />,
+  );
   return { run };
 }
 
@@ -175,5 +183,46 @@ describe('the question about linked files that changed', () => {
     const kick = screen.getByRole('group', { name: 'What to do about "Kick"' });
     await userEvent.click(within(kick).getByRole('button', { name: 'Give access' }));
     expect(run).toHaveBeenCalledWith('source.give-access', { asset: KICK });
+  });
+
+  it('chooses what the asset does the next time its file changes, offering only what it can do', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const asset = await addLinkedAsset(window, linkedFile('kick.wav', 'kept-1'), { name: 'Kick' });
+    const run = vi.fn((_id: string, _args?: unknown) => true);
+    renderInTheShell(
+      <SourceChangePrompt
+        sources={observable<SourceChangeState>({
+          checking: false,
+          applied: [],
+          changes: [
+            {
+              asset,
+              name: 'Kick',
+              classification: { kind: 'missing', reason: 'not-found' },
+              plan: { choices: [{ kind: 'relink', available: true }] },
+            },
+          ],
+        })}
+        project={window.projects.project}
+        run={run}
+      />,
+    );
+
+    const next = screen.getByRole('combobox', { name: 'The next time its file changes' });
+    expect(next).toHaveTextContent('Ask me');
+    expect(
+      screen.getByText(
+        'Keeping the version the project used needs a copy of it, which this asset does not keep.',
+      ),
+    ).toBeVisible();
+    next.focus();
+    await userEvent.keyboard('{Enter}');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Ask me',
+      'Use the new version',
+    ]);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(run).toHaveBeenLastCalledWith('source.set-policy', { asset, policy: 'adopt' });
   });
 });

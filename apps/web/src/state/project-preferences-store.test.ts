@@ -2,13 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { unsafeBrandId } from '@audiogubbins/domain';
+import { SourceHandling } from '@audiogubbins/media-store';
 
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
-import {
-  CANNOT_LINK,
-  SourceHandling,
-  createProjectPreferencesStore,
-} from './project-preferences-store.js';
+import { CANNOT_LINK, createProjectPreferencesStore } from './project-preferences-store.js';
 import { createStateStorage, type KeyValueStorage } from './state-storage.js';
 
 const PROJECT = unsafeBrandId<'ProjectId'>('0a1b2c3d-4e5f6a7b-8c9d0e1f-2a3b4c5d');

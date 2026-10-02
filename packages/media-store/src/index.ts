@@ -35,6 +35,7 @@ export { type PutOptions, type StoreProgress } from './object-writing.js';
 
 export {
   type ImportChoice,
+  SourceHandling,
   type ImportRequest,
   type ImportServices,
   type ImportedMedia,

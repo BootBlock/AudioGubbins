@@ -1002,6 +1002,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
   '@audiogubbins/media-store': {
     'What became of a linked file and what the person may do about it: pure decisions over the identity the worker examined, which the source change store puts to the person.':
       ['classifySource', 'resolutionsFor'],
+    "The choices of how a file is brought in, constants the person's setting holds so the import pipeline takes the choice the setting names.":
+      ['SourceHandling'],
   },
   '@audiogubbins/browser-storage': {
     'The kept handles of linked files and of the backups folder, and the tokens they are kept under, which only the page may ask the person leave to use.':

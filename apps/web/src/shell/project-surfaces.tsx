@@ -42,7 +42,7 @@ export function ProjectSurfaces({
         run={run}
         unavailableReason={unavailableReason}
       />
-      <SourceChangePrompt sources={projects.sources} run={run} />
+      <SourceChangePrompt sources={projects.sources} project={projects.project} run={run} />
     </>
   );
 }
