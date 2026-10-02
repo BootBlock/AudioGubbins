@@ -4914,6 +4914,7 @@ packages/storage/src/session-writer.ts
   class SessionWriter
   new SessionWriter(start: WriterStart): SessionWriter
   readonly SessionWriter.queue: WriteQueue
+  readonly SessionWriter.keptStates: KeptStates
   readonly SessionWriter.kept: Set<StateFingerprint>
   readonly SessionWriter.unwritten: Map<StateFingerprint, ProjectState>
   readonly SessionWriter.start: WriterStart
@@ -4924,6 +4925,7 @@ packages/storage/src/session-writer.ts
   SessionWriter.headerName: string | undefined
   SessionWriter.status: SaveStatus
   SessionWriter.append: (event: JournalEvent, model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.holdUnwritten: (fingerprint: StateFingerprint, state: ProjectState) => void
   SessionWriter.keep: (state: ProjectState, fingerprint: StateFingerprint) => Promise<WriteOutcome>
   SessionWriter.checkpoint: (model: ProjectModel) => Promise<WriteOutcome>
   SessionWriter.checkpointReplaced: (model: ProjectModel) => Promise<WriteOutcome>

@@ -62,7 +62,6 @@ import { reportRetention, retentionDue } from './automatic-retention.js';
 import { choiceOf } from './comparison-record.js';
 import { arriveBy, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
-import { keptStatesOf } from './journal-replay.js';
 import {
   compactedModel,
   planHistoryCompaction,
@@ -148,7 +147,7 @@ export class ProjectSession {
     this.moves = {
       bus: services.bus,
       logger: services.logger,
-      states: keptStatesOf(services.files, this.writer.kept, this.writer.unwritten),
+      states: this.writer.keptStates,
     };
     this.compacting = {
       ...this.moves,
@@ -386,7 +385,7 @@ export class ProjectSession {
       const made = await changeMade(this.model, result, this.services, this.keepStateEvery);
       if (!made.ok) return made;
       const { kept } = made.value;
-      if (kept !== undefined) this.writer.unwritten.set(kept.fingerprint, kept.state);
+      if (kept !== undefined) this.writer.holdUnwritten(kept.fingerprint, kept.state);
       return succeed({
         kind: 'applied',
         saved: await this.commit(made.value.event, made.value.model),
@@ -452,7 +451,7 @@ export class ProjectSession {
     readonly states: ReadonlyMap<StateFingerprint, ProjectState>;
   }): Promise<WriteOutcome> {
     for (const [fingerprint, state] of compacted.states)
-      this.writer.unwritten.set(fingerprint, state);
+      this.writer.holdUnwritten(fingerprint, state);
     this.model = compacted.model;
     this.publish();
     return await this.writer.checkpointReplaced(this.model);
