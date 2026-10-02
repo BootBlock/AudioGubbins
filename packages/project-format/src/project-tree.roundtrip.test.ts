@@ -8,17 +8,20 @@ import { canonicalJson } from './canonical-json.js';
 import { writeExportRecord } from './export-record-json.js';
 import { writeHistoryRecord } from './history-json.js';
 import { writeProjectDocument } from './project-json.js';
+import type { StateFingerprint } from './content-identity.js';
 import type { ProjectState } from './project-state.js';
 import { readProjectTree } from './project-tree-reading.js';
-import {
-  projectTree,
-  type ProjectTreeContent,
-  type ProjectTreeFile,
-} from './project-tree-writing.js';
+import { projectTree, type ProjectTreeContent } from './project-tree-writing.js';
 import { ProvenanceLevel, stripAssetProvenance } from './provenance-stripping.js';
 import { nodeDigest } from './testing/node-digest.js';
 import { referenceState } from './testing/project-states.js';
-import { historyContent, listingOf } from './testing/project-trees.js';
+import {
+  everyState,
+  historyContent,
+  listingOf,
+  writtenFiles,
+  type WrittenFile,
+} from './testing/project-trees.js';
 import { randomState } from './testing/random-states.js';
 import { decodeUtf8 } from './utf8.js';
 
@@ -32,7 +35,7 @@ import { decodeUtf8 } from './utf8.js';
 const SEEDS = Array.from({ length: 30 }, (_, index) => index + 1);
 
 /** Each file's path and, for text, its text; for media and caches, what it names. */
-function filesText(files: readonly ProjectTreeFile[]): readonly string[] {
+function filesText(files: readonly WrittenFile[]): readonly string[] {
   return files.map(({ path, body }) =>
     body.kind === 'text'
       ? `${path}\n${expectSuccess(decodeUtf8(body.bytes))}`
@@ -41,8 +44,12 @@ function filesText(files: readonly ProjectTreeFile[]): readonly string[] {
 }
 
 /** A comparable form of what a tree holds. */
-function contentText(content: ProjectTreeContent): string {
+async function contentText(content: ProjectTreeContent): Promise<string> {
   const { scope } = content;
+  const states =
+    scope.kind === 'history'
+      ? await everyState(scope.history.states)
+      : new Map<StateFingerprint, ProjectState>();
   return JSON.stringify({
     state: canonicalJson(writeProjectDocument(content.state)),
     history:
@@ -50,7 +57,7 @@ function contentText(content: ProjectTreeContent): string {
         ? {
             record: canonicalJson(writeHistoryRecord(scope.history.record)),
             retention: scope.history.retention,
-            states: [...scope.history.states]
+            states: [...states]
               .map(
                 ([fingerprint, state]) =>
                   `${fingerprint} ${canonicalJson(writeProjectDocument(state))}`,
@@ -65,9 +72,9 @@ function contentText(content: ProjectTreeContent): string {
 }
 
 async function roundTrip(content: ProjectTreeContent) {
-  const files = expectSuccess(projectTree(content));
+  const files = expectSuccess(await writtenFiles(projectTree(content)));
   const read = expectSuccess(await readProjectTree(listingOf(files), nodeDigest));
-  return { files, read, again: expectSuccess(projectTree(read)) };
+  return { files, read, again: expectSuccess(await writtenFiles(projectTree(read))) };
 }
 
 function sample(seed: number): ProjectState {
@@ -82,7 +89,7 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
     expect(filesText(again)).toEqual(filesText(files));
     // The export log comes back oldest first, which is the order it grows in.
     const oldestFirst = { ...content, exports: [...content.exports].reverse() };
-    expect(contentText(read)).toBe(contentText(oldestFirst));
+    expect(await contentText(read)).toBe(await contentText(oldestFirst));
   });
 
   it.each([ProvenanceLevel.Full, ProvenanceLevel.Minimal, ProvenanceLevel.None])(
@@ -104,7 +111,7 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
 
   it('writes one file per entity, the header first, and media by reference', async () => {
     const content = await historyContent(referenceState(sampleProject()), 3, nodeDigest);
-    const paths = expectSuccess(projectTree(content)).map(({ path }) => path);
+    const paths = projectTree(content).map(({ path }) => path);
 
     expect(paths[0]).toBe('audiogubbins-project.json');
     expect(paths).toContain('project/settings.json');
@@ -120,7 +127,7 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
     expect(paths).toEqual([...paths].sort());
   });
 
-  it('changes only the files of the entity a change touches', () => {
+  it('changes only the files of the entity a change touches', async () => {
     const state = referenceState(sampleProject());
     const [track] = state.project.tracks.values();
     if (track === undefined) throw new Error('The sample has no track.');
@@ -131,20 +138,22 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
         tracks: new Map(state.project.tracks).set(track.id, { ...track, muted: !track.muted }),
       },
     };
-    const treeOf = (of: ProjectState) =>
+    const treeOf = async (of: ProjectState) =>
       filesText(
         expectSuccess(
-          projectTree({
-            state: of,
-            scope: { kind: 'state', provenance: ProvenanceLevel.Full },
-            exports: [],
-            backup: DEFAULT_BACKUP_POLICY,
-            media: [],
-          }),
+          await writtenFiles(
+            projectTree({
+              state: of,
+              scope: { kind: 'state', provenance: ProvenanceLevel.Full },
+              exports: [],
+              backup: DEFAULT_BACKUP_POLICY,
+              media: [],
+            }),
+          ),
         ),
       );
-    const before = treeOf(state);
-    const after = treeOf(changed);
+    const before = await treeOf(state);
+    const after = await treeOf(changed);
 
     const differing = after
       .filter((text) => !before.includes(text))

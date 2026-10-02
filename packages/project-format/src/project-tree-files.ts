@@ -14,6 +14,7 @@ import {
   failure,
   flatMapResult,
   type DomainFailure,
+  type DomainFailureResult,
   type DomainResult,
 } from '@audiogubbins/domain';
 
@@ -130,6 +131,15 @@ export class TreeReading {
     return await this.valueOf(file);
   }
 
+  /**
+   * The JSON a file holds, read under `signal` rather than the reading's own,
+   * each problem given at the file rather than recorded.
+   */
+  async jsonOf(file: Placed, signal: AbortSignal | undefined): Promise<DomainResult<JsonValue>> {
+    const value = await this.json(file.path, file.size, signal);
+    return value.ok ? value : atFileEach(value, file.path);
+  }
+
   /** The JSON a file holds, its problems recorded where it holds none. */
   async valueOf(file: Placed): Promise<JsonValue | undefined> {
     const value = await this.json(file.path, file.size);
@@ -186,10 +196,14 @@ export class TreeReading {
     this.problems.push(treeProblem(code, path));
   }
 
-  private async json(path: string, size: number): Promise<DomainResult<JsonValue>> {
-    this.signal?.throwIfAborted();
+  private async json(
+    path: string,
+    size: number,
+    signal = this.signal,
+  ): Promise<DomainResult<JsonValue>> {
+    signal?.throwIfAborted();
     if (size > LONGEST_METADATA) return fail(fileTooLarge(path));
-    const bytes = await this.listing.read(path, this.signal);
+    const bytes = await this.listing.read(path, signal);
     if (!bytes.ok) return bytes;
     return flatMapResult(decodeUtf8(bytes.value), (text) => parseJson(text, TREE_JSON_LIMITS));
   }
@@ -240,10 +254,17 @@ export function fileTooLarge(path: string): DomainFailure {
   return treeProblem('tree.file-too-large', path);
 }
 
-function treeProblem(code: string, path: string): DomainFailure {
+/** The failure of a tree's own refusal `code` at the file `path`. */
+export function treeProblem(code: string, path: string): DomainFailure {
   return failure(code, FailureKind.IntegrityViolation, SUMMARIES.get(code) ?? code, {
     details: { file: path },
   });
+}
+
+/** Each problem of a failed reading, placed at the file. */
+export function atFileEach(failed: DomainFailureResult, path: string): DomainFailureResult {
+  const [first, ...rest] = failed.failures;
+  return fail(atFile(first, path), ...rest.map((cause) => atFile(cause, path)));
 }
 
 /** A problem found inside a file, placed at the file. */

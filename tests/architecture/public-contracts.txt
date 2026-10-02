@@ -2484,7 +2484,7 @@ Published paths
   interface ProjectTreeHistory
   readonly ProjectTreeHistory.record: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>
   readonly ProjectTreeHistory.retention: RetentionPolicy
-  readonly ProjectTreeHistory.states: ReadonlyMap<StateFingerprint, ProjectState>
+  readonly ProjectTreeHistory.states: TreeStates
   readonly ProjectTreeHistory.comparison?: ComparisonChoiceRecord
   interface ProjectTreeListing
   readonly ProjectTreeListing.files: readonly TreeListedFile[]
@@ -2534,7 +2534,7 @@ Published paths
   readonly TreeFailure.kind: TreeFailureKind
   const TreeFailureKind: { readonly Quota: "quota"; readonly Unavailable: "unavailable"; readonly Io: "io"; }
   type TreeFailureKind = "io" | "quota" | "unavailable"
-  type TreeFileBody = { readonly kind: "cache"; readonly path: string; readonly byteLength: number; readonly contentId: ContentId; } | { readonly kind: "media"; readonly contentId: ContentId; readonly byteLength: number; } | { readonly kind: "text"; readonly bytes: Uint8Array<ArrayBuffer>; }
+  type TreeFileBody = { readonly kind: "cache"; readonly path: string; readonly byteLength: number; readonly contentId: ContentId; } | { readonly kind: "media"; readonly contentId: ContentId; readonly byteLength: number; } | { readonly kind: "text"; readonly text: TreeText; }
   interface TreeHeader
   readonly TreeHeader.project: ProjectId
   readonly TreeHeader.displayName: string
@@ -2547,6 +2547,10 @@ Published paths
   interface TreeMedia
   readonly TreeMedia.contentId: ContentId
   readonly TreeMedia.byteLength: number
+  interface TreeStates
+  readonly TreeStates.fingerprints: readonly StateFingerprint[]
+  TreeStates.load: (fingerprint: StateFingerprint, signal?: AbortSignal) => Promise<DomainResult<ProjectState | undefined>>
+  type TreeText = (signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer> | undefined>>
   class Turns
   new Turns(yieldToHost: YieldToHost, signal?: AbortSignal | undefined): Turns
   readonly Turns.signal: AbortSignal | undefined
@@ -2632,7 +2636,7 @@ Published paths
   function pathOf(parent: string, key: number | string): string
   function presentMembers(members: Readonly<Record<string, JsonValue | undefined>>): JsonObject
   function prettyCanonicalJson(value: JsonValue): string
-  function projectTree(content: ProjectTreeContent): DomainResult<readonly ProjectTreeFile[]>
+  function projectTree(content: ProjectTreeContent): readonly ProjectTreeFile[]
   const readAssetRecord: Converter<AssetRecord>
   const readBackupPolicy: Converter<BackupPolicy>
   function readBundleManifest(bytes: Uint8Array<ArrayBufferLike>): DomainResult<BundleManifest>
@@ -3154,7 +3158,7 @@ Published paths
   readonly ProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
-  readonly ProjectSession.replaceProject: (model: ProjectModel, states: ReadonlyMap<StateFingerprint, ProjectState>) => Promise<DomainResult<WriteOutcome>>
+  readonly ProjectSession.replaceProject: (model: ProjectModel, states: TreeStates, signal?: AbortSignal) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.checkpoint: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.saved: () => Promise<DomainResult<void>>
   readonly ProjectSession.retry: () => Promise<SaveStatus>
@@ -3215,7 +3219,7 @@ Published paths
   readonly RestoreServices.clock: Clock
   readonly RestoreServices.tree: import("packages/project-format/src/storage-tree").StorageTree
   readonly RestoreServices.digest: import("packages/project-format/src/byte-ports").Digest
-  readonly RestoreServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
+  readonly RestoreServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly RestoreServices.ids: import("packages/domain/src/index").IdGenerator
   readonly RestoreServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly RestoreServices.coordinator?: import("packages/storage/src/write-lease").LeaseCoordinator

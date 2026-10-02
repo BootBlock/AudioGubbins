@@ -5,12 +5,18 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
+import { stateFingerprintFrom } from './content-identity.js';
 import { readProjectTree } from './project-tree-reading.js';
-import { projectTree, type ProjectTreeFile } from './project-tree-writing.js';
+import { projectTree } from './project-tree-writing.js';
 import { CACHE_INDEX_PATH, placeOf } from './project-tree-layout.js';
 import { nodeDigest } from './testing/node-digest.js';
 import { referenceState } from './testing/project-states.js';
-import { historyContent, listingOf } from './testing/project-trees.js';
+import {
+  historyContent,
+  listingOf,
+  writtenFiles,
+  type WrittenFile,
+} from './testing/project-trees.js';
 import { decodeUtf8, encodeUtf8 } from './utf8.js';
 
 /**
@@ -19,22 +25,19 @@ import { decodeUtf8, encodeUtf8 } from './utf8.js';
  * reports every problem at the file it is in.
  */
 
-async function sampleTree(): Promise<ProjectTreeFile[]> {
-  return [
-    ...expectSuccess(
-      projectTree(await historyContent(referenceState(sampleProject()), 4, nodeDigest)),
-    ),
-  ];
+async function sampleTree(): Promise<WrittenFile[]> {
+  const content = await historyContent(referenceState(sampleProject()), 4, nodeDigest);
+  return [...expectSuccess(await writtenFiles(projectTree(content)))];
 }
 
 type Json = Record<string, unknown>;
 
 /** The files with the JSON of one changed by `edit`. */
 function edited(
-  files: readonly ProjectTreeFile[],
+  files: readonly WrittenFile[],
   path: string,
   edit: (value: Json) => unknown,
-): ProjectTreeFile[] {
+): WrittenFile[] {
   return files.map((file) => {
     if (file.path !== path || file.body.kind !== 'text') return file;
     const value: Json = JSON.parse(expectSuccess(decodeUtf8(file.body.bytes)));
@@ -42,24 +45,24 @@ function edited(
   });
 }
 
-function jsonOf(files: readonly ProjectTreeFile[], path: string): Json {
+function jsonOf(files: readonly WrittenFile[], path: string): Json {
   const body = files.find((file) => file.path === path)?.body;
   if (body?.kind !== 'text') throw new Error(`No text at ${path}.`);
   const value: Json = JSON.parse(expectSuccess(decodeUtf8(body.bytes)));
   return value;
 }
 
-function renamedFile(files: readonly ProjectTreeFile[], from: string, to: string) {
+function renamedFile(files: readonly WrittenFile[], from: string, to: string) {
   return files.map((file) => (file.path === from ? { ...file, path: to } : file));
 }
 
-function pathOf(files: readonly ProjectTreeFile[], prefix: string): string {
+function pathOf(files: readonly WrittenFile[], prefix: string): string {
   const found = files.find(({ path }) => path.startsWith(prefix))?.path;
   if (found === undefined) throw new Error(`No file under ${prefix}.`);
   return found;
 }
 
-async function problemsOf(files: readonly ProjectTreeFile[]) {
+async function problemsOf(files: readonly WrittenFile[]) {
   const read: DomainResult<unknown> = await readProjectTree(listingOf(files), nodeDigest);
   if (read.ok) throw new Error('The tree was read.');
   return read.failures.map(({ code, details }) => [code, details?.['file']]);
@@ -132,14 +135,21 @@ describe('reading a project tree (REQ-STOR-103)', () => {
     ]);
   });
 
-  it('refuses a kept state that is not the state its name promises', async () => {
+  it('refuses a kept state that is not the state its name promises, as it is read', async () => {
     const files = await sampleTree();
     const state = pathOf(files, 'history/states/');
     const changed = edited(files, state, (value) => ({
       ...value,
       project: { ...(value['project'] as Json), displayName: 'Altered' },
     }));
-    expect(await problemsOf(changed)).toContainEqual(['tree.state-mismatch', state]);
+    const read = expectSuccess(await readProjectTree(listingOf(changed), nodeDigest));
+    if (read.scope.kind !== 'history') throw new Error('The tree lost its history.');
+    const named = state.slice('history/states/'.length, -'.json'.length);
+    const loaded = await read.scope.history.states.load(expectSuccess(stateFingerprintFrom(named)));
+
+    expect(
+      loaded.ok ? [] : loaded.failures.map(({ code, details }) => [code, details?.['file']]),
+    ).toEqual([['tree.state-mismatch', state]]);
   });
 
   it('refuses a snapshot whose state the tree lacks', async () => {

@@ -59,18 +59,28 @@ export function writeHistoryRecord(history: HistoryRecord): JsonObject {
     project: history.project,
     cursor: history.cursor,
     nodes: sortedBy(history.nodes, (node) => node.id, writeHistoryNodeRecord),
-    preferred: sortedBy(
-      history.preferred,
-      ([node]) => node,
-      ([node, child]) => ({ node, child }),
-    ),
-    branchNames: sortedBy(
-      history.branchNames,
-      ([node]) => node,
-      ([node, name]) => ({ node, name }),
-    ),
+    preferred: writePreferences(history.preferred),
+    branchNames: writeBranchNames(history.branchNames),
     snapshots: sortedBy(history.snapshots, (snapshot) => snapshot.id, writeSnapshotRecord),
   });
+}
+
+/** Writes the child redo follows from each node, as a history holds it. */
+export function writePreferences(preferred: HistoryRecord['preferred']): JsonValue {
+  return sortedBy(
+    preferred,
+    ([node]) => node,
+    ([node, child]) => ({ node, child }),
+  );
+}
+
+/** Writes the names of a history's branches, as a history holds them. */
+export function writeBranchNames(branchNames: HistoryRecord['branchNames']): JsonValue {
+  return sortedBy(
+    branchNames,
+    ([node]) => node,
+    ([node, name]) => ({ node, name }),
+  );
 }
 
 /** Reads a history, refusing one whose graph is not a single rooted tree. */

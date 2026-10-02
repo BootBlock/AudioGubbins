@@ -3,25 +3,21 @@
  * tree's files and a manifest of each one's path, length and content identity
  * (REQ-STOR-099, REQ-STOR-103, REQ-EXEC-216).
  *
- * The entries are written in the order of their paths, the manifest among them,
- * each streamed from wherever it is kept and never held whole, so one tree
- * always gives the same archive, byte for byte, and a bundle unpacked and
- * packed again is the bundle it was. A metadata file's identity in the manifest
- * is taken from its bytes; a media file's or a cache's is the one the tree
- * names for it, and its bytes are proved to be those as they are written into
- * the archive (`tree-bodies.ts`), so each is read and hashed once.
+ * The tree's files are written in the order of their paths, each made or
+ * streamed only as the archive reaches it and never held past it, so a tree of
+ * a history larger than memory is written holding one file and one kept state
+ * at a time. The manifest goes last, once every entry it lists is written: a
+ * metadata file's identity is taken from its bytes as they pass, and a media
+ * file's or a cache's is the one the tree names for it, its bytes proved to be
+ * those as they are written (`tree-bodies.ts`), so each is read and hashed
+ * once. One tree always gives the same archive, byte for byte, and a bundle
+ * unpacked and packed again is the bundle it was. A reader finds the manifest
+ * by the archive's directory, wherever it lies.
  */
 
-import {
-  FailureKind,
-  failure,
-  succeed,
-  type DomainFailure,
-  type DomainResult,
-} from '@audiogubbins/domain';
+import { FailureKind, failure, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 import {
   BUNDLE_MANIFEST_PATH,
-  compareCodeUnits,
   contentIdOf,
   writeBundleManifest,
   writeZip,
@@ -55,71 +51,50 @@ export async function writeBundle(
   sink: ByteSink,
   writing: BundleWriting,
 ): Promise<DomainResult<ZipWritten>> {
-  const entries = await manifestEntries(files, writing);
-  if (!entries.ok) {
-    await sink.abort(entries.failures[0]);
-    return entries;
-  }
-  const listing = writeBundleManifest(entries.value);
-  if (!listing.ok) {
-    await sink.abort(listing.failures[0]);
-    return listing;
-  }
-  const manifest: ProjectTreeFile = {
-    path: BUNDLE_MANIFEST_PATH,
-    body: { kind: 'text', bytes: listing.value },
-  };
-  const ordered = [...files, manifest].sort((one, other) => compareCodeUnits(one.path, other.path));
-  // A file that cannot be opened, or is refused as it is read, as the archive
-  // reaches it fails the archive, which abandons the sink, with its failure.
+  // A file that cannot be made or opened, or is refused as it is read, as the
+  // archive reaches it fails the archive, which abandons the sink, with its
+  // failure.
   return await refusalsReported(
     async () =>
-      await writeZip(zipEntries(ordered, writing), sink, {
+      await writeZip(entriesOf(files, writing), sink, {
         yieldToHost: writing.yieldToHost,
         ...(writing.signal === undefined ? {} : { signal: writing.signal }),
       }),
   );
 }
 
-/** Each file opened only as the archive reaches it. */
-async function* zipEntries(
+/** Each file made or opened only as the archive reaches it, and then the manifest of them all. */
+async function* entriesOf(
   files: readonly ProjectTreeFile[],
   writing: BundleWriting,
 ): AsyncGenerator<ZipEntryInput, void, undefined> {
+  const { signal } = writing;
+  const listed: ManifestEntry[] = [];
   for (const file of files) {
     const { path, body } = file;
     if (body.kind === 'text') {
-      yield { path, source: body.bytes };
+      const text = await body.text(signal);
+      if (!text.ok) throw new CarriedFailure(text.failures[0]);
+      if (text.value === undefined) continue;
+      const identity = await contentIdOf(
+        bytesSource(text.value),
+        writing.digest,
+        signal === undefined ? {} : { signal },
+      );
+      if (!identity.ok) throw new CarriedFailure(identity.failures[0]);
+      listed.push({ path, size: text.value.length, contentId: identity.value.contentId });
+      yield { path, source: text.value };
       continue;
     }
-    const source = await writing.open(file, writing.signal);
+    const source = await writing.open(file, signal);
     if (!source.ok) throw new CarriedFailure(source.failures[0]);
     if (source.value.size !== body.byteLength) throw new CarriedFailure(lengthChanged(path));
+    listed.push({ path, size: body.byteLength, contentId: body.contentId });
     yield { path, source: source.value };
   }
-}
-
-/** The manifest's entry for each file. */
-async function manifestEntries(
-  files: readonly ProjectTreeFile[],
-  writing: BundleWriting,
-): Promise<DomainResult<readonly ManifestEntry[]>> {
-  const entries: ManifestEntry[] = [];
-  for (const { path, body } of files) {
-    if (body.kind !== 'text') {
-      entries.push({ path, size: body.byteLength, contentId: body.contentId });
-      continue;
-    }
-    const identity = await contentIdOf(
-      bytesSource(body.bytes),
-      writing.digest,
-      writing.signal === undefined ? {} : { signal: writing.signal },
-    );
-    if (!identity.ok) return identity;
-    const { contentId, byteLength } = identity.value;
-    entries.push({ path, size: byteLength, contentId });
-  }
-  return succeed(entries);
+  const manifest = writeBundleManifest(listed);
+  if (!manifest.ok) throw new CarriedFailure(manifest.failures[0]);
+  yield { path: BUNDLE_MANIFEST_PATH, source: manifest.value };
 }
 
 function lengthChanged(path: string): DomainFailure {

@@ -176,9 +176,9 @@ export interface TreeWrite {
 }
 
 /**
- * Writes a tree's files into a claimed directory, each media file and cache
- * read by `open` and proved as it is read, and removes the tree's files the
- * project no longer has.
+ * Writes a tree's files into a claimed directory, each text made only as it is
+ * reached and each media file and cache read by `open` and proved as it is
+ * read, and removes the tree's files the project no longer has.
  */
 export async function writeTreeInto(
   claimed: ClaimedDirectory,
@@ -188,20 +188,24 @@ export async function writeTreeInto(
 ): Promise<TreeWrite> {
   const { writer, present } = claimed;
   let changed = false;
+  const kept = new Set<string>();
   const written = await refusalsReported(async () => {
     for (const file of files) {
       signal?.throwIfAborted();
       const { path, body } = file;
+      kept.add(path);
       if (body.kind === 'media' && present.get(path) === body.byteLength) continue;
-      const source =
-        body.kind === 'text' ? succeed(bytesSource(body.bytes)) : await open(file, signal);
+      const source = await sourceOf(file, open, signal);
       if (!source.ok) return source;
+      if (source.value === undefined) {
+        kept.delete(path);
+        continue;
+      }
       const sink = await writer.create(path);
       changed = true;
       const streamed = await streamInto(source.value, sink, signal);
       if (!streamed.ok) return streamed;
     }
-    const kept = new Set(files.map(({ path }) => path));
     for (const path of present.keys()) {
       if (kept.has(path) || !isProjectTreePath(path)) continue;
       changed = true;
@@ -210,6 +214,18 @@ export async function writeTreeInto(
     return succeed(undefined);
   });
   return { written, changed };
+}
+
+/** The bytes of a file of the tree, or `undefined` for one the tree is written without. */
+async function sourceOf(
+  file: ProjectTreeFile,
+  open: BodyOpener,
+  signal?: AbortSignal,
+): Promise<DomainResult<ByteSource | undefined>> {
+  if (file.body.kind !== 'text') return await open(file, signal);
+  const text = await file.body.text(signal);
+  if (!text.ok) return text;
+  return succeed(text.value === undefined ? undefined : bytesSource(text.value));
 }
 
 function fileVanished(path: string) {

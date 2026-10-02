@@ -11,12 +11,14 @@
  * in the list, and the marker is removed last. A directory with the marker and
  * no header that can be read is unfinished: the list passes over it, and
  * cleanup may remove it. A crash after the header leaves a whole project with a
- * stale marker, which counts for nothing beside a header. While the files are
+ * stale marker, which counts for nothing beside a header. The states a project
+ * keeps are read one at a time as they are written, so a long history brought
+ * in or restored is never held whole (REQ-EXEC-216). While the files are
  * written the storage-wide lock is shared (`storage-sharing.ts`), so no cleanup
  * takes a project being made for one a crash left unfinished.
  */
 
-import { mapResult, type DomainResult, type IdGenerator } from '@audiogubbins/domain';
+import { mapResult, succeed, type DomainResult, type IdGenerator } from '@audiogubbins/domain';
 import { startHistory, withStateFingerprint, type History } from '@audiogubbins/history';
 import {
   DEFAULT_BACKUP_POLICY,
@@ -28,6 +30,7 @@ import {
   type ProjectState,
   type RetentionPolicy,
   type StateFingerprint,
+  type TreeStates,
   type Turns,
 } from '@audiogubbins/project-format';
 
@@ -64,10 +67,21 @@ export interface ProjectBeginning {
 export interface ProjectContents {
   /** The state at the history's cursor. */
   readonly state: ProjectState;
-  readonly history: History;
 
-  /** The states the history keeps whole, besides the cursor's. */
-  readonly kept: ReadonlyMap<StateFingerprint, ProjectState>;
+  /**
+   * The history, once its kept states are written: `renamed` gives what each
+   * was listed by and what it was kept under, which differ only where a state
+   * was changed as it was read, as a copy's are under its new identity.
+   */
+  readonly history: (
+    renamed: ReadonlyMap<StateFingerprint, StateFingerprint>,
+  ) => DomainResult<History>;
+
+  /**
+   * The states the history keeps whole, besides the cursor's, each read as it
+   * is written and kept under the fingerprint it has then.
+   */
+  readonly kept: TreeStates;
   readonly exports: readonly ExportRecord[];
   readonly retention: RetentionPolicy;
   readonly backup: BackupPolicy;
@@ -79,6 +93,12 @@ export interface ProjectContents {
   readonly created: number;
   readonly imported?: ImportOrigin;
 }
+
+/** A project that keeps no state besides the cursor's. */
+export const NO_KEPT_STATES: TreeStates = {
+  fingerprints: [],
+  load: () => Promise.reject(new Error('A project that keeps no state was asked for one.')),
+};
 
 /**
  * Writes a new project's files, the project being the state's own, and gives
@@ -101,8 +121,8 @@ export async function writeNewProject(
     files,
     {
       state,
-      history,
-      kept: new Map(),
+      history: () => succeed(history),
+      kept: NO_KEPT_STATES,
       exports: [],
       retention: DEFAULT_RETENTION_POLICY,
       backup: DEFAULT_BACKUP_POLICY,
@@ -147,6 +167,30 @@ export async function writeProject(
   );
 }
 
+/**
+ * Writes the states `kept` lists, each read only as it is written, and gives
+ * what each it wrote was listed by and kept under; one that cannot be read and
+ * may be left out is left out.
+ */
+async function writeKept(
+  files: ProjectFiles,
+  kept: TreeStates,
+  turns: Turns,
+): Promise<DomainResult<ReadonlyMap<StateFingerprint, StateFingerprint>>> {
+  const { signal } = turns;
+  const written = new Map<StateFingerprint, StateFingerprint>();
+  for (const fingerprint of kept.fingerprints) {
+    await turns.afterHeavyStep();
+    const state = await kept.load(fingerprint, signal);
+    if (!state.ok) return state;
+    if (state.value === undefined) continue;
+    const put = await files.states.put(state.value, signal);
+    if (!put.ok) return put;
+    written.set(fingerprint, put.value);
+  }
+  return succeed(written);
+}
+
 /** Writes the states a new project keeps and its first checkpoint, and gives the checkpoint. */
 async function writeFirstCheckpoint(
   files: ProjectFiles,
@@ -155,17 +199,13 @@ async function writeFirstCheckpoint(
   turns: Turns,
 ): Promise<DomainResult<CheckpointId>> {
   const { signal } = turns;
-  for (const kept of contents.kept.values()) {
-    const put = await files.states.put(kept, signal);
-    if (!put.ok) return put;
-  }
+  const kept = await writeKept(files, contents.kept, turns);
+  if (!kept.ok) return kept;
   const cursorState = await files.states.put(contents.state, signal);
   if (!cursorState.ok) return cursorState;
-  const history = withStateFingerprint(
-    contents.history,
-    contents.history.cursor,
-    cursorState.value,
-  );
+  const named = contents.history(kept.value);
+  if (!named.ok) return named;
+  const history = withStateFingerprint(named.value, named.value.cursor, cursorState.value);
   if (!history.ok) return history;
   const comparison =
     contents.comparison === undefined
@@ -179,7 +219,7 @@ async function writeFirstCheckpoint(
     {
       history: history.value,
       cursorState: cursorState.value,
-      keptStates: new Set([cursorState.value, ...contents.kept.keys()]),
+      keptStates: new Set([cursorState.value, ...kept.value.values()]),
       exports: contents.exports,
       retention: contents.retention,
       backup: contents.backup,

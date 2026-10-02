@@ -234,13 +234,13 @@ export {
 
 export {
   type ProjectTreeContent,
-  type ProjectTreeFile,
   type ProjectTreeHistory,
   type ProjectTreeScope,
-  type TreeFileBody,
   type TreeMedia,
+  type TreeStates,
   projectTree,
 } from './project-tree-writing.js';
+export { type ProjectTreeFile, type TreeFileBody, type TreeText } from './project-tree-texts.js';
 export { type TreeCache } from './cache-index-json.js';
 export { isProjectTreePath, isWithinProjectTree } from './project-tree-layout.js';
 export { type ProjectTreeListing, type TreeListedFile } from './project-tree-files.js';

@@ -49,6 +49,7 @@ import {
   type RetentionPolicy,
   type SnapshotId,
   type StateFingerprint,
+  type TreeStates,
 } from '@audiogubbins/project-format';
 
 import { choiceOf } from './comparison-record.js';
@@ -271,17 +272,28 @@ export class ProjectSession {
   /**
    * Replaces the whole project, history and all, with `model`, whose kept
    * states are `states`, and writes a checkpoint of it at once. Refused while
-   * anything is not saved. It is no change the history can undo: the caller
-   * keeps what it replaces recoverable (`backup-restoring.ts`).
+   * anything is not saved. The states are written into storage one at a time
+   * before the checkpoint that names them, so none is held in memory waiting;
+   * a crash before it leaves them named by nothing, for the next checkpoint to
+   * remove. It is no change the history can undo: the caller keeps what it
+   * replaces recoverable (`backup-restoring.ts`).
    */
   readonly replaceProject = async (
     model: ProjectModel,
-    states: ReadonlyMap<StateFingerprint, ProjectState>,
+    states: TreeStates,
+    signal?: AbortSignal,
   ): Promise<DomainResult<WriteOutcome>> =>
     await this.whileWritable(async () => {
       const saved = await this.writer.checkpoint(this.model);
       if (saved.kind !== 'written') return fail(unsavedChanges(this.writer.status));
-      return succeed(await this.adoptCompaction({ model, states }));
+      for (const fingerprint of states.fingerprints) {
+        const state = await states.load(fingerprint, signal);
+        if (!state.ok) return state;
+        if (state.value === undefined) continue;
+        const kept = await this.services.files.states.put(state.value, signal);
+        if (!kept.ok) return kept;
+      }
+      return succeed(await this.adoptCompaction({ model, states: new Map() }));
     });
 
   /** Writes a checkpoint now, as the application does when the page is hidden. */

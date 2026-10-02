@@ -12,6 +12,11 @@
  * identifier is not its file's name is refused, and so is a kept state whose
  * fingerprint is not its name. Every snapshot's state must be in the tree.
  *
+ * A history may keep more states than fit in memory at once (REQ-EXEC-216), so
+ * the kept states are read only when they are asked for, one at a time, and
+ * each is checked as it is read: of the tree's project, and the state its name
+ * promises. Whatever brings the tree in refuses it at the first that is not.
+ *
  * Every problem is reported, each at the path of its file. Media and caches are
  * placed by their paths and lengths and never read here: their bytes are the
  * caller's to stream and check, media against the identity its name is and a
@@ -26,7 +31,6 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import type { Digest } from './byte-ports.js';
 import { compareCodeUnits, type JsonObject, type JsonValue } from './canonical-json.js';
-import type { StateFingerprint } from './content-identity.js';
 import { objectOf, required, startReading, type Converter } from './document-reading.js';
 import type { ExportRecord } from './export-provenance.js';
 import { readExportRecord } from './export-record-json.js';
@@ -38,7 +42,13 @@ import {
   stateFingerprintOf,
 } from './project-json.js';
 import type { ProjectState } from './project-state.js';
-import { TreeReading, atFile, namedValues, type ProjectTreeListing } from './project-tree-files.js';
+import {
+  TreeReading,
+  atFileEach,
+  namedValues,
+  treeProblem,
+  type ProjectTreeListing,
+} from './project-tree-files.js';
 import type { TreeHeader } from './project-tree-header.js';
 import {
   BACKUP_POLICY_PATH,
@@ -53,7 +63,7 @@ import {
   cachePath,
   snapshotPath,
 } from './project-tree-layout.js';
-import type { ProjectTreeContent, ProjectTreeHistory } from './project-tree-writing.js';
+import type { ProjectTreeContent, ProjectTreeHistory, TreeStates } from './project-tree-writing.js';
 import { stripAssetProvenance, stripExportRecords } from './provenance-stripping.js';
 import { readRetentionPolicy } from './retention-json.js';
 import { readBackupPolicy, type BackupPolicy } from './backup-policy-json.js';
@@ -171,11 +181,12 @@ async function readHistory(
   const record = await readRecord(tree, header);
   const retention = await readRetention(tree);
   const comparison = record === undefined ? undefined : await readComparison(tree, record);
-  const states = await readStates(tree, header, digest);
+  const states = treeStates(tree, header, digest);
   if (record === undefined || retention === undefined || state === undefined) return undefined;
 
+  const kept = new Set(states.fingerprints);
   for (const snapshot of record.snapshots) {
-    if (!states.has(snapshot.stateFingerprint)) {
+    if (!kept.has(snapshot.stateFingerprint)) {
       tree.refuse('tree.snapshot-state-missing', snapshotPath(snapshot.id));
     }
   }
@@ -266,28 +277,29 @@ async function readComparison(
 /** Any value, which the history's own reader then reads. */
 const anyValue: Converter<JsonValue> = (_reading, value) => value;
 
-/** The kept states, each checked to be the state its name promises. */
-async function readStates(
-  tree: TreeReading,
-  header: TreeHeader,
-  digest: Digest,
-): Promise<ReadonlyMap<StateFingerprint, ProjectState>> {
-  const states = new Map<StateFingerprint, ProjectState>();
-  for (const file of tree.ofKind('state')) {
-    const value = await tree.valueOf(file);
-    if (value === undefined) continue;
-    const state = readProjectDocument(value);
-    if (!state.ok) {
-      tree.problems.push(...state.failures.map((cause) => atFile(cause, file.path)));
-    } else if (state.value.project.id !== header.project) {
-      tree.refuse('tree.foreign-state', file.path);
-    } else if ((await stateFingerprintOf(state.value, digest)) !== file.place.fingerprint) {
-      tree.refuse('tree.state-mismatch', file.path);
-    } else {
-      states.set(file.place.fingerprint, state.value);
-    }
-  }
-  return states;
+/**
+ * The states the tree keeps, each read when it is asked for and checked to be
+ * of the tree's project and the state its name promises.
+ */
+function treeStates(tree: TreeReading, header: TreeHeader, digest: Digest): TreeStates {
+  const files = new Map(tree.ofKind('state').map((file) => [file.place.fingerprint, file]));
+  return {
+    fingerprints: [...files.keys()],
+    load: async (fingerprint, signal) => {
+      const file = files.get(fingerprint);
+      if (file === undefined) throw new Error(`The tree keeps no state ${fingerprint}.`);
+      const value = await tree.jsonOf(file, signal);
+      if (!value.ok) return value;
+      const state = readProjectDocument(value.value);
+      if (!state.ok) return atFileEach(state, file.path);
+      if (state.value.project.id !== header.project) {
+        return fail(treeProblem('tree.foreign-state', file.path));
+      }
+      return (await stateFingerprintOf(state.value, digest)) === fingerprint
+        ? state
+        : fail(treeProblem('tree.state-mismatch', file.path));
+    },
+  };
 }
 
 /**

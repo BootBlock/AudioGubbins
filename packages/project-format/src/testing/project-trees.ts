@@ -1,6 +1,7 @@
 /**
- * Project trees built from a seed, and a listing over a tree's files in memory,
- * for the tests of the unpacked tree and of the bundle.
+ * Project trees built from a seed, a tree's files with their texts made, and a
+ * listing over them in memory, for the tests of the unpacked tree and of the
+ * bundle.
  *
  * A history is built for the state it is given: an origin, changes in a random
  * shape, snapshots of states made by renaming the project, and a cursor whose
@@ -14,6 +15,7 @@ import {
   failure,
   FailureKind,
   succeed,
+  type DomainResult,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
@@ -29,7 +31,8 @@ import {
 import { stateFingerprintOf } from '../project-json.js';
 import type { ProjectState } from '../project-state.js';
 import type { ProjectTreeListing } from '../project-tree-files.js';
-import type { ProjectTreeContent, ProjectTreeFile } from '../project-tree-writing.js';
+import type { ProjectTreeFile, TreeFileBody } from '../project-tree-texts.js';
+import type { ProjectTreeContent, TreeStates } from '../project-tree-writing.js';
 import { contentIdOfDigit } from './project-states.js';
 import { seededRandom } from './random-values.js';
 
@@ -143,7 +146,7 @@ export async function historyContent(
           snapshots,
         },
         retention: { kind: 'rules', rules: [{ kind: 'recent-changes', count: 50 }] },
-        states,
+        states: statesIn(states),
         comparison: {
           a: { kind: 'node', node: cursorParent },
           b: { kind: 'node', node: cursor },
@@ -195,9 +198,61 @@ function snapshotOf(
   };
 }
 
+/** States held in memory, kept as a tree keeps them. */
+function statesIn(states: ReadonlyMap<StateFingerprint, ProjectState>): TreeStates {
+  return {
+    fingerprints: [...states.keys()],
+    load: (fingerprint) => {
+      const state = states.get(fingerprint);
+      return Promise.resolve(
+        state === undefined
+          ? fail(failure('test.no-state', FailureKind.Rejected, 'No such state is kept.'))
+          : succeed(state),
+      );
+    },
+  };
+}
+
+/** Every state `states` keeps, read. */
+export async function everyState(
+  states: TreeStates,
+): Promise<ReadonlyMap<StateFingerprint, ProjectState>> {
+  const read = new Map<StateFingerprint, ProjectState>();
+  for (const fingerprint of states.fingerprints) {
+    const state = expectSuccess(await states.load(fingerprint));
+    if (state !== undefined) read.set(fingerprint, state);
+  }
+  return read;
+}
+
+/** A file of a tree as it is written, its text made. */
+export interface WrittenFile {
+  readonly path: string;
+  readonly body:
+    | { readonly kind: 'text'; readonly bytes: Uint8Array<ArrayBuffer> }
+    | Exclude<TreeFileBody, { readonly kind: 'text' }>;
+}
+
+/** The files of a tree as a writer writes them, each text made, or why one cannot be. */
+export async function writtenFiles(
+  files: readonly ProjectTreeFile[],
+): Promise<DomainResult<readonly WrittenFile[]>> {
+  const written: WrittenFile[] = [];
+  for (const { path, body } of files) {
+    if (body.kind !== 'text') {
+      written.push({ path, body });
+      continue;
+    }
+    const text = await body.text();
+    if (!text.ok) return text;
+    if (text.value !== undefined) written.push({ path, body: { kind: 'text', bytes: text.value } });
+  }
+  return succeed(written);
+}
+
 /** A tree's files in memory, as a listing; a media or cache file's bytes are its length's. */
 export function listingOf(
-  files: readonly ProjectTreeFile[],
+  files: readonly WrittenFile[],
   onRead?: (path: string) => void,
 ): ProjectTreeListing {
   const texts = new Map(

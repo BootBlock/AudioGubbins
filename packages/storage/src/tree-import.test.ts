@@ -272,20 +272,23 @@ describe('the media a bundle brings in', () => {
   }
 
   it('reads and hashes each piece once, and none the storage holds already', async () => {
-    const { project, storage } = await cachedProject(341, SIZE);
+    const { project, storage, media } = await cachedProject(341, SIZE);
     const bundle = await bundleOf(storage, project);
-    const counted = countedDigest();
-    const target = storageOf(harnessOver(counted.digest, 342), new MemoryStorageTree());
+    const lacking = countedDigest();
+    const target = storageOf(harnessOver(lacking.digest, 342), new MemoryStorageTree());
+    const holding = countedDigest();
+    const other = storageOf(harnessOver(holding.digest, 343), new MemoryStorageTree());
+    expect(await storedMedia(other.store, 341, SIZE)).toBe(media);
+    const heldBefore = holding.chunks();
     const first = countedSource(bundle);
+    const again = countedSource(bundle);
 
     expectSuccess(await importBundle(first, 'original', target.importing));
-    const firstChunks = counted.chunks();
-    const again = countedSource(bundle);
-    expectSuccess(await importBundle(again, 'copy', target.importing));
+    expectSuccess(await importBundle(again, 'original', other.importing));
 
-    expect(firstChunks).toBe(3);
-    // The second proves the object the store holds where it lies, once.
-    expect(counted.chunks() - firstChunks).toBe(3);
+    expect(lacking.chunks()).toBe(3);
+    // Where the store holds it, the object is proved where it lies, once.
+    expect(holding.chunks() - heldBefore).toBe(3);
     expect(again.bytesRead).toBeLessThanOrEqual(first.bytesRead - SIZE);
   });
 

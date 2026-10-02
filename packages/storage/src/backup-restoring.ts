@@ -14,18 +14,14 @@
  * the project as it was; the project stays open to write, as the generation
  * left it, and the session says whether storage holds it yet. Media is not
  * copied in either case: the generation names it by content, and the store kept
- * it.
+ * it. The states the generation keeps are read one at a time as they are
+ * written, so a long history is never held whole (REQ-EXEC-216).
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
 import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
-import { historyFromRecord, historyRecordOf } from '@audiogubbins/history';
-import {
-  Turns,
-  type ProjectState,
-  type ProjectTreeContent,
-  type StateFingerprint,
-} from '@audiogubbins/project-format';
+import { historyRecordOf } from '@audiogubbins/history';
+import { Turns } from '@audiogubbins/project-format';
 
 import { BackupGenerations } from './backup-generations.js';
 import type { BackupGeneration } from './backup-planning.js';
@@ -35,12 +31,12 @@ import { readProjectCopy, type ProjectCopy } from './project-copy.js';
 import { writeProject } from './project-creation.js';
 import { ProjectFiles } from './project-files.js';
 import type { ProjectHeader } from './project-header.js';
-import { contentAs } from './project-identity.js';
+import { movedHistory, stateOf } from './project-identity.js';
 import { openProject, type OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
 import { noCoordination, projectBusy, refusalsReported } from './storage-failures.js';
 import type { WriteOutcome } from './write-queue.js';
-import { loadedStatesOf } from './tree-content.js';
+import { copiedStates } from './tree-content.js';
 
 /** Where a generation is restored to. */
 export type RestoreTarget = 'new-project' | 'replace-current';
@@ -87,62 +83,32 @@ async function asNewProject(
   services: RestoreServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<RestoredBackup>> {
-  const states = await loadedStatesOf(copy, signal);
+  const states = copiedStates(copy);
   if (!states.ok) return states;
   const { model } = copy;
   const project = services.ids.next<'ProjectId'>();
-  const moved = await contentAs(contentOf(model, states.value), project, services.digest);
-  const { scope } = moved;
-  if (scope.kind !== 'history') throw new Error('A restored history lost its history.');
-  const history = historyFromRecord(scope.history.record);
-  if (!history.ok) return history;
+  const turns = new Turns(services.yieldToHost, signal);
+  const record = historyRecordOf(model.history);
+  const moved = movedHistory({ record, retention: model.retention, states: states.value }, project);
+  if (!moved.ok) return moved;
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), project);
   const written = await refusalsReported(
     async () =>
       await writeProject(
         files,
         {
-          state: moved.state,
-          history: history.value,
-          kept: scope.history.states,
-          exports: moved.exports,
+          state: stateOf(model.state, project),
+          ...moved.value,
+          exports: model.exports,
           retention: model.retention,
           backup: model.backup,
-          ...(scope.history.comparison === undefined
-            ? {}
-            : { comparison: scope.history.comparison }),
+          ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
           created: services.clock.now(),
         },
-        {
-          ids: services.ids,
-          turns: new Turns(services.yieldToHost, signal),
-          coordinator: services.coordinator,
-        },
+        { ids: services.ids, turns, coordinator: services.coordinator },
       ),
   );
   return written.ok ? succeed({ kind: 'new-project', header: written.value }) : written;
-}
-
-/** A generation's project as the tree of a project carries it, with the states it keeps. */
-function contentOf(
-  model: ProjectCopy['model'],
-  states: ReadonlyMap<StateFingerprint, ProjectState>,
-): ProjectTreeContent {
-  return {
-    state: model.state,
-    scope: {
-      kind: 'history',
-      history: {
-        record: historyRecordOf(model.history),
-        retention: model.retention,
-        states,
-        ...(model.comparison === undefined ? {} : { comparison: choiceOf(model.comparison) }),
-      },
-    },
-    exports: model.exports,
-    backup: model.backup,
-    media: [],
-  };
 }
 
 async function inPlace(
@@ -151,7 +117,7 @@ async function inPlace(
   services: RestoreServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<RestoredBackup>> {
-  const states = await loadedStatesOf(copy, signal);
+  const states = copiedStates(copy);
   if (!states.ok) return states;
   const opened = await openProject(
     { project: copy.project, access: 'write', ...(signal === undefined ? {} : { signal }) },
@@ -185,7 +151,7 @@ async function inPlace(
     await session.close();
     return previous;
   }
-  const replaced = await session.replaceProject(copy.model, states.value);
+  const replaced = await session.replaceProject(copy.model, states.value, signal);
   if (!replaced.ok) {
     await session.close();
     return replaced;
