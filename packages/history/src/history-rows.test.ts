@@ -11,7 +11,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { changeNodeOf, nameBranch, recordChange, type History } from './history.js';
-import { historyRows, type HistoryRow } from './history-rows.js';
+import type { HistoryRow } from './history-rows.js';
 import { createSnapshot } from './snapshots.js';
 import {
   EPOCH,
@@ -22,6 +22,7 @@ import {
   movedTo,
   newHistory,
   testIds,
+  rowsOf,
 } from './testing/histories.js';
 
 const ids = testIds(51);
@@ -88,7 +89,7 @@ function shape(rows: readonly HistoryRow[]): readonly (readonly [string, number,
 describe('the History panel’s rows (REQ-STOR-196)', () => {
   it('put branches beside the point they leave, oldest first and a level deeper', () => {
     const { history, node } = setUp();
-    const rows = historyRows(history);
+    const rows = rowsOf(history);
     expect(shape(rows)).toEqual([
       ['origin', 0, 'active'],
       ['Trim start', 0, 'active'],
@@ -109,7 +110,7 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
   it('are the same whichever way the history was reached', () => {
     const { history, node } = setUp();
     const again = movedTo(movedTo(history, node.e), node.c);
-    expect(historyRows(again)).toEqual(historyRows(history));
+    expect(rowsOf(again)).toEqual(rowsOf(history));
   });
 
   it('show the exports made from each node, as provenance', () => {
@@ -125,7 +126,7 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
       status: ExportStatus.Succeeded,
       problems: [],
     };
-    const rows = historyRows(history, {}, { exports: [record] });
+    const rows = rowsOf(history, {}, { exports: [record] });
     expect(rows.find((row) => row.node.id === node.c)?.exports).toEqual([record]);
     expect(rows.filter((row) => row.exports.length > 0)).toHaveLength(1);
   });
@@ -133,9 +134,7 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
   it('are found by words in a description, a branch name, a snapshot or an entity’s name', () => {
     const { history, node } = setUp();
     const found = (text: string, nameOf?: () => string | undefined): readonly HistoryNodeId[] =>
-      historyRows(history, { text }, nameOf === undefined ? {} : { nameOf }).map(
-        (row) => row.node.id,
-      );
+      rowsOf(history, { text }, nameOf === undefined ? {} : { nameOf }).map((row) => row.node.id);
     expect(found('BRIGHTER')).toEqual([node.e]);
     expect(found('darker')).toEqual([node.d]);
     expect(found('sent to the team')).toEqual([node.c]);
@@ -146,19 +145,17 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
 
   it('are filtered to the active line, to snapshots, or to the changes that affected an entity', () => {
     const { history, node } = setUp();
-    expect(historyRows(history, { scope: 'active-line' }).map((row) => row.node.id)).toEqual([
+    expect(rowsOf(history, { scope: 'active-line' }).map((row) => row.node.id)).toEqual([
       node.o,
       node.a,
       node.b,
       node.c,
     ]);
-    expect(historyRows(history, { scope: 'snapshots' }).map((row) => row.node.id)).toEqual([
-      node.c,
-    ]);
+    expect(rowsOf(history, { scope: 'snapshots' }).map((row) => row.node.id)).toEqual([node.c]);
     expect(
-      historyRows(history, { affecting: { kind: 'region', id: region } }).map((row) => row.node.id),
+      rowsOf(history, { affecting: { kind: 'region', id: region } }).map((row) => row.node.id),
     ).toEqual([node.b]);
-    expect(historyRows(history, { affecting: { kind: 'clip', id: region } })).toEqual([]);
+    expect(rowsOf(history, { affecting: { kind: 'clip', id: region } })).toEqual([]);
   });
 
   it('list a history ten thousand changes long without indenting it', () => {
@@ -167,7 +164,7 @@ describe('the History panel’s rows (REQ-STOR-196)', () => {
     for (let step = 0; step < 10_000; step += 1) {
       history = grown(history, generator.next<'HistoryNodeId'>(), `Step ${String(step)}`);
     }
-    const rows = historyRows(history);
+    const rows = rowsOf(history);
     expect(rows).toHaveLength(10_001);
     expect(rows.every((row) => row.depth === 0)).toBe(true);
     expect(rows.at(-1)?.isCurrent).toBe(true);

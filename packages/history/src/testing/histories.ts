@@ -21,6 +21,13 @@ import {
 } from '@audiogubbins/project-format';
 
 import { changeNodeOf, nameBranch, recordChange, startHistory, type History } from '../history.js';
+import { historyRowOrder } from '../history-row-order.js';
+import {
+  historyRowModel,
+  type HistoryRow,
+  type RowContext,
+  type RowQuery,
+} from '../history-rows.js';
 import { moveTo } from '../navigation.js';
 import type { MapChanges, PersistentMap } from '../persistent-map.js';
 import { createSnapshot } from '../snapshots.js';
@@ -203,4 +210,16 @@ class CountingMap<TKey extends string, TValue> implements PersistentMap<TKey, TV
   withChanges(changes: MapChanges<TKey, TValue>): PersistentMap<TKey, TValue> {
     return this.#inner.withChanges(changes);
   }
+}
+
+/** Every row of `history` that `query` shows, each read, in order. */
+export function rowsOf(
+  history: History,
+  query: RowQuery = {},
+  context: RowContext = {},
+): readonly HistoryRow[] {
+  const model = historyRowModel(historyRowOrder(history), query, context);
+  return Array.from({ length: model.count }, (_, index) => model.rowAt(index)).filter(
+    (row) => row !== undefined,
+  );
 }

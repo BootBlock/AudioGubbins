@@ -1943,6 +1943,18 @@ Published paths
   readonly HistoryRow.snapshots: readonly NamedSnapshot[]
   readonly HistoryRow.exports: readonly ExportRecord[]
   readonly HistoryRow.childCount: number
+  interface HistoryRowModel
+  readonly HistoryRowModel.count: number
+  readonly HistoryRowModel.rowAt: (index: number) => HistoryRow | undefined
+  readonly HistoryRowModel.indexOf: (node: HistoryNodeId) => number
+  interface HistoryRowOrder
+  readonly HistoryRowOrder.history: History
+  readonly HistoryRowOrder.count: number
+  readonly HistoryRowOrder.changes: number
+  readonly HistoryRowOrder.branches: number
+  readonly HistoryRowOrder.nodeAt: (index: number) => HistoryNodeId | undefined
+  readonly HistoryRowOrder.depthAt: (index: number) => number
+  readonly HistoryRowOrder.indexOf: (node: HistoryNodeId) => number
   type LostCapability = { readonly kind: "branch"; readonly first: HistoryNodeId; readonly forkPoint: HistoryNodeId; readonly name?: HistoryLabel; readonly changes: number; readonly latestAt: number; } | { readonly kind: "export-state"; readonly export: ExportRecordId; readonly node: HistoryNodeId; } | { readonly kind: "undo-before"; readonly root: HistoryNodeId; readonly at: number; readonly changes: number; }
   interface MapChanges<TKey extends string, TValue>
   readonly MapChanges.set: readonly (readonly [TKey, TValue])[]
@@ -2014,7 +2026,8 @@ Published paths
   function historyDelta(earlier: History | undefined, later: History): HistoryDelta
   function historyFromRecord(record: HistoryRecord<InvocationRecord>): DomainResult<History>
   function historyRecordOf(history: History): HistoryRecord<InvocationRecord>
-  function historyRows(history: History, query?: RowQuery, context?: RowContext): readonly HistoryRow[]
+  function historyRowModel(order: HistoryRowOrder, query?: RowQuery, context?: RowContext): HistoryRowModel
+  function historyRowOrder(history: History, previous?: HistoryRowOrder | undefined): HistoryRowOrder
   function listenedSide(comparison: Comparison): ComparisonSide
   function moveTo(history: History, target: HistoryNodeId): DomainResult<Navigation>
   function nameBranch(history: History, node: HistoryNodeId, name: HistoryLabel | undefined): DomainResult<History>

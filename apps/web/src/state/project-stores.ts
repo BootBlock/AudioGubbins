@@ -20,6 +20,7 @@ import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
 import { HistoryReviewStore } from './history-review-store.js';
+import { HistoryRowOrders } from './history-row-orders.js';
 import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
 import { checkSourcesOnOpening, keepListInStep } from './project-follow-ups.js';
@@ -40,6 +41,7 @@ export interface ProjectStores {
   readonly transfer: ProjectTransferStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
+  readonly rowOrders: HistoryRowOrders;
   readonly usage: StorageUsageStore;
   readonly backups: BackupStore;
   readonly backupFolder: BackupFolderStore;
@@ -97,6 +99,7 @@ export function createProjectStores(
     }),
     project,
     review: new HistoryReviewStore(project, logger),
+    rowOrders: new HistoryRowOrders(project),
     usage: new StorageUsageStore(client.usage, lifetime, project),
     backups: new BackupStore(
       client.backups,

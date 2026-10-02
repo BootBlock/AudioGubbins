@@ -9,11 +9,11 @@
  * and what each change affected. The choice of a point is the panel's own view
  * state; going to one is a command.
  *
- * A history can hold tens of thousands of points, so the list draws only the
- * rows in sight and the chosen one (`useRowWindow`), each row drawn again only
- * when what it shows changes, and brings the chosen point into view only when
- * the choice moves. Each row says where it stands in the whole list, so a
- * screen reader counts the rows not drawn.
+ * A history can hold tens of thousands of points, so the list reads and draws
+ * only the rows in sight and the chosen one (`useRowWindow`), each row drawn
+ * again only when what it shows changes, and brings the chosen point into view
+ * only when the choice moves. Each row says where it stands in the whole list,
+ * so a screen reader counts the rows not drawn.
  */
 
 import {
@@ -27,7 +27,7 @@ import {
 } from 'react';
 
 import { WINDOW_ROW, useRowWindow } from '@audiogubbins/design-system';
-import type { HistoryRow } from '@audiogubbins/history';
+import type { HistoryRow, HistoryRowModel } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 
 import { quoted } from '../../wording.js';
@@ -36,7 +36,7 @@ import { describeExport, describeNode, when } from './history-words.js';
 
 /** What the list reads and does. */
 export interface HistoryListProps {
-  readonly rows: readonly HistoryRow[];
+  readonly rows: HistoryRowModel;
 
   /** The names of the entities a change affected, in the state the project is in. */
   readonly names: EntityNames;
@@ -179,10 +179,10 @@ function keysOf(
   index: number,
 ): (event: KeyboardEvent<HTMLUListElement>) => void {
   return (event) => {
-    const to = rowAfter(event.key, index, rows.length - 1);
+    const to = rowAfter(event.key, index, rows.count - 1);
     if (to !== undefined) {
       event.preventDefault();
-      const row = rows[to];
+      const row = rows.rowAt(to);
       if (row !== undefined) onChoose(row.node.id);
     } else if (event.key === 'Enter' && chosen !== undefined) {
       event.preventDefault();
@@ -210,9 +210,9 @@ export function HistoryList(props: HistoryListProps): ReactNode {
   const { rows, names, chosen, onChoose } = props;
   const base = useId();
   const list = useRef<HTMLUListElement>(null);
-  const index = rows.findIndex((row) => row.node.id === chosen);
+  const index = chosen === undefined ? -1 : rows.indexOf(chosen);
   const idOf = (at: number): string => `${base}-${String(at)}`;
-  const shown = useRowWindow(list, rows.length, {
+  const shown = useRowWindow(list, rows.count, {
     estimate: ROW_ESTIMATE,
     ...(index >= 0 ? { keep: index } : {}),
   });
@@ -230,7 +230,7 @@ export function HistoryList(props: HistoryListProps): ReactNode {
       onKeyDown={keysOf(props, index)}
     >
       {shown.rows.map(({ index: at, before }) => {
-        const row = rows[at];
+        const row = rows.rowAt(at);
         return row === undefined ? null : (
           <Row
             key={row.node.id}
@@ -238,7 +238,7 @@ export function HistoryList(props: HistoryListProps): ReactNode {
             detail={detailOf(row, names)}
             id={idOf(at)}
             position={at + 1}
-            total={rows.length}
+            total={rows.count}
             before={before}
             chosen={at === index}
             onChoose={onChoose}

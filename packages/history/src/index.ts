@@ -82,11 +82,13 @@ export {
   type EntityKind,
   type EntityReference,
   type HistoryRow,
+  type HistoryRowModel,
   type RowContext,
   type RowQuery,
   affectedEntities,
-  historyRows,
+  historyRowModel,
 } from './history-rows.js';
+export { type HistoryRowOrder, historyRowOrder } from './history-row-order.js';
 
 export {
   type CompactionContext,

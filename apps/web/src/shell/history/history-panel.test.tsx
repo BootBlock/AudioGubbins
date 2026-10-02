@@ -1,8 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { HistoryRowOrders } from '../../state/history-row-orders.js';
 import { observable } from '../../state/observable.js';
+import type { OpenProjectState } from '../../state/open-project-store.js';
+import { countedHistory, longHistory } from '../../testing/long-history.js';
 import { addLinkedAsset, linkedFile } from '../../testing/linked-assets.js';
 import { projectWorld, type ProjectWindow } from '../../testing/project-context.js';
 import { HistoryPanel } from './history-panel.js';
@@ -29,6 +32,7 @@ function panelOver(
       title="History"
       project={window.projects.project}
       review={window.projects.review}
+      rowOrders={window.projects.rowOrders}
       run={run}
       unavailableReason={unavailableReason}
     />,
@@ -53,6 +57,7 @@ describe('the History panel', () => {
         title="History"
         project={observable({ kind: 'none' })}
         review={observable({})}
+        rowOrders={new HistoryRowOrders(observable({ kind: 'none' }))}
         run={() => true}
         unavailableReason={() => undefined}
       />,
@@ -254,5 +259,43 @@ describe('the History panel', () => {
     await userEvent.click(within(cost).getByRole('button', { name: 'Remove it for good' }));
     await userEvent.click(within(cost).getByRole('button', { name: 'Keep the history' }));
     expect(run.mock.calls).toEqual([['history.confirm-compaction'], ['history.cancel-compaction']]);
+  });
+
+  it('opens on a long history reading only the points it shows', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const open = window.projects.project.get();
+    if (open.kind !== 'open') throw new Error('No project is open.');
+    /** How many points the panel reads as it opens on a history of `changes` changes. */
+    const readOpening = (changes: number): number => {
+      const counted = countedHistory(longHistory(changes));
+      const { snapshot } = open;
+      const project = observable<OpenProjectState>({
+        ...open,
+        snapshot: { ...snapshot, model: { ...snapshot.model, history: counted.history } },
+      });
+      // Ordered as the project opened, before the panel is.
+      const rowOrders = new HistoryRowOrders(project);
+      counted.restart();
+      render(
+        <HistoryPanel
+          title="History"
+          project={project}
+          review={window.projects.review}
+          rowOrders={rowOrders}
+          run={vi.fn()}
+          unavailableReason={() => undefined}
+        />,
+      );
+      expect(screen.getByText(`${String(changes)} changes`, { exact: false })).toBeVisible();
+      cleanup();
+      return counted.reads();
+    };
+
+    const few = readOpening(1_000);
+    const many = readOpening(16_000);
+
+    expect(many).toBe(few);
+    expect(many).toBeLessThan(100);
   });
 });

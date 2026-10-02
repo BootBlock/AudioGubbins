@@ -13,10 +13,9 @@ import {
 
 import { historyFromRecord, historyRecordOf, nodeFromRecord } from './history-conversion.js';
 import type { History } from './history.js';
-import { historyRows } from './history-rows.js';
 import { activeLine } from './lines.js';
 import { redoTarget } from './navigation.js';
-import { grown, movedTo, newHistory, randomHistory, testIds } from './testing/histories.js';
+import { grown, movedTo, newHistory, randomHistory, rowsOf, testIds } from './testing/histories.js';
 
 /** The history written as JSON and read back. */
 function throughJson(history: History): History {
@@ -40,7 +39,7 @@ describe('a history kept and read back', () => {
       expect(read.snapshots).toEqual(history.snapshots);
       expect(read.branchNames).toEqual(history.branchNames);
       expect(activeLine(read)).toEqual(activeLine(history));
-      expect(historyRows(read)).toEqual(historyRows(history));
+      expect(rowsOf(read)).toEqual(rowsOf(history));
       expect(canonicalJson(writeHistoryRecord(historyRecordOf(read)))).toBe(
         canonicalJson(writeHistoryRecord(historyRecordOf(history))),
       );

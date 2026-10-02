@@ -9,18 +9,20 @@
  * affected, and the points they kept with their notes, never the journal
  * beneath. The words searched for, the scope, the entity whose changes alone
  * are shown and the point chosen are the panel's own view state; everything
- * that changes the project is a command. The rows are worked out again only
- * when the history or what finds them changes.
+ * that changes the project is a command. The rows are read in the order the
+ * project's history is kept in (`history-row-orders.ts`), each as the list
+ * shows it, so opening the panel costs what it shows; a search or a scope looks
+ * through every row, again only when the history or what finds them changes.
  */
 
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
 import {
-  historyRows,
+  historyRowModel,
   type EntityReference,
-  type History,
-  type HistoryRow,
+  type HistoryRowModel,
+  type HistoryRowOrder,
   type RowQuery,
 } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
@@ -30,6 +32,7 @@ import { ProjectPanelKinds } from '../../panel-kinds.js';
 import { showPanelCommandId } from '../../commands/panel-commands.js';
 import type { HistoryReviewState } from '../../state/history-review-store.js';
 import type { Observable } from '../../state/observable.js';
+import type { HistoryRowOrders } from '../../state/history-row-orders.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import type { RunCommand } from '../settings/section.js';
 import { CompactionReview } from './compaction-review.js';
@@ -45,6 +48,9 @@ export interface HistoryPanelProps {
   readonly title: string;
   readonly project: Observable<OpenProjectState>;
   readonly review: Observable<HistoryReviewState>;
+
+  /** The order the open project's history is listed in. */
+  readonly rowOrders: Pick<HistoryRowOrders, 'orderOf'>;
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
 }
@@ -56,13 +62,7 @@ const SCOPES = [
 ] as const;
 
 /** How much history there is, in a sentence. */
-function summaryOf(history: History): string {
-  let changes = 0;
-  for (const node of history.nodes.values()) if (node.kind === 'change') changes += 1;
-  const branches = [...history.children.values()].reduce(
-    (sum, children) => sum + Math.max(0, children.length - 1),
-    0,
-  );
+function summaryOf({ history, changes, branches }: HistoryRowOrder): string {
   const snapshots = history.snapshots.size;
   return `${String(changes)} ${changes === 1 ? 'change' : 'changes'}, ${String(branches)} other ${branches === 1 ? 'branch' : 'branches'} and ${String(snapshots)} ${snapshots === 1 ? 'snapshot' : 'snapshots'}.`;
 }
@@ -74,18 +74,19 @@ interface Finding {
   readonly affecting: EntityReference | undefined;
 }
 
-/** The rows `finding` asks for. */
+/** The rows `finding` asks for, of `order`. */
 function rowsFor(
+  order: HistoryRowOrder,
   model: ProjectModel,
   names: EntityNames,
   { text, scope, affecting }: Finding,
-): readonly HistoryRow[] {
+): HistoryRowModel {
   const query: RowQuery = {
     text,
     scope: SCOPES.find((one) => one.value === scope)?.value ?? 'all',
     ...(affecting === undefined ? {} : { affecting }),
   };
-  return historyRows(model.history, query, { exports: model.exports, nameOf: names });
+  return historyRowModel(order, query, { exports: model.exports, nameOf: names });
 }
 
 /** What is open for review: the snapshot field, the comparison, and a plan to remove history. */
@@ -127,13 +128,13 @@ function Points({
   onChoose,
   run,
 }: {
-  readonly rows: readonly HistoryRow[];
+  readonly rows: HistoryRowModel;
   readonly names: EntityNames;
   readonly chosen: HistoryNodeId | undefined;
   readonly onChoose: (node: HistoryNodeId) => void;
   readonly run: RunCommand;
 }): ReactNode {
-  return rows.length === 0 ? (
+  return rows.count === 0 ? (
     <p>Nothing in the history matches.</p>
   ) : (
     <HistoryList
@@ -147,10 +148,10 @@ function Points({
 }
 
 /** How much history there is, and the way to what it takes up. */
-function Summary({ history, run }: { readonly history: History; readonly run: RunCommand }) {
+function Summary({ order, run }: { readonly order: HistoryRowOrder; readonly run: RunCommand }) {
   return (
     <p className="ag-panel-note">
-      {summaryOf(history)}{' '}
+      {summaryOf(order)}{' '}
       <Button
         compact
         tone="quiet"
@@ -167,6 +168,7 @@ function OpenHistory({
   title,
   model,
   reviewing,
+  rowOrders,
   run,
   unavailableReason,
 }: Omit<HistoryPanelProps, 'project' | 'review'> & {
@@ -178,16 +180,17 @@ function OpenHistory({
   const [affecting, setAffecting] = useState<EntityReference | undefined>(undefined);
   const [chosen, setChosen] = useState<HistoryNodeId | undefined>(undefined);
   const names = useMemo(() => entityNamesOf(model.state), [model.state]);
+  const order = useMemo(() => rowOrders.orderOf(model.history), [rowOrders, model.history]);
   const rows = useMemo(
-    () => rowsFor(model, names, { text, scope, affecting }),
-    [model, names, text, scope, affecting],
+    () => rowsFor(order, model, names, { text, scope, affecting }),
+    [order, model, names, text, scope, affecting],
   );
-  const row = rows.find((one) => one.node.id === (chosen ?? model.history.cursor));
+  const row = rows.rowAt(rows.indexOf(chosen ?? model.history.cursor));
 
   return (
     <section className="ag-panel ag-history">
       <h2 className="ag-panel-title">{title}</h2>
-      <Summary history={model.history} run={run} />
+      <Summary order={order} run={run} />
       <div className="ag-settings-row" role="group" aria-label="Find in the history">
         <TextField label="Find" value={text} onValueChange={setText} />
         <OptionSelect label="Show" value={scope} options={SCOPES} onValueChange={setScope} />

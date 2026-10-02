@@ -1,16 +1,14 @@
 /**
- * The rows of the History panel: the tree flattened in a stable order, each row
- * saying where it sits, whether it is current or on the active line, its
- * branch's name, its snapshots and the exports made from it, filtered by a
- * search and a scope (REQ-STOR-196).
+ * The rows of the History panel: the tree in the order `history-row-order.ts`
+ * lists it, each row saying where it sits, whether it is current or on the
+ * active line, its branch's name, its snapshots and the exports made from it,
+ * filtered by a search and a scope (REQ-STOR-196).
  *
  * The panel draws these and calls this package to act on them, so no branching
- * rule lives in a component (REQ-STOR-193). Rows run oldest first. At each node
- * the alternative branches leaving it come first, oldest first and one level
- * deeper, and the line then continues at the same depth, so a branch sits
- * beside the point it left and a long linear history is not indented at all.
- * Exports are shown on the node they were made from, as provenance and never as
- * a change (REQ-STOR-198).
+ * rule lives in a component (REQ-STOR-193). A row is made when it is read, so
+ * the panel pays for the rows it shows, and a search or a scope for the rows it
+ * looks through. Exports are shown on the node they were made from, as
+ * provenance and never as a change (REQ-STOR-198).
  */
 
 import type {
@@ -20,8 +18,8 @@ import type {
   NamedSnapshot,
 } from '@audiogubbins/project-format';
 
-import type { History, HistoryNode } from './history.js';
-import { activeLine, continuationOf } from './lines.js';
+import { parentOf, type HistoryNode } from './history.js';
+import type { HistoryRowOrder } from './history-row-order.js';
 import { snapshotsByNode } from './snapshots.js';
 
 /** The kinds of entity a change can affect, as the panel names them. */
@@ -75,10 +73,15 @@ export interface HistoryRow {
   readonly childCount: number;
 }
 
-interface Pending {
-  readonly id: HistoryNodeId;
-  readonly depth: number;
-  readonly forkPoint?: HistoryNodeId;
+/** The rows a query shows, each read as it is wanted. */
+export interface HistoryRowModel {
+  readonly count: number;
+
+  /** The row at `index`, where there is one. */
+  readonly rowAt: (index: number) => HistoryRow | undefined;
+
+  /** The index of the row of `node`, or -1 where the query shows none. */
+  readonly indexOf: (node: HistoryNodeId) => number;
 }
 
 const AFFECTED_LISTS = [
@@ -96,49 +99,84 @@ function folded(text: string): string {
   return text.normalize('NFKC').toLowerCase();
 }
 
-/** The rows of the History panel that `query` asks for. */
-export function historyRows(
-  history: History,
-  query: RowQuery = {},
-  context: RowContext = {},
-): readonly HistoryRow[] {
-  const line = activeLine(history);
-  const nextOnLine = new Map(line.map((node, index) => [node.id, line[index + 1]?.id]));
+/** Whether `query` shows fewer rows than every one. */
+function narrows(query: RowQuery): boolean {
+  const scoped = query.scope !== undefined && query.scope !== 'all';
+  const searched = query.text !== undefined && query.text.trim() !== '';
+  return scoped || searched || query.affecting !== undefined;
+}
+
+/** Reads the row at an index of `order`, as it is wanted. */
+function rowReader(
+  order: HistoryRowOrder,
+  exports: readonly ExportRecord[],
+): (index: number) => HistoryRow | undefined {
+  const { history } = order;
   const snapshots = snapshotsByNode(history);
-  const exports = exportsByNode(context.exports ?? []);
-  const matches = rowMatcher(query, context);
-
-  const rows: HistoryRow[] = [];
-  const pending: Pending[] = [{ id: history.root, depth: 0 }];
-  for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-    const node = history.nodes.get(next.id);
-    if (node === undefined) continue;
-    const children = history.children.get(node.id) ?? [];
-    const continuation = nextOnLine.has(node.id)
-      ? nextOnLine.get(node.id)
-      : continuationOf(history, node.id);
-    if (continuation !== undefined) pending.push({ id: continuation, depth: next.depth });
-    for (let index = children.length - 1; index >= 0; index -= 1) {
-      const child = children[index];
-      if (child === undefined || child === continuation) continue;
-      pending.push({ id: child, depth: next.depth + 1, forkPoint: node.id });
-    }
-
+  const exported = exportsByNode(exports);
+  return (index) => {
+    const id = order.nodeAt(index);
+    const node = id === undefined ? undefined : history.nodes.get(id);
+    if (node === undefined) return undefined;
+    const depth = order.depthAt(index);
+    const parent = parentOf(node);
+    // A row a level deeper than its parent's starts a branch that leaves it.
+    const leaves = parent !== undefined && depth > order.depthAt(order.indexOf(parent));
     const branchName = history.branchNames.get(node.id);
-    const row: HistoryRow = {
+    return {
       node,
-      depth: next.depth,
+      depth,
       isCurrent: node.id === history.cursor,
-      isOnActiveLine: nextOnLine.has(node.id),
-      ...(next.forkPoint === undefined ? {} : { forkPoint: next.forkPoint }),
+      isOnActiveLine: depth === 0,
+      ...(leaves ? { forkPoint: parent } : {}),
       ...(branchName === undefined ? {} : { branchName }),
       snapshots: snapshots.get(node.id) ?? [],
-      exports: exports.get(node.id) ?? [],
-      childCount: children.length,
+      exports: exported.get(node.id) ?? [],
+      childCount: history.children.get(node.id)?.length ?? 0,
     };
-    if (matches(row)) rows.push(row);
+  };
+}
+
+/**
+ * The rows of the History panel that `query` asks for, of `order`: every row,
+ * read only as it is wanted, or those a search, a scope or an entity find,
+ * found by looking through every row.
+ */
+export function historyRowModel(
+  order: HistoryRowOrder,
+  query: RowQuery = {},
+  context: RowContext = {},
+): HistoryRowModel {
+  const rowAt = rowReader(order, context.exports ?? []);
+  if (!narrows(query)) return { count: order.count, rowAt, indexOf: order.indexOf };
+  const matches = rowMatcher(query, context);
+  const shown: number[] = [];
+  for (let index = 0; index < order.count; index += 1) {
+    const row = rowAt(index);
+    if (row !== undefined && matches(row)) shown.push(index);
   }
-  return rows;
+  return {
+    count: shown.length,
+    rowAt: (index) => {
+      const at = shown[index];
+      return at === undefined ? undefined : rowAt(at);
+    },
+    indexOf: (node) => placeIn(shown, order.indexOf(node)),
+  };
+}
+
+/** Where `index` is in `sorted`, an ascending list, or -1 where it is not. */
+function placeIn(sorted: readonly number[], index: number): number {
+  let low = 0;
+  let high = sorted.length - 1;
+  while (low <= high) {
+    const middle = (low + high) >> 1;
+    const at = sorted[middle] ?? index;
+    if (at === index) return middle;
+    if (at < index) low = middle + 1;
+    else high = middle - 1;
+  }
+  return -1;
 }
 
 function exportsByNode(

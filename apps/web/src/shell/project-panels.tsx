@@ -53,6 +53,7 @@ export function ProjectPanel({
       title={title}
       project={projects.project}
       review={projects.review}
+      rowOrders={projects.rowOrders}
       run={run}
       unavailableReason={unavailableReason}
     />
