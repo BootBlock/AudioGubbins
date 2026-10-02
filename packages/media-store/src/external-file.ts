@@ -75,7 +75,10 @@ export function checkedFile(file: ExternalFile): DomainResult<CheckedFile> {
       : malformed('last-modified', 'A modification time is whole milliseconds since the epoch.'),
     file.handleKey === undefined || isHandleKey(file.handleKey)
       ? undefined
-      : malformed('handle-key', 'A handle token is letters, digits and . _ : -, never a path.'),
+      : malformed(
+          'handle-key',
+          'A handle token is letters, digits and . _ : -, never a path or a folder’s key.',
+        ),
     file.relativePath === undefined || isRelativePath(file.relativePath)
       ? undefined
       : malformed('relative-path', 'A relative path stays inside the directory it was granted in.'),

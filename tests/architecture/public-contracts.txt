@@ -2436,6 +2436,7 @@ Published paths
   readonly ExternalSourceIdentity.signature: string
   readonly ExternalSourceIdentity.fastFingerprint: string
   readonly ExternalSourceIdentity.contentId?: ContentId
+  const FOLDER_KEY_PREFIX: "folder:"
   interface FormatHeader
   readonly FormatHeader.format: string
   readonly FormatHeader.schemaVersion: number

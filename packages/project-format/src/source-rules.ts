@@ -5,18 +5,31 @@
  *
  * Each rule is read by the project document's reader and offered as a check to
  * whatever records an identity before any document holds it, so the two cannot
- * drift apart: a token is never a path, a name has no separator, and a path
- * cannot climb out of the directory it was granted in.
+ * drift apart: a token is never a path nor a key a chosen folder is kept
+ * under, a name has no separator, and a path cannot climb out of the directory
+ * it was granted in.
  */
 
 import { fitsTextRule, textConverter, type TextRule } from './scalar-reading.js';
 import { NAME_RULE } from './value-reading.js';
 
-/** A kept handle's token: never a path, so no separator of any kind. */
+/**
+ * The prefix of every key the browser keeps a chosen folder's handle under, one
+ * key for each use of a folder (`FolderUse` in browser-storage). Those keys sit
+ * beside linked files' tokens in one store, so no token may begin with it: a
+ * file recorded in a project could otherwise name a folder's handle, and
+ * forgetting the file would forget the folder.
+ */
+export const FOLDER_KEY_PREFIX = 'folder:';
+
+/**
+ * A kept handle's token: never a path, so no separator of any kind, and never
+ * a key reserved for a folder.
+ */
 const HANDLE_KEY_RULE: TextRule = {
   maximumLength: 128,
-  pattern: /^[A-Za-z0-9._:-]+$/u,
-  shape: 'a token of letters, digits and . _ : -',
+  pattern: new RegExp(`^(?!${FOLDER_KEY_PREFIX})[A-Za-z0-9._:-]+$`, 'u'),
+  shape: `a token of letters, digits and . _ : -, not beginning "${FOLDER_KEY_PREFIX}"`,
 };
 
 /** A file's own name, with no separator: a name is never a path. */

@@ -10,8 +10,9 @@
  *
  * The folder chosen for backups is kept the same way, under the name of the use
  * it is kept for rather than a token, since this browser keeps one folder for
- * each use and nothing records the key (REQ-STOR-105). A name of a use is never
- * a token, which is a counter or random letters and digits.
+ * each use and nothing records the key (REQ-STOR-105). Every such name begins
+ * with the project format's `FOLDER_KEY_PREFIX`, which the rule for a recorded
+ * token refuses, so no linked file can name a folder's handle.
  *
  * IndexedDB is reached through the few members this module uses, which the
  * browser's own factory has, so a test drives it with a small fake. A refusal
@@ -20,6 +21,7 @@
  */
 
 import type { TokenSource } from '@audiogubbins/media-store';
+import { FOLDER_KEY_PREFIX } from '@audiogubbins/project-format';
 
 import { treeFailureOf } from './platform-failures.js';
 
@@ -65,7 +67,7 @@ export interface HandleDatabaseFactory {
 /** What a kept folder is for, and the key it is kept under. */
 export const FolderUse = {
   /** The folder each backup of a project is copied to (REQ-STOR-105). */
-  Backups: 'folder:backups',
+  Backups: `${FOLDER_KEY_PREFIX}backups`,
 } as const;
 
 /** What a kept folder is for, and the key it is kept under. */
