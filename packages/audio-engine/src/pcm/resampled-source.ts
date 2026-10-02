@@ -15,6 +15,7 @@
  */
 
 import {
+  convertedFrameCount,
   mapResult,
   sampleCount,
   type DomainResult,
@@ -34,11 +35,6 @@ import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-sourc
 
 /** Frames read from the source at a time. */
 const INPUT_CHUNK = 4_096;
-
-/** `ceil(length · to / from)`, exactly, for the converted length. */
-function convertedLength(length: number, from: number, to: number): number {
-  return Number((BigInt(length) * BigInt(to) + BigInt(from) - 1n) / BigInt(from));
-}
 
 /** A converted source, and how its resampler came by its taps, for a workload estimate. */
 export interface ResampledSource extends PcmSource {
@@ -60,7 +56,7 @@ export function resampledSource(
   const length =
     source.length === undefined
       ? undefined
-      : sampleCount(convertedLength(source.length, source.sampleRate, to));
+      : sampleCount(convertedFrameCount(source.length, source.sampleRate, to));
   if (length !== undefined && !length.ok) return length;
   const made = dsp.createResampler({
     from: source.sampleRate,
