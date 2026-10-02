@@ -163,6 +163,15 @@ describe('the other tools', () => {
     ]);
   });
 
+  it('make a region of the range the region tool drags over, across every channel', () => {
+    expect(gesture(context(ToolId.Region, LANE), input(40), input(10))).toEqual([
+      { kind: 'make-region', range: { start: 100, end: 400 } },
+    ]);
+    expect(gesture(context(ToolId.Region, LANE), input(10))).toEqual([
+      { kind: 'set-playhead', position: 100 },
+    ]);
+  });
+
   it('move the playhead with the pointer along the ruler', () => {
     expect(
       gesture(context(ToolId.Select, { kind: 'ruler' }), input(10), input(20), input(30)),

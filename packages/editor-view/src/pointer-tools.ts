@@ -59,7 +59,8 @@ export type ToolIntent =
   | { readonly kind: 'scroll'; readonly dx: number }
   | { readonly kind: 'zoom-to-range'; readonly range: BoundaryRange }
   | { readonly kind: 'zoom-step'; readonly x: number; readonly direction: 'in' | 'out' }
-  | { readonly kind: 'split-at'; readonly position: SampleCount };
+  | { readonly kind: 'split-at'; readonly position: SampleCount }
+  | { readonly kind: 'make-region'; readonly range: BoundaryRange };
 
 /** What the view draws while a drag is under way, before anything is committed. */
 export type ToolPreview =
@@ -171,6 +172,14 @@ function dragPreview(
           : draggedChannels(context, state.start.channel, input.channel);
       return { kind: 'time-range', range: range(anchorOf(state), input.boundary), channels };
     }
+    case ToolId.Region:
+      return hit.kind === 'lane' || hit.kind === 'selection-edge'
+        ? {
+            kind: 'time-range',
+            range: range(state.start.boundary, input.boundary),
+            channels: undefined,
+          }
+        : undefined;
     case ToolId.Zoom:
       return { kind: 'zoom-range', range: range(state.start.boundary, input.boundary) };
     case ToolId.Razor:
@@ -236,6 +245,9 @@ function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly Too
       return [{ kind: 'zoom-step', x: start.x, direction: start.alt ? 'out' : 'in' }];
     case ToolId.Razor:
       return hit.kind === 'lane' ? [{ kind: 'split-at', position: start.boundary }] : [];
+    case ToolId.Region:
+      // A click makes no region of nothing; it places the playhead, as a drag's start.
+      return hit.kind === 'lane' ? [{ kind: 'set-playhead', position: start.boundary }] : [];
     case ToolId.Hand:
       return [];
   }
@@ -250,9 +262,12 @@ export function release(interaction: Interaction, input: ToolInput): ToolStep {
   const intents: ToolIntent[] = [];
   switch (preview?.kind) {
     case 'time-range':
-      if (preview.range.end > preview.range.start) {
-        intents.push({ kind: 'select-time', range: preview.range, channels: preview.channels });
-      }
+      if (preview.range.end <= preview.range.start) break;
+      intents.push(
+        interaction.tool === ToolId.Region
+          ? { kind: 'make-region', range: preview.range }
+          : { kind: 'select-time', range: preview.range, channels: preview.channels },
+      );
       break;
     case 'marker':
       intents.push({ kind: 'move-marker', id: preview.id, to: preview.position });

@@ -20,6 +20,7 @@ import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
 import { createChosenFiles } from '../state/chosen-files.js';
+import { createClipboardStore } from '../state/clipboard-store.js';
 import { createCueStore } from '../state/cue-store.js';
 import { createEditorViewStore } from '../state/editor-view-store.js';
 import { reconcileSelections } from '../state/selection-reconciling.js';
@@ -151,6 +152,7 @@ export function fakeEditor(
   | 'picture'
   | 'pictureSound'
   | 'chosenFiles'
+  | 'clipboard'
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
@@ -174,6 +176,7 @@ export function fakeEditor(
       resources: () => ({ availableMemoryBytes: undefined }),
     }),
     chosenFiles: createChosenFiles(),
+    clipboard: createClipboardStore(),
   };
 }
 

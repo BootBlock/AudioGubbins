@@ -40,6 +40,7 @@ import type { PictureSoundDecoder } from '../picture/picture-sound.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';
+import type { ClipboardStore } from '../state/clipboard-store.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { SelectionStore } from '../state/selection-store.js';
@@ -150,4 +151,7 @@ export interface ShellContext {
 
   /** Files the person chose, held for the command that opens each. */
   readonly chosenFiles: ChosenFiles;
+
+  /** What the last copy or cut took, for the session. */
+  readonly clipboard: ClipboardStore;
 }

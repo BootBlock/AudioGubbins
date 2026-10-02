@@ -2858,6 +2858,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     // Tables: a list of independent definitions, each whole in itself.
+    'apps/web/src/editor/intent-commands.ts: commandsOf': [
+      50,
+      'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
+    ],
+    'apps/web/src/state/default-shortcuts.ts: editorBindings': [
+      53,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key.",
+    ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
       'A list of independent appearance commands, each self-contained, sharing only the command builder and `unlessAlready`.',

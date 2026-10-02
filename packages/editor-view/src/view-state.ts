@@ -44,6 +44,7 @@ export const ToolId = {
   Zoom: 'zoom',
   Razor: 'razor',
   Marker: 'marker',
+  Region: 'region',
 } as const;
 
 export type ToolId = (typeof ToolId)[keyof typeof ToolId];

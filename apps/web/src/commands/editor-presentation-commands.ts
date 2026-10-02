@@ -79,9 +79,10 @@ export const TOOLS: Readonly<Record<ToolId, { readonly name: string; readonly do
   },
   [ToolId.Razor]: {
     name: 'Razor',
-    does: 'Places the playhead exactly where a split would go; splitting itself arrives with clip editing.',
+    does: 'Splits where it is clicked: the regions there, or the whole sound into two regions.',
   },
   [ToolId.Marker]: { name: 'Marker', does: 'Adds a marker where it is clicked.' },
+  [ToolId.Region]: { name: 'Region', does: 'Makes a region of the range it is dragged over.' },
 };
 
 /** What each display mode is called. */

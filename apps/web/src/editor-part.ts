@@ -34,6 +34,7 @@ import { createAssetCatalogue, type AssetCatalogue } from './state/asset-catalog
 import { followProjectAssets } from './state/project-catalogue.js';
 import type { ProjectStores } from './state/project-stores.js';
 import { createChosenFiles } from './state/chosen-files.js';
+import { createClipboardStore } from './state/clipboard-store.js';
 import { createCueStore } from './state/cue-store.js';
 import { createEditorViewStore, type EditorViewStore } from './state/editor-view-store.js';
 import { createRendererReports } from './state/renderer-reports.js';
@@ -186,6 +187,7 @@ export function startEditor(
       picture,
       pictureSound,
       chosenFiles: createChosenFiles(),
+      clipboard: createClipboardStore(),
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>

@@ -199,6 +199,24 @@ export function markersNamed(
   return [first, ...rest];
 }
 
+/** Removes the markers `ids` names from the asset, as one change, or says why it cannot. */
+export function removeMarkers(
+  context: ShellContext,
+  found: MarkedAsset,
+  ids: readonly MarkerId[],
+): BodyAnswer {
+  const markers = markersNamed(found, ids);
+  if (typeof markers === 'string') return markers;
+  const [first, ...rest] = markers;
+  const many = `${String(markers.length)} markers`;
+  changeProject(context, found.project.session, {
+    description: rest.length === 0 ? `Remove ${first.displayName}` : `Remove ${many}`,
+    invocations: [removeMarkerInvocation(first), ...rest.map(removeMarkerInvocation)],
+    said: rest.length === 0 ? `${first.displayName} removed.` : `${many} removed.`,
+  });
+  return undefined;
+}
+
 function removeMarkersCommand(): Command<ShellContext> {
   return markerCommand(
     'editor.remove-markers',
@@ -208,17 +226,7 @@ function removeMarkersCommand(): Command<ShellContext> {
       if (typeof found === 'string') return found;
       const named = markerIdsOf(textArgument(invocation, 'markers'));
       const ids = named.length > 0 ? named : selectedMarkers(context, found.asset);
-      if (typeof ids === 'string') return ids;
-      const markers = markersNamed(found, ids);
-      if (typeof markers === 'string') return markers;
-      const [first, ...rest] = markers;
-      const many = `${String(markers.length)} markers`;
-      changeProject(context, found.project.session, {
-        description: rest.length === 0 ? `Remove ${first.displayName}` : `Remove ${many}`,
-        invocations: [removeMarkerInvocation(first), ...rest.map(removeMarkerInvocation)],
-        said: rest.length === 0 ? `${first.displayName} removed.` : `${many} removed.`,
-      });
-      return undefined;
+      return typeof ids === 'string' ? ids : removeMarkers(context, found, ids);
     },
     { keywords: ['marker', 'remove', 'delete', 'clear'] },
   );

@@ -43,7 +43,13 @@ import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { channelCommands } from './channel-commands.js';
+import { clipboardCommands } from './clipboard-commands.js';
+import { editCommands } from './edit-commands.js';
 import { markerCommands } from './marker-commands.js';
+import { regionCommands } from './region-commands.js';
+import { regionPropertyCommands } from './region-property-commands.js';
+import { splitCommands } from './split-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
@@ -627,11 +633,16 @@ describe('the default shortcut profile', () => {
       (binding) => binding.commandId,
     );
 
-    // The editor's defaults are keys pressed alone, placed without the prefix.
+    // The editor's defaults are keys pressed alone or with the usual
+    // modifier, placed without the prefix, as are its edits.
     expect(bound.filter((id) => !id.startsWith('editor.'))).toEqual([
       commandId('settings.open'),
       commandId('edit.undo'),
       commandId('edit.redo'),
+      commandId('edit.delete'),
+      commandId('edit.cut'),
+      commandId('edit.copy'),
+      commandId('edit.paste'),
     ]);
   });
 
@@ -768,8 +779,15 @@ describe('finding the shell commands in the palette', () => {
       ...sourceCommands(),
       ...markerCommands(),
       ...markerNudgeCommands(),
+      ...editCommands(),
+      ...channelCommands(),
+      ...regionCommands(),
+      ...regionPropertyCommands(),
+      ...splitCommands(),
+      ...clipboardCommands(),
     ]
       .map((command): string => command.id)
+      .filter((id) => id !== 'edit.copy' && id !== 'region.open')
       .concat('picture.mark-frame'),
   );
 
@@ -1052,6 +1070,15 @@ describe('finding the shell commands in the palette', () => {
     }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
     'editor.select-marker': onProjectMarker(),
+    'edit.copy': { inProject: true },
+    'region.open': {
+      inProject: true,
+      arguments: (context) => {
+        const region = context.assets.get().assets[0]?.regions[0];
+        if (region === undefined) throw new Error('The loop has no region.');
+        return { region: region.id };
+      },
+    },
     'editor.clear-selection': inEditor({ before: (run) => run('editor.select-all') }),
     'editor.scope-all-channels': inEditor({
       before: (run) => run('editor.select-time', { start: 100, end: 200, channels: '0' }),
@@ -1115,6 +1142,7 @@ describe('finding the shell commands in the palette', () => {
         diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
         logs: context.logs.usage().recordCount,
         audioSettings: context.audioSettings.get(),
+        clipboard: context.clipboard.get().description,
         planning: context.renderStrategy.get().planning.stage,
         audio: {
           starting: context.audio.get().starting,
@@ -1152,6 +1180,7 @@ describe('finding the shell commands in the palette', () => {
         { name: 'Attack', at: 0 },
         { name: 'Sustain', at: 4800 },
       ],
+      regions: [{ name: 'Body', start: 4800, end: 240_000 }],
     });
     const { context } = audio.window;
     context.editorViews.open('editor', audio.asset());

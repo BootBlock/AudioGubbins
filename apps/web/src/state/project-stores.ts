@@ -26,6 +26,7 @@ import { relieveWhenFull } from './pressure-relief.js';
 import { checkSourcesOnOpening, keepListInStep } from './project-follow-ups.js';
 import { ProjectLibraryStore } from './project-library-store.js';
 import { ProjectMediaStore } from './project-media-store.js';
+import { ProjectPastes } from './project-pastes.js';
 import {
   createProjectPreferencesStore,
   type ProjectPreferencesStore,
@@ -49,6 +50,8 @@ export interface ProjectStores {
   readonly sources: SourceChangeStore;
   /** The file behind each asset of the open project, for the audio threads. */
   readonly media: ProjectMediaStore;
+  /** Runs the pastes the clipboard plans in the open project. */
+  readonly pastes: ProjectPastes;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
 }
@@ -115,6 +118,7 @@ export function createProjectStores(
     backupFolder,
     sources,
     media: new ProjectMediaStore({ media: client.media, project, sources, linkedFiles, logger }),
+    pastes: new ProjectPastes(client.media, project, linkedFiles),
     preferences,
     files,
   };

@@ -310,8 +310,10 @@ export function placeDefaults(
  * Option and an arrow the browser's on a Mac. I and O start and end the
  * selection at the playhead, as a video editor's in and out points do. The
  * tools are the letters their names or their habits give: V selects, R selects
- * a range of time, H is the hand, Z zooms, C cuts with the razor and N places
- * markers; M adds a marker at the playhead, as in most editors.
+ * a range of time, H is the hand, Z zooms, C cuts with the razor, N places
+ * markers and G groups a range into a region; M adds a marker at the playhead,
+ * as in most editors. Delete deletes what the selection holds, and the usual
+ * modifier with X, C and V cuts, copies and pastes, as everywhere.
  */
 function editorBindings(
   of: (
@@ -364,8 +366,12 @@ function editorBindings(
     bind('editor.tool-zoom', of(alone('z'))),
     bind('editor.tool-razor', of(alone('c'))),
     bind('editor.tool-marker', of(alone('n'))),
+    bind('editor.tool-region', of(alone('g'))),
     bind('editor.add-marker', of(alone('m'))),
-    bind('editor.remove-markers', of(named('Delete'))),
+    bind('edit.delete', of(named('Delete'))),
+    bind('edit.cut', of(withPrimary('x'))),
+    bind('edit.copy', of(withPrimary('c'))),
+    bind('edit.paste', of(withPrimary('v'))),
     bind('editor.select-all', of(primaryOn('a'))),
     // D, for deselect, as image and audio editors have it; the bookmark the
     // browser makes with it is handed to the page first.

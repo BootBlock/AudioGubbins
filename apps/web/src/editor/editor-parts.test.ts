@@ -60,9 +60,18 @@ describe('what a tool intent runs', () => {
     ]);
   });
 
-  it('places the playhead where the razor would split, as clip editing will', () => {
+  it('splits where the razor clicks', () => {
     expect(commandsOf({ kind: 'split-at', position: at(480) }, 'editor')).toEqual([
-      { id: 'editor.set-playhead', args: { view: 'editor', position: 480 } },
+      { id: 'edit.split', args: { view: 'editor', at: 480 } },
+    ]);
+  });
+
+  it('makes a region of what the region tool dragged over, by selecting it first', () => {
+    expect(
+      commandsOf({ kind: 'make-region', range: { start: at(480), end: at(960) } }, 'editor'),
+    ).toEqual([
+      { id: 'editor.select-time', args: { view: 'editor', start: 480, end: 960 } },
+      { id: 'region.create', args: { view: 'editor' } },
     ]);
   });
 

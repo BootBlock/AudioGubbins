@@ -33,7 +33,13 @@ import { editorAssetCommands } from './editor-asset-commands.js';
 import { editorNavigationCommands } from './editor-navigation-commands.js';
 import { editorOptionCommands } from './editor-option-commands.js';
 import { editorPresentationCommands } from './editor-presentation-commands.js';
+import { channelCommands } from './channel-commands.js';
+import { clipboardCommands } from './clipboard-commands.js';
+import { editCommands } from './edit-commands.js';
 import { markerCommands } from './marker-commands.js';
+import { regionCommands } from './region-commands.js';
+import { regionPropertyCommands } from './region-property-commands.js';
+import { splitCommands } from './split-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
@@ -172,6 +178,12 @@ export function shellCommands(
     ...selectionPlayheadCommands(),
     ...markerCommands(),
     ...markerNudgeCommands(),
+    ...clipboardCommands(),
+    ...editCommands(),
+    ...channelCommands(),
+    ...regionCommands(),
+    ...regionPropertyCommands(),
+    ...splitCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

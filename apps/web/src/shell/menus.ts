@@ -147,6 +147,7 @@ const EDITOR_GROUPS: readonly {
       'editor.tool-zoom',
       'editor.tool-razor',
       'editor.tool-marker',
+      'editor.tool-region',
     ],
   },
   {
