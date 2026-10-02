@@ -24,6 +24,7 @@ import {
   fail,
   failure,
   succeed,
+  type DomainFailure,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
@@ -63,7 +64,7 @@ export interface BackupState {
   readonly copied?: Exclude<ExternalCopy, { readonly kind: 'not-asked' }>;
 
   /** Why the last backup the policy asked for was not made, until one is made. */
-  readonly missed?: string;
+  readonly missed?: DomainFailure;
 }
 
 /** Where a generation is restored: as a new project, or in place of the project open. */
@@ -122,8 +123,9 @@ export class BackupStore implements Observable<BackupState> {
     if (!ticked.ok) {
       const [cause] = ticked.failures;
       this.logger.warning('A scheduled backup was not made.', { code: cause.code });
-      if (this.state.get().missed !== cause.summary) {
-        this.state.update((current) => ({ ...current, missed: cause.summary }));
+      const { missed } = this.state.get();
+      if (missed?.code !== cause.code || missed.summary !== cause.summary) {
+        this.state.update((current) => ({ ...current, missed: cause }));
       }
     } else if (ticked.value.kind === 'made') {
       this.noteMade(ticked.value.external);

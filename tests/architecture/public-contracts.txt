@@ -3317,6 +3317,7 @@ Published paths
   readonly StepOutcome.refused?: CleanupRefusal
   type StorageLockMode = "exclusive" | "shared"
   type StorageLocking = { readonly kind: "busy"; } | { readonly kind: "held"; readonly release: () => Promise<void>; } | { readonly kind: "unavailable"; }
+  type StorageRefusal = "failed" | "full" | "unavailable"
   type StorageRootOpening = { readonly kind: "current"; } | { readonly kind: "fresh"; } | { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; readonly current: number; } | { readonly kind: "unreadable"; readonly fault: RecordFault | { readonly kind: "missing"; }; }
   interface StorageUsage
   readonly StorageUsage.journal: number
@@ -3378,8 +3379,10 @@ Published paths
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
+  function storageRefusalOf(cause: DomainFailure): StorageRefusal | undefined
   function takeSourceVersion(session: ProjectSession, version: SourceVersion, services: SourceVersionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, services: BundleServices, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
+  function unreadableStateOf(cause: DomainFailure): undefined | { readonly snapshot?: string; }
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 

@@ -39,7 +39,12 @@ export { exportRawStorage } from './raw-export.js';
 export { MEDIA_DIRECTORY } from './storage-layout.js';
 
 export { type RecordFault } from './checked-records.js';
-export { isStorageFull } from './storage-failures.js';
+export {
+  type StorageRefusal,
+  isStorageFull,
+  storageRefusalOf,
+  unreadableStateOf,
+} from './storage-failures.js';
 
 export {
   type CatalogueEntry,

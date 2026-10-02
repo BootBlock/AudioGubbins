@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from 'react';
 
+import { notMadeReason } from '../backup-words.js';
 import type { Announce } from '../commands/voiced-execution.js';
 import type { BackupState } from '../state/backup-store.js';
 import type { Observable } from '../state/observable.js';
@@ -27,7 +28,8 @@ export function BackupStatus({
   readonly run: RunCommand;
   readonly announce: Announce;
 }): ReactNode {
-  const { missed } = useSyncExternalStore(backups.subscribe, backups.get);
+  const { missed: cause } = useSyncExternalStore(backups.subscribe, backups.get);
+  const missed = cause === undefined ? undefined : notMadeReason(cause);
   const said = useRef<string | undefined>(undefined);
 
   useEffect(() => {

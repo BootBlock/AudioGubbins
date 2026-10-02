@@ -998,6 +998,8 @@ const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly stri
       ['anotherProjectIn'],
     'Whether a write the session could not make was refused for want of room: a pure function over the failure the worker answered, beside the one that makes that failure, which the pressure relief answers by giving up caches.':
       ['isStorageFull'],
+    'Why a write or a backup the worker answered was refused: pure functions over the failure, beside the ones that make it, which the backup notices word for the person.':
+      ['storageRefusalOf', 'unreadableStateOf'],
   },
   '@audiogubbins/media-store': {
     'What became of a linked file and what the person may do about it: pure decisions over the identity the worker examined, which the source change store puts to the person.':

@@ -16,6 +16,7 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button } from '@audiogubbins/design-system';
 
+import { notCopiedReason } from '../../backup-words.js';
 import type { BackupFolderState } from '../../state/backup-folder-store.js';
 import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
@@ -59,7 +60,7 @@ function copySentence(copied: BackupState['copied']): string | undefined {
   if (copied === undefined) return undefined;
   return copied.kind === 'written'
     ? 'The latest backup was copied to the folder.'
-    : `The latest backup is kept in this browser but was not copied to the folder. ${copied.failure.summary}`;
+    : `The latest backup is kept in this browser but was not copied to the folder. ${notCopiedReason(copied.failure)}`;
 }
 
 /** The backups folder (see the module comment). */

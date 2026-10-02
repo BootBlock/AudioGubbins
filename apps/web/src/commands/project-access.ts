@@ -21,6 +21,7 @@ import {
   isWellFormedId,
   unsafeBrandId,
   type Branded,
+  type DomainFailure,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
@@ -114,18 +115,21 @@ export function sessionAvailability(context: ShellContext): CommandAvailability 
 
 /**
  * Says what an operation came to once it settles: `said` of its value,
- * politely, where it says anything, and every reason it refused, urgently.
+ * politely, where it says anything, and every reason it refused, urgently,
+ * each as `refusedAs` words it where the failure's own summary is not what the
+ * person should hear.
  */
 export function sayWhenSettled<TValue>(
   context: ShellContext,
   work: Promise<DomainResult<TValue>>,
   said: (value: TValue) => string | undefined,
+  refusedAs: (cause: DomainFailure) => string = (cause) => cause.summary,
 ): void {
   const { announce } = context.interaction;
   work.then(
     (result) => {
       if (!result.ok) {
-        const reasons = result.failures.map((one) => cutAtAWord(one.summary, LONGEST_REASON));
+        const reasons = result.failures.map((one) => cutAtAWord(refusedAs(one), LONGEST_REASON));
         announce(reasons.join(' '), true, { refusal: true });
         return;
       }

@@ -12,6 +12,7 @@
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import type { BackupPolicy, BackupRetention, BackupTrigger } from '@audiogubbins/project-format';
 
+import { notMadeReason } from '../backup-words.js';
 import { quoted } from '../wording.js';
 import {
   projectsAvailability,
@@ -71,10 +72,14 @@ function backUpNowCommand(): Command<ShellContext> {
     (context) => {
       const stores = readyProjects(context);
       if (typeof stores === 'string') return stores;
-      sayWhenSettled(context, stores.backups.backUpNow(), (tick) =>
-        tick.kind === 'busy'
-          ? 'A backup is being made already.'
-          : 'A backup is made, and kept until you remove it.',
+      sayWhenSettled(
+        context,
+        stores.backups.backUpNow(),
+        (tick) =>
+          tick.kind === 'busy'
+            ? 'A backup is being made already.'
+            : 'A backup is made, and kept until you remove it.',
+        (cause) => `No backup was made. ${notMadeReason(cause)}`,
       );
       return undefined;
     },

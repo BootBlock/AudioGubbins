@@ -17,7 +17,13 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { TreeFailure, TreeFailureKind, type ContentId } from '@audiogubbins/project-format';
+import {
+  TreeFailure,
+  TreeFailureKind,
+  type ContentId,
+  type NamedSnapshot,
+  type StateFingerprint,
+} from '@audiogubbins/project-format';
 
 import type { LeaseAcquisition } from './write-lease.js';
 
@@ -32,17 +38,38 @@ export function storageRefused(refusal: TreeFailure): DomainFailure {
       );
     case TreeFailureKind.Unavailable:
       return failure(
-        'storage.unavailable',
+        STORAGE_UNAVAILABLE,
         FailureKind.Retryable,
         'The storage cannot be reached; the change is kept in memory until it can be.',
       );
     case TreeFailureKind.Io:
       return failure(
-        'storage.failed',
+        STORAGE_FAILED,
         FailureKind.Retryable,
         'The storage refused the write for a reason of its own; it can be tried again.',
       );
   }
+}
+
+/** Why the storage refused a write: it is full, cannot be reached, or gave its own reason. */
+export type StorageRefusal = 'full' | 'unavailable' | 'failed';
+
+const STORAGE_FULL = 'storage.full';
+const STORAGE_UNAVAILABLE = 'storage.unavailable';
+const STORAGE_FAILED = 'storage.failed';
+
+const REFUSALS: ReadonlyMap<string, StorageRefusal> = new Map([
+  [STORAGE_FULL, 'full'],
+  [STORAGE_UNAVAILABLE, 'unavailable'],
+  [STORAGE_FAILED, 'failed'],
+]);
+
+/**
+ * Why the storage refused a write, where a failure is {@link storageRefused}'s,
+ * so an interface can say what the refusal means for what it was writing.
+ */
+export function storageRefusalOf(cause: DomainFailure): StorageRefusal | undefined {
+  return REFUSALS.get(cause.code);
 }
 
 /**
@@ -50,10 +77,48 @@ export function storageRefused(refusal: TreeFailure): DomainFailure {
  * pass once room is made.
  */
 export function isStorageFull(cause: DomainFailure): boolean {
-  return cause.code === STORAGE_FULL;
+  return storageRefusalOf(cause) === 'full';
 }
 
-const STORAGE_FULL = 'storage.full';
+/**
+ * The failure of a backup refused because a state its project keeps cannot be
+ * read, being missing or damaged: the state, and the name of the snapshot
+ * keeping it where one does, so the person knows which part of the project a
+ * backup would lack.
+ */
+export function keptStateUnreadable(
+  project: ProjectId,
+  state: StateFingerprint,
+  snapshot: NamedSnapshot | undefined,
+  cause: DomainFailure | undefined,
+): DomainFailure {
+  return failure(
+    KEPT_STATE_UNREADABLE,
+    FailureKind.IntegrityViolation,
+    snapshot === undefined
+      ? 'A state the project’s history keeps cannot be read, so a backup would not be whole and none was made.'
+      : `The state of the snapshot “${snapshot.name}” cannot be read, so a backup would not be whole and none was made.`,
+    {
+      details: { project, state, ...(snapshot === undefined ? {} : { snapshot: snapshot.name }) },
+      ...(cause === undefined ? {} : { cause }),
+    },
+  );
+}
+
+/**
+ * Which state a backup could not read, where a failure is
+ * {@link keptStateUnreadable}'s: the name of the snapshot keeping it, where one
+ * does.
+ */
+export function unreadableStateOf(
+  cause: DomainFailure,
+): { readonly snapshot?: string } | undefined {
+  if (cause.code !== KEPT_STATE_UNREADABLE) return undefined;
+  const snapshot = cause.details?.['snapshot'];
+  return typeof snapshot === 'string' ? { snapshot } : {};
+}
+
+const KEPT_STATE_UNREADABLE = 'storage.backup-state-unreadable';
 
 /**
  * A designed failure met where only a throw can carry it out, such as a source

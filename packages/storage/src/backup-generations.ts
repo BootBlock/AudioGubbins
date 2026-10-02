@@ -29,7 +29,6 @@ import {
   failure,
   succeed,
   unsafeBrandId,
-  type DomainFailure,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
@@ -55,7 +54,7 @@ import type { ProjectCopy } from './project-copy.js';
 import { asWholeNumber } from './record-values.js';
 import { SegmentLedger } from './segment-ledger.js';
 import { SnapshotStore } from './state-store.js';
-import { refusalsReported } from './storage-failures.js';
+import { keptStateUnreadable, refusalsReported } from './storage-failures.js';
 import { BackupPaths, numberOfGeneration } from './storage-layout.js';
 import { whileWriting } from './storage-sharing.js';
 import type { LeaseCoordinator } from './write-lease.js';
@@ -232,7 +231,16 @@ export class BackupGenerations {
         ? await copy.states.load(fingerprint, signal)
         : undefined;
       if (!state?.ok) {
-        return fail(keptStateUnreadable(copy, fingerprint, state?.failures[0]));
+        const snapshot = [...copy.model.history.snapshots.values()].find(
+          (one) => one.stateFingerprint === fingerprint,
+        );
+        const unreadable = keptStateUnreadable(
+          copy.project,
+          fingerprint,
+          snapshot,
+          state?.failures[0],
+        );
+        return fail(unreadable);
       }
       const written = await put(state.value);
       if (!written.ok) return written;
@@ -330,37 +338,6 @@ export class BackupGenerations {
       })
       .sort((one, other) => one - other);
   }
-}
-
-/**
- * The failure of a generation refused because a state its project keeps
- * cannot be read, being missing or damaged: the state, and the name of the
- * snapshot keeping it where one does, so the person knows which part of the
- * project a backup would lack.
- */
-function keptStateUnreadable(
-  copy: ProjectCopy,
-  state: StateFingerprint,
-  cause: DomainFailure | undefined,
-): DomainFailure {
-  const snapshot = [...copy.model.history.snapshots.values()].find(
-    (one) => one.stateFingerprint === state,
-  );
-  return failure(
-    'storage.backup-state-unreadable',
-    FailureKind.IntegrityViolation,
-    snapshot === undefined
-      ? 'A state the project’s history keeps cannot be read, so a backup would not be whole and none was made.'
-      : `The state of the snapshot “${snapshot.name}” cannot be read, so a backup would not be whole and none was made.`,
-    {
-      details: {
-        project: copy.project,
-        state,
-        ...(snapshot === undefined ? {} : { snapshot: snapshot.name }),
-      },
-      ...(cause === undefined ? {} : { cause }),
-    },
-  );
 }
 
 function generationMissing(project: ProjectId, generation: number) {

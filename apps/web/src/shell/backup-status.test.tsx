@@ -60,11 +60,13 @@ describe('whether the backups the policy asks for are made', () => {
       await window.projects.backups.tick();
     });
 
-    const { missed } = window.projects.backups.get();
-    expect(missed).toBeDefined();
-    expect(screen.getByText(`Backup not made. ${missed ?? ''}`)).toBeVisible();
+    // Said for the backup, never as the save status says a change kept in memory.
+    const reason =
+      "This site's storage is full. Delete what you no longer need in the Storage panel, then back up again.";
+    expect(screen.getByText(`Backup not made. ${reason}`)).toBeVisible();
+    expect(screen.queryByText(/kept in memory/u)).toBeNull();
     expect(announce).toHaveBeenCalledTimes(1);
-    expect(announce).toHaveBeenCalledWith(`A backup was not made. ${missed ?? ''}`, true);
+    expect(announce).toHaveBeenCalledWith(`A backup was not made. ${reason}`, true);
     await userEvent.click(screen.getByRole('button', { name: 'Back up now' }));
     expect(run).toHaveBeenCalledWith('file.back-up-now');
 
@@ -75,5 +77,45 @@ describe('whether the backups the policy asks for are made', () => {
     });
     expect(window.projects.backups.get().generations).toHaveLength(1);
     expect(screen.queryByText(/^Backup not made\./u)).toBeNull();
+  });
+
+  it('says why a backup asked for now was not made in words of the backup', async () => {
+    const { window } = await fullWhenBackingUp();
+
+    expect(await window.runAndHear('file.back-up-now')).toBe(
+      "No backup was made. This site's storage is full. Delete what you no longer need in the Storage panel, then back up again.",
+    );
+  });
+
+  it('says which kept state a scheduled backup could not read', async () => {
+    const world = projectWorld();
+    const window = await world.window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    await window.runAndHear('backup.set-policy', { kind: 'automatic', everyChanges: 1 });
+    await window.runAndHear('history.snapshot', { name: 'Before the mix' });
+    await window.runAndHear('file.rename-project', { name: 'Harbour at noon' });
+    const open = window.projects.project.get();
+    if (open.kind !== 'open') throw new Error('No project is open.');
+    const { project, model } = open.snapshot;
+    const [kept] = model.history.snapshots.values();
+    if (kept === undefined) throw new Error('No snapshot was kept.');
+    // Closing writes a checkpoint keeping the state, which a backup reads from storage.
+    await window.runAndHear('file.close-project');
+    const state = `projects/${project}/states/${kept.stateFingerprint}.json`;
+    await world.tree.writeFile(state, new TextEncoder().encode('not a state'));
+    await window.runAndHear('file.open', { project });
+    await window.runAndHear('file.rename-project', { name: 'Harbour at dusk' });
+    render(<BackupStatus backups={window.projects.backups} run={vi.fn()} announce={vi.fn()} />);
+
+    await act(async () => {
+      await window.projects.backups.tick();
+    });
+
+    expect(
+      screen.getByText(
+        'Backup not made. The state the snapshot "Before the mix" keeps cannot be read, so a backup would lack it.',
+      ),
+    ).toBeVisible();
+    expect(window.projects.backups.get().generations).toEqual([]);
   });
 });
