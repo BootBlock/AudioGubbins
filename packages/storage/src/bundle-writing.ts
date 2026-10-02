@@ -8,8 +8,9 @@
  * always gives the same archive, byte for byte, and a bundle unpacked and
  * packed again is the bundle it was. Every identity in the manifest is taken
  * from the bytes, but for media the store keeps, whose identity the store
- * proved when it kept it; media from anywhere else is hashed and must be the
- * media its name says.
+ * proved when it kept it and which is proved again as it is written into the
+ * archive (`proved-media.ts`); media from anywhere else is hashed and must be
+ * the media its name says.
  */
 
 import {
@@ -37,7 +38,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { bytesSource } from './byte-streams.js';
-import { refusalsReported } from './storage-failures.js';
+import { CarriedFailure, mediaDamaged, refusalsReported } from './storage-failures.js';
 
 /** How the bytes of a media file or a cache of a tree are read. */
 export type BodyOpener = (
@@ -56,17 +57,6 @@ interface BundleWriting {
   /** Asked as the archive is written, whose chunks may be read and checksummed at once. */
   readonly yieldToHost: YieldToHost;
   readonly signal?: AbortSignal;
-}
-
-/** A failure met while the archive is written, carried out of its entries. */
-class EntryRefused extends Error {
-  readonly failure: DomainFailure;
-
-  constructor(refusal: DomainFailure) {
-    super(refusal.summary);
-    this.name = 'EntryRefused';
-    this.failure = refusal;
-  }
 }
 
 /** Writes a tree's files and their manifest as a bundle into `sink`, and closes it. */
@@ -90,20 +80,15 @@ export async function writeBundle(
     body: { kind: 'text', bytes: listing.value },
   };
   const ordered = [...files, manifest].sort((one, other) => compareCodeUnits(one.path, other.path));
-  try {
-    return await refusalsReported(
-      async () =>
-        await writeZip(zipEntries(ordered, writing), sink, {
-          yieldToHost: writing.yieldToHost,
-          ...(writing.signal === undefined ? {} : { signal: writing.signal }),
-        }),
-    );
-  } catch (error: unknown) {
-    // A file that could not be opened as the archive reached it: the archive
-    // has abandoned the sink, and the failure is the file's own.
-    if (error instanceof EntryRefused) return fail(error.failure);
-    throw error;
-  }
+  // A file that cannot be opened, or is refused as it is read, as the archive
+  // reaches it fails the archive, which abandons the sink, with its failure.
+  return await refusalsReported(
+    async () =>
+      await writeZip(zipEntries(ordered, writing), sink, {
+        yieldToHost: writing.yieldToHost,
+        ...(writing.signal === undefined ? {} : { signal: writing.signal }),
+      }),
+  );
 }
 
 /** Each file opened only as the archive reaches it. */
@@ -118,8 +103,8 @@ async function* zipEntries(
       continue;
     }
     const source = await writing.open(file, writing.signal);
-    if (!source.ok) throw new EntryRefused(source.failures[0]);
-    if (source.value.size !== body.byteLength) throw new EntryRefused(lengthChanged(path));
+    if (!source.ok) throw new CarriedFailure(source.failures[0]);
+    if (source.value.size !== body.byteLength) throw new CarriedFailure(lengthChanged(path));
     yield { path, source: source.value };
   }
 }
@@ -148,7 +133,9 @@ async function manifestEntries(
     );
     if (!identity.ok) return identity;
     const { contentId, byteLength } = identity.value;
-    if (body.kind === 'media' && contentId !== body.contentId) return fail(mediaDamaged(path));
+    if (body.kind === 'media' && contentId !== body.contentId) {
+      return fail(mediaDamaged(path, body.contentId));
+    }
     entries.push({ path, size: byteLength, contentId });
   }
   return succeed(entries);
@@ -159,15 +146,6 @@ function lengthChanged(path: string): DomainFailure {
     'storage.file-changed',
     FailureKind.Conflict,
     'A file changed length while the bundle was written.',
-    { details: { file: path } },
-  );
-}
-
-function mediaDamaged(path: string): DomainFailure {
-  return failure(
-    'storage.media-damaged',
-    FailureKind.IntegrityViolation,
-    'A media file is not the media its name says it is.',
     { details: { file: path } },
   );
 }

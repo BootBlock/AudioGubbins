@@ -3261,6 +3261,7 @@ Published paths
   interface TreeSources
   readonly TreeSources.store: MediaObjectStore
   readonly TreeSources.caches: CacheStore
+  readonly TreeSources.digest: Digest
   interface UnreadableRoot
   readonly UnreadableRoot.path: string
   readonly UnreadableRoot.failure: DomainFailure

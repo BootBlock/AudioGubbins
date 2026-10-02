@@ -17,7 +17,7 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { TreeFailure, TreeFailureKind } from '@audiogubbins/project-format';
+import { TreeFailure, TreeFailureKind, type ContentId } from '@audiogubbins/project-format';
 
 import type { LeaseAcquisition } from './write-lease.js';
 
@@ -46,9 +46,24 @@ export function storageRefused(refusal: TreeFailure): DomainFailure {
 }
 
 /**
- * Runs work against the tree and reports the tree's refusals as designed
- * failures. Anything else, an abort or a defect among them, is the caller's to
- * hear as thrown.
+ * A designed failure met where only a throw can carry it out, such as a source
+ * whose bytes are refused as they are read, which {@link refusalsReported}
+ * reports as the failure it carries.
+ */
+export class CarriedFailure extends Error {
+  readonly failure: DomainFailure;
+
+  constructor(carried: DomainFailure) {
+    super(carried.summary);
+    this.name = 'CarriedFailure';
+    this.failure = carried;
+  }
+}
+
+/**
+ * Runs work against the tree and reports the tree's refusals, and the failures
+ * carried out by a throw, as designed failures. Anything else, an abort or a
+ * defect among them, is the caller's to hear as thrown.
  */
 export async function refusalsReported<TValue>(
   work: () => Promise<DomainResult<TValue>>,
@@ -57,8 +72,19 @@ export async function refusalsReported<TValue>(
     return await work();
   } catch (error) {
     if (error instanceof TreeFailure) return fail(storageRefused(error));
+    if (error instanceof CarriedFailure) return fail(error.failure);
     throw error;
   }
+}
+
+/** The failure of media whose bytes are not the media its identity names. */
+export function mediaDamaged(path: string, contentId: ContentId): DomainFailure {
+  return failure(
+    'storage.media-damaged',
+    FailureKind.IntegrityViolation,
+    'A media file is not the media its name says it is.',
+    { details: { file: path, contentId } },
+  );
 }
 
 /**

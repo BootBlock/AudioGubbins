@@ -142,7 +142,10 @@ once and carries a checksum; a torn file fails its check and is ignored.
 
 `ContentId` is the SHA-256 of the byte length and the SHA-256 of each 1 MiB
 chunk, so hashing streams, runs in the platform's native digest through an
-injected port, and never holds a whole file.
+injected port, and never holds a whole file. Every copy out of the store (a
+bundle, an unpacked tree, a backup directory's copy) proves each object's
+identity as it streams it, at the cost of one digest pass and no extra read,
+and refuses the copy naming an object whose bytes were damaged in place.
 
 ### Cross-phase limits to record in the evidence
 

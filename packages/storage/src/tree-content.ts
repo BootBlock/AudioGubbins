@@ -30,6 +30,7 @@ import {
   projectTree,
   writeHistoryRecord,
   type ContentId,
+  type Digest,
   type ProjectState,
   type ProjectTreeContent,
   type ProjectTreeFile,
@@ -45,6 +46,7 @@ import { CACHE_CLEANUP_ORDER, cacheKeyOf, cachePathOf, type CacheStore } from '.
 import { choiceOf } from './comparison-record.js';
 import { contentIdsIn } from './content-references.js';
 import { offeredStates, type ProjectCopy } from './project-copy.js';
+import { provedMedia } from './proved-media.js';
 import { refusalsReported } from './storage-failures.js';
 
 /**
@@ -67,6 +69,9 @@ export interface CopyOptions {
 export interface TreeSources {
   readonly store: MediaObjectStore;
   readonly caches: CacheStore;
+
+  /** What media read out of the store is proved with as it is read. */
+  readonly digest: Digest;
 }
 
 /** A project's tree, and what of it could not travel as bytes. */
@@ -227,12 +232,16 @@ function linkedAssets(state: ProjectState): readonly AssetId[] {
 
 /** How the bytes of each media file and cache of a tree are read from storage. */
 export function storedBodies(sources: TreeSources): BodyOpener {
-  return async ({ body }, signal) => {
+  return async ({ path, body }, signal) => {
     switch (body.kind) {
       case 'text':
         return succeed(bytesSource(body.bytes));
-      case 'media':
-        return await sources.store.open(body.contentId);
+      case 'media': {
+        const opened = await sources.store.open(body.contentId);
+        return opened.ok
+          ? await provedMedia(opened.value, body.contentId, path, sources.digest)
+          : opened;
+      }
       case 'cache': {
         const key = cacheKeyOf(body.path);
         const opened =
