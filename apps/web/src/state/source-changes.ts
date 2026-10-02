@@ -1,7 +1,8 @@
 /**
  * A linked file of the open project that is no longer what the project
- * recorded, the answers the person can give it, and the project command that
- * takes an answer needing no more of them (REQ-STOR-053, REQ-STOR-104).
+ * recorded, with the file found or chosen in its place, the answers the person
+ * can give it, and the project command that freezes it (REQ-STOR-053,
+ * REQ-STOR-104).
  *
  * The records the source change store keeps and the prompt draws, apart from
  * the store that finds the files and runs the commands.
@@ -14,8 +15,9 @@ import type {
   ResolutionPlan,
   SourceClassification,
 } from '@audiogubbins/media-store';
-import { ProjectCommandId, adoptSourceVersionInvocation } from '@audiogubbins/project-commands';
-import type { ExternalSourceIdentity, ProjectState } from '@audiogubbins/project-format';
+import { ProjectCommandId } from '@audiogubbins/project-commands';
+import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
+import type { PageFile } from '@audiogubbins/storage-runtime';
 
 /** A linked file that is not what the project recorded, and what can be done. */
 export interface SourceChange {
@@ -27,16 +29,20 @@ export interface SourceChange {
   readonly plan: ResolutionPlan;
 
   /** The file found in the recorded place, for taking its new version. */
-  readonly found?: ExternalSourceIdentity;
+  readonly found?: FoundFile;
 
   /** A file the person chose to link instead that is not the one recorded, until they decide. */
   readonly offered?: OfferedFile;
 }
 
-/** A file chosen to link that differs from the one recorded, and how. */
-export interface OfferedFile {
+/** A file found or chosen, as examined, and the file itself to take. */
+export interface FoundFile {
   readonly identity: ExternalSourceIdentity;
+  readonly file: PageFile;
+}
 
+/** A file chosen to link that differs from the one recorded, and how. */
+export interface OfferedFile extends FoundFile {
   /** How it differs: in content, or in kind. */
   readonly difference: 'modified' | 'replaced';
 }
@@ -74,18 +80,7 @@ export function wantsLeave(classification: SourceClassification): boolean {
   return classification.kind === 'missing' && classification.reason === 'access-needed';
 }
 
-/** The invocation that takes a choice, where it needs no more of the person. */
-export function invocationOf(
-  change: SourceChange,
-  projectState: ProjectState,
-  kind: ResolutionKind,
-): CommandInvocation | undefined {
-  const asset = projectState.project.assets.get(change.asset);
-  if (asset === undefined) return undefined;
-  if (kind === 'freeze') {
-    return { commandId: ProjectCommandId.FreezeSource, arguments: { assetId: change.asset } };
-  }
-  return kind === 'adopt' && change.found !== undefined
-    ? adoptSourceVersionInvocation(asset, change.found)
-    : undefined;
+/** The invocation that keeps an asset on the retained copy of the version it was made with. */
+export function freezing(asset: AssetId): CommandInvocation {
+  return { commandId: ProjectCommandId.FreezeSource, arguments: { assetId: asset } };
 }

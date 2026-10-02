@@ -2689,6 +2689,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       361,
       "The workspace partition's one owner of state: every operation on the layout on screen and the saved workspaces, the restore of a deleted one and the discard of text that could not be read among them, updates the layout, the list, the notices, the wait for room, the unread text and the deletions in one observable update. Each rule it applies is a module of its own — the custody of unread text, the reading of a stored layout, the naming of a workspace — so what is left is the state and the methods that change it together; split, two halves would each need the whole state to publish one update.",
     ],
+    'apps/web/src/state/source-change-store.ts': [
+      300,
+      "The linked files of the open project and the person's answers to their changes: looking at each file through the kept handles, taking at once what an asset's own policy takes, asking leave to read a file in the handler of the person's gesture, and taking each answer, relinking and taking a new version through the storage worker so a protected copy is kept. Each rule it applies is a module of its own — the records and the freeze command (`source-changes.ts`), the classification and the choices (the media store), the reading and copying of a file (the worker) — so what is left is the one observable state of the changes waiting and the methods that answer them; split, each half would need that state and the look in flight it is given up with.",
+    ],
     'packages/storage/src/project-session.ts': [
       381,
       'The one route every change to an open project takes: running, grouping, undoing, redoing and moving through history, snapshots, branch names, comparison, compaction, exports and checkpoints. Each operation is a few lines over the shared ordering, writing and publishing, and the parts they share are modules of their own — the writer, the write queue, ownership, the events, compaction and the history moves — so what is left is the session state and the operations that change it together; split, each half would need the whole state and the one queue that keeps records in order.',

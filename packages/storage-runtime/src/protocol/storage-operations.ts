@@ -16,12 +16,13 @@
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';
-import type { DomainResult, ProjectId } from '@audiogubbins/domain';
+import type { AssetId, DomainResult, ProjectId } from '@audiogubbins/domain';
 import type { HistoryDelta } from '@audiogubbins/history';
 import type { ExternalSourceIdentity, ZipWritten } from '@audiogubbins/project-format';
 import type {
   CacheCategory,
   CacheKey,
+  ChangeOutcome,
   CacheScope,
   CatalogueEntry,
   CleanupConfirmation,
@@ -37,6 +38,7 @@ import type {
   StepOutcome,
   StorageRootOpening,
   StorageUsage,
+  VersionChange,
   WipeConfirmation,
 } from '@audiogubbins/storage';
 
@@ -82,6 +84,22 @@ export type StorageOperations = ProjectOperations &
     'sources.examine': Operation<
       { readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile },
       DomainResult<ExternalSourceIdentity>
+    >;
+
+    /**
+     * Links an asset of the project open under `handle` to another file, or
+     * takes the new version of its file, the file read here: one change, with a
+     * protected copy of the file kept where the asset keeps one.
+     */
+    'sources.takeVersion': Operation<
+      {
+        readonly handle: ProjectHandle;
+        readonly asset: AssetId;
+        readonly change: VersionChange;
+        readonly identity: ExternalSourceIdentity;
+        readonly file: CrossingFile;
+      },
+      DomainResult<ChangeOutcome>
     >;
 
     /** A cache's whole bytes, where it is kept whole. */

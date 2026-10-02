@@ -39,6 +39,7 @@ import {
   type YieldToHost,
 } from '@audiogubbins/project-format';
 
+import { releaseOnceSaved } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
 
 /** What consolidating works with, each made once by the composition root. */
@@ -179,24 +180,4 @@ async function copyOf(
     return succeed(CHANGED);
   }
   return succeed({ kind: 'copied', contentId, byteLength, held: true });
-}
-
-/**
- * Calls `release` once the session has written everything it holds, or has
- * stopped writing, after which nothing it holds will reach storage.
- */
-function releaseOnceSaved(session: ProjectSession, release: () => void): void {
-  const settled = (): boolean => {
-    const { save } = session.getSnapshot();
-    return save.kind === 'saved' || save.kind === 'stopped';
-  };
-  if (settled()) {
-    release();
-    return;
-  }
-  const stop = session.subscribe(() => {
-    if (!settled()) return;
-    stop();
-    release();
-  });
 }

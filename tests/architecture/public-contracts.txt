@@ -2192,6 +2192,9 @@ Published paths
   interface ResolutionPlan
   readonly ResolutionPlan.choices: readonly ResolutionChoice[]
   readonly ResolutionPlan.automatic?: ResolutionKind
+  interface RetainedCopy
+  readonly RetainedCopy.identity: ExternalSourceIdentity
+  readonly RetainedCopy.contentId: ContentId
   interface SignalEvidence
   readonly SignalEvidence.byteLength: SignalMatch
   readonly SignalEvidence.fastFingerprint: SignalMatch
@@ -2219,6 +2222,7 @@ Published paths
   function contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined>
   function examineFile(recorded: ExternalSourceIdentity, file: ExternalFile, services: CompletionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function importMedia(request: ImportRequest, services: ImportServices, options?: PutOptions): Promise<DomainResult<ImportedMedia>>
+  function keepRetainedCopy(file: ExternalFile, identity: ExternalSourceIdentity, services: { readonly store: MediaObjectStore; readonly digest: Digest; }, options?: PutOptions): Promise<DomainResult<RetainedCopy>>
   function planCollection(store: MediaObjectStore, roots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionPlan>>
   function resolutionsFor(classification: SourceClassification, media: ExternalMedia): ResolutionPlan
 
@@ -2283,10 +2287,10 @@ Published paths
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
   const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; }
   function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
-  function adoptSourceVersionInvocation(asset: Asset, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
+  function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
   function projectCommands(): readonly ProjectCommand[]
-  function relinkSourceInvocation(asset: Asset, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
+  function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
 
 @audiogubbins/project-format
@@ -3326,6 +3330,7 @@ Published paths
   readonly UsageServices.store: MediaObjectStore
   readonly UsageServices.caches: CacheStore
   readonly UsageServices.yieldToHost: YieldToHost
+  type VersionChange = "adopt" | "relink"
   type WipeConfirmation = { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; } | { readonly kind: "unreadable"; }
   type WriteOutcome = { readonly kind: "not-saved"; readonly cause: DomainFailure; } | { readonly kind: "stopped"; } | { readonly kind: "written"; }
   function anotherProjectIn(cause: DomainFailure): AnotherProject | undefined
@@ -3349,6 +3354,7 @@ Published paths
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
   function runCleanup(plan: CleanupPlan, confirmation: CleanupConfirmation | undefined, services: CleanupRunServices, options?: CleanupRunOptions): Promise<DomainResult<readonly StepOutcome[]>>
+  function takeSourceVersion(session: ProjectSession, version: SourceVersion, services: SourceVersionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function unpackBundle(source: ByteSource, writer: DirectoryWriter, services: BundleServices, claim?: DirectoryClaim, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
   function unstoredScope(identity: string, digest: Digest): Promise<CacheScope>
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
@@ -3442,6 +3448,7 @@ Published paths
   RootClient.wipe: (confirmation: WipeConfirmation, signal?: AbortSignal) => Promise<DomainResult<void>>
   interface SourcesClient
   SourcesClient.examine: (recorded: ExternalSourceIdentity, file: PageFile, signal?: AbortSignal) => Promise<DomainResult<ExternalSourceIdentity>>
+  SourcesClient.takeVersion: (session: RemoteProjectSession, taken: FileTaken, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
   interface StorageClient
   readonly StorageClient.library: LibraryClient
   readonly StorageClient.projects: ProjectsClient
@@ -4483,6 +4490,13 @@ packages/storage-runtime/src/client/remote-project.ts
   readonly RemoteParts.mirror: ProjectMirror
   readonly RemoteParts.stopHearing: () => void
 
+packages/storage-runtime/src/client/sources-client.ts
+  interface FileTaken
+  readonly FileTaken.asset: AssetId
+  readonly FileTaken.change: VersionChange
+  readonly FileTaken.identity: ExternalSourceIdentity
+  readonly FileTaken.file: PageFile
+
 packages/storage-runtime/src/client/usage-client.ts
   interface CleanupRunOptions
   readonly CleanupRunOptions.held?: RemoteProjectSession
@@ -4600,7 +4614,7 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
   type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
 
@@ -4879,6 +4893,17 @@ packages/storage/src/session-writer.ts
   readonly WriterStart.onSuperseded: () => void
   interface WritingCadence
   readonly WritingCadence.checkpointAfter: number
+
+packages/storage/src/source-versions.ts
+  interface SourceVersion
+  readonly SourceVersion.asset: AssetId
+  readonly SourceVersion.change: VersionChange
+  readonly SourceVersion.identity: ExternalSourceIdentity
+  readonly SourceVersion.file: ExternalFile
+  interface SourceVersionServices
+  readonly SourceVersionServices.store: MediaObjectStore
+  readonly SourceVersionServices.digest: Digest
+  readonly SourceVersionServices.invocation: Readonly<Record<VersionChange, (asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId) => CommandInvocation>>
 
 packages/storage/src/storage-layout.ts
   class BackupPaths

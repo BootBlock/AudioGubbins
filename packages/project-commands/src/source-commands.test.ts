@@ -123,7 +123,7 @@ describe('project.set-source-policy', () => {
 
 describe('project.relink-source', () => {
   it('points a linked asset at another file, keeping the policy', () => {
-    const invocation = relinkSourceInvocation(assets.forest, movedForest, contentIdOfDigit('c'));
+    const invocation = relinkSourceInvocation(assets.forest.id, movedForest, contentIdOfDigit('c'));
     const { next, entry } = appliedAndUndone(state, invocation);
 
     expect(externalOf(next, assets.forest)).toEqual({
@@ -136,23 +136,26 @@ describe('project.relink-source', () => {
     expect(entry.inverse[0].commandId).toBe(ProjectCommandId.SetAssetMedia);
   });
 
-  it('keeps no retained copy unless told which copy is of the new file', () => {
-    const { next } = appliedAndUndone(state, relinkSourceInvocation(assets.forest, movedForest));
-
-    expect(externalOf(next, assets.forest).retainedCopy).toBeUndefined();
+  it('refuses a file with no protected copy for an asset that keeps one, which freezing needs', () => {
+    for (const invocation of [
+      relinkSourceInvocation(assets.forest.id, movedForest),
+      adoptSourceVersionInvocation(assets.forest.id, editedForest),
+    ]) {
+      expect(refusalCodeOf(bus.execute(state, invocation))).toBe('source.retained-copy-needed');
+    }
   });
 
   it('refuses a frozen source without a retained copy of the new file', () => {
     const frozen = appliedOf(bus.execute(state, setPolicy(assets.forest, 'freeze'))).next;
 
     expect(
-      refusalCodeOf(bus.execute(frozen, relinkSourceInvocation(assets.forest, movedForest))),
+      refusalCodeOf(bus.execute(frozen, relinkSourceInvocation(assets.forest.id, movedForest))),
     ).toBe('source.freeze-without-retained-copy');
   });
 
   it('refuses the same file, which is adopted rather than relinked', () => {
     expect(
-      refusalCodeOf(bus.execute(state, relinkSourceInvocation(assets.forest, editedForest))),
+      refusalCodeOf(bus.execute(state, relinkSourceInvocation(assets.forest.id, editedForest))),
     ).toBe('source.relink-same-file');
   });
 
@@ -160,7 +163,7 @@ describe('project.relink-source', () => {
     const rainIdentity = externalOf(state, assets.rain).identity;
     const found = { ...rainIdentity, handleKey: 'handle-0009' };
 
-    appliedAndUndone(state, relinkSourceInvocation(assets.rain, found));
+    appliedAndUndone(state, relinkSourceInvocation(assets.rain.id, found));
   });
 
   it('refuses an identity the format refuses, naming where in it', () => {
@@ -175,7 +178,7 @@ describe('project.relink-source', () => {
   });
 
   it('refuses a retained copy that is not a content identifier', () => {
-    const invocation = relinkSourceInvocation(assets.forest, movedForest);
+    const invocation = relinkSourceInvocation(assets.forest.id, movedForest);
     const malformed = {
       ...invocation,
       arguments: { ...invocation.arguments, retainedCopy: 'c1-zz' },
@@ -186,13 +189,13 @@ describe('project.relink-source', () => {
 
   it('refuses an asset kept in the project, and changes nothing for the same identity', () => {
     expect(
-      refusalCodeOf(bus.execute(state, relinkSourceInvocation(assets.footstep, movedForest))),
+      refusalCodeOf(bus.execute(state, relinkSourceInvocation(assets.footstep.id, movedForest))),
     ).toBe('source.not-external');
     expect(
       unchangedCodeOf(
         bus.execute(
           state,
-          relinkSourceInvocation(assets.forest, forestIdentity, contentIdOfDigit('c')),
+          relinkSourceInvocation(assets.forest.id, forestIdentity, contentIdOfDigit('c')),
         ),
       ),
     ).toBe('source.identity-unchanged');
@@ -202,7 +205,7 @@ describe('project.relink-source', () => {
 describe('project.adopt-source-version', () => {
   it('takes the new version of the same file, with the copy retained of it', () => {
     const invocation = adoptSourceVersionInvocation(
-      assets.forest,
+      assets.forest.id,
       editedForest,
       contentIdOfDigit('e'),
     );
@@ -215,7 +218,9 @@ describe('project.adopt-source-version', () => {
 
   it('refuses another file, which is relinked rather than adopted', () => {
     expect(
-      refusalCodeOf(bus.execute(state, adoptSourceVersionInvocation(assets.forest, movedForest))),
+      refusalCodeOf(
+        bus.execute(state, adoptSourceVersionInvocation(assets.forest.id, movedForest)),
+      ),
     ).toBe('source.adopt-other-file');
   });
 
@@ -224,7 +229,7 @@ describe('project.adopt-source-version', () => {
     const changed = { ...rainIdentity, byteLength: 1 };
 
     expect(
-      refusalCodeOf(bus.execute(state, adoptSourceVersionInvocation(assets.rain, changed))),
+      refusalCodeOf(bus.execute(state, adoptSourceVersionInvocation(assets.rain.id, changed))),
     ).toBe('source.location-unknown');
   });
 });
@@ -255,7 +260,7 @@ describe('project.freeze-source', () => {
     const stale = appliedOf(
       bus.execute(
         state,
-        adoptSourceVersionInvocation(assets.forest, editedForest, contentIdOfDigit('c')),
+        adoptSourceVersionInvocation(assets.forest.id, editedForest, contentIdOfDigit('c')),
       ),
     ).next;
 

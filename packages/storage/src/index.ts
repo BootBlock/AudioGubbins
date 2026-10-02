@@ -195,3 +195,5 @@ export {
   type PassedOverReason,
   consolidate,
 } from './consolidation.js';
+
+export { type VersionChange, takeSourceVersion } from './source-versions.js';

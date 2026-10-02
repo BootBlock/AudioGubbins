@@ -16,8 +16,10 @@
  *   survives only in the history, whose inverse carries the whole prior media.
  *
  * A relink or an adoption says which managed copy, if any, the new version is
- * retained as. With none given the asset keeps none, because the old copy is
- * of content the new identity no longer describes.
+ * retained as, since the old copy is of content the new identity no longer
+ * describes. An asset that keeps a copy must be given one of the new version:
+ * one left with none could no longer be frozen, and the person would lose the
+ * protection they chose without being asked.
  */
 
 import {
@@ -34,6 +36,7 @@ import {
   canonicalJson,
   readMediaSource,
   writeMediaSource,
+  type ExternalMedia,
   type ExternalSourceIdentity,
   type JsonObject,
   type ManagedMedia,
@@ -241,7 +244,9 @@ function changeIdentity(
     return unchanged('source.identity-unchanged', `${name} is already linked that way.`);
   }
 
-  const problem = locationProblem(change, current.identity, media.value.identity, name);
+  const problem =
+    locationProblem(change, current.identity, media.value.identity, name) ??
+    protectionProblem(current, media.value, name);
   if (problem !== undefined) return problem;
   return changedMedia(
     state,
@@ -249,6 +254,23 @@ function changeIdentity(
     media.value,
     change === 'relink' ? `Relink ${name} to another file` : `Use the new version of ${name}`,
   );
+}
+
+/**
+ * Why a new version cannot be taken without a protected copy: the asset keeps
+ * one of its file, which the new version must have too.
+ */
+function protectionProblem(
+  before: ExternalMedia,
+  after: ExternalMedia,
+  name: string,
+): RefusedOutcome | undefined {
+  return before.retainedCopy !== undefined && after.retainedCopy === undefined
+    ? refusal(
+        'source.retained-copy-needed',
+        `${name} keeps a protected copy of its file, so the file it takes needs one too.`,
+      )
+    : undefined;
 }
 
 /**

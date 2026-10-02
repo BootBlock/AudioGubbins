@@ -17,7 +17,7 @@
  * in a project's state or abandoned, so collection never takes it in between.
  */
 
-import { fail, succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
+import { succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
 import {
   DEFAULT_SOURCE_CHANGE_POLICY,
   type AssetProvenance,
@@ -29,11 +29,10 @@ import {
 } from '@audiogubbins/project-format';
 
 import { checkedFile, type ExternalFile } from './external-file.js';
-import { identityOutdated } from './media-failures.js';
 import type { MediaObjectStore } from './object-store.js';
 import type { PutOptions } from './object-writing.js';
+import { keepRetainedCopy } from './retained-copies.js';
 import { completeIdentity, observeFile } from './source-observation.js';
-import { sampleSource } from './source-sampling.js';
 
 /** How a file is brought in. */
 export type ImportChoice =
@@ -131,23 +130,10 @@ async function referTo(
     return complete.ok ? succeed({ source: referenceOf(request, complete.value) }) : complete;
   }
 
-  const stored = await store.put(file.source, options);
-  if (!stored.ok) return stored;
-  const { contentId } = stored.value;
-  let handedOver = false;
-  try {
-    // Sampled again, so the copy kept is of the version the identity describes.
-    const again = await sampleSource(file.source, digest, options.signal);
-    if (!again.ok) return again;
-    if (again.value.fastFingerprint !== observed.value.fastFingerprint) {
-      return fail(identityOutdated());
-    }
-    const identity = { ...observed.value, contentId };
-    handedOver = true;
-    return succeed({ source: referenceOf(request, identity, contentId), held: contentId });
-  } finally {
-    if (!handedOver) store.release(contentId);
-  }
+  const kept = await keepRetainedCopy(file, observed.value, { store, digest }, options);
+  if (!kept.ok) return kept;
+  const { identity, contentId } = kept.value;
+  return succeed({ source: referenceOf(request, identity, contentId), held: contentId });
 }
 
 function referenceOf(

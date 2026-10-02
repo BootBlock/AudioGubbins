@@ -105,8 +105,8 @@ function everyChange(): readonly CommandInvocation[] {
       commandId: ProjectCommandId.RemoveAsset,
       arguments: { assetId: assets.rain.id },
     }),
-    ...changeOf(relinkSourceInvocation(assets.forest, moved)),
-    ...changeOf(adoptSourceVersionInvocation(assets.forest, edited)),
+    ...changeOf(relinkSourceInvocation(assets.forest.id, moved, contentIdOfDigit('c'))),
+    ...changeOf(adoptSourceVersionInvocation(assets.forest.id, edited, contentIdOfDigit('e'))),
     ...changeOf(setAssetMediaInvocation(assets.forest.id, managed)),
     ...changeOf({
       commandId: ProjectCommandId.FreezeSource,

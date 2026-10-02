@@ -7,6 +7,7 @@ import { unsafeBrandId } from '@audiogubbins/domain';
 import { observable } from '../state/observable.js';
 import type { SourceChangeState } from '../state/source-changes.js';
 import { renderInTheShell } from '../testing/in-the-shell.js';
+import { linkedFile } from '../testing/linked-assets.js';
 import { SourceChangePrompt } from './source-change-prompt.js';
 
 const KICK = unsafeBrandId<'AssetId'>('0a1b2c3d-4e5f6a7b-8c9d0e1f-2a3b4c5d');
@@ -61,6 +62,7 @@ describe('the question about linked files that changed', () => {
               signature: '02020202',
               fastFingerprint: 'b'.repeat(64),
             },
+            file: linkedFile('snare.wav', 'kept-3', 2),
             difference: 'modified',
           },
         },

@@ -44,7 +44,7 @@ export function serveStorage(
     ...transferHandlers(services, projects, channel),
     ...backupHandlers(services, projects, channel),
     ...rootHandlers(services, channel),
-    ...sourceHandlers(services, channel),
+    ...sourceHandlers(services, projects, channel),
     ...cacheHandlers(services),
     ...usageHandlers(services, projects),
     ...ownershipHandlers(services.coordinator, channel),

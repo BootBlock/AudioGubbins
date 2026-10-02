@@ -237,4 +237,46 @@ describe('a file the open project links to', () => {
     again.window.run('source.decide-later');
     expect(again.window.projects.sources.get().changes).toEqual([]);
   });
+
+  it('keeps a protected copy of the version it takes or the file it is linked to, so it can still be frozen', async () => {
+    const linkedFiles = new ScriptedLinkedFiles();
+    const window = await projectWorld().window({ linkedFiles });
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    const file = linkedFile('kick.wav', 'kept-1');
+    const { contentId } = expectSuccess(await window.storage.store.put(sourceOf(file)));
+    const asset = await addLinkedAsset(window, file, { retainedCopy: contentId });
+    const edited = linkedFile('kick.wav', 'kept-1', 7);
+    linkedFiles.keep(edited);
+    await reopened(window);
+    const linked = () => {
+      const open = window.projects.project.get();
+      const media =
+        open.kind === 'open' ? open.snapshot.model.state.sources.get(asset)?.media : undefined;
+      if (media?.kind !== 'external') throw new Error('The asset is not linked.');
+      return media;
+    };
+
+    expect(await window.runAndHear('source.resolve', { asset, choice: 'adopt' })).toBe('Done.');
+    const adopted = linked();
+    const { contentId: editedContent } = expectSuccess(
+      await window.storage.store.put(sourceOf(edited)),
+    );
+    expect(adopted.retainedCopy).toBe(editedContent);
+    expect(adopted.identity.contentId).toBe(editedContent);
+
+    // The file goes, and the person links another copy of the same version.
+    linkedFiles.kept.clear();
+    await reopened(window);
+    window.files.mediaFiles.push(linkedFile('kick, moved.wav', 'kept-2', 7));
+    expect(await window.runAndHear('source.resolve', { asset, choice: 'relink' })).toBe('Done.');
+    expect(linked().retainedCopy).toBe(editedContent);
+    expect(linked().identity.fileName).toBe('kick, moved.wav');
+
+    // Freezing is still offered, and keeps the version the project uses.
+    linkedFiles.kept.clear();
+    await reopened(window);
+    const [change] = window.projects.sources.get().changes;
+    expect(change?.plan.choices).toContainEqual({ kind: 'freeze', available: true });
+    expect(await window.runAndHear('source.resolve', { asset, choice: 'freeze' })).toBe('Done.');
+  });
 });

@@ -45,7 +45,7 @@ export function setAssetMediaInvocation(asset: AssetId, media: MediaSource): Com
  * the media store kept a copy of it.
  */
 export function relinkSourceInvocation(
-  asset: Asset,
+  asset: AssetId,
   identity: ExternalSourceIdentity,
   retainedCopy?: ContentId,
 ): CommandInvocation {
@@ -57,7 +57,7 @@ export function relinkSourceInvocation(
  * as `retainedCopy` where the media store kept a copy of it.
  */
 export function adoptSourceVersionInvocation(
-  asset: Asset,
+  asset: AssetId,
   identity: ExternalSourceIdentity,
   retainedCopy?: ContentId,
 ): CommandInvocation {
@@ -66,14 +66,14 @@ export function adoptSourceVersionInvocation(
 
 function identityInvocation(
   commandId: CommandInvocation['commandId'],
-  asset: Asset,
+  asset: AssetId,
   identity: ExternalSourceIdentity,
   retainedCopy: ContentId | undefined,
 ): CommandInvocation {
   return {
     commandId,
     arguments: {
-      assetId: asset.id,
+      assetId: asset,
       identity: canonicalJson(writeExternalIdentity(identity)),
       ...(retainedCopy === undefined ? {} : { retainedCopy }),
     },

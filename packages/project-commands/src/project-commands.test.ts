@@ -96,7 +96,7 @@ function randomInvocation(
         arguments: { assetId, media: canonicalJson(writeMediaSource(randomMedia(random))) },
       };
     case 8:
-      return relinkSourceInvocation(asset, randomIdentity(random), retained);
+      return relinkSourceInvocation(asset.id, randomIdentity(random), retained);
     case 9: {
       const identity =
         current?.kind === 'external'
@@ -106,7 +106,7 @@ function randomInvocation(
               lastModified: random.below(2 ** 42),
             }
           : randomIdentity(random);
-      return adoptSourceVersionInvocation(asset, identity, retained);
+      return adoptSourceVersionInvocation(asset.id, identity, retained);
     }
     default:
       return { commandId: ProjectCommandId.FreezeSource, arguments: { assetId } };

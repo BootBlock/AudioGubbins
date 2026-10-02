@@ -37,7 +37,6 @@ import {
   type ResolutionKind,
   type SourceObservation,
 } from '@audiogubbins/media-store';
-import { relinkSourceInvocation } from '@audiogubbins/project-commands';
 import type { ExternalMedia, ExternalSourceIdentity } from '@audiogubbins/project-format';
 import type { RemoteProjectSession, SourcesClient } from '@audiogubbins/storage-runtime';
 
@@ -46,8 +45,9 @@ import type { TransferFiles } from '../io/transfer-files.js';
 import { Requests } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import {
-  invocationOf,
+  freezing,
   wantsLeave,
+  type FoundFile,
   type GivenAccess,
   type OfferedFile,
   type Resolution,
@@ -223,7 +223,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     const session = this.project.session();
     const change = this.state.get().changes.find((one) => one.asset === asset);
     if (session === undefined || change?.offered === undefined) return fail(NO_SUCH_CHANGE);
-    const linked = await this.linked(session, change, change.offered.identity);
+    const linked = await this.linked(session, change, change.offered);
     if (linked.ok) this.answered(asset);
     return linked;
   };
@@ -277,18 +277,23 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     return done.ok ? { kind: 'applied', resolution: automatic } : { kind: 'waiting', change };
   }
 
-  /** What stands where a linked file was recorded, found by `reach`. */
+  /** What stands where a linked file was recorded, found by `reach`, and the file found. */
   private async observe(
     identity: ExternalSourceIdentity,
     reach: LinkedFilesPort['look'],
     signal: AbortSignal,
-  ): Promise<SourceObservation> {
+  ): Promise<{ readonly observation: SourceObservation; readonly found?: FoundFile }> {
     const access = await reach(identity);
-    if (access.kind !== 'available') return { kind: 'absent', reason: absenceOf(access) };
+    if (access.kind !== 'available') {
+      return { observation: { kind: 'absent', reason: absenceOf(access) } };
+    }
     const observed = await this.sources.examine(identity, access.file, signal);
     return observed.ok
-      ? { kind: 'present', file: observed.value }
-      : { kind: 'absent', reason: 'unreadable' };
+      ? {
+          observation: { kind: 'present', file: observed.value },
+          found: { identity: observed.value, file: access.file },
+        }
+      : { observation: { kind: 'absent', reason: 'unreadable' } };
   }
 
   /** What became of one linked file, where it is no longer what was recorded. */
@@ -297,7 +302,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     reach: LinkedFilesPort['look'],
     signal: AbortSignal,
   ): Promise<SourceChange | undefined> {
-    const observation = await this.observe(media.identity, reach, signal);
+    const { observation, found } = await this.observe(media.identity, reach, signal);
     const classification = classifySource(media.identity, observation);
     if (classification.kind === 'unchanged') return undefined;
     return {
@@ -305,7 +310,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
       name,
       classification,
       plan: resolutionsFor(classification, media),
-      ...(observation.kind === 'present' ? { found: observation.file } : {}),
+      ...(found === undefined ? {} : { found }),
     };
   }
 
@@ -316,9 +321,16 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     kind: ResolutionKind,
   ): Promise<DomainResult<void>> {
     if (kind === 'keep-offline') return succeed(undefined);
-    const invocation = invocationOf(change, session.getSnapshot().model.state, kind);
-    if (invocation === undefined) return fail(cannotTake(kind));
-    const ran = await session.run(invocation);
+    const ran =
+      kind === 'freeze'
+        ? await session.run(freezing(change.asset))
+        : kind === 'adopt' && change.found !== undefined
+          ? await this.sources.takeVersion(session, {
+              asset: change.asset,
+              change: 'adopt',
+              ...change.found,
+            })
+          : fail(cannotTake(kind));
     return ran.ok ? succeed(undefined) : ran;
   }
 
@@ -339,7 +351,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     const identity = examined.value;
     const verdict = classifySource(media.identity, { kind: 'present', file: identity });
     if (verdict.kind === 'modified' || verdict.kind === 'replaced') {
-      const offered: OfferedFile = { identity, difference: verdict.kind };
+      const offered: OfferedFile = { identity, file: chosen, difference: verdict.kind };
       this.state.update((current) => ({
         ...current,
         changes: current.changes.map((one) =>
@@ -348,20 +360,24 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
       }));
       return succeed({ kind: 'offered', offered });
     }
-    const linked = await this.linked(session, change, identity);
+    const linked = await this.linked(session, change, { identity, file: chosen });
     if (!linked.ok) return linked;
     this.answered(change.asset);
     return succeed({ kind: 'taken' });
   }
 
+  /** Links the asset of `change` to `file`, keeping a protected copy of it where the asset keeps one. */
   private async linked(
     session: RemoteProjectSession,
     change: SourceChange,
-    identity: ExternalSourceIdentity,
+    { identity, file }: FoundFile,
   ): Promise<DomainResult<void>> {
-    const asset = session.getSnapshot().model.state.project.assets.get(change.asset);
-    if (asset === undefined) return fail(NO_SUCH_CHANGE);
-    const ran = await session.run(relinkSourceInvocation(asset, identity));
+    const ran = await this.sources.takeVersion(session, {
+      asset: change.asset,
+      change: 'relink',
+      identity,
+      file,
+    });
     return ran.ok ? succeed(undefined) : ran;
   }
 

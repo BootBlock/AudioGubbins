@@ -203,7 +203,7 @@ const OPERATIONS: readonly (readonly [weight: number, Operation])[] = [
       if (linked === undefined) return undefined;
       const identity = fileAt(run, run.random.below(4), run.random.below(3));
       return await run.session.run(
-        relinkSourceInvocation(linked.asset, identity, identity.contentId),
+        relinkSourceInvocation(linked.asset.id, identity, identity.contentId),
       );
     },
   ],
@@ -216,7 +216,9 @@ const OPERATIONS: readonly (readonly [weight: number, Operation])[] = [
       const contentId = run.random.pick(run.media);
       const newer = { ...now, lastModified: now.lastModified + step, contentId };
       const identity = { ...newer, fastFingerprint: step.toString(16).padStart(64, 'f') };
-      return await run.session.run(adoptSourceVersionInvocation(linked.asset, identity, contentId));
+      return await run.session.run(
+        adoptSourceVersionInvocation(linked.asset.id, identity, contentId),
+      );
     },
   ],
   [3, async (run) => await assetCommand(run, ProjectCommandId.FreezeSource, {})],
