@@ -7,6 +7,10 @@
  * where this window let it go, rejected where the lock was taken from it, which
  * with a steal is an `AbortError`. That settling is what the lease learns it
  * ended by, whatever ended it.
+ *
+ * A taken lease stops at once, but its loss is reported only once the window
+ * that took it is known or cannot be, since the taker's notice and the steal
+ * reach this window in no set order; the coordinator finds out which.
  */
 
 import type {
@@ -31,9 +35,11 @@ export class HeldLease implements ProjectWriteLease {
   /** Pending while the lock is to be held; the lock callback returns it. */
   readonly kept: Promise<void>;
 
+  /** Settles once the browser no longer holds the lock for this window. */
+  readonly over: Promise<void>;
+
   readonly #listeners = new Set<(request: TransferRequest) => void>();
   readonly #announceCheckpoint: () => void;
-  readonly #ended: Promise<void>;
   #over = false;
   #letGo: () => void = () => undefined;
   #lose: (loss: LeaseLoss) => void = () => undefined;
@@ -50,7 +56,7 @@ export class HeldLease implements ProjectWriteLease {
     this.lost = new Promise((resolve) => {
       this.#lose = resolve;
     });
-    this.#ended = new Promise((resolve) => {
+    this.over = new Promise((resolve) => {
       this.#end = resolve;
     });
   }
@@ -70,7 +76,7 @@ export class HeldLease implements ProjectWriteLease {
   /** Lets the lock go, settling once the browser no longer holds it for this window. */
   async release(): Promise<void> {
     this.#letGo();
-    await this.#ended;
+    await this.over;
   }
 
   /** Passes another window's request for the project to whoever listens. */
@@ -78,13 +84,14 @@ export class HeldLease implements ProjectWriteLease {
     for (const listener of this.#listeners) listener(request);
   }
 
-  /**
-   * Notes the window about to take the project, which says so first, so the
-   * loss can name it. A notice that arrives after the lock was taken is too
-   * late to name it, and the loss says only that it was taken.
-   */
+  /** Notes the window about to take the project, which says so first, so the loss can name it. */
   noteTaking(by: LeaseOwner): void {
     this.#takenBy = by;
+  }
+
+  /** The window that said it was taking the project, where one did. */
+  get takenBy(): LeaseOwner | undefined {
+    return this.#takenBy;
   }
 
   /** Records that the lock was let go, as {@link release} asked. */
@@ -93,12 +100,17 @@ export class HeldLease implements ProjectWriteLease {
     this.#end();
   }
 
-  /** Records that the lock was taken from this window, which stops writing at once. */
+  /**
+   * Records that the lock was taken from this window: nothing more is
+   * announced, and a release settles at once.
+   */
   taken(): void {
     this.#over = true;
-    this.#lose(
-      this.#takenBy === undefined ? { kind: 'taken' } : { kind: 'taken', by: this.#takenBy },
-    );
     this.#end();
+  }
+
+  /** Reports the loss of a {@link taken} lease, naming `by` where it is known. */
+  reportLoss(by: LeaseOwner | undefined): void {
+    this.#lose(by === undefined ? { kind: 'taken' } : { kind: 'taken', by });
   }
 }

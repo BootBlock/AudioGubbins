@@ -21,6 +21,14 @@
  * checkpoint; watchers in this window hear the same from it directly, since a
  * window never hears its own channel.
  *
+ * A window that takes a project says so before it steals the lock, but the
+ * browser delivers a channel's message and a lock's steal in no set order, so
+ * the holder may lose the lock before the notice comes. It then asks who holds
+ * the project now, and reports the loss with the first name it hears, the late
+ * notice's or the taker's answer, or unnamed once the patience runs out. The
+ * wait is safe because the epoch fencing keeps a late writer's work from
+ * counting, and short because the taker answers as soon as it holds the lock.
+ *
  * Nothing here decides for the person: a busy project is reported with its
  * owner where the owner answers, and a lock the browser refuses is reported as
  * unavailable, which opens the project read-only, never writable.
@@ -43,6 +51,7 @@ import { HeldLease, type ProjectId } from './held-lease.js';
 import { ownershipEventOf, type LeaseMessage } from './lease-messages.js';
 import { ProjectChannels, type OpenLeaseChannel } from './project-channels.js';
 import type { LeaseLocks } from './lock-manager.js';
+import { askOwner, type OwnerAsking } from './owner-questions.js';
 import { lockStorage } from './storage-lock.js';
 
 /** What a window coordinates its leases with, each made once by the composition root. */
@@ -85,6 +94,7 @@ class WebLockLeases implements LeaseCoordinator {
   readonly #locks: LeaseLocks;
   readonly #services: WebLeaseServices;
   readonly #channels: ProjectChannels;
+  readonly #asking: OwnerAsking;
   readonly #held = new Map<ProjectId, HeldLease>();
   readonly #watchers = new Map<ProjectId, Set<(event: OwnershipEvent) => void>>();
 
@@ -96,6 +106,7 @@ class WebLockLeases implements LeaseCoordinator {
     this.#locks = locks;
     this.#services = services;
     this.#channels = new ProjectChannels(services.openChannel, services.logger);
+    this.#asking = { channels: this.#channels, patience: services.patience };
   }
 
   async acquire(
@@ -126,17 +137,7 @@ class WebLockLeases implements LeaseCoordinator {
     if (held !== undefined) return held.owner;
     const name = lockNameOf(project);
     if (!(await this.#isHeld(name))) return undefined;
-
-    const question = this.#nextId();
-    let stop: () => void = () => undefined;
-    const answered = new Promise<LeaseOwner | undefined>((resolve) => {
-      stop = this.#channels.listen(name, (message) => {
-        if (message.kind === 'owner' && message.question === question) resolve(message.owner);
-      });
-      if (!this.#channels.post(name, { kind: 'who-owns', question })) resolve(undefined);
-    });
-    const owner = await Promise.race([answered, this.#services.patience().then(() => undefined)]);
-    stop();
+    const owner = await askOwner(this.#asking, name, this.#nextId(), () => undefined);
     if (owner === undefined) {
       this.#services.logger.debug('The window writing a project did not say who it is.');
     }
@@ -281,7 +282,7 @@ class WebLockLeases implements LeaseCoordinator {
       stop();
       if (this.#held.get(lease.project) === lease) this.#held.delete(lease.project);
     };
-    void lease.lost.then(forget);
+    void lease.over.then(forget);
     void lease.kept.then(forget);
   }
 
@@ -346,13 +347,33 @@ class WebLockLeases implements LeaseCoordinator {
    * window the writer.
    */
   #lost(lease: HeldLease, error: unknown): void {
+    lease.taken();
     const stolen = error instanceof DOMException && error.name === 'AbortError';
     if (!stolen) {
       this.#services.logger.warning('The browser let a held project’s lock go.', {
         reason: error instanceof DOMException ? error.name : 'unknown',
       });
+      lease.reportLoss(undefined);
+    } else if (lease.takenBy !== undefined) lease.reportLoss(lease.takenBy);
+    else {
+      void this.#taker(lease).then((by) => {
+        lease.reportLoss(by);
+      });
     }
-    lease.taken();
+  }
+
+  /**
+   * Learns who took a project from this window before its notice came (see
+   * the module comment).
+   */
+  async #taker(lease: HeldLease): Promise<LeaseOwner | undefined> {
+    const name = lockNameOf(lease.project);
+    const by = await askOwner(this.#asking, name, this.#nextId(), (message) =>
+      message.kind === 'taking' ? message.by : undefined,
+    );
+    if (by !== undefined) return by;
+    this.#services.logger.debug('The window that took a project did not say who it is.');
+    return undefined;
   }
 
   /** Logs a lock the browser refused, which leaves the project read-only. */

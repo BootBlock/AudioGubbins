@@ -10,7 +10,8 @@
  *
  * Delivery takes a microtask, as the memory lock manager's grants and steals
  * do, so a message and a lock change reach a window in the order they were
- * made, as the browser's tasks do.
+ * made. The browser promises no such order, so a test can hold delivery back
+ * and let a lock change overtake a message posted before it.
  */
 
 import type { LeaseChannel } from '../project-channels.js';
@@ -55,6 +56,9 @@ export class MemoryBroadcast {
   /** Every message posted, in order, for a test to read what went between the windows. */
   readonly posted: unknown[] = [];
 
+  /** Deliveries held back by {@link holdBack}, in the order posted; `undefined` when none are. */
+  #heldBack: (() => void)[] | undefined;
+
   readonly open = (name: string): LeaseChannel => {
     const channel = new MemoryChannel(this, name);
     this.#open.add(channel);
@@ -70,10 +74,26 @@ export class MemoryBroadcast {
     this.posted.push(data);
     for (const channel of this.#open) {
       if (channel === from || channel.name !== from.name) continue;
-      void Promise.resolve().then(() => {
-        channel.receive(structuredClone(data));
-      });
+      const delivery = (): void => {
+        void Promise.resolve().then(() => {
+          channel.receive(structuredClone(data));
+        });
+      };
+      if (this.#heldBack === undefined) delivery();
+      else this.#heldBack.push(delivery);
     }
+  }
+
+  /** Holds every message posted from now on until {@link letThrough}. */
+  holdBack(): void {
+    this.#heldBack ??= [];
+  }
+
+  /** Delivers the messages held back, in the order posted, and stops holding. */
+  letThrough(): void {
+    const held = this.#heldBack ?? [];
+    this.#heldBack = undefined;
+    for (const delivery of held) delivery();
   }
 
   forget(channel: MemoryChannel): void {

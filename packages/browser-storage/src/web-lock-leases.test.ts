@@ -51,11 +51,18 @@ class Profile implements LeaseWindows {
   }
 
   /** A window's coordinator, made once, and made without channels where it is `mute`. */
-  window(owner: LeaseOwner, channels: 'broadcast' | 'mute' = 'broadcast'): LeaseCoordinator {
+  window(
+    owner: LeaseOwner,
+    channels: 'broadcast' | 'mute' = 'broadcast',
+    patience: () => Promise<void> = settled,
+  ): LeaseCoordinator {
     const known = this.#windows.get(owner.instance);
     if (known !== undefined) return known;
     const openChannel = channels === 'mute' ? undefined : this.broadcast.open;
-    const made = createLeaseCoordinator(this.services(owner.instance, openChannel));
+    const made = createLeaseCoordinator({
+      ...this.services(owner.instance, openChannel),
+      patience,
+    });
     if (made === undefined) throw new Error('A profile with Web Locks made no coordinator.');
     this.#windows.set(owner.instance, made);
     return made;
@@ -97,6 +104,25 @@ async function held(coordinator: LeaseCoordinator, owner: LeaseOwner): Promise<P
   const acquired = await coordinator.acquire(PROJECT, { steal: false, owner });
   if (acquired.kind !== 'held') throw new Error('Expected the lease to be held.');
   return acquired.lease;
+}
+
+/** A window's patience, which runs out only once the test opens it. */
+function gatedPatience(): { readonly patience: () => Promise<void>; readonly open: () => void } {
+  let open: () => void = () => undefined;
+  const opened = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return {
+    patience: () => opened,
+    open: () => {
+      open();
+    },
+  };
+}
+
+/** What a promise has settled to once everything under way has, or that it is still waiting. */
+function settledTo<T>(promise: Promise<T>): Promise<T | 'still waiting'> {
+  return Promise.race([promise, settled().then((): 'still waiting' => 'still waiting')]);
 }
 
 function warnings(profile: Profile): readonly string[] {
@@ -161,6 +187,29 @@ describe('the Web Locks lease coordinator (REQ-STOR-098)', () => {
     profile.locks.drop(LOCK, new DOMException('Gone.', 'InvalidStateError'));
     expect(await lease.lost).toEqual({ kind: 'taken' });
     expect(warnings(profile)).toContain('The browser let a held project’s lock go.');
+    expect(await profile.window(A).ownerOf(PROJECT)).toBeUndefined();
+  });
+
+  it('names the window that took the project where its notice comes after the steal', async () => {
+    const profile = new Profile();
+    const patience = gatedPatience();
+    const lease = await held(profile.window(A, 'broadcast', patience.patience), A);
+    profile.broadcast.holdBack();
+    const taking = await profile.window(B).acquire(PROJECT, { steal: true, owner: B });
+    expect(taking.kind).toBe('held');
+    await settled();
+    profile.broadcast.letThrough();
+    expect(await settledTo(lease.lost)).toEqual({ kind: 'taken', by: B });
+  });
+
+  it('reports the loss unnamed once the patience runs out where the taker cannot be described', async () => {
+    const profile = new Profile();
+    const patience = gatedPatience();
+    const lease = await held(profile.window(A, 'broadcast', patience.patience), A);
+    await profile.window(B, 'mute').acquire(PROJECT, { steal: true, owner: B });
+    await settled();
+    patience.open();
+    expect(await settledTo(lease.lost)).toEqual({ kind: 'taken' });
     expect(await profile.window(A).ownerOf(PROJECT)).toBeUndefined();
   });
 
