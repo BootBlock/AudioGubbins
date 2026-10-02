@@ -6,9 +6,7 @@
  * Each command asks for its file or folder as the first thing it does, in the
  * handler of the gesture that ran it, since a browser opens no chooser
  * otherwise. A bundle holds the whole history unless it is asked for the state
- * alone, and then keeps the provenance at the level asked for. A whole history
- * keeps all of it, since its changes record it, so it is refused where less is
- * asked for, rather than written with more than was asked.
+ * alone, and keeps the provenance at the level asked for either way.
  */
 
 import {
@@ -38,12 +36,9 @@ function copyOptionsFrom(invocation: CommandInvocation): CopyOptions | string {
   const named = textArgument(invocation, 'provenance') ?? ProvenanceLevel.Full;
   const provenance = Object.values(ProvenanceLevel).find((level) => level === named);
   if (provenance === undefined) return `There is no provenance level ${named}.`;
-  if (textArgument(invocation, 'scope') === 'current-state') {
-    return { scope: { kind: 'current-state', provenance }, includeCaches };
-  }
-  return provenance === ProvenanceLevel.Full
-    ? { scope: { kind: 'whole-history', provenance }, includeCaches }
-    : 'A whole history keeps all of where its audio came from, since its changes record it. Export the current state alone to leave any of it out.';
+  const kind =
+    textArgument(invocation, 'scope') === 'current-state' ? 'current-state' : 'whole-history';
+  return { scope: { kind, provenance }, includeCaches };
 }
 
 /** The project open here, and the name it goes by, or why there is none. */

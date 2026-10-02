@@ -398,6 +398,11 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
      keeps, with a test per level, and a whole history is shown and refused
      at less than full provenance. Exporting a whole history with less waits
      for an owner decision: `docs/todo/whole-history-provenance.md`.
+   - M-03 follow-up: the owner chose option 2, and a whole history is
+     exported at every level with its undo kept (`6a5a903`, `5b8523b`, and
+     the dialogue with the note's move to
+     `docs/todo/done/whole-history-provenance.md`). Media a change names
+     inside a nested value is now found for exports and purges (`8e0c07b`).
    - The torn-segment bound on media purges is removed (`2e9ca23`).
 5. Evidence, review record, ledger entry, handoff; this note to
    `docs/todo/done/`; merge `main`; `verify:commit`; land.

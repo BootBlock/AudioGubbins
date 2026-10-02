@@ -148,18 +148,38 @@ describe('the Projects dialogue', () => {
     ).toHaveAccessibleDescription('This browser cannot give AudioGubbins a folder to write into.');
   });
 
-  it('shows what each level keeps of where the audio came from, and that a whole history keeps it all', async () => {
+  it('offers every level of where the audio came from for a whole history, saying what it keeps', async () => {
     const { run, dialogue } = dialogueAt(await withProjects(), 'current');
     const level = within(dialogue).getByRole('combobox', { name: 'Where the audio came from' });
+    const user = userEvent.setup();
 
-    expect(level).toBeDisabled();
-    expect(within(dialogue).getByText(/A whole history keeps all of it/u)).toBeVisible();
+    expect(level).toBeEnabled();
+    level.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Keep all of it',
+      'Leave out names and places',
+      'Leave it all out',
+    ]);
+    await user.click(screen.getByRole('option', { name: 'Leave it all out' }));
+    expect(within(dialogue).getByText(/Leaves out how each file came in/u)).toBeVisible();
+    expect(within(dialogue).getByText(/so undo and redo still work/u)).toBeVisible();
+    await user.click(within(dialogue).getByRole('button', { name: 'Export as a bundle…' }));
+    expect(run).toHaveBeenLastCalledWith('file.export-bundle', {
+      scope: 'whole-history',
+      provenance: 'none',
+      caches: false,
+    });
+  });
+
+  it('shows what each level keeps of where the audio came from for the state alone', async () => {
+    const { run, dialogue } = dialogueAt(await withProjects(), 'current');
+    const level = within(dialogue).getByRole('combobox', { name: 'Where the audio came from' });
 
     const user = userEvent.setup();
     within(dialogue).getByRole('combobox', { name: 'What to include' }).focus();
     await user.keyboard('{Enter}');
     await user.click(screen.getByRole('option', { name: 'The current state alone' }));
-    expect(level).toBeEnabled();
     level.focus();
     await user.keyboard('{Enter}');
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
@@ -169,6 +189,7 @@ describe('the Projects dialogue', () => {
     ]);
     await user.click(screen.getByRole('option', { name: 'Leave out names and places' }));
     expect(within(dialogue).getByText(/Leaves out the names and folders of files/u)).toBeVisible();
+    expect(within(dialogue).queryByText(/so undo and redo still work/u)).toBeNull();
     await user.click(within(dialogue).getByRole('button', { name: 'Export as a bundle…' }));
     expect(run).toHaveBeenLastCalledWith('file.export-bundle', {
       scope: 'current-state',

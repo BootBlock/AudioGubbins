@@ -104,9 +104,22 @@ const PROVENANCE_KEPT: ReadonlyMap<string, string> = new Map([
   ],
 ]);
 
-/** Why a whole history keeps all of where its audio came from. */
-const WHOLE_HISTORY_KEEPS =
-  'A whole history keeps all of it, since its changes record where the audio came from. Export the current state alone to leave any of it out.';
+/**
+ * What each level keeps of a whole history, whose changes compare the names,
+ * handles and paths of linked files, so below full each is kept as a stand-in
+ * rather than left out (`history-stripping.ts` in the project format).
+ */
+const WHOLE_HISTORY_KEPT: ReadonlyMap<string, string> = new Map([
+  ['full', PROVENANCE_KEPT.get('full') ?? ''],
+  [
+    'minimal',
+    'Keeps when each file came in, what it was and the project it first came into. Each file’s name and folder becomes a stand-in that says only which files were the same, so undo and redo still work; where each export went is left out, with its Godot links and messages.',
+  ],
+  [
+    'none',
+    'Leaves out how each file came in and every export. A linked file keeps its length, type, time and fingerprints, and its name and folder become a stand-in that says only which files were the same, so undo and redo still work.',
+  ],
+]);
 
 /** The two ways out, each a command and its button's words. */
 const EXPORTS = [
@@ -122,9 +135,8 @@ function ExportChoices({
   const [scope, setScope] = useState('whole-history');
   const [provenance, setProvenance] = useState('full');
   const [caches, setCaches] = useState(false);
-  const wholeHistory = scope === 'whole-history';
-  const kept = wholeHistory ? 'full' : provenance;
-  const args = { scope, provenance: kept, caches };
+  const args = { scope, provenance, caches };
+  const kept = scope === 'whole-history' ? WHOLE_HISTORY_KEPT : PROVENANCE_KEPT;
   return (
     <div role="group" aria-label="Export">
       <h3 className="ag-section-heading">Export</h3>
@@ -137,15 +149,12 @@ function ExportChoices({
         />
         <OptionSelect
           label="Where the audio came from"
-          value={kept}
+          value={provenance}
           onValueChange={setProvenance}
           options={PROVENANCE}
-          disabled={wholeHistory}
         />
       </div>
-      <p className="ag-settings-note">
-        {wholeHistory ? WHOLE_HISTORY_KEEPS : PROVENANCE_KEPT.get(kept)}
-      </p>
+      <p className="ag-settings-note">{kept.get(provenance)}</p>
       <ToggleSwitch
         label="Include caches"
         description="Waveforms and analysis are made again when needed, so they only make the export larger."

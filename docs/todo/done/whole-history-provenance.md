@@ -1,6 +1,12 @@
-> **Status:** Waiting for an owner decision. 2026-10-02: a whole history is
-> exported with all of its provenance only, and the export says so; nothing
-> else is built.
+> **Status:** Done. 2026-10-02: the owner chose option 2. A whole history is
+> exported at every provenance level and keeps its undo and redo: its state,
+> kept states and changes are stripped with one placeholder for each linked
+> file's name, handle and path, through the port the project commands declare
+> (`6a5a903`, `5b8523b`); media a change names inside a nested value is found,
+> which the replay test showed was not (`8e0c07b`); and the export dialogue
+> and commands offer every level for a whole history (the commit that moves
+> this note here). Not decided here: a snapshot keeps its author's name at
+> every level.
 
 # Exporting a whole history with less provenance
 

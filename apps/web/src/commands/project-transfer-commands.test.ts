@@ -136,20 +136,43 @@ describe('taking a project out as a bundle and bringing it back', () => {
     ).toBe('refused');
   });
 
-  it('refuses a whole history asked to keep less of where its audio came from, and writes nothing', async () => {
+  it('keeps a whole history at less of where its audio came from, its undo working', async () => {
     const { window } = await withProject();
-    const before = window.files.saved.length;
+    await addLinkedAsset(window, linkedFile('Secret kick.wav', 'kept-secret'), { name: 'Kick' });
+    await window.runAndHear('file.export-bundle', {
+      scope: 'whole-history',
+      provenance: 'minimal',
+    });
+    const [saved] = window.files.saved;
+    const elsewhere = await projectWorld().window();
+    if (saved !== undefined) elsewhere.files.bundles.push(bundleFrom(saved));
+    await elsewhere.runAndHear('file.import-bundle');
+    const [entry] = elsewhere.projects.library.get().entries;
+    await elsewhere.runAndHear('file.open', {
+      project: entry?.kind === 'project' ? entry.header.id : '',
+    });
 
-    for (const command of ['file.export-bundle', 'file.export-folder']) {
-      for (const provenance of ['minimal', 'none']) {
-        expect(window.run(command, { scope: 'whole-history', provenance })).toMatchObject({
-          kind: 'refused',
-        });
-      }
-    }
-    expect(window.files.saved).toHaveLength(before);
-    await window.runAndHear('file.export-bundle', { scope: 'whole-history', provenance: 'full' });
-    expect(window.files.saved).toHaveLength(before + 1);
+    const open = elsewhere.projects.project.get();
+    const sources = open.kind === 'open' ? [...open.snapshot.model.state.sources.values()] : [];
+    const identities = sources.flatMap(({ media }) =>
+      media.kind === 'external' ? [media.identity] : [],
+    );
+    expect(identities).toHaveLength(1);
+    expect(identities[0]).toMatchObject({ fileName: 'file-1', handleKey: 'handle-1' });
+    expect(await elsewhere.runAndHear('edit.undo')).toMatch(/^Undone: Add asset/);
+    expect(await elsewhere.runAndHear('edit.undo')).toMatch(/^Undone: Rename/);
+  });
+
+  it('writes a whole history into a folder at the provenance asked for', async () => {
+    const { window } = await withProject();
+    const folder = new MemoryDirectory();
+    window.files.foldersToWrite.push(folder);
+
+    await window.runAndHear('file.export-folder', { scope: 'whole-history', provenance: 'none' });
+
+    const header = new TextDecoder().decode(folder.files.get('audiogubbins-project.json'));
+    expect(header).toContain('"provenance": "none"');
+    expect([...folder.files.keys()].some((path) => path.startsWith('history/'))).toBe(true);
   });
 
   it('says nothing and writes nothing where the person dismisses the chooser', async () => {
