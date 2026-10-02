@@ -24,6 +24,7 @@
 - `REQ-AUDIO-146` — DSP Architecture Review Requirements — owner Phase 06 — scope `CURRENT`
 - `REQ-AUDIO-152` — High-Performance Editor Rendering Layer — owner Phase 04 — scope `CURRENT`
 - `REQ-AUDIO-156` — Video Reference and Sound-to-Picture Workflows — owner Phase 04 — scope `CURRENT`
+- `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio — owner Phase 05 — scope `CURRENT`
 
 ---
 
@@ -70,6 +71,8 @@ Target WAV capabilities include:
 Codec support must use capability detection and must not assume that all browsers expose identical native codecs.
 
 Fallback implementations may use WebAssembly or other portable mechanisms where beneficial.
+
+Reading WAV and AIFF files that hold uncompressed PCM at their native rate is `REQ-AUDIO-220`, Phase 05's (split from this group by `ADR-0050`). This group keeps every other import format, the compressed encodings WAV and AIFF-C can carry, all export, metadata and loop metadata, and capability detection and fallbacks, and its readers extend the read contract that requirement introduces.
 
 ---
 
@@ -493,5 +496,34 @@ The video-reference subsystem should support, where technically available:
 The authoritative AudioGubbins project must treat video as reference media unless a later specification explicitly introduces video-editing capabilities. Video-reference support must not cause the project architecture to become coupled to a non-existent video-editing model.
 
 The transport and timeline abstractions must therefore support a shared media clock suitable for future multitrack, picture sync, recording, and external-reference use.
+
+---
+
+## REQ-AUDIO-220 — Native-Rate Reading of Uncompressed Audio
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-AUDIO-010` by `ADR-0050`
+
+AudioGubbins must import a WAV or AIFF file that holds uncompressed PCM into the open project as an asset of that project, read by its own readers at the sample rate the file was recorded at. The browser's audio decoder must not read these files, because it resamples to its own rate and does not report the file's.
+
+Reading must cover:
+
+- WAV: integer PCM of 8 to 32 bits and IEEE floating-point PCM of 32 and 64 bits, in the plain and `WAVE_FORMAT_EXTENSIBLE` forms, and RF64 and BW64 for files larger than 4 GiB
+- AIFF: integer PCM of 8 to 32 bits
+- AIFF-C without compression: integer PCM of 8 to 32 bits in either byte order, and floating-point PCM of 32 and 64 bits
+- Any sample rate and any channel count the file declares, with the channel layout its header states, or no stated layout where it states none
+
+The format must be recognised from the file's contents, never from its name alone.
+
+Reading must not resample. Each sample is converted to the engine's representation by one stated rule that gives the same result on every machine.
+
+A file must be read in chunks, on demand and off the UI thread, and never held whole in memory to be imported, played or drawn. Every read must be cancellable.
+
+The asset must record the file's sample rate, bit depth, sample encoding, channel layout and duration in its provenance.
+
+A file in a format this requirement does not cover must be refused before anything is stored, with a message naming its format and the formats that can be read. A malformed file must fail without changing the project. A file whose audio data ends before the length it declares, as a recording cut off by a crash does, must be read to its last whole frame, and the shortfall reported.
+
+The source file's bytes must not change, whether it is copied into the project or linked where it lies.
 
 ---

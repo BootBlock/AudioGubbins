@@ -45,6 +45,9 @@
       "adr/ADR-0017-input-model-package.md",
       "adr/ADR-0018-reader-facing-text-package.md",
       "adr/ADR-0019-tests-take-the-fixtures-package.md",
+      "adr/ADR-0020-project-storage-packages.md",
+      "adr/ADR-0021-annotations-move-with-native-rate-import.md",
+      "adr/ADR-0022-storage-core-in-a-worker.md",
       "adr/ADR-0030-audio-engine-package-topology.md",
       "adr/ADR-0031-narrow-wasm-boundary.md",
       "adr/ADR-0032-canonical-arithmetic.md",
@@ -56,7 +59,8 @@
       "adr/ADR-0044-renderer-backends.md",
       "adr/ADR-0045-signal-recipes.md",
       "adr/ADR-0046-video-reference-binding.md",
-      "adr/ADR-0047-session-annotations.md"
+      "adr/ADR-0047-session-annotations.md",
+      "adr/ADR-0050-native-rate-reading-in-phase-05.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",

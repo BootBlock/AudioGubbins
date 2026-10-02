@@ -135,6 +135,8 @@ Users can import common audio formats, render projects/regions through the canon
 - `REQ-AUDIO-050` — Presets and Advanced Codec Controls (`CURRENT`)
 - `REQ-ARCH-054` — Export Collision Policy (`CURRENT`)
 
+Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-010` as `REQ-AUDIO-220` and is Phase 05's (`ADR-0050`); this phase's codecs extend the read contract Phase 05 introduces in `packages/codecs`.
+
 ## Referenced Global Execution Requirements
 
 - `REQ-EXEC-136`
@@ -155,26 +157,26 @@ Users can import common audio formats, render projects/regions through the canon
 ## In Scope
 
 - [ ] Codec registry/abstraction
-- [ ] WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A support where legally/technically viable
-- [ ] WAV integer/float bit depths and sample rates
+- [ ] FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A import, the compressed encodings WAV and AIFF-C can carry, and WAV/AIFF/FLAC/MP3/Ogg Vorbis/Opus/AAC-M4A export, where legally/technically viable (uncompressed WAV and AIFF reading is Phase 05's, `ADR-0050`)
+- [ ] WAV integer/float bit depths and sample rates for writing
 - [ ] Multichannel metadata/layout preservation
 - [ ] Metadata/loop metadata
-- [ ] Import analysis/progress/cancellation
+- [ ] Import analysis/progress/cancellation for the formats this phase adds, and batch import
 - [ ] Export quality/expert controls
 - [ ] Collision policy
 - [ ] Deterministic/application-owned codecs where required
 - [ ] Streaming/chunked I/O
-- [ ] Importing audio into the open project at its native rate, and opening the project's assets in the editor, whose per-asset markers and regions then move into the project as project commands with the same inverses, removing the session holder (`ADR-0047`, `ADR-0021`)
 
 ## Explicitly Out of Scope
 
 - Godot-specific live export semantics
 - Batch variation generation
 - Cloud encoding
+- Importing uncompressed WAV and AIFF at the native rate, opening the project's assets in the editor, and moving the markers and regions into the project, which are Phase 05's (`ADR-0050`, amending `ADR-0021`)
 
 ## Owned Modules / Packages
 
-- `packages/codecs`
+- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; this phase adds its registry, decoders and writers, `ADR-0050`)
 - `packages/import-export`
 - `packages/export-recipes core`
 - `crates/codec-* as selected`
@@ -191,7 +193,7 @@ Users can import common audio formats, render projects/regions through the canon
 - CodecCapability
 - ImportJob
 - ExportJob
-- AudioFormatDescriptor
+- AudioFormatDescriptor (introduced by Phase 05, `ADR-0050`; extended here)
 - MetadataMap
 - ExportSettings
 - CollisionPolicy
@@ -217,8 +219,8 @@ Users can import common audio formats, render projects/regions through the canon
 
 ### WU-09.A — Codec contracts and WAV
 
-- [ ] Implement registry, sniffing and streaming interfaces
-- [ ] Implement comprehensive WAV read/write including float/integer/multichannel/metadata
+- [ ] Implement the registry and capability descriptors over Phase 05's read contract, and the streaming write interface
+- [ ] Implement comprehensive WAV writing, the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
 
 ### WU-09.B — Common codecs
 
@@ -337,6 +339,8 @@ Codec support must use capability detection and must not assume that all browser
 
 Fallback implementations may use WebAssembly or other portable mechanisms where beneficial.
 
+Reading WAV and AIFF files that hold uncompressed PCM at their native rate is `REQ-AUDIO-220`, Phase 05's (split from this group by `ADR-0050`). This group keeps every other import format, the compressed encodings WAV and AIFF-C can carry, all export, metadata and loop metadata, and capability detection and fallbacks, and its readers extend the read contract that requirement introduces.
+
 ---
 
 ## REQ-AUDIO-050 — Presets and Advanced Codec Controls
@@ -374,6 +378,35 @@ Supported policies should include, where appropriate:
 - Apply to all remaining collisions in the batch
 
 For rapid Godot iteration, the user may configure trusted export destinations to silently overwrite matching generated assets so that switching back to Godot immediately reflects updated audio.
+
+---
+
+## REQ-AUDIO-220 — Native-Rate Reading of Uncompressed Audio
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-AUDIO-010` by `ADR-0050`
+
+AudioGubbins must import a WAV or AIFF file that holds uncompressed PCM into the open project as an asset of that project, read by its own readers at the sample rate the file was recorded at. The browser's audio decoder must not read these files, because it resamples to its own rate and does not report the file's.
+
+Reading must cover:
+
+- WAV: integer PCM of 8 to 32 bits and IEEE floating-point PCM of 32 and 64 bits, in the plain and `WAVE_FORMAT_EXTENSIBLE` forms, and RF64 and BW64 for files larger than 4 GiB
+- AIFF: integer PCM of 8 to 32 bits
+- AIFF-C without compression: integer PCM of 8 to 32 bits in either byte order, and floating-point PCM of 32 and 64 bits
+- Any sample rate and any channel count the file declares, with the channel layout its header states, or no stated layout where it states none
+
+The format must be recognised from the file's contents, never from its name alone.
+
+Reading must not resample. Each sample is converted to the engine's representation by one stated rule that gives the same result on every machine.
+
+A file must be read in chunks, on demand and off the UI thread, and never held whole in memory to be imported, played or drawn. Every read must be cancellable.
+
+The asset must record the file's sample rate, bit depth, sample encoding, channel layout and duration in its provenance.
+
+A file in a format this requirement does not cover must be refused before anything is stored, with a message naming its format and the formats that can be read. A malformed file must fail without changing the project. A file whose audio data ends before the length it declares, as a recording cut off by a crash does, must be read to its last whole frame, and the shortfall reported.
+
+The source file's bytes must not change, whether it is copied into the project or linked where it lies.
 
 ---
 
@@ -1136,6 +1169,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-ARCH-085` keeps each asset at its native sample rate. A marker is stored at its asset's own frames, so an asset stored at another rate would put every stored marker in the wrong place once the file is read at its own rate. The browser's decoder (`decodeAudioData`, which Phase 04 uses for a picture's sound) resamples to its context's rate and reports no rate of its own, and nothing on the branch reads a file's rate: reading formats is `REQ-AUDIO-010`, Phase 09's, whose packet says the browser's codecs are not assumed. Phase 02's packet puts audio decoding and the waveform editor out of its scope.
 - **Constraints:** the move keeps what `ADR-0047` asked of it: the markers and regions become project state, the marker commands become project commands with the same inverses, and the in-memory holder (`apps/web/src/state/session-content.ts`) is removed, with no persisted format for the session's markers before then. The project's history already reaches every asset (`REQ-STOR-021`), so a marker becomes undoable with the project's own undo; today the marker commands return inverses that no history keeps. Phase 09 owns importing at the native rate, and the move with it. Phase 05's packet persists regions and edit operations in the project, which meets the same need first, because Phase 09 depends on Phase 05: Phase 05's readiness review settles, by a change record, whether native-rate reading is brought forward into Phase 05 or its region editing stays the session's until Phase 09.
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-ARCH-085`, `REQ-AUDIO-010`; affected phases 02, 05 and 09 (Phase 04, already passed, needs no remediation: its session holder stands as its ADR describes, and only the interface sentence that named the project system as the arrival is corrected); Phase 09's packet gains the import at the native rate and the move, and Phase 05's packet names the question its readiness review settles; compatibility impact none, because nothing persists the session's markers; verification by the editor panel test of the sentence that says markers are not kept, and in Phase 09 by the move's own tests.
+- **Amended by:** `ADR-0050` (2026-10-02), in the Constraints clause that Phase 09 owns importing at the native rate and the move with it. Phase 05's readiness review settled the question this record left to it: native-rate reading of uncompressed PCM is brought forward into Phase 05, which imports audio into the project at its own rate, opens the project's assets in the editor, moves the markers and regions into the project and removes the in-memory holder. Phase 09 keeps export, the compressed formats and batch import. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-ARCH-085`, `REQ-AUDIO-010`, `REQ-STOR-021`, `REQ-EXEC-181`.
 
 <!-- adr/ADR-0022-storage-core-in-a-worker.md -->
@@ -1270,7 +1304,20 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** this is temporary by `REQ-EXEC-181`'s rule, with a stated removal boundary: when Phase 02's project session is on the branch, the markers and regions move into the project, these commands become project commands with the same inverses, and the in-memory holder is removed. No persisted format is introduced for them.
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-061`; affected phases 02, 04 and 05; compatibility impact none; verification by the marker command tests and the multi-view browser test.
 - **Amended by:** `ADR-0021`, in the removal boundary of the Constraints clause. The markers and regions move into the project when the editor opens the project's own assets, which needs audio imported at its own rate (Phase 09), not when Phase 02's project session is on the branch. Every other clause stands.
+- **Amended by:** `ADR-0050` (2026-10-02), in the phase `ADR-0021` gave the removal boundary: audio imported at its own rate arrives in Phase 05, not Phase 09, so the markers and regions move into the project and the in-memory holder is removed there. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-AUDIO-156`, `REQ-EXEC-181`.
+
+<!-- adr/ADR-0050-native-rate-reading-in-phase-05.md -->
+
+# ADR-0050 — Phase 05 Reads Uncompressed Audio At Its Own Rate, And The Markers Move Into The Project There
+
+- **Status:** Accepted
+- **Decision:** Phase 05's readiness review brings native-rate reading forward from Phase 09, settling the question `ADR-0021` left to it. From Phase 05 on, audio a person imports becomes an asset of the open project, read by AudioGubbins' own readers at the rate the file was recorded at, and the editor opens the project's assets. What moves is the reading of the formats that hold uncompressed PCM, split from `REQ-AUDIO-010` as `REQ-AUDIO-220`: WAV (integer PCM of 8 to 32 bits and IEEE floating-point PCM of 32 and 64 bits, plain and `WAVE_FORMAT_EXTENSIBLE`, with RF64 and BW64 for files past 4 GiB) and AIFF and uncompressed AIFF-C (integer PCM of 8 to 32 bits, either byte order, and floating-point PCM of 32 and 64 bits), at any rate and channel count the file declares, with the channel layout its header states. Phase 05 also takes what was waiting on that import: running Phase 02's import pipeline from the interface with the person's copy-or-link setting, recording each source's rate, bit depth, channel layout and duration in its provenance (`REQ-STOR-166`), playing and drawing a project asset through the feeder, render and peak workers, auditioning the two states of an A/B comparison (`REQ-STOR-195`), and the move of the markers and regions into the project that `ADR-0047` and `ADR-0021` describe. Regions, edit operations and markers are kept in the project and undone with its history from Phase 05 on. Phase 09 keeps export and every writer, the compressed formats and their decoders (FLAC, MP3, Ogg Vorbis, Opus, AAC/M4A, and the compressed codes WAV and AIFF-C can carry, ADPCM, µ-law and A-law among them), the metadata and loop metadata a file carries, codec capability detection and fallbacks, import analysis for those codecs, and batch import.
+- **Drivers:** `REQ-EDIT-014` is Phase 05's, and a region is only worth editing if it is kept: under `ADR-0021` as it stood, Phase 05 would have built regions and edit operations, persisted them nowhere the editor could reach, and left Phase 09 to move them, so the phase's central acceptance criterion, that every core edit survives save and reload, could not have been met on real audio. `REQ-ARCH-085` keeps each asset at its native rate, and a marker, a region boundary and an edit operation are all stored at their asset's own frames, so they can be persisted only against audio read at the rate it was recorded at; the browser's decoder (`decodeAudioData`) resamples to its context's rate and reports no rate of its own, so it cannot be the reader. Uncompressed PCM is the set that meets that need without a codec: reading it is parsing a container, whose every sample is checked bit for bit against its fixture, while each compressed format needs a decoder whose licence, build and capability rules are Phase 09's codec work (`REQ-AUDIO-010`, Phase 09's packet). WAV is the working format of game audio and AIFF its counterpart on macOS, and the two share one verification domain, so a project can be started from the files a sound designer records and exchanges, and nothing else in the import path is left for later.
+- **Constraints:** the readers are the first implementations of the read contract in `packages/codecs`: the format recognised from the file's bytes, never its name alone; an `AudioFormatDescriptor` of its rate, bit depth, sample encoding, channel count, layout and length in frames; and frames read on demand, in chunks, at the native rate, off the UI thread, with every read taking an `AbortSignal`. A file is never read whole into memory to import, play or draw it. Phase 09 extends this contract with its registry, capability descriptors, decoders and writers, and does not introduce a second one. Samples are converted to the engine's representation by one stated rule, giving the same bits on every machine (`ADR-0032`), and nothing is resampled. A file in a format Phase 05 does not read is refused before anything is stored, with a sentence naming the format and the formats that can be read. A malformed or hostile file fails without changing the project. A file whose data runs short of its declared length, as a recording cut off by a crash does, is read to its last whole frame and the shortfall said, never refused whole. The source bytes stay unchanged, copied into the media store or linked as the person chose (`REQ-STOR-025`, `REQ-STOR-104`). The markers and regions become project state through project commands with the same inverses, a region carries its edit operations, and the project's history undoes and redoes all of them (`REQ-STOR-021`); persisting them raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`). The in-memory holder (`apps/web/src/state/session-content.ts`) is removed, with the interface's sentence that markers are not kept. Audio that is not an asset of the project, the deterministic test assets and the sound of a reference picture, carries no markers or regions, and the marker and region tools say why on it. The picture's sound is still decoded by the browser, so the bound on its channels that Phase 04 left stays Phase 09's. Of the Phase 02 review's tracked findings, F-42 (the peak cache's readiness wiring) and the reserved-key half of F-53 pass to Phase 05, the first phase to open the project's own assets in the editor and to bring linked files in from the interface; F-51 stays Phase 09's.
+- **Change record:** affected requirements `REQ-AUDIO-010` (its uncompressed PCM reading split out), `REQ-AUDIO-220` (new, owner Phase 05), `REQ-ARCH-085`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-STOR-025`, `REQ-STOR-166` and `REQ-STOR-195`; affected phases 05, which becomes `READY` with this scope, and 09, which loses the import at the native rate of uncompressed PCM and the move of the markers and keeps the rest; Phases 02, 03 and 04, already passed, need no remediation, since what they deferred to the import is now Phase 05's and their handoffs stand as records. Compatibility impact: the project's format gains regions, edit operations and markers, raising its schema version; no build has shipped, so no stored project is affected. Public API: `packages/codecs` is created by Phase 05, with the read contract and `AudioFormatDescriptor`. Godot interchange and runtime: none. PWA and browser: none, since no browser codec is used for these formats. Verification: codec fixtures for every encoding, depth, byte order and form named above, checked sample for sample; malformed and truncated files; a project round trip of imported assets with their markers, regions and edit operations through save, reload and undo, redo and branch traversal; source hashes unchanged after import and editing; and the browser test that imports a file and finds its markers after a reload.
+- **Amends:** `ADR-0021`, in its clause that Phase 09 owns importing at the native rate and the move with it. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-085`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-STOR-025`, `REQ-STOR-052`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-STOR-195`, `REQ-EXEC-181`.
 
 # Passed Dependency Handoffs
 

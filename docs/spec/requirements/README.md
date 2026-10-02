@@ -6,14 +6,14 @@
 >
 > **Requirement groups:** Each `REQ-*` identifier owns the complete requirement block beneath it. Every bullet and invariant in the block is part of that requirement group unless explicitly marked otherwise.
 
-Canonical requirement groups: **215**.
+Canonical requirement groups: **216**.
 
 ## Modules
 
 - [Product and Scope Requirements](./product.md) — prefix `PROD` — 14 requirement groups
 - [Architecture and Runtime Requirements](./architecture.md) — prefix `ARCH` — 20 requirement groups
 - [Editing and Timeline Requirements](./editing.md) — prefix `EDIT` — 12 requirement groups
-- [Audio Formats, DSP, ML, and Media Requirements](./audio.md) — prefix `AUDIO` — 16 requirement groups
+- [Audio Formats, DSP, ML, and Media Requirements](./audio.md) — prefix `AUDIO` — 17 requirement groups
 - [Recording and Audio I/O Requirements](./recording.md) — prefix `REC` — 10 requirement groups
 - [Project, Storage, History, and Recovery Requirements](./storage.md) — prefix `STOR` — 25 requirement groups
 - [Game-Audio Authoring Requirements](./game.md) — prefix `GAME` — 9 requirement groups

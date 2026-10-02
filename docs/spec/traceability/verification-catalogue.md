@@ -46,6 +46,9 @@ These identifiers are planning-level verification suites. Implementation phases 
 - `EDIT-PROPERTY` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 - `EDIT-E2E` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 - `DATA-ROUNDTRIP` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `CODEC-UNIT` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `CODEC-FIXTURES` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
+- `CODEC-MALFORMED` — verification family owned by this phase; exact command/evidence is defined in the Phase Packet and implementation evidence.
 
 ## Phase 06 — Effect Rack and Core DSP
 
