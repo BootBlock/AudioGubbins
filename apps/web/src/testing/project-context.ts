@@ -76,7 +76,7 @@ export interface ScriptedFiles extends TransferFiles {
 export const CHOSEN_FOLDER_NAME = 'Sounds';
 
 /** Files scripted by the test, with the folder picker where `canWriteFolders`. */
-function scriptedFiles(canWriteFolders = true): ScriptedFiles {
+export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
   const files: ScriptedFiles = {
     saved: [],
     bundles: [],
@@ -161,6 +161,12 @@ export interface ProjectWorld {
   readonly storage: HostServices;
 
   /**
+   * A page joined to a storage worker of its own over the world's storage,
+   * for a test that composes the project system itself.
+   */
+  page(context: ShellContext): ProjectServices;
+
+  /**
    * Opens a window: its storage root is opened and its list read, and its
    * backups folder looked for, as the application starts.
    */
@@ -230,14 +236,18 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
     tab: { name: 'the test', seed: 7 },
   });
   let windows = 0;
+  const page = (context: ShellContext): ProjectServices => {
+    windows += 1;
+    return pageOf(world, clock, context, windows);
+  };
   const world: ProjectWorld = {
     tree,
     coordinator,
     storage,
+    page,
     window: async (options = {}) => {
-      windows += 1;
       const built = buildShellContext();
-      const services = pageOf(world, clock, built.context, windows);
+      const services = page(built.context);
       const files = scriptedFiles(options.canWriteFolders);
       const lifetime = new AbortController();
       const root = new StorageRoot(services.client.root, lifetime.signal);

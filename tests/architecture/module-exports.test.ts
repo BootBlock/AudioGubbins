@@ -210,6 +210,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   "The test signal's request at a context rate the test names, whose graph and source its tests read; the transport reaches it through `TEST_SIGNAL_PROGRAMME`.":
     ['apps/web/src/audio/test-signal.ts: testSignalPlayback'],
+  "The project system over storage services and page ports given, which its test makes over storage in memory to hold the peak cache to a ready root; the application starts it through `startProjectSystem`, which starts the browser's storage worker.":
+    ['apps/web/src/state/project-system.ts: projectSystemOver'],
   "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
     ['apps/web/src/editor-part.ts: panelPartsOf'],
   "The asset a picture's decoded sound makes, which its tests build from arrays they name; the application reaches it through `decodePictureSound`, which a test cannot hand a browser's decoder.":
