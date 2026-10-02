@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, expectTypeOf, it } from 'vitest';
@@ -7,11 +7,13 @@ import { LogSeverity, createDiagnosticCentre, createLogStore } from '@audiogubbi
 import {
   ALL_FEATURES,
   createCapabilityRegistry,
+  missingStorageCapabilities,
   type CapabilityEnvironment,
 } from '@audiogubbins/capabilities';
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
+import { ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
@@ -79,7 +81,6 @@ function bareEnvironment(): CapabilityEnvironment {
     comparesNames: false,
     hasVideoFrameCallback: false,
     hasFullscreen: false,
-    hasIndexedDb: false,
   };
 }
 
@@ -104,40 +105,44 @@ describe('what a panel is given', () => {
 });
 
 describe('every panel', () => {
-  it.each([...Object.values(PanelKinds), 'a-kind-this-build-does-not-have'])(
-    'draws %s with its heading and no region',
-    (kind) => {
-      const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
-      render(
-        <>
-          {renderPanel({ id: 'probe', kind }, 'Probe', {
-            capabilities: createCapabilityRegistry(
-              bareEnvironment(),
-              createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
-            ),
-            logs: createLogStore(),
-            logViews: createLogViewStore(),
-            diagnosticModeActive: false,
-            audio: createAudioViewStore(),
-            audioSettings: createAudioSettingsStore(
-              createStateStorage(ephemeralStorage(), logger, () => undefined),
-              logger,
-            ),
-            renderStrategy: createRenderStrategyStore(),
-            playhead: () => undefined,
-            meters: () => NO_METERS,
-            framesRendered: () => 0,
-            run: () => undefined,
-            unavailableReason: () => undefined,
-            editor: fakePanelParts(buildShellContext().context, logger),
-          })}
-        </>,
-      );
+  it.each([
+    ...Object.values(PanelKinds),
+    ...Object.values(ProjectPanelKinds),
+    'a-kind-this-build-does-not-have',
+  ])('draws %s with its heading and no region', (kind) => {
+    const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
+    render(
+      <>
+        {renderPanel({ id: 'probe', kind }, 'Probe', {
+          capabilities: createCapabilityRegistry(
+            bareEnvironment(),
+            createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+          ),
+          logs: createLogStore(),
+          logViews: createLogViewStore(),
+          diagnosticModeActive: false,
+          storageAbsences: [],
+          projects: undefined,
+          projectsUnavailable: 'This test keeps no projects.',
+          audio: createAudioViewStore(),
+          audioSettings: createAudioSettingsStore(
+            createStateStorage(ephemeralStorage(), logger, () => undefined),
+            logger,
+          ),
+          renderStrategy: createRenderStrategyStore(),
+          playhead: () => undefined,
+          meters: () => NO_METERS,
+          framesRendered: () => 0,
+          run: () => true,
+          unavailableReason: () => undefined,
+          editor: fakePanelParts(buildShellContext().context, logger),
+        })}
+      </>,
+    );
 
-      expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
-      expect(screen.queryAllByRole('region')).toEqual([]);
-    },
-  );
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(screen.queryAllByRole('region')).toEqual([]);
+  });
 });
 
 describe('the diagnostic log panel', () => {
@@ -289,6 +294,7 @@ describe('the capability panel', () => {
         title="Capabilities"
         capabilities={registry}
         renderers={createRendererReports()}
+        storageAbsences={[]}
       />,
     );
 
@@ -323,6 +329,7 @@ describe('the capability panel', () => {
         title="Capabilities"
         capabilities={registry}
         renderers={createRendererReports()}
+        storageAbsences={[]}
       />,
     );
 
@@ -357,6 +364,7 @@ describe('the capability panel', () => {
         title="Capabilities"
         capabilities={registry}
         renderers={createRendererReports()}
+        storageAbsences={[]}
       />,
     );
 
@@ -408,5 +416,52 @@ describe('filtering the diagnostic log', () => {
 
   it('can leave nothing, which is what the panel says the filter did', () => {
     expect(recordsPassing(records, LogSeverity.Error, 'commands')).toEqual([]);
+  });
+});
+
+describe('what the browser lacks for keeping projects', () => {
+  it('lists each missing part with what AudioGubbins does instead and what can be done', () => {
+    const registry = createCapabilityRegistry(
+      bareEnvironment(),
+      createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('capabilities'),
+    );
+    const absences = missingStorageCapabilities({
+      originPrivateFileSystem: true,
+      locks: undefined,
+      openBroadcastChannel: undefined,
+      persistence: undefined,
+      estimate: undefined,
+      pickers: undefined,
+      indexedDb: undefined,
+      subtle: undefined,
+      randomBytes: undefined,
+      hostYielding: { kind: 'none' },
+    });
+
+    render(
+      <CapabilitiesPanel
+        title="Capabilities"
+        capabilities={registry}
+        renderers={createRendererReports()}
+        storageAbsences={absences}
+      />,
+    );
+
+    const keeping = screen.getByRole('group', { name: 'Keeping projects' });
+    expect(
+      within(keeping).getByText(
+        'This browser cannot agree between tabs which one may change a project.',
+      ),
+    ).toBeVisible();
+    expect(
+      within(keeping).getByText(
+        /Projects open read-only, so two tabs can never overwrite each other\./,
+      ),
+    ).toBeVisible();
+    expect(
+      within(keeping).getAllByText(
+        'Open AudioGubbins from its https:// address rather than an insecure one.',
+      ),
+    ).not.toEqual([]);
   });
 });

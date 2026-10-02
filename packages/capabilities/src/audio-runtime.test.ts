@@ -36,7 +36,6 @@ const NOTHING_FOR_AUDIO: CapabilityEnvironment = {
   comparesNames: true,
   hasVideoFrameCallback: true,
   hasFullscreen: true,
-  hasIndexedDb: true,
 };
 
 function registryOf(environment: Partial<CapabilityEnvironment>): CapabilityRegistry {

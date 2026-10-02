@@ -32,6 +32,7 @@ import {
   read,
   sourcesMatching,
 } from './source-reading.js';
+import { valuesTaken } from './value-imports.js';
 
 /**
  * Executable architecture constraints (REQ-EXEC-184).
@@ -243,6 +244,49 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/text',
     '@audiogubbins/version',
   ],
+  '@audiogubbins/project-format': [
+    '@audiogubbins/domain',
+    '@audiogubbins/text',
+    '@audiogubbins/version',
+  ],
+  '@audiogubbins/project-commands': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/project-format',
+  ],
+  '@audiogubbins/history': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/project-format',
+  ],
+  '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/storage': [
+    '@audiogubbins/domain',
+    '@audiogubbins/commands',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/history',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-format',
+    '@audiogubbins/version',
+  ],
+  '@audiogubbins/browser-storage': [
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-format',
+    '@audiogubbins/storage',
+  ],
+  '@audiogubbins/storage-runtime': [
+    '@audiogubbins/browser-storage',
+    '@audiogubbins/capabilities',
+    '@audiogubbins/commands',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/domain',
+    '@audiogubbins/history',
+    '@audiogubbins/media-store',
+    '@audiogubbins/project-commands',
+    '@audiogubbins/project-format',
+    '@audiogubbins/storage',
+  ],
   '@audiogubbins/test-fixtures': ['@audiogubbins/domain'],
 };
 
@@ -259,7 +303,16 @@ const FIXTURES = '@audiogubbins/test-fixtures';
  * package needs it, and the domain package's tests cannot take it, since the
  * fixtures package depends on the domain package.
  */
-const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set(['diagnostics', 'text']);
+const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
+  'browser-storage',
+  'diagnostics',
+  'history',
+  'media-store',
+  'project-commands',
+  'project-format',
+  'storage',
+  'text',
+]);
 
 /** A rule of the cruise, as much of it as the rules here read. */
 interface CruiserRule {
@@ -689,8 +742,13 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'commands',
     'domain',
     'editor-view',
+    'history',
     'input',
+    'media-store',
+    'project-commands',
+    'project-format',
     'renderer',
+    'storage',
     'text',
     'timeline',
     'version',
@@ -923,6 +981,136 @@ describe('third-party libraries stay behind their adapters', () => {
     );
 
     expect(offenders).toEqual([]);
+  });
+});
+
+/**
+ * The values the page may take from the packages that keep projects, each
+ * under the reason the work is the page's own (see the rule below).
+ */
+const PAGE_VALUES: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+  '@audiogubbins/storage': {
+    'The kinds of cache and the order a cleanup offers them in, constants the storage commands and the peak cache name a cache by.':
+      ['CACHE_CLEANUP_ORDER', 'CacheCategory'],
+    'The scope of a cache kept for audio the storage does not hold, made from the digest of its identity: a pure function, which the peak cache names each cache by before the worker keeps it.':
+      ['unstoredScope'],
+    'The project a folder export was refused for holding, read from the refusal the worker answered: a pure function, which the transfer store asks the person about.':
+      ['anotherProjectIn'],
+    'Whether a write the session could not make was refused for want of room: a pure function over the failure the worker answered, beside the one that makes that failure, which the pressure relief answers by giving up caches.':
+      ['isStorageFull'],
+    'Why a write or a backup the worker answered was refused: pure functions over the failure, beside the ones that make it, which the backup notices word for the person.':
+      ['storageRefusalOf', 'unreadableStateOf'],
+  },
+  '@audiogubbins/media-store': {
+    'What became of a linked file and what the person may do about it: pure decisions over the identity the worker examined, which the source change store puts to the person.':
+      ['classifySource', 'resolutionsFor'],
+    "The choices of how a file is brought in, constants the person's setting holds so the import pipeline takes the choice the setting names.":
+      ['SourceHandling'],
+  },
+  '@audiogubbins/browser-storage': {
+    'The kept handles of linked files and of the backups folder, and the tokens they are kept under, which only the page may ask the person leave to use.':
+      [
+        'FileHandleKeeper',
+        'FolderUse',
+        'randomTokens',
+        'reopenKeptFile',
+        'reopenKeptFolder',
+        'requestKeptFileAccess',
+        'requestKeptFolderAccess',
+      ],
+    "The pickers and the page's own file input, which a browser opens only in the handler of the person's gesture.":
+      ['filesFromInput', 'pickDirectory', 'pickFiles', 'pickSaveFile'],
+    'The sinks and the folder over what the person chose, which the page lends the worker for one call.':
+      ['BlobSink', 'openFileSink', 'openFileSinkIn', 'writableFolder'],
+    "The browser's SHA-256, which names the caches the editor keeps.": ['webDigest'],
+  },
+};
+
+describe('the page keeps no storage core of its own (ADR-0022)', () => {
+  /** The values listed for a package, or none where it is not one that keeps projects. */
+  const allowed = (pkg: string): ReadonlySet<string> =>
+    new Set(Object.values(PAGE_VALUES[pkg] ?? {}).flat());
+
+  // Every application file that ships, its tests and their support excluded:
+  // a test world owns both ends of the port, and prepares storage as another
+  // window would.
+  const PAGE_FILES = PRODUCTION_FILES.filter((path) => path.startsWith('apps/web/src/'));
+
+  /** Each value a page file takes from a package that keeps projects, or by a computed name. */
+  const takenByThePage = (): readonly {
+    readonly where: string;
+    readonly pkg: string;
+    readonly name: string;
+  }[] =>
+    PAGE_FILES.flatMap((path) =>
+      valuesTaken(parse(path)).flatMap(({ module, name }) => {
+        const pkg = module === '(computed)' ? module : packageOf(module);
+        return pkg !== undefined && (pkg in PAGE_VALUES || pkg === '(computed)')
+          ? [{ where: `${path}: ${module} ${name}`, pkg, name }]
+          : [];
+      }),
+    );
+
+  it('takes types from the packages that keep projects, and only the values listed with their reason', () => {
+    // ADR-0022 keeps the storage core in one worker, so the page holds no
+    // project, history, tree or store of its own and asks the worker for
+    // everything through the storage runtime's client. The page may still name
+    // what those packages describe, since a type is gone before the code runs,
+    // but the only values it takes from them are the ones listed, each for work
+    // that is the page's own. A value of the storage, such as `openProject` or
+    // `ProjectRepository`, or of the tree beneath it, would be a storage core
+    // on the page again.
+    const unlisted = takenByThePage()
+      .filter(({ pkg, name }) => !allowed(pkg).has(name))
+      .map(({ where }) => where);
+
+    expect(unlisted).toEqual([]);
+  });
+
+  it('takes every value it lists, so the list says what the page does', () => {
+    const taken = new Set(takenByThePage().map(({ pkg, name }) => `${pkg} ${name}`));
+    const listed = Object.entries(PAGE_VALUES).flatMap(([pkg, reasons]) =>
+      Object.values(reasons)
+        .flat()
+        .map((name) => `${pkg} ${name}`),
+    );
+
+    expect(listed.filter((value) => !taken.has(value))).toEqual([]);
+  });
+
+  it('reads the page, which names many of their types and connects to the worker', () => {
+    const naming = PAGE_FILES.filter((path) =>
+      importsOf(path).some((specifier) => packageOf(specifier) === '@audiogubbins/storage'),
+    );
+
+    expect(naming.length).toBeGreaterThan(20);
+    expect(
+      valuesTaken(parse('apps/web/src/storage/project-services.ts')).map(({ name }) => name),
+    ).toContain('connectStorage');
+  });
+
+  it.each([
+    ['a named value', "import { openProject } from '@audiogubbins/storage';", ['openProject']],
+    [
+      'a value beside a type',
+      "import { type ProjectSession, openProject as open } from '@audiogubbins/storage';",
+      ['openProject'],
+    ],
+    ['a type alone', "import type { ProjectSession } from '@audiogubbins/storage';", []],
+    ['types named one by one', "import { type ProjectSession } from '@audiogubbins/storage';", []],
+    ['a default import', "import storage from '@audiogubbins/storage';", ['default']],
+    ['a namespace', "import * as storage from '@audiogubbins/storage';", ['*']],
+    ['an import for its effect', "import '@audiogubbins/storage';", ['(effect)']],
+    ['a re-export', "export { openProject } from '@audiogubbins/storage';", ['openProject']],
+    ['a re-export of everything', "export * from '@audiogubbins/storage';", ['*']],
+    ['a re-export of types', "export type { ProjectSession } from '@audiogubbins/storage';", []],
+    ['a dynamic import', "const storage = await import('@audiogubbins/storage');", ['*']],
+  ])('reads %s as the values it takes', (_form, code, names) => {
+    const file = ts.createSourceFile('control.ts', code, ts.ScriptTarget.Latest, true);
+
+    expect(valuesTaken(file)).toEqual(
+      names.map((name) => ({ module: '@audiogubbins/storage', name })),
+    );
   });
 });
 
@@ -2505,6 +2693,18 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       313,
       'One settings section: the profile in force and what is done to it as a whole, then one table of every command a user can bind, with the row being edited holding the recorder. Each part is already a component of its own \u2014 the header, which says once why a control that names something cannot be used, the profile actions, the conflict, reserved and waiting notes, and the row \u2014 and what is left in the section is the props they share, the reasons the header and every row read, and the one piece of state that says which row is being edited. The notes are `shortcut-notes.tsx`, the recorder is `shortcut-recorder.tsx` and the control that reads a profile from a file is `import-profile.tsx`; splitting the table from the header would separate the row from the state that decides which row is open.',
     ],
+    'apps/web/src/state/workspace-store.ts': [
+      361,
+      "The workspace partition's one owner of state: every operation on the layout on screen and the saved workspaces, the restore of a deleted one and the discard of text that could not be read among them, updates the layout, the list, the notices, the wait for room, the unread text and the deletions in one observable update. Each rule it applies is a module of its own — the custody of unread text, the reading of a stored layout, the naming of a workspace — so what is left is the state and the methods that change it together; split, two halves would each need the whole state to publish one update.",
+    ],
+    'apps/web/src/state/source-change-store.ts': [
+      300,
+      "The linked files of the open project and the person's answers to their changes: looking at each file through the kept handles, taking at once what an asset's own policy takes, asking leave to read a file in the handler of the person's gesture, and taking each answer, relinking and taking a new version through the storage worker so a protected copy is kept. Each rule it applies is a module of its own — the records and the freeze command (`source-changes.ts`), the classification and the choices (the media store), the reading and copying of a file (the worker) — so what is left is the one observable state of the changes waiting and the methods that answer them; split, each half would need that state and the look in flight it is given up with.",
+    ],
+    'packages/storage/src/project-session.ts': [
+      392,
+      'The one route every change to an open project takes: running, grouping, undoing, redoing and moving through history, snapshots, branch names, comparison, compaction, exports and checkpoints. Each operation is a few lines over the shared ordering, writing and publishing, and the parts they share are modules of their own — the writer, the write queue, ownership, the events, compaction and the history moves — so what is left is the session state and the operations that change it together; the making of its writer and the retention a policy carries out on its own are modules of their own too. Split, each half would need the whole state and the one queue that keeps records in order.',
+    ],
     'packages/diagnostics/src/path-finding.ts': [
       324,
       'Where a location starts and where it stops, for every form one is written in: a root of any kind, a path in quotes, a path without them, an address, and a file name written with no path at all. It is one algorithm read from both ends, and almost every line is a rule about a character a name can hold. Split by form, each part would need the others: a quoted path ends by the quote index the unquoted rules also read, an address ends where a path ends, and a file name ends before the name after it.',
@@ -2668,7 +2868,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Four commands that open and close the palette and the settings, each self-contained.',
     ],
     'apps/web/src/state/default-shortcuts.ts: placeDefaults': [
-      88,
+      98,
       'The bindings that ship as the default profile, each written as the character it is pressed with and given its reason; the helper that places a character, pressed with the usual modifier, on the layout the user types with, and the one that joins presses into a shortcut or names the characters it waits for; and the split of the placed defaults from those waiting for a key and those waiting for a Command press.',
     ],
     'packages/test-fixtures/src/projects.ts: sampleProject': [
@@ -2676,13 +2876,13 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
-      136,
+      142,
       'Local entry builders over one set of menu sources, so that the menus themselves are written as a declarative table.',
     ],
 
     // Factories: private state closed over, with each returned method a unit.
     'apps/web/src/state/workspace-store.ts: createWorkspaceStore': [
-      188,
+      235,
       "Twenty-six small methods over one layout store and one state, beside the state's own `get` and `subscribe`, the largest about fifteen lines. The panel operations are each a line or two over the model and share `commit`; taken out, they would take the state, the store and `commit` with them. What it writes of the collection, and the text nobody has read that it keeps aside, are decided by `workspace-custody.ts`, and the reset and removal refusals are functions of the module beside it.",
     ],
     'packages/commands/src/registry.ts: createCommandBus': [
@@ -2690,7 +2890,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'Three methods sharing a private run step and the logger; the largest, running a group, is about 45 lines.',
     ],
     'apps/web/src/state/shortcut-store.ts: createShortcutStore': [
-      130,
+      151,
       "Small methods over one profile in force, those that change it going through the shared `adopt` and `editable` helpers, and the subscription that places the defaults again as more of the keyboard layout is known. The largest, `editable`, is about a dozen lines. What identifier and name a profile is held under is the command package's, handed every profile the store holds. The profiles the user made are `user-profiles.ts`, and the defaults as placed are `shortcut-layout.ts`. The profiles as stored are `stored-profiles.ts`, and where a text that cannot be read is kept, and whether the profiles are written meanwhile, is `profile-custody.ts`, on the `text-custody.ts` the workspace's custody shares.",
     ],
     'packages/workspace/src/layout-store.ts: createLayoutStore': [
@@ -2714,14 +2914,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'A bounded store whose methods share the record arrays and their cached snapshots.',
     ],
     'apps/web/src/application.ts: createApplication': [
-      96,
-      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio and editor parts are each started by one (the editor\u2019s in `editor-part.ts`), so what is left here is the lines that hand each part its collaborators and gather what they give back.',
+      116,
+      'The composition root: it builds each store and service once and wires them together, gives each the lifetime it has, ends that lifetime on `dispose`, and routes what the dock reports to the command bus. The keyboard layout, read from the map and learned from keys, is started by a function of its own, which answers the watch it leaves on the page, and the audio, editor and project parts are each started by one (the editor part in `editor-part.ts`, the project part in `state/project-system.ts`), so what is left here is the lines that hand each part its collaborators and gather what they give back.',
     ],
 
     // Components: hooks, then the tree they draw.
     'apps/web/src/app.tsx: AudioGubbins': [
-      194,
-      "Puts together six independent surfaces, each given only what it needs. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
+      229,
+      "Puts together eight independent surfaces, the project banner and the project surfaces among them, each given only what it needs; the status bar is given the project's save and backup status, each a component of its own. The chord wiring, the dock's report and what the shell reads are hooks of their own; what remains are three-line callbacks it hands the surfaces.",
     ],
     'apps/web/src/shell/command-palette.tsx: CommandPalette': [
       122,
@@ -2748,8 +2948,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "A strip of short independent statements, with one focus effect for a dismissed notice. The bar's own height is published through the hook the notice surface publishes its height with, rather than by an effect written out here as well.",
     ],
     'apps/web/src/shell/settings-dialog.tsx: SettingsDialog': [
-      67,
-      'Puts five independent settings sections together as tabs, handing the Shortcuts section its props whole.',
+      75,
+      "Puts six independent settings sections together as tabs, handing the Shortcuts section its props whole, and the project system's tabs, which `projectTabs` builds.",
     ],
     'apps/web/src/shell/settings/appearance.tsx: Appearance': [
       66,

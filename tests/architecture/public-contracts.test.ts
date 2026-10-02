@@ -484,7 +484,9 @@ describe('public contracts', () => {
     expect(
       ts.formatDiagnostics(diagnostics, ts.createCompilerHost(PROGRAM.getCompilerOptions())),
     ).toBe('');
-  });
+    // Type-checking every package grows with the code, past the default
+    // timeout on a busy machine; what it checks does not change.
+  }, 60_000);
 
   it('offers exactly what the record of every package says', async () => {
     const record = recordOfTheTree();

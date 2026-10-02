@@ -36,6 +36,7 @@ import {
 import { showPanelCommandId } from '../commands/panel-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { WorkspaceState } from '../state/workspace-store.js';
+import { projectMenus } from './project-menus.js';
 
 /** One menu of the menu bar. */
 export interface ShellMenu {
@@ -310,6 +311,7 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
   });
 
   return [
+    ...projectMenus({ context, entry, targetEntry, labelled }),
     {
       label: 'View',
       groups: [
@@ -349,6 +351,7 @@ export function shellMenus(sources: MenuSources): readonly ShellMenu[] {
           'workspace.duplicate',
           'workspace.reset',
           'workspace.delete',
+          'workspace.restore',
         ]),
       ],
     },

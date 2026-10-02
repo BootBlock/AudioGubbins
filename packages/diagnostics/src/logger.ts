@@ -137,7 +137,25 @@ export interface DiagnosticCentre {
 
   /** Turns diagnostic mode off and restores the previous verbosity. */
   stopDiagnosticMode(): void;
+
+  /**
+   * Where the records another thread's loggers made are written, such as the
+   * storage worker's. Each is kept or dropped as this centre's own loggers'
+   * records are, by the verbosity in force for its category, so one setting
+   * governs the records of every thread, and the shared bundle redacts them
+   * all alike.
+   */
+  readonly relay: LogSink;
 }
+
+/**
+ * The severity a measurement is admitted at. A measurement is detail, so it is
+ * admitted on the same terms as a Debug record. Collecting measurements
+ * regardless of verbosity would make "user-configurable verbosity" untrue for
+ * the one category whose volume scales with how hard the application is
+ * working.
+ */
+const MEASUREMENT_SEVERITY = LogSeverity.Debug;
 
 /** What a logger writes through: where records go, the time, and the level in force. */
 interface LogWriter {
@@ -195,11 +213,7 @@ function createLogger(category: string, writer: LogWriter, correlationId?: Corre
     },
 
     measured: (operation, durationMs, fields = {}) => {
-      // A measurement is detail, so it is admitted on the same terms as a
-      // Debug record. Collecting measurements regardless of verbosity would
-      // make "user-configurable verbosity" untrue for the one category whose
-      // volume scales with how hard the application is working.
-      if (!severityPasses(LogSeverity.Debug, writer.thresholdFor(category))) return;
+      if (!severityPasses(MEASUREMENT_SEVERITY, writer.thresholdFor(category))) return;
 
       const record: PerformanceRecord = {
         timestamp: writer.clock.now(),
@@ -213,6 +227,23 @@ function createLogger(category: string, writer: LogWriter, correlationId?: Corre
     },
 
     forOperation: (nextCorrelationId) => createLogger(category, writer, nextCorrelationId),
+  };
+}
+
+/**
+ * Where another thread's records are written into `sink`: each admitted as a
+ * logger here admits its own, by the level in force for its category.
+ */
+function relayInto(sink: LogSink, thresholdFor: (category: string) => LogSeverity): LogSink {
+  return {
+    write: (record) => {
+      if (severityPasses(record.severity, thresholdFor(record.category))) sink.write(record);
+    },
+    writePerformance: (record) => {
+      if (severityPasses(MEASUREMENT_SEVERITY, thresholdFor(record.category))) {
+        sink.writePerformance(record);
+      }
+    },
   };
 }
 
@@ -305,5 +336,7 @@ export function createDiagnosticCentre(
       verbosityBeforeDiagnosticMode = undefined;
       diagnosticModeEndsAt = undefined;
     },
+
+    relay: relayInto(sink, thresholdFor),
   };
 }

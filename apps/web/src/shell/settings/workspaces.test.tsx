@@ -42,6 +42,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => undefined}
       />,
@@ -85,6 +87,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={(id) => reasons[id]}
       />,
@@ -124,6 +128,8 @@ describe('the workspace settings', () => {
         <Workspaces
           layout={layout}
           available={available}
+          deleted={[]}
+          unread={[]}
           run={run}
           unavailableReason={() => undefined}
         />,
@@ -167,6 +173,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => undefined}
       />,
@@ -192,6 +200,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => 'A built-in workspace keeps its name. Duplicate it first.'}
       />,
@@ -215,6 +225,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={builtIn.layout}
         available={builtIn.available}
+        deleted={[]}
+        unread={[]}
         run={vi.fn()}
         unavailableReason={() => undefined}
       />,
@@ -230,6 +242,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={mine.layout}
         available={mine.available}
+        deleted={[]}
+        unread={[]}
         run={vi.fn()}
         unavailableReason={() => undefined}
       />,
@@ -252,6 +266,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => undefined}
       />,
@@ -287,6 +303,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={runnerFor(context)}
         unavailableReason={() => undefined}
       />,
@@ -312,6 +330,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={vi.fn()}
         unavailableReason={() => undefined}
       />,
@@ -337,6 +357,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => undefined}
       />,
@@ -375,6 +397,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={builtIn.layout}
         available={builtIn.available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={reasonsIn(without)}
       />,
@@ -399,6 +423,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={mine.layout}
         available={mine.available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={reasonsIn(without)}
       />,
@@ -425,6 +451,8 @@ describe('the workspace settings', () => {
         <Workspaces
           layout={layout}
           available={available}
+          deleted={[]}
+          unread={[]}
           run={vi.fn()}
           unavailableReason={reasonsIn(where)}
         />,
@@ -453,6 +481,8 @@ describe('the workspace settings', () => {
       <Workspaces
         layout={layout}
         available={available}
+        deleted={[]}
+        unread={[]}
         run={run}
         unavailableReason={() => undefined}
       />,
@@ -462,5 +492,128 @@ describe('the workspace settings', () => {
     expect(reset).toHaveAttribute('aria-disabled', 'false');
     await userEvent.click(reset);
     expect(run).toHaveBeenCalledWith('workspace.reset', { layoutId: layout.id });
+  });
+
+  it('offers the workspace deleted last back, named on its button, through the command', async () => {
+    // A deletion was one press with no way back.
+    const { context } = buildShellContext();
+    const run = runnerFor(context);
+    run('workspace.save-as', { displayName: 'Mixing' });
+    run('workspace.save-as', { displayName: 'Mastering' });
+    run('workspace.delete', { layoutId: 'mastering' });
+    const show = (): void => {
+      const { layout, available, deleted } = context.workspace.get();
+      render(
+        <Workspaces
+          layout={layout}
+          available={available}
+          deleted={deleted}
+          unread={[]}
+          run={run}
+          unavailableReason={reasonsIn(context)}
+        />,
+      );
+    };
+    show();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Restore "Mastering"' }));
+
+    expect(context.workspace.get().available.map((one) => one.displayName)).toContain('Mastering');
+    expect(context.workspace.get().deleted).toEqual([]);
+    cleanup();
+    show();
+    expect(screen.queryByRole('button', { name: /^Restore/ })).toBeNull();
+  });
+
+  it('offers the text that could not be read to export, and asks before discarding it', async () => {
+    const { context } = buildShellContext();
+    const { layout, available } = context.workspace.get();
+    const run = vi.fn(() => true);
+    render(
+      <Workspaces
+        layout={layout}
+        available={available}
+        deleted={[]}
+        unread={[
+          { about: 'layout', setAside: 0, leftInPlace: 1 },
+          { about: 'collection', setAside: 2, leftInPlace: 1 },
+        ]}
+        run={run}
+        unavailableReason={() => undefined}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        'One text about the workspace on screen that could not be read is left where it was found, for want of room to set it aside.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '2 texts about your saved workspaces that could not be read are set aside, and one more is left where it was found, for want of room to set it aside.',
+      ),
+    ).toBeInTheDocument();
+
+    // Each button named for what it acts on, so two are never alike.
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Export the text about your saved workspaces that could not be read',
+      }),
+    );
+    expect(run).toHaveBeenLastCalledWith('settings.export-unread-text', { about: 'collection' });
+
+    // The discard cannot be undone, so it is asked for twice, and focus goes
+    // to the choice that loses nothing.
+    const discard = screen.getByRole('button', {
+      name: 'Discard the text about your saved workspaces that could not be read',
+    });
+    await userEvent.click(discard);
+    expect(run).toHaveBeenCalledTimes(1);
+    const keep = screen.getByRole('button', {
+      name: 'Keep it, the text about your saved workspaces that could not be read',
+    });
+    expect(keep).toHaveFocus();
+    expect(keep).toHaveAccessibleDescription(
+      'Discarding deletes this text for good, and nothing can bring it back. Export it first to keep a copy.',
+    );
+
+    await userEvent.click(keep);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('button', {
+        name: 'Discard the text about your saved workspaces that could not be read',
+      }),
+    ).toHaveFocus();
+
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard the text about your saved workspaces that could not be read',
+      }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Discard for good the text about your saved workspaces that could not be read',
+      }),
+    );
+    expect(run).toHaveBeenLastCalledWith('settings.discard-unread-text', { about: 'collection' });
+    expect(screen.getByRole('group', { name: 'Text that could not be read' })).toHaveFocus();
+  });
+
+  it('shows nothing of text that could not be read where there is none', () => {
+    const { context } = buildShellContext();
+    const { layout, available } = context.workspace.get();
+    render(
+      <Workspaces
+        layout={layout}
+        available={available}
+        deleted={[]}
+        unread={[]}
+        run={vi.fn()}
+        unavailableReason={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByRole('group', { name: 'Text that could not be read' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Export/ })).toBeNull();
   });
 });

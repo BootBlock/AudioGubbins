@@ -46,6 +46,7 @@ import {
 import { ephemeralStorage } from './ephemeral-storage.js';
 import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
+import { unavailableStorageRoot } from '../state/storage-root-store.js';
 import { FakePlayback, FakeRendering } from './audio-fakes.js';
 import { fakeEditor } from './editor-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
@@ -79,7 +80,6 @@ export const CAPABLE: CapabilityEnvironment = {
   comparesNames: true,
   hasVideoFrameCallback: true,
   hasFullscreen: true,
-  hasIndexedDb: true,
 };
 
 /** `context` in a browser whose names cannot be compared. */
@@ -224,6 +224,11 @@ export function buildShellContext(
       verbosity: createVerbosityStore(diagnostics.verbosity(), diagnostics, storage),
       environment: { browser: 'Test browser 1', operatingSystem: 'Test system', installed: false },
       clock: { now: () => 0 },
+      // A context of the shell alone keeps no projects; a test of the project
+      // commands builds one that does (`project-context.ts`).
+      storageRoot: unavailableStorageRoot('This test keeps no projects.'),
+      projects: undefined,
+      storageAbsences: [],
       ...parts,
       ...fakeEditor(storage, logger),
     },

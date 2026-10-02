@@ -1,0 +1,41 @@
+{
+  "name": "@audiogubbins/storage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keeping AudioGubbins projects safe over a storage backend port: journal, snapshots, sessions, write leases, backups and cleanup.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project storage"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/commands": "workspace:*",
+    "@audiogubbins/diagnostics": "workspace:*",
+    "@audiogubbins/history": "workspace:*",
+    "@audiogubbins/media-store": "workspace:*",
+    "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/version": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}

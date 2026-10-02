@@ -78,3 +78,22 @@ export { type GraphicsPlatform, readGraphicsPlatform } from './graphics-platform
 
 // What the user's keyboard layout types on each key, where the browser says.
 export { readLayoutMap, type LayoutMapPairs } from './keyboard-layout-map.js';
+
+// The storage objects the browser offers, read once for the storage adapters,
+// and what each one's absence costs.
+export {
+  type FilePickers,
+  type HostYielding,
+  type StorageGlobals,
+  type StorageNavigator,
+  type StoragePersistence,
+  type StoragePlatform,
+  readOriginPrivateRoot,
+  readStoragePlatform,
+} from './storage-platform.js';
+
+export {
+  type StorageCapabilityAbsence,
+  StorageCapabilityKey,
+  missingStorageCapabilities,
+} from './storage-capabilities.js';

@@ -224,28 +224,6 @@ describe('probing media queries', () => {
   });
 });
 
-describe('probing IndexedDB', () => {
-  const original = Object.getOwnPropertyDescriptor(window, 'indexedDB');
-
-  afterEach(() => {
-    if (original === undefined) Reflect.deleteProperty(window, 'indexedDB');
-    else Object.defineProperty(window, 'indexedDB', original);
-  });
-
-  it('reports a browser that opens databases', () => {
-    Object.defineProperty(window, 'indexedDB', {
-      configurable: true,
-      value: { open: () => undefined },
-    });
-    expect(detectBrowserEnvironment().hasIndexedDb).toBe(true);
-  });
-
-  it('reports a browser with IndexedDB turned off, which names it as null', () => {
-    Object.defineProperty(window, 'indexedDB', { configurable: true, value: null });
-    expect(detectBrowserEnvironment().hasIndexedDb).toBe(false);
-  });
-});
-
 describe('probing the keyboard layout map', () => {
   /** Puts a keyboard on the navigator for one test, and takes it off after. */
   function withKeyboard(keyboard: unknown): void {

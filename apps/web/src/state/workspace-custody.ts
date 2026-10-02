@@ -10,6 +10,9 @@
  * `text-custody.ts`). What a write keeps back is worded from every part it
  * keeps back, so the sentence for one part never speaks for the other.
  *
+ * Every such text, set aside or held, is the user's to export and discard, the
+ * mounted layout's apart from the collection's, as their notices are.
+ *
  * Apart from the workspace store, which asks it what to write and what each
  * notice says, and knows nothing of setting text aside.
  */
@@ -22,10 +25,17 @@ import type { StateStorage, Withheld, WriteAccount } from './state-storage.js';
 import { MOUNTED_KEY } from './stored-layout.js';
 import {
   NO_ROOM,
+  droppedForIt,
   factWithNoRoom,
   holdTexts,
   triesAgain,
   whereTheTextIs,
+  whereToExport,
+  type Discarded,
+  type HeldTextAccounting,
+  type UnreadCopy,
+  type UnreadSubject,
+  type UnreadText,
   type Unread,
 } from './text-custody.js';
 import {
@@ -61,6 +71,9 @@ const SET_ASIDE_KEY = 'audiogubbins.workspaces.unreadable';
 
 /** That AudioGubbins tries again to set the workspace's text aside, and when. */
 const TRIES_AGAIN = triesAgain('you change a workspace');
+
+/** Where the user can export or discard the workspace's text. */
+const EXPORT_IT = whereToExport('Workspaces');
 
 /** A thing said of the mounted layout alone, of the collection alone, or of both. */
 interface ByPart<T> {
@@ -99,6 +112,16 @@ const NOT_KEPT: ByPart<Withheld> = {
   },
 };
 
+/**
+ * What the user is told once a discard lets a write keep a part that was
+ * written nowhere: no room was made, so it is said as the discard's doing.
+ */
+const KEPT_AGAIN_BY_DISCARD: ByPart<string> = {
+  layout: 'The workspace on screen is kept again.',
+  collection: 'The workspaces you save are kept again.',
+  both: 'The workspace on screen and the workspaces you save are kept again.',
+};
+
 /** What the user is told once a write keeps a part that was written nowhere. */
 const KEPT_AGAIN: ByPart<string> = {
   layout:
@@ -115,11 +138,16 @@ const KEPT_AGAIN: ByPart<string> = {
  * collection, when that has no room either. The two notices stand one above
  * the other, and said in each, the same sentence would be read twice.
  */
-function layoutNotice(reason: string, setAside: boolean, triesAgainBelow: boolean): Notice {
-  const where = whereTheTextIs(setAside, NO_ROOM);
+function layoutNotice(
+  reason: string,
+  setAside: boolean,
+  triesAgainBelow: boolean,
+  dropped: number,
+): Notice {
+  const where = whereTheTextIs(setAside, NO_ROOM) + droppedForIt(dropped);
   return {
     fact: setAside ? reason : factWithNoRoom(reason, 'The workspace on screen'),
-    consequences: setAside || triesAgainBelow ? where : `${where} ${TRIES_AGAIN}`,
+    consequences: `${setAside || triesAgainBelow ? where : `${where} ${TRIES_AGAIN}`} ${EXPORT_IT}`,
     waitsForRoom: !setAside,
   };
 }
@@ -130,29 +158,34 @@ function layoutNotice(reason: string, setAside: boolean, triesAgainBelow: boolea
  */
 function collectionNotice(
   { collection, copy }: StoredCollection,
-  collectionFree: boolean,
-  copyFree: boolean,
+  texts: {
+    readonly isHeld: (name: TextName) => boolean;
+    readonly dropped: (name: TextName) => number;
+  },
 ): Notice | undefined {
+  const collectionFree = !texts.isHeld('collection');
+  const copyFree = !texts.isHeld('copy');
   const copyDamaged = isDamaged(copy);
-  const copyKept = copyFree
-    ? 'What could not be read of them is kept aside.'
-    : 'What could not be read of them is left where it is.';
+  const copyKept =
+    (copyFree
+      ? 'What could not be read of them is kept aside.'
+      : 'What could not be read of them is left where it is.') +
+    droppedForIt(texts.dropped('copy'));
 
   if (!isDamaged(collection)) {
     return copyDamaged
       ? {
           fact: 'Some of the workspaces you saved in an earlier session could not be read, so they are not listed.',
-          consequences: copyKept,
+          consequences: `${copyKept} ${EXPORT_IT}`,
           waitsForRoom: false,
         }
       : undefined;
   }
 
   const waitsForRoom = !collectionFree && !copyFree;
-  const where = whereTheTextIs(
-    collectionFree,
-    copyFree ? 'what you save is kept beside it' : NO_ROOM,
-  );
+  const where =
+    whereTheTextIs(collectionFree, copyFree ? 'what you save is kept beside it' : NO_ROOM) +
+    droppedForIt(texts.dropped('collection'));
   const retry = waitsForRoom ? ` ${TRIES_AGAIN}` : '';
   const since = copyDamaged
     ? ` Some of the workspaces you saved since could not be read either, so they are not listed. ${copyKept}`
@@ -161,7 +194,7 @@ function collectionNotice(
   const damage = collectionDamage(collection.parsed);
   return {
     fact: waitsForRoom ? factWithNoRoom(damage, 'The workspaces you save now') : damage,
-    consequences: where + retry + since,
+    consequences: `${where}${retry}${since} ${EXPORT_IT}`,
     waitsForRoom,
   };
 }
@@ -205,6 +238,19 @@ export interface WorkspaceCustody {
    * was refused, and the workspaces it held with it.
    */
   readonly written: (refused: readonly string[]) => void;
+
+  /** How much there is of a part's text that could not be read. */
+  readonly unread: (part: RecoveryPart) => UnreadText;
+
+  /** Every text of a part's that could not be read, as it is exported. */
+  readonly copies: (part: RecoveryPart) => readonly UnreadCopy[];
+
+  /**
+   * Discards every text of a part's that could not be read, and answers what
+   * the user is told the next write keeps again, where it keeps anything the
+   * text kept back; or `undefined` where the browser would not discard it.
+   */
+  readonly discard: (part: RecoveryPart) => Discarded | undefined;
 }
 
 /**
@@ -340,11 +386,13 @@ function textsToSetAside(
 ): ReadonlyMap<TextName, Unread> {
   const texts = new Map<TextName, Unread>();
   if (collection !== undefined && (isDamaged(collection) || replaced > 0)) {
-    texts.set('collection', { key: SET_ASIDE_KEY, text: collection.text });
+    texts.set('collection', { found: COLLECTION_KEY, key: SET_ASIDE_KEY, text: collection.text });
   }
-  if (isDamaged(copy)) texts.set('copy', { key: SET_ASIDE_KEY, text: copy.text });
+  if (isDamaged(copy)) {
+    texts.set('copy', { found: RECOVERED_COLLECTION_KEY, key: SET_ASIDE_KEY, text: copy.text });
+  }
   if (mounted.source === LayoutSource.Recovered) {
-    texts.set('layout', { key: LAYOUT_SET_ASIDE_KEY, text: mounted.text });
+    texts.set('layout', { found: MOUNTED_KEY, key: LAYOUT_SET_ASIDE_KEY, text: mounted.text });
   }
   return texts;
 }
@@ -357,6 +405,23 @@ function withheldParts(isHeld: (name: TextName) => boolean): ReadonlySet<Recover
   return parts;
 }
 
+/** Which parts a write keeps back while texts are held, and what is said of them. */
+const ACCOUNTING: HeldTextAccounting<TextName, RecoveryPart> = {
+  withheld: withheldParts,
+  notKept: (parts) => saidOf(parts, NOT_KEPT),
+  keptAgain: (parts) => saidOf(parts, KEPT_AGAIN),
+};
+
+/**
+ * What the workspace's texts are about, each exported and discarded apart, as
+ * its notices stand apart: the mounted layout's, and the collection's with its
+ * copy's, which are set aside in one list.
+ */
+const SUBJECTS: Readonly<Record<RecoveryPart, UnreadSubject<TextName, RecoveryPart>>> = {
+  layout: { about: 'layout', key: LAYOUT_SET_ASIDE_KEY, names: ['layout'] },
+  collection: { about: 'collection', key: SET_ASIDE_KEY, names: ['collection', 'copy'] },
+};
+
 /**
  * Sets aside every text that holds something no list shows, before anything
  * can be written over it, and keeps track of where each text is.
@@ -367,22 +432,19 @@ export function takeCustody(
   mounted: ResolvedLayout,
   logger: Logger,
 ): WorkspaceCustody {
-  const texts = holdTexts(storage, logger, textsToSetAside(stored, mounted), {
-    withheld: withheldParts,
-    notKept: (parts) => saidOf(parts, NOT_KEPT),
-    keptAgain: (parts) => saidOf(parts, KEPT_AGAIN),
-  });
+  const texts = holdTexts(storage, logger, textsToSetAside(stored, mounted), ACCOUNTING, SUBJECTS);
   const place = placeCollection(stored.copy !== undefined);
 
   return {
     notice: (part) =>
       part === 'collection'
-        ? collectionNotice(stored, !texts.isHeld('collection'), !texts.isHeld('copy'))
+        ? collectionNotice(stored, texts)
         : mounted.source === LayoutSource.Recovered
           ? layoutNotice(
               mounted.reason,
               !texts.isHeld('layout'),
               withheldParts(texts.isHeld).has('collection'),
+              texts.dropped('layout'),
             )
           : undefined,
 
@@ -402,6 +464,14 @@ export function takeCustody(
     written: (refused) => {
       texts.written(refused);
       place.written(refused);
+    },
+
+    unread: texts.unread,
+    copies: texts.copies,
+
+    discard: (part) => {
+      const freed = texts.discard(part);
+      return freed === undefined ? undefined : { keptAgain: saidOf(freed, KEPT_AGAIN_BY_DISCARD) };
     },
   };
 }

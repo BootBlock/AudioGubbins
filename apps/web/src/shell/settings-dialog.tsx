@@ -22,6 +22,10 @@ import type { AudioSettings } from '../state/audio-settings-store.js';
 import { Accessibility, Appearance } from './settings/appearance.js';
 import { Audio } from './settings/audio.js';
 import { Diagnostics } from './settings/diagnostics.js';
+import type { ProjectStores } from '../state/project-stores.js';
+import type { UnreadText } from '../state/text-custody.js';
+import { Backups } from './settings/backups.js';
+import { ProjectSettings } from './settings/projects.js';
 import type { RunCommand } from './settings/section.js';
 import { Shortcuts, type ShortcutsProps } from './settings/shortcuts.js';
 import { Workspaces } from './settings/workspaces.js';
@@ -58,13 +62,40 @@ export interface SettingsDialogProps {
   readonly verbosity: VerbosityConfiguration;
   readonly logCategories: readonly string[];
 
-  /** The workspace the user is looking at, and the ones they can switch to. */
+  /**
+   * The workspace the user is looking at, the ones they can switch to, the
+   * ones deleted since AudioGubbins started, and what there is of their text
+   * that could not be read.
+   */
   readonly layout: WorkspaceLayout;
   readonly available: readonly WorkspaceLayout[];
+  readonly deleted: readonly WorkspaceLayout[];
+  readonly workspaceUnread: readonly UnreadText[];
+
+  /** The project system's stores, absent where this browser keeps no projects. */
+  readonly projects: ProjectStores | undefined;
 
   /** Which section is showing. */
   readonly section: string;
   readonly onSectionChange: (section: string) => void;
+}
+
+/** The project system's sections, where this browser keeps projects. */
+function projectTabs(props: SettingsDialogProps) {
+  const { projects, run, unavailableReason } = props;
+  if (projects === undefined) return [];
+  return [
+    {
+      value: 'projects',
+      label: 'Projects',
+      content: <ProjectSettings projects={projects} run={run} />,
+    },
+    {
+      value: 'backups',
+      label: 'Backups',
+      content: <Backups projects={projects} run={run} unavailableReason={unavailableReason} />,
+    },
+  ];
 }
 
 /** The settings dialogue. */
@@ -100,6 +131,8 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
               <Workspaces
                 layout={props.layout}
                 available={props.available}
+                deleted={props.deleted}
+                unread={props.workspaceUnread}
                 run={props.run}
                 unavailableReason={props.unavailableReason}
               />
@@ -116,6 +149,7 @@ export function SettingsDialog(props: SettingsDialogProps): ReactNode {
               />
             ),
           },
+          ...projectTabs(props),
           {
             value: 'audio',
             label: 'Audio',

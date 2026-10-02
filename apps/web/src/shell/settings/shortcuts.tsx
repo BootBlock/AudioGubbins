@@ -38,6 +38,8 @@ import {
   type SharedReasons,
 } from './reasoned-button.js';
 import { ShortcutRecorder } from './shortcut-recorder.js';
+import { UnreadTexts } from './unread-text.js';
+import type { UnreadText } from '../../state/text-custody.js';
 
 /** One command the editor offers. */
 export interface EditableCommand {
@@ -99,6 +101,9 @@ export interface ShortcutsProps {
 
   /** Why a command cannot run now, or `undefined` when it can. */
   readonly unavailableReason: (id: string) => string | undefined;
+
+  /** What there is of the profiles' text that could not be read. */
+  readonly unread: readonly UnreadText[];
 }
 
 /** The shortcut editor. */
@@ -119,6 +124,7 @@ export function Shortcuts(props: ShortcutsProps): ReactNode {
     run,
     announce,
     unavailableReason,
+    unread,
   } = props;
   const [editing, setEditing] = useState<CommandId | undefined>(undefined);
 
@@ -140,6 +146,7 @@ export function Shortcuts(props: ShortcutsProps): ReactNode {
         unavailableReason={unavailableReason}
         naming={naming}
       />
+      <UnreadTexts unread={unread} run={run} />
       <ConflictList
         conflicts={conflicts}
         convention={convention}

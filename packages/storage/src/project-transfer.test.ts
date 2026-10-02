@@ -1,0 +1,300 @@
+import { describe, expect, it } from 'vitest';
+
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import {
+  ProvenanceLevel,
+  TreeFailure,
+  TreeFailureKind,
+  contentIdOf,
+  stateFingerprintOf,
+  writeZip,
+  type YieldToHost,
+} from '@audiogubbins/project-format';
+import { countedTurns, immediateTurns } from '@audiogubbins/project-format/testing';
+
+import { anotherProjectIn, type DirectoryWriter } from './project-directory.js';
+import { exportBundle, exportUnpacked, importBundle } from './project-transfer.js';
+import { FillableTree } from './testing/fillable-tree.js';
+import { MemoryDirectory, memorySink, storageOf, storedMedia } from './testing/memory-ports.js';
+import { madeProject, openToWrite } from './testing/storage-harness.js';
+import { addAsset, setName } from './testing/test-commands.js';
+import { harness, nodeDigest } from './testing/node-services.js';
+
+/**
+ * What an export answers for its provenance (REQ-STOR-197, REQ-STOR-198): the
+ * state and the history node it was taken from, as read from storage, and how
+ * its writing went, a failure included, with the identity of a bundle's bytes.
+ * Only the window writing a project can record the export, so these are what
+ * it records from.
+ */
+
+const WHOLE = {
+  scope: { kind: 'whole-history', provenance: ProvenanceLevel.Full },
+  includeCaches: false,
+} as const;
+
+/** A project with media and a change, open to write, and its storage. */
+async function changedProject() {
+  const test = harness(71);
+  const storage = storageOf(test, new MemoryStorageTree());
+  const media = await storedMedia(storage.store, 71);
+  const header = await madeProject(test, storage.tree);
+  const session = await openToWrite(test, storage.tree, header.id);
+  expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
+  expectSuccess(await session.run(setName('Exported')));
+  expectSuccess(await session.run(setName('Changed again')));
+  expectSuccess(await session.undo());
+  return { test, storage, project: header.id, session };
+}
+
+const README = new TextEncoder().encode('Kept beside the tree.');
+
+describe('exporting the project this window writes', () => {
+  it('refuses while a change is not saved, rather than leave it out, and carries it once saved', async () => {
+    const test = harness(73);
+    const storage = storageOf(test, new MemoryStorageTree());
+    const header = await madeProject(test, storage.tree);
+    const writing = new FillableTree(storage.tree);
+    const held = await openToWrite(test, writing, header.id);
+    writing.full = true;
+    expectSuccess(await held.run(setName('Not yet saved')));
+    expect(held.getSnapshot().save.kind).toBe('not-saved');
+
+    const refusedSink = memorySink();
+    const refused = await exportBundle(
+      header.id,
+      refusedSink,
+      { ...WHOLE, held },
+      storage.exporting,
+    );
+    expect(expectFailureCode(refused)).toBe('storage.copy-would-omit');
+    expect(refusedSink.ending).toBe('aborted');
+
+    writing.full = false;
+    expect(await held.retry()).toEqual({ kind: 'saved' });
+    const folder = new MemoryDirectory();
+    const attempt = expectSuccess(
+      await exportUnpacked(header.id, folder, { ...WHOLE, held }, storage.exporting),
+    );
+    expectSuccess(attempt.written);
+    const written = new TextDecoder().decode(folder.files.get('audiogubbins-project.json'));
+    expect(written).toContain('Not yet saved');
+  });
+});
+
+describe('exporting into a folder that holds a project', () => {
+  it('refuses a folder holding another project, and changes nothing in it unasked', async () => {
+    const { test, storage, project } = await changedProject();
+    const other = await madeProject(test, storage.tree);
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(other.id, folder, WHOLE, storage.exporting));
+    folder.files.set('README.md', README);
+    const before = new Map(folder.files);
+
+    const refused = await exportUnpacked(project, folder, WHOLE, storage.exporting);
+
+    expect(expectFailureCode(refused)).toBe('storage.folder-holds-another-project');
+    expect(refused.ok ? undefined : anotherProjectIn(refused.failures[0])).toEqual({
+      name: other.name,
+    });
+    expect(folder.files).toEqual(before);
+  });
+
+  it('replaces the other project only where the person confirmed it, keeping files beside it', async () => {
+    const { test, storage, project } = await changedProject();
+    const other = await madeProject(test, storage.tree);
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(other.id, folder, WHOLE, storage.exporting));
+    folder.files.set('README.md', README);
+    const alone = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(project, alone, WHOLE, storage.exporting));
+
+    const replacing = { ...WHOLE, replaceAnother: true };
+    const attempt = expectSuccess(
+      await exportUnpacked(project, folder, replacing, storage.exporting),
+    );
+
+    expectSuccess(attempt.written);
+    // Every file of the other project's tree has gone, and the file beside it stays.
+    expect([...folder.files.keys()].sort()).toEqual([...alone.files.keys(), 'README.md'].sort());
+    expect(folder.files.get('README.md')).toEqual(README);
+  });
+
+  it('writes again, unasked, into a folder holding the same project', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    expectSuccess(await exportUnpacked(project, folder, WHOLE, storage.exporting));
+
+    const again = expectSuccess(await exportUnpacked(project, folder, WHOLE, storage.exporting));
+
+    expectSuccess(again.written);
+  });
+
+  it('refuses a folder holding project files whose header cannot be read', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    folder.files.set('audiogubbins-project.json', new TextEncoder().encode('{ not json'));
+
+    const refused = await exportUnpacked(project, folder, WHOLE, storage.exporting);
+
+    expect(refused.ok ? undefined : anotherProjectIn(refused.failures[0])).toEqual({
+      name: undefined,
+    });
+  });
+});
+
+describe('the provenance an export answers', () => {
+  it('says which state and node a bundle was taken from, and the identity of its bytes', async () => {
+    const { storage, project, session } = await changedProject();
+    const { model } = session.getSnapshot();
+    const sink = memorySink();
+
+    const attempt = expectSuccess(await exportBundle(project, sink, WHOLE, storage.exporting));
+
+    // The cursor after the undo, not the newest node, which is a state the
+    // bundle's own project is not in.
+    expect(attempt.source).toEqual({
+      state: await stateFingerprintOf(model.state, nodeDigest),
+      node: model.history.cursor,
+    });
+    const written = expectSuccess(attempt.written);
+    expect(written.output).toEqual(
+      expectSuccess(await contentIdOf(memorySource(sink.bytes()), nodeDigest)),
+    );
+    expect(written.output.byteLength).toBe(written.written.bytes);
+  });
+
+  it('says what a folder export was taken from when its writing fails part of the way', async () => {
+    const { storage, project, session } = await changedProject();
+    const { model } = session.getSnapshot();
+    const folder = new MemoryDirectory();
+    let created = 0;
+    const filling: DirectoryWriter = {
+      list: () => folder.list(),
+      open: (path) => folder.open(path),
+      remove: (path) => folder.remove(path),
+      create: async (path) => {
+        created += 1;
+        if (created > 2) throw new TreeFailure(TreeFailureKind.Quota, 'The disk is full.');
+        return await folder.create(path);
+      },
+    };
+
+    const attempt = expectSuccess(await exportUnpacked(project, filling, WHOLE, storage.exporting));
+
+    expect(attempt.source.node).toBe(model.history.cursor);
+    expect(expectFailureCode(attempt.written)).toBe('storage.full');
+    // What was written before the failure stays, which the provenance says.
+    expect(folder.files.size).toBe(2);
+    expect(attempt.partial).toBe(true);
+  });
+
+  it('says nothing is partial where a folder export fails before it writes anything', async () => {
+    const { storage, project } = await changedProject();
+    const folder = new MemoryDirectory();
+    const full: DirectoryWriter = {
+      list: () => folder.list(),
+      open: (path) => folder.open(path),
+      remove: (path) => folder.remove(path),
+      create: () => Promise.reject(new TreeFailure(TreeFailureKind.Quota, 'The disk is full.')),
+    };
+
+    const attempt = expectSuccess(await exportUnpacked(project, full, WHOLE, storage.exporting));
+
+    expect(expectFailureCode(attempt.written)).toBe('storage.full');
+    expect(attempt.partial).toBeUndefined();
+  });
+
+  it('answers only a failure, with nothing written, where the project cannot be read', async () => {
+    const { storage } = await changedProject();
+    const sink = memorySink();
+
+    const missing = await exportBundle(
+      harness(72).ids.next<'ProjectId'>(),
+      sink,
+      WHOLE,
+      storage.exporting,
+    );
+
+    expect(expectFailureCode(missing)).toBe('storage.project-missing');
+    expect(sink.ending).toBe('aborted');
+  });
+});
+
+/** A media file of four mebibytes and a byte: five chunks of the archive. */
+const LONG_MEDIA_BYTES = 4 * 1_048_576 + 1;
+
+/** A project holding a long media file, in a storage whose work asks `yieldToHost`. */
+async function longMediaProject(yieldToHost: YieldToHost) {
+  const test = harness(75);
+  const storage = storageOf(test, new MemoryStorageTree(), yieldToHost);
+  const media = await storedMedia(storage.store, 75, LONG_MEDIA_BYTES);
+  const header = await madeProject(test, storage.tree);
+  const session = await openToWrite(test, storage.tree, header.id);
+  expectSuccess(await session.run(addAsset(test.ids.next<'AssetId'>(), media)));
+  expectSuccess(await session.close());
+  return { storage, project: header.id };
+}
+
+describe('the turns a bundle takes', () => {
+  // The store's reads resolve at once, as the worker's do, so only the
+  // archive's turns let the host hear a cancel while a long file is copied.
+  it('asks the host for a turn for each mebibyte of media it writes', async () => {
+    const turns = countedTurns();
+    const { storage, project } = await longMediaProject(turns.yieldToHost);
+    const before = turns.asked;
+
+    const attempt = expectSuccess(
+      await exportBundle(project, memorySink(), WHOLE, storage.exporting),
+    );
+
+    expectSuccess(attempt.written);
+    expect(turns.asked - before).toBeGreaterThanOrEqual(5);
+  });
+
+  it('stops copying the media, and abandons the bundle, at the turn its signal aborts in', async () => {
+    const controller = new AbortController();
+    const reason = new Error('Given up.');
+    let armed = false;
+    const turns = countedTurns(() => {
+      if (armed) controller.abort(reason);
+    });
+    const { storage, project } = await longMediaProject(turns.yieldToHost);
+    const sink = memorySink();
+    armed = true;
+
+    const exporting = exportBundle(project, sink, WHOLE, storage.exporting, controller.signal);
+
+    await expect(exporting).rejects.toBe(reason);
+    expect(sink.ending).toBe('aborted');
+    expect(sink.bytes().length).toBeLessThan(LONG_MEDIA_BYTES);
+  });
+
+  // A bundle may list a million entries, each read from a directory in
+  // memory, before any of them is checked against the manifest.
+  it('asks the host for turns as it reads a large bundle, and stops at the one its signal aborts in', async () => {
+    const sink = memorySink();
+    const entries = Array.from({ length: 2_000 }, (_, index) => ({
+      path: `extra-${String(index)}`,
+      source: new Uint8Array(1),
+    }));
+    expectSuccess(await writeZip(entries, sink, { yieldToHost: immediateTurns }));
+    const controller = new AbortController();
+    const reason = new Error('Given up.');
+    const turns = countedTurns(() => {
+      controller.abort(reason);
+    });
+    const storage = storageOf(harness(76), new MemoryStorageTree(), turns.yieldToHost);
+
+    const importing = importBundle(
+      memorySource(sink.bytes()),
+      'original',
+      storage.importing,
+      controller.signal,
+    );
+
+    await expect(importing).rejects.toBe(reason);
+    expect(turns.asked).toBe(1);
+  });
+});

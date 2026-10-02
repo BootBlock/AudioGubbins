@@ -11,16 +11,19 @@
  * prohibits, and it would make every command untestable without the whole
  * application being constructed first.
  *
- * Note what is absent: no project. A shell command cannot mutate project state
- * because it has no route to it, which is the dependency direction
- * REQ-EXEC-136.4 asks for rather than a rule to remember. The audio engine is
- * here as the transport and the test signal's renderer. The editor's assets,
- * their markers, selections and playheads, and the views of them, are the
- * session's (ADR-0047), held in memory until Phase 02's project holds the
- * content, and the reference picture is reference media, never project state.
+ * Note what is absent: no project state to write. A shell command reaches an
+ * open project only through its session, whose every change is a project
+ * command run through the project's own bus and kept in its history
+ * (REQ-STOR-021), so a shell command cannot change a project by any other
+ * route: the dependency direction REQ-EXEC-136.4 asks for rather than a rule to
+ * remember. The audio engine is here as the transport and the test signal's
+ * renderer. The editor's assets, their markers, selections and playheads, and
+ * the views of them, are the session's (ADR-0047), held in memory until audio
+ * is imported into a project at its own rate (ADR-0021), and the reference
+ * picture is reference media, never project state.
  */
 
-import type { CapabilityRegistry } from '@audiogubbins/capabilities';
+import type { CapabilityRegistry, StorageCapabilityAbsence } from '@audiogubbins/capabilities';
 import type { KeyboardConvention } from '@audiogubbins/commands';
 import type {
   Clock,
@@ -42,6 +45,8 @@ import type { SelectionStore } from '../state/selection-store.js';
 import type { SessionContent } from '../state/session-content.js';
 import type { RenderControl } from '../audio/render-control.js';
 import type { TextFiles } from '../io/text-files.js';
+import type { ProjectStores } from '../state/project-stores.js';
+import type { StorageRootStore } from '../state/storage-root-store.js';
 import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import type { InteractionStore } from '../state/interaction-store.js';
@@ -93,6 +98,18 @@ export interface ShellContext {
 
   /** Where text the user asked to keep is offered as a file. */
   readonly files: TextFiles;
+
+  /**
+   * Whether projects can be kept and read at all: whether this browser can keep
+   * them, and whether the stored data is of this build's schema (REQ-STOR-052).
+   */
+  readonly storageRoot: StorageRootStore;
+
+  /** The project system's stores, absent where this browser cannot keep projects. */
+  readonly projects: ProjectStores | undefined;
+
+  /** What this browser lacks for keeping projects, and what that costs (REQ-EXEC-216). */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 
   /** What the audio engine is doing. */
   readonly audio: AudioViewStore;

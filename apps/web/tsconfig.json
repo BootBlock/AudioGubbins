@@ -49,6 +49,27 @@
       "path": "../../packages/domain"
     },
     {
+      "path": "../../packages/project-format"
+    },
+    {
+      "path": "../../packages/project-commands"
+    },
+    {
+      "path": "../../packages/history"
+    },
+    {
+      "path": "../../packages/media-store"
+    },
+    {
+      "path": "../../packages/storage"
+    },
+    {
+      "path": "../../packages/browser-storage"
+    },
+    {
+      "path": "../../packages/storage-runtime"
+    },
+    {
       "path": "../../packages/audio-graph"
     },
     {

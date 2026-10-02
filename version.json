@@ -9,6 +9,9 @@
     "keyboardLayout": 1,
     "audioSettings": 1,
     "editorViews": 1,
-    "diagnosticBundle": 1
+    "diagnosticBundle": 1,
+    "projectDocument": 1,
+    "projectStorage": 5,
+    "portableBundle": 2
   }
 }

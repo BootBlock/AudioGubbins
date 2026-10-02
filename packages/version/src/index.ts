@@ -23,6 +23,9 @@ export const SCHEMA_VERSIONS = {
   audioSettings: 1,
   editorViews: 1,
   diagnosticBundle: 1,
+  projectDocument: 1,
+  projectStorage: 5,
+  portableBundle: 2,
 } as const satisfies Record<string, number>;
 
 /** Name of a persisted format with an independent compatibility version. */

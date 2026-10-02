@@ -20,13 +20,19 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button } from '@audiogubbins/design-system';
-import { ALL_FEATURES, FeatureStatus, type CapabilityRegistry } from '@audiogubbins/capabilities';
+import {
+  ALL_FEATURES,
+  FeatureStatus,
+  type CapabilityRegistry,
+  type StorageCapabilityAbsence,
+} from '@audiogubbins/capabilities';
 import type { LogStore } from '@audiogubbins/diagnostics';
 import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { ShellContext } from '../commands/shell-context.js';
+import { ProjectPanelKinds } from '../panel-kinds.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
@@ -36,24 +42,27 @@ import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
 import { PicturePanel } from './picture-panel.js';
+import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RendererReportList } from './renderer-report-list.js';
+import type { RunCommand } from './settings/section.js';
+import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
 
 /** A panel that describes what will live here, and when. */
 function ComingInAPhase({
   title,
   purpose,
-  phase,
+  arrival,
 }: {
   readonly title: string;
   readonly purpose: string;
-  readonly phase: string;
+  readonly arrival: string;
 }): ReactNode {
   return (
     <section className="ag-panel ag-panel-pending">
       <h2 className="ag-panel-title">{title}</h2>
       <p>{purpose}</p>
-      <p className="ag-panel-note">Arrives with {phase}.</p>
+      <p className="ag-panel-note">{arrival}</p>
     </section>
   );
 }
@@ -63,11 +72,14 @@ export function CapabilitiesPanel({
   title,
   capabilities,
   renderers,
+  storageAbsences,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
   /** What each editor view's renderer tried and draws with. */
   readonly renderers: EditorPanelParts['rendererReports'];
+  /** What this browser lacks for keeping projects, and what that costs. */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 }): ReactNode {
   // Subscribed, so an answer the browser gives late redraws the panel.
   useSyncExternalStore(capabilities.subscribe, capabilities.all);
@@ -80,7 +92,7 @@ export function CapabilitiesPanel({
         What this browser can do, and what AudioGubbins does where it cannot.
       </p>
 
-      {degraded.length === 0 ? (
+      {degraded.length === 0 && storageAbsences.length === 0 ? (
         <p>Every AudioGubbins feature can run at full capability in this browser.</p>
       ) : (
         <ul className="ag-capability-list">
@@ -103,18 +115,22 @@ export function CapabilitiesPanel({
           ))}
         </ul>
       )}
+      <StorageAbsences absences={storageAbsences} />
       <RendererReportList reports={renderers} />
     </section>
   );
 }
 
 /** What a panel needs to draw itself. */
-export interface PanelContext {
+export interface PanelContext extends ProjectPanelContext {
   readonly capabilities: CapabilityRegistry;
   readonly logs: LogStore;
   readonly logViews: LogViewStore;
   readonly diagnosticModeActive: boolean;
   readonly announcement?: { readonly text: string; readonly urgent: boolean };
+
+  /** What this browser lacks for keeping projects. */
+  readonly storageAbsences: readonly StorageCapabilityAbsence[];
 
   /**
    * What the audio engine is doing, which the Transport panel shows. Read
@@ -136,12 +152,6 @@ export interface PanelContext {
   /** The frames the running render has reached, which the Transport panel reads likewise. */
   readonly framesRendered: () => number;
 
-  /** Runs a command a panel's control names. */
-  readonly run: (id: string) => void;
-
-  /** Why a command cannot run now, or `undefined`, as the menus say it. */
-  readonly unavailableReason: (id: string) => string | undefined;
-
   /** What the Editor and Picture panels are given. */
   readonly editor: EditorPanelParts;
 }
@@ -156,7 +166,7 @@ export function panelContextOf(
     context,
     editorPanels,
   }: { readonly context: ShellContext; readonly editorPanels: EditorPanelParts },
-  run: (id: string) => void,
+  run: RunCommand,
   unavailableReason: (id: string) => string | undefined,
 ): PanelContext {
   return {
@@ -165,6 +175,9 @@ export function panelContextOf(
     logs: context.logs,
     logViews: context.logViews,
     diagnosticModeActive: context.diagnostics.isDiagnosticModeActive(),
+    storageAbsences: context.storageAbsences,
+    projects: context.projects,
+    projectsUnavailable: unavailableReason('file.projects'),
     audio: context.audio,
     audioSettings: context.audioSettings,
     renderStrategy: context.renderStrategy,
@@ -180,23 +193,25 @@ export function panelContextOf(
  * The panels a later phase fills, with what each is for and which phase brings
  * it. A placeholder that says so rather than pretends (REQ-EXEC-136.9).
  */
-const PENDING_PANELS: ReadonlyMap<PanelKind, { readonly purpose: string; readonly phase: string }> =
-  new Map([
-    [
-      PanelKinds.AssetBrowser,
-      {
-        purpose: 'The audio in this project, ready to open, rename and organise.',
-        phase: 'the project and storage system',
-      },
-    ],
-    [
-      PanelKinds.Inspector,
-      {
-        purpose: 'The properties of whatever you have selected, editable in place.',
-        phase: 'core non-destructive editing',
-      },
-    ],
-  ]);
+const PENDING_PANELS: ReadonlyMap<
+  PanelKind,
+  { readonly purpose: string; readonly arrival: string }
+> = new Map([
+  [
+    PanelKinds.AssetBrowser,
+    {
+      purpose: 'The audio in the open project, ready to open, rename and organise.',
+      arrival: 'Importing audio arrives with the import, export and codec system.',
+    },
+  ],
+  [
+    PanelKinds.Inspector,
+    {
+      purpose: 'The properties of whatever you have selected, editable in place.',
+      arrival: 'Arrives with core non-destructive editing.',
+    },
+  ],
+]);
 
 /** The capability surface, the Editor and the Picture panel, or `undefined` for another kind. */
 function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
@@ -207,8 +222,12 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
           title={title}
           capabilities={context.capabilities}
           renderers={context.editor.rendererReports}
+          storageAbsences={context.storageAbsences}
         />
       );
+    case ProjectPanelKinds.History:
+    case ProjectPanelKinds.Storage:
+      return <ProjectPanel kind={panel.kind} title={title} context={context} />;
     case PanelKinds.Editor:
       return <EditorPanel panel={panel.id} title={title} parts={context.editor} />;
     case PanelKinds.Picture:

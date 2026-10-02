@@ -117,7 +117,7 @@
     "02": {
       "phase": 2,
       "name": "Project and Storage System",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         1
       ],
@@ -152,8 +152,11 @@
       ],
       "open_verified_findings": [],
       "commits": [],
-      "evidence": [],
-      "handoff": null
+      "evidence": [
+        "reviews/phase-02-evidence.md",
+        "reviews/phase-02-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-02.md"
     },
     "03": {
       "phase": 3,

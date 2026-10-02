@@ -52,6 +52,14 @@ import {
 } from './recovery-notices.js';
 import { PersistedPart, type StateStorage } from './state-storage.js';
 import { readMountedLayout } from './stored-layout.js';
+import {
+  notDiscarded,
+  nothingUnreadAbout,
+  unreadNow,
+  type Discarded,
+  type UnreadCopy,
+  type UnreadText,
+} from './text-custody.js';
 import { readCollection } from './workspace-collection.js';
 import { takeCustody } from './workspace-custody.js';
 
@@ -84,6 +92,24 @@ export interface WorkspaceState {
    * because it holds after the user has dismissed them.
    */
   readonly waitsForRoom: boolean;
+
+  /**
+   * How much there is of the text that could not be read, of the workspace on
+   * screen and of the saved ones, each only where there is any: set aside in
+   * this session or an earlier one, or held where it was found. Apart from
+   * the notices, because it is there to export or discard whether or not a
+   * notice still stands.
+   */
+  readonly unread: readonly UnreadText[];
+
+  /**
+   * The workspaces deleted since AudioGubbins started, the newest last, each
+   * as it was when it was deleted, so a deletion can be undone.
+   *
+   * Held for the session and no longer: kept in storage, a list of what the
+   * user chose to be rid of would take the room their other writes need.
+   */
+  readonly deleted: readonly WorkspaceLayout[];
 
   /**
    * Bumped only by a change the docking engine did not itself report.
@@ -156,6 +182,21 @@ export interface WorkspaceStore extends Observable<WorkspaceState> {
   /** Deletes a user layout: the layout deleted, or why it was refused. */
   readonly remove: (id: string) => WorkspaceLayout | string;
 
+  /** Why no deleted workspace can be restored, or `undefined` when one can. */
+  readonly restorationProblem: () => string | undefined;
+
+  /**
+   * Puts back a workspace deleted since AudioGubbins started, the one under
+   * `id` or, with none given, the newest, as the layout store puts one back:
+   * under the identifier and the name it had where no other workspace has
+   * taken them since. Mounts it again where it was on screen when it was
+   * deleted, as the deletion moved the user off it. Answers it as it was
+   * deleted and as it is now, or why it was refused.
+   */
+  readonly restore: (
+    id?: string,
+  ) => { readonly deleted: WorkspaceLayout; readonly restored: WorkspaceLayout } | string;
+
   /**
    * Returns a built-in layout to how it ships: the layout as it ships, or why
    * it was refused.
@@ -225,7 +266,27 @@ export interface WorkspaceStore extends Observable<WorkspaceState> {
    * was would report a change that did not happen.
    */
   readonly acknowledgeRecovery: (part: RecoveryPart) => string | undefined;
+
+  /** Why there is nothing of a part's text that could not be read, or `undefined`. */
+  readonly unreadProblem: (part: RecoveryPart) => string | undefined;
+
+  /** Every text of a part's that could not be read, as it is exported. */
+  readonly unreadCopies: (part: RecoveryPart) => readonly UnreadCopy[];
+
+  /**
+   * Discards every text of a part's that could not be read, puts away its
+   * notice, which speaks of text that is gone, and writes the workspace, which
+   * the text may have kept back: what the user is told comes of it, or why it
+   * was refused.
+   */
+  readonly discardUnread: (part: RecoveryPart) => Discarded | string;
 }
+
+/** Why no deleted workspace can be restored. */
+const NOTHING_DELETED = 'No workspace has been deleted since AudioGubbins started.';
+
+/** The parts whose text that could not be read is kept, in the order they are listed. */
+const PARTS: readonly RecoveryPart[] = ['layout', 'collection'];
 
 /** The layout as it ships that a reset would mount, or why it would be refused. */
 type ResetOrRefusal = WorkspaceLayout | string;
@@ -328,7 +389,13 @@ export function createWorkspaceStore(
     revision: 0,
     recoveries: startingRecoveries(custody.notice('layout'), custody.notice('collection')),
     waitsForRoom: custody.waitsForRoom(),
+    unread: unreadNow([], PARTS.map(custody.unread)),
+    deleted: [],
   });
+
+  // Each workspace deleted while it was on screen, so putting it back mounts
+  // it again.
+  const deletedOnScreen = new WeakSet<WorkspaceLayout>();
 
   /**
    * Writes the mounted layout and the collection, and brings each notice still
@@ -349,8 +416,13 @@ export function createWorkspaceStore(
     const current = state.get();
     const recoveries = recoveriesNow(current.recoveries, custody.notice);
     const waitsForRoom = custody.waitsForRoom();
-    if (recoveries !== current.recoveries || waitsForRoom !== current.waitsForRoom) {
-      state.set({ ...current, recoveries, waitsForRoom });
+    const unread = unreadNow(current.unread, PARTS.map(custody.unread));
+    if (
+      recoveries !== current.recoveries ||
+      waitsForRoom !== current.waitsForRoom ||
+      unread !== current.unread
+    ) {
+      state.set({ ...current, recoveries, waitsForRoom, unread });
     }
   };
 
@@ -374,16 +446,25 @@ export function createWorkspaceStore(
    * `remount` says whether the docking engine needs to build the arrangement
    * again. It does for a change made anywhere but inside it.
    */
-  const refresh = (layout: WorkspaceLayout, remount: boolean): void => {
+  const refresh = (
+    layout: WorkspaceLayout,
+    remount: boolean,
+    deleted: readonly WorkspaceLayout[] = state.get().deleted,
+  ): void => {
     const current = state.get();
     state.set({
+      ...current,
       layout,
       available: store.all(),
       revision: remount ? current.revision + 1 : current.revision,
-      recoveries: current.recoveries,
-      waitsForRoom: current.waitsForRoom,
+      deleted,
     });
     persist(layout);
+  };
+
+  const unreadProblem = (part: RecoveryPart): string | undefined => {
+    const { setAside, leftInPlace } = custody.unread(part);
+    return setAside + leftInPlace === 0 ? nothingUnreadAbout(part) : undefined;
   };
 
   /**
@@ -486,8 +567,33 @@ export function createWorkspaceStore(
       // Deleting the mounted layout would leave the user looking at a workspace
       // that no longer exists, so they are moved to the default preset.
       const current = state.get();
-      refresh(current.layout.id === id ? fallback : current.layout, current.layout.id === id);
+      const onScreen = current.layout.id === id;
+      if (onScreen) deletedOnScreen.add(removed);
+      refresh(onScreen ? fallback : current.layout, onScreen, [...current.deleted, removed]);
       return removed;
+    },
+
+    restorationProblem: () => (state.get().deleted.length === 0 ? NOTHING_DELETED : undefined),
+
+    restore: (id) => {
+      const { deleted, layout } = state.get();
+      const at =
+        id === undefined ? deleted.length - 1 : deleted.findLastIndex((one) => one.id === id);
+      const target = deleted[at];
+      if (target === undefined) {
+        return id === undefined
+          ? NOTHING_DELETED
+          : `No workspace deleted since AudioGubbins started had the identifier "${id}".`;
+      }
+
+      const restored = store.restore(target);
+      const mount = deletedOnScreen.has(target);
+      refresh(
+        mount ? restored : layout,
+        mount,
+        deleted.filter((_, index) => index !== at),
+      );
+      return { deleted: target, restored };
     },
 
     resetBuiltIn: (id) => {
@@ -581,14 +687,28 @@ export function createWorkspaceStore(
       // Dismissing destroys nothing: the damaged text is set aside, or held in
       // place and set aside by the first write that finds room for it, and
       // while it waits for room the status bar still says so.
-      state.set({
-        layout: current.layout,
-        available: current.available,
-        revision: current.revision,
-        recoveries: remaining,
-        waitsForRoom: current.waitsForRoom,
-      });
+      state.set({ ...current, recoveries: remaining });
       return undefined;
+    },
+
+    unreadProblem,
+
+    unreadCopies: custody.copies,
+
+    discardUnread: (part) => {
+      const problem = unreadProblem(part);
+      if (problem !== undefined) return problem;
+      const discarded = custody.discard(part);
+      if (discarded === undefined) return notDiscarded(part);
+
+      const current = state.get();
+      state.set({ ...current, recoveries: current.recoveries.filter((one) => one.part !== part) });
+      persist(current.layout);
+
+      // Said to be kept again only where the write that follows was kept: one
+      // refused has told the user so already.
+      const kept = !storage.get().unsaved.includes(PersistedPart.Workspace);
+      return { keptAgain: kept ? discarded.keptAgain : undefined };
     },
   };
 }

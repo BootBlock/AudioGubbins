@@ -1,0 +1,52 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "outDir": "./dist/types",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
+    "emitDeclarationOnly": true
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "dist"
+  ],
+  "references": [
+    {
+      "path": "../../packages/domain"
+    },
+    {
+      "path": "../../packages/diagnostics"
+    },
+    {
+      "path": "../../packages/capabilities"
+    },
+    {
+      "path": "../../packages/commands"
+    },
+    {
+      "path": "../../packages/history"
+    },
+    {
+      "path": "../../packages/project-format"
+    },
+    {
+      "path": "../../packages/project-commands"
+    },
+    {
+      "path": "../../packages/media-store"
+    },
+    {
+      "path": "../../packages/storage"
+    },
+    {
+      "path": "../../packages/browser-storage"
+    }
+  ]
+}

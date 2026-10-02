@@ -113,6 +113,8 @@ export {
 // against it can read it.
 export { usePublishedBlockSize } from './primitives/published-size.js';
 
+export { WINDOW_ROW, useRowWindow } from './primitives/row-window.js';
+
 export {
   MenuBar,
   type MenuBarProps,

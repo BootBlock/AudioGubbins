@@ -18,7 +18,7 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
 import { TransportMode } from '@audiogubbins/audio-engine';
-import { PeakHost, type PeakEvent } from '@audiogubbins/waveform';
+import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
 import { testAssets } from './assets/test-assets.js';
@@ -27,7 +27,6 @@ import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
-import { NO_PEAK_CACHE, indexedDbPeakCache } from './io/peak-cache-store.js';
 import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
 import { ReferencePicture } from './picture/reference-picture.js';
@@ -69,13 +68,11 @@ function followWorkspace(workspace: WorkspaceStore, editorViews: EditorViewStore
   workspace.subscribe(follow);
 }
 
-/** The one peak host, its peaks kept where the browser has somewhere to keep them. */
-function peakHost(capabilities: CapabilityRegistry, logger: Logger): PeakHost {
+/** The one peak host, its peaks kept in `cache`. */
+function peakHost(cache: PeakCacheStore, logger: Logger): PeakHost {
   return new PeakHost({
     createWorker: browserPeakWorker,
-    cache: capabilities.has(CapabilityKey.IndexedDb)
-      ? indexedDbPeakCache(indexedDB)
-      : NO_PEAK_CACHE,
+    cache,
     report: (event) => {
       const fields = { reason: event.reason };
       if (event.kind === 'failed') logger.error(PEAK_EVENT_MESSAGES[event.kind], fields);
@@ -151,6 +148,7 @@ export function startEditor(
   storage: StateStorage,
   logger: Logger,
   workspace: WorkspaceStore,
+  peakCache: PeakCacheStore,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
   const content = createSessionContent();
@@ -167,7 +165,7 @@ export function startEditor(
   };
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
-  const peaks = peakHost(capabilities, logger);
+  const peaks = peakHost(peakCache, logger);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();

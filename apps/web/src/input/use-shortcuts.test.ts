@@ -70,15 +70,15 @@ describe('useShortcuts', () => {
   let read: string[] = [];
 
   /**
-   * A listener over a profile binding Ctrl+Alt+Minus, Option+B and Ctrl+K
-   * Ctrl+X, counting what ran.
+   * A listener over a profile binding Ctrl+Alt+Minus, Option+B, Ctrl+K Ctrl+X
+   * and Ctrl+Z, counting what ran.
    */
   function listening(convention: KeyboardConvention) {
     const ran: string[] = [];
     cancelled = [];
     read = [];
     const registry = createCommandRegistry<null>();
-    for (const id of ['test.minus', 'test.option-b', 'test.chord']) {
+    for (const id of ['test.minus', 'test.option-b', 'test.chord', 'test.undo']) {
       registry.register({
         id: commandId(id),
         label: id,
@@ -112,6 +112,10 @@ describe('useShortcuts', () => {
             keyPress('KeyK', { control: true }),
             keyPress('KeyX', { control: true }),
           ),
+        },
+        {
+          commandId: commandId('test.undo'),
+          shortcut: shortcut(keyPress('KeyZ', { control: true })),
         },
       ],
     };
@@ -229,6 +233,21 @@ describe('useShortcuts', () => {
 
     expect(ran).toEqual([]);
     expect(cancelled).toEqual(['cancelled']);
+  });
+
+  it('leaves a press a text field edits with to the field, and runs it everywhere else', () => {
+    // Ctrl+Z is the project's undo and a field's own. Taken from a field, it
+    // undid the last change to the project while the user meant to take back
+    // what they had just typed into a name.
+    const ran = listening(KeyboardConvention.Windows);
+
+    const inField = press(field(), { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(ran).toEqual([]);
+    expect(inField.defaultPrevented).toBe(false);
+
+    const onPage = press(document.body, { key: 'z', code: 'KeyZ', ctrlKey: true });
+    expect(ran).toEqual(['test.undo']);
+    expect(onPage.defaultPrevented).toBe(true);
   });
 
   it('says the chord is given up when Escape abandons it', () => {

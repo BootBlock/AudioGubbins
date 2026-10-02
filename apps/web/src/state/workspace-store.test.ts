@@ -10,7 +10,7 @@ import type { ShellContext } from '../commands/shell-context.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { wholeNotice } from './recovery-notices.js';
-import { textsSetAside } from './state-storage.js';
+import { textsSetAside } from './set-aside-texts.js';
 import type { WorkspaceLayout } from '@audiogubbins/workspace';
 import { keptInCollection } from './workspace-store.js';
 
@@ -63,6 +63,9 @@ function busFor(context: ShellContext) {
   );
   return (id: string) => bus.execute(context, { commandId: commandId(id) });
 }
+
+/** Where every notice of the workspace's says its text can be exported or discarded. */
+const EXPORT_IT = 'The Workspaces settings can export what could not be read, or discard it.';
 
 /** What the user is told, one notice per thing that could not be read, as the status bar shows it. */
 function notices(context: ShellContext): readonly string[] {
@@ -308,7 +311,7 @@ describe('a stored workspace that cannot be read', () => {
     const { context } = buildShellContext(unreadableWorkspace());
 
     expect(notices(context)).toEqual([
-      'The stored workspace could not be read. The text that could not be read is kept aside.',
+      `The stored workspace could not be read. The text that could not be read is kept aside. ${EXPORT_IT}`,
     ]);
   });
 
@@ -372,7 +375,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
     'AudioGubbins tries again each time you change a workspace, and at the next start.';
 
   /** The start of the advice on making room, which the status bar shows apart. */
-  const ADVICE = 'Nothing in AudioGubbins makes room';
+  const ADVICE = 'To make room without losing anything';
 
   /**
    * Storage at its quota for the keys named until room is made: a write of
@@ -482,7 +485,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
     const { context } = buildShellContext(raw);
 
     expect(notices(context)).toEqual([
-      'One of the workspaces you saved could not be read, so it is not listed. The text that could not be read is kept aside.',
+      `One of the workspaces you saved could not be read, so it is not listed. The text that could not be read is kept aside. ${EXPORT_IT}`,
     ]);
     expect(listed(context)).toContain('Keeper');
     expect(listed(context)).not.toContain(long.displayName);
@@ -806,7 +809,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
 
     expect(textsSetAside(raw.read(MOUNTED_SET_ASIDE))).toEqual([damaged]);
     expect(notices(context)).toEqual([
-      "The stored layout's name is longer than 120 characters. The text that could not be read is kept aside.",
+      `The stored layout's name is longer than 120 characters. The text that could not be read is kept aside. ${EXPORT_IT}`,
     ]);
   });
 
@@ -826,7 +829,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
 
     expect(raw.read(MOUNTED)).toBe(damaged);
     expect(notices(context)).toEqual([
-      `The stored workspace could not be read. The workspace on screen cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN}`,
+      `The stored workspace could not be read. The workspace on screen cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN} ${EXPORT_IT}`,
     ]);
     // Written nowhere, the workspace on screen is listed as not being kept,
     // and said so when the change is not kept: the collection written beside
@@ -851,8 +854,8 @@ describe('the workspaces the user saved, when the file holding them is damaged',
 
     // What AudioGubbins does meanwhile is said once, in the second notice.
     expect(notices(context)).toEqual([
-      'The stored workspace could not be read. The workspace on screen cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside.',
-      `The workspaces you saved could not be read, so only the built-in ones and any you have saved since are listed. The workspaces you save now cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN} Some of the workspaces you saved since could not be read either, so they are not listed. What could not be read of them is left where it is.`,
+      `The stored workspace could not be read. The workspace on screen cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${EXPORT_IT}`,
+      `The workspaces you saved could not be read, so only the built-in ones and any you have saved since are listed. The workspaces you save now cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN} Some of the workspaces you saved since could not be read either, so they are not listed. What could not be read of them is left where it is. ${EXPORT_IT}`,
     ]);
 
     const told = context.interaction.get().announcement?.text;
@@ -925,7 +928,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
     expect(textsSetAside(raw.read(MOUNTED_SET_ASIDE))).toEqual([damaged]);
     expect(raw.read(MOUNTED)).toContain('diagnostics');
     expect(notices(context)).toEqual([
-      'The stored workspace could not be read. The text that could not be read is kept aside.',
+      `The stored workspace could not be read. The text that could not be read is kept aside. ${EXPORT_IT}`,
     ]);
     expect(context.interaction.get().announcement?.text).toBe(
       'There is room now to set aside the workspace that could not be read, so the workspace on screen is kept again.',
@@ -955,7 +958,7 @@ describe('the workspaces the user saved, when the file holding them is damaged',
     expect(raw.read(COLLECTION)).toContain('Nowhere to go');
     expect(raw.read(COLLECTION)).toContain('Kept once there is room');
     expect(notices(context)).toEqual([
-      'The workspaces you saved could not be read, so only the built-in ones and any you have saved since are listed. The text that could not be read is kept aside. Some of the workspaces you saved since could not be read either, so they are not listed. What could not be read of them is kept aside.',
+      `The workspaces you saved could not be read, so only the built-in ones and any you have saved since are listed. The text that could not be read is kept aside. Some of the workspaces you saved since could not be read either, so they are not listed. What could not be read of them is kept aside. ${EXPORT_IT}`,
     ]);
     expect(context.interaction.get().announcement?.text).toBe(
       'There is room now to set aside the workspaces that could not be read, so the workspaces you save are kept again.',

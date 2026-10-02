@@ -182,6 +182,14 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  'The storage tree over any synchronous root, which its tests run over a directory in memory; the storage worker builds it through `originPrivateTree`, over the origin-private file system.':
+    ['packages/browser-storage/src/sync-storage-tree.ts: SyncStorageTree'],
+  'How many entries of a history one slice of an opening carries, which the test of a long opening exceeds twice over so the page must apply slices in turn; the worker cuts every opening by it.':
+    ['packages/storage-runtime/src/host/project-updates.ts: SLICE_ENTRIES'],
+  "The storage worker's client over an end of the port and a page's ports given, which the worker in memory makes so a test counts the ports the page has lent; the application connects through `connectStorage`.":
+    ['packages/storage-runtime/src/client/storage-client.ts: storageClientOver'],
+  "The length a segment of history is filled to, which the ledger's tests size their nodes against to make it cut, merge or keep segments.":
+    ['packages/storage/src/segment-ledger.ts: SEGMENT_LENGTH'],
   "What a spectrogram lane says until spectral analysis draws it, which the composer's test finds in the lane.":
     ['packages/editor-view/src/frame-composer.ts: SPECTROGRAM_SHELL_NOTE'],
   "The time axis's bounds and rounding, which its conversions use and its tests hold to ADR-0041's exactness: the zoom's limits and single-sample step, the zoom showing a span, rounding half away from zero, the unclamped nearest boundary and the view kept within the timeline, and the order snap targets win in.":
@@ -215,8 +223,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'apps/web/src/shell/diagnostics-panel.tsx: recordsPassing',
       'apps/web/src/shell/panels.tsx: CapabilitiesPanel',
     ],
-  'The texts set aside, read back from what is stored by the storage and workspace tests; the storage itself reads them only to add to them.':
-    ['apps/web/src/state/state-storage.ts: textsSetAside'],
   'Whether two shortcuts are the same, asked of chords the shortcut tests build; the profile asks it of a binding.':
     ['packages/commands/src/shortcut.ts: shortcutsMatch'],
   'How long a resume of the audio context is waited on, which the lifecycle and session tests wait out.':

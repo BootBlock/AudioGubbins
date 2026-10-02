@@ -182,6 +182,24 @@ export function placeDefaults(
       shortcut: of(primaryOn(',', apple ? { shift: true } : {})),
     },
 
+    // Undo and redo of the open project's changes, on the keys every editor
+    // uses, single presses because they are reflexive: Z to undo on every
+    // platform, and to redo Y on Windows, Shift+Z on Linux as GNOME and KDE
+    // have it, and Command+Shift+Z on Apple hardware, where Command+Y is
+    // Chrome's history. No browser or system keeps any of them from the page.
+    // A text field keeps them for its own typing (`ownsItsKeys` in
+    // `use-shortcuts.ts`), so undoing a name being typed never undoes the
+    // project.
+    { commandId: commandId('edit.undo'), shortcut: of(primaryOn('z')) },
+    {
+      commandId: commandId('edit.redo'),
+      shortcut: of(
+        convention === KeyboardConvention.Windows
+          ? primaryOn('y')
+          : primaryOn('z', { shift: true }),
+      ),
+    },
+
     // Brightness, behind the prefix, on the arrow keys: up for brighter and
     // down for darker.
     //

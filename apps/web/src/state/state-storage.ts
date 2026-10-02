@@ -16,6 +16,8 @@
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import { observable, type Observable } from './observable.js';
+import { textsSetAside, withTextAdded } from './set-aside-texts.js';
+import { causeAndRemedy, causeOf, type StorageFailureCause } from './storage-failure.js';
 
 /**
  * Where text is kept between visits, by key.
@@ -72,6 +74,8 @@ export const PersistedPart = {
   Shortcuts: 'shortcuts',
   Verbosity: 'verbosity',
   KeyboardLayout: 'keyboard-layout',
+  SourceHandling: 'source-handling',
+  LastProject: 'last-project',
   AudioSettings: 'audio-settings',
   EditorViews: 'editor-views',
 } as const;
@@ -88,9 +92,13 @@ export type PersistedPart = (typeof PersistedPart)[keyof typeof PersistedPart];
  * will not survive a reload" at the first key they pressed, and the status bar
  * would list "keyboard layout" among what was not being saved, with nothing
  * they could do about either (REQ-ARCH-153 keeps derived state apart from
- * theirs).
+ * theirs). The project last open is the same: remembered to open it again at
+ * the next start, and never a change the user made.
  */
-const LEARNED_PARTS: ReadonlySet<PersistedPart> = new Set([PersistedPart.KeyboardLayout]);
+const LEARNED_PARTS: ReadonlySet<PersistedPart> = new Set([
+  PersistedPart.KeyboardLayout,
+  PersistedPart.LastProject,
+]);
 
 /** What the user calls each part. */
 const PART_NAMES: Record<PersistedPart, string> = {
@@ -99,6 +107,8 @@ const PART_NAMES: Record<PersistedPart, string> = {
   [PersistedPart.Shortcuts]: 'shortcut profiles',
   [PersistedPart.Verbosity]: 'diagnostic log levels',
   [PersistedPart.KeyboardLayout]: 'keyboard layout',
+  [PersistedPart.SourceHandling]: 'way of bringing files in',
+  [PersistedPart.LastProject]: 'the project to open next time',
   [PersistedPart.AudioSettings]: 'audio settings',
   [PersistedPart.EditorViews]: 'editor views',
 };
@@ -119,16 +129,39 @@ export interface WriteAccount {
 
   /**
    * What the user is told once this write is kept, when it keeps what earlier
-   * writes kept back: they were told it could not be kept, and are told when
-   * it is. Said only when no key of the write is refused.
+   * writes kept back: they were told it could not be kept, and are told when it
+   * is. Said only when no key of the write is refused.
    */
   readonly resumed?: string;
 }
 
-/** Which parts are not reaching storage. */
+/** Which parts are not reaching storage, and why. */
 export interface PersistenceState {
   /** In the order they started failing. Empty while everything is kept. */
   readonly unsaved: readonly PersistedPart[];
+
+  /**
+   * Why the browser refused the last write it refused, while any part is not
+   * being kept: `undefined` while every part is, or where no write was refused
+   * and a part is kept back by its caller (see `Withheld`), which says why
+   * itself.
+   */
+  readonly cause: StorageFailureCause | undefined;
+}
+
+/** What came of setting a text aside. */
+export interface SetAsideAnswer {
+  /** Whether the text is among those set aside now. */
+  readonly kept: boolean;
+
+  /**
+   * How many older texts were dropped to make room for it, which the store that
+   * set it aside tells the user of; none where it was not kept.
+   */
+  readonly dropped: number;
+
+  /** How many texts are set aside under the key now. */
+  readonly count: number;
 }
 
 /** Reads and writes the shell's state, and says which parts are not kept. */
@@ -171,61 +204,133 @@ export interface StateStorage extends Observable<PersistenceState> {
 
   /**
    * Adds text that could not be read to the texts set aside under a key, and
-   * answers whether it is there now.
+   * answers whether it is there now, and what was dropped to make room.
    *
    * Added, never written over: written over, a later damage would replace the
-   * text set aside before it, which nobody had read yet. The key holds a list;
-   * text already in it is not added twice, so text still damaged at the next
-   * start is set aside once.
+   * text set aside before it, which nobody had read yet. The key holds a list
+   * of a bounded size, whose oldest texts go to make room for a new one (see
+   * `set-aside-texts.ts`); text already in it is not added twice, so text still
+   * damaged at the next start is set aside once.
    *
    * Outside every part: a refusal is the caller's to report, in the notice
    * about that text. Reported as a part that was not saved, it would tell a
    * user who had not changed anything yet that their changes would not survive
    * a reload, beside a notice saying the opposite.
    */
-  readonly keepAside: (key: string, text: string) => boolean;
+  readonly keepAside: (key: string, text: string) => SetAsideAnswer;
+
+  /**
+   * Discards every text set aside under a key, and answers whether they are
+   * gone. Outside every part, as setting them aside is: the user asked for it,
+   * and the command that asked says a refusal.
+   */
+  readonly discardAside: (key: string) => boolean;
 }
 
 /**
- * The texts set aside under a key, as `keepAside` stores them.
- *
- * A list of strings. Anything else found there is kept as one text, so a key
- * damaged in its turn loses nothing to the next text added.
- */
-export function textsSetAside(stored: string | null): readonly string[] {
-  if (stored === null) return [];
-  try {
-    const parsed: unknown = JSON.parse(stored);
-    if (Array.isArray(parsed) && parsed.every((one) => typeof one === 'string')) return parsed;
-  } catch {
-    // Not a list this code wrote, so it is kept whole as one text.
-  }
-  return [stored];
-}
-
-/**
- * Adds a text to those set aside under a key, and answers whether it is there.
+ * Adds a text to those set aside under a key, and answers what came of it.
  *
  * Read back rather than assumed: a write refused at the quota leaves the text
  * out, and the caller keeps it where it was found.
  */
-function setAside(storage: KeyValueStorage, logger: Logger, key: string, text: string): boolean {
-  const kept = (): readonly string[] => textsSetAside(storage.read(key));
-  if (kept().includes(text)) return true;
+function setAside(
+  storage: KeyValueStorage,
+  logger: Logger,
+  key: string,
+  text: string,
+): SetAsideAnswer {
+  const before = textsSetAside(storage.read(key));
+  const added = withTextAdded(before, text);
+  if (added === undefined) return { kept: true, dropped: 0, count: before.length };
+
   try {
-    storage.write(key, JSON.stringify([...kept(), text]));
+    storage.write(key, added.list);
   } catch (error) {
     // Refused as readily as any write at the quota; the read below says so.
     logger.warning('Text that could not be read could not be set aside.', {
       reason: error instanceof Error ? error.message : 'unknown',
     });
   }
-  return kept().includes(text);
+
+  const after = textsSetAside(storage.read(key));
+  const kept = after.includes(text);
+  const dropped = kept ? added.dropped : 0;
+  if (dropped > 0) {
+    logger.warning('Older text that could not be read was dropped to make room.', {
+      count: dropped,
+    });
+  }
+  return { kept, dropped, count: after.length };
 }
 
-/** What the status bar says while something is not being kept. */
-export function describeUnsaved(unsaved: readonly PersistedPart[]): string {
-  return `Not being saved: ${unsaved.map((part) => PART_NAMES[part]).join(', ')}`;
+/** Discards the texts set aside under a key, and answers whether they are gone. */
+function discardAside(storage: KeyValueStorage, logger: Logger, key: string): boolean {
+  try {
+    storage.remove(key);
+  } catch (error) {
+    // A browser that refuses a removal leaves the texts where they are, which
+    // the read below says, and the command that asked for it says so.
+    logger.warning('Text set aside could not be discarded.', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
+  }
+  return storage.read(key) === null;
+}
+
+/**
+ * What the status bar says while something is not being kept: what, and, where
+ * the browser said why, the cause and what the user can do.
+ */
+export function describeUnsaved({ unsaved, cause }: PersistenceState): string {
+  const what = `Not being saved: ${unsaved.map((part) => PART_NAMES[part]).join(', ')}`;
+  return cause === undefined ? what : `${what}. ${causeAndRemedy(cause)}`;
+}
+
+/** What a write of every key of a part came to. */
+interface Written {
+  /** The keys the browser refused. */
+  readonly refused: readonly string[];
+
+  /** Why the first was refused, for the log, where one was. */
+  readonly reason: string | undefined;
+
+  /** Why the browser refused the first, as far as it says, where one was. */
+  readonly cause: StorageFailureCause | undefined;
+}
+
+/**
+ * Writes every key of a part, `null` removing one, and answers which the
+ * browser refused and why.
+ *
+ * A quota failure or a blocked store costs the user this change at the next
+ * visit and nothing else, so it is reported rather than thrown: the change they
+ * just made has to keep working on screen. Every key is attempted, because one
+ * refused key is no reason to abandon the others.
+ */
+function writeEach(
+  storage: KeyValueStorage,
+  entries: Readonly<Record<string, string | null>>,
+): Written {
+  const refused: string[] = [];
+  let reason: string | undefined;
+  let cause: StorageFailureCause | undefined;
+  for (const [key, value] of Object.entries(entries)) {
+    try {
+      if (value === null) storage.remove(key);
+      else storage.write(key, value);
+    } catch (error) {
+      // Answered rather than thrown, for the reason above.
+      refused.push(key);
+      reason ??= error instanceof Error ? error.message : 'unknown';
+      cause ??= causeOf(error);
+    }
+  }
+  return { refused, reason, cause };
+}
+
+/** What the user is told when the browser starts refusing a part: what, why, and what to do. */
+function notSaved(part: PersistedPart, cause: StorageFailureCause): string {
+  return `Your ${PART_NAMES[part]} will not survive a reload. ${causeAndRemedy(cause)}`;
 }
 
 /**
@@ -239,7 +344,7 @@ export function createStateStorage(
   logger: Logger,
   tell: (text: string) => void,
 ): StateStorage {
-  const state = observable<PersistenceState>({ unsaved: [] });
+  const state = observable<PersistenceState>({ unsaved: [], cause: undefined });
 
   return {
     get: state.get,
@@ -248,25 +353,10 @@ export function createStateStorage(
 
     save: (part, entries, account = {}) => {
       const { withheld } = account;
-      const refused: string[] = [];
-      let failure = withheld?.reason;
+      const { refused, reason, cause } = writeEach(storage, entries);
+      const failure = withheld?.reason ?? reason;
 
-      for (const [key, value] of Object.entries(entries)) {
-        try {
-          if (value === null) storage.remove(key);
-          else storage.write(key, value);
-        } catch (error) {
-          // A quota failure or a blocked store costs the user this change at
-          // the next visit and nothing else, so it is reported rather than
-          // thrown: the change they just made has to keep working on screen.
-          // Every key is attempted, because one refused key is no reason to
-          // abandon the others.
-          refused.push(key);
-          failure ??= error instanceof Error ? error.message : 'unknown';
-        }
-      }
-
-      const { unsaved } = state.get();
+      const { unsaved, cause: before } = state.get();
       const resumed = refused.length === 0 ? account.resumed : undefined;
 
       if (failure !== undefined) {
@@ -281,26 +371,33 @@ export function createStateStorage(
 
         // What is still kept back is told when the part starts failing, and
         // what this write keeps again in the same announcement: each replaces
-        // the one before it, so two in a row would say only the second.
+        // the one before it, so two in a row would say only the second. The
+        // cause is the browser's latest, while it refuses anything; a part its
+        // caller keeps back says why in its own words.
         const starting = !unsaved.includes(part);
-        if (starting) state.set({ unsaved: [...unsaved, part] });
+        const why = cause ?? before;
+        if (starting || why !== before) {
+          state.set({ unsaved: starting ? [...unsaved, part] : unsaved, cause: why });
+        }
         const lost = !starting
           ? undefined
-          : withheld !== undefined && refused.length === 0
-            ? withheld.told
-            : `Your ${PART_NAMES[part]} could not be saved, so your changes will not survive a reload.`;
+          : cause === undefined
+            ? withheld?.told
+            : notSaved(part, cause);
         const said = [resumed, lost].filter((one) => one !== undefined).join(' ');
         if (said !== '') tell(said);
         return refused;
       }
 
       if (unsaved.includes(part)) {
-        state.set({ unsaved: unsaved.filter((one) => one !== part) });
+        const still = unsaved.filter((one) => one !== part);
+        state.set({ unsaved: still, cause: still.length === 0 ? undefined : before });
       }
       if (resumed !== undefined) tell(resumed);
       return refused;
     },
 
     keepAside: (key, text) => setAside(storage, logger, key, text),
+    discardAside: (key) => discardAside(storage, logger, key),
   };
 }

@@ -244,6 +244,9 @@ importers:
       '@audiogubbins/audio-runtime':
         specifier: workspace:*
         version: link:../../packages/audio-runtime
+      '@audiogubbins/browser-storage':
+        specifier: workspace:*
+        version: link:../../packages/browser-storage
       '@audiogubbins/capabilities':
         specifier: workspace:*
         version: link:../../packages/capabilities
@@ -262,12 +265,30 @@ importers:
       '@audiogubbins/editor-view':
         specifier: workspace:*
         version: link:../../packages/editor-view
+      '@audiogubbins/history':
+        specifier: workspace:*
+        version: link:../../packages/history
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:../../packages/input
+      '@audiogubbins/media-store':
+        specifier: workspace:*
+        version: link:../../packages/media-store
+      '@audiogubbins/project-commands':
+        specifier: workspace:*
+        version: link:../../packages/project-commands
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../../packages/project-format
       '@audiogubbins/renderer':
         specifier: workspace:*
         version: link:../../packages/renderer
+      '@audiogubbins/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
+      '@audiogubbins/storage-runtime':
+        specifier: workspace:*
+        version: link:../../packages/storage-runtime
       '@audiogubbins/text':
         specifier: workspace:*
         version: link:../../packages/text
@@ -368,6 +389,28 @@ importers:
         specifier: workspace:*
         version: link:../domain
     devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/browser-storage:
+    dependencies:
+      '@audiogubbins/diagnostics':
+        specifier: workspace:*
+        version: link:../diagnostics
+      '@audiogubbins/media-store':
+        specifier: workspace:*
+        version: link:../media-store
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+      '@audiogubbins/storage':
+        specifier: workspace:*
+        version: link:../storage
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
@@ -491,12 +534,85 @@ importers:
         specifier: 5.0.1
         version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
 
+  packages/history:
+    dependencies:
+      '@audiogubbins/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
   packages/input:
     dependencies:
       '@audiogubbins/text':
         specifier: workspace:*
         version: link:../text
     devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/media-store:
+    dependencies:
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/project-commands:
+    dependencies:
+      '@audiogubbins/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/project-format:
+    dependencies:
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
+      '@audiogubbins/version':
+        specifier: workspace:*
+        version: link:../version
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
@@ -509,6 +625,74 @@ importers:
       '@webgpu/types':
         specifier: 0.1.74
         version: 0.1.74
+    devDependencies:
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/storage:
+    dependencies:
+      '@audiogubbins/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@audiogubbins/diagnostics':
+        specifier: workspace:*
+        version: link:../diagnostics
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/history':
+        specifier: workspace:*
+        version: link:../history
+      '@audiogubbins/media-store':
+        specifier: workspace:*
+        version: link:../media-store
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+      '@audiogubbins/version':
+        specifier: workspace:*
+        version: link:../version
+    devDependencies:
+      '@audiogubbins/test-fixtures':
+        specifier: workspace:*
+        version: link:../test-fixtures
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@types/node@26.6.1)(@vitest/coverage-v8@5.0.1)(jsdom@30.1.0)(vite@8.3.0(@types/node@26.6.1)(terser@5.51.2))
+
+  packages/storage-runtime:
+    dependencies:
+      '@audiogubbins/browser-storage':
+        specifier: workspace:*
+        version: link:../browser-storage
+      '@audiogubbins/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
+      '@audiogubbins/commands':
+        specifier: workspace:*
+        version: link:../commands
+      '@audiogubbins/diagnostics':
+        specifier: workspace:*
+        version: link:../diagnostics
+      '@audiogubbins/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@audiogubbins/history':
+        specifier: workspace:*
+        version: link:../history
+      '@audiogubbins/media-store':
+        specifier: workspace:*
+        version: link:../media-store
+      '@audiogubbins/project-commands':
+        specifier: workspace:*
+        version: link:../project-commands
+      '@audiogubbins/project-format':
+        specifier: workspace:*
+        version: link:../project-format
+      '@audiogubbins/storage':
+        specifier: workspace:*
+        version: link:../storage
     devDependencies:
       vitest:
         specifier: 5.0.1

@@ -37,7 +37,18 @@ import {
   defaultShortcutProfile,
   placeDefaults,
 } from '../state/default-shortcuts.js';
+import { backupCommands } from './backup-commands.js';
+import { backupFolderCommands } from './backup-folder-commands.js';
+import { compactionCommands } from './compaction-commands.js';
+import { comparisonCommands } from './comparison-commands.js';
+import { historyCommands } from './history-commands.js';
+import { ownershipCommands } from './ownership-commands.js';
+import { deletionCommands } from './project-deletion-commands.js';
+import { projectFileCommands } from './project-file-commands.js';
+import { projectTransferCommands } from './project-transfer-commands.js';
 import { shellCommands } from './shell-commands.js';
+import { sourceCommands } from './source-commands.js';
+import { storageCommands } from './storage-commands.js';
 import type { ShellContext } from './shell-context.js';
 
 describe('the shell command set', () => {
@@ -605,22 +616,27 @@ describe('the default shortcut profile', () => {
     // key press ends. Read on Windows alone, an Apple wait could never have
     // been seen here at all. A default waits where its character sits away
     // from its US key and no Command press has shown how the system reads the
-    // layout: Dvorak moves the prefix's and the editor's D, AZERTY moves the
-    // comma and the editor's A, and the two settled readings of Dvorak place
-    // them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 11', 'apple, AZERTY: 2']);
+    // layout: Dvorak moves every one of them, AZERTY moves the comma, the Z of
+    // undo and redo and the editor's A, German moves the Z alone, and the two
+    // settled readings of Dvorak place them all.
+    expect(forTheLayer).toEqual(['apple, Dvorak: 13', 'apple, AZERTY: 4', 'apple, German: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {
     // Known to type T, the key at K is not where K is: the prefix there would
-    // be Ctrl+T, a new tab, so every chord waits until K is found.
+    // be Ctrl+T, a new tab, so every chord waits until K is found. The single
+    // presses, whose keys are not known to type anything else, are placed.
     const partly = keyboardLayout([['KeyK', 't']]);
     const bound = defaultShortcutProfile(KeyboardConvention.Windows, partly).bindings.map(
       (binding) => binding.commandId,
     );
 
     // The editor's defaults are keys pressed alone, placed without the prefix.
-    expect(bound.filter((id) => !id.startsWith('editor.'))).toEqual([commandId('settings.open')]);
+    expect(bound.filter((id) => !id.startsWith('editor.'))).toEqual([
+      commandId('settings.open'),
+      commandId('edit.undo'),
+      commandId('edit.redo'),
+    ]);
   });
 
   it('writes each default by what the layout types, in the menus and the palette', () => {
@@ -727,10 +743,35 @@ describe('finding the shell commands in the palette', () => {
   const REPEATABLE: ReadonlySet<string> = new Set([
     'shortcuts.export',
     'help.export-diagnostics',
+    'settings.export-unread-text',
     // Full screen is the browser's to grant, outside every store, and asked
     // for again is asked again.
     'picture.full-screen',
   ]);
+
+  /**
+   * The project system's commands, whose work settles after they return, so a
+   * second run here would read the stores before the first had changed them.
+   * Each is run with its work awaited, over a storage in memory, in the
+   * project command tests beside this one (`project-file-commands.test.ts` and
+   * the rest), which is where a project to act on is, and each is refused
+   * there where it would change nothing.
+   */
+  const PROJECT_SYSTEM: ReadonlySet<string> = new Set(
+    [
+      ...projectFileCommands(),
+      ...deletionCommands(),
+      ...projectTransferCommands(),
+      ...backupCommands(),
+      ...backupFolderCommands(),
+      ...historyCommands(),
+      ...comparisonCommands(),
+      ...compactionCommands(),
+      ...ownershipCommands(),
+      ...storageCommands(),
+      ...sourceCommands(),
+    ].map((command) => command.id),
+  );
 
   /** What a command is given, as an invocation carries it. */
   type Arguments = Readonly<Record<string, string | number | boolean>>;
@@ -859,6 +900,20 @@ describe('finding the shell commands in the palette', () => {
     },
     'workspace.reset': { before: (run) => run('workspace.move-panel-left') },
     'workspace.delete': { before: (run) => run('workspace.save-as', { displayName: 'Mine' }) },
+    'workspace.restore': {
+      before: (run) => {
+        run('workspace.save-as', { displayName: 'Mine' });
+        run('workspace.delete');
+      },
+    },
+    'settings.discard-unread-text': {
+      storage: () => {
+        const raw = ephemeralStorage();
+        raw.write('audiogubbins.workspaces.unreadable', JSON.stringify(['[{"id": "mine",']));
+        return raw;
+      },
+      arguments: () => ({ about: 'collection' }),
+    },
     'workspace.dismiss-notice': {
       storage: () => {
         const raw = ephemeralStorage();
@@ -1104,7 +1159,7 @@ describe('finding the shell commands in the palette', () => {
   /** Each command run twice, once for each of its forms. */
   const RUNS: readonly (readonly [label: string, id: string, scenario: Scenario])[] = commands
     .map((command) => command.id)
-    .filter((id) => !REPEATABLE.has(id))
+    .filter((id) => !REPEATABLE.has(id) && !PROJECT_SYSTEM.has(id))
     .flatMap((id) => {
       const given = SCENARIOS[id] ?? defaultScenario(id);
       const forms: readonly Scenario[] = Array.isArray(given) ? given : [given];

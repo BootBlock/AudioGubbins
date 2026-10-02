@@ -3,10 +3,11 @@
  * assets, and the sound of a reference picture once the browser has decoded
  * it (REQ-AUDIO-156).
  *
- * A catalogue rather than a project: Phase 02 brings the project an asset is
- * held in, and until then nothing here is saved, which the editor says
- * (ADR-0047). A view names its asset by identity, so a view restored from an
- * earlier visit whose asset is not open again says so and offers the list.
+ * A catalogue rather than a project: none of these is an asset of the project,
+ * and nothing here is saved, which the editor says, until audio is imported
+ * into a project at its own rate (ADR-0047, ADR-0021). A view names its asset
+ * by identity, so a view restored from an earlier visit whose asset is not open
+ * again says so and offers the list.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';

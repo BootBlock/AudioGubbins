@@ -149,7 +149,7 @@ describe('what the composition root drives from the workspace', () => {
 
     await vi.waitFor(() => {
       expect(interaction.get().announcement).toMatchObject({
-        text: 'Your appearance settings could not be saved, so your changes will not survive a reload.',
+        text: "Your appearance settings will not survive a reload. This site's storage is full: delete what you no longer need in Settings. AudioGubbins tries again with your next change.",
         urgent: true,
       });
     }, PROMPTLY);

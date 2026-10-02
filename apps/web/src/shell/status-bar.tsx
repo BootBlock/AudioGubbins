@@ -21,13 +21,13 @@ import { PanelKinds } from '@audiogubbins/workspace';
 
 import { showPanelCommandId } from '../commands/panel-commands.js';
 import {
-  NOTHING_MAKES_ROOM_SAFELY,
+  MAKING_ROOM_SAFELY,
   subjectOf,
   wholeNotice,
   type NoticeAbout,
   type StandingRecovery,
 } from '../state/recovery-notices.js';
-import { describeUnsaved, type PersistedPart } from '../state/state-storage.js';
+import { describeUnsaved, type PersistenceState } from '../state/state-storage.js';
 import { QuickAction } from './panels.js';
 
 /** What the status bar shows. */
@@ -40,14 +40,17 @@ export interface StatusBarProps {
 
   readonly diagnosticModeActive: boolean;
 
-  /** The parts whose last write the browser refused. */
-  readonly unsaved: readonly PersistedPart[];
+  /** The parts whose last write the browser refused, and why. */
+  readonly persistence: PersistenceState;
 
   /** Every notice that something could not be read, and whether text waits for room. */
   readonly recovery: StandingRecovery;
 
   /** How many capabilities this browser lacks. */
   readonly missingCapabilities: number;
+
+  /** Whether the open project's changes are saved, where one is open. */
+  readonly saving?: ReactNode;
 
   readonly run: (id: CommandId, args?: Readonly<Record<string, string>>) => void;
 }
@@ -163,9 +166,10 @@ export function StatusBar({
   workspaceName,
   pendingChord,
   diagnosticModeActive,
-  unsaved,
+  persistence,
   recovery,
   missingCapabilities,
+  saving,
   run,
 }: StatusBarProps): ReactNode {
   const bar = useRef<HTMLElement>(null);
@@ -181,6 +185,7 @@ export function StatusBar({
   return (
     <footer className="ag-status-bar" ref={bar} tabIndex={focus.tabIndex} aria-label="Status">
       <span className="ag-status-item">{workspaceName}</span>
+      {saving}
 
       {pendingChord !== undefined && (
         <span className="ag-status-item" data-ag-status="reduced">
@@ -194,9 +199,9 @@ export function StatusBar({
         </span>
       )}
 
-      {unsaved.length > 0 && (
+      {persistence.unsaved.length > 0 && (
         <span className="ag-status-item" data-ag-status="unavailable">
-          {describeUnsaved(unsaved)}
+          {describeUnsaved(persistence)}
         </span>
       )}
 
@@ -225,7 +230,7 @@ export function StatusBar({
         // After the notices it advises on, once for them all, with nothing to
         // dismiss it: it stands while text waits for room, notices or not.
         <span className="ag-status-item" data-ag-status="unavailable">
-          {NOTHING_MAKES_ROOM_SAFELY}
+          {MAKING_ROOM_SAFELY}
         </span>
       )}
 

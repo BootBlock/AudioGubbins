@@ -152,10 +152,6 @@ function unreached(pkg: Package): readonly string[] {
  * loses its last importer has to be written into it or removed.
  */
 const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
-  '@audiogubbins/version': {
-    'The names of the stored formats, written by `tools/sync-version.mjs` beside the versions they key.':
-      ['SchemaName'],
-  },
   '@audiogubbins/test-fixtures': {
     'The two measures of cost the tests share (ADR-0019): the processor time one workload takes against another, for the text, diagnostics and application packages, with the longest a test of it takes, its timeout; and the comparisons of names a piece of work makes, for the commands and workspace packages, with the growth four times the names are held to, the ceiling of the larger count. Tests alone take them, as they take every fixture.':
       ['LONGEST_COST_TEST_MS', 'N_LOG_N_FOURFOLD', 'comparisonsIn', 'relativeCost'],
@@ -191,7 +187,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/domain': {
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
       ['ambisonicChannelCount', 'labelledLayout'],
-    'The domain value model ADR-0015 gives this phase, for the phases that open, edit and play a project, Phase 02 on. The shell edits no project.':
+    'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
       [
         'ChoiceOption',
         'ChoiceParameterDescriptor',
@@ -203,7 +199,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'TimelineEntity',
         'ToggleParameterDescriptor',
         'assetRangeEnd',
-        'assetRangeFitsAsset',
         'chainLatency',
         'clipAssetId',
         'clipEnd',
@@ -221,35 +216,60 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'processorsInSignalOrder',
         'projectLength',
         'regionEnd',
-        'routeToBus',
-        'routingPathToOutput',
         'secondsToSamples',
         'tracksInOrder',
         'validateParameterValue',
         'validateProcessorInstance',
       ],
-    'The project, its parts and the measures the fixtures package builds its projects and signals from. Only tests read the fixtures in this phase, so these reach no production code yet.':
+  },
+  '@audiogubbins/storage': {
+    'The journal and the store of whole states, the two contracts ADR-0020 names the storage by. The session and the backups reach both inside the package, and nothing outside it keeps a journal or a state of its own.':
+      ['CommandJournal', 'SnapshotStore'],
+    'The pruning plan of backup retention, which the scheduler applies and the cleanup plan reads inside the package. Offered for a preview of what a retention change removes before it is saved; the settings save a policy the person has read the rule of, and no preview is built.':
+      ['BackupPruning', 'planBackupPruning'],
+    'How often a session writes a checkpoint and keeps a whole state, which opening a project takes by default inside the package. Offered for a caller that opens a project with a cadence of its own, as the tests do; the application opens every project with the default.':
+      ['DEFAULT_CADENCE'],
+    'The media every kept root retains, which usage and cleanup measure inside the package. Offered for a caller that must know which media a purge would keep; the application asks the cleanup plan, which says so itself.':
+      ['retainedMedia'],
+    'Converting a bundle to an unpacked tree and back without bringing the project in (REQ-STOR-103). The interface converts by importing and exporting, which keeps both directions without loss: a conversion of its own asks for a file and a folder in one gesture, and a browser opens the second chooser only in answer to a gesture of its own.':
+      ['packUnpacked', 'unpackBundle'],
+  },
+  '@audiogubbins/project-format': {
+    "The reader and writer of a whole history record, which the unpacked tree reads a project's history with and its parts are written as; the history package's tests write and read a history back through them, as an export and import of the project would.":
+      ['readHistoryRecord', 'writeHistoryRecord'],
+    "Members of the format's reading kit, which the storage and history packages read their own records with; these are used inside the package so far, and are offered with the rest so a record another package keeps reads a flag, a list, a number, a set of entities or a state fingerprint as the project document does.":
+      ['asBoolean', 'entitiesOf', 'isStateFingerprint', 'listOf', 'numberConverter'],
+    "The project document's own header, format name and text forms, which the package reads and writes the document and the unpacked tree with. Offered for a tool that reads a document without the storage, such as the unpacked tree's inspection outside AudioGubbins that REQ-STOR-103 asks to be possible; nothing in the application reads a document but through the storage.":
+      ['FormatHeader', 'PROJECT_DOCUMENT_FORMAT', 'prettyCanonicalJson', 'readCompatibleHeader'],
+    "Reading an external file's identity, which the package reads a media source with. Offered for the linked-file checks of the import that arrives with the codec phase, which read an identity on its own.":
+      ['readExternalIdentity'],
+    'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
+      ['stripAssetProvenance', 'stripExportRecords'],
+  },
+  '@audiogubbins/project-commands': {
+    'The invocation that adds an asset, which importing audio runs; the import arrives with the codec phase, which reads the audio shape an asset records, so nothing in the interface adds an asset yet.':
+      ['addAssetInvocation'],
+  },
+  '@audiogubbins/media-store': {
+    'The import pipeline: copying or linking a file into a project with its identity completed as it is hashed (REQ-STOR-025, REQ-STOR-104). An asset records the audio shape of its file, which a codec reads, so the interface imports no audio until the codec phase; the pipeline is tested through a probe port.':
       [
-        'Asset',
-        'AssetOrigin',
-        'AssetRange',
-        'Bus',
-        'BusId',
-        'Clip',
-        'EffectChain',
-        'EffectChainId',
-        'MAIN_OUTPUT',
-        'ParameterId',
-        'ParameterValue',
-        'ProcessorInstance',
-        'Project',
-        'ProjectId',
-        'ProjectSettings',
-        'RoutingTarget',
-        'Track',
-        'createProject',
+        'ImportChoice',
+        'ImportRequest',
+        'ImportServices',
+        'ImportedMedia',
+        'completeIdentity',
+        'importMedia',
       ],
   },
+  '@audiogubbins/history': {
+    'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
+      ['diffStates'],
+  },
+  '@audiogubbins/browser-storage': {
+    "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
+      ['filesInDirectory'],
+  },
+  '@audiogubbins/storage-runtime': {},
   '@audiogubbins/timeline': {
     "A view at the timeline's start at a zoom and width, the one every other package's tests build a view from; the application opens its views fitted to the asset.":
       ['viewportAtStart'],

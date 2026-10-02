@@ -221,7 +221,7 @@ async function barHoldingTheAdvice(
 
   const bar = page.getByRole('contentinfo', { name: 'Status' });
   const advice = bar.locator('.ag-status-item', {
-    hasText: 'Nothing in AudioGubbins makes room',
+    hasText: 'To make room without losing anything',
   });
   const dismiss = bar.getByRole('button', {
     name: 'Dismiss the notice about the workspace on screen',
@@ -1493,8 +1493,8 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await page.keyboard.press('Tab');
 
     // The toolbar's roving focus means the whole menu bar costs one stop, not
-    // one per menu.
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    // one per menu. The stop is the first menu, File.
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
   });
 
   test('moves between the menus with the arrow keys', async ({ page }) => {
@@ -1503,13 +1503,19 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await page.keyboard.press('Tab');
     await page.keyboard.press('ArrowRight');
 
-    await expect(menuBarMenu(page, 'Workspace')).toBeFocused();
+    await expect(menuBarMenu(page, 'Edit')).toBeFocused();
   });
 
   test('opens a menu with Enter and chooses with the arrow keys', async ({ page }) => {
     await openFresh(page);
 
+    // To the View menu, past File and Edit, and into it, each press waiting
+    // for the focus the one before moved.
     await page.keyboard.press('Tab');
+    await page.keyboard.press('ArrowRight');
+    await expect(menuBarMenu(page, 'Edit')).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect(menuBarMenu(page, 'View')).toBeFocused();
     await page.keyboard.press('Enter');
 
     // The dark theme is in use, so its entry cannot be chosen; focus opens on
@@ -1577,13 +1583,13 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await openFresh(page);
 
     await page.keyboard.press('Tab');
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
 
     await openSettings(page);
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
   });
 
   test('returns focus after a portalled control was used inside the dialogue', async ({ page }) => {
@@ -1595,7 +1601,7 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await openFresh(page);
 
     await page.keyboard.press('Tab');
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
 
     await openSettings(page);
     await page.getByRole('combobox', { name: 'Accent colour' }).click();
@@ -1603,7 +1609,7 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeHidden();
 
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
   });
 
   test('returns focus when the dialogue was opened from the palette', async ({ page }) => {
@@ -1612,7 +1618,7 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await openFresh(page);
 
     await page.keyboard.press('Tab');
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
 
     await openPalette(page);
     await page.getByRole('combobox').fill('Settings');
@@ -1621,20 +1627,20 @@ test.describe('the shell is operable from the keyboard alone', () => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name: 'Settings' })).toBeHidden();
 
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
   });
 
   test('returns focus when the palette itself closes', async ({ page }) => {
     await openFresh(page);
 
     await page.keyboard.press('Tab');
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
 
     await openPalette(page);
     await expect(page.getByRole('dialog', { name: 'Run a command' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await expect(menuBarMenu(page, 'View')).toBeFocused();
+    await expect(menuBarMenu(page, 'File')).toBeFocused();
   });
 
   test(

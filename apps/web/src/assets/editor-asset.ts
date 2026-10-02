@@ -3,11 +3,12 @@
  * called, its rate, its layout, its length, how to describe it to the thread
  * that reads it, and the markers and regions it opens with.
  *
- * Phase 04 has no project to open assets from (Phase 02's), so the assets are
- * the deterministic test assets (`test-assets.ts`) and the sound of a
- * reference picture the browser could decode. Each keeps its native rate
- * (REQ-ARCH-085): playback runs at the asset's rate, the peaks are made at it
- * and every position in the editor is a boundary at it.
+ * No asset of a project is opened here until audio is imported into a project
+ * at its own rate (ADR-0021), so the assets are the deterministic test assets
+ * (`test-assets.ts`) and the sound of a reference picture the browser could
+ * decode. Each keeps its native rate (REQ-ARCH-085): playback runs at the
+ * asset's rate, the peaks are made at it and every position in the editor is a
+ * boundary at it.
  */
 
 import type { ChannelLayout, Marker, Region, SampleCount, SampleRate } from '@audiogubbins/domain';

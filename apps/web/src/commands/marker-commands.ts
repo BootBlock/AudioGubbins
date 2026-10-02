@@ -1,9 +1,9 @@
 /**
  * The marker commands (ADR-0047): adding, moving and removing an asset's
- * markers for the session, each giving the invocation that reverses it, so
- * they join the project's history unchanged when Phase 02's project holds
- * them. A marker made from a tool, a key, the palette or the picture panel is
- * made here, and every view of the asset shows it (REQ-EDIT-061).
+ * markers for the session, each giving the invocation that reverses it, so they
+ * join the project's history unchanged when the project holds them (ADR-0021).
+ * A marker made from a tool, a key, the palette or the picture panel is made
+ * here, and every view of the asset shows it (REQ-EDIT-061).
  *
  * A command names its asset with the `asset` argument, as a reversal does, or
  * acts on the asset of the view it names or of the editor last in use.

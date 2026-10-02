@@ -21,7 +21,7 @@ import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { DEFAULT_PROFILE_ID } from './default-shortcuts.js';
 import { wholeNotice } from './recovery-notices.js';
-import { textsSetAside } from './state-storage.js';
+import { textsSetAside } from './set-aside-texts.js';
 
 /**
  * Stored shortcut profiles this build cannot read, whole or in part.
@@ -49,7 +49,10 @@ const TRIES_AGAIN =
   'AudioGubbins tries again each time you change your shortcuts, and at the next start.';
 
 /** The start of the advice on making room, which the status bar shows apart. */
-const ADVICE = 'Nothing in AudioGubbins makes room';
+const ADVICE = 'To make room without losing anything';
+
+/** Where the notice says the text can be exported or discarded. */
+const EXPORT_IT = 'The Shortcuts settings can export what could not be read, or discard it.';
 
 /** The notice about the stored profiles, as the status bar shows it, while it stands. */
 function noticeOf(context: ShellContext): string | undefined {
@@ -169,7 +172,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     const { context } = buildShellContext(raw);
 
     expect(noticeOf(context)).toBe(
-      'The shortcut profiles you made could not be read, so the default shortcuts are in force. The text that could not be read is kept aside.',
+      `The shortcut profiles you made could not be read, so the default shortcuts are in force. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
     expect(context.shortcuts.get().profile.id).toBe(DEFAULT_PROFILE_ID);
 
@@ -190,7 +193,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     const { context } = buildShellContext(raw);
 
     expect(noticeOf(context)).toBe(
-      'The shortcut profiles you made were written in another format, one this version of AudioGubbins cannot read, so the default shortcuts are in force. The text that could not be read is kept aside.',
+      `The shortcut profiles you made were written in another format, one this version of AudioGubbins cannot read, so the default shortcuts are in force. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
 
     change(context);
@@ -212,7 +215,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     ]);
     expect(context.shortcuts.get().profile.displayName).toBe('Mine');
     expect(noticeOf(context)).toBe(
-      'One of the shortcut profiles you made could not be read, so it is not listed. The text that could not be read is kept aside.',
+      `One of the shortcut profiles you made could not be read, so it is not listed. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
 
     change(context);
@@ -227,7 +230,7 @@ describe('stored shortcut profiles that cannot be read', () => {
 
     expect(context.shortcuts.get().profile.id).toBe(DEFAULT_PROFILE_ID);
     expect(noticeOf(context)).toBe(
-      '2 of the shortcut profiles you made could not be read, so they are not listed. The one in use was among them, so the default shortcuts are in force. The text that could not be read is kept aside.',
+      `2 of the shortcut profiles you made could not be read, so they are not listed. The one in use was among them, so the default shortcuts are in force. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
   });
 
@@ -285,7 +288,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     ]);
     expect(context.shortcuts.get().profile.displayName).toBe('Mine');
     expect(noticeOf(context)).toBe(
-      '8 of the shortcut profiles you made could not be read, so they are not listed. The text that could not be read is kept aside.',
+      `8 of the shortcut profiles you made could not be read, so they are not listed. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
 
     const records = logs.snapshot();
@@ -316,7 +319,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     const { context, storage } = buildShellContext(quota.storage);
 
     expect(noticeOf(context)).toBe(
-      `The shortcut profiles you made could not be read, so the default shortcuts are in force. Changes to your shortcuts cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN}`,
+      `The shortcut profiles you made could not be read, so the default shortcuts are in force. Changes to your shortcuts cannot be kept until there is room. The text that could not be read is left where it is, and there is no room to set it aside. ${TRIES_AGAIN} ${EXPORT_IT}`,
     );
 
     change(context);
@@ -339,7 +342,7 @@ describe('stored shortcut profiles that cannot be read', () => {
     expect(raw.read(PROFILES)).toContain('My shortcuts');
     expect(storage.get().unsaved).toEqual([]);
     expect(noticeOf(context)).toBe(
-      'The shortcut profiles you made could not be read, so the default shortcuts are in force. The text that could not be read is kept aside.',
+      `The shortcut profiles you made could not be read, so the default shortcuts are in force. The text that could not be read is kept aside. ${EXPORT_IT}`,
     );
     expect(context.interaction.get().announcement?.text).toBe(
       'There is room now to set aside the shortcut profiles that could not be read, so changes to your shortcuts are kept again.',

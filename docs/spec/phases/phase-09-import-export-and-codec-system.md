@@ -54,6 +54,7 @@ Users can import common audio formats, render projects/regions through the canon
 - [ ] Collision policy
 - [ ] Deterministic/application-owned codecs where required
 - [ ] Streaming/chunked I/O
+- [ ] Importing audio into the open project at its native rate, and opening the project's assets in the editor, whose per-asset markers and regions then move into the project as project commands with the same inverses, removing the session holder (`ADR-0047`, `ADR-0021`)
 
 ## Explicitly Out of Scope
 

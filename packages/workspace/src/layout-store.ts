@@ -13,7 +13,7 @@
 
 import { namesCanBeCompared } from '@audiogubbins/text';
 
-import { addTo, givenName, heldLayouts, namesIn } from './held-layouts.js';
+import { addTo, givenName, heldLayouts, namesIn, putBack } from './held-layouts.js';
 import { NAMING_REFUSED, nameOfACopy, nameOfANewWorkspace } from './workspace-name.js';
 
 import type { WorkspaceArrangement, WorkspaceLayout } from './panel.js';
@@ -76,12 +76,13 @@ export interface LayoutRemoval {
  *
  * It allocates the identifier of every layout it adds, and never adds one under
  * an identifier a caller gives, so nothing written lands on another layout, a
- * built-in one included. A name it gives or is given for a layout is held to
- * the rule for a name and to the names the others have, compared as a reader
- * hears them, so no two workspaces it names are one in a list or a live region.
- * Only saving as, duplicating and renaming take a name, and each is refused in
- * words where this runtime cannot compare names (see `namesCanBeCompared`),
- * while every other operation, and the reading of stored layouts, goes on.
+ * built-in one included: a layout it puts back had its identifier from it. A
+ * name it gives or is given for a layout is held to the rule for a name and to
+ * the names the others have, compared as a reader hears them, so no two
+ * workspaces it names are one in a list or a live region. Only saving as,
+ * duplicating and renaming take a name, and each is refused in words where this
+ * runtime cannot compare names (see `namesCanBeCompared`), while every other
+ * operation, and the reading of stored layouts, goes on.
  */
 export interface LayoutStore {
   /** Every layout, built-in first. */
@@ -158,6 +159,18 @@ export interface LayoutStore {
   removable(id: string): LayoutRemoval | string;
 
   /**
+   * Puts back a layout a removal of this store's made, the inverse of the
+   * removal, and answers it as it is held now: under the identifier and the
+   * name it had, each where no other layout has taken it since, and otherwise
+   * under a free one, as `putBack` gives.
+   *
+   * Throws for a layout no removal of this store's made, or one put back
+   * already: a caller holds each removed layout once, and put back twice, one
+   * workspace would be listed twice.
+   */
+  restore(removed: WorkspaceLayout): WorkspaceLayout;
+
+  /**
    * The built-in layout under `id` as it ships, which a reset returns it to, or
    * why a reset would be refused.
    *
@@ -172,9 +185,13 @@ export interface LayoutStore {
   resettable(id: string): WorkspaceLayout | string;
 }
 
-/** The removal of `layout`, which `layouts` holds under `id`. */
+/**
+ * The removal of `layout`, which `layouts` holds under `id`, noting the layout
+ * in `removed` once it is made, so only a layout it removed is put back.
+ */
 function removalOf(
   layouts: Map<string, WorkspaceLayout>,
+  removed: WeakSet<WorkspaceLayout>,
   id: string,
   layout: WorkspaceLayout,
 ): LayoutRemoval {
@@ -187,6 +204,7 @@ function removalOf(
         );
       }
       layouts.delete(id);
+      removed.add(layout);
       return layout;
     },
   };
@@ -199,6 +217,7 @@ export function createLayoutStore(
 ): LayoutStore {
   const shipped = new Map(builtIn.map((layout) => [layout.id, layout]));
   const layouts = heldLayouts(builtIn, userLayouts);
+  const removed = new WeakSet<WorkspaceLayout>();
 
   const userLayout = (id: string, refusal: string): WorkspaceLayout | string => {
     const existing = layouts.get(id);
@@ -211,7 +230,7 @@ export function createLayoutStore(
 
   const removable = (id: string): LayoutRemoval | string => {
     const layout = userLayout(id, `${BUILT_IN_IS_NOT_DELETABLE} Reset it instead.`);
-    return typeof layout === 'string' ? layout : removalOf(layouts, id, layout);
+    return typeof layout === 'string' ? layout : removalOf(layouts, removed, id, layout);
   };
 
   const resettable = (id: string): WorkspaceLayout | string => {
@@ -269,6 +288,14 @@ export function createLayoutStore(
     renamable,
     removable,
     resettable,
+
+    restore(layout) {
+      if (!removed.has(layout)) {
+        throw new Error('A workspace was put back that no removal of this store made.');
+      }
+      removed.delete(layout);
+      return putBack(layouts, layout);
+    },
 
     rename(id, displayName) {
       const before = renamable(id);

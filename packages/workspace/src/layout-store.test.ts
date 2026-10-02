@@ -770,6 +770,52 @@ describe('createLayoutStore', () => {
     expect(store.get('mine')).toBe(saved);
   });
 
+  /** Removes the layout under `id`, and answers it. */
+  function removedFrom(held: LayoutStore, id: string): WorkspaceLayout {
+    const removal = held.removable(id);
+    if (typeof removal === 'string') throw new Error(removal);
+    return removal.make();
+  }
+
+  it('puts back a workspace it removed, under the identifier and the name it had', () => {
+    // A deletion was one press with no way back.
+    const before = store.all();
+    const removed = removedFrom(store, 'mine');
+
+    expect(store.restore(removed)).toEqual(removed);
+    expect(store.get('mine')).toEqual(removed);
+    expect(store.all()).toEqual(before);
+  });
+
+  it('puts one back under a free identifier and a numbered name where another has taken both since', () => {
+    const removed = removedFrom(store, 'mine');
+    const underItsIdentifier = store.saveAs(validLayout(), 'Mine');
+    const underItsName = store.saveAs(validLayout(), 'My workspace');
+    if (typeof underItsIdentifier === 'string') throw new Error(underItsIdentifier);
+    if (typeof underItsName === 'string') throw new Error(underItsName);
+    expect(underItsIdentifier.id).toBe('mine');
+
+    const restored = store.restore(removed);
+
+    expect(restored).toEqual({ ...removed, id: 'my-workspace-2', displayName: 'My workspace 2' });
+    expect(store.get('mine')).toBe(underItsIdentifier);
+    expect(store.get(underItsName.id)).toBe(underItsName);
+    expect(store.get('my-workspace-2')).toBe(restored);
+  });
+
+  it('throws for a layout no removal of its made, or one it has put back already', () => {
+    expect(() => store.restore(validLayout({ id: 'elsewhere' }))).toThrow(
+      'A workspace was put back that no removal of this store made.',
+    );
+
+    const removed = removedFrom(store, 'mine');
+    store.restore(removed);
+    expect(() => store.restore(removed)).toThrow(
+      'A workspace was put back that no removal of this store made.',
+    );
+    expect(store.all().filter((one) => one.id === 'mine')).toHaveLength(1);
+  });
+
   it('refuses to save over a built-in layout, so the preset stays available', () => {
     const refusal = store.save('editing', validLayout());
     expect(refusal?.kind).toBe('built-in');
@@ -1147,6 +1193,21 @@ describe('a runtime that cannot compare names', () => {
     // What is refused before a name is read is refused as before.
     expect(store.duplicate('nothing')).toBe(workspace.noWorkspaceWith('nothing'));
     expect(store.rename('editing', 'Mastering')).toBe('A built-in workspace keeps its name.');
+  });
+
+  it('puts back a workspace it removed under the name it had, which it cannot compare', async () => {
+    // Refused here, a workspace deleted by mistake would be kept from the user
+    // for want of a comparison, though its name was held to the list once.
+    const workspace = await whereNamesCannotBeCompared();
+    const store = workspace.createLayoutStore(buildPresets(AVAILABLE), [
+      validLayout({ displayName: 'Mine' }),
+    ]);
+    const removal = store.removable('mine');
+    if (typeof removal === 'string') throw new Error(removal);
+    const removed = removal.make();
+
+    expect(store.restore(removed)).toEqual(removed);
+    expect(store.get('mine')).toEqual(removed);
   });
 });
 

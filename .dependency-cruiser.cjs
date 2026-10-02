@@ -46,15 +46,38 @@
  *   workspace       docking; depends on diagnostics + text + version
  *   test-fixtures   deterministic fixtures and the measures of a cost; depends
  *                   on domain; never shipped
- *   apps/web        composition root; may depend on every public entry point
+ *   apps/web        composition root; may depend on every public entry point,
+ *                   but takes only types and listed values from the packages
+ *                   that keep projects, whose core runs in the storage worker
+ *                   (ADR-0022; tests/architecture/dependency-rules.test.ts)
  *
- * The tests of the text and diagnostics packages may take the fixtures package,
- * which their own rules below leave out of what they refuse, and so may the
- * tests of every package no such rule governs (ADR-0019): what a test runs with
- * reaches no one who uses the package, and `fixtures-are-test-only` keeps it
- * out of every production file. The tests of the input and version packages may
- * not, and the domain package's cannot, since the fixtures package depends on
- * it.
+ * Phase 02's packages sit between the domain and the application (ADR-0020):
+ *
+ * - project-format: the authoritative, versioned project and the forms it is
+ *   written in; depends on domain + text + version.
+ * - project-commands: the commands that change a project; depends on domain +
+ *   commands + project-format.
+ * - history: branching history as values; depends on domain + commands +
+ *   project-format.
+ * - media-store: content-addressed source media; depends on domain +
+ *   project-format.
+ * - storage: keeping projects over a backend port; depends on domain +
+ *   commands + diagnostics + history + media-store + project-format + version,
+ *   and on no browser API.
+ * - browser-storage: the browser beneath the storage ports; depends on
+ *   diagnostics + media-store + project-format + storage.
+ * - storage-runtime: the browser host of project storage, its worker, the port
+ *   to the page and the page's client (ADR-0022); depends on browser-storage,
+ *   capabilities, commands, diagnostics, domain, history, media-store,
+ *   project-commands, project-format and storage.
+ *
+ * The tests of the text and diagnostics packages, and of each Phase 02 package,
+ * may take the fixtures package, which their own rules below leave out of what
+ * they refuse, and so may the tests of every package no such rule governs
+ * (ADR-0019): what a test runs with reaches no one who uses the package, and
+ * `fixtures-are-test-only` keeps it out of every production file. The tests of
+ * the input and version packages may not, and the domain package's cannot,
+ * since the fixtures package depends on it.
  */
 
 /** Packages that are allowed to hold React components. */
@@ -126,7 +149,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|domain|commands|editor-view|input|renderer|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -272,6 +295,92 @@ module.exports = {
       to: {
         path: '^packages/(?!(diagnostics|text|version)/)',
         pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'project-format-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The project format sits just above the domain it writes, so every Phase 02 package ' +
+        'can read it and it can read none of them (ADR-0020); it reads the text leaf for the ' +
+        'rule a given name is held to. Its tests may take the fixtures package.',
+      from: { path: '^packages/project-format/' },
+      to: {
+        path: '^packages/(?!(domain|project-format|text|version)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'project-commands-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'A project command reads the project it changes and the command contract, and nothing ' +
+        'that keeps or shows a project: replay stays deterministic (ADR-0020).',
+      from: { path: '^packages/project-commands/' },
+      to: {
+        path: '^packages/(?!(commands|domain|project-commands|project-format)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'history-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'History may reference command and domain identifiers but not renderer or interface ' +
+        'internals, nor storage: it is the model the journal persists (Phase 02 packet).',
+      from: { path: '^packages/history/' },
+      to: {
+        path: '^packages/(?!(commands|domain|history|project-format)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'media-store-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Media by content depends on the format that names content and nothing that keeps a ' +
+        'project, so storage reads it and not the reverse (ADR-0020).',
+      from: { path: '^packages/media-store/' },
+      to: {
+        path: '^packages/(?!(domain|media-store|project-format)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'storage-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Storage depends on domain and project-format contracts, not the interface, and on no ' +
+        'browser adapter: the browser implements its ports from above (Phase 02 packet, ' +
+        'ADR-0020).',
+      from: { path: '^packages/storage/' },
+      to: {
+        path: '^packages/(?!(commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'browser-storage-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The browser adapters implement the storage ports and know nothing of the interface ' +
+        'that composes them (ADR-0020).',
+      from: { path: '^packages/browser-storage/' },
+      to: {
+        path: '^packages/(?!(browser-storage|diagnostics|media-store|project-format|storage)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
+    },
+    {
+      name: 'storage-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The browser host of project storage composes the storage packages and their browser ' +
+        'adapters in a worker and serves them to the page (ADR-0022). It knows nothing of the ' +
+        'interface that calls it, or of the audio packages.',
+      from: { path: '^packages/storage-runtime/' },
+      to: {
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|project-commands|project-format|storage|storage-runtime)/)',
       },
     },
     {

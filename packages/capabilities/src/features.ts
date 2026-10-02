@@ -234,12 +234,12 @@ export const FULL_SCREEN_PICTURE: FeatureRequirement = {
 /**
  * Keeping waveform peaks between visits, a disposable cache (ADR-0043): a long
  * file's waveform is drawn at once on a later visit rather than filled in
- * again.
+ * again. Kept among the caches of the storage projects are kept in.
  */
 const WAVEFORM_CACHE: FeatureRequirement = {
   featureKey: 'waveform-cache',
   label: 'Keeping waveforms between visits',
-  required: [CapabilityKey.IndexedDb],
+  required: [CapabilityKey.OriginPrivateFileSystem],
   fallback:
     'Waveforms are made again on each visit, which takes a while on long files. Nothing else is affected.',
 };
