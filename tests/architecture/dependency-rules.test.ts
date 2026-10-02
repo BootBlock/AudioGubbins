@@ -211,6 +211,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/codecs': ['@audiogubbins/domain'],
+  '@audiogubbins/clipboard': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
@@ -222,7 +224,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
   '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
-  '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+  '@audiogubbins/audio-engine': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/codecs',
+  ],
   '@audiogubbins/audio-runtime': [
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
@@ -305,6 +311,8 @@ const FIXTURES = '@audiogubbins/test-fixtures';
  */
 const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'browser-storage',
+  'clipboard',
+  'codecs',
   'diagnostics',
   'history',
   'media-store',
@@ -739,6 +747,8 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
   const FRAMEWORK_FREE_PACKAGES = [
     'audio-engine',
     'audio-graph',
+    'clipboard',
+    'codecs',
     'commands',
     'domain',
     'editor-view',

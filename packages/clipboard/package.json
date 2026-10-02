@@ -1,18 +1,14 @@
 {
-  "name": "@audiogubbins/audio-engine",
+  "name": "@audiogubbins/clipboard",
   "version": "0.1.0",
   "private": true,
-  "description": "The audio engine core that runs on any thread: it moves, processes and renders audio through the processing graph.",
+  "description": "Copying and pasting audio: the payload a copy takes from an edit plan, with the records of the media it reads, and how a paste fits it to its destination.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
-    },
-    "./testing": {
-      "types": "./src/testing/index.ts",
-      "default": "./src/testing/index.ts"
     }
   },
   "main": "./src/index.ts",
@@ -23,14 +19,14 @@
   "sideEffects": false,
   "scripts": {
     "typecheck": "tsc --build",
-    "test": "vitest run --root ../../ --project audio-engine"
+    "test": "vitest run --root ../../ --project clipboard"
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/audio-graph": "workspace:*",
-    "@audiogubbins/codecs": "workspace:*"
+    "@audiogubbins/project-format": "workspace:*"
   },
   "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
     "vitest": "5.0.1"
   }
 }

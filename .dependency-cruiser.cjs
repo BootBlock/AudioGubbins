@@ -149,7 +149,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -183,10 +183,11 @@ module.exports = {
       severity: 'error',
       comment:
         'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
-        'the browser, the interface or storage: it depends on the domain and the graph alone, ' +
-        'and the runtime that hosts it sits above it (ADR-0030).',
+        'the browser, the interface or storage: it depends on the domain, the graph and the read ' +
+        'contract an edited source reads its files through, and the runtime that hosts it sits ' +
+        'above it (ADR-0030, ADR-0052).',
       from: { path: '^packages/audio-engine/' },
-      to: { path: '^packages/(?!(audio-engine|audio-graph|domain)/)' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain)/)' },
     },
     {
       name: 'audio-runtime-owns-nothing-else',
@@ -199,6 +200,27 @@ module.exports = {
       from: { path: '^packages/audio-runtime/' },
       to: {
         path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+      },
+    },
+    {
+      name: 'codecs-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The read contract parses bytes it is handed through a port into the domain's values, ' +
+        'so every thread that plays, renders or summarises a file reads it alike (ADR-0052).',
+      from: { path: '^packages/codecs/' },
+      to: { path: '^packages/(?!(codecs|domain)/)', pathNot: '^packages/test-fixtures/' },
+    },
+    {
+      name: 'clipboard-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Copying and pasting read edit plans and the records of the media they name, and nothing ' +
+        'that keeps or shows a project (ADR-0053).',
+      from: { path: '^packages/clipboard/' },
+      to: {
+        path: '^packages/(?!(clipboard|domain|project-format)/)',
+        pathNot: '^packages/test-fixtures/',
       },
     },
     {

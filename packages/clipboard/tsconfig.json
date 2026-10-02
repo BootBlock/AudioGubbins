@@ -20,10 +20,10 @@
       "path": "../../packages/domain"
     },
     {
-      "path": "../../packages/audio-graph"
+      "path": "../../packages/project-format"
     },
     {
-      "path": "../../packages/codecs"
+      "path": "../../packages/test-fixtures"
     }
   ]
 }

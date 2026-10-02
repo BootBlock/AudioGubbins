@@ -22,12 +22,6 @@
   "references": [
     {
       "path": "../../../../packages/domain"
-    },
-    {
-      "path": "../../../../packages/audio-graph"
-    },
-    {
-      "path": "../../../../packages/codecs"
     }
   ]
 }
