@@ -1,7 +1,7 @@
 /**
  * The names a project's bundles are saved under: one the person is offered for
- * an export, and one each backup copied into the backups folder is written as
- * (REQ-STOR-099, REQ-STOR-105).
+ * an export, and one each backup is written as, copied into the backups folder
+ * or exported (REQ-STOR-099, REQ-STOR-105).
  *
  * A project's name may hold what no file name may on the systems a bundle is
  * saved to, so each is cleaned the one way.
@@ -24,7 +24,7 @@ function stemOf(projectName: string): string {
   return cleaned === '' ? 'Project' : cleaned;
 }
 
-/** The name a project's bundle, or one of its backups, is suggested as. */
+/** The name a project's bundle is suggested as. */
 export function bundleNameOf(projectName: string): string {
   return `${stemOf(projectName)}.zip`;
 }
@@ -35,12 +35,12 @@ function twoDigits(value: number): string {
 }
 
 /**
- * The name a backup is written into the backups folder as: the project's name,
- * the start of its identifier and when the backup was made, to the second, in
- * this machine's time. The identifier keeps two projects of one name from
- * writing over each other's backups, and the time keeps one project's apart,
- * however its backups are numbered; neither holds a colon, which Windows
- * refuses in a name.
+ * The name a backup is written as, into the backups folder or where the person
+ * exports it: the project's name, the start of its identifier and when the
+ * backup was made, to the second, in this machine's time. The identifier keeps
+ * two projects of one name from writing over each other's backups, and the time
+ * keeps one project's apart, however its backups are numbered; neither holds a
+ * colon, which Windows refuses in a name.
  */
 export function backupFileNameOf(backup: {
   readonly project: ProjectId;

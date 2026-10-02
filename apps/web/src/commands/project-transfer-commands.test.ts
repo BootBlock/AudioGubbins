@@ -357,7 +357,11 @@ describe('backups of the open project', () => {
     expect(await window.runAndHear('backup.export', { generation: generation?.number ?? 0 })).toBe(
       'The backup is exported as a bundle.',
     );
-    expect(window.files.saved[0]?.name).toMatch(/^Harbour at dusk, backed up .*\.zip$/);
+    // Named as a copy in the backups folder is, which tells two projects of one
+    // name, and two backups of one project, apart.
+    expect(window.files.saved[0]?.name).toMatch(
+      /^Harbour at dusk \([0-9a-f]{8}\), backup of \d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}\.zip$/u,
+    );
     expect(window.run('backup.export', { generation: 99 }).kind).toBe('refused');
   });
 

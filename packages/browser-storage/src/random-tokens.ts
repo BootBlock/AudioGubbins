@@ -10,6 +10,7 @@
  */
 
 import type { TokenSource } from '@audiogubbins/media-store';
+import { hexOf } from '@audiogubbins/project-format';
 
 const TOKEN_BYTES = 16;
 
@@ -20,6 +21,6 @@ export function randomTokens(randomBytes: (length: number) => Uint8Array): Token
     if (bytes.length !== TOKEN_BYTES) {
       throw new Error(`A token needs ${String(TOKEN_BYTES)} random bytes.`);
     }
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return hexOf(bytes);
   };
 }

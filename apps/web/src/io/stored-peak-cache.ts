@@ -18,7 +18,7 @@
  * page names each by its digest and moves the bytes across whole.
  */
 
-import type { Digest } from '@audiogubbins/project-format';
+import { hexOf, type Digest } from '@audiogubbins/project-format';
 import { CacheCategory, unstoredScope, type CacheKey } from '@audiogubbins/storage';
 import type { CacheClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
@@ -39,8 +39,7 @@ const REVISION_DIGITS = 32;
 /** The name of a revision's cache: a path segment, whatever the revision holds. */
 async function revisionName(revision: string, digest: Digest): Promise<string> {
   const hash = await digest(TEXT.encode(revision));
-  const hex = Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `peaks-${hex.slice(0, REVISION_DIGITS)}`;
+  return `peaks-${hexOf(hash).slice(0, REVISION_DIGITS)}`;
 }
 
 /**

@@ -47,7 +47,7 @@ import type {
   TransfersClient,
 } from '@audiogubbins/storage-runtime';
 
-import { bundleNameOf } from '../io/file-names.js';
+import { backupFileNameOf, bundleNameOf } from '../io/file-names.js';
 import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
 import type { ChosenFolder, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
@@ -180,13 +180,21 @@ export class ProjectTransferStore implements Observable<TransferState> {
     );
   };
 
-  /** Writes one of a project's backups as a bundle, saved where the person chooses. */
+  /**
+   * Writes one of a project's backups as a bundle, saved where the person
+   * chooses, offered under the name a backup is copied to the backups folder
+   * as, from the project's `name`.
+   */
   readonly exportBackup = async (
     project: ProjectId,
-    generation: number,
+    backup: { readonly number: number; readonly at: number },
     name: string,
   ): Promise<DomainResult<ExportedProject | undefined>> => {
-    const target = await this.files.save(bundleNameOf(name), BUNDLE_TYPE);
+    const generation = backup.number;
+    const target = await this.files.save(
+      backupFileNameOf({ project, name, at: backup.at }),
+      BUNDLE_TYPE,
+    );
     if (target === undefined) return succeed(undefined);
     return await this.working(
       'exporting',

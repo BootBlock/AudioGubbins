@@ -31,8 +31,10 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import {
+  DIGEST_HEX,
   asContentId,
   contentIdFrom,
+  hexOf,
   isContentId,
   isTreeSegment,
   objectOf,
@@ -93,9 +95,6 @@ export type CacheScope =
 /** The start of the path segment of an unstored scope, which no other scope's segment has. */
 const UNSTORED_PREFIX = 'u-';
 
-/** A SHA-256 digest, as an unstored scope names its source. */
-const SOURCE_DIGEST = /^[0-9a-f]{64}$/u;
-
 const TEXT = new TextEncoder();
 
 /**
@@ -105,8 +104,7 @@ const TEXT = new TextEncoder();
  */
 export async function unstoredScope(identity: string, digest: Digest): Promise<CacheScope> {
   const hash = await digest(TEXT.encode(identity));
-  const source = Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join('');
-  return { kind: 'unstored', source };
+  return { kind: 'unstored', source: hexOf(hash) };
 }
 
 /** The path segment of a scope. */
@@ -182,7 +180,7 @@ export function cacheKeyOf(path: string): CacheKey | undefined {
 function scopeOf(segment: string): CacheScope | undefined {
   if (segment.startsWith(UNSTORED_PREFIX)) {
     const source = segment.slice(UNSTORED_PREFIX.length);
-    return SOURCE_DIGEST.test(source) ? { kind: 'unstored', source } : undefined;
+    return DIGEST_HEX.test(source) ? { kind: 'unstored', source } : undefined;
   }
   if (isContentId(segment)) {
     const content = contentIdFrom(segment);

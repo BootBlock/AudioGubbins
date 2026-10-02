@@ -183,10 +183,9 @@ function exportBackupCommand(): Command<ShellContext> {
       const name = open.snapshot.model.state.project.displayName;
       const backup = stores.backups.get().generations.find((one) => one.number === generation);
       if (backup === undefined) return 'That backup is not kept.';
-      const titled = `${name}, backed up ${WHEN.format(backup.at).replaceAll(':', '.')}`;
       sayWhenSettled(
         context,
-        stores.transfer.exportBackup(open.snapshot.project, generation, titled),
+        stores.transfer.exportBackup(open.snapshot.project, backup, name),
         (exported) =>
           exported === undefined
             ? undefined
