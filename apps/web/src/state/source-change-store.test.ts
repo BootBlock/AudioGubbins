@@ -141,6 +141,8 @@ describe('a file the open project links to', () => {
     expect(await window.runAndHear('source.resolve', { asset, choice: 'relink' })).toBe(
       'The file you chose is not the one the project used: it is another kind of file. Link it anyway, or choose another file.',
     );
+    // Said, and not shown as a notice too, since the question shows it already.
+    expect(window.context.interaction.get().announcement?.shown).toBe(false);
     const [change] = window.projects.sources.get().changes;
     expect(change?.offered?.identity.fileName).toBe('snare.wav');
     const linkedName = (): string | false | undefined => {

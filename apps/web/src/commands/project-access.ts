@@ -114,6 +114,13 @@ export function sessionAvailability(context: ShellContext): CommandAvailability 
 }
 
 /**
+ * What is said of an operation's value: a sentence, shown as a notice too, or
+ * one said and not shown, where the interface already shows it in its own
+ * place, so it is not on screen twice.
+ */
+type Said = string | { readonly text: string; readonly shown: false } | undefined;
+
+/**
  * Says what an operation came to once it settles: `said` of its value,
  * politely, where it says anything, and every reason it refused, urgently,
  * each as `refusedAs` words it where the failure's own summary is not what the
@@ -122,7 +129,7 @@ export function sessionAvailability(context: ShellContext): CommandAvailability 
 export function sayWhenSettled<TValue>(
   context: ShellContext,
   work: Promise<DomainResult<TValue>>,
-  said: (value: TValue) => string | undefined,
+  said: (value: TValue) => Said,
   refusedAs: (cause: DomainFailure) => string = (cause) => cause.summary,
 ): void {
   const { announce } = context.interaction;
@@ -133,8 +140,9 @@ export function sayWhenSettled<TValue>(
         announce(reasons.join(' '), true, { refusal: true });
         return;
       }
-      const text = said(result.value);
-      if (text !== undefined) announce(text);
+      const saying = said(result.value);
+      if (typeof saying === 'string') announce(saying);
+      else if (saying !== undefined) announce(saying.text, false, { shown: false });
     },
     (error: unknown) => {
       // Given up because a newer request replaced it, or the page went: what

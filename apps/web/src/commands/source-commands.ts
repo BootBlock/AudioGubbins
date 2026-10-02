@@ -95,7 +95,10 @@ function resolveCommand(): Command<ShellContext> {
       const choice = kinds.find((one) => one === named);
       if (choice === undefined) return 'Choose what to do about the file.';
       sayWhenSettled(context, stores.sources.resolve(asset.id, choice), (resolution) => {
-        if (resolution.kind === 'offered') return offeredSentence(resolution.offered);
+        // The question shows the offer beside the button that takes it.
+        if (resolution.kind === 'offered') {
+          return { text: offeredSentence(resolution.offered), shown: false };
+        }
         return choice === 'keep-offline'
           ? 'The asset stays offline until you choose again.'
           : 'Done.';
