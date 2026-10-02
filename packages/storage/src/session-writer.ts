@@ -38,6 +38,7 @@ import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
 import { writeHeader } from './project-header.js';
 import type { ProjectModel } from './project-model.js';
+import { isAsCheckpointed, type RecoveredProject } from './project-recovery.js';
 import type { SegmentLedger } from './segment-ledger.js';
 import { isRecordTooLarge } from './storage-failures.js';
 import { WriteQueue, type SaveStatus, type WriteOutcome } from './write-queue.js';
@@ -92,6 +93,44 @@ export interface WriterStart {
 
   /** Called when a checkpoint finds another window has taken the project. */
   readonly onSuperseded: () => void;
+}
+
+/** Whom a session's writer tells what it did. */
+export type WriterHooks = Pick<
+  WriterStart,
+  'onChange' | 'onCheckpoint' | 'onCheckpointWritten' | 'onSuperseded'
+>;
+
+/** What a session opened with that its writer starts from. */
+export interface WriterOpening {
+  readonly recovered: RecoveredProject;
+  readonly leaseRecord: LeaseRecord;
+  readonly headerName: string | undefined;
+  readonly cadence: WritingCadence;
+}
+
+/** The writer of a session opened as `start`, over the session's services. */
+export function sessionWriterFor(
+  services: Pick<WriterStart, 'files' | 'ids' | 'logger' | 'yieldToHost'>,
+  start: WriterOpening,
+  hooks: WriterHooks,
+): SessionWriter {
+  const { recovered } = start;
+  return new SessionWriter({
+    files: services.files,
+    ids: services.ids,
+    logger: services.logger,
+    yieldToHost: services.yieldToHost,
+    lease: start.leaseRecord,
+    position: recovered.position,
+    checkpointed: isAsCheckpointed(recovered),
+    keptStates: recovered.keptStates,
+    unwritten: recovered.unwritten,
+    segments: recovered.segments,
+    headerName: start.headerName,
+    cadence: start.cadence,
+    ...hooks,
+  });
 }
 
 /** An open project's writes (see the module comment). */

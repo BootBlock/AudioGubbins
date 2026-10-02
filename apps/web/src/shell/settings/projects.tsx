@@ -8,7 +8,9 @@
  * is made. A link is offered only where the browser can give a file
  * AudioGubbins finds again. Keeping less history plans first: the plan says
  * what it frees and what undo, branches and export states it takes, and only
- * applying it changes anything. Every control runs a command.
+ * applying it changes anything; once applied, the limit goes on letting older
+ * history go as the person works, which the form says. Every control runs a
+ * command.
  */
 
 import { useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -109,6 +111,12 @@ function RetentionChoice({
           Show what this keeps
         </Button>
       </div>
+      {form.kind !== 'unlimited' && (
+        <p className="ag-settings-note">
+          Once applied, history past this limit goes on its own as you work. Snapshots, the point
+          you are at and what redo reaches are always kept.
+        </p>
+      )}
       {pending?.policy !== undefined && (
         <CompactionReview pending={pending} exports={exports} run={run} />
       )}

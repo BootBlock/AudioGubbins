@@ -3189,6 +3189,7 @@ Published paths
   readonly ProjectSession.compacting: CompactionServices
   ProjectSession.model: ProjectModel
   ProjectSession.operations: Promise<unknown>
+  ProjectSession.retaining: boolean
   readonly ProjectSession.run: (invocation: CommandInvocation) => Promise<DomainResult<ChangeOutcome>>
   readonly ProjectSession.runGroup: (description: string, invocations: readonly [CommandInvocation, ...CommandInvocation[]]) => Promise<DomainResult<ChangeOutcome>>
   readonly ProjectSession.undo: () => Promise<DomainResult<WriteOutcome>>
@@ -3213,7 +3214,6 @@ Published paths
   readonly ProjectSession.retry: () => Promise<SaveStatus>
   readonly ProjectSession.answerTransfer: (request: TransferRequest, answer: TransferAnswer) => Promise<DomainResult<void>>
   readonly ProjectSession.close: () => Promise<DomainResult<void>>
-  ProjectSession.writerOf: (services: SessionServices, start: SessionStart) => SessionWriter
   ProjectSession.change: (execute: (state: ProjectState) => ExecutionResult<ProjectState>) => Promise<DomainResult<ChangeOutcome>>
   ProjectSession.moveTowards: (targetOf: (history: History) => HistoryNodeId | undefined, nowhere: DomainFailure) => Promise<DomainResult<WriteOutcome>>
   ProjectSession.moveAlong: (plan: (model: ProjectModel) => DomainResult<Navigation>) => Promise<DomainResult<WriteOutcome>>
@@ -3223,6 +3223,7 @@ Published paths
   ProjectSession.commit: (event: JournalEvent, next: ProjectModel) => Promise<WriteOutcome>
   ProjectSession.whileWritable: <TValue>(work: () => Promise<DomainResult<TValue>>) => Promise<DomainResult<TValue>>
   ProjectSession.exclusive: <TValue>(work: () => Promise<TValue>) => Promise<TValue>
+  ProjectSession.retainOnItsOwn: () => void
   ProjectSession.nameCheckpointedState: (node: HistoryNodeId, state: StateFingerprint) => void
   ProjectSession.snapshotNow: () => ProjectSnapshot
   ProjectSession.publish: () => void

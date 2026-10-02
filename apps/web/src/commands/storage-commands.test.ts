@@ -159,10 +159,11 @@ describe('measuring the storage and cleaning it up', () => {
       kind: 'rules',
       rules: [{ kind: 'recent-changes', count: 1 }],
     });
+    // Fewer changes than a checkpoint is due after, so the policy has not yet
+    // let any go on its own, and the history it lets go is left for cleanup.
     for (const name of ['One', 'Two', 'Three']) {
       await window.runAndHear('file.rename-project', { name });
     }
-    await session.checkpoint();
     const planned = window.nextSaid();
     window.run('storage.plan-cleanup', { choices: 'expired-history' });
     expect(await planned).toBe('The cleanup is planned. Review it before you carry it out.');

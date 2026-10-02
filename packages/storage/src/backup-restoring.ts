@@ -6,8 +6,10 @@
  * project of their own under a new identity, as a copy brought in from a bundle
  * does, and the project it was made of is not touched. In place, the project is
  * opened to write, so no other window writes it meanwhile, and before anything
- * of it is replaced, the project as storage holds it is made a protected backup
- * generation of its own, which pruning never removes: the replacement is no
+ * of it is replaced, a recovery snapshot of its state is kept, and the project
+ * as storage then holds it is made a protected backup generation of its own,
+ * which pruning never removes; the snapshot marks the point the generation
+ * brings the person back to, and keeps its state whole. The replacement is no
  * change the history can undo, and the outcome names the generation that brings
  * back what it replaced. Only then does the project become the generation's,
  * history and all, written as one checkpoint, so a crash before it lands leaves
@@ -34,9 +36,13 @@ import type { ProjectHeader } from './project-header.js';
 import { movedHistory, stateOf } from './project-identity.js';
 import { openProject, type OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';
+import type { SnapshotRequest } from './session-contracts.js';
 import { noCoordination, projectBusy, refusalsReported } from './storage-failures.js';
 import type { WriteOutcome } from './write-queue.js';
 import { copiedStates } from './copied-history.js';
+
+/** The recovery snapshot kept of a project before a backup replaces it. */
+const BEFORE_RESTORING: SnapshotRequest = { name: 'Before restoring a backup', kind: 'recovery' };
 
 /** Where a generation is restored to. */
 export type RestoreTarget = 'new-project' | 'replace-current';
@@ -135,6 +141,12 @@ async function inPlace(
     );
   }
   const { session } = opened.value;
+  const marked = await session.createSnapshot(BEFORE_RESTORING);
+  const kept = marked.ok ? await session.saved() : marked;
+  if (!kept.ok) {
+    await session.close();
+    return kept;
+  }
   const files = new ProjectFiles(new CheckedRecords(services.tree, services.digest), copy.project);
   const current = await readProjectCopy(files, services, signal);
   const previous = current.ok
@@ -145,8 +157,8 @@ async function inPlace(
         services.coordinator,
       )
     : current;
-  // Until the project is replaced nothing of it changed, so the session closes
-  // with nothing to save.
+  // Until the project is replaced nothing of it changed but the snapshot,
+  // which is saved, so the session closes with nothing to save.
   if (!previous.ok) {
     await session.close();
     return previous;

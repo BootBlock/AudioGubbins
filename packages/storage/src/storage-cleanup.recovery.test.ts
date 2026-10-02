@@ -117,7 +117,8 @@ async function setAside(tree: MemoryStorageTree, project: ProjectId): Promise<vo
     expectSuccess(await openProject({ project, access: 'write' }, harness(103).services(tree))),
   );
   expect(recovered.getSnapshot().model.state.project.displayName).toBe('Six');
-  expectSuccess(await recovered.checkpoint());
+  // Closing checkpoints, which sets the record aside; a checkpoint of its own
+  // would let the retention policy compact the history left for cleanup.
   expectSuccess(await recovered.close());
   expect(await tree.list(files.paths.quarantine)).toHaveLength(1);
 }

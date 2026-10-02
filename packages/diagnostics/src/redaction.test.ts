@@ -881,6 +881,7 @@ describe('credential redaction', () => {
     'firstProblem',
     'found',
     'frames',
+    'freedBytes',
     'kind',
     'latencyHint',
     'losses',

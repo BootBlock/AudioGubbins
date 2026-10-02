@@ -10,7 +10,10 @@
  * kept state where that is nearer. Snapshots, branch names, A/B comparisons,
  * export provenance and the policies are events of the journal too, so every
  * one survives a reload. An export is recorded as provenance and never as a
- * change, so nothing claims to undo what it wrote (REQ-STOR-198).
+ * change, so nothing claims to undo what it wrote (REQ-STOR-198). Once a policy
+ * that lets history go is set, with the person's confirmation of what it would
+ * let go then, it goes on letting go what it lets go after each checkpoint
+ * (REQ-STOR-055, REQ-STOR-106), keeping what every compaction keeps.
  *
  * Operations run one at a time, in the order they were asked for. Where storage
  * refuses a write, the project in memory keeps the change and the save status
@@ -55,6 +58,7 @@ import {
   type TreeStates,
 } from '@audiogubbins/project-format';
 
+import { reportRetention, retentionDue } from './automatic-retention.js';
 import { choiceOf } from './comparison-record.js';
 import { arriveBy, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
@@ -87,9 +91,8 @@ import {
   retentionUnconfirmed,
   unsavedChanges,
 } from './session-failures.js';
-import { isAsCheckpointed } from './project-recovery.js';
 import { SessionOwnership } from './session-ownership.js';
-import { SessionWriter } from './session-writer.js';
+import { sessionWriterFor, type SessionWriter } from './session-writer.js';
 import type { TransferAnswer, TransferRequest } from './write-lease.js';
 import type { SaveStatus, WriteOutcome } from './write-queue.js';
 
@@ -109,12 +112,29 @@ export class ProjectSession {
   private model: ProjectModel;
   private operations: Promise<unknown> = Promise.resolve();
 
+  /** Whether retention is letting history go, whose own checkpoint asks for no more. */
+  private retaining = false;
+
   constructor(services: SessionServices, start: SessionStart) {
     this.project = services.files.project;
     this.services = services;
     this.keepStateEvery = start.cadence.keepStateEvery;
     this.model = start.recovered.model;
-    this.writer = this.writerOf(services, start);
+    this.writer = sessionWriterFor(services, start, {
+      onChange: () => {
+        this.publish();
+      },
+      onCheckpoint: (node, state) => {
+        this.nameCheckpointedState(node, state);
+      },
+      onCheckpointWritten: () => {
+        start.lease.announceCheckpoint();
+        if (!this.retaining) this.retainOnItsOwn();
+      },
+      onSuperseded: () => {
+        this.ownership.lose({ kind: 'taken' });
+      },
+    });
     this.ownership = new SessionOwnership({
       project: this.project,
       lease: start.lease,
@@ -353,36 +373,6 @@ export class ProjectSession {
         : succeed(undefined),
     );
 
-  /** The writer of everything the session writes, telling the session what it did. */
-  private writerOf(services: SessionServices, start: SessionStart): SessionWriter {
-    return new SessionWriter({
-      files: services.files,
-      ids: services.ids,
-      logger: services.logger,
-      yieldToHost: services.yieldToHost,
-      lease: start.leaseRecord,
-      position: start.recovered.position,
-      checkpointed: isAsCheckpointed(start.recovered),
-      keptStates: start.recovered.keptStates,
-      unwritten: start.recovered.unwritten,
-      segments: start.recovered.segments,
-      headerName: start.headerName,
-      cadence: start.cadence,
-      onChange: () => {
-        this.publish();
-      },
-      onCheckpoint: (node, state) => {
-        this.nameCheckpointedState(node, state);
-      },
-      onCheckpointWritten: () => {
-        start.lease.announceCheckpoint();
-      },
-      onSuperseded: () => {
-        this.ownership.lose({ kind: 'taken' });
-      },
-    });
-  }
-
   /** Runs a command or a group and records what it changed. */
   private async change(
     execute: (state: ProjectState) => ExecutionResult<ProjectState>,
@@ -495,6 +485,27 @@ export class ProjectSession {
     const result = this.operations.then(work);
     this.operations = Promise.allSettled([result]);
     return await result;
+  }
+
+  /**
+   * Lets go, in turn with the operations, what the retention policy lets go of
+   * the history now (`automatic-retention.ts`).
+   */
+  private retainOnItsOwn(): void {
+    const done = this.exclusive(async (): Promise<DomainResult<CompactionPlan | undefined>> => {
+      if (this.ownership.access.kind !== 'writable') return succeed(undefined);
+      const due = await retentionDue(this.model, this.services, this.compacting);
+      if (!due.ok) return due;
+      if (due.value === undefined) return succeed(undefined);
+      this.retaining = true;
+      try {
+        await this.adoptCompaction(keeping(due.value.compacted));
+      } finally {
+        this.retaining = false;
+      }
+      return succeed(due.value.plan);
+    });
+    reportRetention(this.services.logger, done);
   }
 
   /** Adopts the fingerprint a checkpoint gave a node, in turn with the operations. */

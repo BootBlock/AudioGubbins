@@ -132,3 +132,54 @@ describe('a retention policy that would let history go', () => {
     expect(session.getSnapshot().model.history.nodes.size).toBe(5);
   });
 });
+
+describe('a retention policy once set', () => {
+  /** A new project open with a checkpoint every two changes, keeping the last change. */
+  async function keepingOne() {
+    const test = harness();
+    const tree = new MemoryStorageTree();
+    const header = await madeProject(test, tree);
+    const cadence = { checkpointAfter: 2, keepStateEvery: 64 };
+    const session = await openToWrite(test, tree, header.id, { cadence });
+    expectSuccess(await session.setRetentionPolicy(KEEP_ONE));
+    return { test, tree, header, session };
+  }
+
+  it('goes on letting go what it lets go at each checkpoint, which a reload keeps', async () => {
+    const { tree, header, session } = await keepingOne();
+    for (const name of ['One', 'Two', 'Three', 'Four', 'Five', 'Six']) {
+      expectSuccess(await session.run(setName(name)));
+    }
+    // Anything the session does waits for the retention queued before it.
+    expectSuccess(await session.checkpoint());
+
+    const { model } = session.getSnapshot();
+    expect(model.history.nodes.size).toBeLessThanOrEqual(3);
+    expect(model.state.project.displayName).toBe('Six');
+    expectSuccess(await session.undo());
+    expect(session.getSnapshot().model.state.project.displayName).toBe('Five');
+    expectSuccess(await session.close());
+
+    const reopened = expectSuccess(
+      await openProject({ project: header.id, access: 'read' }, harness(31).services(tree)),
+    );
+    const view = reopened.kind === 'read-only' ? reopened.view.getSnapshot().model : undefined;
+    expect(view?.history.nodes.size).toBe(session.getSnapshot().model.history.nodes.size);
+  });
+
+  it('never lets a snapshot go, nor the history it stands on', async () => {
+    const { session } = await keepingOne();
+    expectSuccess(await session.run(setName('One')));
+    expectSuccess(await session.createSnapshot({ name: 'Kept' }));
+    const kept = session.getSnapshot().model.history.cursor;
+    for (const name of ['Two', 'Three', 'Four', 'Five']) {
+      expectSuccess(await session.run(setName(name)));
+    }
+    expectSuccess(await session.checkpoint());
+
+    const { history } = session.getSnapshot().model;
+    expect(history.snapshots.size).toBe(1);
+    expect(history.nodes.has(kept)).toBe(true);
+    expect(activeLine(history).map((node) => node.id)).toContain(kept);
+  });
+});

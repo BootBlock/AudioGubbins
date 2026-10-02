@@ -90,6 +90,11 @@ describe('restoring a backup generation', () => {
 
     const previous = expectSuccess(await generations.copyOf(restored.previous.number));
     expect(previous.model.state.project.displayName).toBe('After the backup');
+    // A recovery snapshot marks, and keeps whole, the state it brings back.
+    const marks = [...previous.model.history.snapshots.values()];
+    expect(marks).toMatchObject([
+      { kind: 'recovery', name: 'Before restoring a backup', node: previous.model.history.cursor },
+    ]);
     const back = expectSuccess(
       await restoreBackup(
         header.id,

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
+import { deleteSnapshot } from '@audiogubbins/history';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 
 import { BackupGenerations } from './backup-generations.js';
@@ -43,6 +44,25 @@ async function summaryIn(tree: MemoryStorageTree, project: ProjectId, seed: numb
   if (opened.kind !== 'read-only') throw new Error('Expected read-only.');
   expect(opened.report.missingStates).toEqual([]);
   return summaryOf(opened.view.getSnapshot().model);
+}
+
+/**
+ * The project's summary without the recovery snapshot restoring in place keeps
+ * first, which must be at the point the project is at where it is there.
+ */
+async function unmarkedIn(tree: MemoryStorageTree, project: ProjectId, seed: number) {
+  const opened = expectSuccess(
+    await openProject({ project, access: 'read' }, harness(seed).services(tree)),
+  );
+  if (opened.kind !== 'read-only') throw new Error('Expected read-only.');
+  const { model } = opened.view.getSnapshot();
+  const marks = [...model.history.snapshots.values()].filter(({ kind }) => kind === 'recovery');
+  const [mark] = marks;
+  if (mark === undefined) return summaryOf(model);
+  expect(marks).toHaveLength(1);
+  expect(mark.node).toBe(model.history.cursor);
+  const history = expectSuccess(deleteSnapshot(model.history, mark.id));
+  return summaryOf({ ...model, history });
 }
 
 /** Cleans up what a crash left, leaving only the projects listed. */
@@ -130,7 +150,7 @@ describe('a crash while a project is restored in place from a backup (REQ-STOR-1
         return restored;
       },
       check: async (found) => {
-        const summary = await summaryIn(found, header.id, 83);
+        const summary = await unmarkedIn(found, header.id, 83);
         expect([current, backedUp]).toContain(summary);
         const generations = new BackupGenerations(found, nodeDigest, header.id);
         const listing = expectSuccess(await generations.list());

@@ -56,6 +56,9 @@ describe('the project settings', () => {
     expect(screen.getByRole('option', { name: 'The most recent changes' })).toBeVisible();
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await userEvent.type(screen.getByRole('textbox', { name: 'Changes' }), '20');
+    expect(
+      screen.getByText(/^Once applied, history past this limit goes on its own as you work\./u),
+    ).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Show what this keeps' }));
     expect(run).toHaveBeenLastCalledWith('history.plan-retention', {
       kind: 'recent-changes',
