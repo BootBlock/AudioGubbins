@@ -265,6 +265,44 @@ describe('backup generations (REQ-STOR-105)', () => {
     expect(await numbers(setup)).toHaveLength(1);
   });
 
+  it.each([
+    ['damaged', 'write'],
+    ['missing', 'remove'],
+  ] as const)(
+    'makes no generation while a state the project keeps is %s, and says which',
+    async (_, damage) => {
+      const setup = await setUp();
+      expectSuccess(await setup.session.createSnapshot({ name: 'Before the mix' }));
+      await changes(setup, 3);
+      // Closing writes a checkpoint keeping the state, so a copy reads it from storage.
+      expectSuccess(await setup.session.close());
+      const [kept] = setup.session.getSnapshot().model.history.snapshots.values();
+      if (kept === undefined) throw new Error('No snapshot.');
+      const path = `${new ProjectPaths(setup.project).states}/${kept.stateFingerprint}.json`;
+      if (damage === 'write') {
+        await setup.storage.tree.writeFile(path, new TextEncoder().encode('not a state'));
+      } else await setup.storage.tree.remove(path);
+
+      const failed = await setup.scheduler.tick(
+        setup.test.clock.now(),
+        setup.session.getSnapshot().model,
+      );
+
+      expect(failed.ok ? failed.value : failed.failures[0]).toMatchObject({
+        code: 'storage.backup-state-unreadable',
+        details: {
+          project: setup.project,
+          state: kept.stateFingerprint,
+          snapshot: 'Before the mix',
+        },
+      });
+      expect(expectSuccess(await setup.generations.list())).toEqual({
+        generations: [],
+        incomplete: [],
+      });
+    },
+  );
+
   it('never lists a generation a crash cut short as a backup, and prunes what it left', async () => {
     const setup = await setUp();
     await changes(setup, 3);

@@ -10,14 +10,17 @@
  * the generation holds itself so it outlasts the project's own, then the record
  * that says what it is, which is what makes it a generation: a crash before the
  * record leaves an incomplete generation, listed as such and removed by
- * pruning, and never read as a backup. While a generation is written the
- * storage-wide lock is shared (`storage-sharing.ts`), so no pruning takes one
- * being written for one a crash left incomplete. Media is not copied: a
- * generation names it by content, and the storage counts every generation among
- * the roots nothing is purged from while it lasts. A generation is protected by
- * a marker beside it, whose presence alone counts, so protecting and
- * unprotecting never rewrite the generation. Only the window holding the
- * project's write lease makes, protects or removes its generations.
+ * pruning, and never read as a backup. A generation is the whole project or
+ * none: a state the project keeps that cannot be read fails it as a refused
+ * write does, naming the state and the snapshot that keeps it, rather than
+ * leaving the state out and calling what remains a backup. While a generation
+ * is written the storage-wide lock is shared (`storage-sharing.ts`), so no
+ * pruning takes one being written for one a crash left incomplete. Media is not
+ * copied: a generation names it by content, and the storage counts every
+ * generation among the roots nothing is purged from while it lasts. A
+ * generation is protected by a marker beside it, whose presence alone counts,
+ * so protecting and unprotecting never rewrite the generation. Only the window
+ * holding the project's write lease makes, protects or removes its generations.
  */
 
 import {
@@ -26,10 +29,11 @@ import {
   failure,
   succeed,
   unsafeBrandId,
+  type DomainFailure,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import { withStateFingerprint, type History } from '@audiogubbins/history';
+import { retainedStates, withStateFingerprint, type History } from '@audiogubbins/history';
 import {
   objectOf,
   oneOfConverter,
@@ -47,7 +51,7 @@ import type { BackupGeneration, BackupReason } from './backup-planning.js';
 import { CheckedRecords, RecordKind } from './checked-records.js';
 import { CheckpointFiles } from './checkpoint-files.js';
 import type { Checkpoint } from './checkpoint-record.js';
-import { offeredStates, type ProjectCopy } from './project-copy.js';
+import type { ProjectCopy } from './project-copy.js';
 import { asWholeNumber } from './record-values.js';
 import { SegmentLedger } from './segment-ledger.js';
 import { SnapshotStore } from './state-store.js';
@@ -204,8 +208,9 @@ export class BackupGenerations {
   }
 
   /**
-   * Writes the states generation `number` keeps: each the copy offers that can
-   * be read, and the state at its cursor, which its history then names.
+   * Writes the states generation `number` keeps: each its history keeps, and
+   * the state at its cursor, which its history then names. One storage does
+   * not hold, or holds damaged, fails the generation (see the module comment).
    */
   private async writeStates(
     copy: ProjectCopy,
@@ -222,9 +227,13 @@ export class BackupGenerations {
       bytes += (await this.tree.openFile(states.path(written.value)))?.size ?? 0;
       return written;
     };
-    for (const fingerprint of offeredStates(copy)) {
-      const state = await copy.states.load(fingerprint, signal);
-      if (!state.ok) continue;
+    for (const fingerprint of retainedStates(copy.model.history)) {
+      const state = copy.states.isKept(fingerprint)
+        ? await copy.states.load(fingerprint, signal)
+        : undefined;
+      if (!state?.ok) {
+        return fail(keptStateUnreadable(copy, fingerprint, state?.failures[0]));
+      }
       const written = await put(state.value);
       if (!written.ok) return written;
     }
@@ -321,6 +330,37 @@ export class BackupGenerations {
       })
       .sort((one, other) => one - other);
   }
+}
+
+/**
+ * The failure of a generation refused because a state its project keeps
+ * cannot be read, being missing or damaged: the state, and the name of the
+ * snapshot keeping it where one does, so the person knows which part of the
+ * project a backup would lack.
+ */
+function keptStateUnreadable(
+  copy: ProjectCopy,
+  state: StateFingerprint,
+  cause: DomainFailure | undefined,
+): DomainFailure {
+  const snapshot = [...copy.model.history.snapshots.values()].find(
+    (one) => one.stateFingerprint === state,
+  );
+  return failure(
+    'storage.backup-state-unreadable',
+    FailureKind.IntegrityViolation,
+    snapshot === undefined
+      ? 'A state the project’s history keeps cannot be read, so a backup would not be whole and none was made.'
+      : `The state of the snapshot “${snapshot.name}” cannot be read, so a backup would not be whole and none was made.`,
+    {
+      details: {
+        project: copy.project,
+        state,
+        ...(snapshot === undefined ? {} : { snapshot: snapshot.name }),
+      },
+      ...(cause === undefined ? {} : { cause }),
+    },
+  );
 }
 
 function generationMissing(project: ProjectId, generation: number) {
