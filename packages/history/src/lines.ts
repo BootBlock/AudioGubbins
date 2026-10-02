@@ -1,7 +1,6 @@
 /**
- * The lines through a history: a node's ancestry, the subtree under a node, the
- * active line the project is on, and the alternative branches retained beside
- * it (REQ-STOR-193).
+ * The lines through a history: a node's ancestry, the subtree under a node and
+ * the active line the project is on (REQ-STOR-193).
  *
  * The active line runs from the root through the cursor and on along each
  * node's continuation, the child redo would follow. Every other subtree hanging
@@ -10,7 +9,7 @@
  * depth is walked without exhausting the stack.
  */
 
-import type { HistoryLabel, HistoryNodeId } from '@audiogubbins/project-format';
+import type { HistoryNodeId } from '@audiogubbins/project-format';
 
 import { parentOf, type History, type HistoryNode } from './history.js';
 
@@ -59,50 +58,4 @@ export function activeLine(history: History): readonly HistoryNode[] {
     line.push(node);
   }
   return line;
-}
-
-/** A subtree hanging from the active line, retained beside it. */
-export interface AlternativeBranch {
-  /** The node on the active line the branch leaves from. */
-  readonly forkPoint: HistoryNodeId;
-
-  /** The branch's first change. */
-  readonly first: HistoryNodeId;
-  readonly name?: HistoryLabel;
-
-  /** How many changes the branch holds, its own branches included. */
-  readonly changes: number;
-
-  /** When its newest change was made, in milliseconds since the epoch. */
-  readonly latestAt: number;
-}
-
-/**
- * Every alternative branch, in the order of their fork points along the active
- * line and, at one fork point, oldest first.
- */
-export function alternativeBranches(history: History): readonly AlternativeBranch[] {
-  const line = activeLine(history);
-  const branches: AlternativeBranch[] = [];
-  for (const [index, node] of line.entries()) {
-    const onLine = line[index + 1]?.id;
-    for (const first of history.children.get(node.id) ?? []) {
-      if (first === onLine) continue;
-      let changes = 0;
-      let latestAt = 0;
-      for (const member of subtree(history, first)) {
-        changes += 1;
-        latestAt = Math.max(latestAt, member.at);
-      }
-      const name = history.branchNames.get(first);
-      branches.push({
-        forkPoint: node.id,
-        first,
-        ...(name === undefined ? {} : { name }),
-        changes,
-        latestAt,
-      });
-    }
-  }
-  return branches;
 }

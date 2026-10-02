@@ -1850,12 +1850,6 @@ Published paths
   function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState
 
 @audiogubbins/history
-  interface AlternativeBranch
-  readonly AlternativeBranch.forkPoint: HistoryNodeId
-  readonly AlternativeBranch.first: HistoryNodeId
-  readonly AlternativeBranch.name?: HistoryLabel
-  readonly AlternativeBranch.changes: number
-  readonly AlternativeBranch.latestAt: number
   interface ChainDifference
   readonly ChainDifference.id: EffectChainId
   readonly ChainDifference.change: "added" | "changed" | "removed"
@@ -1998,7 +1992,6 @@ Published paths
   readonly StateDifference.effectChains: readonly ChainDifference[]
   function activeLine(history: History): readonly HistoryNode[]
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
-  function alternativeBranches(history: History): readonly AlternativeBranch[]
   function applyCompaction(history: History, plan: CompactionPlan): DomainResult<History>
   function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
@@ -2678,7 +2671,6 @@ Published paths
   function readCompatibleHeader(value: JsonValue, expectedFormat: string, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): DomainResult<FormatHeader>
   const readExportRecord: Converter<ExportRecord>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
-  function readFormatHeader(value: JsonValue, expectedFormat: string): DomainResult<FormatHeader>
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
   const readHistoryRecord: Converter<HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>>
@@ -2692,7 +2684,6 @@ Published paths
   const readSnapshotRecord: Converter<NamedSnapshot>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
-  function serialiseProjectDocument(state: ProjectState): DomainResult<string>
   function sortedBy<TValue>(values: Iterable<TValue>, keyOf: (value: TValue) => string, write: (value: TValue) => JsonValue): JsonArray
   function startReading(): Reading
   function stateFingerprintFrom(text: string): DomainResult<StateFingerprint>
@@ -3207,7 +3198,8 @@ Published paths
   readonly ProjectSession.close: () => Promise<DomainResult<void>>
   ProjectSession.writerOf: (services: SessionServices, start: SessionStart) => SessionWriter
   ProjectSession.change: (execute: (state: ProjectState) => ExecutionResult<ProjectState>) => Promise<DomainResult<ChangeOutcome>>
-  ProjectSession.moveTowards: (targetOf: (history: History, model: ProjectModel) => HistoryNodeId | undefined, nowhere: DomainFailure) => Promise<DomainResult<WriteOutcome>>
+  ProjectSession.moveTowards: (targetOf: (history: History) => HistoryNodeId | undefined, nowhere: DomainFailure) => Promise<DomainResult<WriteOutcome>>
+  ProjectSession.moveAlong: (plan: (model: ProjectModel) => DomainResult<Navigation>) => Promise<DomainResult<WriteOutcome>>
   ProjectSession.settle: (event: SettledEvent) => Promise<DomainResult<WriteOutcome>>
   ProjectSession.planned: (request: CompactionRequest, signal?: AbortSignal) => Promise<DomainResult<CompactionPlan>>
   ProjectSession.adoptCompaction: (compacted: { readonly model: ProjectModel; readonly states: ReadonlyMap<StateFingerprint, ProjectState>; }) => Promise<WriteOutcome>

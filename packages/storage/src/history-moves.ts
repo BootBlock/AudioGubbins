@@ -22,6 +22,7 @@ import {
   restorationOf,
   type History,
   type HistoryPath,
+  type Navigation,
 } from '@audiogubbins/history';
 import type { HistoryNodeId, ProjectState, StateFingerprint } from '@audiogubbins/project-format';
 
@@ -133,8 +134,22 @@ export async function arriveAt(
 ): Promise<DomainResult<Arrival>> {
   const moved = moveTo(history, target);
   if (!moved.ok) return moved;
-  if (target === history.cursor) return succeed({ history: moved.value.history, state });
-  const { path } = moved.value;
-  const reached = await stateAlong(history, state, target, path, services, signal);
-  return reached.ok ? succeed({ history: moved.value.history, state: reached.value }) : reached;
+  return await arriveBy(history, state, moved.value, services, signal);
+}
+
+/**
+ * A move the history planned, such as the promotion of a side of a
+ * comparison, and the state it arrives at.
+ */
+export async function arriveBy(
+  history: History,
+  state: ProjectState,
+  navigation: Navigation,
+  services: MoveServices,
+  signal?: AbortSignal,
+): Promise<DomainResult<Arrival>> {
+  const target = navigation.history.cursor;
+  if (target === history.cursor) return succeed({ history: navigation.history, state });
+  const reached = await stateAlong(history, state, target, navigation.path, services, signal);
+  return reached.ok ? succeed({ history: navigation.history, state: reached.value }) : reached;
 }

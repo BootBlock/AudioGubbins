@@ -151,7 +151,6 @@ export {
   type FormatHeader,
   compatibilityOf,
   readCompatibleHeader,
-  readFormatHeader,
 } from './compatibility.js';
 
 export {
@@ -159,7 +158,6 @@ export {
   compactProjectDocument,
   parseProjectDocument,
   readProjectDocument,
-  serialiseProjectDocument,
   stateFingerprintOf,
   writeProjectDocument,
 } from './project-json.js';

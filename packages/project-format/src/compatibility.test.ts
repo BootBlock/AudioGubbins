@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { PRODUCT_VERSION, SCHEMA_VERSIONS } from '@audiogubbins/version';
 
-import { compatibilityOf, readCompatibleHeader, readFormatHeader } from './compatibility.js';
+import { compatibilityOf, readCompatibleHeader } from './compatibility.js';
 
 const CURRENT = SCHEMA_VERSIONS.projectDocument;
 
@@ -46,16 +46,17 @@ describe('compatibilityOf', () => {
   });
 });
 
-describe('readFormatHeader', () => {
+describe('reading a header', () => {
   it('reads the format and schema version, leaving other members to the document', () => {
     expect(
       expectSuccess(
-        readFormatHeader(
-          { format: 'audiogubbins.project', schemaVersion: 3, extra: [] },
+        readCompatibleHeader(
+          { format: 'audiogubbins.project', schemaVersion: CURRENT, extra: [] },
           'audiogubbins.project',
+          'projectDocument',
         ),
       ),
-    ).toEqual({ format: 'audiogubbins.project', schemaVersion: 3 });
+    ).toEqual({ format: 'audiogubbins.project', schemaVersion: CURRENT });
   });
 
   it.each([
@@ -83,7 +84,9 @@ describe('readFormatHeader', () => {
       'schema.number-out-of-range',
     ],
   ])('refuses %s', (_case, value, code) => {
-    expect(expectFailureCode(readFormatHeader(value, 'audiogubbins.project'))).toBe(code);
+    expect(
+      expectFailureCode(readCompatibleHeader(value, 'audiogubbins.project', 'projectDocument')),
+    ).toBe(code);
   });
 });
 

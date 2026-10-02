@@ -24,7 +24,6 @@ import type { Digest } from './byte-ports.js';
 import {
   canonicalJson,
   canonicalJsonWithin,
-  prettyCanonicalJsonWithin,
   type CanonicalJson,
   type JsonLimits,
   type JsonObject,
@@ -92,18 +91,10 @@ export function readProjectDocument(value: JsonValue): DomainResult<ProjectState
 }
 
 /**
- * The document of a state as the text written to a file: pretty canonical
- * JSON. Fails as {@link canonicalJsonWithin} does where the text is past what
- * {@link parseProjectDocument} reads, since a file written so could never be
- * opened.
- */
-export function serialiseProjectDocument(state: ProjectState): DomainResult<string> {
-  return prettyCanonicalJsonWithin(writeProjectDocument(state), PROJECT_DOCUMENT_LIMITS);
-}
-
-/**
  * The compact canonical text a state is kept as, whose digest is its
- * fingerprint, failing as {@link serialiseProjectDocument} does.
+ * fingerprint. Fails as {@link canonicalJsonWithin} does where the text is
+ * past what {@link parseProjectDocument} reads, since a file written so could
+ * never be opened.
  */
 export function compactProjectDocument(state: ProjectState): DomainResult<CanonicalJson> {
   return canonicalJsonWithin(writeProjectDocument(state), PROJECT_DOCUMENT_LIMITS);

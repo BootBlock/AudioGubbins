@@ -8,7 +8,7 @@ import { randomState } from './testing/random-states.js';
 import { ExportDestinationKind, ExportStatus, type ExportRecord } from './export-provenance.js';
 import {
   readProjectDocument,
-  serialiseProjectDocument,
+  compactProjectDocument,
   writeProjectDocument,
 } from './project-json.js';
 import {
@@ -48,10 +48,10 @@ describe('stripAssetProvenance', () => {
   it.each([ProvenanceLevel.Minimal, ProvenanceLevel.None])(
     'leaves no file name, path or handle in the written project at %s',
     (level) => {
-      const before = expectSuccess(serialiseProjectDocument(REFERENCE));
+      const before = expectSuccess(compactProjectDocument(REFERENCE));
       for (const text of PRIVATE_TEXT) expect(before).toContain(text);
 
-      const after = expectSuccess(serialiseProjectDocument(stripAssetProvenance(REFERENCE, level)));
+      const after = expectSuccess(compactProjectDocument(stripAssetProvenance(REFERENCE, level)));
       for (const text of PRIVATE_TEXT) expect(after).not.toContain(text);
     },
   );

@@ -33,7 +33,7 @@ export {
   withStateFingerprint,
 } from './history.js';
 
-export { type AlternativeBranch, activeLine, alternativeBranches } from './lines.js';
+export { activeLine } from './lines.js';
 
 export {
   type HistoryPath,

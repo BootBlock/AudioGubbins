@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
-import { historyLabelFrom } from '@audiogubbins/project-format';
-
-import { nameBranch } from './history.js';
-import { activeLine, alternativeBranches, ancestry, continuationOf, subtree } from './lines.js';
+import { activeLine, ancestry, continuationOf, subtree } from './lines.js';
 import { EPOCH, grown, movedTo, newHistory, testIds } from './testing/histories.js';
 
 /** O, then A with children B (then C) and D, then E from O. */
@@ -52,20 +48,5 @@ describe('the lines through a history', () => {
     expect(activeLine(history).map((node) => node.id)).toEqual([ids.o, ids.e]);
     const atA = movedTo(history, ids.a);
     expect(activeLine(atA).map((node) => node.id)).toEqual([ids.o, ids.a, ids.d]);
-  });
-
-  it('names every other subtree an alternative branch, with its size, newest time and name', () => {
-    const { history, ids } = tree();
-    const named = expectSuccess(
-      nameBranch(history, ids.a, expectSuccess(historyLabelFrom('First idea'))),
-    );
-    expect(alternativeBranches(named)).toEqual([
-      { forkPoint: ids.o, first: ids.a, name: 'First idea', changes: 4, latestAt: EPOCH + 4 },
-    ]);
-    const onD = movedTo(history, ids.d);
-    expect(alternativeBranches(onD)).toEqual([
-      { forkPoint: ids.o, first: ids.e, changes: 1, latestAt: EPOCH + 5 },
-      { forkPoint: ids.a, first: ids.b, changes: 2, latestAt: EPOCH + 3 },
-    ]);
   });
 });

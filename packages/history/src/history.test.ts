@@ -11,7 +11,7 @@ import {
   withStateFingerprint,
   type History,
 } from './history.js';
-import { activeLine, alternativeBranches } from './lines.js';
+import { activeLine } from './lines.js';
 import {
   EPOCH,
   NOTHING_AFFECTED,
@@ -40,9 +40,7 @@ describe('a branching history', () => {
     expect(history.cursor).toBe(d);
     expect(history.children.get(a)).toEqual([b, d]);
     expect(activeLine(history).map((node) => node.id)).toEqual([start.root, a, d]);
-    expect(alternativeBranches(history)).toEqual([
-      { forkPoint: a, first: b, changes: 2, latestAt: EPOCH + 3 },
-    ]);
+    expect(history.children.get(b)).toEqual([c]);
   });
 
   it('leaves every earlier history value as it was', () => {

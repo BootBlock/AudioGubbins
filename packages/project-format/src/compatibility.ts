@@ -75,10 +75,7 @@ export function compatibilityOf(found: number, schema: SchemaName): Compatibilit
  * another format. Members other than the two are left to the document's own
  * reader.
  */
-export function readFormatHeader(
-  value: JsonValue,
-  expectedFormat: string,
-): DomainResult<FormatHeader> {
+function readFormatHeader(value: JsonValue, expectedFormat: string): DomainResult<FormatHeader> {
   const reading = startReading();
   const object = anyObjectOf(reading, value, '', '');
   if (object === undefined) return reading.outcome<FormatHeader>(undefined);

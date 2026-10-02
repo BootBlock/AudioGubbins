@@ -11,7 +11,6 @@ import {
   isJsonArray,
   isJsonObject,
   memberOf,
-  prettyCanonicalJson,
   type JsonValue,
 } from './canonical-json.js';
 import { parseJson } from './json-parsing.js';
@@ -19,7 +18,7 @@ import {
   PROJECT_DOCUMENT_FORMAT,
   parseProjectDocument,
   readProjectDocument,
-  serialiseProjectDocument,
+  compactProjectDocument,
   stateFingerprintOf,
   writeProjectDocument,
 } from './project-json.js';
@@ -102,22 +101,15 @@ describe('the project document', () => {
   it('reads back as the state it was written from', () => {
     expect(expectSuccess(readProjectDocument(DOCUMENT))).toEqual(REFERENCE);
     expect(
-      expectSuccess(parseProjectDocument(expectSuccess(serialiseProjectDocument(REFERENCE)))),
+      expectSuccess(parseProjectDocument(expectSuccess(compactProjectDocument(REFERENCE)))),
     ).toEqual(REFERENCE);
   });
 
   it('writes the same text again from what it read, byte for byte', () => {
-    const text = expectSuccess(serialiseProjectDocument(REFERENCE));
-    expect(expectSuccess(serialiseProjectDocument(expectSuccess(parseProjectDocument(text))))).toBe(
+    const text = expectSuccess(compactProjectDocument(REFERENCE));
+    expect(expectSuccess(compactProjectDocument(expectSuccess(parseProjectDocument(text))))).toBe(
       text,
     );
-  });
-
-  it('writes pretty canonical text, with a final newline, for Git', () => {
-    const text = expectSuccess(serialiseProjectDocument(REFERENCE));
-    expect(text).toBe(prettyCanonicalJson(DOCUMENT));
-    expect(text.endsWith('}\n')).toBe(true);
-    expect(text).not.toContain('\r');
   });
 
   it('reads the same state whatever order members and entities are written in', () => {
@@ -125,8 +117,8 @@ describe('the project document', () => {
     expect(canonicalJson(shuffled)).not.toBe(canonicalJson(DOCUMENT));
     const read = expectSuccess(readProjectDocument(shuffled));
     expect(read).toEqual(REFERENCE);
-    expect(expectSuccess(serialiseProjectDocument(read))).toBe(
-      expectSuccess(serialiseProjectDocument(REFERENCE)),
+    expect(expectSuccess(compactProjectDocument(read))).toBe(
+      expectSuccess(compactProjectDocument(REFERENCE)),
     );
   });
 
@@ -158,9 +150,9 @@ describe('a seeded property: every valid state survives the document', () => {
         expect(read, `seed ${String(seed)}`).toEqual(state);
         expect(canonicalJson(writeProjectDocument(read)), `seed ${String(seed)}`).toBe(compact);
 
-        const text = expectSuccess(serialiseProjectDocument(state));
+        const text = expectSuccess(compactProjectDocument(state));
         expect(
-          expectSuccess(serialiseProjectDocument(expectSuccess(parseProjectDocument(text)))),
+          expectSuccess(compactProjectDocument(expectSuccess(parseProjectDocument(text)))),
           `seed ${String(seed)}`,
         ).toBe(text);
       }
@@ -712,8 +704,8 @@ describe('readProjectDocument refuses', () => {
 
 describe('the generator of random states', () => {
   it('is deterministic by seed', () => {
-    expect(expectSuccess(serialiseProjectDocument(randomState(77)))).toBe(
-      expectSuccess(serialiseProjectDocument(randomState(77))),
+    expect(expectSuccess(compactProjectDocument(randomState(77)))).toBe(
+      expectSuccess(compactProjectDocument(randomState(77))),
     );
     expect(seededRandom(3).next()).toBe(seededRandom(3).next());
   });

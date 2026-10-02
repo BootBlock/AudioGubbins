@@ -29,6 +29,8 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import {
+  moveTo,
+  promotion,
   redoTarget,
   switchSide,
   undoTarget,
@@ -37,6 +39,7 @@ import {
   type CompactionRequest,
   type ComparisonSource,
   type History,
+  type Navigation,
   type SideName,
 } from '@audiogubbins/history';
 import {
@@ -53,7 +56,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { choiceOf } from './comparison-record.js';
-import { arriveAt, type MoveServices } from './history-moves.js';
+import { arriveBy, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
 import { keptStatesOf } from './journal-replay.js';
 import {
@@ -268,7 +271,9 @@ export class ProjectSession {
 
   /** Makes a side of the comparison the current state; the other stays in the history. */
   readonly promote = async (side: SideName): Promise<DomainResult<WriteOutcome>> =>
-    await this.moveTowards((_, model) => model.comparison?.[side].node, NO_COMPARISON);
+    await this.moveAlong(({ history, comparison }) =>
+      comparison === undefined ? fail(NO_COMPARISON) : promotion(history, comparison, side),
+    );
 
   /**
    * Replaces the whole project, history and all, with `model`, whose kept
@@ -388,15 +393,28 @@ export class ProjectSession {
 
   /** Moves the cursor to the node `targetOf` names, refused with `nowhere` where it names none. */
   private async moveTowards(
-    targetOf: (history: History, model: ProjectModel) => HistoryNodeId | undefined,
+    targetOf: (history: History) => HistoryNodeId | undefined,
     nowhere: DomainFailure,
+  ): Promise<DomainResult<WriteOutcome>> {
+    return await this.moveAlong(({ history }) => {
+      const target = targetOf(history);
+      return target === undefined || !history.nodes.has(target)
+        ? fail(nowhere)
+        : moveTo(history, target);
+    });
+  }
+
+  /** Makes the move `plan` gives for the project as it is, once its turn comes. */
+  private async moveAlong(
+    plan: (model: ProjectModel) => DomainResult<Navigation>,
   ): Promise<DomainResult<WriteOutcome>> {
     return await this.whileWritable(async () => {
       const { history, state } = this.model;
-      const target = targetOf(history, this.model);
-      if (target === undefined || !history.nodes.has(target)) return fail(nowhere);
+      const planned = plan(this.model);
+      if (!planned.ok) return planned;
+      const target = planned.value.history.cursor;
       if (target === history.cursor) return succeed<WriteOutcome>({ kind: 'written' });
-      const arrival = await arriveAt(history, state, target, this.moves);
+      const arrival = await arriveBy(history, state, planned.value, this.moves);
       if (!arrival.ok) return arrival;
       const moved = withMove(this.model, arrival.value.history, arrival.value.state);
       return succeed(await this.commit({ kind: 'move', to: target }, moved));

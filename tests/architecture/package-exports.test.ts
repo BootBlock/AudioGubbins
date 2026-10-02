@@ -240,14 +240,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "Members of the format's reading kit, which the storage and history packages read their own records with; these are used inside the package so far, and are offered with the rest so a record another package keeps reads a flag, a list, a number, a set of entities or a state fingerprint as the project document does.":
       ['asBoolean', 'entitiesOf', 'isStateFingerprint', 'listOf', 'numberConverter'],
     "The project document's own header, format name and text forms, which the package reads and writes the document and the unpacked tree with. Offered for a tool that reads a document without the storage, such as the unpacked tree's inspection outside AudioGubbins that REQ-STOR-103 asks to be possible; nothing in the application reads a document but through the storage.":
-      [
-        'FormatHeader',
-        'PROJECT_DOCUMENT_FORMAT',
-        'prettyCanonicalJson',
-        'readCompatibleHeader',
-        'readFormatHeader',
-        'serialiseProjectDocument',
-      ],
+      ['FormatHeader', 'PROJECT_DOCUMENT_FORMAT', 'prettyCanonicalJson', 'readCompatibleHeader'],
     "Reading an external file's identity, which the package reads a media source with. Offered for the linked-file checks of the import that arrives with the codec phase, which read an identity on its own.":
       ['readExternalIdentity'],
     'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
@@ -269,10 +262,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/history': {
-    'The branches beside the active line, and which parts of a history retain each piece of media, which the rows of the History panel and the usage measurement compute for themselves. Offered for a view that lists the branches or the media apart from the rows.':
-      ['AlternativeBranch', 'ContentRetention', 'alternativeBranches', 'contentRetention'],
-    "The difference of two states, which the comparison reaches inside the package, and the move that promotes a side, which the session makes by moving to that side's node itself (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison, and for the audition of the audio engine, which promotes what it plays.":
-      ['diffStates', 'promotion'],
+    "Which parts of a history retain each piece of media: the current state, the active line, snapshots or only other branches (REQ-STOR-200). The usage measurement puts media only under held now or retained, so nothing calls it yet; it is kept for the Storage panel's split of retained media by what retains it, which REQ-STOR-200's categories ask for in this phase.":
+      ['ContentRetention', 'contentRetention'],
+    'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
+      ['diffStates'],
   },
   '@audiogubbins/browser-storage': {
     "Every file of a folder the picker gave, with its handle kept, for importing a folder of audio, which arrives with the codec phase. A project is brought in from a folder through the page's folder input, which every browser has.":
