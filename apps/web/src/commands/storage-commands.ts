@@ -37,13 +37,19 @@ const CHOICES: readonly CleanupChoice['kind'][] = [
   'unreferenced-media',
 ];
 
-/** The cleanup the arguments choose: every step, or those named, or why a name is none. */
+/**
+ * The cleanup the arguments choose, or why a name is none. No `choices` at all
+ * asks for every step; an empty list asks for none, which is what a person
+ * leaving every step out of a plan has chosen.
+ */
 function selectionFrom(
   invocation: CommandInvocation,
 ): { readonly selection: CleanupSelection } | { readonly refused: string } {
-  const named = textArgument(invocation, 'choices');
+  const named = invocation.arguments?.['choices'];
   if (named === undefined) return { selection: 'everything' };
+  if (typeof named !== 'string') return { refused: 'The cleanup choices are not a list of names.' };
   const chosen: CleanupChoice[] = [];
+  if (named === '') return { selection: chosen };
   for (const name of named.split(',')) {
     const category = CACHE_CLEANUP_ORDER.find((one) => `cache:${one}` === name);
     const kind = CHOICES.find((one) => one === name);

@@ -123,6 +123,19 @@ describe('measuring the storage and cleaning it up', () => {
     expect(window.projects.usage.get().plan?.steps).toEqual([]);
   });
 
+  it('plans nothing where every step was left out, rather than every step again', async () => {
+    const window = await projectWorld().window();
+    // Media referred to by nothing, which a plan of every step would take.
+    const { store } = window.storage;
+    const put = await store.put(generatedSource(3_000, 7));
+    if (put.ok) store.release(put.value.contentId);
+
+    const heard = window.nextSaid();
+    window.run('storage.plan-cleanup', { choices: '' });
+    expect(await heard).toBe('There is nothing of that to clean up.');
+    expect(window.projects.usage.get().plan).toEqual({ steps: [], confirmationBytes: 0 });
+  });
+
   it('carries out a cleanup reaching past the caches only with the bytes the person was shown', async () => {
     const window = await projectWorld().window();
     // Media stored and referred to by nothing, which only a purge removes.

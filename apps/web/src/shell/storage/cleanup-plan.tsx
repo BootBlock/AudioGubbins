@@ -9,7 +9,7 @@
  * says how much it removes for good, and the button that carries it out says it
  * too; the bytes it names are the ones the storage checks. Leaving a step out
  * plans again with the others, so what is confirmed is always a plan the
- * storage made.
+ * storage made, and leaving every step out plans nothing.
  */
 
 import { useState, type ReactNode } from 'react';
@@ -83,9 +83,12 @@ function Decision({
   if (leftOut.size > 0) {
     const kept = plan.steps.map(choiceOf).filter((choice) => !leftOut.has(choice));
     return (
-      <Button compact onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}>
-        Plan again without what is left out
-      </Button>
+      <>
+        {kept.length === 0 && <p>Every step is left out, so planning again cleans up nothing.</p>}
+        <Button compact onClick={() => run('storage.plan-cleanup', { choices: kept.join(',') })}>
+          Plan again without what is left out
+        </Button>
+      </>
     );
   }
   if (plan.confirmationBytes > 0) {

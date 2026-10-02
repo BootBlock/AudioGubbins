@@ -184,6 +184,20 @@ describe('the Storage panel', () => {
     expect(run).toHaveBeenLastCalledWith('storage.plan-cleanup', { choices: 'cache:waveform' });
   });
 
+  it('says that leaving every step out plans nothing, and plans again with none chosen', async () => {
+    const { run } = panelOver({ usage: USAGE, plan: PLAN });
+
+    const plan = screen.getByRole('group', { name: 'The planned cleanup' });
+    for (const step of within(plan).getAllByRole('switch')) await userEvent.click(step);
+    expect(
+      within(plan).getByText('Every step is left out, so planning again cleans up nothing.'),
+    ).toBeVisible();
+    await userEvent.click(
+      within(plan).getByRole('button', { name: 'Plan again without what is left out' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('storage.plan-cleanup', { choices: '' });
+  });
+
   it('clears caches at a press, since nothing is lost, and says why media cannot be purged', async () => {
     const [cache] = PLAN.steps;
     const { run } = panelOver({
