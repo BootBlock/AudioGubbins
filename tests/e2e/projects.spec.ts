@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { expect, type Locator, type Page } from '@playwright/test';
 
+import { SCHEMA_VERSIONS } from '../../packages/version/src/index.js';
 import { runCommand } from './editor.js';
 import { menuBarMenu, openFresh } from './shell.js';
 import { test } from './test.js';
@@ -111,8 +112,20 @@ test.describe('projects kept in the browser', () => {
       banner(page).getByText(/"Harbour" is open to read here, because the tab opened at/),
     ).toBeVisible();
 
-    // The first tab takes it back, after reading what that costs, and the
-    // second is told which tab took it.
+    // The first tab asks for it back, and the second does not answer. The
+    // request waits a second rather than its full patience, which the test
+    // would otherwise wait out, and once it goes unanswered the first tab can
+    // take the project over.
+    await page.evaluate(() => {
+      const timeout = AbortSignal.timeout.bind(AbortSignal);
+      AbortSignal.timeout = () => timeout(1_000);
+    });
+    await banner(page).getByRole('button', { name: 'Ask to change it' }).click();
+    await expect(banner(second).getByText(/asks to change "Harbour"/)).toBeVisible();
+    await expect(banner(page).getByText(/did not answer/)).toBeVisible();
+
+    // It takes it over, after reading what that costs, and the second is told
+    // which tab took it.
     await banner(page).getByRole('button', { name: 'Take over…' }).click();
     await expect(banner(page).getByText(/Anything it has not saved yet is lost\./)).toBeVisible();
     await banner(page).getByRole('button', { name: 'Take over now' }).click();
@@ -218,7 +231,10 @@ test.describe('projects kept in the browser', () => {
     const screen = page.getByRole('dialog', { name: 'Your stored projects need a decision' });
     await expect(screen).toBeVisible();
     await expect(
-      screen.getByText(/saved in format 0, and this version of AudioGubbins reads format 1/),
+      screen.getByText(
+        `saved in storage format 0, and this version of AudioGubbins reads storage format ${String(SCHEMA_VERSIONS.projectStorage)}.`,
+        { exact: false },
+      ),
     ).toBeVisible();
 
     // Deciding later leaves the data as it is, and every project unavailable.
