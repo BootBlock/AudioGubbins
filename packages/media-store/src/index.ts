@@ -20,6 +20,7 @@
  */
 
 export { type ExternalFile } from './external-file.js';
+export { objectMissing } from './media-failures.js';
 
 export {
   type MediaSharing,

@@ -502,6 +502,7 @@ const PACKAGES = [
     jsx: false,
     deps: [
       '@audiogubbins/domain',
+      '@audiogubbins/codecs',
       '@audiogubbins/commands',
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',

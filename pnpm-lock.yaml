@@ -664,6 +664,9 @@ importers:
 
   packages/storage:
     dependencies:
+      '@audiogubbins/codecs':
+        specifier: workspace:*
+        version: link:../codecs
       '@audiogubbins/commands':
         specifier: workspace:*
         version: link:../commands

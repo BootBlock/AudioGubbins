@@ -301,6 +301,20 @@ export class MediaObjectStore {
     });
   }
 
+  /**
+   * Where the object lies in the storage tree, once it is sealed and whole, so
+   * a host that can open a file by its path hands out a snapshot of it rather
+   * than the store's own reader. Its bytes never change once sealed.
+   */
+  async locate(contentId: ContentId): Promise<DomainResult<string>> {
+    return await refusalsReported(async () => {
+      const whole = await this.#whole(contentId);
+      return whole === undefined
+        ? fail(objectMissing(contentId))
+        : succeed(this.#files.layout.object(contentId));
+    });
+  }
+
   /** Hashes the object again, to prove its bytes are still the ones it is named by. */
   async verify(
     contentId: ContentId,

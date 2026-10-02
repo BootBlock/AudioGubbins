@@ -57,6 +57,13 @@ export interface HostParts {
   /** A turn given to the worker's host, which every storage path takes between operations. */
   readonly yieldToHost: YieldToHost;
   readonly logs: HostLogs;
+
+  /**
+   * The file at a path of the tree, as the platform hands out a snapshot of
+   * one, `undefined` where nothing is there: what the audio threads read a
+   * stored object through.
+   */
+  readonly fileAt: (path: string) => Promise<Blob | undefined>;
 }
 
 /** Everything the areas serving the page work with, each made once. */
@@ -69,6 +76,9 @@ export interface HostServices extends OpeningServices, CleanupRunServices {
    * brought in at less than all of it.
    */
   readonly invocationProvenance: InvocationProvenance;
+
+  /** The file at a path of the tree (see {@link HostParts.fileAt}). */
+  readonly fileAt: HostParts['fileAt'];
 }
 
 /** The services made from their parts (see the module comment). */
@@ -106,6 +116,7 @@ export function hostServices(parts: HostParts): HostServices {
       ...coordinated,
     }),
     yieldToHost: parts.yieldToHost,
+    fileAt: parts.fileAt,
     ...coordinated,
   };
 }

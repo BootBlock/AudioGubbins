@@ -62,8 +62,8 @@
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
  * - storage: keeping projects over a backend port; depends on domain +
- *   commands + diagnostics + history + media-store + project-format + version,
- *   and on no browser API.
+ *   codecs + commands + diagnostics + history + media-store + project-format +
+ *   version, and on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
  * - storage-runtime: the browser host of project storage, its worker, the port
@@ -372,12 +372,12 @@ module.exports = {
       name: 'storage-owns-nothing-else',
       severity: 'error',
       comment:
-        'Storage depends on domain and project-format contracts, not the interface, and on no ' +
-        'browser adapter: the browser implements its ports from above (Phase 02 packet, ' +
-        'ADR-0020).',
+        'Storage depends on domain and project-format contracts, and on the read contract an ' +
+        'import opens a file with, not the interface, and on no browser adapter: the browser ' +
+        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052).',
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

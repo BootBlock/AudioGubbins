@@ -16,9 +16,10 @@
  * cannot be given that policy.
  *
  * Reading the audio's shape is not this module's: that is a codec's, and the
- * caller builds the domain asset from it. The managed object an import stores
- * is held in the store until the caller releases it, once the asset is recorded
- * in a project's state or abandoned, so collection never takes it in between.
+ * caller gives it to be recorded and builds the domain asset from it. The
+ * managed object an import stores is held in the store until the caller
+ * releases it, once the asset is recorded in a project's state or abandoned, so
+ * collection never takes it in between.
  */
 
 import { succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
@@ -30,6 +31,7 @@ import {
   type ContentId,
   type Digest,
   type ExternalSourceIdentity,
+  type SourceAudioShape,
   type YieldToHost,
 } from '@audiogubbins/project-format';
 
@@ -78,6 +80,9 @@ export interface ImportRequest {
 
   /** When the import happens, in whole milliseconds since the epoch. */
   readonly importedAt: number;
+
+  /** The audio shape the caller's codec read from the file, recorded in its provenance. */
+  readonly audio?: SourceAudioShape;
 }
 
 /** What an import works through. */
@@ -204,5 +209,6 @@ function provenanceBase(
     byteLength,
     mediaType,
     originProjectId: request.projectId,
+    ...(request.audio === undefined ? {} : { audio: request.audio }),
   };
 }

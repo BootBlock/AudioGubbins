@@ -9,7 +9,7 @@
  * grouped by the area of the page's client that calls it: the library of
  * projects, the projects open (`project-operations.ts`), taking projects out
  * and bringing them in (`transfer-operations.ts`), their backup generations
- * (`backup-operations.ts`), the storage root, the caches, the usage and its
+ * (`backup-operations.ts`), audio files (`media-operations.ts`), the storage root, the caches, the usage and its
  * cleanup, who writes each project, and the files linked assets were recorded
  * from. The values all clone: none is a class with behaviour, and a cache's
  * bytes are moved rather than copied.
@@ -43,6 +43,7 @@ import type {
 } from '@audiogubbins/storage';
 
 import type { BackupOperations } from './backup-operations.js';
+import type { MediaOperations } from './media-operations.js';
 import type { Handlers, Operation, Stream } from './operations.js';
 import type { CrossingFile, PageOperations, PagePort } from './page-operations.js';
 import type { PortChannel } from './port-channel.js';
@@ -58,7 +59,8 @@ import type { TransferOperations } from './transfer-operations.js';
 /** The operations the page calls on the storage worker, by area. */
 export type StorageOperations = ProjectOperations &
   TransferOperations &
-  BackupOperations & {
+  BackupOperations &
+  MediaOperations & {
     /** Every project, deleted ones among them, in the order of their identifiers. */
     'library.list': Operation<undefined, readonly CatalogueEntry[]>;
     'library.create': Operation<NewProject, DomainResult<ProjectHeader>>;

@@ -38,12 +38,15 @@ import {
   contentIdFrom,
   invocationProvenance,
   parseJson,
+  readAssetRecord,
   readMediaSource,
   startReading,
   storageKeyOf,
+  writeAssetRecord,
   writeMediaSource,
   type ContentId,
   type InvocationProvenance,
+  type AssetSource,
   type MediaSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -54,6 +57,8 @@ const SET_NAME = commandId('test.set-name');
 const ADD_ASSET = commandId('test.add-asset');
 const REMOVE_ASSET = commandId('test.remove-asset');
 const SET_MEDIA = commandId('test.set-media');
+const ADD_RECORD = commandId('test.add-record');
+const REMOVE_RECORD = commandId('test.remove-record');
 
 const RATE = expectSuccess(sampleRate(48_000));
 const LENGTH = expectSuccess(sampleCount(4_800));
@@ -228,6 +233,60 @@ function setMediaCommand(): Command<ProjectState> {
   });
 }
 
+/** Adds a whole asset record, as the project commands' `addAssetInvocation` does. */
+export function addRecord(asset: Asset, source: AssetSource): CommandInvocation {
+  return {
+    commandId: ADD_RECORD,
+    arguments: { record: canonicalJson(writeAssetRecord({ asset, source })) },
+  };
+}
+
+function addRecordCommand(): Command<ProjectState> {
+  return command(ADD_RECORD, (state, invocation): CommandOutcome<ProjectState> => {
+    const text = invocation.arguments?.['record'];
+    const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
+    const reading = startReading();
+    const record =
+      parsed?.ok === true
+        ? reading.outcome(readAssetRecord(reading, parsed.value, '', ''))
+        : undefined;
+    if (record?.ok !== true) return refusal('test.record', 'An asset record is needed.');
+    const { asset, source } = record.value;
+    if (state.project.assets.has(asset.id)) return refusal('test.asset-taken', 'The asset exists.');
+    return {
+      kind: 'applied',
+      next: {
+        project: { ...state.project, assets: new Map(state.project.assets).set(asset.id, asset) },
+        sources: new Map(state.sources).set(asset.id, source),
+      },
+      inverse: { commandId: REMOVE_RECORD, arguments: { asset: asset.id } },
+      description: 'Add an asset record',
+    };
+  });
+}
+
+function removeRecordCommand(): Command<ProjectState> {
+  return command(REMOVE_RECORD, (state, invocation): CommandOutcome<ProjectState> => {
+    const id = invocation.arguments?.['asset'];
+    if (typeof id !== 'string' || !isWellFormedId(id)) return refusal('test.asset', 'No asset.');
+    const asset = state.project.assets.get(unsafeBrandId<'AssetId'>(id));
+    const source = state.sources.get(unsafeBrandId<'AssetId'>(id));
+    if (asset === undefined || source === undefined) {
+      return refusal('test.asset-missing', 'No such asset.');
+    }
+    const assets = new Map(state.project.assets);
+    assets.delete(asset.id);
+    const sources = new Map(state.sources);
+    sources.delete(asset.id);
+    return {
+      kind: 'applied',
+      next: { project: { ...state.project, assets }, sources },
+      inverse: addRecord(asset, source),
+      description: 'Remove an asset record',
+    };
+  });
+}
+
 /**
  * What the test commands declare of the provenance their arguments hold, as
  * the project commands declare theirs: only setting media carries any.
@@ -238,6 +297,8 @@ export const TEST_INVOCATION_PROVENANCE: InvocationProvenance = invocationProven
     [ADD_ASSET, {}],
     [REMOVE_ASSET, {}],
     [SET_MEDIA, { media: ProvenanceArgument.MediaSource }],
+    [ADD_RECORD, { record: ProvenanceArgument.AssetRecord }],
+    [REMOVE_RECORD, {}],
   ]),
 );
 
@@ -249,6 +310,8 @@ export function testBus(): CommandBus<ProjectState> {
     addAssetCommand(),
     removeAssetCommand(),
     setMediaCommand(),
+    addRecordCommand(),
+    removeRecordCommand(),
   ]) {
     registry.register(each);
   }
