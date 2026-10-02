@@ -24,12 +24,12 @@ import {
   CommandCategory,
   refusal,
   unchanged,
-  type Command,
   type CommandInvocation,
   type CommandOutcome,
   type RefusedOutcome,
 } from '@audiogubbins/commands';
 import {
+  ProvenanceArgument,
   SourceChangePolicy,
   canonicalJson,
   readMediaSource,
@@ -51,11 +51,14 @@ import {
   type TargetAsset,
 } from './invocation-arguments.js';
 import {
+  NO_PROVENANCE,
   ProjectCommandId,
   applied,
   assetAvailability,
   projectCommand,
   quoted,
+  type ProjectCommand,
+  type ProjectCommandDeclaration,
 } from './project-command.js';
 import { setAssetMediaInvocation } from './project-invocations.js';
 import { withMedia } from './state-edits.js';
@@ -71,7 +74,7 @@ const POLICY_DESCRIPTIONS: Readonly<Record<SourceChangePolicy, (name: string) =>
 type IdentityChange = 'relink' | 'adopt';
 
 /** The commands that change an asset's source. */
-export function sourceCommands(): readonly Command<ProjectState>[] {
+export function sourceCommands(): readonly ProjectCommand[] {
   return [
     projectCommand({
       id: ProjectCommandId.SetSourcePolicy,
@@ -81,6 +84,7 @@ export function sourceCommands(): readonly Command<ProjectState>[] {
         'Chooses whether a change to a linked file is asked about, used, or set aside for the retained copy.',
       availability: assetAvailability,
       run: setPolicy,
+      provenance: NO_PROVENANCE,
     }),
     projectCommand({
       id: ProjectCommandId.SetAssetMedia,
@@ -89,23 +93,10 @@ export function sourceCommands(): readonly Command<ProjectState>[] {
       description: 'Replaces where an asset’s audio is found, which is how undo restores it.',
       availability: assetAvailability,
       run: setMedia,
+      provenance: { media: ProvenanceArgument.MediaSource },
     }),
-    projectCommand({
-      id: ProjectCommandId.RelinkSource,
-      label: 'Relink an asset to another file',
-      category: CommandCategory.Edit,
-      description: 'Points a linked asset at another file, such as one that was moved.',
-      availability: assetAvailability,
-      run: (state, invocation) => changeIdentity(state, invocation, 'relink'),
-    }),
-    projectCommand({
-      id: ProjectCommandId.AdoptSourceVersion,
-      label: 'Use the new version of a linked file',
-      category: CommandCategory.Edit,
-      description: 'Takes the changed version of the file an asset is linked to.',
-      availability: assetAvailability,
-      run: (state, invocation) => changeIdentity(state, invocation, 'adopt'),
-    }),
+    identityCommand('relink'),
+    identityCommand('adopt'),
     projectCommand({
       id: ProjectCommandId.FreezeSource,
       label: 'Keep a linked asset as a copy in the project',
@@ -114,8 +105,36 @@ export function sourceCommands(): readonly Command<ProjectState>[] {
         'Stops following a linked file and keeps the retained copy of the version the project last saw.',
       availability: assetAvailability,
       run: freeze,
+      provenance: NO_PROVENANCE,
     }),
   ];
+}
+
+/** How the two commands that take a new identity are named, by the way each takes it. */
+const IDENTITY_COMMANDS: Readonly<
+  Record<IdentityChange, Pick<ProjectCommandDeclaration, 'id' | 'label' | 'description'>>
+> = {
+  relink: {
+    id: ProjectCommandId.RelinkSource,
+    label: 'Relink an asset to another file',
+    description: 'Points a linked asset at another file, such as one that was moved.',
+  },
+  adopt: {
+    id: ProjectCommandId.AdoptSourceVersion,
+    label: 'Use the new version of a linked file',
+    description: 'Takes the changed version of the file an asset is linked to.',
+  },
+};
+
+/** The command that takes a new identity for a linked asset the way `change` says. */
+function identityCommand(change: IdentityChange): ProjectCommand {
+  return projectCommand({
+    ...IDENTITY_COMMANDS[change],
+    category: CommandCategory.Edit,
+    availability: assetAvailability,
+    run: (state, invocation) => changeIdentity(state, invocation, change),
+    provenance: { identity: ProvenanceArgument.ExternalIdentity },
+  });
 }
 
 function setPolicy(

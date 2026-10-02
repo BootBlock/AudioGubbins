@@ -2276,10 +2276,23 @@ Published paths
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
 @audiogubbins/project-commands
+  interface ProjectCommand extends Command<ProjectState>
+  readonly ProjectCommand.provenance: Readonly<Record<string, import("packages/project-format/src/invocation-provenance").ProvenanceArgument>>
+  readonly ProjectCommand.id: CommandId
+  readonly ProjectCommand.label: string
+  readonly ProjectCommand.category: CommandCategory
+  readonly ProjectCommand.keywords?: readonly string[]
+  readonly ProjectCommand.description?: string
+  readonly ProjectCommand.discoverable?: boolean
+  readonly ProjectCommand.changesAppearance?: boolean
+  readonly ProjectCommand.undoable: boolean
+  ProjectCommand.availability: (context: ProjectState) => CommandAvailability
+  ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
   const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; }
   function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
   function adoptSourceVersionInvocation(asset: Asset, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
-  function projectCommands(): readonly Command<ProjectState>[]
+  function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
+  function projectCommands(): readonly ProjectCommand[]
   function relinkSourceInvocation(asset: Asset, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
 
@@ -2425,6 +2438,7 @@ Published paths
   interface HistorySegmentReference
   readonly HistorySegmentReference.epoch: number
   readonly HistorySegmentReference.id: HistorySegmentId
+  type InvocationProvenance = (invocation: InvocationRecord, rewrite: SourceRewrite) => DomainResult<InvocationRecord>
   interface InvocationRecord
   readonly InvocationRecord.commandId: string
   readonly InvocationRecord.arguments?: Readonly<Record<string, boolean | null | number | string>>
@@ -2448,6 +2462,7 @@ Published paths
   readonly ManifestEntry.size: number
   readonly ManifestEntry.contentId: ContentId
   type MediaSource = ExternalMedia | ManagedMedia
+  const NESTED_ARGUMENT_LIMITS: JsonLimits
   interface NamedSnapshot
   readonly NamedSnapshot.id: SnapshotId
   readonly NamedSnapshot.kind: SnapshotKind
@@ -2490,6 +2505,9 @@ Published paths
   readonly ProjectTreeListing.files: readonly TreeListedFile[]
   ProjectTreeListing.read: (path: string, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer>>>
   type ProjectTreeScope = { readonly kind: "history"; readonly history: ProjectTreeHistory; } | { readonly kind: "state"; readonly provenance: ProvenanceLevel; }
+  const ProvenanceArgument: { readonly AssetRecord: "asset-record"; readonly MediaSource: "media-source"; readonly ExternalIdentity: "external-identity"; }
+  type ProvenanceArgument = "asset-record" | "external-identity" | "media-source"
+  type ProvenanceArguments = { readonly [x: string]: ProvenanceArgument; }
   const ProvenanceLevel: { readonly Full: "full"; readonly Minimal: "minimal"; readonly None: "none"; }
   type ProvenanceLevel = "full" | "minimal" | "none"
   interface Reading
@@ -2510,6 +2528,10 @@ Published paths
   type SnapshotKind = "named" | "recovery"
   const SourceChangePolicy: { readonly Prompt: "prompt"; readonly Adopt: "adopt"; readonly Freeze: "freeze"; }
   type SourceChangePolicy = "adopt" | "freeze" | "prompt"
+  interface SourceRewrite
+  readonly SourceRewrite.source: (source: AssetSource) => AssetSource
+  readonly SourceRewrite.media: (media: MediaSource) => MediaSource
+  readonly SourceRewrite.identity: (identity: ExternalSourceIdentity) => ExternalSourceIdentity
   type StateFingerprint = string & { readonly [BrandTag]: "StateFingerprint"; }
   interface StorageTree
   StorageTree.readFile: (path: string, signal?: AbortSignal) => Promise<Uint8Array<ArrayBuffer> | undefined>
@@ -2610,6 +2632,7 @@ Published paths
   function historyFromSegments(reading: Reading, history: SegmentedHistoryRecord, segments: readonly HistorySegmentRecord[], at: string): HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord> | undefined
   function historyLabelFrom(text: string): DomainResult<HistoryLabel>
   function integerConverter(minimum: number, maximum: number): Converter<number>
+  function invocationProvenance(declarations: ReadonlyMap<string, Readonly<Record<string, ProvenanceArgument>>>): InvocationProvenance
   function isContentId(text: string): boolean
   function isFileName(text: string): boolean
   function isHandleKey(text: string): boolean
@@ -3430,6 +3453,7 @@ Published paths
 @audiogubbins/storage-runtime/testing
   interface HostServices extends OpeningServices, CleanupRunServices
   readonly HostServices.repository: ProjectRepository
+  readonly HostServices.invocationProvenance: InvocationProvenance
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>

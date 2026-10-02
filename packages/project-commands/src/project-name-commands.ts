@@ -10,7 +10,6 @@
 import {
   CommandCategory,
   unchanged,
-  type Command,
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
@@ -18,11 +17,18 @@ import type { ProjectState } from '@audiogubbins/project-format';
 
 import { refusedBy, textArgument } from './invocation-arguments.js';
 import { heldName, typedName, type NameRule } from './names.js';
-import { ProjectCommandId, applied, projectCommand, quoted } from './project-command.js';
+import {
+  NO_PROVENANCE,
+  ProjectCommandId,
+  applied,
+  projectCommand,
+  quoted,
+  type ProjectCommand,
+} from './project-command.js';
 import { withProjectName } from './state-edits.js';
 
 /** The two commands that name the project. */
-export function projectNameCommands(): readonly Command<ProjectState>[] {
+export function projectNameCommands(): readonly ProjectCommand[] {
   return [
     projectCommand({
       id: ProjectCommandId.Rename,
@@ -30,6 +36,7 @@ export function projectNameCommands(): readonly Command<ProjectState>[] {
       category: CommandCategory.File,
       description: 'Gives the project a new name. The name is trimmed and cannot be blank.',
       run: (state, invocation) => rename(state, invocation, typedName),
+      provenance: NO_PROVENANCE,
     }),
     projectCommand({
       id: ProjectCommandId.SetName,
@@ -38,6 +45,7 @@ export function projectNameCommands(): readonly Command<ProjectState>[] {
       description:
         'Sets the project name exactly as given, which is how undo restores the name it had.',
       run: (state, invocation) => rename(state, invocation, heldName),
+      provenance: NO_PROVENANCE,
     }),
   ];
 }

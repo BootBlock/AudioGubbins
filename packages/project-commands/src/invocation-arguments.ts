@@ -26,21 +26,14 @@ import {
 } from '@audiogubbins/domain';
 import { refusal, type CommandInvocation, type RefusedOutcome } from '@audiogubbins/commands';
 import {
+  NESTED_ARGUMENT_LIMITS,
   parseJson,
   startReading,
   type AssetSource,
   type Converter,
-  type JsonLimits,
   type JsonValue,
   type ProjectState,
 } from '@audiogubbins/project-format';
-
-/**
- * The bounds a nested argument's text is read within: far past the longest
- * asset record, whose names are bounded at a kibibyte and whose path at four,
- * and as deep as a record nests with room to spare.
- */
-const NESTED_LIMITS: JsonLimits = { maximumLength: 65_536, maximumDepth: 8 };
 
 /** An asset of the project with its source, as a command finds it. */
 export interface TargetAsset {
@@ -78,7 +71,7 @@ export function optionalTextArgument(
 /** The JSON value the text argument `name` holds, or why it holds none. */
 export function jsonArgument(invocation: CommandInvocation, name: string): DomainResult<JsonValue> {
   const text = textArgument(invocation, name);
-  return text.ok ? parseJson(text.value, NESTED_LIMITS) : text;
+  return text.ok ? parseJson(text.value, NESTED_ARGUMENT_LIMITS) : text;
 }
 
 /**

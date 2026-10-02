@@ -14,8 +14,14 @@ import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands'
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
 import { MediaObjectStore } from '@audiogubbins/media-store';
-import { projectCommands } from '@audiogubbins/project-commands';
-import type { Digest, ProjectState, StorageTree, YieldToHost } from '@audiogubbins/project-format';
+import { commandProvenance, projectCommands } from '@audiogubbins/project-commands';
+import type {
+  Digest,
+  InvocationProvenance,
+  ProjectState,
+  StorageTree,
+  YieldToHost,
+} from '@audiogubbins/project-format';
 import {
   CacheStore,
   MEDIA_DIRECTORY,
@@ -56,6 +62,13 @@ export interface HostParts {
 /** Everything the areas serving the page work with, each made once. */
 export interface HostServices extends OpeningServices, CleanupRunServices {
   readonly repository: ProjectRepository;
+
+  /**
+   * What the project commands declare of the provenance their arguments hold,
+   * from the very commands the bus runs, for a whole history exported or
+   * brought in at less than all of it.
+   */
+  readonly invocationProvenance: InvocationProvenance;
 }
 
 /** The services made from their parts (see the module comment). */
@@ -64,7 +77,8 @@ export function hostServices(parts: HostParts): HostServices {
   const tree = new TurnTakingTree(parts.tree, parts.yieldToHost);
   const coordinated = coordinator === undefined ? {} : { coordinator };
   const registry = createCommandRegistry<ProjectState>();
-  for (const command of projectCommands()) registry.register(command);
+  const commands = projectCommands();
+  for (const command of commands) registry.register(command);
   return {
     tree,
     digest,
@@ -72,6 +86,7 @@ export function hostServices(parts: HostParts): HostServices {
     ids,
     owner,
     bus: createCommandBus(registry, logs.loggerFor('project-commands')),
+    invocationProvenance: commandProvenance(commands),
     logger: logs.loggerFor('projects'),
     store: new MediaObjectStore({
       tree,

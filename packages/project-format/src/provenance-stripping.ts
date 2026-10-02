@@ -53,6 +53,17 @@ export const ProvenanceLevel = {
 /** How much provenance a project or an export keeps. */
 export type ProvenanceLevel = (typeof ProvenanceLevel)[keyof typeof ProvenanceLevel];
 
+/**
+ * The rewrite of what a source holds of where its audio came from, for each
+ * value that holds it: a whole source, its media, and a linked file's
+ * identity. Each gives back the value it was given where it changes nothing.
+ */
+export interface SourceRewrite {
+  readonly source: (source: AssetSource) => AssetSource;
+  readonly media: (media: MediaSource) => MediaSource;
+  readonly identity: (identity: ExternalSourceIdentity) => ExternalSourceIdentity;
+}
+
 /** The state with each asset's provenance stripped to `level`. */
 export function stripAssetProvenance(state: ProjectState, level: ProvenanceLevel): ProjectState {
   if (level === ProvenanceLevel.Full) return state;

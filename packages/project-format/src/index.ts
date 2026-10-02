@@ -100,9 +100,17 @@ export {
 
 export {
   ProvenanceLevel,
+  type SourceRewrite,
   stripAssetProvenance,
   stripExportRecords,
 } from './provenance-stripping.js';
+export {
+  NESTED_ARGUMENT_LIMITS,
+  type InvocationProvenance,
+  ProvenanceArgument,
+  type ProvenanceArguments,
+  invocationProvenance,
+} from './invocation-provenance.js';
 
 export {
   type Converter,

@@ -5,7 +5,9 @@
  * removing and naming its assets, and changing where an asset's bytes come
  * from. Each is undoable through an inverse invocation and deterministic under
  * replay, so the history can keep a journal of invocations rather than of
- * states (REQ-EDIT-073, REQ-STOR-101). The commands run through
+ * states (REQ-EDIT-073, REQ-STOR-101), and each declares which of its
+ * arguments hold provenance, which {@link commandProvenance} makes the port a
+ * whole history is stripped through (REQ-STOR-166). The commands run through
  * `createCommandBus` from `@audiogubbins/commands`, over a registry holding
  * {@link projectCommands}.
  *
@@ -13,9 +15,9 @@
  * contract change (REQ-REPO-186).
  */
 
-export { projectCommands } from './project-commands.js';
+export { commandProvenance, projectCommands } from './project-commands.js';
 
-export { ProjectCommandId } from './project-command.js';
+export { ProjectCommandId, type ProjectCommand } from './project-command.js';
 
 export {
   addAssetInvocation,

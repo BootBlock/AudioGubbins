@@ -14,12 +14,12 @@ import {
   CommandCategory,
   refusal,
   unchanged,
-  type Command,
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
 import type { AssetId } from '@audiogubbins/domain';
 import {
+  ProvenanceArgument,
   canonicalJson,
   readAssetRecord,
   writeAssetRecord,
@@ -35,16 +35,18 @@ import {
 } from './invocation-arguments.js';
 import { heldName, typedName, type NameRule } from './names.js';
 import {
+  NO_PROVENANCE,
   ProjectCommandId,
   applied,
   assetAvailability,
   projectCommand,
   quoted,
+  type ProjectCommand,
 } from './project-command.js';
 import { withAsset, withAssetName, withoutAsset } from './state-edits.js';
 
 /** The commands that add, remove and name an asset. */
-export function assetCommands(): readonly Command<ProjectState>[] {
+export function assetCommands(): readonly ProjectCommand[] {
   return [
     projectCommand({
       id: ProjectCommandId.AddAsset,
@@ -53,6 +55,7 @@ export function assetCommands(): readonly Command<ProjectState>[] {
       description:
         'Adds an asset with its source to the project. The import pipeline runs this once the bytes are stored or linked.',
       run: addAsset,
+      provenance: { asset: ProvenanceArgument.AssetRecord },
     }),
     projectCommand({
       id: ProjectCommandId.RemoveAsset,
@@ -62,6 +65,7 @@ export function assetCommands(): readonly Command<ProjectState>[] {
         'Removes an asset no clip uses. Its audio stays stored while the history can bring it back.',
       availability: assetAvailability,
       run: removeAsset,
+      provenance: NO_PROVENANCE,
     }),
     projectCommand({
       id: ProjectCommandId.RenameAsset,
@@ -70,6 +74,7 @@ export function assetCommands(): readonly Command<ProjectState>[] {
       description: 'Gives an asset a new name. The name is trimmed and cannot be blank.',
       availability: assetAvailability,
       run: (state, invocation) => renameAsset(state, invocation, typedName),
+      provenance: NO_PROVENANCE,
     }),
     projectCommand({
       id: ProjectCommandId.SetAssetName,
@@ -79,6 +84,7 @@ export function assetCommands(): readonly Command<ProjectState>[] {
         'Sets an asset name exactly as given, which is how undo restores the name it had.',
       availability: assetAvailability,
       run: (state, invocation) => renameAsset(state, invocation, heldName),
+      provenance: NO_PROVENANCE,
     }),
   ];
 }
