@@ -17,7 +17,6 @@ import type { StorageTree } from '@audiogubbins/project-format';
 import { readPair } from './generational-pair.js';
 import type { ProjectFiles } from './project-files.js';
 import { BackupPaths } from './storage-layout.js';
-import { bytesUnder } from './usage-measurement.js';
 
 /** What a crash left of a project: its making, or its purge, cut short. */
 export type LeftOver = 'unfinished' | 'purging';
@@ -30,20 +29,6 @@ export async function leftOverOf(
   const newest = (await readPair(files.records, files.header, signal)).valid[0];
   if (newest !== undefined) return newest.value.purging === undefined ? undefined : 'purging';
   return (await files.isUnfinished()) ? 'unfinished' : undefined;
-}
-
-/** The bytes what is left of a project holds, its backups among them where it is being purged. */
-export async function leftOverBytes(
-  files: ProjectFiles,
-  leftOver: LeftOver,
-  signal?: AbortSignal,
-): Promise<number> {
-  const tree = files.records.tree;
-  const backups =
-    leftOver === 'purging'
-      ? await bytesUnder(tree, new BackupPaths(files.project).directory, signal)
-      : 0;
-  return backups + (await bytesUnder(tree, files.paths.directory, signal));
 }
 
 /** Removes what a crash left of a project. */

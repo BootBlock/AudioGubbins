@@ -13,6 +13,7 @@ import {
   unstoredScope,
   type CacheKey,
 } from './cache-store.js';
+import { sweepCrashes } from './testing/crash-sweep.js';
 import { contentOf } from './testing/test-commands.js';
 import { nodeDigest } from './testing/node-services.js';
 
@@ -58,17 +59,24 @@ describe('the cache store (REQ-STOR-027, REQ-STOR-106)', () => {
     expect(await bytesOf(store, PEAKS)).toBeUndefined();
   });
 
-  it('never trusts the seal of the cache a torn replacement was replacing', async () => {
-    const tree = new MemoryStorageTree();
-    const store = new CacheStore(tree, nodeDigest);
-    expectSuccess(await store.put(PEAKS, new Uint8Array(8)));
-    // A crash at the replacement's first write of data, after the old seal went.
-    const crashing = tree.restarted({ crashAt: 3 });
-    await expect(
-      new CacheStore(crashing, nodeDigest).put(PEAKS, new Uint8Array(8).fill(7)),
-    ).rejects.toThrow();
-    const after = new CacheStore(crashing.restarted(), nodeDigest);
-    expect(await bytesOf(after, PEAKS)).toBeUndefined();
+  it('reads a cache whose replacement a crash cut short as the old, the new or absent', async () => {
+    const from = new MemoryStorageTree();
+    expectSuccess(await new CacheStore(from, nodeDigest).put(PEAKS, new Uint8Array(8)));
+    const replacement = new Uint8Array(8).fill(7);
+    await sweepCrashes({
+      from,
+      tornWrites: ['short', 'full-length'],
+      run: async (tree) => await new CacheStore(tree, nodeDigest).put(PEAKS, replacement),
+      check: async (found, { outcome }) => {
+        const store = new CacheStore(found, nodeDigest);
+        const read = await bytesOf(store, PEAKS);
+        if (outcome !== undefined) expect(read).toEqual(replacement);
+        // Never bytes torn between the two, read as either.
+        else expect([undefined, new Uint8Array(8), replacement]).toContainEqual(read);
+        expectSuccess(await store.put(PEAKS, new Uint8Array([1])));
+        expect(await bytesOf(store, PEAKS)).toEqual(new Uint8Array([1]));
+      },
+    });
   });
 
   it('lists and measures each category, and gives one up without touching the others', async () => {

@@ -6,12 +6,16 @@
  * it keeps whole, by every change its history can undo or redo, whose
  * invocations name the media they add or remove, and by every record not yet
  * folded into a checkpoint, the quarantined among them. A deleted project
- * retains its media until it is purged. So every project's states are read by
- * the media store's own rule, `contentReferencedBy`, and every checkpoint,
- * segment of history and journal record is searched for any content identifier
- * it holds anywhere, which errs, as it must, on the side of keeping. Every
- * backup generation retains what its states, its checkpoint and its segments
- * name, the generations of a purged project among them, until they are removed
+ * retains its media until it is purged. What a crash left of a project's making
+ * or of its purge retains nothing (`project-leftovers.ts`): nothing refers to a
+ * project never finished, whose writer holds the media it stores until the
+ * project is whole, and a project being purged, with its backups, is gone for
+ * good once the purge is finished. So every project's states are read by the
+ * media store's own rule, `contentReferencedBy`, and every checkpoint, segment
+ * of history and journal record is searched for any content identifier it holds
+ * anywhere, which errs, as it must, on the side of keeping. Every backup
+ * generation retains what its states, its checkpoint and its segments name, the
+ * generations of a purged project among them, until they are removed
  * themselves.
  *
  * A file that cannot be read cannot say what it retains, so it is reported to
@@ -51,6 +55,7 @@ import { CheckedRecords } from './checked-records.js';
 import { contentIdsIn } from './content-references.js';
 import { ProjectFiles } from './project-files.js';
 import { newestHead, sameHead } from './project-heads.js';
+import { leftOverOf } from './project-leftovers.js';
 import { SnapshotStore } from './state-store.js';
 import {
   BACKUPS_DIRECTORY,
@@ -91,11 +96,16 @@ async function* gather(
   signal?: AbortSignal,
 ): AsyncGenerator<ContentId, void, undefined> {
   const { tree, digest } = records;
+  const leftOvers = new Set<ProjectId>();
   for (const project of await projectsUnder(tree, PROJECTS_DIRECTORY)) {
     signal?.throwIfAborted();
-    yield* projectRetains(new ProjectFiles(records, project), onUnreadable, signal);
+    const files = new ProjectFiles(records, project);
+    if ((await leftOverOf(files, signal)) === undefined) {
+      yield* projectRetains(files, onUnreadable, signal);
+    } else leftOvers.add(project);
   }
   for (const project of await projectsUnder(tree, BACKUPS_DIRECTORY)) {
+    if (leftOvers.has(project)) continue;
     const paths = new BackupPaths(project);
     for (const entry of await tree.list(paths.directory)) {
       signal?.throwIfAborted();

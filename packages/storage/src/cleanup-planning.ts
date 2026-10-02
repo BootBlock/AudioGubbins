@@ -51,7 +51,7 @@ import { expiredHistory } from './expired-history.js';
 import { projectsIn } from './project-listing.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
-import { leftOverBytes, leftOverOf } from './project-leftovers.js';
+import { leftOverOf, type LeftOver } from './project-leftovers.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, BackupPaths, PROJECTS_DIRECTORY } from './storage-layout.js';
 import { bytesUnder } from './usage-measurement.js';
@@ -252,6 +252,20 @@ async function expiredBackups(
   return generations.size === 0
     ? []
     : [{ kind: 'expired-backups', generations, bytes, loses: 'backup-generations' }];
+}
+
+/** The bytes what is left of a project holds, its backups among them where it is being purged. */
+export async function leftOverBytes(
+  files: ProjectFiles,
+  leftOver: LeftOver,
+  signal?: AbortSignal,
+): Promise<number> {
+  const tree = files.records.tree;
+  const backups =
+    leftOver === 'purging'
+      ? await bytesUnder(tree, new BackupPaths(files.project).directory, signal)
+      : 0;
+  return backups + (await bytesUnder(tree, files.paths.directory, signal));
 }
 
 /** The step of history compactions, where any project lets history go. */

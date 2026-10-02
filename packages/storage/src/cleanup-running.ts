@@ -38,6 +38,7 @@ import { CACHE_CLEANUP_ORDER, type CacheCategory, type CacheStore } from './cach
 import { CheckedRecords } from './checked-records.js';
 import {
   isDisposable,
+  leftOverBytes,
   type CleanupPlan,
   type CleanupServices,
   type CleanupStep,
@@ -46,7 +47,7 @@ import {
 import { compactExpiredHistory } from './expired-history.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
-import { leftOverBytes, leftOverOf, removeLeftOver } from './project-leftovers.js';
+import { leftOverOf, removeLeftOver } from './project-leftovers.js';
 import { noCoordination, refusalsReported } from './storage-failures.js';
 import type { OpeningServices } from './project-opening.js';
 import type { ProjectSession } from './project-session.js';

@@ -16,6 +16,7 @@ import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { exportRawStorage } from './raw-export.js';
 import { openStorageRoot, wipeStorage } from './storage-root.js';
+import { sweepCrashes } from './testing/crash-sweep.js';
 import { nodeDigest } from './testing/node-services.js';
 
 /**
@@ -207,19 +208,29 @@ describe('the storage root', () => {
     expect(expectSuccess(await openStorageRoot(tree, nodeDigest))).toEqual({ kind: 'current' });
   });
 
-  it('leaves storage of the old schema whole where a wipe is cut short', async () => {
-    const found = await olderStorage();
-    // Crash on the second removal, after the media went: the root is removed
-    // last, so the storage still reads as the old schema, and the wipe can be
-    // confirmed again.
-    const tree = new MemoryStorageTree({ crashAt: 4 }, found.snapshot());
-    await expect(
-      wipeStorage(tree, nodeDigest, { kind: 'incompatible', schema: 'projectStorage', found: 99 }),
-    ).rejects.toThrow();
-    const after = tree.restarted();
-    expect(after.paths().some((path) => path.startsWith('media/'))).toBe(false);
-    expect(expectSuccess(await openStorageRoot(after, nodeDigest))).toMatchObject({
-      kind: 'incompatible',
+  it('leaves the old schema to wipe again, or only the new root, wherever a wipe is cut short', async () => {
+    const confirmation = { kind: 'incompatible', schema: 'projectStorage', found: 99 } as const;
+    const operations = await sweepCrashes({
+      from: await olderStorage(),
+      tornWrites: ['short', 'full-length'],
+      run: async (tree) => await wipeStorage(tree, nodeDigest, confirmation),
+      check: async (found) => {
+        const opened = expectSuccess(await openStorageRoot(found, nodeDigest));
+        if (opened.kind === 'incompatible') {
+          // The root is removed last, so the wipe can be confirmed again.
+          expect(opened).toMatchObject({ schema: 'projectStorage', found: 99 });
+          expectSuccess(await wipeStorage(found, nodeDigest, confirmation));
+        } else if (opened.kind === 'unreadable') {
+          // The new root was torn as it was written, over nothing else.
+          expect(found.paths()).toEqual(['storage.json']);
+          expectSuccess(await wipeStorage(found, nodeDigest, { kind: 'unreadable' }));
+        }
+        expect(found.paths()).toEqual(['storage.json']);
+        expect(expectSuccess(await openStorageRoot(found, nodeDigest))).toEqual({
+          kind: 'current',
+        });
+      },
     });
+    expect(operations).toBeGreaterThan(3);
   });
 });

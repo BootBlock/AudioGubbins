@@ -395,7 +395,9 @@ that F-14 and F-15 are fixed in this phase, not moved to Phase 14.
 - Remaining bounded limits: the paired project header can be reverted by a
   late writer's cached name; two openers could race to one epoch number when
   one steals mid-open (holder token makes it narrow); a closed tab is not
-  announced to watchers.
+  announced to watchers; a crash while a checkpoint removes what it replaced
+  can leave a torn segment no head names, which a purge of media counts as
+  unreadable, and so refuses, until the project's next checkpoint removes it.
 - `projectStorage` went from 1 to 2 when the storage root came to record its
   layout (F-13), from 2 to 3 when history moved into segments (F-14), and
   from 3 to 4 when the header gained the purging mark.
