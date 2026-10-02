@@ -17,10 +17,11 @@ import {
   changeNodeOf,
   comparedDifference,
   comparisonSide,
+  differenceNames,
   startComparison,
+  type Comparison,
   type ComparisonSource,
   type History,
-  type StateDifference,
 } from '@audiogubbins/history';
 import {
   historyLabelFrom,
@@ -33,7 +34,7 @@ import { choiceOf } from './comparison-record.js';
 import { stateAt, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
 import { withChange, withEvent, type ProjectModel, type SettledEvent } from './project-model.js';
-import type { SessionServices, SnapshotRequest } from './session-contracts.js';
+import type { ComparedStates, SessionServices, SnapshotRequest } from './session-contracts.js';
 import { notRecordable } from './session-failures.js';
 
 /** An event made, and the project once it is applied. */
@@ -134,23 +135,40 @@ export async function comparisonMade(
   a: ComparisonSource,
   b: ComparisonSource,
   moves: MoveServices,
-): Promise<DomainResult<Made<SettledEvent> & { readonly difference: StateDifference }>> {
-  const { history, state } = model;
+): Promise<DomainResult<Made<SettledEvent> & { readonly compared: ComparedStates }>> {
+  const { history } = model;
   const started = flatMapResult(comparisonSide(history, a), (sideA) =>
     flatMapResult(comparisonSide(history, b), (sideB) => startComparison(sideA, sideB)),
   );
   if (!started.ok) return started;
-  const comparison = started.value;
+  const compared = await comparedStates(model, started.value, moves);
+  if (!compared.ok) return compared;
+  const event: SettledEvent = { kind: 'comparison', choice: choiceOf(started.value) };
+  return mapResult(withEvent(model, event), (next) => ({
+    event,
+    model: next,
+    compared: compared.value,
+  }));
+}
+
+/**
+ * What differs between the sides of `comparison` in `model`, each side's state
+ * reached as a move would reach it, without moving.
+ */
+export async function comparedStates(
+  model: ProjectModel,
+  comparison: Comparison,
+  moves: MoveServices,
+): Promise<DomainResult<ComparedStates>> {
+  const { history, state } = model;
   const stateA = await stateAt(history, state, comparison.a.node, moves);
   if (!stateA.ok) return stateA;
   const stateB = await stateAt(history, state, comparison.b.node, moves);
   if (!stateB.ok) return stateB;
-  const difference = comparedDifference(comparison, stateA.value, stateB.value);
-  if (!difference.ok) return difference;
-  const event: SettledEvent = { kind: 'comparison', choice: choiceOf(comparison) };
-  return mapResult(withEvent(model, event), (next) => ({
-    event,
-    model: next,
-    difference: difference.value,
+  return mapResult(comparedDifference(comparison, stateA.value, stateB.value), (difference) => ({
+    a: comparison.a.node,
+    b: comparison.b.node,
+    difference,
+    names: differenceNames(stateA.value, stateB.value, difference),
   }));
 }

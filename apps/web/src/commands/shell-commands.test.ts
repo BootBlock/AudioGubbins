@@ -40,6 +40,7 @@ import {
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
+import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
@@ -764,6 +765,7 @@ describe('finding the shell commands in the palette', () => {
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),
+      ...comparisonCommands(),
       ...compactionCommands(),
       ...ownershipCommands(),
       ...storageCommands(),

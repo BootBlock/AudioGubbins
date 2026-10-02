@@ -1,0 +1,202 @@
+/**
+ * What differs between the two sides of an A/B comparison, said entity by
+ * entity: each track, bus, clip, region, marker and asset only one side holds,
+ * each one both hold and what of it differs, and each effect chain processor
+ * by processor (REQ-STOR-195).
+ *
+ * Plain language and nothing of the data model: an entity is called by its
+ * name and a field by what a person calls it, from tables whose types demand
+ * every field, so a field added to an entity fails to compile here until it
+ * has words. An entity one side holds alone is said to be in that side only,
+ * since neither side need be the earlier.
+ */
+
+import type {
+  Asset,
+  AssetId,
+  Bus,
+  Clip,
+  Marker,
+  ParameterValue,
+  Region,
+  Track,
+} from '@audiogubbins/domain';
+import type {
+  ChainDifference,
+  DifferenceNames,
+  EntityDifferences,
+  FieldOf,
+  ProcessorDifference,
+  StateDifference,
+} from '@audiogubbins/history';
+import type { AssetSource } from '@audiogubbins/project-format';
+
+import { quoted } from '../../wording.js';
+
+/** What a person calls each field of an entity. */
+type FieldWords<TEntity> = Readonly<Record<FieldOf<TEntity>, string>>;
+
+const ASSET_WORDS: FieldWords<Asset> = {
+  id: 'identity',
+  displayName: 'name',
+  origin: 'origin',
+  sampleRate: 'sample rate',
+  channelLayout: 'channels',
+  length: 'length',
+  storageKey: 'where its audio is kept',
+};
+
+const SOURCE_WORDS: FieldWords<AssetSource> = {
+  media: 'file',
+  provenance: 'record of where it came from',
+};
+
+const TRACK_WORDS: FieldWords<Track> = {
+  id: 'identity',
+  displayName: 'name',
+  channelLayout: 'channels',
+  gain: 'gain',
+  pan: 'pan',
+  muted: 'mute',
+  soloed: 'solo',
+  output: 'output',
+  effectChainId: 'effects',
+  paletteKey: 'colour',
+};
+
+const BUS_WORDS: FieldWords<Bus> = {
+  id: 'identity',
+  displayName: 'name',
+  channelLayout: 'channels',
+  gain: 'gain',
+  muted: 'mute',
+  output: 'output',
+  effectChainId: 'effects',
+};
+
+const CLIP_WORDS: FieldWords<Clip> = {
+  id: 'identity',
+  trackId: 'track',
+  displayName: 'name',
+  source: 'part of the asset it plays',
+  timelineStart: 'start',
+  timelineLength: 'length',
+  gain: 'gain',
+  fadeInLength: 'fade in',
+  fadeOutLength: 'fade out',
+  muted: 'mute',
+};
+
+const REGION_WORDS: FieldWords<Region> = {
+  id: 'identity',
+  displayName: 'name',
+  start: 'start',
+  length: 'length',
+  loop: 'loop',
+  tags: 'tags',
+};
+
+const MARKER_WORDS: FieldWords<Marker> = {
+  id: 'identity',
+  displayName: 'name',
+  position: 'position',
+  paletteKey: 'colour',
+};
+
+/** The project's own fields, as a person calls them. */
+const PROJECT_WORDS: Readonly<Record<StateDifference['project'][number], string>> = {
+  displayName: 'name',
+  sampleRate: 'sample rate',
+  channelLayout: 'channels',
+  trackOrder: 'order of its tracks',
+};
+
+/** A list in words: "a", "a and b", "a, b and c". */
+function listed(words: readonly string[]): string {
+  if (words.length <= 1) return words.join('');
+  return `${words.slice(0, -1).join(', ')} and ${words.at(-1) ?? ''}`;
+}
+
+/** What one kind of entity differs in, a line for each entity. */
+function entityLines<TId extends string, TEntity>(
+  differences: EntityDifferences<TId, TEntity>,
+  kind: string,
+  words: FieldWords<TEntity>,
+  names: DifferenceNames,
+): string[] {
+  const called = (id: TId): string => {
+    const name = names.entities.get(id);
+    return name === undefined ? `A ${kind}` : `The ${kind} ${quoted(name)}`;
+  };
+  return [
+    ...differences.removed.map((id) => `${called(id)} is in A only.`),
+    ...differences.added.map((id) => `${called(id)} is in B only.`),
+    ...differences.changed.map(
+      ({ id, fields }) => `${called(id)} differs in its ${listed(fields.map((f) => words[f]))}.`,
+    ),
+  ];
+}
+
+/** A parameter's value, as a person reads it. */
+function valueWords(value: ParameterValue | undefined): string {
+  if (value === undefined) return 'unset';
+  if (typeof value === 'boolean') return value ? 'on' : 'off';
+  return String(value);
+}
+
+/** What differs of one processor, in a clause. */
+function processorClause(processor: ProcessorDifference): string {
+  const called = quoted(processor.typeKey);
+  if (processor.change === 'added') return `${called} is in B only`;
+  if (processor.change === 'removed') return `${called} is in A only`;
+  const parts = [
+    ...(processor.moved ? ['its place'] : []),
+    ...processor.fields.map((field) =>
+      field === 'typeKey' ? 'its kind' : field === 'enabled' ? 'whether it is on' : 'its solo',
+    ),
+    // A parameter is named by its processor's description, which the
+    // processors bring; until then it is a setting with its two values.
+    ...processor.parameters.map(
+      ({ before, after }) => `a setting (${valueWords(before)} in A, ${valueWords(after)} in B)`,
+    ),
+  ];
+  return `${called} differs in ${listed(parts)}`;
+}
+
+/** What differs of one effect chain, in a line. */
+function chainLine(chain: ChainDifference, names: DifferenceNames): string {
+  const owner = names.chains.get(chain.id);
+  const called =
+    owner === undefined
+      ? 'An effect chain'
+      : `The effects of the ${owner.kind} ${quoted(owner.name)}`;
+  if (chain.change === 'added') return `${called} are in B only.`;
+  if (chain.change === 'removed') return `${called} are in A only.`;
+  return `${called}: ${chain.processors.map(processorClause).join('; ')}.`;
+}
+
+/** What differs from side A to side B, a line for each entity, or one saying nothing does. */
+export function differenceLines(
+  difference: StateDifference,
+  names: DifferenceNames,
+): readonly string[] {
+  const lines = [
+    ...(difference.project.length === 0
+      ? []
+      : [`The project differs in its ${listed(difference.project.map((f) => PROJECT_WORDS[f]))}.`]),
+    ...entityLines(difference.tracks, 'track', TRACK_WORDS, names),
+    ...entityLines(difference.buses, 'bus', BUS_WORDS, names),
+    ...entityLines(difference.clips, 'clip', CLIP_WORDS, names),
+    ...entityLines(difference.regions, 'region', REGION_WORDS, names),
+    ...entityLines(difference.markers, 'marker', MARKER_WORDS, names),
+    ...entityLines(difference.assets, 'asset', ASSET_WORDS, names),
+    ...entityLines<AssetId, AssetSource>(
+      difference.sources,
+      'source of the asset',
+      SOURCE_WORDS,
+      names,
+    ),
+    ...difference.effectChains.map((chain) => chainLine(chain, names)),
+  ];
+  return lines.length === 0 ? ['The two states are the same.'] : lines;
+}

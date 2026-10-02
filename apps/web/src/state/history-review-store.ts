@@ -1,17 +1,21 @@
 /**
  * What the person is reviewing of the open project's history before deciding:
- * the differences between the two sides of an A/B comparison, and a compaction
- * or a retention policy planned and waiting for their confirmation
- * (REQ-STOR-195, REQ-STOR-055, REQ-STOR-106, REQ-STOR-200).
+ * the side of an A/B comparison they chose first, the differences between the
+ * two sides of the comparison open, and a compaction or a retention policy
+ * planned and waiting for their confirmation (REQ-STOR-195, REQ-STOR-055,
+ * REQ-STOR-106, REQ-STOR-200).
  *
  * The comparison itself is the project's, and is kept with it; what differs
- * between its sides is worked out as it is opened, so it is held here for as
- * long as that comparison stays open. A plan removes nothing: it is shown with
- * everything it would free and every capability it would take away, and only
- * the person's confirmation of that plan, bytes and all, carries it out. What
- * is held is let go whenever another project opens.
+ * between its sides is worked out in the storage worker as it is opened, and
+ * again whenever a comparison is open that nothing held here describes, as
+ * after a reload, so the person sees what differs for as long as it stays
+ * open. A plan removes nothing: it is shown with everything it would free and
+ * every capability it would take away, and only the person's confirmation of
+ * that plan, bytes and all, carries it out. What is held is let go whenever
+ * another project opens.
  */
 
+import type { Logger } from '@audiogubbins/diagnostics';
 import {
   FailureKind,
   fail,
@@ -23,22 +27,16 @@ import {
 import type {
   CompactionPlan,
   CompactionRequest,
+  Comparison,
   ComparisonSource,
-  StateDifference,
 } from '@audiogubbins/history';
-import type { HistoryNodeId, RetentionPolicy } from '@audiogubbins/project-format';
-import type { WriteOutcome } from '@audiogubbins/storage';
+import type { RetentionPolicy } from '@audiogubbins/project-format';
+import type { ComparedStates, WriteOutcome } from '@audiogubbins/storage';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
+import { isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
-
-/** What differs between the sides of a comparison, and which sides. */
-export interface ComparedDifference {
-  readonly a: HistoryNodeId;
-  readonly b: HistoryNodeId;
-  readonly difference: StateDifference;
-}
 
 /** A compaction planned, and the retention policy it would come with, where one would. */
 export interface PendingCompaction {
@@ -48,7 +46,9 @@ export interface PendingCompaction {
 
 /** What is being reviewed. */
 export interface HistoryReviewState {
-  readonly difference?: ComparedDifference;
+  /** The side chosen first, to compare with a side chosen next. */
+  readonly chosen?: ComparisonSource;
+  readonly difference?: ComparedStates;
   readonly compaction?: PendingCompaction;
 }
 
@@ -69,40 +69,52 @@ const NOTHING_PLANNED = failure(
 /** What is being reviewed of the open project's history, and the decisions on it. */
 export class HistoryReviewStore implements Observable<HistoryReviewState> {
   private readonly project: OpenProjectStore;
+  private readonly logger: Logger;
   private readonly state = observable<HistoryReviewState>({});
   private reviewing: ProjectId | undefined;
+
+  /** The sides of the comparison whose difference is being asked for, where one is. */
+  private asking: string | undefined;
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(project: OpenProjectStore) {
+  constructor(project: OpenProjectStore, logger: Logger) {
     this.project = project;
+    this.logger = logger;
     // What is held belongs to one project, and is let go when another opens.
     project.subscribe(() => {
       const current = project.get();
       const now = current.kind === 'open' ? current.snapshot.project : undefined;
-      if (now !== this.reviewing) this.state.set({});
+      if (now !== this.reviewing) {
+        this.state.set({});
+        this.asking = undefined;
+      }
       this.reviewing = now;
+      this.followComparison();
     });
   }
+
+  /** Chooses the side to compare with a side chosen next, or puts the choice away. */
+  readonly choose = (side: ComparisonSource | undefined): void => {
+    this.state.update(({ chosen: _replaced, ...rest }) =>
+      side === undefined ? rest : { ...rest, chosen: side },
+    );
+  };
 
   /** Opens a comparison of two states and works out what differs. */
   readonly compare = (
     a: ComparisonSource,
     b: ComparisonSource,
-  ): Promise<DomainResult<StateDifference>> =>
+  ): Promise<DomainResult<ComparedStates>> =>
     this.withSession(async (session) => {
       const compared = await session.compare(a, b);
       if (!compared.ok) return compared;
-      const { comparison } = session.getSnapshot().model;
-      if (comparison !== undefined) {
-        const { difference } = compared.value;
-        this.state.update((current) => ({
-          ...current,
-          difference: { a: comparison.a.node, b: comparison.b.node, difference },
-        }));
-      }
-      return succeed(compared.value.difference);
+      this.state.update(({ chosen: _compared, ...rest }) => ({
+        ...rest,
+        difference: compared.value.compared,
+      }));
+      return succeed(compared.value.compared);
     });
 
   /** Plans a compaction of the history, removing nothing. */
@@ -141,6 +153,41 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
     this.state.update(({ compaction: _cancelled, ...rest }) => rest);
   };
 
+  /**
+   * Asks the worker what differs where a comparison is open that the difference
+   * held does not describe, once for each pair of sides.
+   */
+  private followComparison(): void {
+    const session = this.project.session();
+    const comparison = session?.getSnapshot().model.comparison;
+    if (session === undefined || comparison === undefined) return;
+    const held = this.state.get().difference;
+    const sides = sidesOf(comparison);
+    if (held?.a === comparison.a.node && held.b === comparison.b.node) return;
+    if (this.asking === sides) return;
+    this.asking = sides;
+    session.comparedDifference().then((compared) => {
+      if (this.asking === sides) this.asking = undefined;
+      if (!compared.ok) {
+        this.logger.warning('What differs between two compared states was not worked out.', {
+          code: compared.failures[0].code,
+        });
+        return;
+      }
+      const now = session.getSnapshot().model.comparison;
+      if (now === undefined || sidesOf(now) !== sides) return;
+      this.state.update((current) => ({ ...current, difference: compared.value }));
+    }, this.logFault);
+  }
+
+  /** Logs a fault of asking, and says nothing of asking given up with the project. */
+  private readonly logFault = (error: unknown): void => {
+    if (isAbandoned(error)) return;
+    this.logger.error('What differs between two compared states could not be asked for.', {
+      reason: error instanceof Error ? error.message : 'unknown',
+    });
+  };
+
   private async withSession<TValue>(
     work: (session: RemoteProjectSession) => Promise<DomainResult<TValue>>,
   ): Promise<DomainResult<TValue>> {
@@ -156,4 +203,9 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
     }));
     return plan;
   }
+}
+
+/** The two sides of a comparison, as one key. */
+function sidesOf(comparison: Comparison): string {
+  return `${comparison.a.node} ${comparison.b.node}`;
 }

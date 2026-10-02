@@ -20,6 +20,7 @@ import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
+import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
@@ -134,6 +135,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...backupCommands(),
     ...backupFolderCommands(),
     ...historyCommands(),
+    ...comparisonCommands(),
     ...compactionCommands(),
     ...ownershipCommands(),
     ...storageCommands(),

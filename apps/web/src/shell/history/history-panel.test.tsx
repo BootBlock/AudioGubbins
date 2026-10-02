@@ -136,6 +136,30 @@ describe('the History panel', () => {
     expect(run).toHaveBeenLastCalledWith('history.plan-compaction', { branch: c });
   });
 
+  it('chooses a side to compare first, then compares another point with it', async () => {
+    const window = await branched();
+    const { run, list } = panelOver(window);
+    const c = nodeOf(window, 'Rename project to “C”');
+    const at = screen.getByRole('group', { name: 'At the chosen point' });
+
+    await userEvent.click(within(list()).getAllByRole('option')[2] ?? list());
+    await userEvent.click(within(at).getByRole('button', { name: 'Choose this point as side A' }));
+    expect(run).toHaveBeenLastCalledWith('history.choose-side', { node: c });
+
+    await window.runAndHear('history.choose-side', { node: c });
+    expect(
+      within(at).getByRole('button', { name: 'Compare this point with side A' }),
+    ).toHaveAccessibleDescription('This is side A already.');
+    await userEvent.click(within(list()).getByRole('option', { name: /“B”/ }));
+    const b = nodeOf(window, 'Rename project to “B”');
+    await userEvent.click(
+      within(at).getByRole('button', { name: 'Compare this point with side A' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('history.compare', { node: b, fromNode: c });
+    await userEvent.click(within(at).getByRole('button', { name: 'Forget side A' }));
+    expect(run).toHaveBeenLastCalledWith('history.choose-side');
+  });
+
   it('keeps a snapshot of the current state with the name typed', async () => {
     const window = await branched();
     const { run } = panelOver(window);
@@ -155,6 +179,7 @@ describe('the History panel', () => {
 
     const comparison = screen.getByRole('group', { name: 'Comparison' });
     expect(within(comparison).getByText('The project differs in its name.')).toBeVisible();
+    expect(within(comparison).getByRole('list', { name: 'What differs' })).toBeVisible();
     expect(within(comparison).getByRole('button', { name: 'Hear A' })).toHaveAttribute(
       'aria-pressed',
       'true',

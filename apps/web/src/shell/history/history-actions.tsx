@@ -1,9 +1,9 @@
 /**
  * What can be done at the point of the history chosen in the History panel:
- * going to it, comparing it with the current state, forking a project from it,
- * naming the branch it starts, deleting a snapshot kept at it, and letting the
- * history before it or its branch go (REQ-STOR-193 to REQ-STOR-196,
- * REQ-STOR-199, REQ-STOR-200).
+ * going to it, comparing it or a snapshot kept at it with the current state or
+ * with a side chosen first, forking a project from it, naming the branch it
+ * starts, deleting a snapshot kept at it, and letting the history before it or
+ * its branch go (REQ-STOR-193 to REQ-STOR-196, REQ-STOR-199, REQ-STOR-200).
  *
  * Every action runs a command naming the point, and each command's own reason
  * for not running is shown beside its button, as the menus show it. Letting
@@ -13,7 +13,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { TextField } from '@audiogubbins/design-system';
-import type { HistoryRow } from '@audiogubbins/history';
+import type { ComparisonSource, HistoryRow } from '@audiogubbins/history';
 import { LONGEST_HISTORY_LABEL, LONGEST_NAME } from '@audiogubbins/project-format';
 
 import { quoted } from '../../wording.js';
@@ -24,6 +24,9 @@ import { describeNode } from './history-words.js';
 /** What the actions read and run. */
 export interface HistoryActionsProps {
   readonly row: HistoryRow;
+
+  /** The side of a comparison chosen first, where one is. */
+  readonly chosen: ComparisonSource | undefined;
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
 }
@@ -70,8 +73,57 @@ function NamingField({
   );
 }
 
-/** Going to the point, and comparing it with the current state. */
-function Moving({ row, run, unavailableReason }: HistoryActionsProps): ReactNode {
+/** The arguments naming side A as `chosen`. */
+function fromSide(chosen: ComparisonSource): Readonly<Record<string, string>> {
+  return chosen.kind === 'node' ? { fromNode: chosen.node } : { fromSnapshot: chosen.snapshot };
+}
+
+/** Whether `chosen` is the point or the snapshot `source` names. */
+function isChosen(chosen: ComparisonSource, source: ComparisonSource): boolean {
+  if (chosen.kind === 'node') return source.kind === 'node' && chosen.node === source.node;
+  return source.kind === 'snapshot' && chosen.snapshot === source.snapshot;
+}
+
+/** Comparing a point or a snapshot with side A where one is chosen, or choosing it as side A. */
+function ComparingWith({
+  source,
+  label,
+  chosen,
+  run,
+  unavailableReason,
+}: Pick<HistoryActionsProps, 'chosen' | 'run' | 'unavailableReason'> & {
+  readonly source: ComparisonSource;
+
+  /** What the point or snapshot is called on its buttons. */
+  readonly label: string;
+}): ReactNode {
+  const named: Readonly<Record<string, string>> =
+    source.kind === 'node' ? { node: source.node } : { snapshot: source.snapshot };
+  if (chosen === undefined) {
+    return (
+      <ReasonedButton
+        reason={unavailableReason('history.choose-side')}
+        onPress={() => run('history.choose-side', named)}
+      >
+        {`Choose ${label} as side A`}
+      </ReasonedButton>
+    );
+  }
+  return (
+    <ReasonedButton
+      reason={
+        unavailableReason('history.compare') ??
+        (isChosen(chosen, source) ? 'This is side A already.' : undefined)
+      }
+      onPress={() => run('history.compare', { ...named, ...fromSide(chosen) })}
+    >
+      {`Compare ${label} with side A`}
+    </ReasonedButton>
+  );
+}
+
+/** Going to the point, and comparing it with the current state or with side A. */
+function Moving({ row, chosen, run, unavailableReason }: HistoryActionsProps): ReactNode {
   const node = row.node.id;
   const here = row.isCurrent ? 'The project is at this point already.' : undefined;
   return (
@@ -88,6 +140,18 @@ function Moving({ row, run, unavailableReason }: HistoryActionsProps): ReactNode
       >
         Compare with the current state
       </ReasonedButton>
+      <ComparingWith
+        source={{ kind: 'node', node }}
+        label="this point"
+        chosen={chosen}
+        run={run}
+        unavailableReason={unavailableReason}
+      />
+      {chosen !== undefined && (
+        <ReasonedButton reason={undefined} onPress={() => run('history.choose-side')}>
+          Forget side A
+        </ReasonedButton>
+      )}
     </div>
   );
 }
@@ -147,13 +211,21 @@ export function HistoryActions(props: HistoryActionsProps): ReactNode {
         />
       )}
       {row.snapshots.map((snapshot) => (
-        <ReasonedButton
-          key={snapshot.id}
-          reason={unavailableReason('history.delete-snapshot')}
-          onPress={() => run('history.delete-snapshot', { snapshot: snapshot.id })}
-        >
-          {`Delete the snapshot ${quoted(snapshot.name)}`}
-        </ReasonedButton>
+        <div key={snapshot.id} className="ag-settings-row">
+          <ComparingWith
+            source={{ kind: 'snapshot', snapshot: snapshot.id }}
+            label={`the snapshot ${quoted(snapshot.name)}`}
+            chosen={props.chosen}
+            run={run}
+            unavailableReason={unavailableReason}
+          />
+          <ReasonedButton
+            reason={unavailableReason('history.delete-snapshot')}
+            onPress={() => run('history.delete-snapshot', { snapshot: snapshot.id })}
+          >
+            {`Delete the snapshot ${quoted(snapshot.name)}`}
+          </ReasonedButton>
+        </div>
       ))}
       <Removing {...props} />
     </div>

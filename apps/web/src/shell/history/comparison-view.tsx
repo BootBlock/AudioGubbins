@@ -4,9 +4,10 @@
  *
  * Switching changes neither state, and keeping a side moves the project to it
  * with the other left in the history, so nothing is lost either way. What
- * differs is worked out as the comparison is opened; for a comparison kept from
- * before, comparing again says it. Hearing a side needs the audio engine, which
- * a later phase brings; the side chosen is the one it will play.
+ * differs is said entity by entity, worked out in the storage worker as the
+ * comparison is opened and again for one kept from before, as after a reload.
+ * Hearing a side needs the audio engine, which a later phase brings; the side
+ * chosen is the one it will play.
  */
 
 import type { ReactNode } from 'react';
@@ -20,9 +21,11 @@ import {
   type SideName,
 } from '@audiogubbins/history';
 
-import type { ComparedDifference } from '../../state/history-review-store.js';
+import type { ComparedStates } from '@audiogubbins/storage';
+
 import type { RunCommand } from '../settings/section.js';
-import { describeNode, differenceSentences } from './history-words.js';
+import { differenceLines } from './difference-words.js';
+import { describeNode } from './history-words.js';
 
 /** The two sides, in the order they are offered. */
 const SIDES: readonly SideName[] = ['a', 'b'];
@@ -82,7 +85,7 @@ export function ComparisonView({
   readonly comparison: Comparison;
 
   /** What differs, where it was worked out for these two sides. */
-  readonly difference: ComparedDifference | undefined;
+  readonly difference: ComparedStates | undefined;
   readonly run: RunCommand;
 }): ReactNode {
   const known = difference?.a === comparison.a.node && difference.b === comparison.b.node;
@@ -95,12 +98,15 @@ export function ComparisonView({
       <p role="status">{`Side ${heard}, ${heardState}, is the one heard. Playing it arrives with the audio engine.`}</p>
       {known ? (
         <ul className="ag-history-differences" aria-label="What differs">
-          {differenceSentences(difference.difference).map((sentence) => (
-            <li key={sentence}>{sentence}</li>
+          {differenceLines(difference.difference, difference.names).map((line, index) => (
+            // Two entities of one kind can share a name, and so a line.
+            <li key={`${String(index)} ${line}`}>{line}</li>
           ))}
         </ul>
       ) : (
-        <p className="ag-settings-note">Compare the two again to see what differs between them.</p>
+        <p className="ag-settings-note" role="status">
+          Working out what differs between them…
+        </p>
       )}
       <ComparisonControls listening={comparison.listening} run={run} />
     </div>

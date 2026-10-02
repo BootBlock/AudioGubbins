@@ -1854,6 +1854,9 @@ Published paths
   readonly ChainDifference.id: EffectChainId
   readonly ChainDifference.change: "added" | "changed" | "removed"
   readonly ChainDifference.processors: readonly ProcessorDifference[]
+  interface ChainOwner
+  readonly ChainOwner.kind: "bus" | "track"
+  readonly ChainOwner.name: string
   interface ChangeDraft
   readonly ChangeDraft.id: HistoryNodeId
   readonly ChangeDraft.at: number
@@ -1891,6 +1894,9 @@ Published paths
   readonly ContentRetention.inCurrentState: boolean
   readonly ContentRetention.onActiveLine: boolean
   readonly ContentRetention.snapshots: readonly SnapshotId[]
+  interface DifferenceNames
+  readonly DifferenceNames.entities: ReadonlyMap<string, string>
+  readonly DifferenceNames.chains: ReadonlyMap<EffectChainId, ChainOwner>
   interface EntityChange<TId extends string, TEntity>
   readonly EntityChange.id: TId
   readonly EntityChange.fields: readonly FieldOf<TEntity>[]
@@ -2001,6 +2007,7 @@ Published paths
   function createSnapshot(history: History, snapshot: NamedSnapshot): DomainResult<History>
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>
   function diffStates(before: ProjectState, after: ProjectState): StateDifference
+  function differenceNames(before: ProjectState, after: ProjectState, difference: StateDifference): DifferenceNames
   function historyDelta(earlier: History | undefined, later: History): HistoryDelta
   function historyFromRecord(record: HistoryRecord<InvocationRecord>): DomainResult<History>
   function historyRecordOf(history: History): HistoryRecord<InvocationRecord>
@@ -2992,8 +2999,13 @@ Published paths
   CommandJournal.sequencesIn: (epoch: number) => Promise<readonly number[]>
   interface CompactionConfirmation
   readonly CompactionConfirmation.reclaimableBytes: number
+  interface ComparedStates
+  readonly ComparedStates.a: HistoryNodeId
+  readonly ComparedStates.b: HistoryNodeId
+  readonly ComparedStates.difference: StateDifference
+  readonly ComparedStates.names: DifferenceNames
   interface ComparisonOutcome
-  readonly ComparisonOutcome.difference: StateDifference
+  readonly ComparisonOutcome.compared: ComparedStates
   readonly ComparisonOutcome.saved: WriteOutcome
   interface ConsolidationServices
   readonly ConsolidationServices.store: MediaObjectStore
@@ -3191,6 +3203,7 @@ Published paths
   readonly ProjectSession.compactHistory: (plan: CompactionPlan, confirmation: CompactionConfirmation) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
+  readonly ProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
   readonly ProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3419,6 +3432,7 @@ Published paths
   readonly RemoteProjectSession.deleteSnapshot: (snapshot: SnapshotId) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.recordExport: (draft: ExportDraft) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
+  readonly RemoteProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
   readonly RemoteProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -4597,7 +4611,7 @@ packages/storage-runtime/src/protocol/project-operations.ts
   readonly ProjectOpening.report: ProjectRecoveryReport
   readonly ProjectOpening.first: FirstUpdate
   readonly ProjectOpening.slices: number
-  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
+  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
   type ProjectStream = `project:${string}`
   interface ProjectUpdate
   readonly ProjectUpdate.save: SaveStatus

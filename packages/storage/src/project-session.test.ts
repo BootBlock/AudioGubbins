@@ -161,13 +161,35 @@ describe('a project session', () => {
     const compared = expectSuccess(
       await session.compare({ kind: 'node', node: a }, { kind: 'node', node: b }),
     );
-    expect(compared.difference.assets.added).toHaveLength(1);
+    expect(compared.compared.difference.assets.added).toHaveLength(1);
     expect(session.getSnapshot().model.history.cursor).toBe(b);
     expectSuccess(await session.switchSide());
     expect(session.getSnapshot().model.comparison?.listening).toBe('b');
     expectSuccess(await session.promote('a'));
     expect(session.getSnapshot().model.history.cursor).toBe(a);
     expect(session.getSnapshot().model.history.nodes.has(b)).toBe(true);
+  });
+
+  it('works out what differs between the sides of a comparison kept across a reload, names and all', async () => {
+    const { test, tree, header, session } = await started();
+    const a = session.getSnapshot().model.history.cursor;
+    const asset = '0000aaaa-0000-4000-8000-000000000001';
+    expectSuccess(await session.run(addAsset(asset, contentOf(1))));
+    const opened = expectSuccess(
+      await session.compare(
+        { kind: 'node', node: a },
+        { kind: 'node', node: session.getSnapshot().model.history.cursor },
+      ),
+    );
+    expect(expectFailureCode(await (await started()).session.comparedDifference())).toBe(
+      'comparison.none-open',
+    );
+    expectSuccess(await session.close());
+
+    const reopened = await openToWrite(test, tree, header.id);
+    const again = expectSuccess(await reopened.comparedDifference());
+    expect(again).toEqual(opened.compared);
+    expect([...again.names.entities.keys()]).toEqual([asset]);
   });
 
   it('never offers to undo an export (REQ-STOR-198)', async () => {

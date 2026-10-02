@@ -50,6 +50,7 @@ export function sessionHandlers(
         at: services.clock.now(),
       }),
     'projects.compare': ({ handle, a, b }) => session(handle).compare(a, b),
+    'projects.comparedDifference': ({ handle }) => session(handle).comparedDifference(),
     'projects.switchSide': ({ handle, side }) => session(handle).switchSide(side),
     'projects.closeComparison': ({ handle }) => session(handle).closeComparison(),
     'projects.promote': ({ handle, side }) => session(handle).promote(side),

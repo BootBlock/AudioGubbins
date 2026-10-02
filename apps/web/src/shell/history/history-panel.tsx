@@ -113,6 +113,30 @@ function Reviewing({
   );
 }
 
+/** The points found, or a line saying none is. */
+function Points({
+  rows,
+  chosen,
+  onChoose,
+  run,
+}: {
+  readonly rows: readonly HistoryRow[];
+  readonly chosen: HistoryNodeId | undefined;
+  readonly onChoose: (node: HistoryNodeId) => void;
+  readonly run: RunCommand;
+}): ReactNode {
+  return rows.length === 0 ? (
+    <p>Nothing in the history matches.</p>
+  ) : (
+    <HistoryList
+      rows={rows}
+      chosen={chosen}
+      onChoose={onChoose}
+      onGo={(node) => run('history.go-to', { node })}
+    />
+  );
+}
+
 /** The history of the project open, found by words and a scope. */
 function OpenHistory({
   title,
@@ -147,18 +171,14 @@ function OpenHistory({
         <TextField label="Find" value={text} onValueChange={setText} />
         <OptionSelect label="Show" value={scope} options={SCOPES} onValueChange={setScope} />
       </div>
-      {rows.length === 0 ? (
-        <p>Nothing in the history matches.</p>
-      ) : (
-        <HistoryList
-          rows={rows}
-          chosen={row?.node.id}
-          onChoose={setChosen}
-          onGo={(node) => run('history.go-to', { node })}
-        />
-      )}
+      <Points rows={rows} chosen={row?.node.id} onChoose={setChosen} run={run} />
       {row !== undefined && (
-        <HistoryActions row={row} run={run} unavailableReason={unavailableReason} />
+        <HistoryActions
+          row={row}
+          chosen={reviewing.chosen}
+          run={run}
+          unavailableReason={unavailableReason}
+        />
       )}
       <Reviewing
         model={model}

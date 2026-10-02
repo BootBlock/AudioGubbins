@@ -96,7 +96,7 @@ export function createProjectStores(
       recorder: new ExportRecorder(logger, project),
     }),
     project,
-    review: new HistoryReviewStore(project),
+    review: new HistoryReviewStore(project, logger),
     usage: new StorageUsageStore(client.usage, lifetime, project),
     backups: new BackupStore(services, lifetime, project, library, backupFolder.target),
     backupFolder,

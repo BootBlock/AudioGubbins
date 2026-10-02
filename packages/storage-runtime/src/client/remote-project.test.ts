@@ -96,7 +96,8 @@ describe('a project open to write in the storage worker, as the page holds it', 
     ] as const;
 
     const compared = expectSuccess(await session.compare(...sides));
-    expect(compared.difference.project).not.toEqual([]);
+    expect(compared.compared.difference.project).not.toEqual([]);
+    expect(expectSuccess(await session.comparedDifference())).toEqual(compared.compared);
     expect(session.getSnapshot().model.comparison).toMatchObject({
       a: { node: a },
       b: { node: b },

@@ -8,8 +8,13 @@
 import type { CommandBus } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
-import type { StateDifference } from '@audiogubbins/history';
-import type { ProjectState, SnapshotKind, YieldToHost } from '@audiogubbins/project-format';
+import type { DifferenceNames, StateDifference } from '@audiogubbins/history';
+import type {
+  HistoryNodeId,
+  ProjectState,
+  SnapshotKind,
+  YieldToHost,
+} from '@audiogubbins/project-format';
 
 import type { LeaseRecord } from './lease-records.js';
 import type { ProjectFiles } from './project-files.js';
@@ -69,8 +74,19 @@ export interface SnapshotRequest {
   readonly kind?: SnapshotKind;
 }
 
+/**
+ * What differs from side `a`'s state to side `b`'s, with the names a person
+ * knows its entities by.
+ */
+export interface ComparedStates {
+  readonly a: HistoryNodeId;
+  readonly b: HistoryNodeId;
+  readonly difference: StateDifference;
+  readonly names: DifferenceNames;
+}
+
 /** A comparison opened, and what differs between its sides. */
 export interface ComparisonOutcome {
-  readonly difference: StateDifference;
+  readonly compared: ComparedStates;
   readonly saved: WriteOutcome;
 }

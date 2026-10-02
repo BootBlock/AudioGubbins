@@ -29,6 +29,7 @@ import type {
 import type {
   ChangeOutcome,
   CompactionConfirmation,
+  ComparedStates,
   ComparisonOutcome,
   ProjectSnapshot,
   SaveStatus,
@@ -106,6 +107,10 @@ export class RemoteProjectSession {
     b: ComparisonSource,
   ): Promise<DomainResult<ComparisonOutcome>> =>
     this.#channel.call('projects.compare', { handle: this.handle, a, b });
+
+  /** What differs between the sides of the open comparison, worked out again in the worker. */
+  readonly comparedDifference = (): Promise<DomainResult<ComparedStates>> =>
+    this.#channel.call('projects.comparedDifference', { handle: this.handle });
 
   readonly switchSide = (side?: SideName): Promise<DomainResult<WriteOutcome>> =>
     this.#channel.call('projects.switchSide', { handle: this.handle, side });

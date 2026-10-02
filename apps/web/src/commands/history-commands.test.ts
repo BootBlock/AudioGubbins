@@ -132,6 +132,52 @@ describe('the A/B comparison', () => {
   });
 });
 
+describe('choosing both sides of a comparison', () => {
+  it('compares a point or a snapshot chosen first with another, side A first', async () => {
+    const window = await branched();
+    const c = changeCalled(window, '“C”');
+    const d = changeCalled(window, '“D”');
+
+    expect(await window.runAndHear('history.choose-side', { node: c.id })).toBe(
+      'Chosen as side A. Choose another state to compare it with.',
+    );
+    expect(window.projects.review.get().chosen).toEqual({ kind: 'node', node: c.id });
+    expect(await window.runAndHear('history.compare', { node: d.id, fromNode: c.id })).toBe(
+      'Comparing. Side A is the one chosen first, and it is the one being heard.',
+    );
+    expect(modelOf(window).comparison).toMatchObject({ a: { node: c.id }, b: { node: d.id } });
+    expect(window.projects.review.get().chosen).toBeUndefined();
+
+    await window.runAndHear('history.snapshot', { name: 'Kept' });
+    const [snapshot] = modelOf(window).history.snapshots.keys();
+    if (snapshot === undefined) throw new Error('No snapshot was kept.');
+    await window.runAndHear('history.compare', { snapshot, fromNode: c.id });
+    expect(modelOf(window).comparison).toMatchObject({
+      a: { node: c.id },
+      b: { snapshot, name: 'Kept' },
+    });
+    expect(window.run('history.compare', { fromNode: c.id }).kind).toBe('refused');
+  });
+
+  it('works out again what differs between the sides kept, once the project opens again', async () => {
+    const window = await branched();
+    const c = changeCalled(window, '“C”');
+    await window.runAndHear('history.compare', { node: c.id });
+    const project = window.projects.project.session()?.project ?? '';
+    await window.runAndHear('file.close-project');
+    expect(window.projects.review.get().difference).toBeUndefined();
+
+    await window.runAndHear('file.open', { project });
+    await expect
+      .poll(() => window.projects.review.get().difference?.difference.project)
+      .toEqual(['displayName']);
+    expect(window.projects.review.get().difference).toMatchObject({
+      a: modelOf(window).history.cursor,
+      b: c.id,
+    });
+  });
+});
+
 describe('letting history go', () => {
   it('plans removing the history before a point, removes nothing until confirmed, then removes it', async () => {
     const window = await branched();

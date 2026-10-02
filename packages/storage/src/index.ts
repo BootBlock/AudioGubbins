@@ -59,6 +59,7 @@ export {
 export { ProjectSession } from './project-session.js';
 export {
   type ChangeOutcome,
+  type ComparedStates,
   type ComparisonOutcome,
   DEFAULT_CADENCE,
   type SessionCadence,

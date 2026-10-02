@@ -70,12 +70,13 @@ import { withEvent, withMove, type ProjectModel, type SettledEvent } from './pro
 import { SnapshotPublisher, type ProjectSnapshot } from './project-snapshot.js';
 import type {
   ChangeOutcome,
+  ComparedStates,
   ComparisonOutcome,
   SessionServices,
   SessionStart,
   SnapshotRequest,
 } from './session-contracts.js';
-import { changeMade, comparisonMade, snapshotMade } from './session-events.js';
+import { changeMade, comparedStates, comparisonMade, snapshotMade } from './session-events.js';
 import {
   NOTHING_TO_REDO,
   NOTHING_TO_UNDO,
@@ -252,7 +253,19 @@ export class ProjectSession {
       const made = await comparisonMade(this.model, a, b, this.moves);
       if (!made.ok) return made;
       const saved = await this.commit(made.value.event, made.value.model);
-      return succeed({ difference: made.value.difference, saved });
+      return succeed({ compared: made.value.compared, saved });
+    });
+
+  /**
+   * What differs between the sides of the open comparison, worked out again
+   * from the project as it is, as a page that reloaded asks for it.
+   */
+  readonly comparedDifference = async (): Promise<DomainResult<ComparedStates>> =>
+    await this.exclusive(async () => {
+      const { comparison } = this.model;
+      return comparison === undefined
+        ? fail(NO_COMPARISON)
+        : await comparedStates(this.model, comparison, this.moves);
     });
 
   /** Listens to the named side of the open comparison, or to the other side. */

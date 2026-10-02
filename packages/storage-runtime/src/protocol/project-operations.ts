@@ -33,6 +33,7 @@ import type {
 import type {
   ChangeOutcome,
   CompactionConfirmation,
+  ComparedStates,
   ComparisonOutcome,
   ProjectAccess,
   ProjectRecoveryReport,
@@ -139,6 +140,7 @@ export type ProjectOperations = {
     { readonly a: ComparisonSource; readonly b: ComparisonSource },
     DomainResult<ComparisonOutcome>
   >;
+  'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>;
   'projects.switchSide': Written<{ readonly side: SideName | undefined }>;
   'projects.closeComparison': Written;
   'projects.promote': Written<{ readonly side: SideName }>;
