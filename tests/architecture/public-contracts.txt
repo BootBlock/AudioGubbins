@@ -2019,6 +2019,7 @@ Published paths
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
+  function comparisonSurviving(comparison: Comparison, history: History): Comparison | undefined
   function contentRetention(history: History, contentOf: (node: HistoryNode) => Iterable<ContentId>): ReadonlyMap<ContentId, ContentRetention>
   function createSnapshot(history: History, snapshot: NamedSnapshot): DomainResult<History>
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>

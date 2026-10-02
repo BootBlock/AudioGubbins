@@ -109,6 +109,22 @@ export function startComparison(a: ComparisonSide, b: ComparisonSide): DomainRes
   return succeed({ a, b, listening: 'a' });
 }
 
+/**
+ * The comparison as it stands once the history has become `history`, or
+ * `undefined` where it closes: a side chosen by a snapshot the history no
+ * longer holds names nothing the person can choose again, so the comparison
+ * closes rather than keep a side it could not restore.
+ */
+export function comparisonSurviving(
+  comparison: Comparison,
+  history: History,
+): Comparison | undefined {
+  const orphaned = [comparison.a.snapshot, comparison.b.snapshot].some(
+    (snapshot) => snapshot !== undefined && !history.snapshots.has(snapshot),
+  );
+  return orphaned ? undefined : comparison;
+}
+
 /** The comparison listening to `side`, or to the other side where none is named. */
 export function switchSide(comparison: Comparison, side?: SideName): Comparison {
   const listening = side ?? (comparison.listening === 'a' ? 'b' : 'a');

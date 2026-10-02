@@ -192,6 +192,28 @@ describe('a project session', () => {
     expect([...again.names.entities.keys()]).toEqual([asset]);
   });
 
+  it('closes a comparison whose side a deleted snapshot chose, and it stays closed after a reload', async () => {
+    const { test, tree, header, session } = await started();
+    expectSuccess(await session.createSnapshot({ name: 'Before' }));
+    const [snapshot] = session.getSnapshot().model.history.snapshots.keys();
+    if (snapshot === undefined) throw new Error('No snapshot was made.');
+    expectSuccess(
+      await session.run(addAsset('0000aaaa-0000-4000-8000-000000000002', contentOf(2))),
+    );
+    expectSuccess(
+      await session.compare(
+        { kind: 'snapshot', snapshot },
+        { kind: 'node', node: session.getSnapshot().model.history.cursor },
+      ),
+    );
+    expectSuccess(await session.deleteSnapshot(snapshot));
+    expect(session.getSnapshot().model.comparison).toBeUndefined();
+    expectSuccess(await session.close());
+
+    const reopened = await openToWrite(test, tree, header.id);
+    expect(reopened.getSnapshot().model.comparison).toBeUndefined();
+  });
+
   it('never offers to undo an export (REQ-STOR-198)', async () => {
     const { test, session } = await started();
     const before = session.getSnapshot().model.history;

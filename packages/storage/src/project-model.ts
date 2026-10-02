@@ -13,12 +13,12 @@ import {
   FailureKind,
   fail,
   failure,
-  flatMapResult,
   mapResult,
   succeed,
   type DomainResult,
 } from '@audiogubbins/domain';
 import {
+  comparisonSurviving,
   createSnapshot,
   deleteSnapshot,
   nameBranch,
@@ -89,7 +89,7 @@ export function withEvent(model: ProjectModel, event: SettledEvent): DomainResul
         history,
       }));
     case 'snapshot-deleted':
-      return flatMapResult(deleteSnapshot(model.history, event.snapshot), (history) =>
+      return mapResult(deleteSnapshot(model.history, event.snapshot), (history) =>
         withHistoryKeepingComparison(model, history),
       );
     case 'export':
@@ -135,21 +135,13 @@ function withComparison(
 }
 
 /**
- * The model with a history that no longer holds a snapshot. A comparison with a
- * side chosen by that snapshot is closed, since the side no longer names
- * anything the person can choose again.
+ * The model with a history that no longer holds a snapshot, its comparison
+ * kept or closed as the comparison's own rule decides.
  */
-function withHistoryKeepingComparison(
-  model: ProjectModel,
-  history: History,
-): DomainResult<ProjectModel> {
+function withHistoryKeepingComparison(model: ProjectModel, history: History): ProjectModel {
   const { comparison, ...rest } = model;
-  const orphaned =
-    comparison !== undefined &&
-    [comparison.a.snapshot, comparison.b.snapshot].some(
-      (snapshot) => snapshot !== undefined && !history.snapshots.has(snapshot),
-    );
-  return succeed(
-    orphaned || comparison === undefined ? { ...rest, history } : { ...rest, history, comparison },
-  );
+  const surviving = comparison === undefined ? undefined : comparisonSurviving(comparison, history);
+  return surviving === undefined
+    ? { ...rest, history }
+    : { ...rest, history, comparison: surviving };
 }
