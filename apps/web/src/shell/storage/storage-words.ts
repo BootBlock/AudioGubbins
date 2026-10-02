@@ -17,8 +17,8 @@ import type {
   StorageUsage,
 } from '@audiogubbins/storage';
 
-import { quoted } from '../../wording.js';
-import { counted, lostSentence } from '../history/history-words.js';
+import { counted, quoted } from '../../wording.js';
+import { lostSentence } from '../history/history-words.js';
 
 /** What each cache is called. */
 const CACHE_NAMES: Readonly<Record<CacheCategory, string>> = {

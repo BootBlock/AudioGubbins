@@ -12,6 +12,7 @@ import { sampleProject } from '@audiogubbins/test-fixtures';
 import {
   comparedDifference,
   comparisonSide,
+  comparisonSurviving,
   listenedSide,
   promotion,
   startComparison,
@@ -19,7 +20,7 @@ import {
   type Comparison,
 } from './comparison.js';
 import type { History } from './history.js';
-import { createSnapshot } from './snapshots.js';
+import { createSnapshot, deleteSnapshot } from './snapshots.js';
 import { EPOCH, fingerprintOf, grown, movedTo, newHistory, testIds } from './testing/histories.js';
 import { fixtureState } from './testing/states.js';
 
@@ -130,5 +131,25 @@ describe('whole-project A/B comparison (REQ-STOR-195)', () => {
       a: { ...comparison.a, project: unsafeBrandId<'ProjectId'>('ffffffff-0000') },
     };
     expect(expectFailureCode(promotion(history, foreign, 'a'))).toBe('comparison.incompatible');
+  });
+
+  it('stays open while the snapshot a side was chosen by stands, and closes once it is deleted', () => {
+    const { comparison, history, c } = setUp();
+    expect(comparisonSurviving(comparison, history)).toBe(comparison);
+    const chosenBy = comparison.a.snapshot;
+    if (chosenBy === undefined) throw new Error('Side A was chosen by a snapshot.');
+    expect(comparisonSurviving(comparison, expectSuccess(deleteSnapshot(history, chosenBy)))).toBe(
+      undefined,
+    );
+
+    const ofNodes = expectSuccess(
+      startComparison(
+        expectSuccess(comparisonSide(history, { kind: 'node', node: comparison.a.node })),
+        expectSuccess(comparisonSide(history, { kind: 'node', node: c })),
+      ),
+    );
+    expect(comparisonSurviving(ofNodes, expectSuccess(deleteSnapshot(history, chosenBy)))).toBe(
+      ofNodes,
+    );
   });
 });

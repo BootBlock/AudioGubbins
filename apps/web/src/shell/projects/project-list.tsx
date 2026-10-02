@@ -14,12 +14,9 @@ import type { ProjectHeader } from '@audiogubbins/storage';
 
 import type { Observable } from '../../state/observable.js';
 import type { LibraryState } from '../../state/project-library-store.js';
-import { quoted } from '../../wording.js';
+import { day, quoted } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
 import { DeletedProjects } from './deleted-projects.js';
-
-/** How a date is written in the list. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
 
 /** One project and the ways to open it. */
 function ProjectRow({
@@ -36,7 +33,7 @@ function ProjectRow({
     <li className="ag-project-row" aria-current={isOpen ? 'true' : undefined}>
       <span className="ag-project-row-name">{header.name}</span>
       <span className="ag-project-row-note">
-        {isOpen ? 'Open now' : `Made ${WHEN.format(header.created)}`}
+        {isOpen ? 'Open now' : `Made ${day(header.created)}`}
       </span>
       <span className="ag-project-row-actions">
         <Button

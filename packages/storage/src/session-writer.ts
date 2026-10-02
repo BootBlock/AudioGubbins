@@ -32,6 +32,8 @@ import type {
 
 import { writeCheckpointAndHead } from './checkpoint-writing.js';
 import { readPair, writeNext } from './generational-pair.js';
+import type { KeptStates } from './history-moves.js';
+import { keptStatesOf } from './journal-replay.js';
 import type { JournalEvent } from './journal-events.js';
 import { comparePositions, type JournalPosition } from './journal-position.js';
 import type { LeaseRecord } from './lease-records.js';
@@ -137,11 +139,17 @@ export function sessionWriterFor(
 export class SessionWriter {
   readonly queue: WriteQueue;
 
+  /**
+   * The states a move may start from, whether storage holds them yet or not,
+   * read through the writer's own collections as they change.
+   */
+  readonly keptStates: KeptStates;
+
   /** The states storage holds whole that the history keeps. */
-  readonly kept: Set<StateFingerprint>;
+  private readonly kept: Set<StateFingerprint>;
 
   /** States the history keeps that are held only in memory so far. */
-  readonly unwritten: Map<StateFingerprint, ProjectState>;
+  private readonly unwritten: Map<StateFingerprint, ProjectState>;
 
   private readonly start: WriterStart;
   private nextSequence = 1;
@@ -157,6 +165,7 @@ export class SessionWriter {
     this.queue = new WriteQueue(start.onChange);
     this.kept = new Set(start.keptStates);
     this.unwritten = new Map(start.unwritten);
+    this.keptStates = keptStatesOf(start.files, this.kept, this.unwritten);
     this.last = start.position;
     this.confirmed = start.checkpointed ? start.position : undefined;
     this.headerName = start.headerName;
@@ -185,6 +194,15 @@ export class SessionWriter {
       due.push(this.checkpoint(model));
     const [written] = await Promise.all(due);
     return written ?? { kind: 'written' };
+  }
+
+  /**
+   * Holds in memory a state the history now keeps, which the next checkpoint
+   * writes whole. Nothing is queued: the journal record that made the state is
+   * enough to make it again until then.
+   */
+  holdUnwritten(fingerprint: StateFingerprint, state: ProjectState): void {
+    this.unwritten.set(fingerprint, state);
   }
 
   /**

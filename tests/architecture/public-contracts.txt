@@ -1659,6 +1659,7 @@ Published paths
   function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
   function containsSample(start: SampleCount, length: SampleCount, inner: SampleCount): boolean
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
+  function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
   function createDeterministicIdGenerator(seed: number): IdGenerator
   function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
   function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project
@@ -2018,6 +2019,7 @@ Published paths
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
+  function comparisonSurviving(comparison: Comparison, history: History): Comparison | undefined
   function contentRetention(history: History, contentOf: (node: HistoryNode) => Iterable<ContentId>): ReadonlyMap<ContentId, ContentRetention>
   function createSnapshot(history: History, snapshot: NamedSnapshot): DomainResult<History>
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>
@@ -2434,6 +2436,7 @@ Published paths
   readonly ExternalSourceIdentity.signature: string
   readonly ExternalSourceIdentity.fastFingerprint: string
   readonly ExternalSourceIdentity.contentId?: ContentId
+  const FOLDER_KEY_PREFIX: "folder:"
   interface FormatHeader
   readonly FormatHeader.format: string
   readonly FormatHeader.schemaVersion: number
@@ -4914,6 +4917,7 @@ packages/storage/src/session-writer.ts
   class SessionWriter
   new SessionWriter(start: WriterStart): SessionWriter
   readonly SessionWriter.queue: WriteQueue
+  readonly SessionWriter.keptStates: KeptStates
   readonly SessionWriter.kept: Set<StateFingerprint>
   readonly SessionWriter.unwritten: Map<StateFingerprint, ProjectState>
   readonly SessionWriter.start: WriterStart
@@ -4924,6 +4928,7 @@ packages/storage/src/session-writer.ts
   SessionWriter.headerName: string | undefined
   SessionWriter.status: SaveStatus
   SessionWriter.append: (event: JournalEvent, model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.holdUnwritten: (fingerprint: StateFingerprint, state: ProjectState) => void
   SessionWriter.keep: (state: ProjectState, fingerprint: StateFingerprint) => Promise<WriteOutcome>
   SessionWriter.checkpoint: (model: ProjectModel) => Promise<WriteOutcome>
   SessionWriter.checkpointReplaced: (model: ProjectModel) => Promise<WriteOutcome>

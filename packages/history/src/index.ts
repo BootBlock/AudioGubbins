@@ -72,6 +72,7 @@ export {
   type SideName,
   comparedDifference,
   comparisonSide,
+  comparisonSurviving,
   listenedSide,
   promotion,
   startComparison,

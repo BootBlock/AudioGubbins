@@ -26,8 +26,17 @@ const RULES = [
   {
     member: 'handleKey',
     check: isHandleKey,
-    taken: ['h:0001', 'handle-0001', 'a.b_c', 'x'.repeat(128)],
-    refused: ['', 'a b', 'handles/1', 'C:\\take.wav', 'x'.repeat(129)],
+    taken: ['h:0001', 'handle-0001', 'a.b_c', 'h:folder:1', 'Folder:1', 'x'.repeat(128)],
+    refused: [
+      '',
+      'a b',
+      'handles/1',
+      'C:\\take.wav',
+      'folder:backups',
+      'folder:',
+      'folder:anything-else',
+      'x'.repeat(129),
+    ],
   },
   {
     member: 'fileName',

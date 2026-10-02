@@ -1,17 +1,40 @@
 /**
- * How the shell writes a name and a quantity of storage in what it says: the
- * one wording every surface and every command uses, so the Storage panel, a
- * cleanup's confirmation and what a command says after it agree to the byte
- * (REQ-STOR-200, REQ-STOR-106).
+ * How the shell writes a name, a count, a time and a quantity of storage in
+ * what it says: the one wording every surface and every command uses, so the
+ * Storage panel, a cleanup's confirmation and what a command says after it
+ * agree to the byte (REQ-STOR-200, REQ-STOR-106).
  *
- * A name is quoted as the shell quotes a workspace's. Storage is written in
- * steps of 1,024, as the diagnostic log's own size is, rounded to no more
- * figures than a person compares by.
+ * A name is quoted as the shell quotes a workspace's. A time is written in
+ * British English whatever the browser's own locale, so a backup listed in
+ * Settings and the same backup named by a command read alike. Storage is
+ * written in steps of 1,024, as the diagnostic log's own size is, rounded to
+ * no more figures than a person compares by.
  */
 
 /** A name as a sentence quotes it. */
 export function quoted(name: string): string {
   return `"${name}"`;
+}
+
+/** How many of something, in words a sentence reads: "1 change", "3 changes". */
+export function counted(count: number, one: string, many: string): string {
+  return `${String(count)} ${count === 1 ? one : many}`;
+}
+
+/** A moment, to the minute. */
+const MOMENT = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+
+/** A day, with no time of it. */
+const DAY = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium' });
+
+/** When something happened, to the minute: "2 Oct 2026, 14:05". */
+export function when(at: number): string {
+  return MOMENT.format(at);
+}
+
+/** The day something happened, where the time of it would be noise: "2 Oct 2026". */
+export function day(at: number): string {
+  return DAY.format(at);
 }
 
 /** The units, smallest first, each 1,024 of the one before. */

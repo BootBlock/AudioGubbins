@@ -16,6 +16,9 @@ import type {
   ReadOnlyReason,
 } from '@audiogubbins/storage';
 
+import { recoveryFindings, type RecoveryFinding } from '../state/recovery-findings.js';
+import { counted } from '../wording.js';
+
 /** A phrase with its first letter made a capital, to begin a sentence with. */
 function capitalised(phrase: string): string {
   return phrase.charAt(0).toUpperCase() + phrase.slice(1);
@@ -66,41 +69,26 @@ export function requestSentence(from: LeaseOwner, name: string): string {
   return `${capitalised(ownerPhrase(from))} asks to change ${name}. Hand it over, and this tab can only read it until you ask for it back.`;
 }
 
-/** How many of something, in words a sentence reads. */
-function counted(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
-}
-
 /**
  * What recovery found and did when the project was opened, a sentence each,
  * where it found anything.
  */
 export function recoverySentences(report: ProjectRecoveryReport): readonly string[] {
-  const said: string[] = [];
-  if (report.fallbacks.length > 0) {
-    said.push(
-      'The newest save could not be read, so the project was opened from the one before it.',
-    );
+  return recoveryFindings(report).map(findingSentence);
+}
+
+/** One thing recovery found, in a sentence. */
+function findingSentence(finding: RecoveryFinding): string {
+  switch (finding.kind) {
+    case 'fallback':
+      return 'The newest save could not be read, so the project was opened from the one before it.';
+    case 'rebuilt-cursor-state':
+      return 'The state you were at was damaged, and was rebuilt from the changes before it.';
+    case 'journal-break':
+      return `The most recent changes could not all be read. ${counted(finding.discarded, 'change', 'changes')} after the damage ${finding.discarded === 1 ? 'was' : 'were'} set aside rather than applied, and nothing was deleted.`;
+    case 'fenced':
+      return `${counted(finding.changes, 'change', 'changes')} written by a tab after another took the project over ${finding.changes === 1 ? 'was' : 'were'} left out.`;
+    case 'missing-states':
+      return `${counted(finding.states, 'kept state is', 'kept states are')} missing, so going back to ${finding.states === 1 ? 'it' : 'them'} replays the changes instead.`;
   }
-  if (report.rebuiltCursorState !== undefined) {
-    said.push('The state you were at was damaged, and was rebuilt from the changes before it.');
-  }
-  const { journalBreak } = report;
-  if (journalBreak !== undefined) {
-    const kept = counted(journalBreak.discarded.length, 'change', 'changes');
-    said.push(
-      `The most recent changes could not all be read. ${kept} after the damage ${journalBreak.discarded.length === 1 ? 'was' : 'were'} set aside rather than applied, and nothing was deleted.`,
-    );
-  }
-  if (report.fenced.length > 0) {
-    said.push(
-      `${counted(report.fenced.length, 'change', 'changes')} written by a tab after another took the project over ${report.fenced.length === 1 ? 'was' : 'were'} left out.`,
-    );
-  }
-  if (report.missingStates.length > 0) {
-    said.push(
-      `${counted(report.missingStates.length, 'kept state is', 'kept states are')} missing, so going back to ${report.missingStates.length === 1 ? 'it' : 'them'} replays the changes instead.`,
-    );
-  }
-  return said;
 }

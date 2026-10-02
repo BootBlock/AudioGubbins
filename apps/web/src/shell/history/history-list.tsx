@@ -30,9 +30,9 @@ import { WINDOW_ROW, useRowWindow } from '@audiogubbins/design-system';
 import type { HistoryRow, HistoryRowModel } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 
-import { quoted } from '../../wording.js';
+import { quoted, when } from '../../wording.js';
 import { affectedPhrase, type EntityNames } from './entity-names.js';
-import { describeExport, describeNode, when } from './history-words.js';
+import { describeExport, describeNode } from './history-words.js';
 
 /** What the list reads and does. */
 export interface HistoryListProps {

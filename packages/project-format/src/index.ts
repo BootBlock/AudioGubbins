@@ -168,7 +168,7 @@ export {
 export { type AssetRecord, readAssetRecord, writeAssetRecord } from './asset-record-json.js';
 export { readExternalIdentity, readMediaSource } from './source-reading.js';
 export { writeExternalIdentity, writeMediaSource } from './project-writing.js';
-export { isFileName, isHandleKey, isRelativePath } from './source-rules.js';
+export { FOLDER_KEY_PREFIX, isFileName, isHandleKey, isRelativePath } from './source-rules.js';
 
 export { readEditOperation, readRegionOperation } from './edit-reading.js';
 export { writeEditOperation, writeRegionOperation } from './edit-writing.js';

@@ -46,6 +46,7 @@ import { Requests, abandonment, isAbandoned, within } from './abandoning.js';
 import { followHandover } from './handover.js';
 import { observable, type Observable } from './observable.js';
 import type { ProjectPreferencesStore } from './project-preferences-store.js';
+import { recoveryFindings } from './recovery-findings.js';
 
 /** Where the open project stands. */
 export type OpenProjectState =
@@ -102,17 +103,6 @@ const NOTHING_TO_ASK_FOR = failure(
   FailureKind.Conflict,
   'No project is open to read here, so there is nothing to ask another tab for.',
 );
-
-/** Whether recovery found anything the person should hear of. */
-function isNotable(report: ProjectRecoveryReport): boolean {
-  return (
-    report.fallbacks.length > 0 ||
-    report.journalBreak !== undefined ||
-    report.fenced.length > 0 ||
-    report.rebuiltCursorState !== undefined ||
-    report.missingStates.length > 0
-  );
-}
 
 /** A project open to write or to read. */
 type Opened =
@@ -310,7 +300,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     this.state.set({
       kind: 'open',
       snapshot: publisher.getSnapshot(),
-      ...(report !== undefined && isNotable(report) ? { report } : {}),
+      ...(report !== undefined && recoveryFindings(report).length > 0 ? { report } : {}),
     });
     this.preferences.remember(publisher.project);
   }

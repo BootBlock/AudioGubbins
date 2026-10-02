@@ -1,4 +1,5 @@
 import { countingTokens } from '@audiogubbins/media-store/testing';
+import { isHandleKey } from '@audiogubbins/project-format';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileHandleKeeper, FolderUse } from './file-handle-keeper.js';
@@ -22,6 +23,13 @@ async function kept(): Promise<{
 }
 
 describe('finding the folder chosen for backups again', () => {
+  it('keeps the folder under a key no linked file may record, and finds it there', async () => {
+    const { keeper, folder } = await kept();
+
+    expect(isHandleKey(FolderUse.Backups)).toBe(false);
+    expect(await keeper.findFolder(FolderUse.Backups)).toBe(folder);
+  });
+
   it('answers the folder where the browser lets it be written', async () => {
     const { keeper, folder } = await kept();
 
