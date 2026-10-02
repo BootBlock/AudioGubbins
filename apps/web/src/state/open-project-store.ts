@@ -34,13 +34,14 @@ import type {
   ProjectSnapshot,
   TransferOutcome,
 } from '@audiogubbins/storage';
+import type { Logger } from '@audiogubbins/diagnostics';
 import type {
   RemoteOpenedProject,
   RemoteProjectSession,
   RemoteReadOnlyProject,
+  StorageClient,
 } from '@audiogubbins/storage-runtime';
 
-import type { ProjectServices } from '../storage/project-services.js';
 import { Requests, abandonment, isAbandoned, within } from './abandoning.js';
 import { followHandover } from './handover.js';
 import { observable, type Observable } from './observable.js';
@@ -136,9 +137,13 @@ function isClosed(opened: Opened): boolean {
   return opened.kind === 'writable' && opened.session.getSnapshot().access.kind === 'closed';
 }
 
+/** The parts of the storage client the store opens, follows and hands over projects through. */
+type OpenProjectClients = Pick<StorageClient, 'projects' | 'ownership'>;
+
 /** The project open in this window (see the module comment). */
 export class OpenProjectStore implements Observable<OpenProjectState> {
-  private readonly services: ProjectServices;
+  private readonly clients: OpenProjectClients;
+  private readonly logger: Logger;
   private readonly preferences: ProjectPreferencesStore;
   private readonly lifetime: AbortSignal;
   private readonly openings: Requests;
@@ -156,11 +161,13 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
 
   /** The store, whose work for any project ends once `lifetime` aborts. */
   constructor(
-    services: ProjectServices,
+    clients: OpenProjectClients,
+    logger: Logger,
     preferences: ProjectPreferencesStore,
     lifetime: AbortSignal,
   ) {
-    this.services = services;
+    this.clients = clients;
+    this.logger = logger;
     this.preferences = preferences;
     this.lifetime = lifetime;
     this.openings = new Requests(() => lifetime);
@@ -180,7 +187,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     if (!released.ok) return released;
     signal.throwIfAborted();
     this.state.set({ kind: 'opening', project });
-    const opened = await this.services.client.projects.open({
+    const opened = await this.clients.projects.open({
       project,
       access: choice.access ?? 'write',
       steal: choice.steal ?? false,
@@ -279,7 +286,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     if (session === undefined) return;
     const written = await session.checkpoint();
     if (!written.ok) {
-      this.services.logger.warning('A checkpoint as the page was hidden was not written.', {
+      this.logger.warning('A checkpoint as the page was hidden was not written.', {
         code: written.failures[0].code,
       });
     }
@@ -325,13 +332,13 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     }
     if (snapshot.access.kind === 'handed-over' && this.following === undefined) {
       this.following = followHandover(
-        this.services.client.ownership,
+        this.clients.ownership,
         snapshot.project,
         () => {
           this.following = undefined;
           this.reopenToRead(snapshot.project);
         },
-        this.services.logger,
+        this.logger,
       );
     }
   }
@@ -344,7 +351,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
   private reopenToRead(project: ProjectId): void {
     this.open(project).then((opened) => {
       if (!opened.ok) {
-        this.services.logger.warning('A project handed over could not be opened to read.', {
+        this.logger.warning('A project handed over could not be opened to read.', {
           code: opened.failures[0].code,
         });
       }
@@ -355,7 +362,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
   private logFault(what: string): (error: unknown) => void {
     return (error) => {
       if (isAbandoned(error)) return;
-      this.services.logger.error(what, {
+      this.logger.error(what, {
         reason: error instanceof Error ? error.message : 'unknown',
       });
     };

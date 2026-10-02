@@ -77,7 +77,7 @@ export function createProjectStores(
   const { files, linkedFiles } = ports;
   const preferences = createProjectPreferencesStore(storage, ports.canLink, logger);
   const library = new ProjectLibraryStore(client.library, lifetime);
-  const project = new OpenProjectStore(services, preferences, lifetime);
+  const project = new OpenProjectStore(client, logger, preferences, lifetime);
   const sources = new SourceChangeStore(client.sources, project, files, linkedFiles);
   const backupFolder = new BackupFolderStore(ports.backupFolder, logger);
 
@@ -98,7 +98,14 @@ export function createProjectStores(
     project,
     review: new HistoryReviewStore(project, logger),
     usage: new StorageUsageStore(client.usage, lifetime, project),
-    backups: new BackupStore(services, lifetime, project, library, backupFolder.target),
+    backups: new BackupStore(
+      client.backups,
+      logger,
+      lifetime,
+      project,
+      library,
+      backupFolder.target,
+    ),
     backupFolder,
     sources,
     preferences,

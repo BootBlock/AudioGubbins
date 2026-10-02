@@ -35,6 +35,7 @@ import type {
   ExternalCopy,
   WriteOutcome,
 } from '@audiogubbins/storage';
+import type { Logger } from '@audiogubbins/diagnostics';
 import type {
   BackupsClient,
   RemoteProjectSession,
@@ -42,7 +43,6 @@ import type {
   RestoreTarget,
 } from '@audiogubbins/storage-runtime';
 
-import type { ProjectServices } from '../storage/project-services.js';
 import { Requests, isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
@@ -79,7 +79,7 @@ const NOT_WRITABLE = failure(
 /** The open project's backups (see the module comment). */
 export class BackupStore implements Observable<BackupState> {
   private readonly backups: BackupsClient;
-  private readonly services: ProjectServices;
+  private readonly logger: Logger;
   private readonly lifetime: AbortSignal;
   private readonly project: OpenProjectStore;
   private readonly library: ProjectLibraryStore;
@@ -95,14 +95,15 @@ export class BackupStore implements Observable<BackupState> {
    * ending once `lifetime` aborts.
    */
   constructor(
-    services: ProjectServices,
+    backups: BackupsClient,
+    logger: Logger,
     lifetime: AbortSignal,
     project: OpenProjectStore,
     library: ProjectLibraryStore,
     folder: ExternalBackupTarget,
   ) {
-    this.backups = services.client.backups;
-    this.services = services;
+    this.backups = backups;
+    this.logger = logger;
     this.lifetime = lifetime;
     this.project = project;
     this.library = library;
@@ -120,7 +121,7 @@ export class BackupStore implements Observable<BackupState> {
     const ticked = await this.backups.tick(session, this.folder, this.project.scope());
     if (!ticked.ok) {
       const [cause] = ticked.failures;
-      this.services.logger.warning('A scheduled backup was not made.', { code: cause.code });
+      this.logger.warning('A scheduled backup was not made.', { code: cause.code });
       if (this.state.get().missed !== cause.summary) {
         this.state.update((current) => ({ ...current, missed: cause.summary }));
       }
@@ -193,7 +194,7 @@ export class BackupStore implements Observable<BackupState> {
     );
     if (copy.kind === 'not-asked') return;
     if (copy.kind === 'failed') {
-      this.services.logger.warning('A backup was not copied to the backups folder.', {
+      this.logger.warning('A backup was not copied to the backups folder.', {
         code: copy.failure.code,
       });
     }
@@ -207,7 +208,7 @@ export class BackupStore implements Observable<BackupState> {
     this.state.set(id === undefined ? { generations: [] } : { project: id, generations: [] });
     if (id === undefined) return;
     this.list(id).catch((error: unknown) => {
-      this.services.logger.error('The backups of a project could not be listed.', {
+      this.logger.error('The backups of a project could not be listed.', {
         reason: error instanceof Error ? error.message : 'unknown',
       });
     });
