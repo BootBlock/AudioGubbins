@@ -10,7 +10,7 @@
  * outside a stage's range passes it unchanged.
  */
 
-import { gainAt, type PlanStage } from './plan.js';
+import { gainAt, type PlanSegment, type PlanStage } from './plan.js';
 
 /**
  * Where a block lies in its segment's content: frame `index` of the block is
@@ -21,6 +21,13 @@ export interface BlockPlace {
   readonly first: number;
   readonly step: 1 | -1;
   readonly frames: number;
+}
+
+/** Where the whole of `segment`'s output lies in its content. */
+export function placeOf(segment: PlanSegment): BlockPlace {
+  return segment.reversed
+    ? { first: segment.start + segment.length - 1, step: -1, frames: segment.length }
+    : { first: segment.start, step: 1, frames: segment.length };
 }
 
 /** The content frame of block frame `index`. */

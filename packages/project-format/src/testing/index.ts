@@ -23,6 +23,13 @@ export { type CountedTurns, countedTurns, immediateTurns } from './host-turns.js
 export { randomState } from './random-states.js';
 
 export {
+  randomMarker,
+  randomOperation,
+  randomRegion,
+  randomRegionOperation,
+} from './random-edits.js';
+
+export {
   type Random,
   randomAssetRecord,
   randomContentId,

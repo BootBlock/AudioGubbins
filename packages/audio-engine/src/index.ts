@@ -56,7 +56,8 @@ export {
   pcmDescription,
 } from './pcm/pcm-description.js';
 export { resampledSource } from './pcm/resampled-source.js';
-export { type MediaEntry, MediaReadFailure, editedSource } from './pcm/edited-source.js';
+export { editedSource } from './pcm/edited-source.js';
+export { type MediaEntry, MediaReadFailure } from './pcm/plan-content.js';
 export { type MediaFile, isMediaFile } from './pcm/media-file.js';
 
 export {

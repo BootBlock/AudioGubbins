@@ -26,7 +26,7 @@ import {
   unsafeBrandId,
   isWellFormedId,
   type DomainResult,
-  type Marker,
+  type PlacedMarker,
   type MarkerId,
   type SampleCount,
 } from '@audiogubbins/domain';
@@ -111,7 +111,7 @@ export function markerCommand(
 }
 
 /** The first "Marker n" not in use in `markers`. */
-function nextName(markers: readonly Marker[]): string {
+function nextName(markers: readonly PlacedMarker[]): string {
   const taken = new Set(markers.map((marker) => marker.displayName));
   let number = markers.length + 1;
   while (taken.has(`Marker ${String(number)}`)) number += 1;
@@ -119,7 +119,7 @@ function nextName(markers: readonly Marker[]): string {
 }
 
 /** Markers as a reversal carries them: identity, name and position. */
-function written(markers: readonly Marker[]): string {
+function written(markers: readonly PlacedMarker[]): string {
   return JSON.stringify(
     markers.map((marker) => ({
       id: marker.id,
@@ -130,7 +130,7 @@ function written(markers: readonly Marker[]): string {
 }
 
 /** Markers a reversal carries, each checked as a marker is checked anywhere, or why not. */
-function readWritten(text: string | undefined): DomainResult<readonly Marker[]> | string {
+function readWritten(text: string | undefined): DomainResult<readonly PlacedMarker[]> | string {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text ?? '');
@@ -138,7 +138,7 @@ function readWritten(text: string | undefined): DomainResult<readonly Marker[]> 
     return 'The markers to restore could not be read.';
   }
   if (!Array.isArray(parsed)) return 'The markers to restore could not be read.';
-  const markers: DomainResult<Marker>[] = [];
+  const markers: DomainResult<PlacedMarker>[] = [];
   for (const value of parsed) {
     if (!isRecord(value)) return 'A marker to restore is not one.';
     const { id, name, position } = value;
@@ -168,7 +168,7 @@ export function addedMarker(
   position: SampleCount,
   options: { readonly id?: string; readonly name?: string } = {},
 ): Done | string {
-  const marker: Marker = {
+  const marker: PlacedMarker = {
     id:
       options.id !== undefined && isWellFormedId(options.id)
         ? unsafeBrandId<'MarkerId'>(options.id)
@@ -239,7 +239,7 @@ function removeMarkers(): Command<ShellContext> {
       const named = markerIdsOf(textArgument(invocation, 'markers'));
       const ids = named.length > 0 ? named : selectedMarkers(context, asset);
       if (typeof ids === 'string') return ids;
-      const removed: Marker[] = [];
+      const removed: PlacedMarker[] = [];
       for (const id of ids) {
         const gone = context.content.removeMarker(asset, id);
         if (gone.ok) removed.push(gone.value);

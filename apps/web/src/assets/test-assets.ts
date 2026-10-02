@@ -29,8 +29,8 @@ import {
   succeed,
   type ChannelLayout,
   type DomainResult,
-  type Marker,
-  type Region,
+  type PlacedMarker,
+  type PlacedRegion,
   type SampleRate,
   ZERO_SAMPLES,
 } from '@audiogubbins/domain';
@@ -208,7 +208,7 @@ const SPECS: readonly AssetSpec[] = [
   },
 ];
 
-function markersOf(spec: AssetSpec, seed: number): DomainResult<readonly Marker[]> {
+function markersOf(spec: AssetSpec, seed: number): DomainResult<readonly PlacedMarker[]> {
   const ids = createDeterministicIdGenerator(seed);
   return combine(
     (spec.markers ?? []).map((marker) =>
@@ -221,9 +221,9 @@ function markersOf(spec: AssetSpec, seed: number): DomainResult<readonly Marker[
   );
 }
 
-function regionOf(region: RegionSpec, id: Region['id']): DomainResult<Region> {
+function regionOf(region: RegionSpec, id: PlacedRegion['id']): DomainResult<PlacedRegion> {
   return flatMapResult(sampleCount(region.start), (start) =>
-    flatMapResult(sampleCount(region.length), (length): DomainResult<Region> => {
+    flatMapResult(sampleCount(region.length), (length): DomainResult<PlacedRegion> => {
       const base = { id, displayName: region.name, start, length, tags: [] };
       const loop = region.loop;
       if (loop === undefined) return succeed(base);
@@ -237,7 +237,7 @@ function regionOf(region: RegionSpec, id: Region['id']): DomainResult<Region> {
   );
 }
 
-function regionsOf(spec: AssetSpec, seed: number): DomainResult<readonly Region[]> {
+function regionsOf(spec: AssetSpec, seed: number): DomainResult<readonly PlacedRegion[]> {
   const ids = createDeterministicIdGenerator(seed);
   return combine((spec.regions ?? []).map((region) => regionOf(region, ids.next<'RegionId'>())));
 }

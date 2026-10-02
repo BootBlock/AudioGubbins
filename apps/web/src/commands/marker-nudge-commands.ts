@@ -11,7 +11,12 @@
  */
 
 import { unchanged, commandId, type Command, type UnchangedOutcome } from '@audiogubbins/commands';
-import { sampleCount, type Marker, type MarkerId, type SampleCount } from '@audiogubbins/domain';
+import {
+  sampleCount,
+  type PlacedMarker,
+  type MarkerId,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import { formatPosition, samplesWithin, type TimeFormat } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
@@ -24,10 +29,10 @@ import type { ShellContext } from './shell-context.js';
 /** Where each of `markers` goes when moved by `frames`, or why one cannot go. */
 function destinations(
   asset: EditorAsset,
-  markers: readonly Marker[],
+  markers: readonly PlacedMarker[],
   frames: number,
-): readonly { readonly marker: Marker; readonly to: SampleCount }[] | string {
-  const placed: { readonly marker: Marker; readonly to: SampleCount }[] = [];
+): readonly { readonly marker: PlacedMarker; readonly to: SampleCount }[] | string {
+  const placed: { readonly marker: PlacedMarker; readonly to: SampleCount }[] = [];
   for (const marker of markers) {
     const to = sampleCount(marker.position + frames);
     if (!to.ok || to.value > asset.length) {

@@ -13,7 +13,7 @@
  * which the lane says.
  */
 
-import type { Marker, MarkerId, Region, SampleCount } from '@audiogubbins/domain';
+import type { PlacedMarker, MarkerId, PlacedRegion, SampleCount } from '@audiogubbins/domain';
 import type {
   PlacedImage,
   RenderBatch,
@@ -37,8 +37,8 @@ export interface ViewContent {
   readonly length: SampleCount;
   /** Each channel's name, by its role or label, in layout order. */
   readonly channelNames: readonly string[];
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
 }
 
 /** Everything one frame of a view is composed from. */

@@ -4,10 +4,10 @@
  *
  * The rate is decoded with integer arithmetic on its 64-bit mantissa, so a rate
  * is known to be whole, or not, exactly: rounding it through a double first
- * could make 44 100 plus a fraction too small for 53 bits look whole. Plain AIFF
- * samples are big-endian two's complement. Of AIFF-C's compression types, those
- * below are uncompressed and read; any other is a codec this package names and
- * refuses.
+ * could make 44 100 plus a fraction too small for 53 bits look whole. Plain
+ * AIFF samples are big-endian two's complement. Of AIFF-C's compression types,
+ * those below are uncompressed and read; any other is a codec this package
+ * names and refuses.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
@@ -23,7 +23,7 @@ import {
 import { quotedCode } from './recognised-format.js';
 
 /** The bytes of an AIFF `COMM` body, and of an AIFF-C one up to its compression type. */
-export const AIFF_COMM_BYTES = 18;
+const AIFF_COMM_BYTES = 18;
 export const AIFC_COMM_BYTES = 22;
 
 /**
@@ -78,7 +78,7 @@ const MANTISSA_POINT = 63;
  * rate: a sign, a fraction or an infinity, naming the value as near as a double
  * can.
  */
-export function extendedRate(bytes: Uint8Array, offset: number): DomainResult<number> {
+function extendedRate(bytes: Uint8Array, offset: number): DomainResult<number> {
   const view = viewOf(bytes);
   const signAndExponent = view.getUint16(offset, false);
   const exponent = signAndExponent & 0x7fff;

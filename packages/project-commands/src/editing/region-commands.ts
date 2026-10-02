@@ -10,7 +10,13 @@
  * the same change, so no inverse carries a whole chain.
  */
 
-import { CommandCategory, refusal, unchanged, type CommandInvocation, type CommandOutcome } from '@audiogubbins/commands';
+import {
+  CommandCategory,
+  refusal,
+  unchanged,
+  type CommandInvocation,
+  type CommandOutcome,
+} from '@audiogubbins/commands';
 import {
   FailureKind,
   fail,
@@ -22,6 +28,7 @@ import {
 } from '@audiogubbins/domain';
 import {
   canonicalJson,
+  isJsonObject,
   readRegion,
   readRegionOperation,
   writeRegion,
@@ -31,7 +38,14 @@ import {
 } from '@audiogubbins/project-format';
 
 import { jsonArgument, readNested, refusedBy } from '../invocation-arguments.js';
-import { NO_PROVENANCE, ProjectCommandId, applied, projectCommand, quoted, type ProjectCommand } from '../project-command.js';
+import {
+  NO_PROVENANCE,
+  ProjectCommandId,
+  applied,
+  projectCommand,
+  quoted,
+  type ProjectCommand,
+} from '../project-command.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
 import { regionEditDescription } from './edit-descriptions.js';
 import { withRegion, withoutRegion } from './editing-state.js';
@@ -44,15 +58,50 @@ export function regionCommands(): readonly ProjectCommand[] {
     description: string,
     run: (state: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>,
   ): ProjectCommand =>
-    projectCommand({ id, label, category: CommandCategory.Edit, description, run, provenance: NO_PROVENANCE });
+    projectCommand({
+      id,
+      label,
+      category: CommandCategory.Edit,
+      description,
+      run,
+      provenance: NO_PROVENANCE,
+    });
   return [
-    declare(ProjectCommandId.AddRegion, 'Add a region', 'Adds a region to one of the project’s assets.', addRegion),
-    declare(ProjectCommandId.SetRegion, 'Change a region', 'Sets a region’s name, boundaries, loop and tags.', setRegion),
-    declare(ProjectCommandId.RemoveRegion, 'Remove a region', 'Removes a region whose processing is withdrawn.', removeRegion),
-    declare(ProjectCommandId.ApplyRegionEdit, 'Process a region', 'Adds processing to the end of a region’s own chain.', applyRegionEdit),
-    declare(ProjectCommandId.WithdrawRegionEdit, 'Withdraw a region’s processing', 'Removes the last processing of a region’s chain.', withdrawRegionEdit),
+    declare(
+      ProjectCommandId.AddRegion,
+      'Add a region',
+      'Adds a region to one of the project’s assets.',
+      addRegion,
+    ),
+    declare(
+      ProjectCommandId.SetRegion,
+      'Change a region',
+      'Sets a region’s name, boundaries, loop and tags.',
+      setRegion,
+    ),
+    declare(
+      ProjectCommandId.RemoveRegion,
+      'Remove a region',
+      'Removes a region whose processing is withdrawn.',
+      removeRegion,
+    ),
+    declare(
+      ProjectCommandId.ApplyRegionEdit,
+      'Process a region',
+      'Adds processing to the end of a region’s own chain.',
+      applyRegionEdit,
+    ),
+    declare(
+      ProjectCommandId.WithdrawRegionEdit,
+      'Withdraw a region’s processing',
+      'Removes the last processing of a region’s chain.',
+      withdrawRegionEdit,
+    ),
   ];
 }
+
+/** The members of a written region that setting its properties never changes. */
+const KEPT_BY_THE_REGION: ReadonlySet<string> = new Set(['id', 'assetId', 'operations']);
 
 function rejected(code: string, summary: string): DomainResult<never> {
   return fail(failure(code, FailureKind.Rejected, summary));
@@ -72,7 +121,10 @@ function regionArgument(invocation: CommandInvocation): DomainResult<Region> {
   return value.ok ? readNested(readRegion, value.value, '') : value;
 }
 
-function addRegion(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function addRegion(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const read = regionArgument(invocation);
   const region = read.ok ? standing(state, read.value) : read;
   if (!region.ok) return refusedBy(region);
@@ -96,20 +148,26 @@ function addRegion(state: ProjectState, invocation: CommandInvocation): CommandO
  * The region the argument `region` sets: its properties as given over the
  * region as it stands, keeping its identity, its asset and its processing.
  */
-function setRegion(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function setRegion(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const old = targetRegion(state, invocation);
   if (!old.ok) return refusedBy(old);
   const properties = jsonArgument(invocation, 'region');
   if (!properties.ok) return refusedBy(properties);
   const value = properties.value;
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return refusal('region.properties-malformed', 'A region’s properties must be given as an object.');
+  if (!isJsonObject(value)) {
+    return refusal(
+      'region.properties-malformed',
+      'A region’s properties must be given as an object.',
+    );
   }
   const kept = writeRegion(old.value);
-  if (typeof kept !== 'object' || kept === null || Array.isArray(kept)) {
-    throw new Error('A region is written as an object.');
-  }
-  const merged: JsonValue = { ...value, id: kept['id'] ?? null, assetId: kept['assetId'] ?? null, operations: kept['operations'] ?? [] };
+  const merged: JsonValue = {
+    ...value,
+    ...Object.fromEntries(Object.entries(kept).filter(([key]) => KEPT_BY_THE_REGION.has(key))),
+  };
   const read = readNested(readRegion, merged, '');
   const region = read.ok ? standing(state, read.value) : read;
   if (!region.ok) return refusedBy(region);
@@ -123,7 +181,10 @@ function setRegion(state: ProjectState, invocation: CommandInvocation): CommandO
   );
 }
 
-function removeRegion(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function removeRegion(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const region = targetRegion(state, invocation);
   if (!region.ok) return refusedBy(region);
   if (region.value.operations.length > 0) {
@@ -139,7 +200,10 @@ function removeRegion(state: ProjectState, invocation: CommandInvocation): Comma
   );
 }
 
-function applyRegionEdit(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function applyRegionEdit(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const region = targetRegion(state, invocation);
   if (!region.ok) return refusedBy(region);
   const value = jsonArgument(invocation, 'operation');
@@ -147,9 +211,15 @@ function applyRegionEdit(state: ProjectState, invocation: CommandInvocation): Co
   const operation = readNested(readRegionOperation, value.value, '');
   if (!operation.ok) return refusedBy(operation);
   if (region.value.operations.some((existing) => existing.id === operation.value.id)) {
-    return refusal('region.duplicate-operation', 'The region already has processing with that identifier.');
+    return refusal(
+      'region.duplicate-operation',
+      'The region already has processing with that identifier.',
+    );
   }
-  const next = standing(state, { ...region.value, operations: [...region.value.operations, operation.value] });
+  const next = standing(state, {
+    ...region.value,
+    operations: [...region.value.operations, operation.value],
+  });
   if (!next.ok) return refusedBy(next);
   return applied(
     withRegion(state, next.value),
@@ -158,14 +228,20 @@ function applyRegionEdit(state: ProjectState, invocation: CommandInvocation): Co
   );
 }
 
-function withdrawRegionEdit(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function withdrawRegionEdit(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const region = targetRegion(state, invocation);
   if (!region.ok) return refusedBy(region);
   const id = idArgument<'EditOperationId'>(invocation, 'operationId');
   if (!id.ok) return refusedBy(id);
   const last = region.value.operations.at(-1);
   if (last?.id !== id.value) {
-    return refusal('region.not-last', `Only the last processing of ${quoted(region.value.displayName)} can be withdrawn.`);
+    return refusal(
+      'region.not-last',
+      `Only the last processing of ${quoted(region.value.displayName)} can be withdrawn.`,
+    );
   }
   return applied(
     withRegion(state, { ...region.value, operations: region.value.operations.slice(0, -1) }),
@@ -176,16 +252,17 @@ function withdrawRegionEdit(state: ProjectState, invocation: CommandInvocation):
 
 /** Adds `region`, which must have no processing yet. */
 export function addRegionInvocation(region: Region): CommandInvocation {
-  return { commandId: ProjectCommandId.AddRegion, arguments: { region: canonicalJson(writeRegion(region)) } };
+  return {
+    commandId: ProjectCommandId.AddRegion,
+    arguments: { region: canonicalJson(writeRegion(region)) },
+  };
 }
 
 /** Sets an existing region's properties as `region` gives them, keeping its processing. */
 export function setRegionInvocation(region: Region): CommandInvocation {
-  const written = writeRegion({ ...region, operations: [] });
-  const properties =
-    typeof written === 'object' && written !== null && !Array.isArray(written)
-      ? Object.fromEntries(Object.entries(written).filter(([key]) => key !== 'operations' && key !== 'id' && key !== 'assetId'))
-      : written;
+  const properties = Object.fromEntries(
+    Object.entries(writeRegion(region)).filter(([key]) => !KEPT_BY_THE_REGION.has(key)),
+  );
   return {
     commandId: ProjectCommandId.SetRegion,
     arguments: { regionId: region.id, region: canonicalJson(properties) },
@@ -198,7 +275,10 @@ export function removeRegionInvocation(region: Pick<Region, 'id'>): CommandInvoc
 }
 
 /** Adds `operation` to the end of the region's processing. */
-export function applyRegionEditInvocation(region: Pick<Region, 'id'>, operation: RegionOperation): CommandInvocation {
+export function applyRegionEditInvocation(
+  region: Pick<Region, 'id'>,
+  operation: RegionOperation,
+): CommandInvocation {
   return {
     commandId: ProjectCommandId.ApplyRegionEdit,
     arguments: { regionId: region.id, operation: canonicalJson(writeRegionOperation(operation)) },
@@ -206,7 +286,10 @@ export function applyRegionEditInvocation(region: Pick<Region, 'id'>, operation:
 }
 
 /** Withdraws `operation`, the last of the region's processing. */
-export function withdrawRegionEditInvocation(region: Pick<Region, 'id'>, operation: Pick<RegionOperation, 'id'>): CommandInvocation {
+export function withdrawRegionEditInvocation(
+  region: Pick<Region, 'id'>,
+  operation: Pick<RegionOperation, 'id'>,
+): CommandInvocation {
   return {
     commandId: ProjectCommandId.WithdrawRegionEdit,
     arguments: { regionId: region.id, operationId: operation.id },

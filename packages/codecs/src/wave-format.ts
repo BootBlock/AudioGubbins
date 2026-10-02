@@ -30,8 +30,9 @@ const EXTENSION_BYTES = 22;
 
 /**
  * The last twelve bytes of the GUID family KSDATAFORMAT_SUBTYPE_PCM and
- * KSDATAFORMAT_SUBTYPE_IEEE_FLOAT belong to, `xxxxxxxx-0000-0010-8000-00aa00389b71`,
- * whose first four bytes are the format code.
+ * KSDATAFORMAT_SUBTYPE_IEEE_FLOAT belong to,
+ * `xxxxxxxx-0000-0010-8000-00aa00389b71`, whose first four bytes are the format
+ * code.
  */
 const STANDARD_SUBTYPE_TAIL: readonly number[] = [
   0x00, 0x00, 0x10, 0x00, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71,

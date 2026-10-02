@@ -10,7 +10,7 @@
  */
 
 import type { Colour, RenderBatch } from '@audiogubbins/renderer';
-import type { Marker, Region } from '@audiogubbins/domain';
+import type { PlacedMarker, PlacedRegion } from '@audiogubbins/domain';
 import {
   SelectionFacet,
   activeFacet,
@@ -28,8 +28,8 @@ import type { SpectralSettings } from './view-state.js';
 /** What a lane's overlays read. */
 export interface LaneOverlay {
   readonly selection: SelectionSet;
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
   readonly playhead: number | undefined;
   readonly preview: ToolPreview | undefined;
   readonly grid: readonly number[] | undefined;

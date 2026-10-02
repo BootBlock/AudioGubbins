@@ -4,8 +4,8 @@
  *
  * Every operation's positions are stated in the timeline the operations before
  * it left (ADR-0051), so validating one, and resolving a position stated at a
- * basis, both need the shape at that point in the chain. This is the one
- * place that says how each operation changes it.
+ * basis, both need the shape at that point in the chain. This is the one place
+ * that says how each operation changes it.
  */
 
 import type { ChannelLayout } from '../audio/channel-layout.js';

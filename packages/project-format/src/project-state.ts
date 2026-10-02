@@ -11,8 +11,8 @@
  * Invariants, which the document reader enforces: every asset of the project
  * has exactly one source and every source belongs to an asset, each asset's
  * `storageKey` is {@link storageKeyOf} its source, and the audio shape its
- * provenance keeps, where it keeps one, agrees with the asset. Serves REQ-STOR-026,
- * REQ-STOR-053, REQ-STOR-099, REQ-STOR-104 and REQ-STOR-166.
+ * provenance keeps, where it keeps one, agrees with the asset. Serves
+ * REQ-STOR-026, REQ-STOR-053, REQ-STOR-099, REQ-STOR-104 and REQ-STOR-166.
  */
 
 import type {

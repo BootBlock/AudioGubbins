@@ -51,6 +51,7 @@ function assetOf(media: ManagedMedia): Asset {
     channelLayout: SETTINGS.channelLayout,
     length: expectSuccess(sampleCount(4_800)),
     storageKey: storageKeyOf(id, media),
+    edits: [],
   };
 }
 

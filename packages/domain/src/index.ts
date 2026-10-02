@@ -167,7 +167,8 @@ export {
 } from './editing/channel-matrices.js';
 
 export { assetPlan } from './editing/plan-building.js';
-export { type BlockPlace, applyStages } from './editing/stage-arithmetic.js';
+export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
+export { sliceSegment } from './editing/segment-list.js';
 export { slicePlan } from './editing/plan-slicing.js';
 export { type MediaShape, validatePlan } from './editing/plan-validation.js';
 export { editPlanFrom } from './editing/plan-decoding.js';

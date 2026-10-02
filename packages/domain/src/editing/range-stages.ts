@@ -69,7 +69,7 @@ function levelStage(
 }
 
 /** The matrix a channel edit mixes `count` channels with. */
-export function channelEditMatrix(edit: ChannelEdit, count: number): ChannelMatrix {
+function channelEditMatrix(edit: ChannelEdit, count: number): ChannelMatrix {
   switch (edit.kind) {
     case 'swap-channels':
       return swapMatrix(count, edit.first, edit.second);

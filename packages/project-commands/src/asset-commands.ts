@@ -177,13 +177,19 @@ function renameAsset(
 function usersOf(state: ProjectState, asset: Asset): string | undefined {
   const users = assetUsers(state.project, asset.id);
   const parts = [
-    users.clips > 0 ? 'clips that play it' : undefined,
-    users.regions > 0 ? 'regions' : undefined,
-    users.markers > 0 ? 'markers' : undefined,
-    users.pastes > 0 ? 'audio pasted from it into other assets' : undefined,
-    asset.edits.length > 0 ? 'edits' : undefined,
+    counted(users.clips, 'clip that plays it', 'clips that play it'),
+    counted(users.regions, 'region', 'regions'),
+    counted(users.markers, 'marker', 'markers'),
+    counted(users.pastes, 'asset with audio pasted from it', 'assets with audio pasted from it'),
+    counted(asset.edits.length, 'edit', 'edits'),
   ].filter((part) => part !== undefined);
   if (parts.length === 0) return undefined;
   const last = parts.pop();
   return parts.length === 0 ? last : `${parts.join(', ')} and ${String(last)}`;
+}
+
+/** `count` and the noun it agrees with, or `undefined` for none. */
+function counted(count: number, one: string, many: string): string | undefined {
+  if (count === 0) return undefined;
+  return count === 1 ? `1 ${one}` : `${String(count)} ${many}`;
 }

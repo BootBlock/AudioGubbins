@@ -4,9 +4,10 @@
  *
  * Opening parses the header in bounded reads and refuses, before anything is
  * stored, a file this package does not read or one whose header breaks its
- * format's rules. A read then fetches only the bytes of the frames asked for, in
- * pieces of at most `MAXIMUM_READ_BYTES`, so neither a long read nor a long file
- * is ever held whole, and converts each by the rule in `sample-conversion.ts`.
+ * format's rules. A read then fetches only the bytes of the frames asked for,
+ * in pieces of at most `MAXIMUM_READ_BYTES`, so neither a long read nor a long
+ * file is ever held whole, and converts each by the rule in
+ * `sample-conversion.ts`.
  */
 
 import {

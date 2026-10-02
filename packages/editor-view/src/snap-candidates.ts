@@ -6,7 +6,7 @@
  * Each is a boundary; the timeline's rule picks among them.
  */
 
-import type { Marker, Region, SampleCount } from '@audiogubbins/domain';
+import type { PlacedMarker, PlacedRegion, SampleCount } from '@audiogubbins/domain';
 import {
   SnapKind,
   samplesWithin,
@@ -20,8 +20,8 @@ import {
 
 /** Everything a view knows that a position can snap to. */
 export interface SnapSources {
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
   readonly playhead: SampleCount | undefined;
   /** The time selection, whose edges are targets unless one of them is being dragged. */
   readonly selection: BoundaryRange | undefined;

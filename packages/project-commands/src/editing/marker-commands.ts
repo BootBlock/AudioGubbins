@@ -4,11 +4,17 @@
  *
  * A marker is kept whole in an argument, in the project document's shape, so
  * moving and renaming are one command that sets the marker as given and whose
- * inverse sets it back as it was. Its position is checked against its
- * asset's timeline at its basis by the domain's own rule.
+ * inverse sets it back as it was. Its position is checked against its asset's
+ * timeline at its basis by the domain's own rule.
  */
 
-import { CommandCategory, refusal, unchanged, type CommandInvocation, type CommandOutcome } from '@audiogubbins/commands';
+import {
+  CommandCategory,
+  refusal,
+  unchanged,
+  type CommandInvocation,
+  type CommandOutcome,
+} from '@audiogubbins/commands';
 import {
   FailureKind,
   fail,
@@ -17,10 +23,22 @@ import {
   type DomainResult,
   type Marker,
 } from '@audiogubbins/domain';
-import { canonicalJson, readMarker, writeMarker, type ProjectState } from '@audiogubbins/project-format';
+import {
+  canonicalJson,
+  readMarker,
+  writeMarker,
+  type ProjectState,
+} from '@audiogubbins/project-format';
 
 import { jsonArgument, readNested, refusedBy } from '../invocation-arguments.js';
-import { NO_PROVENANCE, ProjectCommandId, applied, projectCommand, quoted, type ProjectCommand } from '../project-command.js';
+import {
+  NO_PROVENANCE,
+  ProjectCommandId,
+  applied,
+  projectCommand,
+  quoted,
+  type ProjectCommand,
+} from '../project-command.js';
 import { targetMarker } from './editing-arguments.js';
 import { withMarker, withoutMarker } from './editing-state.js';
 
@@ -62,26 +80,43 @@ function markerArgument(state: ProjectState, invocation: CommandInvocation): Dom
   if (!marker.ok) return marker;
   const asset = state.project.assets.get(marker.value.assetId);
   return asset === undefined
-    ? fail(failure('marker.asset-unknown', FailureKind.Rejected, 'The project has no asset for this marker.'))
+    ? fail(
+        failure(
+          'marker.asset-unknown',
+          FailureKind.Rejected,
+          'The project has no asset for this marker.',
+        ),
+      )
     : validateMarker(asset, marker.value);
 }
 
-function addMarker(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function addMarker(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const read = markerArgument(state, invocation);
   if (!read.ok) return refusedBy(read);
   const marker = read.value;
   if (state.project.markers.has(marker.id)) {
     return refusal('marker.duplicate-id', 'The project already has a marker with that identifier.');
   }
-  return applied(withMarker(state, marker), removeMarkerInvocation(marker), `Add marker ${quoted(marker.displayName)}`);
+  return applied(
+    withMarker(state, marker),
+    removeMarkerInvocation(marker),
+    `Add marker ${quoted(marker.displayName)}`,
+  );
 }
 
-function setMarker(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function setMarker(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const read = markerArgument(state, invocation);
   if (!read.ok) return refusedBy(read);
   const marker = read.value;
   const old = state.project.markers.get(marker.id);
-  if (old === undefined) return refusal('marker.unknown', 'The project has no marker with that identifier.');
+  if (old === undefined)
+    return refusal('marker.unknown', 'The project has no marker with that identifier.');
   if (old.assetId !== marker.assetId) {
     return refusal('marker.asset-changed', 'A marker stays on the asset it was placed on.');
   }
@@ -95,7 +130,10 @@ function setMarker(state: ProjectState, invocation: CommandInvocation): CommandO
   return applied(withMarker(state, marker), setMarkerInvocation(old), description);
 }
 
-function removeMarker(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function removeMarker(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const marker = targetMarker(state, invocation);
   if (!marker.ok) return refusedBy(marker);
   return applied(
@@ -107,12 +145,18 @@ function removeMarker(state: ProjectState, invocation: CommandInvocation): Comma
 
 /** Adds `marker`. */
 export function addMarkerInvocation(marker: Marker): CommandInvocation {
-  return { commandId: ProjectCommandId.AddMarker, arguments: { marker: canonicalJson(writeMarker(marker)) } };
+  return {
+    commandId: ProjectCommandId.AddMarker,
+    arguments: { marker: canonicalJson(writeMarker(marker)) },
+  };
 }
 
 /** Sets an existing marker as `marker` gives it. */
 export function setMarkerInvocation(marker: Marker): CommandInvocation {
-  return { commandId: ProjectCommandId.SetMarker, arguments: { marker: canonicalJson(writeMarker(marker)) } };
+  return {
+    commandId: ProjectCommandId.SetMarker,
+    arguments: { marker: canonicalJson(writeMarker(marker)) },
+  };
 }
 
 /** Removes `marker`. */

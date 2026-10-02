@@ -73,6 +73,40 @@ export function withRandomEdits(
   return edited;
 }
 
+/**
+ * A random edit for the end of `asset`'s chain, pastes reading any asset of
+ * `assets`, or `undefined` where the one proposed is not valid there.
+ */
+export function randomOperation(
+  random: Random,
+  ids: IdGenerator,
+  asset: Asset,
+  assets: ReadonlyMap<AssetId, Asset>,
+): EditOperation | undefined {
+  const shape = shapesOf(asset).at(-1);
+  if (shape === undefined) return undefined;
+  const operation = proposeOperation(random, ids, shape, asset, assets);
+  return operation !== undefined && validateOperation(operation, shape, assets).ok
+    ? operation
+    : undefined;
+}
+
+/**
+ * Random processing for the end of `region`'s chain, or `undefined` where the
+ * one proposed is not valid there.
+ */
+export function randomRegionOperation(
+  random: Random,
+  ids: IdGenerator,
+  asset: Asset,
+  region: Region,
+): RegionOperation | undefined {
+  const operation = proposeRegionOperation(random, ids, shapesOf(asset));
+  if (operation === undefined) return undefined;
+  const proposed = { ...region, operations: [...region.operations, operation] };
+  return validateRegion(asset, proposed).ok ? operation : undefined;
+}
+
 /** A random span of a timeline of `length`, or none where it holds no audio. */
 function randomRange(random: Random, length: number): EditRange | undefined {
   if (length < 1) return undefined;

@@ -10,7 +10,7 @@
 
 import type { AssetId } from '../identity/branded-id.js';
 import type { EditPlan } from '../editing/plan.js';
-import { applyStages } from '../editing/stage-arithmetic.js';
+import { applyStages, placeOf } from '../editing/stage-arithmetic.js';
 import type { Samples } from './edit-oracle.js';
 
 /** The plan's first stream, rendered from `sources`, one array per channel. */
@@ -25,15 +25,14 @@ export function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples
     }
     const source = sources.get(segment.source.asset);
     if (source === undefined) throw new Error(`No samples for ${segment.source.asset}.`);
-    const first = segment.reversed ? segment.start + segment.length - 1 : segment.start;
-    const step = segment.reversed ? -1 : 1;
+    const place = placeOf(segment);
     const block = source.map((channel) =>
       Float32Array.from(
-        { length: segment.length },
-        (_, index) => channel[first + index * step] ?? 0,
+        { length: place.frames },
+        (_, index) => channel[place.first + index * place.step] ?? 0,
       ),
     );
-    const result = applyStages(segment.stages, { first, step, frames: segment.length }, block);
+    const result = applyStages(segment.stages, place, block);
     result.forEach((channel, index) => out[index]?.set(channel, position));
     position += segment.length;
   }

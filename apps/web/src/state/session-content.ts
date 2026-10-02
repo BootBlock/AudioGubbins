@@ -22,9 +22,9 @@ import {
   mapResult,
   succeed,
   type DomainResult,
-  type Marker,
+  type PlacedMarker,
   type MarkerId,
-  type Region,
+  type PlacedRegion,
   type SampleCount,
 } from '@audiogubbins/domain';
 
@@ -34,8 +34,8 @@ import { observable, type Observable } from './observable.js';
 /** What an asset holds for the session. */
 export interface AssetContent {
   /** In position order, the earlier added first at one position. */
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
 }
 
 /** Every asset's content that has been read or changed, by asset identity. */
@@ -46,7 +46,7 @@ export interface SessionContent extends Observable<SessionContentState> {
   /** `asset`'s content: what it opened with, until a marker command changes it. */
   readonly of: (asset: EditorAsset) => AssetContent;
   /** Adds `marker`, or says why it cannot be added. */
-  readonly addMarker: (asset: EditorAsset, marker: Marker) => DomainResult<void>;
+  readonly addMarker: (asset: EditorAsset, marker: PlacedMarker) => DomainResult<void>;
   /** Moves a marker, answering where it was. */
   readonly moveMarker: (
     asset: EditorAsset,
@@ -54,10 +54,10 @@ export interface SessionContent extends Observable<SessionContentState> {
     to: SampleCount,
   ) => DomainResult<SampleCount>;
   /** Removes a marker, answering what it was. */
-  readonly removeMarker: (asset: EditorAsset, id: MarkerId) => DomainResult<Marker>;
+  readonly removeMarker: (asset: EditorAsset, id: MarkerId) => DomainResult<PlacedMarker>;
 }
 
-function inOrder(markers: readonly Marker[]): readonly Marker[] {
+function inOrder(markers: readonly PlacedMarker[]): readonly PlacedMarker[] {
   // A stable sort, so markers at one position keep the order they were added in.
   return markers.toSorted((one, other) => one.position - other.position);
 }
@@ -86,7 +86,7 @@ function outsideAsset(asset: EditorAsset): DomainResult<never> {
 function withMarker(
   asset: EditorAsset,
   content: AssetContent,
-  marker: Marker,
+  marker: PlacedMarker,
 ): DomainResult<AssetContent> {
   if (marker.position > asset.length) return outsideAsset(asset);
   if (content.markers.some((each) => each.id === marker.id)) {
@@ -121,7 +121,7 @@ function withoutMarker(
   asset: EditorAsset,
   content: AssetContent,
   id: MarkerId,
-): DomainResult<readonly [AssetContent, Marker]> {
+): DomainResult<readonly [AssetContent, PlacedMarker]> {
   const marker = content.markers.find((each) => each.id === id);
   if (marker === undefined) return noSuchMarker(asset);
   return succeed([

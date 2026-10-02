@@ -28,7 +28,14 @@ import {
   type SampleRate,
 } from '../time/sample-time.js';
 import { FadeShape } from './operations.js';
-import type { EditPlan, GainCurve, PlanSegment, PlanSource, PlanStage, PlanStream } from './plan.js';
+import type {
+  EditPlan,
+  GainCurve,
+  PlanSegment,
+  PlanSource,
+  PlanStage,
+  PlanStream,
+} from './plan.js';
 
 /** The most streams, segments and stages a message may hold. */
 const LIMITS = { streams: 4_096, segments: 1_000_000, stages: 10_000, channels: 256 } as const;
@@ -120,9 +127,15 @@ function layoutOf(check: Check, value: unknown): ChannelLayout {
 
 function curveOf(check: Check, value: unknown): GainCurve {
   const read = check.fields(value, 'a gain');
-  if (read['kind'] === 'constant') return { kind: 'constant', gain: check.finite(read['gain'], 'a gain') };
+  if (read['kind'] === 'constant')
+    return { kind: 'constant', gain: check.finite(read['gain'], 'a gain') };
   const { step, shape, rising } = read;
-  if (read['kind'] !== 'fade' || !isShape(shape) || typeof rising !== 'boolean' || (step !== 1 && step !== -1)) {
+  if (
+    read['kind'] !== 'fade' ||
+    !isShape(shape) ||
+    typeof rising !== 'boolean' ||
+    (step !== 1 && step !== -1)
+  ) {
     check.wrong('a fade');
     return { kind: 'constant', gain: 1 };
   }
@@ -154,17 +167,25 @@ function stageOf(check: Check, value: unknown): PlanStage {
     };
   }
   if (read['kind'] !== 'matrix') check.wrong('a stage');
-  const range = read['range'] === undefined ? undefined : check.fields(read['range'], 'a stage’s range');
+  const range =
+    read['range'] === undefined ? undefined : check.fields(read['range'], 'a stage’s range');
   const matrix = check
     .list(read['matrix'], 'a matrix', LIMITS.channels)
     .map((row) =>
-      check.list(row, 'a matrix row', LIMITS.channels).map((factor) => check.finite(factor, 'a matrix factor')),
+      check
+        .list(row, 'a matrix row', LIMITS.channels)
+        .map((factor) => check.finite(factor, 'a matrix factor')),
     );
   return {
     kind: 'matrix',
     ...(range === undefined
       ? {}
-      : { range: { from: check.integer(range['from'], 'a range'), to: check.integer(range['to'], 'a range') } }),
+      : {
+          range: {
+            from: check.integer(range['from'], 'a range'),
+            to: check.integer(range['to'], 'a range'),
+          },
+        }),
     matrix,
   };
 }
@@ -188,7 +209,9 @@ function segmentOf(check: Check, value: unknown): PlanSegment {
     start: check.frames(read['start'], 'a segment’s start'),
     length: check.frames(read['length'], 'a segment’s length'),
     reversed: reversed === true,
-    stages: check.list(read['stages'], 'a segment’s stages', LIMITS.stages).map((stage) => stageOf(check, stage)),
+    stages: check
+      .list(read['stages'], 'a segment’s stages', LIMITS.stages)
+      .map((stage) => stageOf(check, stage)),
   };
 }
 

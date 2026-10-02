@@ -1,11 +1,11 @@
 /**
- * Every encoding, depth, byte order and form REQ-AUDIO-220 names, written by the
- * fixture writers, opened, and checked field by field and bit for bit.
+ * Every encoding, depth, byte order and form REQ-AUDIO-220 names, written by
+ * the fixture writers, opened, and checked field by field and bit for bit.
  *
  * The expected samples are computed here from the integer codes the fixture was
  * written from, never by the reader's own converter, so a reader that read the
- * wrong byte order, dropped the wrong padding or scaled by the wrong power fails
- * on the sample where it does.
+ * wrong byte order, dropped the wrong padding or scaled by the wrong power
+ * fails on the sample where it does.
  */
 
 import { ChannelRole, type ChannelLayout, type SampleCount } from '@audiogubbins/domain';

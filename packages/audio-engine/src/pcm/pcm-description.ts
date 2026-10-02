@@ -7,9 +7,9 @@
  * waveform. Audio in memory crosses as its planar arrays, transferred rather
  * than copied, so a long clip is never held twice; generated audio crosses as
  * its signal recipe; an edited sound crosses as its plan with the files it
- * reads, which the receiving thread reads in ranges. No layout crosses with either: the receiving thread knows
- * the layout it reads in, and a description whose channels do not fit it is
- * refused when the source is made.
+ * reads, which the receiving thread reads in ranges. No layout crosses with any
+ * of them: the receiving thread knows the layout it reads in, and a description
+ * whose channels do not fit it is refused when the source is made.
  *
  * One reader, {@link pcmDescription}, validates a description that crossed a
  * thread, whoever sent it.
@@ -35,7 +35,8 @@ import {
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
-import { editedSource, type MediaEntry } from './edited-source.js';
+import { editedSource } from './edited-source.js';
+import type { MediaEntry } from './plan-content.js';
 import { frameBlock } from './frame-block.js';
 import { isMediaFile } from './media-file.js';
 import { memorySource } from './memory-source.js';
@@ -120,7 +121,8 @@ function channelsOf(value: unknown): DomainResult<readonly Float32Array[]> {
 function mediaEntryOf(value: unknown): MediaEntry | undefined {
   if (!isFields(value)) return undefined;
   const { asset, file } = value;
-  const rate = typeof value['sampleRate'] === 'number' ? sampleRate(value['sampleRate']) : undefined;
+  const rate =
+    typeof value['sampleRate'] === 'number' ? sampleRate(value['sampleRate']) : undefined;
   const length = typeof value['length'] === 'number' ? sampleCount(value['length']) : undefined;
   const channels = value['channels'];
   if (
@@ -136,14 +138,21 @@ function mediaEntryOf(value: unknown): MediaEntry | undefined {
   ) {
     return undefined;
   }
-  return { asset: unsafeBrandId<'AssetId'>(asset), sampleRate: rate.value, channels, length: length.value, file };
+  return {
+    asset: unsafeBrandId<'AssetId'>(asset),
+    sampleRate: rate.value,
+    channels,
+    length: length.value,
+    file,
+  };
 }
 
 /** An edited description's plan and media, read from what crossed the thread. */
 function editedOf(value: Fields, rate: SampleRate): DomainResult<PcmDescription> {
   const plan = editPlanFrom(value['plan']);
   if (!plan.ok) return fail(unreadable('plan', `an edit plan (${plan.failures[0].summary})`));
-  if (plan.value.streams[0].sampleRate !== rate) return fail(unreadable('plan', 'a plan at the description’s rate'));
+  if (plan.value.streams[0].sampleRate !== rate)
+    return fail(unreadable('plan', 'a plan at the description’s rate'));
   const listed = value['media'];
   const media = Array.isArray(listed) ? listed.map(mediaEntryOf) : [undefined];
   return media.every((entry) => entry !== undefined)

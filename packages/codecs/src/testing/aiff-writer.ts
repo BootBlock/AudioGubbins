@@ -3,8 +3,8 @@
  *
  * It writes every uncompressed AIFF-C type in its own byte order and width, a
  * compression type the reader must refuse, a `CHAN` chunk, a sample rate of any
- * value as an 80-bit extended float, extra chunks of odd sizes, `COMM` after the
- * samples, an `SSND` offset, and a file cut short.
+ * value as an 80-bit extended float, extra chunks of odd sizes, `COMM` after
+ * the samples, an `SSND` offset, and a file cut short.
  */
 
 import {

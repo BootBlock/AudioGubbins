@@ -23,23 +23,6 @@ export function sliceSegment(segment: PlanSegment, offset: number, length: numbe
   return { ...segment, start: derivedSampleCount(start), length: derivedSampleCount(length) };
 }
 
-/**
- * The content frames `[from, to)` that output `[outputStart, outputEnd)` of
- * `segment` reads, where the segment begins at `segmentStart` in its stream.
- */
-export function contentWindow(
-  segment: PlanSegment,
-  segmentStart: number,
-  outputStart: number,
-  outputEnd: number,
-): { readonly from: number; readonly to: number } {
-  const first = outputStart - segmentStart;
-  const last = outputEnd - segmentStart;
-  return segment.reversed
-    ? { from: segment.start + segment.length - last, to: segment.start + segment.length - first }
-    : { from: segment.start + first, to: segment.start + last };
-}
-
 /** The segments covering `[start, end)` of the stream, cut at both ends. */
 export function sliceSegments(
   segments: readonly PlanSegment[],

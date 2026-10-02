@@ -5,9 +5,9 @@
  * order: `COMM` describes the samples, `SSND` holds them after its own offset
  * and block size, and an optional `CHAN` chunk carries CoreAudio's channel
  * layout. Since `CHAN` may follow the samples, the parse walks every chunk the
- * file holds, within the walk's bound; recognition stops at `COMM`, and the rest
- * of the parse continues the same walk. As with RIFF, the form's size is not
- * consulted, so a file cut short is walked to its true end.
+ * file holds, within the walk's bound; recognition stops at `COMM`, and the
+ * rest of the parse continues the same walk. As with RIFF, the form's size is
+ * not consulted, so a file cut short is walked to its true end.
  */
 
 import { fail, succeed, type ChannelLayout, type DomainResult } from '@audiogubbins/domain';

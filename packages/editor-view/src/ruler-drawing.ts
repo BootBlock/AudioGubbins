@@ -4,7 +4,7 @@
  * region spans and marker flags, each with its name.
  */
 
-import type { Marker, MarkerId, Region } from '@audiogubbins/domain';
+import type { PlacedMarker, MarkerId, PlacedRegion } from '@audiogubbins/domain';
 import type { RenderBatch, TextLabel } from '@audiogubbins/renderer';
 import {
   pixelOf,
@@ -122,7 +122,7 @@ function spacedLabels(labels: readonly TextLabel[]): TextLabel[] {
 export function drawStrip(
   pool: BuilderPool,
   layout: ViewLayout,
-  content: { readonly markers: readonly Marker[]; readonly regions: readonly Region[] },
+  content: { readonly markers: readonly PlacedMarker[]; readonly regions: readonly PlacedRegion[] },
   selectedMarkers: ReadonlySet<MarkerId>,
   preview: ToolPreview | undefined,
   style: OverlayStyle,

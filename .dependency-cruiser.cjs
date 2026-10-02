@@ -206,7 +206,7 @@ module.exports = {
       name: 'codecs-owns-nothing-else',
       severity: 'error',
       comment:
-        'The read contract parses bytes it is handed through a port into the domain's values, ' +
+        'The read contract parses bytes it is handed through a port into values of the domain, ' +
         'so every thread that plays, renders or summarises a file reads it alike (ADR-0052).',
       from: { path: '^packages/codecs/' },
       to: { path: '^packages/(?!(codecs|domain)/)', pathNot: '^packages/test-fixtures/' },

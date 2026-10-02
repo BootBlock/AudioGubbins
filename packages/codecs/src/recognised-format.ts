@@ -88,7 +88,7 @@ const FOREIGN_NAMES: Readonly<Record<ForeignFormat['kind'], string>> = {
 };
 
 /** A format code as its documentation writes it, four hexadecimal digits. */
-export function hexCode(value: number): string {
+function hexCode(value: number): string {
   return `0x${value.toString(16).toUpperCase().padStart(4, '0')}`;
 }
 

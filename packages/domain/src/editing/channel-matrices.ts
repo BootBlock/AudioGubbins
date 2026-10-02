@@ -8,12 +8,11 @@
  * carried across whole; a front centre, a surround or a rear channel the
  * destination lacks is folded into its left and right at minus three decibels,
  * as ITU-R BS.775 downmixes; the low-frequency channel is not folded, since a
- * full-range channel must not carry it; a mono source goes to the centre
- * where there is one and to the left and right otherwise; and a mono
- * destination takes the average of the left and right the source folds to.
- * Layouts whose channels have no position (discrete or ambisonic) have no
- * stated conversion except to themselves; their channels are remapped
- * explicitly.
+ * full-range channel must not carry it; a mono source goes to the centre where
+ * there is one and to the left and right otherwise; and a mono destination
+ * takes the average of the left and right the source folds to. Layouts whose
+ * channels have no position (discrete or ambisonic) have no stated conversion
+ * except to themselves; their channels are remapped explicitly.
  */
 
 import {

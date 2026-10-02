@@ -6,8 +6,9 @@
  * and a reversal cut and reorder them, a range edit adds a stage to those it
  * covers, a layout conversion adds a matrix to all of them, and an insertion
  * splices in its payload, or one segment reading it converted where its rate
- * differs. A chain is validated before it is folded (`operation-validation.ts`),
- * so this fold assumes every position lies where its operation says.
+ * differs. A chain is validated before it is folded
+ * (`operation-validation.ts`), so this fold assumes every position lies where
+ * its operation says.
  */
 
 import type { Asset } from '../project/asset.js';
@@ -33,42 +34,44 @@ function lengthOf(segments: readonly PlanSegment[]): number {
   return length;
 }
 
+/** An operation that changes only the first stream's segments. */
+type SegmentOperation = Exclude<EditOperation, { readonly kind: 'insert' | 'convert-layout' }>;
+
+/** The first stream's segments with `operation` applied to them. */
+function segmentsAfter(
+  stream: PlanStream,
+  operation: SegmentOperation,
+  total: number,
+): PlanSegment[] {
+  const { segments } = stream;
+  const { start, end } = operation.range;
+  switch (operation.kind) {
+    case 'delete':
+      return [...sliceSegments(segments, 0, start), ...sliceSegments(segments, end, total)];
+    case 'trim':
+      return sliceSegments(segments, start, end);
+    case 'reverse':
+      return reverseRange(segments, start, end, total);
+    case 'process':
+      return changeRange(
+        segments,
+        start,
+        end,
+        rangeEditStage(
+          operation.edit,
+          operation.range,
+          operation.channels,
+          channelCount(stream.layout),
+        ),
+      );
+  }
+}
+
 /** The plan with `operation` folded into it. */
 function foldOperation(plan: Folding, operation: EditOperation): Folding {
   const { stream } = plan;
   const total = lengthOf(stream.segments);
-  const withSegments = (segments: PlanSegment[]): Folding => ({
-    ...plan,
-    stream: { ...stream, segments },
-  });
   switch (operation.kind) {
-    case 'delete':
-      return withSegments([
-        ...sliceSegments(stream.segments, 0, operation.range.start),
-        ...sliceSegments(stream.segments, operation.range.end, total),
-      ]);
-    case 'trim':
-      return withSegments(
-        sliceSegments(stream.segments, operation.range.start, operation.range.end),
-      );
-    case 'reverse':
-      return withSegments(
-        reverseRange(stream.segments, operation.range.start, operation.range.end, total),
-      );
-    case 'process':
-      return withSegments(
-        changeRange(
-          stream.segments,
-          operation.range.start,
-          operation.range.end,
-          rangeEditStage(
-            operation.edit,
-            operation.range,
-            operation.channels,
-            channelCount(stream.layout),
-          ),
-        ),
-      );
     case 'convert-layout':
       return {
         ...plan,
@@ -83,6 +86,8 @@ function foldOperation(plan: Folding, operation: EditOperation): Folding {
       };
     case 'insert':
       return foldInsertion(plan, operation, total);
+    default:
+      return { ...plan, stream: { ...stream, segments: segmentsAfter(stream, operation, total) } };
   }
 }
 

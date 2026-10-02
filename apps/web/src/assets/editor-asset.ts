@@ -11,7 +11,13 @@
  * boundary at it.
  */
 
-import type { ChannelLayout, Marker, Region, SampleCount, SampleRate } from '@audiogubbins/domain';
+import type {
+  ChannelLayout,
+  PlacedMarker,
+  PlacedRegion,
+  SampleCount,
+  SampleRate,
+} from '@audiogubbins/domain';
 import type { PcmDescription } from '@audiogubbins/audio-engine';
 
 /** An asset an editor view can open. */
@@ -32,8 +38,8 @@ export interface EditorAsset {
    */
   readonly describe: () => PcmDescription;
   /** The markers and regions it opens with, at its own frames. */
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
 }
 
 /** The FNV-1a offset basis and prime, for a short fingerprint of a description. */

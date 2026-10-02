@@ -10,7 +10,7 @@ import { derivedSampleCount, sampleRate, type SampleCount } from '../time/sample
 import { expectSuccess } from './unwrap.js';
 import type { EditOperation, EditRange } from '../editing/operations.js';
 
-export const RATE = expectSuccess(sampleRate(48_000));
+const RATE = expectSuccess(sampleRate(48_000));
 export const OTHER_RATE = expectSuccess(sampleRate(44_100));
 
 export function frames(value: number): SampleCount {

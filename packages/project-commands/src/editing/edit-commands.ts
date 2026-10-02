@@ -12,7 +12,12 @@
  * on edits the asset no longer has.
  */
 
-import { CommandCategory, refusal, type CommandInvocation, type CommandOutcome } from '@audiogubbins/commands';
+import {
+  CommandCategory,
+  refusal,
+  type CommandInvocation,
+  type CommandOutcome,
+} from '@audiogubbins/commands';
 import {
   namesChannels,
   shapesOf,
@@ -21,7 +26,12 @@ import {
   type EditOperation,
   type Region,
 } from '@audiogubbins/domain';
-import { canonicalJson, readEditOperation, writeEditOperation, type ProjectState } from '@audiogubbins/project-format';
+import {
+  canonicalJson,
+  readEditOperation,
+  writeEditOperation,
+  type ProjectState,
+} from '@audiogubbins/project-format';
 
 import { jsonArgument, readNested, refusedBy, targetAsset } from '../invocation-arguments.js';
 import {
@@ -71,9 +81,13 @@ function regionsNamingChannels(state: ProjectState, asset: Asset): readonly Regi
 /** Whether anything is placed on the timeline the asset's last edit made. */
 function placedOnLast(state: ProjectState, asset: Asset): boolean {
   const last = asset.edits.length;
-  const regions = [...state.project.regions.values()].filter((region) => region.assetId === asset.id);
+  const regions = [...state.project.regions.values()].filter(
+    (region) => region.assetId === asset.id,
+  );
   return (
-    [...state.project.markers.values()].some((marker) => marker.assetId === asset.id && marker.basis === last) ||
+    [...state.project.markers.values()].some(
+      (marker) => marker.assetId === asset.id && marker.basis === last,
+    ) ||
     regions.some(
       (region) =>
         region.basis === last ||
@@ -83,7 +97,10 @@ function placedOnLast(state: ProjectState, asset: Asset): boolean {
   );
 }
 
-function applyEdit(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function applyEdit(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const target = targetAsset(state, invocation);
   if (!target.ok) return refusedBy(target);
   const { asset } = target.value;
@@ -92,7 +109,10 @@ function applyEdit(state: ProjectState, invocation: CommandInvocation): CommandO
   const operation = readNested(readEditOperation, value.value, '');
   if (!operation.ok) return refusedBy(operation);
   if (asset.edits.some((existing) => existing.id === operation.value.id)) {
-    return refusal('edit.duplicate-id', `${quoted(asset.displayName)} already has an edit with that identifier.`);
+    return refusal(
+      'edit.duplicate-id',
+      `${quoted(asset.displayName)} already has an edit with that identifier.`,
+    );
   }
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) throw new Error('A chain always has a shape.');
@@ -114,7 +134,10 @@ function applyEdit(state: ProjectState, invocation: CommandInvocation): CommandO
   );
 }
 
-function withdrawEdit(state: ProjectState, invocation: CommandInvocation): CommandOutcome<ProjectState> {
+function withdrawEdit(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): CommandOutcome<ProjectState> {
   const target = targetAsset(state, invocation);
   if (!target.ok) return refusedBy(target);
   const { asset } = target.value;
@@ -122,7 +145,10 @@ function withdrawEdit(state: ProjectState, invocation: CommandInvocation): Comma
   if (!id.ok) return refusedBy(id);
   const last = asset.edits.at(-1);
   if (last?.id !== id.value) {
-    return refusal('edit.not-last', `Only the last edit of ${quoted(asset.displayName)} can be withdrawn.`);
+    return refusal(
+      'edit.not-last',
+      `Only the last edit of ${quoted(asset.displayName)} can be withdrawn.`,
+    );
   }
   if (placedOnLast(state, asset)) {
     return refusal(
@@ -138,7 +164,10 @@ function withdrawEdit(state: ProjectState, invocation: CommandInvocation): Comma
 }
 
 /** Applies `operation` to the end of the asset's chain. */
-export function applyInvocation(asset: Pick<Asset, 'id'>, operation: EditOperation): CommandInvocation {
+export function applyInvocation(
+  asset: Pick<Asset, 'id'>,
+  operation: EditOperation,
+): CommandInvocation {
   return {
     commandId: ProjectCommandId.ApplyEdit,
     arguments: { assetId: asset.id, operation: canonicalJson(writeEditOperation(operation)) },
@@ -146,7 +175,10 @@ export function applyInvocation(asset: Pick<Asset, 'id'>, operation: EditOperati
 }
 
 /** Withdraws `operation`, the last of the asset's chain. */
-export function withdrawInvocation(asset: Pick<Asset, 'id'>, operation: EditOperation): CommandInvocation {
+export function withdrawInvocation(
+  asset: Pick<Asset, 'id'>,
+  operation: EditOperation,
+): CommandInvocation {
   return {
     commandId: ProjectCommandId.WithdrawEdit,
     arguments: { assetId: asset.id, operationId: operation.id },

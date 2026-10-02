@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 import { createDeterministicIdGenerator } from '@audiogubbins/domain';
 import {
+  NESTED_ARGUMENT_LIMITS,
   canonicalJson,
   isJsonObject,
   parseJson,
   storageKeyOf,
-  type JsonLimits,
   type JsonObject,
   type JsonValue,
 } from '@audiogubbins/project-format';
@@ -27,7 +27,6 @@ import {
 import { referenceState } from './testing/reference-state.js';
 
 const bus = projectBus();
-const LIMITS: JsonLimits = { maximumLength: 65_536, maximumDepth: 8 };
 const { state, assets } = referenceState(sampleProject());
 
 /** A new asset and source, not yet in the reference state. */
@@ -55,7 +54,7 @@ function renameAsset(assetId: string, name: string): CommandInvocation {
 function editedRecord(edit: (record: JsonObject) => JsonValue): string {
   const { asset, source } = newRecord(1);
   const text = addAssetInvocation(asset, source).arguments?.['asset'];
-  const parsed = typeof text === 'string' ? parseJson(text, LIMITS) : undefined;
+  const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
   if (parsed?.ok !== true || !isJsonObject(parsed.value)) throw new Error('No record to edit.');
   return canonicalJson(edit(parsed.value));
 }
@@ -79,7 +78,7 @@ describe('project.add-asset', () => {
     const text = addAssetInvocation(asset, source).arguments?.['asset'];
 
     expect(typeof text).toBe('string');
-    const parsed = parseJson(String(text), LIMITS);
+    const parsed = parseJson(String(text), NESTED_ARGUMENT_LIMITS);
     expect(parsed.ok && canonicalJson(parsed.value)).toBe(text);
     expect(parsed.ok && isJsonObject(parsed.value) && Object.keys(parsed.value).sort()).toEqual([
       'asset',
@@ -159,11 +158,13 @@ describe('project.remove-asset', () => {
     expect(appliedOf(bus.execute(next, entryOf(result).inverse[0])).next).toEqual(state);
   });
 
-  it('refuses while clips use the asset, saying how many', () => {
+  it('refuses while clips, regions or markers use the asset, saying how many', () => {
     const result = bus.execute(state, removeAsset(assets.footstep.id));
 
     expect(refusalCodeOf(result)).toBe('asset.in-use');
-    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain('2 clips');
+    expect(result.kind === 'refused' ? result.failures[0].summary : '').toBe(
+      '“Gravel footstep” still has 2 clips that play it, 1 region and 1 marker. Remove them first.',
+    );
   });
 
   it('refuses an identifier the project lacks, and one of the wrong shape', () => {
@@ -180,7 +181,10 @@ describe('project.remove-asset', () => {
     for (const assetId of [assets.forest.id, assets.rain.id]) {
       empty = appliedOf(bus.execute(empty, removeAsset(assetId))).next;
     }
-    empty = { ...empty, project: { ...empty.project, clips: new Map() } };
+    empty = {
+      ...empty,
+      project: { ...empty.project, clips: new Map(), regions: new Map(), markers: new Map() },
+    };
     empty = appliedOf(bus.execute(empty, removeAsset(assets.footstep.id))).next;
 
     expect(bus.availability(empty, ProjectCommandId.RemoveAsset).available).toBe(false);

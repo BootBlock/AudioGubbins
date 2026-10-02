@@ -18,7 +18,8 @@ import { expectFailureCode, expectSuccess, renderPlan } from '@audiogubbins/doma
 
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { ResamplingQuality } from '../dsp/canonical-dsp.js';
-import { MediaReadFailure, editedSource, type MediaEntry } from './edited-source.js';
+import { editedSource } from './edited-source.js';
+import { MediaReadFailure, type MediaEntry } from './plan-content.js';
 import { allocateBlock, frameBlock } from './frame-block.js';
 import type { MediaFile } from './media-file.js';
 import { memorySource } from './memory-source.js';
@@ -47,13 +48,23 @@ function memoryFile(bytes: Uint8Array): MediaFile & { readonly asked: () => numb
 /** Deterministic samples, exactly representable at 32 bits. */
 function samplesOf(length: number, channels: number, seed: number): Float32Array[] {
   return Array.from({ length: channels }, (_, channel) =>
-    Float32Array.from({ length }, (__, frame) => Math.fround(Math.sin((frame + 1) * (seed + channel)) * 0.5)),
+    Float32Array.from({ length }, (__, frame) =>
+      Math.fround(Math.sin((frame + 1) * (seed + channel)) * 0.5),
+    ),
   );
 }
 
-function assetOf(name: string, length: number, rate: SampleRate, layout: ChannelLayout, edits: readonly EditOperation[] = []): Asset {
+function assetOf(
+  name: string,
+  length: number,
+  rate: SampleRate,
+  layout: ChannelLayout,
+  edits: readonly EditOperation[] = [],
+): Asset {
   return {
-    id: unsafeBrandId<'AssetId'>(`0000eeee-${[...name].map((letter) => letter.charCodeAt(0).toString(16)).join('')}`),
+    id: unsafeBrandId<'AssetId'>(
+      `0000eeee-${Array.from(new TextEncoder().encode(name), (byte) => byte.toString(16)).join('')}`,
+    ),
     displayName: name,
     origin: AssetOrigin.Imported,
     sampleRate: rate,
@@ -64,9 +75,24 @@ function assetOf(name: string, length: number, rate: SampleRate, layout: Channel
   };
 }
 
-function entryOf(asset: Asset, samples: readonly Float32Array[]): MediaEntry & { readonly file: ReturnType<typeof memoryFile> } {
-  const file = memoryFile(writeWav({ sampleRate: asset.sampleRate, encoding: { kind: 'float', bits: 32 }, channels: samples }));
-  return { asset: asset.id, sampleRate: asset.sampleRate, channels: samples.length, length: asset.length, file };
+function entryOf(
+  asset: Asset,
+  samples: readonly Float32Array[],
+): MediaEntry & { readonly file: ReturnType<typeof memoryFile> } {
+  const file = memoryFile(
+    writeWav({
+      sampleRate: asset.sampleRate,
+      encoding: { kind: 'float', bits: 32 },
+      channels: samples,
+    }),
+  );
+  return {
+    asset: asset.id,
+    sampleRate: asset.sampleRate,
+    channels: samples.length,
+    length: asset.length,
+    file,
+  };
 }
 
 /** Everything a source holds, read in blocks of `size`. */
@@ -82,7 +108,9 @@ async function readAll(source: PcmSource, size: number): Promise<Float32Array[]>
 }
 
 function bitsOf(channels: readonly Float32Array[]): number[][] {
-  return channels.map((channel) => [...new Uint32Array(channel.buffer, channel.byteOffset, channel.length)]);
+  return channels.map((channel) => [
+    ...new Uint32Array(channel.buffer, channel.byteOffset, channel.length),
+  ]);
 }
 
 const id = (name: string) => unsafeBrandId<'EditOperationId'>(`0000ffff-${name}`);
@@ -94,9 +122,23 @@ describe('an edited source', () => {
   const edited: Asset = {
     ...source,
     edits: [
-      { id: id('cut'), kind: 'delete', range: { start: derivedSampleCount(200), end: derivedSampleCount(900) } },
-      { id: id('turn'), kind: 'reverse', range: { start: derivedSampleCount(1_000), end: derivedSampleCount(2_500) } },
-      { id: id('paste'), kind: 'insert', at: derivedSampleCount(3_000), payload: copied, convertRate: false },
+      {
+        id: id('cut'),
+        kind: 'delete',
+        range: { start: derivedSampleCount(200), end: derivedSampleCount(900) },
+      },
+      {
+        id: id('turn'),
+        kind: 'reverse',
+        range: { start: derivedSampleCount(1_000), end: derivedSampleCount(2_500) },
+      },
+      {
+        id: id('paste'),
+        kind: 'insert',
+        at: derivedSampleCount(3_000),
+        payload: copied,
+        convertRate: false,
+      },
       {
         id: id('fade'),
         kind: 'process',
@@ -115,14 +157,23 @@ describe('an edited source', () => {
   it('reads the same bits as the plan rendered whole, whatever the block size', async () => {
     const expected = bitsOf(renderPlan(assetPlan(edited), new Map([[source.id, samples]])));
     for (const size of [1, 97, 1_024, 10_000]) {
-      const made = expectSuccess(editedSource(assetPlan(edited), [entryOf(source, samples)], StandardLayouts.stereo, REFERENCE_DSP));
+      const made = expectSuccess(
+        editedSource(
+          assetPlan(edited),
+          [entryOf(source, samples)],
+          StandardLayouts.stereo,
+          REFERENCE_DSP,
+        ),
+      );
       expect(bitsOf(await readAll(made, size)), `blocks of ${String(size)}`).toEqual(expected);
     }
   });
 
   it('reads only the bytes of the frames it is asked for', async () => {
     const entry = entryOf(source, samples);
-    const made = expectSuccess(editedSource(assetPlan(source), [entry], StandardLayouts.stereo, REFERENCE_DSP));
+    const made = expectSuccess(
+      editedSource(assetPlan(source), [entry], StandardLayouts.stereo, REFERENCE_DSP),
+    );
     await made.read(derivedSampleCount(4_000), allocateBlock(StandardLayouts.stereo, RATE, 100));
     // The header, then one range of a hundred stereo 32-bit frames.
     expect(entry.file.asked()).toBeLessThan(entry.file.size / 4);
@@ -134,16 +185,31 @@ describe('an edited source', () => {
     const payload = expectSuccess(slicePlan(assetPlan(other), 0, 441));
     const pasted: Asset = {
       ...source,
-      edits: [{ id: id('paste'), kind: 'insert', at: derivedSampleCount(100), payload, convertRate: true }],
+      edits: [
+        {
+          id: id('paste'),
+          kind: 'insert',
+          at: derivedSampleCount(100),
+          payload,
+          convertRate: true,
+        },
+      ],
     };
     const made = expectSuccess(
-      editedSource(assetPlan(pasted), [entryOf(source, samples), entryOf(other, quiet)], StandardLayouts.stereo, REFERENCE_DSP),
+      editedSource(
+        assetPlan(pasted),
+        [entryOf(source, samples), entryOf(other, quiet)],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+      ),
     );
     const heard = await readAll(made, 256);
     const converted = expectSuccess(
       resampledSource(
         REFERENCE_DSP,
-        expectSuccess(memorySource(expectSuccess(frameBlock(StandardLayouts.stereo, OTHER, quiet)))),
+        expectSuccess(
+          memorySource(expectSuccess(frameBlock(StandardLayouts.stereo, OTHER, quiet))),
+        ),
         RATE,
         ResamplingQuality.Maximum,
       ),
@@ -151,30 +217,53 @@ describe('an edited source', () => {
     const expected = await readAll(converted, 480);
     expect(heard[0]?.length).toBe(5_480);
     expect(bitsOf(heard.map((channel) => channel.subarray(100, 580)))).toEqual(bitsOf(expected));
-    expect(bitsOf(heard.map((channel) => channel.subarray(0, 100)))).toEqual(bitsOf(samples.map((channel) => channel.subarray(0, 100))));
+    expect(bitsOf(heard.map((channel) => channel.subarray(0, 100)))).toEqual(
+      bitsOf(samples.map((channel) => channel.subarray(0, 100))),
+    );
   });
 
   it('refuses a file that no longer has the rate its asset recorded', async () => {
     const entry = { ...entryOf(source, samples), sampleRate: OTHER };
-    const made = expectSuccess(editedSource(assetPlan({ ...source, sampleRate: OTHER }), [entry], StandardLayouts.stereo, REFERENCE_DSP));
-    const reading = made.read(derivedSampleCount(0), allocateBlock(StandardLayouts.stereo, OTHER, 10));
+    const made = expectSuccess(
+      editedSource(
+        assetPlan({ ...source, sampleRate: OTHER }),
+        [entry],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+      ),
+    );
+    const reading = made.read(
+      derivedSampleCount(0),
+      allocateBlock(StandardLayouts.stereo, OTHER, 10),
+    );
     await expect(reading).rejects.toBeInstanceOf(MediaReadFailure);
     await expect(reading).rejects.toMatchObject({ failure: { code: 'media.not-recorded-file' } });
   });
 
   it('stops a read that is cancelled', async () => {
-    const made = expectSuccess(editedSource(assetPlan(edited), [entryOf(source, samples)], StandardLayouts.stereo, REFERENCE_DSP));
+    const made = expectSuccess(
+      editedSource(
+        assetPlan(edited),
+        [entryOf(source, samples)],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+      ),
+    );
     const controller = new AbortController();
     controller.abort(new Error('Stopped.'));
     await expect(
-      made.read(derivedSampleCount(0), allocateBlock(StandardLayouts.stereo, RATE, 10), controller.signal),
+      made.read(
+        derivedSampleCount(0),
+        allocateBlock(StandardLayouts.stereo, RATE, 10),
+        controller.signal,
+      ),
     ).rejects.toThrow('Stopped.');
   });
 
   it('refuses a plan that reads a file it was not given', () => {
-    expect(expectFailureCode(editedSource(assetPlan(edited), [], StandardLayouts.stereo, REFERENCE_DSP))).toBe(
-      'editing.plan-malformed',
-    );
+    expect(
+      expectFailureCode(editedSource(assetPlan(edited), [], StandardLayouts.stereo, REFERENCE_DSP)),
+    ).toBe('editing.plan-malformed');
   });
 });
 
@@ -183,7 +272,12 @@ describe('an edited description crossing a thread', () => {
   const source = assetOf('crossing', 100, RATE, StandardLayouts.stereo);
 
   it('reads back the plan and files it was sent with, and makes their source', async () => {
-    const description = { kind: PcmDescriptionKind.Edited, sampleRate: RATE, plan: assetPlan(source), media: [entryOf(source, samples)] };
+    const description = {
+      kind: PcmDescriptionKind.Edited,
+      sampleRate: RATE,
+      plan: assetPlan(source),
+      media: [entryOf(source, samples)],
+    };
     const read = expectSuccess(pcmDescription(structuredClone({ ...description, media: [] })));
     expect(read.kind).toBe(PcmDescriptionKind.Edited);
     const made = expectSuccess(describedSource(description, StandardLayouts.stereo, REFERENCE_DSP));
@@ -191,12 +285,19 @@ describe('an edited description crossing a thread', () => {
   });
 
   it('refuses a plan that is not one, and media that are not files', () => {
-    expect(expectFailureCode(pcmDescription({ kind: 'edited', sampleRate: 48_000, plan: { streams: 'no' }, media: [] }))).toBe(
-      'pcm.description-unreadable',
-    );
     expect(
       expectFailureCode(
-        pcmDescription({ kind: 'edited', sampleRate: 48_000, plan: assetPlan(source), media: [{ asset: source.id }] }),
+        pcmDescription({ kind: 'edited', sampleRate: 48_000, plan: { streams: 'no' }, media: [] }),
+      ),
+    ).toBe('pcm.description-unreadable');
+    expect(
+      expectFailureCode(
+        pcmDescription({
+          kind: 'edited',
+          sampleRate: 48_000,
+          plan: assetPlan(source),
+          media: [{ asset: source.id }],
+        }),
       ),
     ).toBe('pcm.description-unreadable');
   });

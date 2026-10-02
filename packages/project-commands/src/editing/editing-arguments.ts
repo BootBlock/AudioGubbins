@@ -34,11 +34,17 @@ export function idArgument<TBrand extends string>(
   if (!text.ok) return text;
   return isWellFormedId(text.value)
     ? succeed(unsafeBrandId<TBrand>(text.value))
-    : rejected('argument.id-malformed', `The argument “${name}” is not an identifier AudioGubbins makes.`);
+    : rejected(
+        'argument.id-malformed',
+        `The argument “${name}” is not an identifier AudioGubbins makes.`,
+      );
 }
 
 /** The marker the argument `markerId` names. */
-export function targetMarker(state: ProjectState, invocation: CommandInvocation): DomainResult<Marker> {
+export function targetMarker(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): DomainResult<Marker> {
   const id = idArgument<'MarkerId'>(invocation, 'markerId');
   if (!id.ok) return id;
   const marker = state.project.markers.get(id.value);
@@ -48,7 +54,10 @@ export function targetMarker(state: ProjectState, invocation: CommandInvocation)
 }
 
 /** The region the argument `regionId` names. */
-export function targetRegion(state: ProjectState, invocation: CommandInvocation): DomainResult<Region> {
+export function targetRegion(
+  state: ProjectState,
+  invocation: CommandInvocation,
+): DomainResult<Region> {
   const id = idArgument<'RegionId'>(invocation, 'regionId');
   if (!id.ok) return id;
   const region = state.project.regions.get(id.value);

@@ -4,15 +4,15 @@
  * It gives the same bits on every machine (ADR-0032), because each step is an
  * exact integer operation or one correctly rounded IEEE-754 operation:
  *
- * - An integer sample of `bits` valid bits in `bytes` container bytes is read as
- *   an integer of the container's width in its byte order: two's complement, or
- *   offset binary with half the container's range subtracted first (WAV's
+ * - An integer sample of `bits` valid bits in `bytes` container bytes is read
+ *   as an integer of the container's width in its byte order: two's complement,
+ *   or offset binary with half the container's range subtracted first (WAV's
  *   eight-bit samples and AIFF-C `raw `). The padding bits below the valid ones
  *   are dropped by an arithmetic shift right of `8 × bytes − bits`. The integer
- *   is divided by `2^(bits − 1)`, exact in a double since the divisor is a power
- *   of two, and rounded to float32 by `Math.fround`: exact for 24 bits or fewer,
- *   correctly rounded for more. Full scale is therefore −1 inclusive to 1
- *   exclusive.
+ *   is divided by `2^(bits − 1)`, exact in a double since the divisor is a
+ *   power of two, and rounded to float32 by `Math.fround`: exact for 24 bits or
+ *   fewer, correctly rounded for more. Full scale is therefore −1 inclusive to
+ *   1 exclusive.
  * - A 32-bit float is taken as it is, its four bytes copied into the output's
  *   own, so every bit survives, a NaN's payload included.
  * - A 64-bit float is rounded to the nearest float32 by `Math.fround`.
@@ -94,8 +94,9 @@ function channelDecoder(encoding: SampleEncoding): ChannelDecoder {
   const littleEndian = encoding.byteOrder === 'little';
   if (encoding.kind === 'float' && encoding.bits === 32) {
     return (view, first, stride, frames, target, at) => {
-      // A float32 carried through a number may lose a NaN's payload, so the bits
-      // are moved as an integer, through a view of the output's own memory.
+      // A float32 carried through a number may lose a NaN's payload, so the
+      // bits are moved as an integer, through a view of the output's own
+      // memory.
       const bits = new Uint32Array(target.buffer, target.byteOffset, target.length);
       for (let frame = 0; frame < frames; frame += 1) {
         bits[at + frame] = view.getUint32(first + frame * stride, littleEndian);

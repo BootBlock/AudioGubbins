@@ -9,7 +9,7 @@
  * last drawn, so a hit never depends on a stale frame.
  */
 
-import type { Marker, MarkerId } from '@audiogubbins/domain';
+import type { PlacedMarker, MarkerId } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import { pixelOf, type BoundaryRange, type ViewportState } from '@audiogubbins/timeline';
 
@@ -29,7 +29,7 @@ export type HitTarget =
 export interface HitScene {
   readonly layout: ViewLayout;
   readonly viewport: ViewportState;
-  readonly markers: readonly Marker[];
+  readonly markers: readonly PlacedMarker[];
   /** The time selection, where one is shown. */
   readonly selection: BoundaryRange | undefined;
 }
@@ -49,8 +49,8 @@ function inside(
   return x >= area.x && x < area.x + area.width && y >= area.y && y < area.y + area.height;
 }
 
-function nearestMarker(scene: HitScene, x: number, reach: number): Marker | undefined {
-  let best: Marker | undefined;
+function nearestMarker(scene: HitScene, x: number, reach: number): PlacedMarker | undefined {
+  let best: PlacedMarker | undefined;
   let bestDistance = Infinity;
   for (const marker of scene.markers) {
     const distance = Math.abs(pixelOf(scene.viewport, marker.position) - x);

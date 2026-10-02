@@ -2882,8 +2882,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'The bindings that ship as the default profile, each written as the character it is pressed with and given its reason; the helper that places a character, pressed with the usual modifier, on the layout the user types with, and the one that joins presses into a shortcut or names the characters it waits for; and the split of the placed defaults from those waiting for a key and those waiting for a Command press.',
     ],
     'packages/test-fixtures/src/projects.ts: sampleProject': [
-      108,
-      'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic.',
+      116,
+      'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
       142,

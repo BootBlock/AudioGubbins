@@ -625,8 +625,9 @@ describe('cancelling', () => {
       encoding: { kind: 'integer', bits: 16 },
       channels: stereo(400_000),
     });
-    // The data is 1.6 MB, read in two pieces; cancelling during the second leaves
-    // no later read to notice, so only the check after each read can reject.
+    // The data is 1.6 MB, read in two pieces; cancelling during the second
+    // leaves no later read to notice, so only the check after each read can
+    // reject.
     let reads = 0;
     const bytes = memoryBytes(file, {
       answer: (request, honest) => {
