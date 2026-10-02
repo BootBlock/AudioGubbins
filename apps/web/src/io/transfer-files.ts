@@ -10,27 +10,29 @@
  * through the input in every browser, and written only through the directory
  * picker, which alone gives a folder to write into. Each chooser is opened as
  * the first thing the flow does, in the handler of the person's gesture, since
- * a browser opens none outside one.
+ * a browser opens none outside one. A file or folder the person chose is handed
+ * on as the files themselves, for the storage worker to read (`page-files.ts`).
  */
 
 import {
   BlobSink,
   filesFromInput,
-  listedFolder,
   openFileSink,
   pickDirectory,
   pickFiles,
   pickSaveFile,
   writableFolder,
+  type ChosenFile,
   type FileHandleKeeper,
 } from '@audiogubbins/browser-storage';
 import type { FilePickers } from '@audiogubbins/capabilities';
-import type { ExternalFile } from '@audiogubbins/media-store';
-import type { ByteSink, ByteSource } from '@audiogubbins/project-format';
-import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
+import type { ByteSink } from '@audiogubbins/project-format';
+import type { DirectoryWriter } from '@audiogubbins/storage';
+import type { FolderFile, PageBytes, PageFile, PageFolder } from '@audiogubbins/storage-runtime';
 
 import { offerDownload } from './download.js';
 import { chooseThroughInput } from './file-input.js';
+import { pageFileOf } from './page-files.js';
 
 /** Where a file is written, and what finishes it once the sink has closed. */
 export interface SaveTarget {
@@ -52,7 +54,7 @@ export interface ChosenFolder {
 /** A bundle the person chose to bring in. */
 export interface ChosenBundle {
   readonly name: string;
-  readonly source: ByteSource;
+  readonly bytes: PageBytes;
 }
 
 /** How files and folders pass between AudioGubbins and the person. */
@@ -64,13 +66,13 @@ export interface TransferFiles {
   chooseBundle(): Promise<ChosenBundle | undefined>;
 
   /** A folder holding an unpacked project, or nothing where dismissed. */
-  chooseFolderToRead(): Promise<DirectoryReader | undefined>;
+  chooseFolderToRead(): Promise<PageFolder | undefined>;
 
   /** A folder to write an unpacked project into, absent where the browser gives none. */
   readonly chooseFolderToWrite: (() => Promise<ChosenFolder | undefined>) | undefined;
 
   /** One audio file, kept to be found again where the browser can, or nothing where dismissed. */
-  chooseMediaFile(): Promise<ExternalFile | undefined>;
+  chooseMediaFile(): Promise<PageFile | undefined>;
 }
 
 /** What a picker offers for a bundle. */
@@ -79,10 +81,16 @@ const BUNDLE_ACCEPT = '.zip,application/zip';
 /** A file chosen through the input, as a bundle. */
 function bundleOf(files: readonly File[]): ChosenBundle | undefined {
   const [file] = files;
-  const [external] = filesFromInput(files);
-  return file === undefined || external === undefined
-    ? undefined
-    : { name: file.name, source: external.source };
+  return file === undefined ? undefined : { name: file.name, bytes: { kind: 'file', file } };
+}
+
+/** The files a folder input gave, each by where it lies inside the folder chosen. */
+function folderOf(files: readonly File[]): PageFolder | undefined {
+  const inside: FolderFile[] = [];
+  for (const { file, relativePath } of filesFromInput(files)) {
+    if (relativePath !== undefined) inside.push({ path: relativePath, file });
+  }
+  return files.length === 0 ? undefined : { kind: 'files', files: inside };
 }
 
 /** A sink that gathers the file, and offers it as a download once it has closed. */
@@ -95,6 +103,15 @@ function downloadTarget(name: string, mediaType: string): SaveTarget {
       offerDownload(sink.blob(), name);
     },
   };
+}
+
+/** One file the picker gave, or none where the person dismissed it. */
+async function pickedFiles(
+  pickers: FilePickers,
+  keeper: FileHandleKeeper | undefined,
+): Promise<readonly ChosenFile[]> {
+  const picked = await pickFiles(pickers.openFiles, keeper, { multiple: false });
+  return picked.kind === 'cancelled' ? [] : picked.chosen;
 }
 
 /** The browser's way of passing files, with the pickers where it has them. */
@@ -114,10 +131,7 @@ export function browserTransferFiles(
       };
     },
     chooseBundle: async () => bundleOf(await chooseThroughInput({ accept: BUNDLE_ACCEPT })),
-    chooseFolderToRead: async () => {
-      const files = await chooseThroughInput({ folder: true });
-      return files.length === 0 ? undefined : listedFolder(filesFromInput(files));
-    },
+    chooseFolderToRead: async () => folderOf(await chooseThroughInput({ folder: true })),
     chooseFolderToWrite:
       pickers === undefined
         ? undefined
@@ -128,11 +142,11 @@ export function browserTransferFiles(
               : { writer: writableFolder(picked.chosen), name: picked.chosen.name };
           },
     chooseMediaFile: async () => {
-      if (pickers === undefined) {
-        return filesFromInput(await chooseThroughInput({ accept: 'audio/*' }))[0];
-      }
-      const picked = await pickFiles(pickers.openFiles, keeper, { multiple: false });
-      return picked.kind === 'cancelled' ? undefined : picked.chosen[0];
+      const [chosen] =
+        pickers === undefined
+          ? filesFromInput(await chooseThroughInput({ accept: 'audio/*' }))
+          : await pickedFiles(pickers, keeper);
+      return chosen === undefined ? undefined : pageFileOf(chosen);
     },
   };
 }

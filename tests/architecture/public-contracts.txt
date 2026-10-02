@@ -707,6 +707,7 @@ Published paths
   BlobSink.abort: () => Promise<void>
   BlobSink.blob: () => Blob
   BlobSink.#whileOpen: (step: () => void) => Promise<void>
+  type ChosenFile = Omit<ExternalFile, "source"> & { readonly file: File; readonly handle?: FileSystemFileHandle; }
   class FileHandleKeeper
   new FileHandleKeeper(factory: HandleDatabaseFactory, nextToken: TokenSource): FileHandleKeeper
   readonly FileHandleKeeper.#factory: HandleDatabaseFactory
@@ -750,7 +751,7 @@ Published paths
   HandleTransaction.objectStore: (name: string) => HandleObjectStore
   HandleTransaction.addEventListener: (type: "abort" | "complete" | "error", listener: () => void) => void
   type HostYieldingMethod = { readonly kind: "macrotask"; readonly createChannel: () => MessageChannel; } | { readonly kind: "none"; } | { readonly kind: "scheduler"; readonly yieldNow: () => Promise<void>; }
-  type KeptFileAccess = { readonly kind: "available"; readonly file: ExternalFile; } | { readonly kind: "denied"; } | { readonly kind: "missing"; } | { readonly kind: "permission-needed"; }
+  type KeptFileAccess = { readonly kind: "available"; readonly file: ChosenFile; } | { readonly kind: "denied"; } | { readonly kind: "missing"; } | { readonly kind: "permission-needed"; }
   type KeptFolderAccess = { readonly kind: "available"; readonly folder: FileSystemDirectoryHandle; } | { readonly kind: "denied"; readonly name: string; } | { readonly kind: "none"; } | { readonly kind: "permission-needed"; readonly name: string; }
   interface LeaseChannel
   LeaseChannel.postMessage: (message: unknown) => void
@@ -770,12 +771,6 @@ Published paths
   interface PickerFileType
   readonly PickerFileType.description: string
   readonly PickerFileType.accept: Readonly<Record<string, readonly string[]>>
-  interface TreeWorker
-  TreeWorker.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "error" | "messageerror", listener: (event: Event) => void): void; }
-  TreeWorker.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
-  interface TreeWorkerScope
-  TreeWorkerScope.addEventListener: (type: "message", listener: (event: MessageEvent) => void) => void
-  TreeWorkerScope.postMessage: (message: unknown, options: StructuredSerializeOptions) => void
   interface WebLeaseServices
   readonly WebLeaseServices.locks: LeaseLocks | undefined
   readonly WebLeaseServices.openChannel: OpenLeaseChannel | undefined
@@ -788,22 +783,20 @@ Published paths
   WritableFile.createWritable: (options: { readonly keepExistingData: boolean; }) => Promise<FileWriteStream>
   function createLeaseCoordinator(services: WebLeaseServices): LeaseCoordinator | undefined
   function fileSource(file: File, current?: (() => Promise<File>) | undefined): ByteSource
-  function filesFromInput(files: Iterable<File>): readonly ExternalFile[]
-  function filesInDirectory(directory: FileSystemDirectoryHandle, keeper: FileHandleKeeper | undefined, signal?: AbortSignal | undefined): AsyncGenerator<ExternalFile, void, undefined>
-  function listedFolder(files: readonly ExternalFile[]): DirectoryReader
+  function filesFromInput(files: Iterable<File>): readonly ChosenFile[]
+  function filesInDirectory(directory: FileSystemDirectoryHandle, keeper: FileHandleKeeper | undefined, signal?: AbortSignal | undefined): AsyncGenerator<ChosenFile, void, undefined>
+  function listedFolder(files: readonly Pick<ChosenFile, "file" | "handle" | "relativePath">[]): DirectoryReader
   function openFileSink(file: WritableFile): Promise<ByteSink>
   function openFileSinkIn(directory: WritableDirectory, name: string): Promise<ByteSink>
   function originPrivateTree(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): StorageTree
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
-  function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ExternalFile[]>>
+  function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ChosenFile[]>>
   function pickSaveFile(saveFile: Picker, suggestedName: string): Promise<Picked<FileSystemFileHandle>>
   function randomTokens(randomBytes: (length: number) => Uint8Array): TokenSource
   function reopenKeptFile(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function reopenKeptFolder(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
   function requestKeptFileAccess(keeper: FileHandleKeeper, handleKey: string): Promise<KeptFileAccess>
   function requestKeptFolderAccess(keeper: FileHandleKeeper, use: "folder:backups"): Promise<KeptFolderAccess>
-  function serveOriginPrivateTree(scope: TreeWorkerScope, readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): void
-  function startOriginPrivateTree(createWorker: () => TreeWorker): StorageTree
   function webDigest(subtle: SubtleCrypto): Digest
   function writableFolder(root: FileSystemDirectoryHandle): DirectoryWriter
   function yieldToHost(method: HostYieldingMethod): YieldToHost
@@ -3388,6 +3381,30 @@ Published paths
   function connectStorage(endpoint: PortEndpoint, diagnostics: Pick<DiagnosticCentre, "relay">): StorageClient
 
 @audiogubbins/storage-runtime/testing
+  interface HostServices extends OpeningServices, CleanupRunServices
+  readonly HostServices.repository: ProjectRepository
+  readonly HostServices.yieldToHost: YieldToHost
+  readonly HostServices.tree: StorageTree
+  readonly HostServices.digest: Digest
+  readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
+  readonly HostServices.clock: Clock
+  readonly HostServices.ids: IdGenerator
+  readonly HostServices.logger: Logger
+  readonly HostServices.coordinator?: LeaseCoordinator
+  readonly HostServices.owner: LeaseOwner
+  readonly HostServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
+  readonly HostServices.store: MediaObjectStore
+  readonly HostServices.caches: CacheStore
+  interface MemoryStorageOptions
+  readonly MemoryStorageOptions.tree?: StorageTree
+  readonly MemoryStorageOptions.yieldToHost?: YieldToHost
+  readonly MemoryStorageOptions.coordinator?: MemoryLeaseCoordinator
+  readonly MemoryStorageOptions.tab?: { readonly name: string; readonly seed: number; readonly label?: string; }
+  readonly MemoryStorageOptions.clock?: Clock
+  interface MemoryWorker
+  readonly MemoryWorker.coordinator: MemoryLeaseCoordinator
+  readonly MemoryWorker.hostLogs: HostLogs
+  readonly MemoryWorker.another: HostServices
   interface PortPair
   readonly PortPair.page: PortEndpoint
   readonly PortPair.worker: PortEndpoint
@@ -3397,7 +3414,10 @@ Published paths
   PortPair.sendToWorker: (message: unknown) => void
   PortPair.fail: () => void
   PortPair.spoilToPage: () => void
+  function memoryHostServices(options: Required<Pick<MemoryStorageOptions, "clock" | "coordinator" | "tab" | "tree">>): HostServices
   function portPair(): PortPair
+  function serveMemoryStorage(endpoint: PortEndpoint, options?: MemoryStorageOptions): MemoryWorker
+  function steppingClock(): Clock
 
 @audiogubbins/storage/testing
   interface LeasePlatform
@@ -4380,6 +4400,10 @@ packages/storage-runtime/src/client/usage-client.ts
   interface CleanupRunOptions
   readonly CleanupRunOptions.held?: RemoteProjectSession
   readonly CleanupRunOptions.signal?: AbortSignal
+
+packages/storage-runtime/src/host/host-services.ts
+  interface HostLogs
+  HostLogs.loggerFor: (category: string) => Logger
 
 packages/storage-runtime/src/protocol/backup-operations.ts
   type BackupOperations = { 'backups.tick': Tick; 'backups.backUpNow': Tick; 'backups.list': Operation<ProjectId, DomainResult<GenerationListing>>; 'backups.protect': Operation<{ readonly project: ProjectId; readonly generation: number; readonly protect: boolean; }, DomainResult<void>>; 'backups.remove': Operation<{ readonly project: ProjectId; readonly generations: readonly number[]; }, DomainResult<void>>; 'backups.restoreAsNew': Operation<{ readonly project: ProjectId; readonly generation: number; }, DomainResult<ProjectHeader>>; 'backups.restoreInPlace': Operation<{ readonly handle: ProjectHandle; readonly project: ProjectId; readonly generation: number; }, DomainResult<RestoredInPlace>>; }

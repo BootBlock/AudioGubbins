@@ -67,6 +67,9 @@
       "path": "../../packages/browser-storage"
     },
     {
+      "path": "../../packages/storage-runtime"
+    },
+    {
       "path": "../../packages/audio-graph"
     },
     {

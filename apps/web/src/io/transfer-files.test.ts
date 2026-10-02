@@ -69,7 +69,7 @@ describe('passing files where the browser has no pickers', () => {
     expect(files.chooseFolderToWrite).toBeUndefined();
   });
 
-  it('reads a bundle chosen through the input, and a folder chosen through it', async () => {
+  it('hands over a bundle chosen through the input as itself, and a folder as its files', async () => {
     vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
     const files = browserTransferFiles(undefined, undefined);
 
@@ -79,9 +79,7 @@ describe('passing files where the browser has no pickers', () => {
     const alone = new File(['bundle'], 'Harbour.zip');
     Object.defineProperty(alone, 'webkitRelativePath', { value: '' });
     choose([alone]);
-    const chosen = await bundle;
-    expect(chosen?.name).toBe('Harbour.zip');
-    expect(chosen?.source.size).toBe(6);
+    expect(await bundle).toEqual({ name: 'Harbour.zip', bytes: { kind: 'file', file: alone } });
 
     const folder = files.chooseFolderToRead();
     const inside = new File(['{}'], 'audiogubbins-project.json');
@@ -89,7 +87,27 @@ describe('passing files where the browser has no pickers', () => {
       value: 'Harbour/audiogubbins-project.json',
     });
     choose([inside]);
-    expect(await (await folder)?.list()).toEqual([{ path: 'audiogubbins-project.json', size: 2 }]);
+    expect(await folder).toEqual({
+      kind: 'files',
+      files: [{ path: 'audiogubbins-project.json', file: inside }],
+    });
+  });
+
+  it('hands over an audio file chosen through the input as itself, with no key to find it by', async () => {
+    vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => undefined);
+    const files = browserTransferFiles(undefined, undefined);
+
+    const media = files.chooseMediaFile();
+    const take = new File(['take'], 'take.wav', { type: 'audio/wav', lastModified: 9 });
+    Object.defineProperty(take, 'webkitRelativePath', { value: '' });
+    choose([take]);
+
+    expect(await media).toEqual({
+      fileName: 'take.wav',
+      mediaType: 'audio/wav',
+      lastModified: 9,
+      bytes: { kind: 'file', file: take },
+    });
   });
 
   it('brings nothing in where the person chooses nothing', async () => {

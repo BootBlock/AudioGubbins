@@ -28,6 +28,7 @@
     "@audiogubbins/media-store": "workspace:*",
     "@audiogubbins/storage": "workspace:*",
     "@audiogubbins/browser-storage": "workspace:*",
+    "@audiogubbins/storage-runtime": "workspace:*",
     "@audiogubbins/audio-graph": "workspace:*",
     "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/audio-runtime": "workspace:*",

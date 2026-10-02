@@ -111,10 +111,22 @@ describe('measuring the storage and cleaning it up', () => {
     await measured(window);
   });
 
+  it('says only what the newer plan came to where it replaced one still being made', async () => {
+    const window = await projectWorld().window();
+
+    window.run('storage.plan-cleanup', { choices: 'cache:waveform' });
+    window.run('storage.plan-cleanup', { choices: 'cache:temporary' });
+
+    await expect.poll(() => window.said).toHaveLength(1);
+    await expect.poll(() => window.projects.usage.get().working).toBeUndefined();
+    expect(window.said).toEqual(['There is nothing of that to clean up.']);
+    expect(window.projects.usage.get().plan?.steps).toEqual([]);
+  });
+
   it('carries out a cleanup reaching past the caches only with the bytes the person was shown', async () => {
     const window = await projectWorld().window();
     // Media stored and referred to by nothing, which only a purge removes.
-    const { store } = window.services;
+    const { store } = window.storage;
     const put = await store.put(generatedSource(3_000, 7));
     if (put.ok) store.release(put.value.contentId);
     const planned = window.nextSaid();

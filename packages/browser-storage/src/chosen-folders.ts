@@ -12,11 +12,11 @@
  * folder that is not there is absent rather than a failure, as the ports ask.
  */
 
-import type { ExternalFile } from '@audiogubbins/media-store';
 import type { ByteSink, ByteSource } from '@audiogubbins/project-format';
 import type { DirectoryFile, DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
 
 import { handlesIn } from './directory-handles.js';
+import type { ChosenFile } from './external-files.js';
 import { fileSource } from './file-source.js';
 import { openFileSink } from './file-stream-sink.js';
 import { meansAbsent, treeFailureOf } from './platform-failures.js';
@@ -26,10 +26,16 @@ import { meansAbsent, treeFailureOf } from './platform-failures.js';
  * it lies inside the folder. A file with no place inside a folder, as one
  * chosen alone has, is no file of it.
  */
-export function listedFolder(files: readonly ExternalFile[]): DirectoryReader {
+export function listedFolder(
+  files: readonly Pick<ChosenFile, 'file' | 'handle' | 'relativePath'>[],
+): DirectoryReader {
   const byPath = new Map<string, ByteSource>();
-  for (const file of files) {
-    if (file.relativePath !== undefined) byPath.set(file.relativePath, file.source);
+  for (const { file, handle, relativePath } of files) {
+    if (relativePath === undefined) continue;
+    byPath.set(
+      relativePath,
+      fileSource(file, handle === undefined ? undefined : () => handle.getFile()),
+    );
   }
   return {
     list: () =>

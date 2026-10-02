@@ -2,25 +2,20 @@
  * The public contract of AudioGubbins' browser storage: the storage ports
  * implemented over what the browser offers (ADR-0020).
  *
- * The storage tree over the origin-private file system, through one dedicated
- * worker writing with synchronous access handles; the kept handles of linked
- * files and of the folder chosen for backups in IndexedDB, and finding them
- * again; the pickers and the page's file input, as files the media store takes,
- * and a file read in ranges wherever it was passed, a storage worker included;
- * a chosen folder read or written as a project's unpacked tree; sinks over a
- * file or folder the user chose and over a download; the write leases over Web
- * Locks and a broadcast channel; the digest; and giving the page a turn. The
- * platform objects are read by the capabilities package and passed in, so
- * nothing here reaches a global (REQ-EXEC-136.4), and each one's absence is a
- * decision of whoever passes it (REQ-EXEC-216). Everything absent from this
- * list is internal (REQ-REPO-186).
+ * The storage tree over the origin-private file system, written with
+ * synchronous access handles inside the dedicated worker that holds it; the
+ * kept handles of linked files and of the folder chosen for backups in
+ * IndexedDB, and finding them again; the pickers and the page's file input, as
+ * the files themselves, each with its handle where it came through one, and a
+ * file read in ranges wherever it was passed, a storage worker included; a
+ * chosen folder read or written as a project's unpacked tree; sinks over a file
+ * or folder the user chose and over a download; the write leases over Web Locks
+ * and a broadcast channel; the digest; and giving the page a turn. The platform
+ * objects are read by the capabilities package and passed in, so nothing here
+ * reaches a global (REQ-EXEC-136.4), and each one's absence is a decision of
+ * whoever passes it (REQ-EXEC-216). Everything absent from this list is
+ * internal (REQ-REPO-186).
  */
-
-export { type TreeWorker } from './worker-channel.js';
-
-export { startOriginPrivateTree } from './origin-private-tree.js';
-
-export { type TreeWorkerScope, serveOriginPrivateTree } from './serve-tree.js';
 
 export { originPrivateTree } from './sync-storage-tree.js';
 
@@ -52,7 +47,7 @@ export {
   pickSaveFile,
 } from './file-pickers.js';
 
-export { filesFromInput } from './external-files.js';
+export { type ChosenFile, filesFromInput } from './external-files.js';
 export { fileSource } from './file-source.js';
 
 export { listedFolder, writableFolder } from './chosen-folders.js';

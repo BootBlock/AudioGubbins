@@ -5,13 +5,16 @@
  * (REQ-STOR-105, REQ-STOR-106, REQ-STOR-198).
  *
  * The storage keeps no timer, so the composition root ticks this store and the
- * scheduler decides whether a generation is due. Only the window writing a
- * project makes its generations; a window reading it lists them. Restoring in
- * place closes the project here first, since the restore opens it to write
- * itself, and the session the restore leaves open becomes the open project;
- * where the restore fails, the project is opened again as it was. A backup is
- * also copied to the backups folder where the project's policy asks, and what
- * became of the latest copy is kept to be shown beside the backups.
+ * storage worker's scheduler for the session decides whether a generation is
+ * due. Only the window writing a project makes its generations; a window
+ * reading it lists them. Restoring in place closes the project here first,
+ * since the restore opens it to write itself, and the session the restore
+ * leaves open becomes the open project; where the restore fails once it closed
+ * the project, the project is opened again as it was. A backup is also copied
+ * to the backups folder where the project's policy asks, which the page lends
+ * the worker for each backup, and what became of the latest copy is kept to be
+ * shown beside the backups. The work done for a project is given up once it is
+ * let go, and a listing once a newer one replaces it.
  */
 
 import {
@@ -23,21 +26,22 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import type { BackupPolicy } from '@audiogubbins/project-format';
-import {
-  BackupGenerations,
-  BackupScheduler,
-  restoreBackup,
-  type BackupGeneration,
-  type BackupTick,
-  type ExternalBackupTarget,
-  type ExternalCopy,
-  type ProjectSession,
-  type RestoreTarget,
-  type RestoredBackup,
-  type WriteOutcome,
+import type {
+  BackupGeneration,
+  BackupTick,
+  ExternalBackupTarget,
+  ExternalCopy,
+  WriteOutcome,
 } from '@audiogubbins/storage';
+import type {
+  BackupsClient,
+  RemoteProjectSession,
+  RemoteRestoredBackup,
+  RestoreTarget,
+} from '@audiogubbins/storage-runtime';
 
 import type { ProjectServices } from '../storage/project-services.js';
+import { Requests, isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
@@ -57,6 +61,9 @@ export interface BackupState {
   readonly copied?: Exclude<ExternalCopy, { readonly kind: 'not-asked' }>;
 }
 
+/** Where a generation is restored: as a new project, or in place of the project open. */
+export type RestoreChoice = RestoreTarget['as'];
+
 /** Why a backup cannot be made or changed here. */
 const NOT_WRITABLE = failure(
   'backup.not-writable',
@@ -66,27 +73,36 @@ const NOT_WRITABLE = failure(
 
 /** The open project's backups (see the module comment). */
 export class BackupStore implements Observable<BackupState> {
+  private readonly backups: BackupsClient;
   private readonly services: ProjectServices;
+  private readonly lifetime: AbortSignal;
   private readonly project: OpenProjectStore;
   private readonly library: ProjectLibraryStore;
   private readonly folder: ExternalBackupTarget;
+  private readonly listings: Requests;
   private readonly state = observable<BackupState>({ generations: [] });
-  private scheduler:
-    { readonly session: ProjectSession; readonly made: BackupScheduler } | undefined;
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
+  /**
+   * The open project's backups, copied through `folder`, the store's work
+   * ending once `lifetime` aborts.
+   */
   constructor(
     services: ProjectServices,
+    lifetime: AbortSignal,
     project: OpenProjectStore,
     library: ProjectLibraryStore,
     folder: ExternalBackupTarget,
   ) {
+    this.backups = services.client.backups;
     this.services = services;
+    this.lifetime = lifetime;
     this.project = project;
     this.library = library;
     this.folder = folder;
+    this.listings = new Requests(() => project.scope());
     project.subscribe(() => {
       this.follow();
     });
@@ -95,9 +111,8 @@ export class BackupStore implements Observable<BackupState> {
   /** Makes a generation where the policy says one is due, as the clock ticks. */
   readonly tick = async (): Promise<void> => {
     const session = this.project.session();
-    const made = this.schedulerNow();
-    if (made === undefined || session === undefined) return;
-    const ticked = await made.tick(this.services.clock.now(), session.getSnapshot().model);
+    if (session === undefined) return;
+    const ticked = await this.backups.tick(session, this.folder, this.project.scope());
     if (!ticked.ok) {
       this.services.logger.warning('A scheduled backup was not made.', {
         code: ticked.failures[0].code,
@@ -112,9 +127,8 @@ export class BackupStore implements Observable<BackupState> {
   readonly backUpNow = (): Promise<DomainResult<BackupTick>> =>
     this.whileWorking('backing-up', async () => {
       const session = this.project.session();
-      const made = this.schedulerNow();
-      if (made === undefined || session === undefined) return fail(NOT_WRITABLE);
-      const done = await made.backUpNow(this.services.clock.now(), session.getSnapshot().model);
+      if (session === undefined) return fail(NOT_WRITABLE);
+      const done = await this.backups.backUpNow(session, this.folder, this.project.scope());
       if (done.ok && done.value.kind === 'made') this.noteCopy(done.value.external);
       return done;
     });
@@ -122,13 +136,18 @@ export class BackupStore implements Observable<BackupState> {
   /** Restores a generation as a new project, or in place of the project open. */
   readonly restore = (
     generation: number,
-    target: RestoreTarget,
-  ): Promise<DomainResult<RestoredBackup>> =>
+    target: RestoreChoice,
+  ): Promise<DomainResult<RemoteRestoredBackup>> =>
     this.whileWorking('restoring', async () => {
       const { project: id } = this.state.get();
-      if (id === undefined || this.project.session() === undefined) return fail(NOT_WRITABLE);
-      if (target === 'replace-current') return await this.restoreInPlace(id, generation);
-      const restored = await restoreBackup(id, generation, { as: 'new-project' }, this.services);
+      const session = this.project.session();
+      if (id === undefined || session === undefined) return fail(NOT_WRITABLE);
+      if (target === 'replace-current') return await this.restoreInPlace(session, generation);
+      const restored = await this.backups.restore(
+        generation,
+        { as: 'new-project', project: id },
+        this.lifetime,
+      );
       await this.library.refresh();
       return restored;
     });
@@ -137,11 +156,7 @@ export class BackupStore implements Observable<BackupState> {
   readonly protect = async (generation: number, keep: boolean): Promise<DomainResult<void>> => {
     const session = this.project.session();
     if (session === undefined) return fail(NOT_WRITABLE);
-    const { tree, digest } = this.services;
-    const done = await new BackupGenerations(tree, digest, session.project).protect(
-      generation,
-      keep,
-    );
+    const done = await this.backups.protect(session.project, generation, keep);
     await this.list(session.project);
     return done.ok ? succeed(undefined) : done;
   };
@@ -150,8 +165,7 @@ export class BackupStore implements Observable<BackupState> {
   readonly remove = async (generation: number): Promise<DomainResult<void>> => {
     const session = this.project.session();
     if (session === undefined) return fail(NOT_WRITABLE);
-    const { tree, digest } = this.services;
-    const done = await new BackupGenerations(tree, digest, session.project).remove([generation]);
+    const done = await this.backups.remove(session.project, [generation], this.project.scope());
     await this.list(session.project);
     return done;
   };
@@ -179,31 +193,33 @@ export class BackupStore implements Observable<BackupState> {
     const id = open.kind === 'open' ? open.snapshot.project : undefined;
     if (id === this.state.get().project) return;
     this.state.set(id === undefined ? { generations: [] } : { project: id, generations: [] });
-    if (id !== undefined) void this.list(id);
+    if (id === undefined) return;
+    this.list(id).catch((error: unknown) => {
+      this.services.logger.error('The backups of a project could not be listed.', {
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+    });
   }
 
+  /**
+   * Lists a project's generations, and settles at once where a newer listing,
+   * or letting the project go, gives this one up.
+   */
   private async list(id: ProjectId): Promise<void> {
-    const { tree, digest } = this.services;
-    const listed = await new BackupGenerations(tree, digest, id).list();
+    const signal = this.listings.next();
+    let listed: Awaited<ReturnType<BackupsClient['list']>>;
+    try {
+      listed = await this.backups.list(id, signal);
+    } catch (error) {
+      if (signal.aborted && isAbandoned(error)) return;
+      throw error;
+    }
     if (this.state.get().project !== id) return;
     this.state.update(({ problem: _earlier, ...rest }) =>
       listed.ok
         ? { ...rest, generations: listed.value.generations }
         : { ...rest, problem: listed.failures[0].summary },
     );
-  }
-
-  /** The scheduler of the session open to write now, made once for it. */
-  private schedulerNow(): BackupScheduler | undefined {
-    const session = this.project.session();
-    if (session === undefined) return undefined;
-    if (this.scheduler?.session !== session) {
-      this.scheduler = {
-        session,
-        made: new BackupScheduler(session.project, this.services, this.folder),
-      };
-    }
-    return this.scheduler.made;
   }
 
   private async whileWorking<TValue>(
@@ -221,20 +237,30 @@ export class BackupStore implements Observable<BackupState> {
   }
 
   /**
-   * Restores in place: the project here is closed first, since the restore
-   * opens it to write itself, and the session it leaves becomes the open
-   * project; where it fails, the project is opened again as it was.
+   * Restores in place: the session here is closed first, since the restore
+   * opens the project to write itself, and the session it leaves becomes the
+   * open project; where it fails once it closed the session, the project is
+   * opened again as it was.
    */
   private async restoreInPlace(
-    id: ProjectId,
+    session: RemoteProjectSession,
     generation: number,
-  ): Promise<DomainResult<RestoredBackup>> {
-    const closed = await this.project.close();
-    if (!closed.ok) return closed;
-    const restored = await restoreBackup(id, generation, { as: 'replace-current' }, this.services);
-    if (restored.ok && restored.value.kind === 'replaced')
-      this.project.adopt(restored.value.session);
-    else await this.project.open(id);
-    return restored;
+  ): Promise<DomainResult<RemoteRestoredBackup>> {
+    let restored: DomainResult<RemoteRestoredBackup> | undefined;
+    try {
+      restored = await this.backups.restore(
+        generation,
+        { as: 'replace-current', session },
+        this.lifetime,
+      );
+      if (restored.ok && restored.value.kind === 'replaced') {
+        this.project.adopt(restored.value.session);
+      }
+      return restored;
+    } finally {
+      if (restored?.ok !== true && session.getSnapshot().access.kind === 'closed') {
+        await this.project.open(session.project);
+      }
+    }
   }
 }

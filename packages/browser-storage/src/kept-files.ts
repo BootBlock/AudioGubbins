@@ -10,9 +10,7 @@
  * from the control the user pressed.
  */
 
-import type { ExternalFile } from '@audiogubbins/media-store';
-
-import { externalFileOf } from './external-files.js';
+import { chosenFileOf, type ChosenFile } from './external-files.js';
 import type { FileHandleKeeper } from './file-handle-keeper.js';
 import {
   queryReadPermission,
@@ -23,7 +21,7 @@ import { meansAbsent } from './platform-failures.js';
 
 /** What became of a kept file. */
 export type KeptFileAccess =
-  | { readonly kind: 'available'; readonly file: ExternalFile }
+  | { readonly kind: 'available'; readonly file: ChosenFile }
   | { readonly kind: 'missing' }
   | { readonly kind: 'permission-needed' }
   | { readonly kind: 'denied' };
@@ -42,7 +40,7 @@ async function access(
       return { kind: 'denied' };
     case 'granted':
       try {
-        return { kind: 'available', file: await externalFileOf(handle, handleKey, undefined) };
+        return { kind: 'available', file: await chosenFileOf(handle, handleKey, undefined) };
       } catch (error) {
         // The file the handle named was deleted or replaced by a folder.
         if (meansAbsent(error)) return { kind: 'missing' };

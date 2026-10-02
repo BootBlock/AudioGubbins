@@ -146,15 +146,7 @@ function lentFolder(channel: HostChannel, port: PagePort): DirectoryReader {
 /** A folder the page offered to read: files read here, or a folder the page reads. */
 export function pageFolder(channel: HostChannel, folder: CrossingFolder): DirectoryReader {
   if (folder.kind === 'port') return lentFolder(channel, folder.port);
-  return listedFolder(
-    folder.files.map(({ path, file }) => ({
-      source: fileSource(file),
-      fileName: file.name,
-      mediaType: file.type,
-      lastModified: file.lastModified,
-      relativePath: path,
-    })),
-  );
+  return listedFolder(folder.files.map(({ path, file }) => ({ file, relativePath: path })));
 }
 
 /** The folder the page lent as `port` to write into. */

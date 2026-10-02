@@ -20,7 +20,7 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import { redoTarget, undoTarget, type SideName } from '@audiogubbins/history';
-import type { ProjectSession } from '@audiogubbins/storage';
+import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import { quoted } from '../wording.js';
 import { idArgument, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
@@ -30,7 +30,7 @@ import type { ShellContext } from './shell-context.js';
 /** Available where the session has a change for `target` to find. */
 function historyAvailability(
   context: ShellContext,
-  target: (session: ProjectSession) => unknown,
+  target: (session: RemoteProjectSession) => unknown,
   nothing: string,
 ): CommandAvailability {
   const session = sessionOf(context);
@@ -38,8 +38,8 @@ function historyAvailability(
   return target(session) === undefined ? unavailable(nothing) : AVAILABLE;
 }
 
-const undoOf = (session: ProjectSession) => undoTarget(session.getSnapshot().model.history);
-const redoOf = (session: ProjectSession) => redoTarget(session.getSnapshot().model.history);
+const undoOf = (session: RemoteProjectSession) => undoTarget(session.getSnapshot().model.history);
+const redoOf = (session: RemoteProjectSession) => redoTarget(session.getSnapshot().model.history);
 
 function undoCommand(): Command<ShellContext> {
   return shellCommand(

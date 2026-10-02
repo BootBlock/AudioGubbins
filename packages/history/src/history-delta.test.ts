@@ -65,6 +65,13 @@ describe('a history delta (ADR-0022)', () => {
     expect(updated.branchNames).toBe(copy.branchNames);
   });
 
+  it('gives back the copy itself where nothing in the history changed', () => {
+    const history = randomHistory(5, 300);
+    const copy = sent(undefined, undefined, history);
+
+    expect(sent(copy, history, history)).toBe(copy);
+  });
+
   it('follows changes, moves, branch names and snapshots one at a time', () => {
     const random = seededRandom(17);
     const ids = testIds(17);

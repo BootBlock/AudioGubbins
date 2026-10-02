@@ -13,7 +13,8 @@
  * application's clock ticks the backup scheduler, which the storage leaves to
  * the application because it keeps no timer. The backups folder kept by this
  * browser is looked for as the page starts, without asking for leave to write
- * into it, which only the person's gesture can.
+ * into it, which only the person's gesture can. Taking the system down gives
+ * up every piece of work it started in the storage worker.
  */
 
 import {
@@ -21,7 +22,7 @@ import {
   type StorageCapabilityAbsence,
   type StoragePlatform,
 } from '@audiogubbins/capabilities';
-import type { Clock, DiagnosticCentre } from '@audiogubbins/diagnostics';
+import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
@@ -29,6 +30,7 @@ import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
 import { projectPlatformOf } from '../storage/project-services.js';
+import { abandonment, isAbandoned } from './abandoning.js';
 import type { PageVisibility } from './layout-map-watch.js';
 import { createProjectStores, startProjects, type ProjectStores } from './project-stores.js';
 import type { StateStorage } from './state-storage.js';
@@ -57,7 +59,6 @@ export interface ProjectSystem {
 /** What starting the system needs from the composition root. */
 export interface ProjectSystemNeeds {
   readonly diagnostics: DiagnosticCentre;
-  readonly clock: Clock;
   readonly storage: StateStorage;
   readonly page: PageVisibility;
 }
@@ -80,6 +81,8 @@ function run(
   const logFault =
     (what: string) =>
     (error: unknown): void => {
+      // Work given up for newer work, or as the page goes, is no fault.
+      if (isAbandoned(error)) return;
       logger.error(what, { reason: error instanceof Error ? error.message : 'unknown' });
     };
   startProjects(storageRoot, projects, logger).catch(logFault('Projects could not be started.'));
@@ -103,7 +106,7 @@ export function startProjectSystem(
   needs: ProjectSystemNeeds,
 ): ProjectSystem {
   const storageAbsences = missingStorageCapabilities(platform);
-  const made = projectPlatformOf(platform, needs.diagnostics, needs.clock);
+  const made = projectPlatformOf(platform, needs.diagnostics);
   if (made.kind === 'unavailable') {
     return {
       storageRoot: unavailableStorageRoot(made.reason),
@@ -115,14 +118,20 @@ export function startProjectSystem(
   }
 
   const { services } = made;
-  const storageRoot = new StorageRoot(services);
+  const lifetime = new AbortController();
+  const storageRoot = new StorageRoot(services.client.root, lifetime.signal);
   const files = browserTransferFiles(platform.pickers, services.keeper);
-  const projects = createProjectStores(services, needs.storage, {
-    files,
-    canLink: platform.pickers !== undefined,
-    backupFolder: browserBackupFolder(platform.pickers, services.keeper),
-    linkedFiles: browserLinkedFiles(services.keeper),
-  });
+  const projects = createProjectStores(
+    services,
+    needs.storage,
+    {
+      files,
+      canLink: platform.pickers !== undefined,
+      backupFolder: browserBackupFolder(platform.pickers, services.keeper),
+      linkedFiles: browserLinkedFiles(services.keeper),
+    },
+    lifetime.signal,
+  );
   const stop = run(storageRoot, projects, needs);
 
   return {
@@ -131,11 +140,12 @@ export function startProjectSystem(
     storageAbsences,
     peakCache: storedPeakCache({
       ready: () => storageRoot.get().kind === 'ready',
-      caches: services.caches,
+      caches: services.client.caches,
       digest: services.digest,
     }),
     dispose: () => {
       stop();
+      lifetime.abort(abandonment('The page took the project system down.'));
       projects.project.dispose();
     },
   };

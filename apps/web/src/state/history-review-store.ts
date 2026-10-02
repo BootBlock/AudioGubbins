@@ -27,7 +27,8 @@ import type {
   StateDifference,
 } from '@audiogubbins/history';
 import type { HistoryNodeId, RetentionPolicy } from '@audiogubbins/project-format';
-import type { ProjectSession, WriteOutcome } from '@audiogubbins/storage';
+import type { WriteOutcome } from '@audiogubbins/storage';
+import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
@@ -141,7 +142,7 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
   };
 
   private async withSession<TValue>(
-    work: (session: ProjectSession) => Promise<DomainResult<TValue>>,
+    work: (session: RemoteProjectSession) => Promise<DomainResult<TValue>>,
   ): Promise<DomainResult<TValue>> {
     const session = this.project.session();
     return session === undefined ? fail(NOT_WRITABLE) : await work(session);

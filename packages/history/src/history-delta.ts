@@ -9,7 +9,9 @@
  * entries of each persistent map that differ, found by skipping the subtrees
  * the two histories share, so a change costs one node and a path; the page's
  * copy is persistent too, and keeps every entry it was not sent. Branch names
- * and snapshots are few, and are sent whole when they changed.
+ * and snapshots are few, and are sent whole when they changed. A delta that
+ * changes nothing gives back the earlier history itself, so the copy's
+ * identity changes only with what it holds, as the history it copies does.
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -53,11 +55,29 @@ export function historyDelta(earlier: History | undefined, later: History): Hist
   };
 }
 
+/** Whether `delta` leaves `earlier` as it was. */
+function changesNothing(earlier: History, delta: HistoryDelta): boolean {
+  const unchanged = ({ set, removed }: MapChanges<string, unknown>): boolean =>
+    set.length === 0 && removed.length === 0;
+  return (
+    delta.project === earlier.project &&
+    delta.root === earlier.root &&
+    delta.cursor === earlier.cursor &&
+    unchanged(delta.nodes) &&
+    unchanged(delta.children) &&
+    unchanged(delta.preferred) &&
+    delta.branchNames === undefined &&
+    delta.snapshots === undefined
+  );
+}
+
 /**
  * The later history `delta` was taken to, made from `earlier`, the history it
- * was taken from (`undefined` for a delta taken from no history).
+ * was taken from (`undefined` for a delta taken from no history): `earlier`
+ * itself where the delta changes nothing.
  */
 export function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History {
+  if (earlier !== undefined && changesNothing(earlier, delta)) return earlier;
   return {
     project: delta.project,
     root: delta.root,

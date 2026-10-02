@@ -33,7 +33,7 @@ describe('finding a linked file again', () => {
       file: { fileName: 'take.wav', mediaType: 'audio/wav', lastModified: 1_000, handleKey: key },
     });
     if (access.kind !== 'available') return;
-    expect(new TextDecoder().decode(await access.file.source.read(0, 5))).toBe('audio');
+    expect(await access.file.file.text()).toBe('audio');
   });
 
   it('answers missing where nothing is kept under the key, or the file has gone', async () => {

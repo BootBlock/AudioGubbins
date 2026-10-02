@@ -9,8 +9,9 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
-import type { ProjectSession } from '@audiogubbins/storage';
+import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
+import { isAbandoned } from './abandoning.js';
 import type { OpenProjectStore } from './open-project-store.js';
 import type { ProjectLibraryStore } from './project-library-store.js';
 import type { SourceChangeStore } from './source-change-store.js';
@@ -21,12 +22,14 @@ export function checkSourcesOnOpening(
   sources: SourceChangeStore,
   logger: Logger,
 ): () => void {
-  let checked: ProjectSession | undefined;
+  let checked: RemoteProjectSession | undefined;
   return project.subscribe(() => {
     const session = project.session();
     if (session === undefined || session === checked) return;
     checked = session;
     sources.check().catch((error: unknown) => {
+      // A look given up for a newer one, or for the project let go, is no fault.
+      if (isAbandoned(error)) return;
       logger.error('The files a project links to could not be looked at.', {
         reason: error instanceof Error ? error.message : 'unknown',
       });

@@ -302,7 +302,6 @@ export function createApplication() {
   // before anything else reads project storage (REQ-STOR-052).
   const projectSystem = startProjectSystem(readStoragePlatform(navigator, globalThis), {
     diagnostics,
-    clock,
     storage,
     page: browserVisibility(),
   });

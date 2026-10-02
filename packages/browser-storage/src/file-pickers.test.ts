@@ -19,7 +19,7 @@ const dismissed = (): Promise<unknown> =>
   Promise.reject(new DOMException('The user dismissed the picker.', 'AbortError'));
 
 describe('choosing files through the pickers', () => {
-  it('keeps the handle of each file chosen, and hands each over as the media store takes it', async () => {
+  it('keeps the handle of each file chosen, and hands each over as itself, with its handle', async () => {
     const keeper = new FileHandleKeeper(new MemoryDatabases(), countingTokens());
     const chosen = [fileHandle('one.wav'), fileHandle('two.wav')];
     const asked: object[] = [];
@@ -40,6 +40,7 @@ describe('choosing files through the pickers', () => {
         { fileName: 'two.wav', handleKey: 't2' },
       ],
     });
+    expect(picked.kind === 'picked' && picked.chosen[1]?.handle).toBe(chosen[1]);
     expect(await keeper.find('t2')).toBe(chosen[1]);
   });
 
@@ -138,6 +139,7 @@ describe("files from the page's own file input", () => {
     expect(first).not.toHaveProperty('relativePath');
     expect(first).not.toHaveProperty('handleKey');
     expect(second?.relativePath).toBe('stems/kick.wav');
-    expect(second?.source.size).toBe(1);
+    expect(second?.file).toBe(inFolder);
+    expect(first).not.toHaveProperty('handle');
   });
 });

@@ -356,7 +356,7 @@ export class SyncStorageTree implements StorageTree {
  * as in a browser that offers none to workers, it is refused as unsupported,
  * which the tree reports as unavailable.
  */
-export function originPrivateRoot(
+function originPrivateRoot(
   readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined,
 ): () => Promise<SyncDirectory> {
   return async () => {

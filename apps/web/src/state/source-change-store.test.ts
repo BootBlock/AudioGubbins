@@ -4,9 +4,34 @@ import type { AssetId, ProjectId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceChangePolicy } from '@audiogubbins/project-format';
 
-import { addLinkedAsset, linkedFile } from '../testing/linked-assets.js';
+import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
+
+import type { LinkedFileAccess } from '../io/linked-files.js';
+import { addLinkedAsset, linkedFile, sourceOf } from '../testing/linked-assets.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { ScriptedLinkedFiles } from '../testing/scripted-linked-files.js';
+
+/** Linked files found only once the test lets each look through, as a slow disc finds them. */
+class HeldLinkedFiles extends ScriptedLinkedFiles {
+  #held: Promise<void> = Promise.resolve();
+  #letThrough: () => void = () => undefined;
+
+  /** Holds every look from now until `letThrough`. */
+  hold(): void {
+    this.#held = new Promise((resolve) => {
+      this.#letThrough = resolve;
+    });
+  }
+
+  letThrough(): void {
+    this.#letThrough();
+  }
+
+  override async look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
+    await this.#held;
+    return await super.look(identity);
+  }
+}
 
 /** Closes the project open in `window` and opens it again, so its linked files are looked at. */
 async function reopened(window: ProjectWindow): Promise<void> {
@@ -43,7 +68,7 @@ async function withFileWantingLeave() {
   const window = await projectWorld().window({ linkedFiles });
   await window.runAndHear('file.create-project', { name: 'Harbour' });
   const file = linkedFile('kick.wav', 'kept-1');
-  const { contentId } = expectSuccess(await window.services.store.put(file.source));
+  const { contentId } = expectSuccess(await window.storage.store.put(sourceOf(file)));
   const asset = await addLinkedAsset(window, file, {
     policy: SourceChangePolicy.Freeze,
     retainedCopy: contentId,
@@ -60,6 +85,27 @@ async function withFileWantingLeave() {
 }
 
 describe('a file the open project links to', () => {
+  it('is not looked at for a project let go while it was being found', async () => {
+    const linkedFiles = new HeldLinkedFiles();
+    const window = await projectWorld().window({ linkedFiles });
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    await addLinkedAsset(window, linkedFile('kick.wav', 'kept-1'));
+    // Changed since it was linked, which a look that went on would put to the person.
+    linkedFiles.keep(linkedFile('kick.wav', 'kept-1', 7));
+    const project = window.projects.project.session()?.project ?? '';
+    await window.runAndHear('file.close-project');
+
+    linkedFiles.hold();
+    await window.runAndHear('file.open', { project });
+    await expect.poll(() => window.projects.sources.get().checking).toBe(true);
+    await window.runAndHear('file.close-project');
+    linkedFiles.letThrough();
+
+    await expect
+      .poll(() => window.projects.sources.get())
+      .toEqual({ changes: [], applied: [], checking: false });
+  });
+
   it('is looked at as the project opens, and one that cannot be found is put to the person', async () => {
     const { window, asset } = await withLinkedAsset();
 

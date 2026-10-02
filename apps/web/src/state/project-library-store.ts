@@ -3,10 +3,12 @@
  * to the list: making, deleting, restoring and purging a project, and forking
  * one (REQ-STOR-026, REQ-STOR-102, REQ-STOR-199).
  *
- * The list is read again after every change, from the catalogue, which is the
- * one authority on what the storage holds; a project brought in from outside is
- * `project-transfer-store.ts`'s, which reads the list again here after. The
- * list says what change is running while one is.
+ * The list is read again after every change, from the catalogue the storage
+ * worker keeps, which is the one authority on what the storage holds; a project
+ * brought in from outside is `project-transfer-store.ts`'s, which reads the
+ * list again here after. A reading replaced by a newer one is given up, since
+ * the newer one shows the list. The list says what change is running while one
+ * is.
  */
 
 import {
@@ -18,16 +20,11 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import { TreeFailure } from '@audiogubbins/project-format';
-import {
-  forkProject,
-  type CatalogueEntry,
-  type ForkRequest,
-  type NewProject,
-  type ProjectHeader,
-} from '@audiogubbins/storage';
+import type { CatalogueEntry, ForkRequest, NewProject, ProjectHeader } from '@audiogubbins/storage';
+import type { LibraryClient } from '@audiogubbins/storage-runtime';
 
-import type { ProjectServices } from '../storage/project-services.js';
 import { quoted } from '../wording.js';
+import { Requests, isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 
 /** The projects kept, and what is being done to them. */
@@ -47,22 +44,32 @@ export interface LibraryState {
 
 /** The projects kept, and the changes to the list. */
 export class ProjectLibraryStore implements Observable<LibraryState> {
-  private readonly services: ProjectServices;
+  private readonly library: LibraryClient;
+  private readonly lifetime: AbortSignal;
+  private readonly readings: Requests;
   private readonly state = observable<LibraryState>({ entries: [], loaded: false });
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(services: ProjectServices) {
-    this.services = services;
+  /** The list kept by `library`, whose work ends once `lifetime` aborts. */
+  constructor(library: LibraryClient, lifetime: AbortSignal) {
+    this.library = library;
+    this.lifetime = lifetime;
+    this.readings = new Requests(() => lifetime);
   }
 
-  /** Reads the list again from the catalogue. */
+  /**
+   * Reads the list again from the catalogue. A reading replaced by a newer one
+   * is given up and settles at once, leaving the list to the newer one.
+   */
   readonly refresh = async (): Promise<DomainResult<void>> => {
-    const entries: CatalogueEntry[] = [];
+    const signal = this.readings.next();
+    let entries: readonly CatalogueEntry[];
     try {
-      for await (const entry of this.services.repository.list()) entries.push(entry);
+      entries = await this.library.list(signal);
     } catch (error) {
+      if (signal.aborted && isAbandoned(error)) return succeed(undefined);
       // The storage refusing to be listed, as a full or unreachable one does,
       // is said in the list; anything else is a fault, and surfaces as one.
       if (!(error instanceof TreeFailure)) throw error;
@@ -76,23 +83,21 @@ export class ProjectLibraryStore implements Observable<LibraryState> {
 
   readonly create = (project: NewProject): Promise<DomainResult<ProjectHeader>> =>
     this.changing(`Making ${quoted(project.name.trim())}`, () =>
-      this.services.repository.create(project),
+      this.library.create(project, this.lifetime),
     );
 
   readonly remove = (project: ProjectId): Promise<DomainResult<ProjectHeader>> =>
-    this.changing('Deleting a project', () => this.services.repository.softDelete(project));
+    this.changing('Deleting a project', () => this.library.softDelete(project));
 
   readonly restore = (project: ProjectId): Promise<DomainResult<ProjectHeader>> =>
-    this.changing('Restoring a project', () => this.services.repository.restore(project));
+    this.changing('Restoring a project', () => this.library.restore(project));
 
   readonly purge = (project: ProjectId, deletedAt: number): Promise<DomainResult<void>> =>
-    this.changing('Purging a project', () =>
-      this.services.repository.purgeProject(project, { deletedAt }),
-    );
+    this.changing('Purging a project', () => this.library.purge(project, { deletedAt }));
 
   readonly fork = (request: ForkRequest): Promise<DomainResult<ProjectHeader>> =>
     this.changing(`Making ${quoted(request.name.trim())}`, () =>
-      forkProject(request, this.services),
+      this.library.fork(request, this.lifetime),
     );
 
   /** The header of a project the list holds, as last read. */

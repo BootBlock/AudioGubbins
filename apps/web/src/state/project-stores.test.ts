@@ -10,6 +10,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import { olderStorage, projectWorld } from '../testing/project-context.js';
+import { isAbandoned } from './abandoning.js';
 import { startProjects } from './project-stores.js';
 
 /**
@@ -73,12 +74,24 @@ describe('starting the project system', () => {
 
   it('reads nothing of project storage while the stored data is of another version', async () => {
     const window = await projectWorld(await olderStorage()).window();
-    window.projects.preferences.remember(window.services.ids.next<'ProjectId'>());
+    window.projects.preferences.remember(window.storage.ids.next<'ProjectId'>());
 
     await startProjects(window.root, window.projects, window.services.logger);
 
     expect(window.context.storageRoot.get().kind).toBe('blocked');
     expect(window.projects.project.get().kind).toBe('none');
+  });
+});
+
+describe('taking the project system down', () => {
+  it('gives up the work it started in the storage worker', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+
+    const measuring = window.projects.usage.measure();
+    window.takeDown();
+
+    await expect(measuring).rejects.toSatisfy(isAbandoned);
   });
 });
 
@@ -90,7 +103,7 @@ describe('making room when the storage is full', () => {
     const open = window.projects.project.get();
     const project = open.kind === 'open' ? open.snapshot.project : undefined;
     if (project === undefined) throw new Error('No project opened.');
-    await window.services.caches.put(
+    await window.storage.caches.put(
       { category: CacheCategory.Waveform, scope: { kind: 'project', project }, name: 'peaks' },
       new Uint8Array(512),
     );
@@ -98,14 +111,18 @@ describe('making room when the storage is full', () => {
     tree.full = true;
     window.run('file.rename-project', { name: 'Harbour, renamed' });
 
+    // The rename arrives from the worker with the saving it met, so the
+    // project is saved once it shows the new name as saved.
     await expect
       .poll(() => {
         const now = window.projects.project.get();
-        return now.kind === 'open' ? now.snapshot.save.kind : undefined;
+        return now.kind === 'open'
+          ? [now.snapshot.model.state.project.displayName, now.snapshot.save.kind]
+          : undefined;
       })
-      .toBe('saved');
+      .toEqual(['Harbour, renamed', 'saved']);
     expect(tree.full).toBe(false);
-    const usage = await window.services.caches.usage();
+    const usage = await window.storage.caches.usage();
     expect(usage.ok && [...usage.value.values()].reduce((sum, bytes) => sum + bytes, 0)).toBe(0);
   });
 

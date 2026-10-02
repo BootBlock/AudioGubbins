@@ -568,6 +568,7 @@ const PACKAGES = [
       '@audiogubbins/media-store',
       '@audiogubbins/storage',
       '@audiogubbins/browser-storage',
+      '@audiogubbins/storage-runtime',
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
       '@audiogubbins/audio-runtime',

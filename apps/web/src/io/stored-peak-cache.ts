@@ -13,24 +13,21 @@
  * before it is used, so a cache is never the only copy of anything.
  *
  * Nothing is read from or written into the storage until its root is ready:
- * stored data of another schema waits for the person's decision untouched,
- * and the peaks are made again meanwhile.
+ * stored data of another schema waits for the person's decision untouched, and
+ * the peaks are made again meanwhile. The storage worker keeps the caches; the
+ * page names each by its digest and moves the bytes across whole.
  */
 
 import type { Digest } from '@audiogubbins/project-format';
-import {
-  CacheCategory,
-  unstoredScope,
-  type CacheKey,
-  type CacheStore,
-} from '@audiogubbins/storage';
+import { CacheCategory, unstoredScope, type CacheKey } from '@audiogubbins/storage';
+import type { CacheClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 /** What the peaks are kept with. */
 export interface PeakCacheServices {
   /** Whether the storage root is open and of this build's schema, so caches may be kept. */
   readonly ready: () => boolean;
-  readonly caches: CacheStore;
+  readonly caches: CacheClient;
   readonly digest: Digest;
 }
 
@@ -67,10 +64,9 @@ export function storedPeakCache({ ready, caches, digest }: PeakCacheServices): P
   return {
     async read(identity, revision) {
       if (!ready()) return undefined;
-      const opened = await caches.open(await keyOf(identity, revision));
-      if (!opened.ok) throw new Error(opened.failures[0].summary);
-      const source = opened.value;
-      return source === undefined ? undefined : await source.read(0, source.size);
+      const kept = await caches.read(await keyOf(identity, revision));
+      if (!kept.ok) throw new Error(kept.failures[0].summary);
+      return kept.value;
     },
     async write(identity, revision, bytes) {
       // The host reports a write that rejects, so a cache not kept is said.
@@ -82,7 +78,9 @@ export function storedPeakCache({ ready, caches, digest }: PeakCacheServices): P
       const key = await keyOf(identity, revision);
       const cleared = await caches.evictScope(key.category, key.scope);
       if (!cleared.ok) throw new Error(cleared.failures[0].summary);
-      const kept = await caches.put(key, bytes);
+      // The client moves the buffer it is given to the worker; the bytes are
+      // the peak job's, so a copy of them is what moves.
+      const kept = await caches.put(key, bytes.slice());
       if (!kept.ok) throw new Error(kept.failures[0].summary);
     },
   };

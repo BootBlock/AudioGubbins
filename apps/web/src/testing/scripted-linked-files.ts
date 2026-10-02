@@ -4,15 +4,14 @@
  * when asked for it, as after a reload (REQ-STOR-104).
  */
 
-import type { KeptFileAccess } from '@audiogubbins/browser-storage';
-import type { ExternalFile } from '@audiogubbins/media-store';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
+import type { PageFile } from '@audiogubbins/storage-runtime';
 
-import type { LinkedFilesPort } from '../io/linked-files.js';
+import type { LinkedFileAccess, LinkedFilesPort } from '../io/linked-files.js';
 
 /** A file kept under a handle, and the browser's leave to read it. */
 export interface ScriptedLinkedFile {
-  file: ExternalFile | undefined;
+  file: PageFile | undefined;
   leave: 'granted' | 'asks' | 'denied';
   answer: 'granted' | 'denied';
 
@@ -28,18 +27,18 @@ export class ScriptedLinkedFiles implements LinkedFilesPort {
   asked = 0;
 
   /** Keeps `file` under its own handle key, with the browser's `leave` to read it. */
-  keep(file: ExternalFile, leave: ScriptedLinkedFile['leave'] = 'granted'): ScriptedLinkedFile {
+  keep(file: PageFile, leave: ScriptedLinkedFile['leave'] = 'granted'): ScriptedLinkedFile {
     if (file.handleKey === undefined) throw new Error('A kept file needs a handle key.');
     const kept: ScriptedLinkedFile = { file, leave, answer: 'granted', activated: true };
     this.kept.set(file.handleKey, kept);
     return kept;
   }
 
-  look(identity: ExternalSourceIdentity): Promise<KeptFileAccess> {
+  look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
     return Promise.resolve(this.access(identity));
   }
 
-  ask(identity: ExternalSourceIdentity): Promise<KeptFileAccess> {
+  ask(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
     const kept = this.keptFor(identity);
     if (kept?.leave === 'asks' && kept.activated) {
       this.asked += 1;
@@ -52,7 +51,7 @@ export class ScriptedLinkedFiles implements LinkedFilesPort {
     return identity.handleKey === undefined ? undefined : this.kept.get(identity.handleKey);
   }
 
-  private access(identity: ExternalSourceIdentity): KeptFileAccess {
+  private access(identity: ExternalSourceIdentity): LinkedFileAccess {
     const kept = this.keptFor(identity);
     if (kept?.file === undefined) return { kind: 'missing' };
     switch (kept.leave) {

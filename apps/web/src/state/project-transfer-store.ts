@@ -15,41 +15,41 @@
  * needs it for, since the browser will not ask once the copying has begun.
  * Every export of a project that was read is an event of its provenance,
  * whether it wrote or failed, and is recorded in its history where this tab
- * writes the project (`export-recorder.ts`); undo never reverses one.
+ * writes the project (`export-recorder.ts`); undo never reverses one. The
+ * storage worker reads and writes each, through the files and folders the page
+ * lends it for the call; copying linked files is given up once the project is
+ * let go, and everything else once the page takes the project system down.
  */
 
 import { succeed, type AssetId, type DomainResult, type ProjectId } from '@audiogubbins/domain';
-import { setAssetMediaInvocation } from '@audiogubbins/project-commands';
 import {
   ExportDestinationKind,
   SourceChangePolicy,
   type ContentIdentity,
   type ExportDestination,
   type ExportOutput,
+  type ExternalSourceIdentity,
 } from '@audiogubbins/project-format';
 import {
   anotherProjectIn,
-  consolidate,
-  exportBackup,
-  exportBundle,
-  exportUnpacked,
-  importBundle,
-  importUnpacked,
   type AnotherProject,
   type AssetConsolidation,
   type CopyOptions,
   type ExportAttempt,
-  type ExportFrom,
   type ExportedBundle,
   type ImportIdentity,
   type ProjectHeader,
-  type ProjectSession,
 } from '@audiogubbins/storage';
+import type {
+  HeldExport,
+  PageLocated,
+  RemoteProjectSession,
+  TransfersClient,
+} from '@audiogubbins/storage-runtime';
 
 import { bundleNameOf } from '../io/file-names.js';
 import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
 import type { ChosenFolder, SaveTarget, TransferFiles } from '../io/transfer-files.js';
-import type { ProjectServices } from '../storage/project-services.js';
 import { copyOutput, type ExportRecorder, type RecordedExport } from './export-recorder.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
@@ -142,7 +142,8 @@ async function asItselfOrACopy(
  * person dismissed the chooser, which is no failure.
  */
 export class ProjectTransferStore implements Observable<TransferState> {
-  private readonly services: ProjectServices;
+  private readonly transfers: TransfersClient;
+  private readonly lifetime: AbortSignal;
   private readonly files: TransferFiles;
   private readonly linkedFiles: LinkedFilesPort;
   private readonly library: ProjectLibraryStore;
@@ -154,15 +155,21 @@ export class ProjectTransferStore implements Observable<TransferState> {
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
+  /** The store, its own ports beside it, whose work ends once `lifetime` aborts. */
   constructor(
-    services: ProjectServices,
-    files: TransferFiles,
-    linkedFiles: LinkedFilesPort,
-    library: ProjectLibraryStore,
-    project: OpenProjectStore,
-    recorder: ExportRecorder,
+    transfers: TransfersClient,
+    lifetime: AbortSignal,
+    stores: {
+      readonly files: TransferFiles;
+      readonly linkedFiles: LinkedFilesPort;
+      readonly library: ProjectLibraryStore;
+      readonly project: OpenProjectStore;
+      readonly recorder: ExportRecorder;
+    },
   ) {
-    this.services = services;
+    const { files, linkedFiles, library, project, recorder } = stores;
+    this.transfers = transfers;
+    this.lifetime = lifetime;
     this.files = files;
     this.linkedFiles = linkedFiles;
     this.library = library;
@@ -183,7 +190,12 @@ export class ProjectTransferStore implements Observable<TransferState> {
       async () =>
         await this.recorded(
           project,
-          await exportBundle(project, target.sink, this.fromHere(options), this.services),
+          await this.transfers.exportBundle(
+            project,
+            target.sink,
+            this.fromHere(options),
+            this.lifetime,
+          ),
           bundleExport(target, copyOutput(BUNDLE_CONTAINER, options)),
         ),
     );
@@ -202,7 +214,13 @@ export class ProjectTransferStore implements Observable<TransferState> {
       async () =>
         await this.recorded(
           project,
-          await exportBackup(project, generation, target.sink, WHOLE_HISTORY, this.services),
+          await this.transfers.exportBackup(
+            project,
+            generation,
+            target.sink,
+            WHOLE_HISTORY,
+            this.lifetime,
+          ),
           bundleExport(target, copyOutput(BUNDLE_CONTAINER, WHOLE_HISTORY, { backup: generation })),
         ),
     );
@@ -247,11 +265,11 @@ export class ProjectTransferStore implements Observable<TransferState> {
       async () =>
         await this.recorded(
           project,
-          await exportUnpacked(
+          await this.transfers.exportUnpacked(
             project,
             folder.writer,
             { ...this.fromHere(options), replaceAnother },
-            this.services,
+            this.lifetime,
           ),
           {
             output: copyOutput(FOLDER_CONTAINER, options),
@@ -273,7 +291,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
     const bundle = await this.files.chooseBundle();
     if (bundle === undefined) return succeed(undefined);
     return await this.bringingIn((identity) =>
-      importBundle(bundle.source, identity, this.services),
+      this.transfers.importBundle(bundle.bytes, identity, this.lifetime),
     );
   };
 
@@ -281,7 +299,9 @@ export class ProjectTransferStore implements Observable<TransferState> {
   readonly importFolder = async (): Promise<DomainResult<ImportedProject | undefined>> => {
     const folder = await this.files.chooseFolderToRead();
     if (folder === undefined) return succeed(undefined);
-    return await this.bringingIn((identity) => importUnpacked(folder, identity, this.services));
+    return await this.bringingIn((identity) =>
+      this.transfers.importUnpacked(folder, identity, this.lifetime),
+    );
   };
 
   /**
@@ -290,7 +310,7 @@ export class ProjectTransferStore implements Observable<TransferState> {
    * file the copying reads.
    */
   readonly consolidate = (
-    session: ProjectSession,
+    session: RemoteProjectSession,
   ): Promise<DomainResult<readonly AssetConsolidation[]>> =>
     this.working('consolidating', async () => {
       for (const { media } of session.getSnapshot().model.state.sources.values()) {
@@ -299,25 +319,23 @@ export class ProjectTransferStore implements Observable<TransferState> {
           await this.linkedFiles.ask(media.identity);
         }
       }
-      return await consolidate(session, {
-        store: this.services.store,
-        digest: this.services.digest,
-        yieldToHost: this.services.yieldToHost,
-        locate: async (_asset, identity) => {
-          const access = await this.linkedFiles.look(identity);
-          return access.kind === 'available'
-            ? { kind: 'found', file: access.file }
-            : { kind: 'absent', reason: absenceOf(access) };
-        },
-        setMedia: setAssetMediaInvocation,
-      });
+      const locate = async (
+        _asset: AssetId,
+        identity: ExternalSourceIdentity,
+      ): Promise<PageLocated> => {
+        const access = await this.linkedFiles.look(identity);
+        return access.kind === 'available'
+          ? { kind: 'found', file: access.file }
+          : { kind: 'absent', reason: absenceOf(access) };
+      };
+      return await this.transfers.consolidate(session, locate, this.project.scope());
     });
 
   /**
    * `options`, with the session of the project this tab writes, which an export
    * of that project waits for until it has written every change.
    */
-  private fromHere(options: CopyOptions): CopyOptions & ExportFrom {
+  private fromHere(options: CopyOptions): CopyOptions & HeldExport {
     const held = this.project.session();
     return held === undefined ? options : { ...options, held };
   }

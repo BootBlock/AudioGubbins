@@ -5,10 +5,11 @@
  * A port, so the stores that look at linked files are tested without a browser
  * (REQ-EXEC-136.4), and shared by the check of what became of each linked file
  * and by the copying of linked files into the project, so both find a file the
- * same way. The browser asks the person again for leave to read a file whose
- * handle was taken back out of storage, and asks only in answer to their
- * gesture: `look` never asks, which a look at the project as it opens needs,
- * and `ask` is made from the control the person pressed.
+ * same way. A file found is handed over as itself, for the storage worker to
+ * read (`page-files.ts`). The browser asks the person again for leave to read a
+ * file whose handle was taken back out of storage, and asks only in answer to
+ * their gesture: `look` never asks, which a look at the project as it opens
+ * needs, and `ask` is made from the control the person pressed.
  */
 
 import {
@@ -19,18 +20,28 @@ import {
 } from '@audiogubbins/browser-storage';
 import type { AbsenceReason } from '@audiogubbins/media-store';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
+import type { PageFile } from '@audiogubbins/storage-runtime';
+
+import { pageFileOf } from './page-files.js';
+
+/** What became of a linked file: the file, as the page lends it, or why it cannot be read. */
+export type LinkedFileAccess =
+  | { readonly kind: 'available'; readonly file: PageFile }
+  | Exclude<KeptFileAccess, { readonly kind: 'available' }>;
 
 /** How the file a linked asset was recorded from is found again. */
 export interface LinkedFilesPort {
   /** The file, as far as it can be reached without asking the person. */
-  look(identity: ExternalSourceIdentity): Promise<KeptFileAccess>;
+  look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess>;
 
   /** The file, asking the person for leave to read it where the browser needs it. */
-  ask(identity: ExternalSourceIdentity): Promise<KeptFileAccess>;
+  ask(identity: ExternalSourceIdentity): Promise<LinkedFileAccess>;
 }
 
 /** A kept file that could not be read, as the media store names why. */
-export function absenceOf(access: Exclude<KeptFileAccess, { kind: 'available' }>): AbsenceReason {
+export function absenceOf(
+  access: Exclude<LinkedFileAccess, { readonly kind: 'available' }>,
+): AbsenceReason {
   switch (access.kind) {
     case 'missing':
       return 'not-found';
@@ -41,7 +52,14 @@ export function absenceOf(access: Exclude<KeptFileAccess, { kind: 'available' }>
   }
 }
 
-const MISSING: KeptFileAccess = { kind: 'missing' };
+const MISSING: LinkedFileAccess = { kind: 'missing' };
+
+/** A kept file's access, its file as the page lends it. */
+function lent(access: KeptFileAccess): LinkedFileAccess {
+  return access.kind === 'available'
+    ? { kind: 'available', file: pageFileOf(access.file) }
+    : access;
+}
 
 /**
  * The browser's linked files, found by the handles `keeper` holds; where it
@@ -50,9 +68,9 @@ const MISSING: KeptFileAccess = { kind: 'missing' };
 export function browserLinkedFiles(keeper: FileHandleKeeper | undefined): LinkedFilesPort {
   const reach =
     (open: typeof reopenKeptFile) =>
-    async (identity: ExternalSourceIdentity): Promise<KeptFileAccess> =>
+    async (identity: ExternalSourceIdentity): Promise<LinkedFileAccess> =>
       keeper === undefined || identity.handleKey === undefined
         ? MISSING
-        : await open(keeper, identity.handleKey);
+        : lent(await open(keeper, identity.handleKey));
   return { look: reach(reopenKeptFile), ask: reach(requestKeptFileAccess) };
 }

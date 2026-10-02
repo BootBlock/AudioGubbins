@@ -8,7 +8,9 @@
  * until the person decides: they may save a copy of the raw data, set the
  * decision aside, which leaves every byte as it is and every project
  * unavailable, or wipe it once they have confirmed twice. Nothing here
- * migrates, and nothing is removed without the wipe.
+ * migrates, and nothing is removed without the wipe. The storage worker opens,
+ * copies and wipes the root, and gives up what it was doing once the page takes
+ * the project system down.
  */
 
 import {
@@ -19,14 +21,8 @@ import {
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
-import type { Digest, StorageTree } from '@audiogubbins/project-format';
-import {
-  exportRawStorage,
-  openStorageRoot,
-  wipeStorage,
-  type StorageRootOpening,
-  type WipeConfirmation,
-} from '@audiogubbins/storage';
+import type { StorageRootOpening, WipeConfirmation } from '@audiogubbins/storage';
+import type { RootClient } from '@audiogubbins/storage-runtime';
 
 import type { TransferFiles } from '../io/transfer-files.js';
 import { observable, type Observable } from './observable.js';
@@ -55,12 +51,6 @@ export type StorageRootState =
       /** What is being done with the data, while it is. */
       readonly working?: 'exporting' | 'wiping';
     };
-
-/** What the storage root is kept in. */
-export interface StorageRootServices {
-  readonly tree: StorageTree;
-  readonly digest: Digest;
-}
 
 /** The storage root, and the decisions the compatibility screen offers. */
 export interface StorageRootStore extends Observable<StorageRootState> {
@@ -116,19 +106,22 @@ export function unavailableStorageRoot(reason: string): StorageRootStore {
 
 /** The storage root of the storage this browser keeps projects in. */
 export class StorageRoot implements StorageRootStore {
-  private readonly services: StorageRootServices;
+  private readonly root: RootClient;
+  private readonly lifetime: AbortSignal;
   private readonly state = observable<StorageRootState>({ kind: 'opening' });
 
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(services: StorageRootServices) {
-    this.services = services;
+  /** The root `root` opens, whose work ends once `lifetime` aborts. */
+  constructor(root: RootClient, lifetime: AbortSignal) {
+    this.root = root;
+    this.lifetime = lifetime;
   }
 
   readonly open = async (): Promise<DomainResult<boolean>> => {
     this.state.set({ kind: 'opening' });
-    const opened = await openStorageRoot(this.services.tree, this.services.digest);
+    const opened = await this.root.open(this.lifetime);
     if (!opened.ok) {
       this.state.set({ kind: 'failed', cause: opened.failures[0] });
       return opened;
@@ -159,7 +152,7 @@ export class StorageRoot implements StorageRootStore {
     const target = await files.save(RAW_DATA_NAME, 'application/zip');
     if (target === undefined) return succeed(false);
     return await this.whileBlocked('exporting', async () => {
-      const written = await exportRawStorage(this.services.tree, target.sink);
+      const written = await this.root.exportRaw(target.sink, this.lifetime);
       if (!written.ok) return written;
       target.finish();
       return succeed(true);
@@ -168,8 +161,7 @@ export class StorageRoot implements StorageRootStore {
 
   readonly wipe = (): Promise<DomainResult<void>> =>
     this.whileBlocked('wiping', async (data) => {
-      const { tree, digest } = this.services;
-      const wiped = await wipeStorage(tree, digest, confirmationOf(data));
+      const wiped = await this.root.wipe(confirmationOf(data), this.lifetime);
       if (wiped.ok) this.state.set({ kind: 'ready' });
       return wiped;
     });

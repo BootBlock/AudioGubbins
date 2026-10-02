@@ -1,7 +1,7 @@
 /**
  * Every operation of the storage tree's port, run in order against a tree, so
- * a tree is held to the in-memory reference tree by comparing what each came
- * to: the tree over the worker and the tree run in it alike.
+ * the tree over the origin-private file system is held to the in-memory
+ * reference tree by comparing what each came to.
  */
 
 import { TreeFailure, type StorageTree } from '@audiogubbins/project-format';

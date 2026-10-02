@@ -14,7 +14,6 @@
  */
 
 import {
-  FileHandleKeeper,
   createLeaseCoordinator,
   originPrivateTree,
   randomTokens,
@@ -96,10 +95,6 @@ function partsOf(
         }),
       logger: logs.loggerFor('storage'),
     }),
-    keeper:
-      storage.indexedDb === undefined
-        ? undefined
-        : new FileHandleKeeper(storage.indexedDb, nextToken),
     yieldToHost: turnsEvery(TURN_MILLISECONDS, platform.elapsed, yieldToHost(storage.hostYielding)),
     logs,
   };

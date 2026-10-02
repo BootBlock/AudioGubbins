@@ -4,12 +4,18 @@
  *
  * A world is one browser profile: one storage tree and one lease coordinator,
  * which every window made in it shares, as the tabs of a browser share the
- * private file system and Web Locks. Each window is a whole shell context, its
- * project stores made by the composition root's own `createProjectStores`, so
- * what a test drives is what the application runs. Nothing reaches the real
- * machine: the digest is the environment's Web Crypto, the identifiers are
- * seeded, the clock steps, and every file the person would be asked for is
- * scripted.
+ * private file system and Web Locks. Each window is a whole shell context with
+ * a storage worker of its own: the worker's own composition, served over an
+ * in-process port pair that clones every message as the browser does, and the
+ * page's end connected as the application connects it, so every operation the
+ * stores ask crosses the port. Its project stores are made by the composition
+ * root's own `createProjectStores`, so what a test drives is what the
+ * application runs. A test prepares or looks into the storage through the
+ * world's own services over the same tree, as another window of the profile
+ * would: the world owns both ends of every port. Nothing reaches the real
+ * machine: the digest is the environment's Web Crypto, each window's
+ * identifiers are drawn from a seed of its own, the clock steps, and every file
+ * the person would be asked for is scripted.
  */
 
 import { webDigest } from '@audiogubbins/browser-storage';
@@ -20,27 +26,24 @@ import {
   type CommandInvocation,
   type ExecutionResult,
 } from '@audiogubbins/commands';
-import type { Clock } from '@audiogubbins/diagnostics';
-import { createDeterministicIdGenerator } from '@audiogubbins/domain';
-import { MediaObjectStore, type ExternalFile } from '@audiogubbins/media-store';
-import { MemoryStorageTree, countingTokens, memorySource } from '@audiogubbins/media-store/testing';
-import { projectCommands } from '@audiogubbins/project-commands';
-import type { ProjectState } from '@audiogubbins/project-format';
-import {
-  CacheStore,
-  MEDIA_DIRECTORY,
-  ProjectRepository,
-  mediaSharingOf,
-  type DirectoryReader,
-  type DirectoryWriter,
-} from '@audiogubbins/storage';
+import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testing';
+import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
 import { MemoryLeaseCoordinator, memorySink, type MemorySink } from '@audiogubbins/storage/testing';
+import { connectStorage, type PageFile } from '@audiogubbins/storage-runtime';
+import {
+  memoryHostServices,
+  portPair,
+  serveMemoryStorage,
+  steppingClock,
+  type HostServices,
+} from '@audiogubbins/storage-runtime/testing';
 
 import { shellCommands } from '../commands/shell-commands.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
+import { abandonment } from '../state/abandoning.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
 import { StorageRoot } from '../state/storage-root-store.js';
@@ -63,7 +66,7 @@ export interface ScriptedFiles extends TransferFiles {
   readonly bundles: ChosenBundle[];
   readonly foldersToRead: DirectoryReader[];
   readonly foldersToWrite: DirectoryWriter[];
-  readonly mediaFiles: ExternalFile[];
+  readonly mediaFiles: PageFile[];
 
   /** Whether the next save is dismissed. */
   dismissSave: boolean;
@@ -95,7 +98,10 @@ function scriptedFiles(canWriteFolders = true): ScriptedFiles {
       return Promise.resolve(target);
     },
     chooseBundle: () => Promise.resolve(files.bundles.shift()),
-    chooseFolderToRead: () => Promise.resolve(files.foldersToRead.shift()),
+    chooseFolderToRead: () => {
+      const reader = files.foldersToRead.shift();
+      return Promise.resolve(reader === undefined ? undefined : { kind: 'reader', reader });
+    },
     chooseFolderToWrite: canWriteFolders
       ? () => {
           const writer = files.foldersToWrite.shift();
@@ -111,7 +117,7 @@ function scriptedFiles(canWriteFolders = true): ScriptedFiles {
 
 /** A bundle saved by one window, as the person would choose it to bring in. */
 export function bundleFrom(saved: SavedFile): ChosenBundle {
-  return { name: saved.name, source: memorySource(saved.sink.bytes()) };
+  return { name: saved.name, bytes: { kind: 'source', source: memorySource(saved.sink.bytes()) } };
 }
 
 /** One window of the world: its shell context, its project stores, and how it is driven. */
@@ -121,8 +127,11 @@ export interface ProjectWindow {
   readonly root: StorageRoot;
   readonly files: ScriptedFiles;
 
-  /** What the window keeps projects with, for a test to prepare storage through. */
+  /** What the window's page keeps projects with: its client of its storage worker. */
   readonly services: ProjectServices;
+
+  /** The world's own services over its storage, for a test to prepare or look into it. */
+  readonly storage: HostServices;
 
   /** Runs a shell command as the interface runs one. */
   run(id: string, args?: CommandInvocation['arguments']): ExecutionResult<ShellContext>;
@@ -135,12 +144,21 @@ export interface ProjectWindow {
 
   /** Runs a command and settles with what the operation it started comes to say. */
   runAndHear(id: string, args?: CommandInvocation['arguments']): Promise<string>;
+
+  /**
+   * Takes the window's project system down, as the application does as the
+   * page goes, giving up the work it started in the storage worker.
+   */
+  takeDown(): void;
 }
 
 /** A browser profile of windows sharing one storage and one set of leases. */
 export interface ProjectWorld {
   readonly tree: MemoryStorageTree;
   readonly coordinator: MemoryLeaseCoordinator;
+
+  /** The world's own services over its storage, as another window of the profile holds them. */
+  readonly storage: HostServices;
 
   /**
    * Opens a window: its storage root is opened and its list read, and its
@@ -169,83 +187,83 @@ export async function olderStorage(): Promise<MemoryStorageTree> {
   return tree;
 }
 
-/** The first moment of a test world, in milliseconds since the epoch. */
-const EPOCH = 1_790_000_000_000;
+/** How far apart the seeds of two windows' identifiers are, each with another window's beside it. */
+const SEED_STRIDE = 10_000;
 
-/** A clock that moves on a second each time it is read. */
-function steppingClock(): Clock {
-  let now = EPOCH;
-  return {
-    now: () => {
-      now += 1_000;
-      return now;
-    },
-  };
-}
-
-/** The services one window keeps projects with, over the world's storage. */
-function servicesOf(
-  world: ProjectWorld,
+/**
+ * A window's page, joined to a storage worker of its own over the world's
+ * storage, its identifiers drawn from the seed of window `number`.
+ */
+function pageOf(
+  world: Pick<ProjectWorld, 'tree' | 'coordinator'>,
+  clock: ReturnType<typeof steppingClock>,
   context: ShellContext,
-  shared: {
-    readonly clock: Clock;
-    readonly ids: ReturnType<typeof createDeterministicIdGenerator>;
-  },
   number: number,
 ): ProjectServices {
-  const { tree, coordinator } = world;
-  const digest = webDigest(crypto.subtle);
-  const owner = {
-    instance: `window-${String(number)}`,
-    label: `the tab opened at 10:0${String(number)}:00`,
-  };
-  const registry = createCommandRegistry<ProjectState>();
-  for (const command of projectCommands()) registry.register(command);
-  const { clock, ids } = shared;
-  const logger = context.diagnostics.loggerFor('projects');
-  return {
-    tree,
-    digest,
+  const pair = portPair();
+  serveMemoryStorage(pair.worker, {
+    tree: world.tree,
+    coordinator: world.coordinator,
     clock,
-    ids,
-    owner,
-    coordinator,
-    bus: createCommandBus(registry, context.diagnostics.loggerFor('project-commands')),
-    logger,
-    store: new MediaObjectStore({
-      tree,
-      root: MEDIA_DIRECTORY,
-      digest,
-      nextToken: countingTokens(),
-      sharing: mediaSharingOf(coordinator),
-    }),
-    caches: new CacheStore(tree, digest),
-    repository: new ProjectRepository({ tree, digest, clock, ids, owner, coordinator }),
+    tab: {
+      name: `window-${String(number)}`,
+      seed: 29 + SEED_STRIDE * number,
+      label: `the tab opened at 10:0${String(number)}:00`,
+    },
+  });
+  return {
+    client: connectStorage(pair.page, context.diagnostics),
     keeper: undefined,
-    yieldToHost: () => Promise.resolve(),
+    digest: webDigest(crypto.subtle),
+    logger: context.diagnostics.loggerFor('projects'),
   };
 }
 
 /** A world of windows over a new storage, or over `tree` where a test prepared one. */
 export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
-  const shared = { clock: steppingClock(), ids: createDeterministicIdGenerator(29) };
+  const clock = steppingClock();
+  const coordinator = new MemoryLeaseCoordinator();
+  const storage = memoryHostServices({
+    tree,
+    coordinator,
+    clock,
+    tab: { name: 'the test', seed: 7 },
+  });
   let windows = 0;
   const world: ProjectWorld = {
     tree,
-    coordinator: new MemoryLeaseCoordinator(),
+    coordinator,
+    storage,
     window: async (options = {}) => {
       windows += 1;
       const built = buildShellContext();
-      const services = servicesOf(world, built.context, shared, windows);
+      const services = pageOf(world, clock, built.context, windows);
       const files = scriptedFiles(options.canWriteFolders);
-      const root = new StorageRoot(services);
-      const projects = createProjectStores(services, built.storage, {
+      const lifetime = new AbortController();
+      const root = new StorageRoot(services.client.root, lifetime.signal);
+      const projects = createProjectStores(
+        services,
+        built.storage,
+        {
+          files,
+          canLink: true,
+          backupFolder: options.backupFolder,
+          linkedFiles: options.linkedFiles ?? new ScriptedLinkedFiles(),
+        },
+        lifetime.signal,
+      );
+      const takeDown = (): void => {
+        lifetime.abort(abandonment('The test took the window down.'));
+        projects.project.dispose();
+      };
+      return await windowOver(built.context, {
+        services,
+        storage,
+        root,
+        projects,
         files,
-        canLink: true,
-        backupFolder: options.backupFolder,
-        linkedFiles: options.linkedFiles ?? new ScriptedLinkedFiles(),
+        takeDown,
       });
-      return await windowOver(built.context, services, root, projects, files);
     },
   };
   return world;
@@ -254,11 +272,9 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
 /** A window of the world, started as the application starts it. */
 async function windowOver(
   base: ShellContext,
-  services: ProjectServices,
-  root: StorageRoot,
-  projects: ProjectStores,
-  files: ScriptedFiles,
+  parts: Pick<ProjectWindow, 'services' | 'storage' | 'root' | 'projects' | 'files' | 'takeDown'>,
 ): Promise<ProjectWindow> {
+  const { root, projects } = parts;
   const context: ShellContext = { ...base, storageRoot: root, projects };
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
@@ -288,11 +304,8 @@ async function windowOver(
   await projects.library.refresh();
   await projects.backupFolder.start();
   return {
+    ...parts,
     context,
-    projects,
-    root,
-    files,
-    services,
     run,
     said,
     nextSaid,

@@ -4,13 +4,12 @@
  *
  * The parts are what differ between the browser and a test: the tree, the
  * digest, the clock, identifiers and tokens, the window as others are told of
- * it, the leases, the kept handles, the turns and the loggers. Everything made
- * from them is made here alone, for both, so a test runs the worker's own
- * composition over parts in memory. Every storage path works through a tree
- * that takes turns (`host-turns.ts`).
+ * it, the leases, the turns and the loggers. Everything made from them is made
+ * here alone, for both, so a test runs the worker's own composition over parts
+ * in memory. Every storage path works through a tree that takes turns
+ * (`host-turns.ts`).
  */
 
-import type { FileHandleKeeper } from '@audiogubbins/browser-storage';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
@@ -49,9 +48,6 @@ export interface HostParts {
   /** The platform's lease coordination, absent where it has none. */
   readonly coordinator: LeaseCoordinator | undefined;
 
-  /** Where the handles of linked files are kept, absent where the browser keeps none. */
-  readonly keeper: FileHandleKeeper | undefined;
-
   /** A turn given to the worker's host, which every storage path takes between operations. */
   readonly yieldToHost: YieldToHost;
   readonly logs: HostLogs;
@@ -60,7 +56,6 @@ export interface HostParts {
 /** Everything the areas serving the page work with, each made once. */
 export interface HostServices extends OpeningServices, CleanupRunServices {
   readonly repository: ProjectRepository;
-  readonly keeper: FileHandleKeeper | undefined;
   readonly yieldToHost: YieldToHost;
 }
 
@@ -88,7 +83,6 @@ export function hostServices(parts: HostParts): HostServices {
     }),
     caches: new CacheStore(tree, digest),
     repository: new ProjectRepository({ tree, digest, clock, ids, owner, ...coordinated }),
-    keeper: parts.keeper,
     yieldToHost: parts.yieldToHost,
     ...coordinated,
   };

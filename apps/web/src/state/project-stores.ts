@@ -3,9 +3,11 @@
  * REQ-STOR-021).
  *
  * Each store is a partition of its own, with its own typed operations, and none
- * reaches another except through the ones it is given here. A project opened to
- * write has its linked files looked at as it opens, so a change to one is put
- * to the person at once (REQ-STOR-053).
+ * reaches another except through the ones it is given here; each asks the
+ * storage worker through its part of the client. A project opened to write has
+ * its linked files looked at as it opens, so a change to one is put to the
+ * person at once (REQ-STOR-053). The work every store starts in the worker ends
+ * with the project system's lifetime (`abandoning.ts`).
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -61,38 +63,42 @@ export interface ProjectPorts {
   readonly linkedFiles: LinkedFilesPort;
 }
 
-/** Makes the stores over the storage and the browser's `ports`, each once. */
+/**
+ * Makes the stores over the storage and the browser's `ports`, each once, their
+ * work in the storage worker ending once `lifetime` aborts.
+ */
 export function createProjectStores(
   services: ProjectServices,
   storage: StateStorage,
   ports: ProjectPorts,
+  lifetime: AbortSignal,
 ): ProjectStores {
+  const { client, logger } = services;
   const { files, linkedFiles } = ports;
-  const preferences = createProjectPreferencesStore(storage, ports.canLink, services.logger);
-  const library = new ProjectLibraryStore(services);
-  const project = new OpenProjectStore(services, preferences);
-  const sources = new SourceChangeStore(services, project, files, linkedFiles);
-  const backupFolder = new BackupFolderStore(ports.backupFolder, services.logger);
+  const preferences = createProjectPreferencesStore(storage, ports.canLink, logger);
+  const library = new ProjectLibraryStore(client.library, lifetime);
+  const project = new OpenProjectStore(services, preferences, lifetime);
+  const sources = new SourceChangeStore(client.sources, project, files, linkedFiles);
+  const backupFolder = new BackupFolderStore(ports.backupFolder, logger);
 
-  relieveWhenFull(project, services.caches, services.logger);
+  relieveWhenFull(project, client.usage, logger);
 
-  checkSourcesOnOpening(project, sources, services.logger);
-  keepListInStep(project, library, services.logger);
+  checkSourcesOnOpening(project, sources, logger);
+  keepListInStep(project, library, logger);
 
   return {
     library,
-    transfer: new ProjectTransferStore(
-      services,
+    transfer: new ProjectTransferStore(client.transfers, lifetime, {
       files,
       linkedFiles,
       library,
       project,
-      new ExportRecorder(services, project),
-    ),
+      recorder: new ExportRecorder(logger, project),
+    }),
     project,
     review: new HistoryReviewStore(project),
-    usage: new StorageUsageStore(services, project),
-    backups: new BackupStore(services, project, library, backupFolder.target),
+    usage: new StorageUsageStore(client.usage, lifetime, project),
+    backups: new BackupStore(services, lifetime, project, library, backupFolder.target),
     backupFolder,
     sources,
     preferences,

@@ -12,17 +12,21 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
-import { relieveStoragePressure, type CacheStore } from '@audiogubbins/storage';
+import type { UsageClient } from '@audiogubbins/storage-runtime';
 
+import { isAbandoned } from './abandoning.js';
 import type { OpenProjectStore } from './open-project-store.js';
 
 /** The failure a write refused for want of room is reported as. */
 const FULL = 'storage.full';
 
-/** Gives up caches and tries again whenever the open project's saving is refused as full. */
+/**
+ * Gives up caches through `usage` and tries again whenever the open project's
+ * saving is refused as full, the relief given up once its project is let go.
+ */
 export function relieveWhenFull(
   project: OpenProjectStore,
-  caches: CacheStore,
+  usage: UsageClient,
   logger: Logger,
 ): () => void {
   let answered = false;
@@ -36,7 +40,8 @@ export function relieveWhenFull(
     }
     if (answered || session === undefined) return;
     answered = true;
-    relieveStoragePressure(caches)
+    usage
+      .relievePressure(project.scope())
       .then(async (relief) => {
         if (!relief.ok) {
           logger.warning('Caches could not be given up to make room.', {
@@ -47,6 +52,7 @@ export function relieveWhenFull(
         if (relief.value.total > 0) await session.retry();
       })
       .catch((error: unknown) => {
+        if (isAbandoned(error)) return;
         logger.error('Making room in the storage failed.', {
           reason: error instanceof Error ? error.message : 'unknown',
         });

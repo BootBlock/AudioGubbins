@@ -182,6 +182,8 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  'The storage tree over any synchronous root, which its tests run over a directory in memory; the storage worker builds it through `originPrivateTree`, over the origin-private file system.':
+    ['packages/browser-storage/src/sync-storage-tree.ts: SyncStorageTree'],
   'How many entries of a history one slice of an opening carries, which the test of a long opening exceeds twice over so the page must apply slices in turn; the worker cuts every opening by it.':
     ['packages/storage-runtime/src/host/project-updates.ts: SLICE_ENTRIES'],
   "The storage worker's client over an end of the port and a page's ports given, which the worker in memory makes so a test counts the ports the page has lent; the application connects through `connectStorage`.":
@@ -271,8 +273,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
-  "The storage worker's service over any synchronous root, which the worker tests serve over a directory in memory; the worker reaches it through `serveOriginPrivateTree`, over the origin-private file system.":
-    ['packages/browser-storage/src/serve-tree.ts: serveTree'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };

@@ -9,20 +9,22 @@
  * traced to the state that made it. Undo never offers to take a file back,
  * since nothing can reliably do so. Only the window writing the project can
  * record it; an export made where the project is only read is made all the
- * same, and the person is told it is not recorded.
+ * same, and the person is told it is not recorded. The storage worker gives
+ * each record its identifier and its time, as it gives every other event of the
+ * history.
  */
 
-import type { Clock, Logger } from '@audiogubbins/diagnostics';
-import type { DomainResult, IdGenerator, ProjectId } from '@audiogubbins/domain';
+import type { Logger } from '@audiogubbins/diagnostics';
+import type { DomainResult, ProjectId } from '@audiogubbins/domain';
 import {
   ExportStatus,
   ProvenanceLevel,
   type ContentIdentity,
   type ExportDestination,
   type ExportOutput,
-  type ExportRecord,
 } from '@audiogubbins/project-format';
 import type { CopyOptions, ExportSource } from '@audiogubbins/storage';
+import type { ExportDraft } from '@audiogubbins/storage-runtime';
 
 import type { OpenProjectStore } from './open-project-store.js';
 
@@ -35,8 +37,8 @@ export type RecordedExport =
   /** The history refused it, and why is logged. */
   | 'failed';
 
-/** An export as it describes itself, before it is given its identity and its time. */
-export interface ExportDraft {
+/** An export as it describes itself once it has written, or failed to. */
+export interface FinishedExport {
   readonly project: ProjectId;
   readonly source: ExportSource;
   readonly output: ExportOutput;
@@ -47,13 +49,6 @@ export interface ExportDraft {
 
   /** The write failed after it changed the destination, which holds part of the export. */
   readonly partial?: true;
-}
-
-/** What recording an export works with, each made once by the composition root. */
-export interface RecorderServices {
-  readonly ids: IdGenerator;
-  readonly clock: Clock;
-  readonly logger: Logger;
 }
 
 /**
@@ -84,48 +79,46 @@ const PARTIAL_PROBLEM =
 
 /** Records each export of the open project (see the module comment). */
 export class ExportRecorder {
-  private readonly services: RecorderServices;
+  private readonly logger: Logger;
   private readonly project: OpenProjectStore;
 
-  constructor(services: RecorderServices, project: OpenProjectStore) {
-    this.services = services;
+  constructor(logger: Logger, project: OpenProjectStore) {
+    this.logger = logger;
     this.project = project;
   }
 
   /** Keeps the export in its project's history, where this tab writes the project. */
-  readonly record = async (draft: ExportDraft): Promise<RecordedExport> => {
+  readonly record = async (finished: FinishedExport): Promise<RecordedExport> => {
     const session = this.project.session();
-    if (session?.project !== draft.project) return 'not-writable';
-    const { written, source } = draft;
+    if (session?.project !== finished.project) return 'not-writable';
+    const { written, source } = finished;
     const output = written.ok ? written.value : undefined;
 
     // A backup's state may be at a node the history no longer holds, and a
     // node is named only where the history can show the export on it.
     const { history } = session.getSnapshot().model;
-    const record: ExportRecord = {
-      id: this.services.ids.next<'ExportRecordId'>(),
-      at: this.services.clock.now(),
+    const draft: ExportDraft = {
       stateFingerprint: source.state,
       ...(history.nodes.has(source.node) ? { historyNodeId: source.node } : {}),
       engineVersions: new Map(),
-      output: draft.output,
-      destination: draft.destination,
+      output: finished.output,
+      destination: finished.destination,
       ...(output === undefined ? {} : { outputContentId: output.contentId }),
       status: written.ok
         ? ExportStatus.Succeeded
-        : draft.partial === true
+        : finished.partial === true
           ? ExportStatus.Partial
           : ExportStatus.Failed,
       problems: written.ok
         ? []
         : [
             ...written.failures.map((failure) => failure.summary),
-            ...(draft.partial === true ? [PARTIAL_PROBLEM] : []),
+            ...(finished.partial === true ? [PARTIAL_PROBLEM] : []),
           ],
     };
-    const kept = await session.recordExport(record);
+    const kept = await session.recordExport(draft);
     if (kept.ok) return 'kept';
-    this.services.logger.warning('An export could not be recorded in its history.', {
+    this.logger.warning('An export could not be recorded in its history.', {
       code: kept.failures[0].code,
     });
     return 'failed';

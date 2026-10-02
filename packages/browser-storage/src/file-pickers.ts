@@ -10,10 +10,8 @@
  * from the DOM type definitions.
  */
 
-import type { ExternalFile } from '@audiogubbins/media-store';
-
 import { handlesIn } from './directory-handles.js';
-import { externalFileOf } from './external-files.js';
+import { chosenFileOf, type ChosenFile } from './external-files.js';
 import type { FileHandleKeeper } from './file-handle-keeper.js';
 
 /** A picker, as the capabilities package reads it. */
@@ -55,15 +53,15 @@ export async function pickFiles(
   openFiles: Picker,
   keeper: FileHandleKeeper | undefined,
   options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[] },
-): Promise<Picked<readonly ExternalFile[]>> {
+): Promise<Picked<readonly ChosenFile[]>> {
   const answer = await ask(openFiles, options);
   if (answer.kind === 'cancelled') return answer;
   if (!Array.isArray(answer.chosen)) throw refused('a list of files');
   const chosen: readonly unknown[] = answer.chosen;
-  const files: ExternalFile[] = [];
+  const files: ChosenFile[] = [];
   for (const handle of chosen) {
     if (!(handle instanceof FileSystemFileHandle)) throw refused('a file');
-    files.push(await externalFileOf(handle, await keeper?.keep(handle), undefined));
+    files.push(await chosenFileOf(handle, await keeper?.keep(handle), undefined));
   }
   return { kind: 'picked', chosen: files };
 }
@@ -100,7 +98,7 @@ export function filesInDirectory(
   directory: FileSystemDirectoryHandle,
   keeper: FileHandleKeeper | undefined,
   signal?: AbortSignal,
-): AsyncGenerator<ExternalFile, void, undefined> {
+): AsyncGenerator<ChosenFile, void, undefined> {
   return filesWithin(directory, '', keeper, signal);
 }
 
@@ -109,14 +107,14 @@ async function* filesWithin(
   within: string,
   keeper: FileHandleKeeper | undefined,
   signal: AbortSignal | undefined,
-): AsyncGenerator<ExternalFile, void, undefined> {
+): AsyncGenerator<ChosenFile, void, undefined> {
   for await (const handle of handlesIn(directory)) {
     signal?.throwIfAborted();
     const relativePath = within === '' ? handle.name : `${within}/${handle.name}`;
     if (handle instanceof FileSystemDirectoryHandle) {
       yield* filesWithin(handle, relativePath, keeper, signal);
     } else if (handle instanceof FileSystemFileHandle) {
-      yield await externalFileOf(handle, await keeper?.keep(handle), relativePath);
+      yield await chosenFileOf(handle, await keeper?.keep(handle), relativePath);
     }
   }
 }

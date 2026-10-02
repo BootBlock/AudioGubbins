@@ -17,7 +17,10 @@
  * leave to read is put to them with the rest, and nothing is done to it until
  * they give that leave from the control they press, when it is looked at again
  * as it would have been at first. Every answer that changes the project is one
- * project command through the session, so undo reverses it.
+ * project command through the session, so undo reverses it. Each file is passed
+ * to the storage worker, which reads and hashes it there; a look at the
+ * project's files is given up once a newer one replaces it, and all of it once
+ * the project is let go.
  */
 
 import {
@@ -30,18 +33,17 @@ import {
 } from '@audiogubbins/domain';
 import {
   classifySource,
-  examineFile,
   resolutionsFor,
   type ResolutionKind,
   type SourceObservation,
 } from '@audiogubbins/media-store';
 import { relinkSourceInvocation } from '@audiogubbins/project-commands';
 import type { ExternalMedia, ExternalSourceIdentity } from '@audiogubbins/project-format';
-import type { ProjectSession } from '@audiogubbins/storage';
+import type { RemoteProjectSession, SourcesClient } from '@audiogubbins/storage-runtime';
 
 import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
-import type { ProjectServices } from '../storage/project-services.js';
+import { Requests } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import {
   invocationOf,
@@ -59,6 +61,13 @@ type Settled =
   | { readonly kind: 'as-recorded' }
   | { readonly kind: 'applied'; readonly resolution: ResolutionKind }
   | { readonly kind: 'waiting'; readonly change: SourceChange };
+
+/** A linked asset, by the name the person calls it, and its media as the project records it. */
+interface LinkedAsset {
+  readonly asset: AssetId;
+  readonly name: string;
+  readonly media: ExternalMedia;
+}
 
 /** Why a change has no answer to take. */
 const NO_SUCH_CHANGE = failure(
@@ -94,8 +103,12 @@ function cannotTake(kind: ResolutionKind): ReturnType<typeof failure> {
 
 /** The linked files of the open project, and the answers to their changes. */
 export class SourceChangeStore implements Observable<SourceChangeState> {
-  private readonly services: ProjectServices;
+  private readonly sources: SourcesClient;
   private readonly project: OpenProjectStore;
+  private readonly checks: Requests;
+
+  /** The signal of the latest look at the project's files. */
+  private latest: AbortSignal | undefined;
   private readonly files: TransferFiles;
   private readonly linkedFiles: LinkedFilesPort;
   private readonly state = observable<SourceChangeState>({
@@ -108,38 +121,39 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
   readonly subscribe = this.state.subscribe;
 
   constructor(
-    services: ProjectServices,
+    sources: SourcesClient,
     project: OpenProjectStore,
     files: TransferFiles,
     linkedFiles: LinkedFilesPort,
   ) {
-    this.services = services;
+    this.sources = sources;
     this.project = project;
+    this.checks = new Requests(() => project.scope());
     this.files = files;
     this.linkedFiles = linkedFiles;
   }
 
   /**
    * Looks at every linked file of the project open to write, taking at once
-   * what each asset's own policy takes without asking.
+   * what each asset's own policy takes without asking. Given up, rejecting as
+   * abandoned, once a newer look replaces it or the project is let go.
    */
   readonly check = async (): Promise<void> => {
     const session = this.project.session();
     if (session === undefined) return;
+    const signal = this.checks.next();
+    this.latest = signal;
     this.state.set({ changes: [], applied: [], checking: true });
-    const projectState = session.getSnapshot().model.state;
-    const changes: SourceChange[] = [];
-    const applied: SourceChangeState['applied'][number][] = [];
-    for (const [asset, { media }] of projectState.sources) {
-      if (media.kind !== 'external') continue;
-      const name = projectState.project.assets.get(asset)?.displayName ?? 'An asset';
-      const settled = await this.settle(session, asset, name, media, (identity) =>
-        this.linkedFiles.look(identity),
-      );
-      if (settled.kind === 'applied') applied.push({ asset, name, kind: settled.resolution });
-      else if (settled.kind === 'waiting') changes.push(settled.change);
+    try {
+      this.state.set({ ...(await this.looked(session, signal)), checking: false });
+    } catch (error) {
+      // Given up with no newer look under way, as when the project is let go:
+      // nothing is being looked at, and nothing found is the person's now.
+      if (signal.aborted && this.latest === signal) {
+        this.state.set({ changes: [], applied: [], checking: false });
+      }
+      throw error;
     }
-    this.state.set({ changes, applied, checking: false });
   };
 
   /**
@@ -154,8 +168,11 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     if (!wantsLeave(change.classification)) return fail(NO_LEAVE_WANTED);
     const media = session.getSnapshot().model.state.sources.get(asset)?.media;
     if (media?.kind !== 'external') return fail(NO_SUCH_CHANGE);
-    const settled = await this.settle(session, asset, change.name, media, (identity) =>
-      this.linkedFiles.ask(identity),
+    const settled = await this.settle(
+      session,
+      { asset, name: change.name, media },
+      (identity) => this.linkedFiles.ask(identity),
+      this.project.scope(),
     );
     switch (settled.kind) {
       case 'as-recorded':
@@ -219,18 +236,40 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     this.state.update((current) => ({ ...current, changes: [], applied: [] }));
   };
 
+  /** What became of each linked file of the project `session` writes. */
+  private async looked(
+    session: RemoteProjectSession,
+    signal: AbortSignal,
+  ): Promise<Pick<SourceChangeState, 'changes' | 'applied'>> {
+    const projectState = session.getSnapshot().model.state;
+    const changes: SourceChange[] = [];
+    const applied: SourceChangeState['applied'][number][] = [];
+    for (const [asset, { media }] of projectState.sources) {
+      if (media.kind !== 'external') continue;
+      const name = projectState.project.assets.get(asset)?.displayName ?? 'An asset';
+      const settled = await this.settle(
+        session,
+        { asset, name, media },
+        (identity) => this.linkedFiles.look(identity),
+        signal,
+      );
+      if (settled.kind === 'applied') applied.push({ asset, name, kind: settled.resolution });
+      else if (settled.kind === 'waiting') changes.push(settled.change);
+    }
+    return { changes, applied };
+  }
+
   /**
    * Looks at one linked file, found by `reach`, and takes at once what the
    * asset's own policy takes without asking.
    */
   private async settle(
-    session: ProjectSession,
-    asset: AssetId,
-    name: string,
-    media: ExternalMedia,
+    session: RemoteProjectSession,
+    linked: LinkedAsset,
     reach: LinkedFilesPort['look'],
+    signal: AbortSignal,
   ): Promise<Settled> {
-    const change = await this.changeOf(asset, name, media, reach);
+    const change = await this.changeOf(linked, reach, signal);
     if (change === undefined) return { kind: 'as-recorded' };
     const { automatic } = change.plan;
     if (automatic === undefined) return { kind: 'waiting', change };
@@ -242,10 +281,11 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
   private async observe(
     identity: ExternalSourceIdentity,
     reach: LinkedFilesPort['look'],
+    signal: AbortSignal,
   ): Promise<SourceObservation> {
     const access = await reach(identity);
     if (access.kind !== 'available') return { kind: 'absent', reason: absenceOf(access) };
-    const observed = await examineFile(identity, access.file, this.services);
+    const observed = await this.sources.examine(identity, access.file, signal);
     return observed.ok
       ? { kind: 'present', file: observed.value }
       : { kind: 'absent', reason: 'unreadable' };
@@ -253,12 +293,11 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
 
   /** What became of one linked file, where it is no longer what was recorded. */
   private async changeOf(
-    asset: AssetId,
-    name: string,
-    media: ExternalMedia,
+    { asset, name, media }: LinkedAsset,
     reach: LinkedFilesPort['look'],
+    signal: AbortSignal,
   ): Promise<SourceChange | undefined> {
-    const observation = await this.observe(media.identity, reach);
+    const observation = await this.observe(media.identity, reach, signal);
     const classification = classifySource(media.identity, observation);
     if (classification.kind === 'unchanged') return undefined;
     return {
@@ -272,7 +311,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
 
   /** Takes a choice that needs no more of the person through the session. */
   private async take(
-    session: ProjectSession,
+    session: RemoteProjectSession,
     change: SourceChange,
     kind: ResolutionKind,
   ): Promise<DomainResult<void>> {
@@ -288,14 +327,14 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
    * where it holds what the project recorded, or offers it where it does not.
    */
   private async relink(
-    session: ProjectSession,
+    session: RemoteProjectSession,
     change: SourceChange,
   ): Promise<DomainResult<Resolution>> {
     const chosen = await this.files.chooseMediaFile();
     if (chosen === undefined) return fail(NOTHING_CHOSEN);
     const media = session.getSnapshot().model.state.sources.get(change.asset)?.media;
     if (media?.kind !== 'external') return fail(NO_SUCH_CHANGE);
-    const examined = await examineFile(media.identity, chosen, this.services);
+    const examined = await this.sources.examine(media.identity, chosen, this.project.scope());
     if (!examined.ok) return examined;
     const identity = examined.value;
     const verdict = classifySource(media.identity, { kind: 'present', file: identity });
@@ -316,7 +355,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
   }
 
   private async linked(
-    session: ProjectSession,
+    session: RemoteProjectSession,
     change: SourceChange,
     identity: ExternalSourceIdentity,
   ): Promise<DomainResult<void>> {

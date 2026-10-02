@@ -1,13 +1,17 @@
 /**
- * The storage worker's own composition, serving a page's client across the
- * port pair, over parts in memory: a tree, the leases of one browser profile,
- * seeded identifiers and a clock that steps. Nothing reaches the real machine:
- * the digest is the environment's Web Crypto. The page's records are kept in a
- * log store of its own, admitting Info and above. A second set of services
- * over the same tree and leases lets a test look into the storage as another
- * window of the profile would, and two pages given one tree and one set of
- * leases are two tabs of one profile, each with its worker; each draws its
- * identifiers from a seed of its own, so the two never mint one.
+ * The storage worker's own composition, serving a page across a port pair,
+ * over parts in memory: a tree, the leases of one browser profile, seeded
+ * identifiers and a clock that steps. Nothing reaches the real machine: the
+ * digest is the environment's Web Crypto. A second set of services over the
+ * same tree and leases lets a test look into the storage as another window of
+ * the profile would, and two pages given one tree and one set of leases are
+ * two tabs of one profile, each with its worker; each draws its identifiers
+ * from a seed of its own, so the two never mint one.
+ *
+ * A worker in memory serves whichever page a test joins to it, so an
+ * application's test connects its own page as the application does; a page of
+ * this package's own keeps its records in a log store of its own, admitting
+ * Info and above.
  */
 
 import { webDigest } from '@audiogubbins/browser-storage';
@@ -39,7 +43,7 @@ import {
   type HostServices,
 } from '../host/host-services.js';
 import { serveStorage } from '../host/storage-host.js';
-import { PortChannel } from '../protocol/port-channel.js';
+import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import { portPair, type PortPair } from './port-pair.js';
 
 /** What a new project is made with in these tests. */
@@ -48,20 +52,24 @@ export const SETTINGS: ProjectSettings = {
   channelLayout: StandardLayouts.stereo,
 };
 
-/** A page served by a storage worker in memory, and what a test looks at. */
-export interface MemoryStorage {
-  readonly client: StorageClient;
-  readonly pair: PortPair;
+/** A storage worker in memory, and what a test looks at of it. */
+export interface MemoryWorker {
   readonly coordinator: MemoryLeaseCoordinator;
-
-  /** The records the page's diagnostics kept. */
-  readonly logs: LogStore;
 
   /** The worker's loggers, for a test to make a record in the worker. */
   readonly hostLogs: HostLogs;
 
   /** Services over the worker's tree and leases, as another window's (see the module comment). */
   readonly another: HostServices;
+}
+
+/** A page served by a storage worker in memory, and what a test looks at. */
+export interface MemoryStorage extends MemoryWorker {
+  readonly client: StorageClient;
+  readonly pair: PortPair;
+
+  /** The records the page's diagnostics kept. */
+  readonly logs: LogStore;
 
   /** How many ports the page has lent the worker now. */
   readonly lentPorts: () => number;
@@ -78,12 +86,18 @@ export interface MemoryStorageOptions {
   /** The leases of the profile, where another page shares them. */
   readonly coordinator?: MemoryLeaseCoordinator;
 
-  /** The tab, as other tabs are told of it, and its identifiers' seed. */
-  readonly tab?: { readonly name: string; readonly seed: number };
+  /**
+   * The tab, as other tabs are told of it, and its identifiers' seed: called
+   * `the window called <name>` where no label is given.
+   */
+  readonly tab?: { readonly name: string; readonly seed: number; readonly label?: string };
+
+  /** The clock the worker reads, where the tabs of a test share one: one that steps where not. */
+  readonly clock?: Clock;
 }
 
 /** A clock that moves on a second each time it is read. */
-function steppingClock(): Clock {
+export function steppingClock(): Clock {
   let now = 1_790_000_000_000;
   return {
     now: () => {
@@ -93,9 +107,9 @@ function steppingClock(): Clock {
   };
 }
 
-/** The parts of a window over `tree` and `coordinator`, its identifiers seeded by `seed`. */
+/** The parts of a window over shared parts, its identifiers seeded by `seed`. */
 function partsOf(
-  window: string,
+  owner: HostParts['owner'],
   seed: number,
   shared: Pick<HostParts, 'tree' | 'clock' | 'coordinator' | 'yieldToHost' | 'logs'>,
 ): HostParts {
@@ -104,33 +118,48 @@ function partsOf(
     digest: webDigest(crypto.subtle),
     ids: createDeterministicIdGenerator(seed),
     nextToken: countingTokens(),
-    owner: { instance: window, label: `the window called ${window}` },
-    keeper: undefined,
+    owner,
   };
 }
 
-/** A storage worker in memory, serving a page's client (see the module comment). */
-export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage {
-  const pair = portPair();
-  const clock = steppingClock();
+/** A storage worker in memory, serving the page at the other end of `endpoint`. */
+export function serveMemoryStorage(
+  endpoint: PortEndpoint,
+  options: MemoryStorageOptions = {},
+): MemoryWorker {
+  const clock = options.clock ?? steppingClock();
   const tree = options.tree ?? new MemoryStorageTree();
   const coordinator = options.coordinator ?? new MemoryLeaseCoordinator();
   const tab = options.tab ?? { name: 'worker', seed: 29 };
+  const owner = { instance: tab.name, label: tab.label ?? `the window called ${tab.name}` };
   const yieldToHost = options.yieldToHost ?? (() => Promise.resolve());
   let hostLogs: HostLogs | undefined;
-  serveStorage(pair.worker, clock, (logs) => {
+  serveStorage(endpoint, clock, (logs) => {
     hostLogs = logs;
-    return partsOf(tab.name, tab.seed, { tree, clock, coordinator, yieldToHost, logs });
+    return partsOf(owner, tab.seed, { tree, clock, coordinator, yieldToHost, logs });
   });
   if (hostLogs === undefined) throw new Error('The worker made its services without loggers.');
 
-  const logs = createLogStore();
-  const diagnostics = createDiagnosticCentre(logs, clock, {
-    defaultSeverity: LogSeverity.Info,
-    categoryOverrides: {},
+  const another = memoryHostServices({
+    tree,
+    coordinator,
+    clock,
+    tab: { name: `${tab.name}, another`, seed: tab.seed + 1_000 },
   });
-  const another = hostServices(
-    partsOf(`${tab.name}, another`, tab.seed + 1_000, {
+  return { coordinator, hostLogs, another };
+}
+
+/**
+ * The worker's services over storage in memory, served to no page: another
+ * window of the profile, as a test looks into the storage through it.
+ */
+export function memoryHostServices(
+  options: Required<Pick<MemoryStorageOptions, 'tree' | 'coordinator' | 'clock' | 'tab'>>,
+): HostServices {
+  const { tree, coordinator, clock, tab } = options;
+  const owner = { instance: tab.name, label: tab.label ?? `the window called ${tab.name}` };
+  return hostServices(
+    partsOf(owner, tab.seed, {
       tree,
       clock,
       coordinator,
@@ -138,8 +167,20 @@ export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage
       logs: createDiagnosticCentre(createLogStore(), clock),
     }),
   );
+}
+
+/** A storage worker in memory, serving a page's client (see the module comment). */
+export function memoryStorage(options: MemoryStorageOptions = {}): MemoryStorage {
+  const pair = portPair();
+  const clock = options.clock ?? steppingClock();
+  const worker = serveMemoryStorage(pair.worker, { ...options, clock });
+  const logs = createLogStore();
+  const diagnostics = createDiagnosticCentre(logs, clock, {
+    defaultSeverity: LogSeverity.Info,
+    categoryOverrides: {},
+  });
   const ports = new PagePorts();
   const client = storageClientOver(new PortChannel(pair.page), ports, diagnostics);
   const lentPorts = (): number => ports.lent;
-  return { client, pair, coordinator, logs, hostLogs, another, lentPorts };
+  return { ...worker, client, pair, logs, lentPorts };
 }

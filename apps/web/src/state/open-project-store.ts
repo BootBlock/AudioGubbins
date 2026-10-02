@@ -6,14 +6,16 @@
  *
  * One project is open at a time, to write where this window holds its lease and
  * to read otherwise, and the store republishes whatever the open project
- * publishes, so the interface reads one snapshot. Every change to the project
- * itself runs through the session the store holds, which is the typed command
- * layer's route into it; the store only opens, closes and swaps. What recovery
- * found on opening stays until the person dismisses it, where it found
- * anything. A window that handed the project over reads it at once, so it keeps
- * seeing the work; one that lost it keeps saying so, and who took it, until the
- * person reopens it. Its members are properties, so each can be handed on
- * unbound.
+ * publishes, so the interface reads one snapshot. The project itself is held in
+ * the storage worker, and the session or view here stands for it. Every change
+ * to the project runs through the session the store holds, which is the typed
+ * command layer's route into it; the store only opens, closes and swaps. An
+ * opening is given up once another opening or a close replaces it, and the work
+ * done for a project once it is let go (`abandoning.ts`). What recovery found
+ * on opening stays until the person dismisses it, where it found anything. A
+ * window that handed the project over reads it at once, so it keeps seeing the
+ * work; one that lost it keeps saying so, and who took it, until the person
+ * reopens it. Its members are properties, so each can be handed on unbound.
  */
 
 import {
@@ -24,17 +26,20 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import {
-  openProject,
-  type OpenedProject,
-  type ProjectRecoveryReport,
-  type ProjectSession,
-  type ProjectSnapshot,
-  type ReadOnlyProject,
-  type TransferOutcome,
+import type {
+  ProjectRecoveryReport,
+  ProjectSnapshot,
+  TransferOutcome,
 } from '@audiogubbins/storage';
+import type {
+  RemoteOpenedProject,
+  RemoteProjectSession,
+  RemoteReadOnlyProject,
+} from '@audiogubbins/storage-runtime';
 
 import type { ProjectServices } from '../storage/project-services.js';
+import { Requests, abandonment, isAbandoned, within } from './abandoning.js';
+import { followHandover } from './handover.js';
 import { observable, type Observable } from './observable.js';
 import type { ProjectPreferencesStore } from './project-preferences-store.js';
 
@@ -84,26 +89,38 @@ function isNotable(report: ProjectRecoveryReport): boolean {
 
 /** A project open to write or to read. */
 type Opened =
-  | { readonly kind: 'writable'; readonly session: ProjectSession }
-  | { readonly kind: 'read-only'; readonly view: ReadOnlyProject };
+  | { readonly kind: 'writable'; readonly session: RemoteProjectSession }
+  | { readonly kind: 'read-only'; readonly view: RemoteReadOnlyProject };
 
-/** A project opened, and how to stop hearing of it. */
+/** A project opened, how to stop hearing of it, and the work done for it. */
 interface Held {
   readonly opened: Opened;
   readonly stop: () => void;
+  readonly scope: AbortController;
+  readonly unfollow: () => void;
 }
 
 /** What the project publishes, whichever way it is open. */
-function publisherOf(opened: Opened): ProjectSession | ReadOnlyProject {
+function publisherOf(opened: Opened): RemoteProjectSession | RemoteReadOnlyProject {
   return opened.kind === 'writable' ? opened.session : opened.view;
+}
+
+/** Whether a session was closed in the worker, as a restore in place closes it. */
+function isClosed(opened: Opened): boolean {
+  return opened.kind === 'writable' && opened.session.getSnapshot().access.kind === 'closed';
 }
 
 /** The project open in this window (see the module comment). */
 export class OpenProjectStore implements Observable<OpenProjectState> {
   private readonly services: ProjectServices;
   private readonly preferences: ProjectPreferencesStore;
+  private readonly lifetime: AbortSignal;
+  private readonly openings: Requests;
   private readonly state = observable<OpenProjectState>({ kind: 'none' });
   private held: Held | undefined;
+
+  /** The release under way, which a second asking for one waits for rather than repeats. */
+  private releasing: Promise<DomainResult<void>> | undefined;
 
   /** Stops watching for the tab a project was handed over to, while this tab waits for it. */
   private following: (() => void) | undefined;
@@ -111,23 +128,43 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
-  constructor(services: ProjectServices, preferences: ProjectPreferencesStore) {
+  /** The store, whose work for any project ends once `lifetime` aborts. */
+  constructor(
+    services: ProjectServices,
+    preferences: ProjectPreferencesStore,
+    lifetime: AbortSignal,
+  ) {
     this.services = services;
     this.preferences = preferences;
+    this.lifetime = lifetime;
+    this.openings = new Requests(() => lifetime);
   }
 
-  /** Opens a project, closing the one open first, and answers how it opened. */
+  /**
+   * Opens a project, closing the one open first, and answers how it opened.
+   * Given up, and rejecting as abandoned, once another opening or a close
+   * replaces it.
+   */
   readonly open = async (
     project: ProjectId,
     choice: OpeningChoice = {},
-  ): Promise<DomainResult<OpenedProject['kind']>> => {
+  ): Promise<DomainResult<RemoteOpenedProject['kind']>> => {
+    const signal = this.openings.next();
     const released = await this.release();
     if (!released.ok) return released;
+    signal.throwIfAborted();
     this.state.set({ kind: 'opening', project });
-    const opened = await openProject(
-      { project, access: choice.access ?? 'write', steal: choice.steal ?? false },
-      this.services,
-    );
+    const opened = await this.services.client.projects.open({
+      project,
+      access: choice.access ?? 'write',
+      steal: choice.steal ?? false,
+      signal,
+    });
+    if (signal.aborted) {
+      // Answered as it was replaced: nothing will hold it, so it is let go.
+      if (opened.ok) await this.closeOpened(opened.value);
+      signal.throwIfAborted();
+    }
     if (!opened.ok) {
       this.state.set({ kind: 'none' });
       return opened;
@@ -138,6 +175,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
 
   /** Closes the open project, refused while its changes are not saved. */
   readonly close = async (): Promise<DomainResult<void>> => {
+    this.openings.next();
     const released = await this.release();
     if (released.ok) {
       this.state.set({ kind: 'none' });
@@ -151,26 +189,34 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
    * still writes it: a session that lost the project, or handed it over, can
    * change nothing more.
    */
-  readonly session = (): ProjectSession | undefined => {
+  readonly session = (): RemoteProjectSession | undefined => {
     const opened = this.held?.opened;
     if (opened?.kind !== 'writable') return undefined;
     return opened.session.getSnapshot().access.kind === 'writable' ? opened.session : undefined;
   };
 
   /** The project open to read, where one is. */
-  readonly view = (): ReadOnlyProject | undefined =>
+  readonly view = (): RemoteReadOnlyProject | undefined =>
     this.held?.opened.kind === 'read-only' ? this.held.opened.view : undefined;
 
   /**
-   * Takes a session opened elsewhere, as restoring a backup in place opens one,
-   * once the project open before it is closed.
+   * The signal of the work done for the project open now, which aborts once it
+   * is let go, and once the store's own work ends.
    */
-  readonly adopt = (session: ProjectSession): void => {
+  readonly scope = (): AbortSignal => this.held?.scope.signal ?? this.lifetime;
+
+  /**
+   * Takes a session opened elsewhere, as restoring a backup in place opens one,
+   * in place of a session the restore closed, or of none.
+   */
+  readonly adopt = (session: RemoteProjectSession): void => {
+    const held = this.held;
     // A second session held beside the first would keep its lease with nothing
     // to let it go.
-    if (this.held !== undefined) {
-      throw new Error('A session is adopted only once no project is open.');
+    if (held !== undefined && !isClosed(held.opened)) {
+      throw new Error('A session is adopted only once the project open before it is closed.');
     }
+    if (held !== undefined) this.letGo(held);
     this.hold({ kind: 'writable', session });
   };
 
@@ -211,7 +257,7 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
   /** Stops watching a project open to read, as the application is taken down. */
   readonly dispose = (): void => {
     this.following?.();
-    this.view()?.close();
+    this.view()?.close().catch(this.logFault('A project open to read could not be closed.'));
     this.held?.stop();
   };
 
@@ -221,7 +267,8 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     const stop = publisher.subscribe(() => {
       this.republish(publisher.getSnapshot());
     });
-    this.held = { opened, stop };
+    const scope = new AbortController();
+    this.held = { opened, stop, scope, unfollow: within(scope, this.lifetime) };
     this.state.set({
       kind: 'open',
       snapshot: publisher.getSnapshot(),
@@ -235,67 +282,77 @@ export class OpenProjectStore implements Observable<OpenProjectState> {
     const current = this.state.get();
     this.state.set(current.kind === 'open' ? { ...current, snapshot } : { kind: 'open', snapshot });
     if (snapshot.access.kind === 'handed-over' && this.following === undefined) {
-      this.followHandover(snapshot.project);
+      this.following = followHandover(
+        this.services.client.ownership,
+        snapshot.project,
+        () => {
+          this.following = undefined;
+          this.reopenToRead(snapshot.project);
+        },
+        this.services.logger,
+      );
     }
   }
 
   /**
    * Opens a project handed over again once the tab it went to holds it, which
-   * finds it held, and reads it naming that tab and following its changes.
-   * Opened before then, this tab could take back what it had just handed over;
-   * until then, the banner says it was handed over and offers to read it.
+   * finds it held, and reads it naming that tab; until then, the banner says it
+   * was handed over and offers to read it.
    */
-  private followHandover(project: ProjectId): void {
-    const { coordinator } = this.services;
-    if (coordinator === undefined) return;
-    const reopen = (): void => {
-      this.following?.();
-      this.following = undefined;
-      this.open(project).then(
-        (opened) => {
-          if (!opened.ok) {
-            this.services.logger.warning('A project handed over could not be opened to read.', {
-              code: opened.failures[0].code,
-            });
-          }
-        },
-        (error: unknown) => {
-          this.services.logger.error('A project handed over could not be opened to read.', {
-            reason: error instanceof Error ? error.message : 'unknown',
-          });
-        },
-      );
-    };
-    this.following = coordinator.watchOwnership(project, (event) => {
-      if (event.kind === 'acquired') reopen();
-    });
-    // The other tab may have taken it before this tab began to watch.
-    coordinator.ownerOf(project).then(
-      (owner) => {
-        if (owner !== undefined && this.following !== undefined) reopen();
-      },
-      (error: unknown) => {
-        this.services.logger.error('The tab a project went to could not be asked for.', {
-          reason: error instanceof Error ? error.message : 'unknown',
+  private reopenToRead(project: ProjectId): void {
+    this.open(project).then((opened) => {
+      if (!opened.ok) {
+        this.services.logger.warning('A project handed over could not be opened to read.', {
+          code: opened.failures[0].code,
         });
-      },
-    );
+      }
+    }, this.logFault('A project handed over could not be opened to read.'));
+  }
+
+  /** Logs a fault of work no command waits for, and says nothing of work given up. */
+  private logFault(what: string): (error: unknown) => void {
+    return (error) => {
+      if (isAbandoned(error)) return;
+      this.services.logger.error(what, {
+        reason: error instanceof Error ? error.message : 'unknown',
+      });
+    };
+  }
+
+  /** Closes a project opened for an opening given up as it was answered. */
+  private async closeOpened(opened: RemoteOpenedProject): Promise<void> {
+    if (opened.kind === 'read-only') await opened.view.close();
+    else await opened.session.close();
+  }
+
+  /** Stops hearing of a held project and gives up the work done for it. */
+  private letGo(held: Held): void {
+    held.stop();
+    held.unfollow();
+    held.scope.abort(abandonment('The project the work was for was let go.'));
+    this.held = undefined;
   }
 
   /** Lets the held project go, refused while a session's changes are not saved. */
-  private async release(): Promise<DomainResult<void>> {
+  private release(): Promise<DomainResult<void>> {
+    this.releasing ??= this.releaseHeld().finally(() => {
+      this.releasing = undefined;
+    });
+    return this.releasing;
+  }
+
+  private async releaseHeld(): Promise<DomainResult<void>> {
     this.following?.();
     this.following = undefined;
-    if (this.held === undefined) return succeed(undefined);
-    const { opened, stop } = this.held;
-    if (opened.kind === 'writable') {
+    const held = this.held;
+    if (held === undefined) return succeed(undefined);
+    const { opened } = held;
+    if (opened.kind === 'read-only') await opened.view.close();
+    else if (!isClosed(opened)) {
       const closed = await opened.session.close();
       if (!closed.ok) return closed;
-    } else {
-      opened.view.close();
     }
-    stop();
-    this.held = undefined;
+    this.letGo(held);
     return succeed(undefined);
   }
 }

@@ -7,7 +7,8 @@
  * starts, returns, and has the operation's outcome said when it settles: its
  * success politely, its refusal urgently with every reason, as `executeVoiced`
  * says a command's own refusal. An operation that rejects is a fault rather
- * than a refusal, and is logged and said as one, never dropped.
+ * than a refusal, and is logged and said as one, never dropped, unless it was
+ * given up because nothing waits for it any more (`abandoning.ts`).
  */
 
 import {
@@ -23,9 +24,10 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
-import type { ProjectSession } from '@audiogubbins/storage';
+import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { cutAtAWord } from '@audiogubbins/text';
 
+import { isAbandoned } from '../state/abandoning.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
 import { quoted } from '../wording.js';
@@ -98,7 +100,7 @@ function sessionProblem(context: ShellContext): string | undefined {
 }
 
 /** The session of the project open to change, or why there is none. */
-export function sessionOf(context: ShellContext): ProjectSession | string {
+export function sessionOf(context: ShellContext): RemoteProjectSession | string {
   const problem = sessionProblem(context);
   const session = context.projects?.project.session();
   return problem ?? session ?? 'No project is open.';
@@ -131,6 +133,9 @@ export function sayWhenSettled<TValue>(
       if (text !== undefined) announce(text);
     },
     (error: unknown) => {
+      // Given up because a newer request replaced it, or the page went: what
+      // replaced it says what it comes to.
+      if (isAbandoned(error)) return;
       const reason = error instanceof Error ? error.message : 'No reason was given.';
       context.diagnostics.loggerFor('projects').error('A project operation failed.', { reason });
       announce(`Something went wrong, so that did not finish. ${reason}`, true, {
