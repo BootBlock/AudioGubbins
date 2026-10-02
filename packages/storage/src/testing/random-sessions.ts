@@ -1,8 +1,9 @@
 /**
  * Seeded random sessions: each step one operation of an open project, chosen by
  * weight, over changes, undo, redo, moves across branches, branch names,
- * snapshots, A/B comparisons, exports, policies and checkpoints, for the
- * round-trip tests of everything that keeps or carries a project.
+ * snapshots, A/B comparisons of nodes and of snapshots, exports, policies and
+ * checkpoints, for the round-trip tests of everything that keeps or carries a
+ * project.
  */
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -64,7 +65,11 @@ const OPERATIONS: readonly (readonly [weight: number, Operation])[] = [
   [
     2,
     async ({ session, random }) => {
-      const snapshot = random.pick([...session.getSnapshot().model.history.snapshots.keys()]);
+      // Half the time the snapshot a side of the open comparison was chosen by,
+      // which closes the comparison.
+      const compared = session.getSnapshot().model.comparison?.a.snapshot;
+      const snapshot =
+        compared !== undefined && random.next() < 0.5 ? compared : randomSnapshot(session, random);
       return snapshot === undefined ? undefined : await session.deleteSnapshot(snapshot);
     },
   ],
@@ -75,6 +80,20 @@ const OPERATIONS: readonly (readonly [weight: number, Operation])[] = [
         { kind: 'node', node: randomNode(session, random) },
         { kind: 'node', node: randomNode(session, random) },
       ),
+  ],
+  [
+    4,
+    async ({ session, random }) => {
+      const snapshot = randomSnapshot(session, random);
+      if (snapshot === undefined) return undefined;
+      const other = randomSnapshot(session, random);
+      return await session.compare(
+        { kind: 'snapshot', snapshot },
+        other !== undefined && random.next() < 0.5
+          ? { kind: 'snapshot', snapshot: other }
+          : { kind: 'node', node: randomNode(session, random) },
+      );
+    },
   ],
   [3, async ({ session }) => await session.switchSide()],
   [1, async ({ session }) => await session.closeComparison()],
@@ -120,6 +139,10 @@ function randomNode(session: ProjectSession, random: Random) {
   const node = random.pick(nodes);
   if (node === undefined) throw new Error('A history has a node.');
   return node;
+}
+
+function randomSnapshot(session: ProjectSession, random: Random) {
+  return random.pick([...session.getSnapshot().model.history.snapshots.keys()]);
 }
 
 function chosen(random: Random): readonly [number, Operation] {

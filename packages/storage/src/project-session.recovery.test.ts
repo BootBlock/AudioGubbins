@@ -24,12 +24,12 @@ import { harness, nodeDigest } from './testing/node-services.js';
 /**
  * Crash injection at every operation of the tree (REQ-EXEC-180, the packet's
  * "Failure and Recovery Behaviour"): a scripted session of changes, undo,
- * moves, a snapshot, a branch name, a checkpoint and a close is run once whole,
- * to learn the project after each step, then again with the tree crashing at
- * each of its operations in turn. After each crash the project is opened from
- * what the tree held: it must open, validated, to the project as of the last
- * step acknowledged as written or as of the step the crash cut short, never to
- * anything else, and it must go on working.
+ * moves, a snapshot, a comparison with it, a branch name, a checkpoint and a
+ * close is run once whole, to learn the project after each step, then again
+ * with the tree crashing at each of its operations in turn. After each crash
+ * the project is opened from what the tree held: it must open, validated, to
+ * the project as of the last step acknowledged as written or as of the step the
+ * crash cut short, never to anything else, and it must go on working.
  */
 
 const PROJECT_ONLY: AffectedEntities = {
@@ -101,6 +101,21 @@ const SCRIPT: readonly (readonly [string, Step])[] = [
     async (context) => expectSuccess(await session(context).goTo(node(context, 'root'))),
   ],
   ['name C', async (context) => expectSuccess(await session(context).run(setName('C')))],
+  [
+    'compare the snapshot with the current state',
+    async (context) => {
+      const project = session(context);
+      const { history } = project.getSnapshot().model;
+      const [snapshot] = history.snapshots.keys();
+      if (snapshot === undefined) throw new Error('No snapshot was made.');
+      expectSuccess(
+        await project.compare(
+          { kind: 'snapshot', snapshot },
+          { kind: 'node', node: history.cursor },
+        ),
+      );
+    },
+  ],
   ['checkpoint', async (context) => expectSuccess(await session(context).checkpoint())],
   [
     'name the branch',
@@ -111,7 +126,17 @@ const SCRIPT: readonly (readonly [string, Step])[] = [
     'go to the asset',
     async (context) => expectSuccess(await session(context).goTo(node(context, 'asset'))),
   ],
+  ['hear the other side', async (context) => expectSuccess(await session(context).switchSide())],
   ['name D', async (context) => expectSuccess(await session(context).run(setName('D')))],
+  [
+    'delete the snapshot compared',
+    async (context) => {
+      const project = session(context);
+      const [snapshot] = project.getSnapshot().model.history.snapshots.keys();
+      if (snapshot === undefined) throw new Error('No snapshot was made.');
+      expectSuccess(await project.deleteSnapshot(snapshot));
+    },
+  ],
   ['name E', async (context) => expectSuccess(await session(context).run(setName('E')))],
   [
     'close',
