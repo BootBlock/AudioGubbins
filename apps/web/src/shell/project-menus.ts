@@ -86,6 +86,7 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
         label: 'This project',
         items: [
           dialogueEntry(builders, ProjectsSection.Current, 'Rename, fork or export…'),
+          entry('file.import-audio'),
           entry('file.back-up-now'),
           entry('file.consolidate'),
           entry('file.delete-project'),

@@ -26,6 +26,7 @@ import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
+import { audioImportCommands } from './audio-import-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
@@ -138,6 +139,7 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...projectFileCommands(),
     ...deletionCommands(),
     ...projectTransferCommands(),
+    ...audioImportCommands(),
     ...backupCommands(),
     ...backupFolderCommands(),
     ...historyCommands(),

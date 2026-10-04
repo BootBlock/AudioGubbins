@@ -26,6 +26,12 @@ export function abandonment(why: string): DOMException {
   return new DOMException(why, 'AbortError');
 }
 
+/** The reason `signal` aborted with, as the error a call given up with it rejects with. */
+export function reasonOf(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : abandonment('The work was given up.');
+}
+
 /**
  * Aborts `controller` with the reason `scope` aborts with, from when it does,
  * and answers what stops following it.

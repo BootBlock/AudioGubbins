@@ -55,6 +55,7 @@ import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
+import { audioImportCommands } from './audio-import-commands.js';
 import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
@@ -769,6 +770,7 @@ describe('finding the shell commands in the palette', () => {
       ...projectFileCommands(),
       ...deletionCommands(),
       ...projectTransferCommands(),
+      ...audioImportCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),

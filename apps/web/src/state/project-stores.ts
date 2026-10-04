@@ -16,6 +16,7 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
+import { AudioImports } from './audio-imports.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
@@ -41,6 +42,8 @@ import { StorageUsageStore } from './storage-usage-store.js';
 export interface ProjectStores {
   readonly library: ProjectLibraryStore;
   readonly transfer: ProjectTransferStore;
+  /** Brings audio files into the open project. */
+  readonly imports: AudioImports;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -103,6 +106,7 @@ export function createProjectStores(
       project,
       recorder: new ExportRecorder(logger, project),
     }),
+    imports: new AudioImports(client.media, files, project, preferences),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),

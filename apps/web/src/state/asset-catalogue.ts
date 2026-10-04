@@ -16,6 +16,7 @@ import type { DomainResult } from '@audiogubbins/domain';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import type { ProjectEntries, ProjectEntry } from '../assets/project-assets.js';
+import { reasonOf } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 
 /** An entry of the project that cannot be opened yet, and why. */
@@ -93,4 +94,48 @@ export function createAssetCatalogue(
       });
     },
   };
+}
+
+/**
+ * The asset of identity `id` once a view can open it, or why it cannot once
+ * that is known: an entry still being found, or not listed yet, is waited for.
+ * Rejects with the signal's reason once `signal` aborts.
+ */
+export function settledEntry(
+  catalogue: AssetCatalogue,
+  id: string,
+  signal: AbortSignal,
+): Promise<EditorAsset | UnopenedEntry> {
+  const settled = (): EditorAsset | UnopenedEntry | undefined => {
+    const found = catalogue.find(id);
+    if (found !== undefined) return found;
+    const unopened = catalogue.get().unopened.get(id);
+    return unopened?.kind === 'unavailable' ? unopened : undefined;
+  };
+  return new Promise((resolve, reject) => {
+    const now = settled();
+    if (now !== undefined) {
+      resolve(now);
+      return;
+    }
+    if (signal.aborted) {
+      reject(reasonOf(signal));
+      return;
+    }
+    const stop = (): void => {
+      unsubscribe();
+      signal.removeEventListener('abort', abort);
+    };
+    const abort = (): void => {
+      stop();
+      reject(reasonOf(signal));
+    };
+    const unsubscribe = catalogue.subscribe(() => {
+      const entry = settled();
+      if (entry === undefined) return;
+      stop();
+      resolve(entry);
+    });
+    signal.addEventListener('abort', abort, { once: true });
+  });
 }
