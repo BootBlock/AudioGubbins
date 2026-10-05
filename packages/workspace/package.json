@@ -25,8 +25,8 @@
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*",
-    "dockview": "8.3.1",
-    "dockview-react": "8.3.1",
+    "dockview": "8.4.0",
+    "dockview-react": "8.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
