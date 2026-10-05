@@ -70,6 +70,35 @@ function KeptField({
   );
 }
 
+/** The crossfade typed, and the control that loops the selection with it. */
+function LoopField({ controls }: { readonly controls: RegionControls }): ReactNode {
+  const [crossfade, setCrossfade] = useState('0');
+  const args = {
+    view: controls.panel,
+    region: controls.region.id,
+    crossfade: crossfade.trim() === '' ? Number.NaN : Number(crossfade),
+  };
+  return (
+    <div className="ag-inspector-row">
+      <TextField
+        label="Crossfade in frames"
+        value={crossfade}
+        onValueChange={setCrossfade}
+        onSubmit={() => {
+          controls.commands.run('region.loop', args);
+        }}
+      />
+      <CommandButton
+        id="region.loop"
+        label={controls.labelFor('region.loop')}
+        commands={controls.commands}
+        args={args}
+        compact
+      />
+    </div>
+  );
+}
+
 /** Whether the region loops, and the controls that loop it or stop it. */
 function LoopControls({
   inspected,
@@ -80,10 +109,8 @@ function LoopControls({
   readonly controls: RegionControls;
   readonly words: EditWording;
 }): ReactNode {
-  const [crossfade, setCrossfade] = useState('0');
   const loop = inspected.placed?.loop;
   const args = { view: controls.panel, region: controls.region.id };
-  const looped = { ...args, crossfade: crossfade.trim() === '' ? Number.NaN : Number(crossfade) };
   return (
     <div className="ag-inspector-controls">
       <p>
@@ -92,23 +119,7 @@ function LoopControls({
           : `It loops between ${words.position(loop.loopStart)} and ${words.position(loop.loopEnd)} of the region, with a crossfade of ${counted(loop.crossfadeLength, 'frame', 'frames')}.`}
       </p>
       {inspected.shownAlone ? (
-        <div className="ag-inspector-row">
-          <TextField
-            label="Crossfade in frames"
-            value={crossfade}
-            onValueChange={setCrossfade}
-            onSubmit={() => {
-              controls.commands.run('region.loop', looped);
-            }}
-          />
-          <CommandButton
-            id="region.loop"
-            label={controls.labelFor('region.loop')}
-            commands={controls.commands}
-            args={looped}
-            compact
-          />
-        </div>
+        <LoopField controls={controls} />
       ) : (
         <div className="ag-inspector-row">
           <p className="ag-panel-note">
