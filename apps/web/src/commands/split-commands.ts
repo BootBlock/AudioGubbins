@@ -6,69 +6,46 @@
  * sounds. The razor's click runs it.
  */
 
-import type { Command } from '@audiogubbins/commands';
+import type { Command, CommandInvocation } from '@audiogubbins/commands';
 import {
   anchorResolver,
-  derivedSampleCount,
-  type AnchorResolver,
+  splitRegion,
+  splitWholeAsset,
   type Asset,
   type Region,
   type SampleCount,
 } from '@audiogubbins/domain';
-import { addRegionInvocation, setRegionInvocation } from '@audiogubbins/project-commands';
+import {
+  addRegionInvocation,
+  addRegionWithProcessing,
+  changeRegionInvocations,
+} from '@audiogubbins/project-commands';
 
 import { editedView } from './edit-target.js';
 import { boundaryArgument, playheadOf } from './editor-target.js';
 import { changeProject, onAsset, type ProjectTarget } from './project-edits.js';
 import type { ShellContext } from './shell-context.js';
-import { nextName, regionCommand, restated } from './region-target.js';
-
-/** The two regions `region` becomes split at `at`, each keeping the processing over its part. */
-function splitRegion(
-  context: ShellContext,
-  found: { readonly region: Region; readonly asset: Asset; readonly resolver: AnchorResolver },
-  at: number,
-): readonly [Region, Region] | undefined {
-  const { region, asset, resolver } = found;
-  const span = resolver.span(region.basis, { start: region.start, end: region.end });
-  if (span === undefined || at <= span.start || at >= span.end) return undefined;
-  const covers = (part: { readonly start: number; readonly end: number }) =>
-    region.operations.filter((operation) => {
-      const range = resolver.span(operation.basis, operation.range);
-      return range !== undefined && range.start < part.end && range.end > part.start;
-    });
-  const loop =
-    region.loop === undefined
-      ? undefined
-      : resolver.span(region.loop.basis, { start: region.loop.start, end: region.loop.end });
-  const before = { start: span.start, end: at };
-  const after = { start: at, end: span.end };
-  const keepsLoop = (part: typeof before) =>
-    loop !== undefined && loop.start >= part.start && loop.end <= part.end;
-  const { loop: _loop, ...unlooped } = region;
-  const first = restated(keepsLoop(before) ? region : unlooped, asset, before);
-  const second: Region = restated(
-    {
-      ...(keepsLoop(after) ? region : unlooped),
-      id: context.ids.next<'RegionId'>(),
-      displayName: `${region.displayName} (2)`,
-      operations: covers(after).map((operation) => ({
-        ...operation,
-        id: context.ids.next<'EditOperationId'>(),
-      })),
-    },
-    asset,
-    after,
-  );
-  return [{ ...first, operations: covers(before) }, second];
-}
+import { nextName, regionCommand } from './region-target.js';
 
 /** Where a split is: the asset as the project holds it, and the boundary on its timeline. */
 interface SplitPlace {
   readonly asset: Asset;
   readonly at: SampleCount;
-  readonly length: number;
   readonly region: Region['id'] | undefined;
+}
+
+/**
+ * The steps that make `region` the pair it is split into: the first part is
+ * the region changed, the second a region added, each with its processing.
+ */
+function splitSteps({
+  region,
+  parts: [first, second],
+}: {
+  readonly region: Region;
+  readonly parts: readonly [Region, Region];
+}): readonly [CommandInvocation, ...CommandInvocation[]] {
+  return [...changeRegionInvocations(region, first), ...addRegionWithProcessing(second)];
 }
 
 /** Splits the regions at the place, as one change, or answers `false` where none is there. */
@@ -81,50 +58,38 @@ function splitRegions(context: ShellContext, project: ProjectTarget, place: Spli
         region.assetId === asset.id && (place.region === undefined || region.id === place.region),
     )
     .flatMap((region) => {
-      // Wrapped, so the pair a region becomes stays one element.
-      const parts = splitRegion(context, { region, asset, resolver }, at);
-      return parts === undefined ? [] : [parts];
+      const parts = splitRegion(asset, region, at, context.ids, resolver);
+      // Wrapped, so the region and the pair it becomes stay one element.
+      return parts === undefined ? [] : [{ region, parts }];
     });
   const [split, ...rest] = splits;
   if (split === undefined) return false;
-  const [first, second] = split;
   changeProject(context, project.session, {
     description: 'Split',
-    invocations: [
-      setRegionInvocation(first),
-      addRegionInvocation(second),
-      ...rest.flatMap(([one, other]) => [setRegionInvocation(one), addRegionInvocation(other)]),
-    ],
+    invocations: [...splitSteps(split), ...rest.flatMap(splitSteps)],
     said:
       rest.length === 0
-        ? `Split ${first.displayName} in two.`
+        ? `Split ${split.region.displayName} in two.`
         : `Split ${String(splits.length)} regions in two.`,
   });
   return true;
 }
 
 /** Cuts the whole sound at the place into two regions over all of it, as one change. */
-function splitWhole(context: ShellContext, project: ProjectTarget, place: SplitPlace): void {
+function splitWhole(
+  context: ShellContext,
+  project: ProjectTarget,
+  place: SplitPlace,
+): string | undefined {
   const { asset, at } = place;
-  const made = (name: string, start: number, end: number): Region => ({
-    id: context.ids.next<'RegionId'>(),
-    assetId: asset.id,
-    displayName: name,
-    basis: asset.edits.length,
-    start: derivedSampleCount(start),
-    end: derivedSampleCount(end),
-    tags: [],
-    operations: [],
-  });
-  const name = nextName(project.state, asset);
+  const parts = splitWholeAsset(asset, at, nextName(project.state, asset), context.ids);
+  if (parts === undefined) return 'Move the playhead inside the sound to split it.';
   changeProject(context, project.session, {
     description: 'Split',
-    invocations: [
-      addRegionInvocation(made(name, 0, at)),
-      addRegionInvocation(made(`${name} (2)`, at, place.length)),
-    ],
+    invocations: [addRegionInvocation(parts[0]), addRegionInvocation(parts[1])],
     said: `Split ${asset.displayName} into two regions.`,
   });
+  return undefined;
 }
 
 function splitCommand(): Command<ShellContext> {
@@ -143,12 +108,11 @@ function splitCommand(): Command<ShellContext> {
       const asset = project.state.project.assets.get(project.owner.asset.id);
       if (asset === undefined) return 'That sound is no longer in the project.';
       const region = project.owner.region?.id;
-      const place = { asset, at: onAsset(project.owner, shown), length: view.asset.length, region };
+      const place = { asset, at: onAsset(project.owner, shown), region };
       if (splitRegions(context, project, place)) return undefined;
       if (region !== undefined) return 'The playhead is not inside the region.';
       // Where no region is, a split cuts the whole sound into two regions.
-      splitWhole(context, project, place);
-      return undefined;
+      return splitWhole(context, project, place);
     },
     ['split', 'razor', 'cut', 'divide', 'slice'],
   );

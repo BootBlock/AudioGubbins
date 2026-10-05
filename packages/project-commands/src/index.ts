@@ -35,6 +35,8 @@ export {
 } from './editing/marker-commands.js';
 export {
   addRegionInvocation,
+  addRegionWithProcessing,
+  changeRegionInvocations,
   removeRegionInvocation,
   setRegionInvocation,
 } from './editing/region-commands.js';

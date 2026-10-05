@@ -1894,6 +1894,7 @@ Published paths
   function projectLength(project: Project): number
   function regionEnd(region: PlacedRegion): number
   function regionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): EditPlan
+  function restateRegion(region: Region, asset: Asset, span: Span): Region
   function routeToBus(busId: BusId): RoutingTarget
   function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
   function sampleCount(value: number): DomainResult<SampleCount>
@@ -1904,6 +1905,8 @@ Published paths
   function shapesOf(asset: Asset): readonly EditShape[]
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
+  function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
+  function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
@@ -2547,8 +2550,10 @@ Published paths
   function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
   function addMarkerInvocation(marker: Marker): CommandInvocation
   function addRegionInvocation(region: Region): CommandInvocation
+  function addRegionWithProcessing(region: Region): readonly [CommandInvocation, ...CommandInvocation[]]
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
+  function changeRegionInvocations(old: Region, next: Region): readonly [CommandInvocation, ...CommandInvocation[]]
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
   function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit): CommandInvocation
   function projectCommands(): readonly ProjectCommand[]

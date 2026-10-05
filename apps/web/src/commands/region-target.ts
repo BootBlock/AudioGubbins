@@ -8,7 +8,6 @@
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
-  derivedSampleCount,
   isWellFormedId,
   unsafeBrandId,
   type Asset,
@@ -104,18 +103,4 @@ export function nextName(state: ProjectState, asset: Asset): string {
   let number = taken.size + 1;
   while (taken.has(`Region ${String(number)}`)) number += 1;
   return `Region ${String(number)}`;
-}
-
-/** `region` restated at the asset's chain as it stands, from `start` to `end`. */
-export function restated(
-  region: Region,
-  asset: Asset,
-  span: { readonly start: number; readonly end: number },
-): Region {
-  return {
-    ...region,
-    basis: asset.edits.length,
-    start: derivedSampleCount(span.start),
-    end: derivedSampleCount(span.end),
-  };
 }
