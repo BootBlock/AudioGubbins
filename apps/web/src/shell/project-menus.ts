@@ -122,6 +122,7 @@ function editMenu(builders: MenuBuilders): ProjectMenu {
         'edit.cut',
         'edit.copy',
         'edit.paste',
+        'edit.paste-converting-rate',
         'edit.delete',
         'edit.trim',
         'edit.split',

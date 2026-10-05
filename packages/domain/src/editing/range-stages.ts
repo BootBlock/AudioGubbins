@@ -13,22 +13,18 @@
 import type { PlanSegment, PlanStage } from './plan.js';
 import { copyMatrix, gainsMatrix, swapMatrix, type ChannelMatrix } from './channel-matrices.js';
 import { FadeDirection } from './fades.js';
-import { isLevelEdit, type ChannelEdit, type LevelEdit, type RangeEdit } from './operations.js';
-
-/**
- * The output span an edit was made over. Its start may lie before the part of
- * the audio a region shows, which is how a fade begun outside a region keeps
- * its ramp inside it.
- */
-interface MadeOver {
-  readonly start: number;
-  readonly end: number;
-}
+import {
+  isLevelEdit,
+  type ChannelEdit,
+  type EditRange,
+  type LevelEdit,
+  type RangeEdit,
+} from './operations.js';
 
 /** The gain a level edit puts on a segment that begins at `segmentStart` in its stream. */
 function levelStage(
   edit: LevelEdit,
-  range: MadeOver,
+  range: EditRange,
   channels: readonly number[] | undefined,
   segment: PlanSegment,
   segmentStart: number,
@@ -81,7 +77,7 @@ function channelEditMatrix(edit: ChannelEdit, count: number): ChannelMatrix {
  */
 export function rangeEditStage(
   edit: RangeEdit,
-  range: MadeOver,
+  range: EditRange,
   channels: readonly number[] | undefined,
   count: number,
 ): (segment: PlanSegment, segmentStart: number) => PlanSegment {

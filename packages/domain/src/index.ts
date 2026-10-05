@@ -132,7 +132,6 @@ export {
 export { FadeDirection, FadeShape } from './editing/fades.js';
 
 export {
-  type ClipboardPayload,
   type EditPlan,
   type FadeCurve,
   type GainCurve,

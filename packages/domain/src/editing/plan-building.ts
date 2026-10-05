@@ -9,12 +9,18 @@
  * differs. A chain is validated before it is folded
  * (`operation-validation.ts`), so this fold assumes every position lies where
  * its operation says.
+ *
+ * A region's own processing is folded in among the chain, each operation just
+ * before the asset's operation its basis counts to, on the timeline it was
+ * placed on. Its stages are then in content frames like any other, so a later
+ * cut, paste or reversal moves them with the content and never remakes them
+ * from where the range has since been carried.
  */
 
 import type { Asset } from '../project/asset.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { channelCount } from '../audio/channel-layout.js';
-import type { EditOperation } from './operations.js';
+import type { EditOperation, RegionOperation } from './operations.js';
 import { insertedLength } from './edit-shape.js';
 import type { EditPlan, PlanSegment, PlanStream } from './plan.js';
 import { changeRange, reverseRange, sliceSegments } from './segment-list.js';
@@ -37,6 +43,20 @@ function lengthOf(segments: readonly PlanSegment[]): number {
 /** An operation that changes only the first stream's segments. */
 type SegmentOperation = Exclude<EditOperation, { readonly kind: 'insert' | 'convert-layout' }>;
 
+/** A range edit on the first stream: the asset's own processing, or a region's. */
+type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
+
+/** The first stream's segments with `processing` as a stage on each segment it covers. */
+function processedSegments(stream: PlanStream, processing: Processing): PlanSegment[] {
+  const { range } = processing;
+  return changeRange(
+    stream.segments,
+    range.start,
+    range.end,
+    rangeEditStage(processing.edit, range, processing.channels, channelCount(stream.layout)),
+  );
+}
+
 /** The first stream's segments with `operation` applied to them. */
 function segmentsAfter(
   stream: PlanStream,
@@ -53,17 +73,7 @@ function segmentsAfter(
     case 'reverse':
       return reverseRange(segments, start, end, total);
     case 'process':
-      return changeRange(
-        segments,
-        start,
-        end,
-        rangeEditStage(
-          operation.edit,
-          operation.range,
-          operation.channels,
-          channelCount(stream.layout),
-        ),
-      );
+      return processedSegments(stream, operation);
   }
 }
 
@@ -132,8 +142,27 @@ function foldInsertion(
   };
 }
 
-/** The plan of an asset's chain as it stands, with no stream nothing reads. */
-export function assetPlan(asset: Asset): EditPlan {
+/** `processing` by the basis it is placed at, each basis's in the order given. */
+function byBasis(
+  asset: Asset,
+  processing: readonly RegionOperation[],
+): ReadonlyMap<number, readonly RegionOperation[]> {
+  const placed = new Map<number, RegionOperation[]>();
+  for (const operation of processing) {
+    const { basis } = operation;
+    // A basis the chain does not have names no timeline to fold at, so it is
+    // left out, as validation refuses it.
+    if (!Number.isInteger(basis) || basis < 0 || basis > asset.edits.length) continue;
+    placed.set(basis, [...(placed.get(basis) ?? []), operation]);
+  }
+  return placed;
+}
+
+/**
+ * The plan of an asset's chain as it stands, with a region's `processing`
+ * folded in among it where given, and no stream nothing reads.
+ */
+export function assetPlan(asset: Asset, processing: readonly RegionOperation[] = []): EditPlan {
   let folding: Folding = {
     stream: {
       sampleRate: asset.sampleRate,
@@ -150,6 +179,16 @@ export function assetPlan(asset: Asset): EditPlan {
     },
     others: [],
   };
-  for (const operation of asset.edits) folding = foldOperation(folding, operation);
+  const placed = byBasis(asset, processing);
+  for (let basis = 0; basis <= asset.edits.length; basis += 1) {
+    for (const operation of placed.get(basis) ?? []) {
+      folding = {
+        ...folding,
+        stream: { ...folding.stream, segments: processedSegments(folding.stream, operation) },
+      };
+    }
+    const operation = asset.edits[basis];
+    if (operation !== undefined) folding = foldOperation(folding, operation);
+  }
   return pruneStreams({ streams: [folding.stream, ...folding.others] });
 }

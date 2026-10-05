@@ -9,8 +9,11 @@
  * destination lacks is folded into its left and right at minus three decibels,
  * as ITU-R BS.775 downmixes; the low-frequency channel is not folded, since a
  * full-range channel must not carry it; a mono source goes to the centre where
- * there is one and to the left and right otherwise; and a mono destination
- * takes the average of the left and right the source folds to. Layouts whose
+ * there is one and to the left and right otherwise; a mono destination takes
+ * the average of the left and right the source folds to; and one channel goes
+ * to one channel whole. Mono is a role, not a count: a lone channel with a
+ * place, such as one copied from a stereo pair, keeps that place, so a left
+ * stays on the left and a centre folds at minus three decibels. Layouts whose
  * channels have no position (discrete or ambisonic) have no stated conversion
  * except to themselves; their channels are remapped explicitly.
  */
@@ -143,8 +146,8 @@ export function conversionMatrix(
     );
   }
   if (from.roles.length === 1 && to.roles.length === 1) return succeed([[1]]);
-  if (from.roles.length === 1) return succeed(spreadMono(to));
-  if (to.roles.length === 1) {
+  if (from.roles[0] === ChannelRole.Mono) return succeed(spreadMono(to));
+  if (to.roles[0] === ChannelRole.Mono) {
     const stereo = foldInto(from, { roles: [ChannelRole.Left, ChannelRole.Right] });
     const [left = [], right = []] = stereo;
     return succeed([left.map((value, index) => (value + (right[index] ?? 0)) / 2)]);

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EditOperation, Region } from '@audiogubbins/domain';
+import { sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
+import { sine } from '@audiogubbins/test-fixtures';
 
 import { regionEntryId } from '../assets/project-assets.js';
+import { projectWorld } from '../testing/project-context.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 
 holdPlatformFiles();
@@ -238,6 +241,43 @@ describe('the clipboard (ADR-0053)', () => {
 
     expect(chainOf(audio)).toEqual([]);
     expect(audio.window.context.clipboard.get().copied).toBeDefined();
+  });
+
+  it('pastes audio at another rate only by the command that converts it, which a paste names', async () => {
+    const world = projectWorld();
+    const slower = await windowWithAudio({
+      world,
+      name: 'Slower',
+      fixture: sine(441, { length: 4410, sampleRate: expectSuccess(sampleRate(44_100)) }),
+    });
+    slower.window.context.editorViews.open('editor', slower.asset());
+    slower.window.context.editorViews.focus('editor');
+    expect(slower.window.run('edit.copy').kind).toBe('applied');
+    const { copied } = slower.window.context.clipboard.get();
+    if (copied === undefined) throw new Error('Nothing was copied.');
+    const audio = await windowWithAudio({ world });
+    audio.window.context.editorViews.open('editor', audio.asset());
+    audio.window.context.editorViews.focus('editor');
+    audio.window.context.clipboard.hold(copied, 'all of Slower');
+    audio.window.run('editor.set-playhead', { position: 0 });
+
+    expect(audio.window.run('edit.paste')).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'The copied audio is at 44.1 kHz and this audio is at 48 kHz. To convert it to 48 kHz as it is pasted, use Paste, converting the sample rate.',
+        },
+      ],
+    });
+    const before = audio.asset();
+    await ran(audio, 'edit.paste-converting-rate');
+
+    expect(chainOf(audio)).toEqual([
+      expect.objectContaining({ kind: 'insert', at: 0, convertRate: true }),
+    ]);
+    // The asset reopens once the page holds every file it reads, the pasted media's among them.
+    expect((await audio.changed(before)).length).toBe(LENGTH + 4800);
   });
 
   it('refuses a paste with nothing copied', async () => {

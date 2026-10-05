@@ -93,12 +93,6 @@ export interface EditPlan {
   readonly streams: readonly [PlanStream, ...PlanStream[]];
 }
 
-/**
- * What a copy took: a slice of a plan, naming immutable sources only, so it
- * sounds the same whatever later happens to the asset it came from (ADR-0053).
- */
-export type ClipboardPayload = EditPlan;
-
 /** Whether any segment of the plan reads the asset's source. */
 export function planReadsAsset(plan: EditPlan, asset: AssetId): boolean {
   return plan.streams.some((stream) =>

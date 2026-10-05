@@ -976,20 +976,20 @@ Published paths
   function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
 
 @audiogubbins/clipboard
-  interface CopiedAudio
-  readonly CopiedAudio.origin: ProjectId
-  readonly CopiedAudio.payload: EditPlan
-  readonly CopiedAudio.records: readonly AssetRecord[]
+  interface ClipboardPayload
+  readonly ClipboardPayload.origin: ProjectId
+  readonly ClipboardPayload.plan: EditPlan
+  readonly ClipboardPayload.records: readonly AssetRecord[]
   interface PasteRequest
-  readonly PasteRequest.copied: CopiedAudio
+  readonly PasteRequest.payload: ClipboardPayload
   readonly PasteRequest.asset: AssetId
   readonly PasteRequest.place: { readonly kind: "at"; readonly at: SampleCount; } | { readonly kind: "replace"; readonly range: EditRange; }
   readonly PasteRequest.convertRate: boolean
   interface PlannedPaste
   readonly PlannedPaste.records: readonly AssetRecord[]
   readonly PlannedPaste.operations: readonly [EditOperation, ...EditOperation[]]
-  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<CopiedAudio>
-  function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator): DomainResult<PlannedPaste>
+  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<ClipboardPayload>
+  function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
 @audiogubbins/codecs
   interface AudioBytes
@@ -1656,7 +1656,6 @@ Published paths
   readonly Clip.fadeOutLength: SampleCount
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
-  type ClipboardPayload = EditPlan
   interface DomainFailure
   readonly DomainFailure.code: string
   readonly DomainFailure.kind: FailureKind
@@ -1670,7 +1669,7 @@ Published paths
   interface DomainSuccess<TValue>
   readonly DomainSuccess.ok: true
   readonly DomainSuccess.value: TValue
-  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: ClipboardPayload; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
+  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
   type EditOperationId = string & { readonly [BrandTag]: "EditOperationId"; }
   interface EditPlan
   readonly EditPlan.streams: readonly [PlanStream, ...PlanStream[]]
@@ -1843,7 +1842,7 @@ Published paths
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function anchorResolver(asset: Asset): AnchorResolver
   function applyStages(stages: readonly PlanStage[], place: BlockPlace, channels: readonly Float32Array<ArrayBufferLike>[]): readonly Float32Array<ArrayBufferLike>[]
-  function assetPlan(asset: Asset): EditPlan
+  function assetPlan(asset: Asset, processing?: readonly RegionOperation[]): EditPlan
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers

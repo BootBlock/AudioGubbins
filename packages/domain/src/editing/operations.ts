@@ -18,7 +18,7 @@ import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { AssetId, EditOperationId, RegionId } from '../identity/branded-id.js';
 import type { SampleCount } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
-import type { ClipboardPayload } from './plan.js';
+import type { EditPlan } from './plan.js';
 
 /**
  * A span between two sample boundaries, `start` before `end`.
@@ -77,15 +77,16 @@ export type EditOperation =
   /** Keeps only the range. */
   | { readonly id: EditOperationId; readonly kind: 'trim'; readonly range: EditRange }
   /**
-   * Inserts a payload at a boundary. A payload at another rate is converted
-   * by the canonical resampler, and only when `convertRate` says so
-   * (REQ-ARCH-085).
+   * Inserts a copied slice of a plan at a boundary. It names immutable
+   * sources only, so it sounds the same whatever later happens to the asset
+   * it came from (ADR-0053). A payload at another rate is converted by the
+   * canonical resampler, and only when `convertRate` says so (REQ-ARCH-085).
    */
   | {
       readonly id: EditOperationId;
       readonly kind: 'insert';
       readonly at: SampleCount;
-      readonly payload: ClipboardPayload;
+      readonly payload: EditPlan;
       readonly convertRate: boolean;
     }
   /** Plays the range backwards. */
@@ -136,9 +137,10 @@ export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
  * One operation of a region's own processing (ADR-0051).
  *
  * Its range is stated at `basis`, the number of the asset's operations that
- * existed when it was placed, and is carried through the operations after
- * that, so the processing stays on the content it was put on whatever is later
- * cut or pasted around it.
+ * existed when it was placed. The processing is folded into the region's plan
+ * there, among the asset's operations, so it stays on the content it was put
+ * on whatever is later cut, pasted or reversed around it; the range carried
+ * through the operations after says where that content lies now.
  */
 export interface RegionOperation {
   readonly id: EditOperationId;

@@ -6,10 +6,11 @@
  * or replaces the selected range.
  *
  * Every paste is planned by the clipboard package and run by the storage
- * worker, which shows the media it reads is there first, so a paste within
- * one project and one from another take the same path, and a missing or
- * changed source refuses the paste and leaves the project as it was. A
- * payload at another rate is converted only when the command says so.
+ * worker, which shows the media it reads is there first, so a paste within one
+ * project and one from another take the same path, and a missing or changed
+ * source refuses the paste and leaves the project as it was. Audio at another
+ * rate is converted only by its own command, which a plain paste's refusal
+ * names.
  */
 
 import {
@@ -18,7 +19,12 @@ import {
   type Command,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { copyAudio, planPaste, type CopiedAudio, type PasteRequest } from '@audiogubbins/clipboard';
+import {
+  copyAudio,
+  planPaste,
+  type ClipboardPayload,
+  type PasteRequest,
+} from '@audiogubbins/clipboard';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import {
@@ -42,6 +48,16 @@ import { readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
+/** The command that pastes audio converted to the asset's rate, as a refusal names it. */
+const PASTE_CONVERTING = 'Paste, converting the sample rate';
+
+const KILOHERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
+
+/** A rate as a person reads it. */
+function kilohertz(rate: number): string {
+  return `${KILOHERTZ.format(rate / 1000)} kHz`;
+}
+
 function clipboardCommand(
   id: string,
   label: string,
@@ -55,10 +71,8 @@ function clipboardCommand(
 }
 
 /** Whether two copies hold the same audio from the same project. */
-function sameCopy(one: CopiedAudio | undefined, other: CopiedAudio): boolean {
-  return (
-    one?.origin === other.origin && JSON.stringify(one.payload) === JSON.stringify(other.payload)
-  );
+function sameCopy(one: ClipboardPayload | undefined, other: ClipboardPayload): boolean {
+  return one?.origin === other.origin && JSON.stringify(one.plan) === JSON.stringify(other.plan);
 }
 
 /** Copies the scope to the clipboard, answering what it was called, or why it could not. */
@@ -138,10 +152,16 @@ function pastedAt(
   return { kind: 'at', at: onAsset(owner, playheadOf(context, view.asset)) };
 }
 
-function pasteCommand(): Command<ShellContext> {
+/** A paste, converting audio at another rate to the asset's where `convertRate`. */
+function pasteCommand(
+  id: string,
+  label: string,
+  convertRate: boolean,
+  keywords: readonly string[],
+): Command<ShellContext> {
   return clipboardCommand(
-    'edit.paste',
-    'Paste',
+    id,
+    label,
     (context, invocation) => {
       const { copied: held, description } = context.clipboard.get();
       if (held === undefined) return 'Nothing is copied. Copy or cut some audio first.';
@@ -153,14 +173,20 @@ function pasteCommand(): Command<ShellContext> {
       const planned = planPaste(
         state,
         {
-          copied: held,
+          payload: held,
           asset: owner.asset.id,
           place: pastedAt(context, found.view, owner),
-          convertRate: invocation.arguments?.['convertRate'] === true,
+          convertRate,
         },
         context.ids,
       );
-      if (!planned.ok) return planned.failures[0].summary;
+      if (!planned.ok) {
+        const [failure] = planned.failures;
+        if (failure.code !== 'editing.payload-rate') return failure.summary;
+        const from = kilohertz(held.plan.streams[0].sampleRate);
+        const to = kilohertz(owner.asset.sampleRate);
+        return `The copied audio is at ${from} and this audio is at ${to}. To convert it to ${to} as it is pasted, use ${PASTE_CONVERTING}.`;
+      }
       sayWhenSettled(
         context,
         stores.pastes.paste(session, {
@@ -176,11 +202,23 @@ function pasteCommand(): Command<ShellContext> {
       );
       return undefined;
     },
-    ['paste', 'clipboard', 'insert'],
+    keywords,
   );
 }
 
 /** Copy, cut and paste. */
 export function clipboardCommands(): readonly Command<ShellContext>[] {
-  return [cutCommand(), copyCommand(), pasteCommand()];
+  return [
+    cutCommand(),
+    copyCommand(),
+    pasteCommand('edit.paste', 'Paste', false, ['paste', 'clipboard', 'insert']),
+    pasteCommand('edit.paste-converting-rate', PASTE_CONVERTING, true, [
+      'paste',
+      'clipboard',
+      'insert',
+      'sample rate',
+      'resample',
+      'convert',
+    ]),
+  ];
 }

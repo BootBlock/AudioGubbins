@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, layoutsMatch, type ChannelLayout } from '../audio/channel-layout.js';
 import { unsafeBrandId, type AssetId, type EditOperationId } from '../identity/branded-id.js';
 import { AssetOrigin, type Asset } from '../project/asset.js';
+import type { Region } from '../project/timeline.js';
 import { derivedSampleCount, sampleRate } from '../time/sample-time.js';
 import { applyEdit, type Samples } from '../testing/edit-oracle.js';
 import { renderPlan } from '../testing/plan-render.js';
@@ -12,6 +13,8 @@ import { conversionMatrix } from './channel-matrices.js';
 import { shapesOf } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
 import { FadeShape } from './fades.js';
+import { regionPlan } from './placement.js';
+import { validateRegion } from './placement-validation.js';
 import type { EditOperation, LevelEdit, RangeEdit } from './operations.js';
 import { assetPlan } from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
@@ -209,6 +212,72 @@ describe('the edit plan, against each edit applied to the samples one at a time'
         asset = edited;
         expected = applyEdit(expected, operation, inserted);
       }
+    }
+  });
+});
+
+describe('a region’s processing, against the same processing applied at its basis', () => {
+  it('renders every region over a random chain as its processing applied where it was placed', () => {
+    for (let run = 0; run < 100; run += 1) {
+      const next = random(20_000 + run);
+      const id = unsafeBrandId<'AssetId'>(`00000000-asset-${run.toString(16).padStart(4, '0')}`);
+      const source = sourceOf(next, id);
+      let asset = source.asset;
+      const sounds: Samples[] = [source.samples];
+      const steps: { operation: EditOperation; inserted: Samples }[] = [];
+      for (let index = 0; index < 12; index += 1) {
+        const current = sounds.at(-1) ?? [];
+        if ((current[0]?.length ?? 0) === 0) break;
+        const operationId = unsafeBrandId<'EditOperationId'>(
+          `0000${index.toString(16).padStart(4, '0')}-edit`,
+        );
+        const made = step(next, asset, current, operationId);
+        steps.push(made);
+        asset = { ...asset, edits: [...asset.edits, made.operation] };
+        sounds.push(applyEdit(current, made.operation, made.inserted));
+      }
+
+      const basis = Math.floor(next() * sounds.length);
+      const placedOn = sounds[basis] ?? [];
+      const length = placedOn[0]?.length ?? 0;
+      if (length === 0) continue;
+      const converted = asset.edits
+        .slice(basis)
+        .some((operation) => operation.kind === 'convert-layout');
+      const made = converted ? { edit: levelEdit(next) } : rangeEdit(next, placedOn.length);
+      const edges = rangeIn(next, length);
+      const processing = {
+        id: unsafeBrandId<'EditOperationId'>('0000ffff-region'),
+        basis,
+        range: { start: derivedSampleCount(edges.start), end: derivedSampleCount(edges.end) },
+        ...made,
+      };
+      const region: Region = {
+        id: unsafeBrandId<'RegionId'>('0000eeee-region'),
+        assetId: asset.id,
+        displayName: 'Region',
+        basis: 0,
+        start: derivedSampleCount(0),
+        end: source.asset.length,
+        tags: [],
+        operations: [processing],
+      };
+      expectSuccess(validateRegion(asset, region));
+
+      let expected = applyEdit(placedOn, { ...processing, kind: 'process' }, []);
+      for (const later of steps.slice(basis)) {
+        expected = applyEdit(expected, later.operation, later.inserted);
+      }
+      const span = anchorResolver(asset).span(0, { start: 0, end: source.asset.length });
+      if (span === undefined) throw new Error('A region at the first basis resolves.');
+      const rendered = renderPlan(regionPlan(asset, region), new Map([[id, source.samples]]));
+      expect(
+        sameBits(
+          rendered,
+          expected.map((channel) => channel.slice(span.start, span.end)),
+        ),
+        `run ${String(run)}, processing at ${String(basis)} of ${String(asset.edits.length)}`,
+      ).toBe(true);
     }
   });
 });
