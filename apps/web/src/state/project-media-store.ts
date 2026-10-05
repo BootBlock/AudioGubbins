@@ -10,10 +10,10 @@
  * recorded (REQ-STOR-053): one that changed or went stays unavailable until the
  * person answers the question about it, and the answer changes the project,
  * which is looked at again here. A project open only to read has its linked
- * files looked at by no one, so they are not read. Files are asked for a few
- * at a time, in the order the project names them, so a project of many assets
- * does not ask for every file at once. Everything asked for is given up when
- * the project is let go, and what was still to be asked is never asked.
+ * files looked at by no one, so they are not read. Files are asked for a few at
+ * a time, in the order the project names them, so a project of many assets does
+ * not ask for every file at once. Everything asked for is given up when the
+ * project is let go, and what was still to be asked is never asked.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
