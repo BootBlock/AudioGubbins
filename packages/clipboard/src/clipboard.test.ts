@@ -185,6 +185,20 @@ describe('pasting (ADR-0053)', () => {
     ]);
   });
 
+  it('pastes one channel copied from a stereo pair back on its own side', () => {
+    const copy = copied(assetPlan(forest), 0, 50, [0]);
+    const planned = expectSuccess(
+      planPaste(state, request(copy, forest, { kind: 'at', at: at(0) }), ids),
+    );
+
+    const { sound } = pasted(state, forest, planned.operations);
+    const [left] = soundOf(forest);
+    expect(framesOf(sound, 0, 50)).toEqual([
+      [...(left?.subarray(0, 50) ?? [])],
+      Array.from({ length: 50 }, () => 0),
+    ]);
+  });
+
   it('refuses channels the domain states no conversion for, saying why', () => {
     const odd: Asset = {
       ...forest,

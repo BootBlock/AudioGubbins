@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { ChannelRole, StandardLayouts, discreteLayout } from '../audio/channel-layout.js';
+import {
+  ChannelRole,
+  StandardLayouts,
+  discreteLayout,
+  type ChannelLayout,
+} from '../audio/channel-layout.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
 import { conversionMatrix, copyMatrix, selectionMatrix, swapMatrix } from './channel-matrices.js';
 
@@ -47,6 +52,28 @@ describe('converting between layouts by role', () => {
       'editing.no-layout-conversion',
     );
     expect(expectSuccess(conversionMatrix(discrete, discrete))).toHaveLength(4);
+  });
+
+  it('keeps a lone channel with a place in that place, rather than spread it as mono', () => {
+    const left: ChannelLayout = { roles: [ChannelRole.Left] };
+    expect(expectSuccess(conversionMatrix(left, StandardLayouts.surround5_1))).toEqual([
+      [1],
+      [0],
+      [0],
+      [0],
+      [0],
+      [0],
+    ]);
+    expect(expectSuccess(conversionMatrix(left, StandardLayouts.stereo))).toEqual([[1], [0]]);
+    expect(
+      expectSuccess(conversionMatrix({ roles: [ChannelRole.Centre] }, StandardLayouts.stereo)),
+    ).toEqual([[HALF_POWER], [HALF_POWER]]);
+  });
+
+  it('folds into a lone channel with a place by role, rather than average into it as mono', () => {
+    expect(
+      expectSuccess(conversionMatrix(StandardLayouts.stereo, { roles: [ChannelRole.Left] })),
+    ).toEqual([[1, 0]]);
   });
 
   it('takes one channel to one channel unchanged, whatever its role', () => {
