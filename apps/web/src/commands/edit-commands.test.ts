@@ -399,6 +399,25 @@ describe('regions (REQ-EDIT-014)', () => {
     expect(regionsOf(audio)).toEqual([]);
   });
 
+  it.each([
+    [48_001, 'A loop’s crossfade must fit within the loop.'],
+    [-1, 'A sample count cannot be negative.'],
+    [0.5, 'A sample count must be a whole number of frames.'],
+    ['', 'A sample count must be a whole number of frames.'],
+  ])('refuses a crossfade of %j as the domain does', async (crossfade, refusal) => {
+    const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
+    const [region] = regionsOf(audio);
+    if (region === undefined) throw new Error('No region.');
+    audio.window.run('region.open', { region: region.id });
+    audio.window.run('editor.select-time', { start: 0, end: 48_000 });
+
+    expect(audio.window.run('region.loop', { crossfade })).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: refusal }],
+    });
+    expect(regionsOf(audio)[0]?.loop).toBeUndefined();
+  });
+
   it('stops a region looping, which one undo puts back', async () => {
     const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
     const [region] = regionsOf(audio);

@@ -4,12 +4,11 @@
  */
 
 import type { Command } from '@audiogubbins/commands';
-import { derivedSampleCount, type Region } from '@audiogubbins/domain';
+import { sampleCount, validateRegion, type Region } from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
 import { quoted } from '../wording.js';
 import { RANGE_OR_WHOLE, editScope } from './edit-target.js';
-import { numberArgument } from './editor-target.js';
 import { changeProject } from './project-edits.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -48,20 +47,26 @@ function loopCommand(): Command<ShellContext> {
       }
       const scope = editScope(context, invocation, RANGE_OR_WHOLE);
       if (typeof scope === 'string') return scope;
-      const crossfade = numberArgument(invocation, 'crossfade') ?? 0;
-      const length = scope.target.range.end - scope.target.range.start;
-      if (!Number.isInteger(crossfade) || crossfade < 0 || crossfade > length) {
-        return 'A loop’s crossfade is a whole number of frames no longer than the loop.';
-      }
-      const loop = {
-        basis: found.asset.edits.length,
-        start: scope.target.range.start,
-        end: scope.target.range.end,
-        crossfadeLength: derivedSampleCount(crossfade),
-      };
+      const given = invocation.arguments?.['crossfade'];
+      // An argument left out is no crossfade; one that is not a number, as an
+      // empty field gives, is refused rather than read as none.
+      const crossfade = sampleCount(
+        given === undefined ? 0 : typeof given === 'number' ? given : Number.NaN,
+      );
+      if (!crossfade.ok) return crossfade.failures[0].summary;
+      const looped = validateRegion(found.asset, {
+        ...found.region,
+        loop: {
+          basis: found.asset.edits.length,
+          start: scope.target.range.start,
+          end: scope.target.range.end,
+          crossfadeLength: crossfade.value,
+        },
+      });
+      if (!looped.ok) return looped.failures[0].summary;
       changeProject(context, found.project.session, {
         description: `Loop ${found.region.displayName}`,
-        invocations: [setRegionInvocation({ ...found.region, loop })],
+        invocations: [setRegionInvocation(looped.value)],
         said: `${found.region.displayName} loops ${scope.whole ? 'whole' : 'over the selection'}.`,
       });
       return undefined;
