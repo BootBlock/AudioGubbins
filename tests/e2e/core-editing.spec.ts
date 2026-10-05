@@ -57,11 +57,17 @@ function panelTitled(page: Page, title: string): Locator {
     .filter({ has: page.getByRole('heading', { name: title, level: 2, exact: true }) });
 }
 
-/** The list of the asset's edits in the Inspector. */
+/** The asset's edits the Inspector lists, each with the range it acts on. */
 function editsListed(page: Page): Locator {
   return panelTitled(page, 'Inspector')
     .getByRole('heading', { name: 'Its edits' })
-    .locator('xpath=following-sibling::*[1]');
+    .locator('xpath=following-sibling::*[1]')
+    .getByRole('listitem');
+}
+
+/** The markers an editor view lists, each by its name and where it is. */
+function markersListed(editor: Locator): Locator {
+  return editor.getByRole('list', { name: 'Markers' }).getByRole('listitem');
 }
 
 test.describe('core non-destructive editing', () => {
@@ -85,17 +91,18 @@ test.describe('core non-destructive editing', () => {
 
     const editor = editorPanel(page);
     await runCommand(page, 'Add a marker at the playhead');
-    await expect(editor.getByRole('list', { name: 'Markers' }).getByRole('listitem')).toHaveCount(
-      1,
-    );
+    await expect(markersListed(editor)).toHaveText([/^.+ at \S+$/]);
     await runCommand(page, 'Reverse');
     await runCommand(page, 'Show the Inspector panel');
     const inspector = panelTitled(page, 'Inspector');
     await expect(inspector.getByText('44.1 kHz', { exact: true })).toBeVisible();
-    await expect(editsListed(page)).toContainText('Reversed from');
+    await expect(editsListed(page)).toHaveText([/^Reversed from \S+ to \S+$/]);
     await expect(
       page.getByRole('contentinfo', { name: 'Status' }).getByText('Saved'),
     ).toBeVisible();
+    // What the page showed, so the project after the reload is held to it.
+    const marked = await markersListed(editor).allTextContents();
+    const edited = await editsListed(page).allTextContents();
 
     await page.reload();
 
@@ -104,9 +111,7 @@ test.describe('core non-destructive editing', () => {
     const browser = panelTitled(page, 'Assets');
     await browser.getByRole('button', { name: 'Harbour', exact: true }).click();
     await runCommand(page, 'Show the Inspector panel');
-    await expect(editsListed(page)).toContainText('Reversed from');
-    await expect(
-      editorPanel(page).getByRole('list', { name: 'Markers' }).getByRole('listitem'),
-    ).toHaveCount(1);
+    await expect(editsListed(page)).toHaveText(edited);
+    await expect(markersListed(editorPanel(page))).toHaveText(marked);
   });
 });
