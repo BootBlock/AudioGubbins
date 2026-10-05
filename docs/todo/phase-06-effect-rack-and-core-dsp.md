@@ -1,0 +1,182 @@
+> **Status:** In progress. 2026-10-05: the branch is made and the work is
+> sliced; the slices below are built in order, each with `verify:commit`
+> green before it is committed.
+
+# Phase 06 — Effect Rack and Core DSP
+
+Resume note. It says where the work is, what is decided and what is left. The
+packet is `docs/spec/phases/phase-06-effect-rack-and-core-dsp.md`, and the
+decisions that shape the work are `ADR-0060`, `ADR-0061` and `ADR-0062`.
+
+## Where the work is
+
+|        |                        |
+| ------ | ---------------------- |
+| Branch | `phase-06-effect-rack` |
+| Base   | `main` at `563d5a4`    |
+
+## Gates
+
+Light gates (owner decision, 2026-09-28): whole Vitest, both tsc, lint
+(`pnpm run verify:commit`), one review pass with every lens the packet names,
+fix its findings, land. The packet's commands are root scripts; this phase adds
+`test:dsp-property` and `test:ml-locality`.
+
+## Decisions taken in the build
+
+These settle what the ADRs leave to the implementation. None changes an ADR.
+
+1. **The chain.** `EffectChain` holds `slots`, each a `ProcessorInstance` or a
+   `ParallelGroup` (`kind`), each with its own `enabled`, `soloed` and `mix`
+   (the wet share, 0 to 1, linear). A group's branches are lists of slots,
+   summed by its law: `sum`, `mean` or `equal-power` (1/√n). Solo is decided
+   within the list that holds the slot. A processor instance carries its
+   `ProcessorStateVersion` (implementation, parameter schema, and a model's
+   identity or a resampler's version where one applies) and, where it has
+   any, its non-parameter state, versioned with it.
+2. **The plan.** A `PlanStream` may state `processing`: a chain, rendered over
+   the stream from its own start with its latency compensated and its tail
+   cut, or a stretch to a stated length. A segment reads a stream's processed
+   output, converted where the rates differ, as before. A rack edit over a
+   range moves that range's segments into a new stream at place 1, renumbering
+   the rest, so a segment still reads only a later stream. The asset's rack
+   wraps the whole first stream the same way; a region's plan reads its span
+   of that and its rack wraps the result (`ADR-0060`'s order).
+3. **Operations.** A rack edit is `{ kind: 'rack', chain }`, a `RangeEdit` of a
+   `process` operation or of a region's processing; it acts on every channel.
+   `stretch` changes a range to a stated length, and `convert-rate` converts
+   the whole asset; both carry positions by their exact ratio.
+4. **Running a chain.** `packages/effect-rack` realises a chain as a graph of
+   the engine (`audio-graph`), its processors as node types, wet and dry as
+   gain and mix nodes, so the graph's latency analysis and delay compensation
+   align every path. The engine reads a processed stream through a port it
+   is given, so it depends on no processor.
+5. **Canonical arithmetic.** The new primitives and the FFT are in
+   `crates/dsp-core` and the reference path; processor kernels are TypeScript,
+   calling the reference primitives directly and the FFT through
+   `CanonicalDsp`; `crates/analysis` holds the STFT, measurement and detectors.
+6. **Network.** The model-pack download is the one place that fetches; it is
+   an adapter behind a port, and the rule that forbids network calls names it
+   as its one exception.
+7. **Plans can fail.** `assetPlan(asset, context, processing)` and
+   `regionPlan(asset, region, context, resolver)` take a `PlanContext`
+   (`chains`, `catalogue`) and answer a `DomainResult`: a rack whose chain the
+   catalogue refuses makes the entry unavailable with the reason. A range
+   rack edit must keep the layout; a target's rack may change it.
+8. **Validation names chains.** `validateOperation`, `validateChain` and
+   `validateRegion` take the project's chains; a rack edit, an asset's rack
+   and a region's rack must name one. The catalogue check (types, versions
+   and layouts) is `chainOutputLayout`, run by plan building only; the project
+   document checks shape only (`validateChainShape`). Commands do not refuse
+   what the catalogue refuses (changed 2026-10-05): such a plan is an
+   unavailable entry with its reason, a state a document from another build
+   may hold, and a command that refused it could not be undone (the random
+   command walk found this).
+9. **Persisted form.** A chain is written by `chain-writing.ts` and read by
+   `chain-reading.ts` (project-format), the one form for a project, a plan's
+   processed stream, the library and the clipboard. Schema versions:
+   `projectDocument` 3, `projectStorage` 7.
+10. **Processor node encoding.** A processor runs as node type
+    `processor.<typeKey>` with ports `input`, optional `side-chain`, and
+    `output`; settings `parameter.<key>`, `quality.<setting>`, `state.kind`,
+    `state.values`, and `measured` for a whole-pass processor
+    (`packages/processors/src/framework/processor-node.ts`).
+11. **Whole-pass processors.** The rack measures each in signal order, one
+    pass over the stream each, at a second sink tapped at its input; the
+    measurement reaches the kernel as the `measured` setting; unmeasured, the
+    kernel passes its input through.
+12. **The engine's port.** `ChainProcessing.prepare(request, read)` in
+    `packages/audio-engine/src/pcm/chain-processing.ts` answers a `ChainRun`
+    (latency, layout, leadIn, process, setParameter, release); the effect
+    rack implements it (`chainProcessing(types)`). A chain of unknown latency
+    is refused.
+13. **App caches.** An app entry is rebuilt when a chain its plans name
+    changes (`chainsNamed`), its rate is its plan's first stream's, and its
+    peak revision is the plan's canonical JSON, so parameter values count.
+
+## The first model packs' sources (researched 2026-10-05)
+
+None is blocked. Every graph below loaded and ran in onnxruntime-web 1.30
+on WebAssembly, one thread, fixed-width SIMD, with standard `ai.onnx`
+operators only.
+
+- **DeepFilterNet 3** (MIT or Apache-2.0, repository `LICENSE` and README):
+  the ONNX is in `models/DeepFilterNet3_onnx.tar.gz` of
+  `github.com/Rikorose/DeepFilterNet` at `d375b2d8`; `enc.onnx`,
+  `erb_dec.onnx`, `df_dec.onnx` (opset 12, stateless, about 8.6 MB). The
+  48 kHz STFT (960, hop 480, Vorbis window), the ERB and spectral features,
+  their running normalisation, the two-frame feature shift and the deep
+  filter are outside the graph, ported from `libDF`. Chunked offline with a
+  warm-up overlap; about 0.11× real time.
+- **MossFormer2 SE 48K** (Apache-2.0, model card and repository):
+  `last_best_checkpoint.pt` from `huggingface.co/alibabasglab/MossFormer2_SE_48K`
+  at `eff8c979`, exported with ClearerVoice-Studio's code at `6b3774dc`
+  (opset 17; the rotary cache must be off before export); 228.6 MB,
+  `fbanks [1,T,180]` to `mask [1,T,961]`; Kaldi fbank with deltas outside the
+  graph; about 1.3× real time on one thread.
+- **Spleeter 2 and 4 stems** (MIT; Deezer's release post says the models are
+  MIT-licensed): v1.4.0 TF checkpoints, exported to one ONNX per pack (78.6
+  and 157.3 MB), `x [2,S,512,1024]` magnitudes to one magnitude per stem;
+  44.1 kHz STFT 4096/1024, ratio masks, above 11 kHz dropped as the models
+  do; checked against TensorFlow to 7e-8 on the waveform.
+- The export scripts, checks and the files are in the scratchpad
+  (`C:/Users/<user>/AppData/Local/Temp/ag6/ml/`), not in the repository
+  (`REQ-REPO-191`); a pack build tool fetches and checks them by hash.
+
+## Slices
+
+1. Canonical primitives and the FFT (Rust, reference, ABI 4).
+2. Domain: the chain, descriptors, versions, the rack edit, target racks,
+   stretch and rate conversion, the processed stream, validation, the oracle.
+3. Project format and history: chains, racks, operations, the library format.
+4. Project commands: rack and processor commands, shared chains, applying a
+   saved chain to several targets.
+5. `crates/analysis` and its reference: STFT, peak, loudness, detectors.
+6. `packages/processors`: the framework and every processor of WU-06.B and
+   WU-06.C.
+7. `packages/effect-rack` and the engine's processed stream; `QualityMode`;
+   the cached preview producer; preview with lead-in.
+8. `packages/ml-runtime` and `packages/model-packs`; the first packs.
+9. Assistants on the detectors; the clipboard's chain payload.
+10. The application: rack and processor views, the library, A/B and
+    processed/original comparison, quality disclosure, the pack manager.
+11. Inherited debt (F-07's remnants, the timed-out tests).
+12. Scripts, the browser test, gates, the review, evidence, ledger, handoff,
+    landing.
+
+## Progress
+
+| Slice      | Commit    | What                                                   |
+| ---------- | --------- | ------------------------------------------------------ |
+| 1          | `62e0a53` | Add canonical primitives and the FFT (DSP ABI 4)       |
+| 2–4        | `bfcfdee` | Model effect racks in the domain, format and commands  |
+| 6–7 (part) | `05ebe70` | Run racks in the engine, its workers and the peaks     |
+| 7 (app)    | `a3e334a` | Let people choose render and preview quality           |
+| 11 (part)  | `c6e0134` | Run allocation tests apart and budget the wiring tests |
+
+Second session, 2026-10-05 (16:00 to 18:00), committed as above with
+`verify:commit` green (6,753 tests):
+
+- `pcm/stretched-content.ts` on the engine's new `dsp/phase-vocoder.ts`
+  (identity phase locking, canonical FFT and trigonometry), which a pitch
+  shift reuses; the stretch's tests and a plan-level test.
+- `QualityMode` replaces `RenderQualityProfile` end to end: render request
+  and message, the feeder's `sources` message and the peak worker's `open`
+  message carry a mode, read by the domain's `qualityModeFrom`; render and
+  peaks run at `finalRenderSettings` from the stream's start, the feeder at
+  the preview mode from part way. The thread entries make
+  `chainProcessing(PROCESSOR_TYPES_BY_KEY)`; a cruise rule keeps the rack to
+  `src/threads/`. The app: audio settings schema 2 (render and preview
+  quality), quality commands, the settings controls, the processing-modes
+  view, playback reloading at a new preview quality, peaks revised by the
+  render quality.
+- The random command walk covers the chain and rack commands; commands no
+  longer check plans against the catalogue (decision 8).
+- Inherited debt, part: the walk, the golden render and the lint exclusion
+  test (and the keyboard wiring tests the new commands slowed) have time
+  budgets; the allocation tests run as their own project in a later group,
+  since under the whole suite's load V8 left reference primitives
+  unoptimised for 20 s and more.
+
+Next: the processors (groups A and B as sub-agents, briefs in the briefs
+folder, `processor-brief.md` corrected), then C, `crates/analysis`, D and E.
