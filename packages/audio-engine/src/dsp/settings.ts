@@ -11,7 +11,9 @@
 import { failure, FailureKind, fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import {
+  LARGEST_FFT_SIZE,
   ResamplingQuality,
+  SMALLEST_FFT_SIZE,
   type OscillatorSettings,
   type ResamplerSettings,
 } from './canonical-dsp.js';
@@ -80,6 +82,43 @@ export function checkResampler(settings: ResamplerSettings): DomainResult<Resamp
     );
   }
   return succeed(settings);
+}
+
+/** The size, or why an FFT cannot be made of it: it is not a power of two in range. */
+export function checkFftSize(size: number): DomainResult<number> {
+  // A power of two from 2 has a single bit set, and so shares none with one less.
+  const powerOfTwo =
+    Number.isInteger(size) && size >= SMALLEST_FFT_SIZE && (size & (size - 1)) === 0;
+  if (!powerOfTwo || size > LARGEST_FFT_SIZE) {
+    return fail(
+      failure(
+        'dsp.fft-size-invalid',
+        FailureKind.Rejected,
+        `An FFT’s size is a power of two from ${String(SMALLEST_FFT_SIZE)} to ${String(LARGEST_FFT_SIZE)}.`,
+        { details: { size: String(size) } },
+      ),
+    );
+  }
+  return succeed(size);
+}
+
+/**
+ * Throws unless a signal of `samples` and a spectrum of `real` and `imaginary`
+ * bins fit an FFT of `size`: the caller owns the arrays, so a wrong length is a
+ * fault in the caller, thrown alike by both implementations.
+ */
+export function assertFftShape(
+  size: number,
+  samples: number,
+  real: number,
+  imaginary: number,
+): void {
+  const bins = size / 2 + 1;
+  if (samples !== size || real !== bins || imaginary !== bins) {
+    throw new Error(
+      `An FFT of ${String(size)} samples takes a signal of ${String(size)} and spectra of ${String(bins)}, and was given ${String(samples)}, ${String(real)} and ${String(imaginary)}.`,
+    );
+  }
 }
 
 /**

@@ -33,7 +33,11 @@ const SINE_COEFFICIENTS: readonly number[] = [
 /** `sin(2π · turns)`, identical to `sine_of_turns` in `turns.rs`. */
 export function sineOfTurns(turns: number): number {
   const r = turns - Math.floor(turns);
-  const t = r < 0.25 ? r : r < 0.75 ? 0.5 - r : r - 1;
+  return sineOfReduced(r < 0.25 ? r : r < 0.75 ? 0.5 - r : r - 1);
+}
+
+/** `sin(2πt)` for `t` in `[−1/4, 1/4]`, as `sine_of_reduced` in `turns.rs`. */
+export function sineOfReduced(t: number): number {
   const square = t * t;
   let sum = SINE_COEFFICIENTS[11] ?? 0;
   for (let index = 10; index >= 0; index -= 1) {

@@ -159,6 +159,56 @@ export interface CanonicalResampler {
   release(): void;
 }
 
+/** The fewest and the most samples an FFT takes: the powers of two between are its sizes. */
+export const SMALLEST_FFT_SIZE = 2;
+export const LARGEST_FFT_SIZE = 65_536;
+
+/**
+ * The FFT of real signals of one size `N` (`fft.rs`), with the tables and
+ * scratch it made when it was made, so a transform allocates nothing.
+ *
+ * A spectrum is `N/2 + 1` bins, from 0 Hz to half the rate, held as two
+ * arrays, the real parts and the imaginary parts, rather than one array of
+ * pairs, so a magnitude or a phase reads each part at its bin. The forward
+ * transform is unscaled (a full-scale sine of `N` samples centred on a bin has
+ * a magnitude of `N/2` there) and the inverse scales by `1/N`, so the inverse
+ * of the forward transform is the signal.
+ *
+ * Each call throws on an array of the wrong length: the caller owns every
+ * array, so a wrong length is a fault in the caller, not in audio.
+ */
+export interface CanonicalFft {
+  /** `N`, the samples of a signal. */
+  readonly size: number;
+  /** `N/2 + 1`, the bins of a spectrum. */
+  readonly bins: number;
+
+  /**
+   * Writes the spectrum of `signal`, `N` samples, to `real` and `imaginary`,
+   * `N/2 + 1` bins each: bin `k` is `Σ signal[n] · e^(−2πikn/N)`. The
+   * imaginary parts of bins 0 and `N/2` are zero.
+   */
+  forwardReal(
+    signal: Float32Array | Float64Array,
+    real: Float64Array,
+    imaginary: Float64Array,
+  ): void;
+
+  /**
+   * Writes the `N` samples whose spectrum is `real` and `imaginary` to
+   * `signal`, scaled by `1/N`; the imaginary parts of bins 0 and `N/2` are
+   * taken as zero, as a real signal's are. A `Float32Array` receives each
+   * sample rounded once.
+   */
+  inverseReal(
+    real: Float64Array,
+    imaginary: Float64Array,
+    signal: Float32Array | Float64Array,
+  ): void;
+
+  release(): void;
+}
+
 /** The deterministic primitives the engine is built on. */
 export interface CanonicalDsp {
   readonly implementation: DspImplementation;
@@ -168,4 +218,10 @@ export interface CanonicalDsp {
 
   createOscillator(settings: OscillatorSettings): DomainResult<CanonicalOscillator>;
   createResampler(settings: ResamplerSettings): DomainResult<CanonicalResampler>;
+
+  /**
+   * An FFT of `size` real samples, a power of two from
+   * {@link SMALLEST_FFT_SIZE} to {@link LARGEST_FFT_SIZE}, or why not.
+   */
+  createFft(size: number): DomainResult<CanonicalFft>;
 }

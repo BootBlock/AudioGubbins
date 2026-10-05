@@ -79,11 +79,15 @@ describe('scopeDsp', () => {
     // ADR-0031: the reason reported names what the module lacks.
     expect(scoped.fallbackReason).toBe(
       'The DSP module lacks exports this engine calls: memory, ag_abi_version, ' +
-        'ag_buffer_create, ag_buffer_address, ag_buffer_release, ag_sine_of_turns, ' +
+        'ag_buffer_create, ag_buffer_address, ag_buffer_release, ' +
+        'ag_buffer_f64_create, ag_buffer_f64_address, ag_buffer_f64_release, ' +
+        'ag_sine_of_turns, ag_cosine_of_turns, ag_tangent_of_turns, ag_arctangent_turns, ' +
+        'ag_exp, ag_ln, ag_log2, ag_log10, ag_pow, ag_decibels_to_gain, ag_gain_to_decibels, ' +
         'ag_oscillator_create, ag_oscillator_render, ag_oscillator_seek, ag_oscillator_release, ' +
         'ag_resampler_create, ag_resampler_lookahead, ag_resampler_push, ' +
         'ag_resampler_finish, ag_resampler_pull, ag_resampler_drained, ' +
-        'ag_resampler_seek, ag_resampler_table_bytes, ag_resampler_release.',
+        'ag_resampler_seek, ag_resampler_table_bytes, ag_resampler_release, ' +
+        'ag_fft_create, ag_fft_forward_real, ag_fft_inverse_real, ag_fft_release.',
     );
   });
 

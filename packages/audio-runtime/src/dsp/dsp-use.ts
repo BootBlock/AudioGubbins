@@ -35,6 +35,10 @@ export function watchDspUse(dsp: CanonicalDsp): WatchedDsp {
         used = true;
         return dsp.createResampler(settings);
       },
+      createFft: (size) => {
+        used = true;
+        return dsp.createFft(size);
+      },
     },
     used: () => used,
   };

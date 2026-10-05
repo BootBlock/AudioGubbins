@@ -2,10 +2,8 @@
  * The canonical DSP port answered by the Rust module (ADR-0031).
  *
  * Every sample crosses into the module's memory and back through a buffer the
- * module owns, read and written by a view that is checked just before it is
- * used: a view made before the module's memory grew is of the old buffer, and
- * would read nothing, so it is made again then. Otherwise the view is kept,
- * so a call on the audio thread allocates nothing.
+ * module owns (`module-buffer.ts`), whose view is kept between calls, so a
+ * call on the audio thread allocates nothing.
  */
 
 import {
@@ -22,12 +20,20 @@ import {
   CoefficientStrategy,
   DspImplementation,
   type CanonicalDsp,
+  type CanonicalFft,
   type CanonicalOscillator,
   type CanonicalResampler,
   type OscillatorSettings,
   type ResamplerSettings,
 } from '../canonical-dsp.js';
-import { assertSeekFrame, checkOscillator, checkResampler, framesOfPlanar } from '../settings.js';
+import {
+  assertFftShape,
+  assertSeekFrame,
+  checkFftSize,
+  checkOscillator,
+  checkResampler,
+  framesOfPlanar,
+} from '../settings.js';
 import {
   COUNT_BAD_HANDLE,
   COUNT_TOO_SMALL,
@@ -35,67 +41,14 @@ import {
   readDspExports,
   type DspExports,
 } from './dsp-exports.js';
-
-/** A buffer in the module's memory that grows to what it is asked to hold. */
-class ModuleBuffer {
-  readonly #module: DspExports;
-  #handle = 0;
-  #floats = 0;
-  /** The last view made, and the memory buffer it is of: made again when either changes. */
-  #view = new Float32Array(0);
-  #viewOf: ArrayBuffer | undefined;
-
-  constructor(module: DspExports) {
-    this.#module = module;
-  }
-
-  /**
-   * The buffer's handle, holding at least `floats` samples: made on first use
-   * even for none, so a call of zero frames names a buffer the module knows.
-   */
-  holding(floats: number): number {
-    if (this.#handle === 0 || floats > this.#floats) {
-      this.release();
-      const handle = this.#module.bufferCreate(floats);
-      if (handle === 0) {
-        throw new Error(`The DSP module could not allocate ${String(floats)} samples.`);
-      }
-      this.#handle = handle;
-      this.#floats = floats;
-      this.#viewOf = undefined;
-    }
-    return this.#handle;
-  }
-
-  /**
-   * A view of the first `floats` samples of the memory as it is now: the view
-   * last made, unless the memory has grown, the buffer been made again, or
-   * the length changed since.
-   */
-  view(floats: number): Float32Array {
-    const memory = this.#module.memoryBuffer();
-    if (memory !== this.#viewOf || this.#view.length !== floats) {
-      const address = this.#module.bufferAddress(this.#handle);
-      this.#view = new Float32Array(memory, address, floats);
-      this.#viewOf = memory;
-    }
-    return this.#view;
-  }
-
-  release(): void {
-    if (this.#handle !== 0) this.#module.bufferRelease(this.#handle);
-    this.#handle = 0;
-    this.#floats = 0;
-    this.#viewOf = undefined;
-  }
-}
+import { DOUBLES, ModuleBuffer, SAMPLES } from './module-buffer.js';
 
 /**
  * Throws what a status other than done says went wrong in a call on `object`.
  * Each is a fault in the engine or the module, never in audio: the engine
  * checked the call's shape before it was made.
  */
-function throwUnlessDone(status: number, object: string): void {
+function throwUnlessDone(status: number, object: string, refusal = 'input after its end'): void {
   switch (status) {
     case DspStatus.Done:
       return;
@@ -104,7 +57,7 @@ function throwUnlessDone(status: number, object: string): void {
     case DspStatus.TooSmall:
       throw new Error(`The DSP module was given a buffer too small for a call on ${object}.`);
     case DspStatus.Refused:
-      throw new Error(`The DSP module refused a call on ${object}: input after its end.`);
+      throw new Error(`The DSP module refused a call on ${object}: ${refusal}.`);
     default:
       throw new Error(
         `The DSP module answered a status this engine does not know: ${String(status)}.`,
@@ -129,7 +82,7 @@ function oscillatorIn(
   const { frequency, sampleRate, startPhase, amplitude } = settings;
   const handle = module.oscillatorCreate(frequency, sampleRate, startPhase, amplitude);
   if (handle === 0) return refusedByModule('an oscillator');
-  const buffer = new ModuleBuffer(module);
+  const buffer = new ModuleBuffer(module, SAMPLES);
   return succeed({
     render: (into) => {
       const status = module.oscillatorRender(handle, buffer.holding(into.length), into.length);
@@ -151,7 +104,7 @@ function oscillatorIn(
 function pushInto(
   module: DspExports,
   handle: number,
-  buffer: ModuleBuffer,
+  buffer: ModuleBuffer<Float32Array>,
   input: readonly Float32Array[],
   channels: number,
 ): void {
@@ -169,7 +122,7 @@ function pushInto(
 function pullFrom(
   module: DspExports,
   handle: number,
-  buffer: ModuleBuffer,
+  buffer: ModuleBuffer<Float32Array>,
   output: readonly Float32Array[],
   channels: number,
 ): number {
@@ -197,8 +150,8 @@ function resamplerIn(
   const handle = module.resamplerCreate(from, to, channels, quality, budget);
   if (handle === 0) return refusedByModule('a resampler');
   const tableBytes = module.resamplerTableBytes(handle);
-  const input = new ModuleBuffer(module);
-  const output = new ModuleBuffer(module);
+  const input = new ModuleBuffer(module, SAMPLES);
+  const output = new ModuleBuffer(module, SAMPLES);
   return succeed({
     channels,
     lookahead: module.resamplerLookahead(handle),
@@ -234,6 +187,49 @@ function resamplerIn(
   });
 }
 
+function fftIn(module: DspExports, size: number): DomainResult<CanonicalFft> {
+  const handle = module.fftCreate(size);
+  if (handle === 0) return refusedByModule('an FFT');
+  const bins = size / 2 + 1;
+  const signal = new ModuleBuffer(module, DOUBLES);
+  const spectrum = new ModuleBuffer(module, DOUBLES);
+  // The module refuses one buffer as both input and output, which these never are.
+  const refusal = 'its input and its output in one buffer';
+  return succeed({
+    size,
+    bins,
+    forwardReal: (input, real, imaginary) => {
+      assertFftShape(size, input.length, real.length, imaginary.length);
+      const from = signal.holding(size);
+      const to = spectrum.holding(2 * bins);
+      signal.view(size).set(input);
+      throwUnlessDone(module.fftForwardReal(handle, from, to), 'an FFT', refusal);
+      const view = spectrum.view(2 * bins);
+      // Element by element: a subarray to copy from would be an object a call.
+      for (let bin = 0; bin < bins; bin += 1) {
+        real[bin] = view[bin] ?? 0;
+        imaginary[bin] = view[bins + bin] ?? 0;
+      }
+    },
+    inverseReal: (real, imaginary, output) => {
+      assertFftShape(size, output.length, real.length, imaginary.length);
+      const from = spectrum.holding(2 * bins);
+      const to = signal.holding(size);
+      const view = spectrum.view(2 * bins);
+      view.set(real, 0);
+      view.set(imaginary, bins);
+      throwUnlessDone(module.fftInverseReal(handle, from, to), 'an FFT', refusal);
+      // Into a Float32Array this rounds each sample once, as the reference path does.
+      output.set(signal.view(size));
+    },
+    release: () => {
+      module.fftRelease(handle);
+      signal.release();
+      spectrum.release();
+    },
+  });
+}
+
 /**
  * The canonical DSP over an instantiated module's exports, or why the module
  * cannot serve: a missing function or another ABI version. The engine then
@@ -247,5 +243,6 @@ export function wasmDsp(exports: unknown): DomainResult<CanonicalDsp> {
       flatMapResult(checkOscillator(settings), (checked) => oscillatorIn(module, checked)),
     createResampler: (settings) =>
       flatMapResult(checkResampler(settings), (checked) => resamplerIn(module, checked)),
+    createFft: (size) => flatMapResult(checkFftSize(size), (checked) => fftIn(module, checked)),
   }));
 }

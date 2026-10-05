@@ -1,7 +1,7 @@
 /**
  * The reference DSP, counting the objects it has made that are not released.
  *
- * An oscillator or a resampler made on the WebAssembly path holds the
+ * An oscillator, a resampler or an FFT made on the WebAssembly path holds the
  * module's memory until it is released, so a test of an owner's release
  * counts what the owner leaves held.
  */
@@ -39,6 +39,7 @@ export function countingDsp(): CountingDsp {
       ...REFERENCE_DSP,
       createOscillator: (settings) => counted(REFERENCE_DSP.createOscillator(settings)),
       createResampler: (settings) => counted(REFERENCE_DSP.createResampler(settings)),
+      createFft: (size) => counted(REFERENCE_DSP.createFft(size)),
     },
     held: () => held,
     made: () => made,
