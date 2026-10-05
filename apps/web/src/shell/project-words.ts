@@ -15,9 +15,9 @@ import type {
   ProjectRecoveryReport,
   ReadOnlyReason,
 } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { recoveryFindings, type RecoveryFinding } from '../state/recovery-findings.js';
-import { counted } from '../wording.js';
 
 /** A phrase with its first letter made a capital, to begin a sentence with. */
 function capitalised(phrase: string): string {
@@ -54,7 +54,7 @@ export function accessSentence(access: ProjectAccess, name: string): string | un
       const lost =
         access.unsaved === 0
           ? ''
-          : ` ${String(access.unsaved)} ${access.unsaved === 1 ? 'change' : 'changes'} not yet saved here ${access.unsaved === 1 ? 'was' : 'were'} lost.`;
+          : ` ${counted(access.unsaved, 'change', 'changes')} not yet saved here ${access.unsaved === 1 ? 'was' : 'were'} lost.`;
       return `${capitalised(ownerPhrase(access.loss.by))} took ${name} over, so this tab can no longer change it.${lost}`;
     }
     case 'handed-over':

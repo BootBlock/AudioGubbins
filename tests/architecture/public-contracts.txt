@@ -3965,6 +3965,7 @@ Published paths
   function asName(value: unknown, characters: number): NameProblem | string
   function asQuoted(value: unknown): string
   function asWrittenName(value: unknown, characters: number): NameProblem | string
+  function counted(count: number, one: string, many: string): string
   function cutAtAWord(text: string, bound: number): string
   function firstFreeCopyName(name: string, word: string, characters: number, taken: (name: string) => boolean): string
   function firstFreeName(name: string, characters: number, taken: (name: string) => boolean): string
@@ -4051,6 +4052,7 @@ Published paths
   readonly TargetWriting.channel: (index: number) => string
   readonly TargetWriting.channelCount: number
   readonly TargetWriting.frequency: (hertz: number) => string
+  readonly TargetWriting.counted: (count: number, one: string, many: string) => string
   type TimeFormat = { readonly kind: "clock"; } | { readonly kind: "milliseconds"; } | { readonly kind: "samples"; } | { readonly kind: "timecode"; readonly frames: FrameRate; }
   const TimeFormatKind: { readonly Samples: "samples"; readonly Milliseconds: "milliseconds"; readonly Clock: "clock"; readonly Timecode: "timecode"; }
   type TimeFormatKind = "clock" | "milliseconds" | "samples" | "timecode"

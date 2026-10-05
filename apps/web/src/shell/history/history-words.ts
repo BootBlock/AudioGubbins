@@ -10,8 +10,9 @@
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
 import type { ExportRecord } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
-import { counted, describeBytes, quoted, when } from '../../wording.js';
+import { describeBytes, quoted, when } from '../../wording.js';
 
 /** What a point of the history is, in a phrase. */
 export function describeNode(node: HistoryNode): string {

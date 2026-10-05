@@ -13,10 +13,11 @@
  *
  * Made again from each state of the project, but an entry whose asset, markers,
  * regions, sources and files are the ones it was made from is the entry it was,
- * so a view of an asset nothing changed redraws nothing. The project crosses
- * from the storage worker whole with each change, so its values are compared by
- * what they hold; the files the page holds are compared by identity, since each
- * is held once.
+ * so a view of an asset nothing changed redraws nothing, and an asset is
+ * planned, and its markers and regions placed, only where an entry of it is
+ * made again. A record of the project is compared by the values it holds
+ * (`record-values.ts`); the files the page holds are compared by identity,
+ * since each is held once.
  */
 
 import {
@@ -31,18 +32,23 @@ import {
   planReadsAsset,
   regionPlan,
   streamLength,
+  type AnchorResolver,
   type Asset,
   type AssetId,
   type EditPlan,
+  type Marker,
   type PlacedMarker,
+  type Project,
   type Region,
   type RegionId,
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
-import type { ProjectState } from '@audiogubbins/project-format';
+import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
-import { counted, quoted } from '../wording.js';
+import { quoted } from '../wording.js';
 import { revisionOf, type EditorAsset } from './editor-asset.js';
+import { sameRecord, sameRecords } from './record-values.js';
 
 /** Whether the page holds the file an asset's media is kept in. */
 export type MediaAvailability =
@@ -64,10 +70,24 @@ export type ProjectEntry =
 /** The entries of one state of the project, by the identity a view names. */
 export type ProjectEntries = ReadonlyMap<string, ProjectEntry>;
 
-/** An entry, and what it was made from: the project's values as text, and the files held. */
-export interface MadeEntry {
-  readonly from: readonly unknown[];
-  readonly entry: ProjectEntry;
+/** The assets an entry reads the media of, where each is kept, and the file the page holds of each. */
+interface Reads {
+  readonly read: readonly Asset[];
+  readonly sources: readonly (AssetSource | undefined)[];
+  readonly files: readonly MediaAvailability[];
+}
+
+/** An asset, with the markers and regions it owns. */
+interface Owned {
+  readonly asset: Asset;
+  readonly markers: readonly Marker[];
+  readonly regions: readonly Region[];
+}
+
+/** The entries of one asset, and the asset, markers, regions and reads they were made from. */
+export interface MadeAsset extends Owned, Reads {
+  /** The asset's entry, then its regions', by the identity a view names. */
+  readonly entries: ReadonlyMap<string, ProjectEntry>;
 }
 
 /** The identity a view names an asset of the project by. */
@@ -80,9 +100,28 @@ export function regionEntryId(region: RegionId): string {
   return `region:${region}`;
 }
 
-/** Whether two lists hold the same values in the same order, by identity. */
-function sameValues(one: readonly unknown[], other: readonly unknown[]): boolean {
-  return one.length === other.length && one.every((value, index) => value === other[index]);
+/** What each asset owns of `items`, in the project's order. */
+function byAsset<Item extends { readonly assetId: AssetId }>(
+  items: Iterable<Item>,
+): ReadonlyMap<AssetId, readonly Item[]> {
+  const owned = new Map<AssetId, Item[]>();
+  for (const item of items) {
+    const list = owned.get(item.assetId);
+    if (list === undefined) owned.set(item.assetId, [item]);
+    else list.push(item);
+  }
+  return owned;
+}
+
+/** Each asset of `project` with what it owns, its markers and regions sorted out once for all. */
+function owning(project: Project): (asset: Asset) => Owned {
+  const markers = byAsset(project.markers.values());
+  const regions = byAsset(project.regions.values());
+  return (asset) => ({
+    asset,
+    markers: markers.get(asset.id) ?? [],
+    regions: regions.get(asset.id) ?? [],
+  });
 }
 
 /** The assets of `state` whose media `plan` reads, in the project's order. */
@@ -90,17 +129,16 @@ function assetsRead(state: ProjectState, plan: EditPlan): readonly Asset[] {
   return [...state.project.assets.values()].filter((asset) => planReadsAsset(plan, asset.id));
 }
 
-/** The files `read` is kept in, or why one is not held. */
+/** The files `reads` names, or why one is not held. */
 function mediaOf(
-  read: readonly Asset[],
-  media: (asset: AssetId) => MediaAvailability,
+  reads: Reads,
 ):
   | { readonly kind: 'held'; readonly entries: readonly MediaEntry[] }
   | { readonly kind: 'finding' | 'unavailable'; readonly reason: string } {
   const entries: MediaEntry[] = [];
-  for (const asset of read) {
-    const found = media(asset.id);
-    if (found.kind === 'finding') {
+  for (const [index, asset] of reads.read.entries()) {
+    const found = reads.files[index];
+    if (found === undefined || found.kind === 'finding') {
       return {
         kind: 'finding',
         reason: `The audio of ${quoted(asset.displayName)} is being read.`,
@@ -126,9 +164,8 @@ function assetSentence(asset: Asset): string {
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
 }
 
-/** The view of `plan`, named `id`, of the asset `owner` holds, once every file is held. */
+/** The view of `plan`, named `id`, of the asset `owner` holds, once every file `reads` names is held. */
 function openedEntry(
-  state: ProjectState,
   made: {
     readonly id: string;
     readonly name: string;
@@ -137,17 +174,16 @@ function openedEntry(
     readonly markers: readonly PlacedMarker[];
     readonly regions: EditorAsset['regions'];
   },
-  media: (asset: AssetId) => MediaAvailability,
+  reads: Reads,
 ): ProjectEntry {
   const { plan } = made.owner;
-  const read = assetsRead(state, plan);
-  const files = mediaOf(read, media);
+  const files = mediaOf(reads);
   if (files.kind !== 'held') {
     return { kind: files.kind, id: made.id, name: made.name, reason: files.reason };
   }
   const [stream] = plan.streams;
   const sampleRate = made.owner.asset.sampleRate;
-  const sources = read.map((asset) => state.sources.get(asset.id)?.media);
+  const sources = reads.sources.map((source) => source?.media);
   return {
     kind: 'open',
     asset: {
@@ -178,54 +214,135 @@ function openedEntry(
 export function projectEntries(
   state: ProjectState,
   media: (asset: AssetId) => MediaAvailability,
-  previous: ReadonlyMap<string, MadeEntry> = new Map(),
-): { readonly entries: ProjectEntries; readonly made: ReadonlyMap<string, MadeEntry> } {
-  const made = new Map<string, MadeEntry>();
-  const keep = (id: string, from: readonly unknown[], make: () => ProjectEntry): void => {
-    const before = previous.get(id);
-    made.set(
-      id,
-      before !== undefined && sameValues(before.from, from) ? before : { from, entry: make() },
-    );
-  };
+  previous: ReadonlyMap<AssetId, MadeAsset> = new Map(),
+): { readonly entries: ProjectEntries; readonly made: ReadonlyMap<AssetId, MadeAsset> } {
+  const own = owning(state.project);
+  const made = new Map<AssetId, MadeAsset>();
+  const entries = new Map<string, ProjectEntry>();
+  for (const asset of state.project.assets.values()) {
+    const one = madeAsset(state, own(asset), media, previous.get(asset.id));
+    made.set(asset.id, one);
+    for (const [id, entry] of one.entries) entries.set(id, entry);
+  }
+  return { entries, made };
+}
+
+/**
+ * The entry a view names `id` in the project in `state`, its media held as
+ * `media` says, or `undefined` where the project has none. Only the asset it is
+ * of, or whose region it is, is planned.
+ */
+export function projectEntry(
+  state: ProjectState,
+  media: (asset: AssetId) => MediaAvailability,
+  id: string,
+): ProjectEntry | undefined {
   const { project } = state;
-  for (const asset of project.assets.values()) {
-    const resolver = anchorResolver(asset);
-    const plan = assetPlan(asset);
-    const read = assetsRead(state, plan);
-    const ownMarkers = [...project.markers.values()].filter((one) => one.assetId === asset.id);
-    const ownRegions = [...project.regions.values()].filter((one) => one.assetId === asset.id);
-    // What the entries are made from: a file found, or a source relinked, makes them again.
-    const sources = JSON.stringify(read.map((each) => state.sources.get(each.id)));
-    const files = read.map((each) => media(each.id));
-    const values = JSON.stringify([asset, ownMarkers, sources]);
+  const owner =
+    [...project.assets.values()].find((asset) => assetEntryId(asset.id) === id)?.id ??
+    [...project.regions.values()].find((region) => regionEntryId(region.id) === id)?.assetId;
+  const asset = owner === undefined ? undefined : project.assets.get(owner);
+  if (asset === undefined) return undefined;
+  return madeAsset(state, owning(project)(asset), media, undefined).entries.get(id);
+}
+
+/** What an asset's entries are placed by, worked out only where one is made. */
+interface Placed {
+  readonly resolver: AnchorResolver;
+  readonly plan: EditPlan;
+  readonly markers: readonly PlacedMarker[];
+}
+
+/** What `own` is placed by, worked out the first time it is asked for and held after. */
+function placing(own: Owned): () => Placed {
+  let placed: Placed | undefined;
+  return () => {
+    if (placed !== undefined) return placed;
+    const resolver = anchorResolver(own.asset);
     // A stable sort, so markers at one position keep the project's order.
-    const markers = placeMarkers(asset, ownMarkers, resolver).toSorted(
+    const markers = placeMarkers(own.asset, own.markers, resolver).toSorted(
       (one, other) => one.position - other.position,
     );
-    const id = assetEntryId(asset.id);
-    keep(id, [values, JSON.stringify(ownRegions), ...files], () =>
+    placed = { resolver, plan: assetPlan(own.asset), markers };
+    return placed;
+  };
+}
+
+/**
+ * The entries of `own.asset`, each the one `before` made where nothing it is
+ * made from changed. Which assets the plan reads follows from the asset alone,
+ * so where the asset is unchanged they are the ones `before` read, and an asset
+ * none of whose entries is made again is neither planned nor placed.
+ */
+function madeAsset(
+  state: ProjectState,
+  own: Owned,
+  media: (asset: AssetId) => MediaAvailability,
+  before: MadeAsset | undefined,
+): MadeAsset {
+  const place = placing(own);
+  const unchanged = before !== undefined && sameRecord(before.asset, own.asset);
+  const read = unchanged
+    ? before.read.flatMap((one) => state.project.assets.get(one.id) ?? [])
+    : assetsRead(state, place().plan);
+  const reads: Reads = {
+    read,
+    sources: read.map((one) => state.sources.get(one.id)),
+    files: read.map((one) => media(one.id)),
+  };
+  // What every entry of the asset is made from, with a file for each asset
+  // read, so the files are as many as before where the assets read are; its
+  // regions are compared one by one.
+  const kept =
+    unchanged &&
+    sameRecords(before.markers, own.markers) &&
+    sameRecords(before.read, reads.read) &&
+    sameRecords(before.sources, reads.sources) &&
+    before.files.every((file, index) => file === reads.files[index])
+      ? before
+      : undefined;
+  return { ...own, ...reads, entries: entriesOf(own, reads, place, kept) };
+}
+
+/** The entries of `own.asset`, each the one `kept` holds where its regions are the ones it held. */
+function entriesOf(
+  own: Owned,
+  reads: Reads,
+  place: () => Placed,
+  kept: MadeAsset | undefined,
+): ReadonlyMap<string, ProjectEntry> {
+  const { asset } = own;
+  const sameRegions = kept !== undefined && sameRecords(kept.regions, own.regions);
+  const entries = new Map<string, ProjectEntry>();
+  const id = assetEntryId(asset.id);
+  entries.set(
+    id,
+    (sameRegions ? kept.entries.get(id) : undefined) ??
       openedEntry(
-        state,
         {
           id,
           name: asset.displayName,
           description: assetSentence(asset),
-          owner: { kind: 'project', asset, plan, offset: derivedSampleCount(0) },
-          markers,
-          regions: placeRegions(asset, ownRegions, resolver),
+          owner: { kind: 'project', asset, plan: place().plan, offset: derivedSampleCount(0) },
+          markers: place().markers,
+          regions: placeRegions(asset, own.regions, place().resolver),
         },
-        media,
+        reads,
       ),
+  );
+  const regionsBefore = new Map(
+    sameRegions ? [] : (kept?.regions.map((region) => [region.id, region] as const) ?? []),
+  );
+  for (const region of own.regions) {
+    const regionId = regionEntryId(region.id);
+    const same = sameRegions || sameRecord(regionsBefore.get(region.id), region);
+    entries.set(
+      regionId,
+      (same ? kept?.entries.get(regionId) : undefined) ??
+        regionEntry({ asset, region, markers: place().markers, resolver: place().resolver }, reads),
     );
-    for (const region of ownRegions) {
-      keep(regionEntryId(region.id), [values, JSON.stringify(region), ...files], () =>
-        regionEntry(state, { asset, region, markers, resolver }, media),
-      );
-    }
   }
-  const entries = new Map([...made].map(([id, one]) => [id, one.entry] as const));
-  return { entries, made };
+  return entries;
 }
 
 /** Why a region whose audio every later edit removed cannot be shown. */
@@ -236,14 +353,13 @@ const GONE = 'Nothing of it is left: the edits made since it was placed removed 
  * processing, or why there is none, where the edits since removed all of it.
  */
 function regionEntry(
-  state: ProjectState,
   parts: {
     readonly asset: Asset;
     readonly region: Region;
     readonly markers: readonly PlacedMarker[];
-    readonly resolver: ReturnType<typeof anchorResolver>;
+    readonly resolver: AnchorResolver;
   },
-  media: (asset: AssetId) => MediaAvailability,
+  reads: Reads,
 ): ProjectEntry {
   const { asset, region, markers, resolver } = parts;
   const id = regionEntryId(region.id);
@@ -252,7 +368,6 @@ function regionEntry(
     return { kind: 'unavailable', id, name: region.displayName, reason: GONE };
   }
   return openedEntry(
-    state,
     {
       id,
       name: region.displayName,
@@ -267,6 +382,6 @@ function regionEntry(
       markers: markersInRegion(markers, placed),
       regions: [],
     },
-    media,
+    reads,
   );
 }

@@ -56,7 +56,7 @@
  * - project-format: the authoritative, versioned project and the forms it is
  *   written in; depends on domain + text + version.
  * - project-commands: the commands that change a project; depends on domain +
- *   commands + project-format.
+ *   commands + project-format + text.
  * - history: branching history as values; depends on domain + commands +
  *   project-format.
  * - media-store: content-addressed source media; depends on domain +
@@ -337,10 +337,11 @@ module.exports = {
       severity: 'error',
       comment:
         'A project command reads the project it changes and the command contract, and nothing ' +
-        'that keeps or shows a project: replay stays deterministic (ADR-0020).',
+        'that keeps or shows a project: replay stays deterministic (ADR-0020). It reads the text ' +
+        'leaf for the count a description says (ADR-0018).',
       from: { path: '^packages/project-commands/' },
       to: {
-        path: '^packages/(?!(commands|domain|project-commands|project-format)/)',
+        path: '^packages/(?!(commands|domain|project-commands|project-format|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

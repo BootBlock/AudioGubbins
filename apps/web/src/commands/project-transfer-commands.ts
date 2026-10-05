@@ -17,6 +17,7 @@ import {
 } from '@audiogubbins/commands';
 import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { AssetConsolidation, CopyOptions, PassedOverReason } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import type { RecordedExport } from '../state/export-recorder.js';
 import { quoted } from '../wording.js';
@@ -69,7 +70,7 @@ export function recordedNote(recorded: RecordedExport): string {
 function linkedNote(linked: readonly unknown[]): string {
   return linked.length === 0
     ? ''
-    : ` ${String(linked.length)} linked ${linked.length === 1 ? 'file is' : 'files are'} not in it; copy linked files into the project first to carry them.`;
+    : ` ${counted(linked.length, 'linked file is', 'linked files are')} not in it; copy linked files into the project first to carry them.`;
 }
 
 function exportBundleCommand(): Command<ShellContext> {
@@ -255,7 +256,7 @@ function consolidatedSentence(outcomes: readonly AssetConsolidation[]): string {
     if (words !== undefined) left.set(words, (left.get(words) ?? 0) + 1);
   }
   if (left.size === 0) {
-    return `${String(copied)} linked ${copied === 1 ? 'file is' : 'files are'} copied into the project.`;
+    return `${counted(copied, 'linked file is', 'linked files are')} copied into the project.`;
   }
   const why = [...left].map(([words, count]) => `${String(count)} ${words}`).join('; ');
   return `${String(copied)} copied. Not copied: ${why}.`;

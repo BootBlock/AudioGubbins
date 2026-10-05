@@ -10,8 +10,8 @@ import { useId, useState, type ReactNode } from 'react';
 
 import { TextField } from '@audiogubbins/design-system';
 import type { Region } from '@audiogubbins/domain';
+import { counted } from '@audiogubbins/text';
 
-import { counted } from '../../wording.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { regionOperationWords, type EditWording } from './edit-words.js';
 import type { InspectedRegion } from './inspected.js';

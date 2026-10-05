@@ -442,7 +442,12 @@ const PACKAGES = [
       'The typed commands that change an AudioGubbins project, each with its inverse, deterministic under replay.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/project-format',
+      '@audiogubbins/text',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},

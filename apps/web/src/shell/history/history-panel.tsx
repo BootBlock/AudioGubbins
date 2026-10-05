@@ -27,6 +27,7 @@ import {
 } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 import type { ProjectModel } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { ProjectPanelKinds } from '../../panel-kinds.js';
 import { showPanelCommandId } from '../../commands/panel-commands.js';
@@ -64,7 +65,7 @@ const SCOPES = [
 /** How much history there is, in a sentence. */
 function summaryOf({ history, changes, branches }: HistoryRowOrder): string {
   const snapshots = history.snapshots.size;
-  return `${String(changes)} ${changes === 1 ? 'change' : 'changes'}, ${String(branches)} other ${branches === 1 ? 'branch' : 'branches'} and ${String(snapshots)} ${snapshots === 1 ? 'snapshot' : 'snapshots'}.`;
+  return `${counted(changes, 'change', 'changes')}, ${counted(branches, 'other branch', 'other branches')} and ${counted(snapshots, 'snapshot', 'snapshots')}.`;
 }
 
 /** What finds the rows: the words typed, the scope chosen, and the entity whose changes alone are shown. */

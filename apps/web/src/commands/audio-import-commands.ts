@@ -12,11 +12,12 @@
 import { CommandCategory, unavailable, AVAILABLE, type Command } from '@audiogubbins/commands';
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 import type { ImportedAudio } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { assetEntryId } from '../assets/project-assets.js';
 import { settledEntry } from '../state/asset-catalogue.js';
 import type { AudioImportOutcome } from '../state/audio-imports.js';
-import { counted, quoted } from '../wording.js';
+import { quoted } from '../wording.js';
 import { showInEditor } from './editor-asset-commands.js';
 import { readyProjects, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
 import { shellCommand } from './shell-command.js';

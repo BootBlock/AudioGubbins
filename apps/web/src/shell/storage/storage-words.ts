@@ -16,8 +16,9 @@ import type {
   RecoverabilityLoss,
   StorageUsage,
 } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
-import { counted, quoted } from '../../wording.js';
+import { quoted } from '../../wording.js';
 import { lostSentence } from '../history/history-words.js';
 
 /** What each cache is called. */

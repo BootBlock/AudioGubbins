@@ -1,13 +1,42 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { derivedSampleCount, streamLength, unsafeBrandId } from '@audiogubbins/domain';
+import {
+  derivedSampleCount,
+  streamLength,
+  unsafeBrandId,
+  type Asset,
+  type AssetId,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
+import type { ProjectState } from '@audiogubbins/project-format';
+import { editedReferenceState } from '@audiogubbins/project-format/testing';
 import { addRegionInvocation, applyInvocation } from '@audiogubbins/project-commands';
 import { ProjectCommandId } from '@audiogubbins/project-commands';
+import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
-import { projectEntries, regionEntryId } from './project-assets.js';
+import {
+  assetEntryId,
+  projectEntries,
+  projectEntry,
+  regionEntryId,
+  type MediaAvailability,
+} from './project-assets.js';
+
+/** The assets whose plan was made, in the order each was asked for. */
+const planned = vi.hoisted((): AssetId[] => []);
+
+vi.mock(import('@audiogubbins/domain'), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    assetPlan: (asset: Asset) => {
+      planned.push(asset.id);
+      return actual.assetPlan(asset);
+    },
+  };
+});
 
 holdPlatformFiles();
 
@@ -156,5 +185,79 @@ describe('an asset of the project, as a view opens it (ADR-0051)', () => {
     expect(audio.asset().regions.map((region) => [region.displayName, region.start])).toEqual([
       ['Tail', SECOND],
     ]);
+  });
+});
+
+describe('the entries of a state the worker sends, against those of the state before', () => {
+  const fixture = sampleProject();
+  const { footstep, ambience } = fixture.assets;
+  const state = editedReferenceState(fixture);
+  const held = new Map<AssetId, MediaAvailability>([
+    [footstep.id, { kind: 'found', file: new Blob(['footstep']) }],
+    [ambience.id, { kind: 'found', file: new Blob(['ambience']) }],
+  ]);
+  const media = (asset: AssetId): MediaAvailability => held.get(asset) ?? { kind: 'finding' };
+
+  /** `state` as it arrives from the worker, every record a copy, with the ambience renamed. */
+  function renamedAmbience(): ProjectState {
+    const copy = structuredClone(state);
+    const assets = new Map(
+      [...copy.project.assets].map(([id, asset]) => [
+        id,
+        id === ambience.id ? { ...asset, displayName: 'Rain' } : asset,
+      ]),
+    );
+    return { ...copy, project: { ...copy.project, assets } };
+  }
+
+  beforeEach(() => {
+    planned.length = 0;
+  });
+
+  it('plans again only the asset a change touched, and keeps the entries of the rest', () => {
+    const before = projectEntries(state, media);
+    const [region] = state.project.regions.values();
+    if (region === undefined) throw new Error('No region.');
+    planned.length = 0;
+
+    const after = projectEntries(renamedAmbience(), media, before.made);
+
+    expect(planned).toEqual([ambience.id]);
+    for (const id of [assetEntryId(footstep.id), regionEntryId(region.id)]) {
+      expect(after.entries.get(id)).toBe(before.entries.get(id));
+    }
+    expect(after.entries.get(assetEntryId(ambience.id))).toMatchObject({
+      kind: 'open',
+      asset: { name: 'Rain' },
+    });
+  });
+
+  it('plans nothing again where only the files the page holds were told of again', () => {
+    const before = projectEntries(state, media);
+    planned.length = 0;
+
+    const after = projectEntries(state, media, before.made);
+
+    expect(planned).toEqual([]);
+    expect([...after.entries.values()]).toEqual([...before.entries.values()]);
+    for (const [id, entry] of after.entries) expect(entry).toBe(before.entries.get(id));
+  });
+
+  it('opens one entry by planning its own asset alone', () => {
+    const [region] = state.project.regions.values();
+    if (region === undefined) throw new Error('No region.');
+    const id = regionEntryId(region.id);
+    const whole = projectEntries(state, media).entries.get(id);
+    planned.length = 0;
+
+    const one = projectEntry(state, media, id);
+
+    expect(planned).toEqual([footstep.id]);
+    if (one?.kind !== 'open' || whole?.kind !== 'open') throw new Error('Not opened.');
+    const { describe: hears, ...shown } = one.asset;
+    const { describe: wholeHears, ...wholeShown } = whole.asset;
+    expect(shown).toEqual(wholeShown);
+    expect(hears()).toEqual(wholeHears());
+    expect(projectEntry(state, media, 'region:none')).toBeUndefined();
   });
 });

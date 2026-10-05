@@ -50,6 +50,7 @@ const WRITING: TargetWriting = {
   channel: (index) => ['Left', 'Right', 'Centre'][index] ?? String(index),
   channelCount: 3,
   frequency: (hertz) => `${String(hertz)} Hz`,
+  counted: (count, one, many) => `${String(count)} of ${one} or ${many}`,
 };
 
 describe('the selection set', () => {
@@ -206,7 +207,7 @@ describe('describing a target', () => {
         { kind: 'objects', objects: { kind: 'markers', ids: [marker('a'), marker('b')] } },
         WRITING,
       ),
-    ).toBe('2 markers');
+    ).toBe('2 of marker or markers');
   });
 
   it('tells when a target lies wholly outside what a view shows', () => {
