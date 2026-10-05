@@ -2,14 +2,17 @@
  * The feeder worker: a module the browser loads as a dedicated worker, which
  * reads real-time playback's sources and feeds the audio thread.
  *
- * It only connects the worker's global scope, and the channel to the
- * processor each binding brings, to `FeederCore`, which holds everything the
- * feeder does, so that behaviour is tested without a worker. The package is
- * compiled with the DOM's types rather than a worker's, so the scope is typed
- * here by the part of it the worker uses. It is compiled again, with
- * everything it imports, by `scopes/dedicated-worker`, against a worker's
- * definitions alone.
+ * It only connects the worker's global scope, the channel to the processor each
+ * binding brings, and the effect rack that runs an edited sound's chains, to
+ * `FeederCore`, which holds everything the feeder does, so that behaviour is
+ * tested without a worker. The package is compiled with the DOM's types rather
+ * than a worker's, so the scope is typed here by the part of it the worker
+ * uses. It is compiled again, with everything it imports, by
+ * `scopes/dedicated-worker`, against a worker's definitions alone.
  */
+
+import { chainProcessing } from '@audiogubbins/effect-rack';
+import { PROCESSOR_TYPES_BY_KEY } from '@audiogubbins/processors';
 
 import { FeederCore } from '../feeder/feeder-core.js';
 import { scopeDsp } from '../dsp/dsp-instance.js';
@@ -59,6 +62,7 @@ const core: FeederCore = new FeederCore({
     };
   },
   chooseDsp: scopeDsp,
+  processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
 });
 
 scope.addEventListener('message', (event) => {

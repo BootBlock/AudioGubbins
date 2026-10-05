@@ -144,7 +144,7 @@ class WorkerRender {
         sampleRate: request.sampleRate,
         range: request.range,
         chunkFrames: request.chunkFrames,
-        resamplingQuality: request.quality.resampling,
+        quality: request.quality,
         sources: request.sources,
         coefficientBudgetBytes: request.coefficientBudgetBytes,
         dsp: deliveredAs(dsp, (module) => module.module),

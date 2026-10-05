@@ -10,6 +10,7 @@
  * page cancels.
  */
 
+import type { QualityMode } from '@audiogubbins/domain';
 import type { PcmDescription } from '@audiogubbins/audio-engine';
 
 import type { PeakChannel, PeakRun } from './peak-pyramid.js';
@@ -40,6 +41,11 @@ export type ToPeakWorker =
       readonly revision: string;
       readonly channels: number;
       readonly description: PcmDescription;
+      /**
+       * The quality an edited sound's chains run at: the final render's, so
+       * the peaks draw what a render makes (ADR-0061).
+       */
+      readonly quality: QualityMode;
       /** The bytes of a cache the page holds for the source, which the worker checks. */
       readonly cached: Uint8Array<ArrayBuffer> | undefined;
       readonly focus: FrameRange | undefined;

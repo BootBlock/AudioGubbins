@@ -6,11 +6,17 @@
  * test is about what it renders rather than how a job is put together.
  */
 
-import { sampleCount, sampleRate, type ChannelLayout, type SampleRate } from '@audiogubbins/domain';
+import {
+  MAXIMUM_QUALITY,
+  sampleCount,
+  sampleRate,
+  type ChannelLayout,
+  type SampleRate,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { GraphDescriptor } from '@audiogubbins/audio-graph';
 
-import { MAXIMUM_RENDER_QUALITY, type RenderJob, type RenderSink } from '../render/render-job.js';
+import type { RenderJob, RenderSink } from '../render/render-job.js';
 import { frameBlock, type AudioFrameBlock } from '../pcm/frame-block.js';
 import { memorySource } from '../pcm/memory-source.js';
 import type { PcmSource } from '../pcm/pcm-source.js';
@@ -87,7 +93,7 @@ export function jobOf(
       start: expectSuccess(sampleCount(bindings.start ?? 0)),
       length: expectSuccess(sampleCount(bindings.length)),
     },
-    quality: MAXIMUM_RENDER_QUALITY,
+    quality: MAXIMUM_QUALITY,
     chunkFrames: bindings.chunkFrames ?? 4_096,
   };
 }

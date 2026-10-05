@@ -144,18 +144,24 @@ describe('golden offline renders', () => {
     wasm = expectSuccess(wasmDsp(await dspModuleExports()));
   });
 
-  it('renders the same bits on the WebAssembly module and the reference path, in any chunks', async () => {
-    const hash = await goldenRender(wasm, 4_800);
-    expect(await goldenRender(wasm, 1_000)).toBe(hash);
-    expect(await goldenRender(wasm, 333)).toBe(hash);
-    expect(await goldenRender(REFERENCE_DSP, 4_800)).toBe(hash);
-    expect(await goldenRender(REFERENCE_DSP, 777)).toBe(hash);
-    // With no memory for a table, each conversion computes its taps: slower,
-    // and the same bits.
-    expect(await goldenRender(wasm, 4_800, 0)).toBe(hash);
-    expect(await goldenRender(REFERENCE_DSP, 4_800, 0)).toBe(hash);
-    expect(`0x${hash.toString(16).padStart(16, '0')}`).toBe(
-      `0x${GOLDEN.toString(16).padStart(16, '0')}`,
-    );
-  });
+  // About 2 s alone and more than twice that under the whole suite's load, so
+  // it is given a budget of its own rather than Vitest's five-second default.
+  it(
+    'renders the same bits on the WebAssembly module and the reference path, in any chunks',
+    { timeout: 30_000 },
+    async () => {
+      const hash = await goldenRender(wasm, 4_800);
+      expect(await goldenRender(wasm, 1_000)).toBe(hash);
+      expect(await goldenRender(wasm, 333)).toBe(hash);
+      expect(await goldenRender(REFERENCE_DSP, 4_800)).toBe(hash);
+      expect(await goldenRender(REFERENCE_DSP, 777)).toBe(hash);
+      // With no memory for a table, each conversion computes its taps: slower,
+      // and the same bits.
+      expect(await goldenRender(wasm, 4_800, 0)).toBe(hash);
+      expect(await goldenRender(REFERENCE_DSP, 4_800, 0)).toBe(hash);
+      expect(`0x${hash.toString(16).padStart(16, '0')}`).toBe(
+        `0x${GOLDEN.toString(16).padStart(16, '0')}`,
+      );
+    },
+  );
 });

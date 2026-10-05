@@ -35,6 +35,7 @@ import {
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
+import type { PlanProcessing } from './processed-content.js';
 import { editedSource } from './edited-source.js';
 import type { MediaEntry } from './plan-content.js';
 import { frameBlock } from './frame-block.js';
@@ -189,6 +190,7 @@ export function describedSource(
   description: PcmDescription,
   layout: ChannelLayout,
   dsp: CanonicalDsp,
+  processing: PlanProcessing,
 ): DomainResult<PcmSource> {
   switch (description.kind) {
     case PcmDescriptionKind.Pcm:
@@ -203,7 +205,7 @@ export function describedSource(
         recipe: description.recipe,
       });
     case PcmDescriptionKind.Edited:
-      return editedSource(description.plan, description.media, layout, dsp);
+      return editedSource(description.plan, description.media, layout, dsp, processing);
   }
 }
 

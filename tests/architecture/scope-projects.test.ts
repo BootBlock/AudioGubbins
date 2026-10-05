@@ -28,6 +28,8 @@ const PORTABLE = [
   'packages/timeline',
   'packages/video-reference',
   'packages/waveform',
+  'packages/processors',
+  'packages/effect-rack',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */

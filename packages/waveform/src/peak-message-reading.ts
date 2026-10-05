@@ -4,7 +4,15 @@
  * protocol's `read` function turns into a failure naming it.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  qualityModeFrom,
+  succeed,
+  type DomainResult,
+  type QualityMode,
+} from '@audiogubbins/domain';
 import { pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
 
 import {
@@ -158,6 +166,16 @@ function descriptionAt(fields: Fields, field: string): PcmDescription {
   return read.value;
 }
 
+/** A quality mode, its level taken from its settings as the domain reads them. */
+function qualityAt(fields: Fields, field: string): QualityMode {
+  const value = fields[field];
+  const settings =
+    typeof value === 'object' && value !== null && 'settings' in value ? value.settings : undefined;
+  const mode = qualityModeFrom(settings);
+  if (!mode.ok) throw new Malformed(field, 'a quality mode');
+  return mode.value;
+}
+
 function readToWorker(fields: Fields): ToPeakWorker {
   const job = textAt(fields, 'job');
   switch (fields['kind']) {
@@ -169,6 +187,7 @@ function readToWorker(fields: Fields): ToPeakWorker {
         revision: textAt(fields, 'revision'),
         channels: countAt(fields, 'channels'),
         description: descriptionAt(fields, 'description'),
+        quality: qualityAt(fields, 'quality'),
         cached: optionalBytesAt(fields, 'cached'),
         focus: optionalRangeAt(fields, 'focus'),
       };

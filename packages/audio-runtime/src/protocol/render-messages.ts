@@ -19,6 +19,7 @@ import {
   failure,
   type DomainFailure,
   type DomainResult,
+  type QualityMode,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
@@ -44,6 +45,7 @@ import {
   nodeAt,
   nonEmptyListAt,
   oneOf,
+  qualityAt,
   optionalCountAt,
   optionalTextAt,
   rateAt,
@@ -71,7 +73,8 @@ export type ToRenderWorker =
       readonly sampleRate: SampleRate;
       readonly range: RenderRange;
       readonly chunkFrames: number;
-      readonly resamplingQuality: ResamplingQuality;
+      /** The quality the render runs at (ADR-0061). */
+      readonly quality: QualityMode;
       readonly sources: readonly SourceDescription[];
       /** What the conversions' tables may hold together, or `undefined` where unmeasured. */
       readonly coefficientBudgetBytes: number | undefined;
@@ -218,7 +221,7 @@ function toRenderWorkerFrom(fields: Fields): ToRenderWorker {
         sampleRate: rateAt(fields, 'sampleRate'),
         range: rangeAt(fields),
         chunkFrames: countAt(fields, 'chunkFrames'),
-        resamplingQuality: oneOf(fields, 'resamplingQuality', ResamplingQuality),
+        quality: qualityAt(fields, 'quality'),
         sources: listAt(fields, 'sources', sourceFrom),
         coefficientBudgetBytes: optionalCountAt(fields, 'coefficientBudgetBytes'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),

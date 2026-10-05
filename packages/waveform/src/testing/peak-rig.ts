@@ -8,13 +8,14 @@
  */
 
 import { REFERENCE_DSP, PcmDescriptionKind, type PcmDescription } from '@audiogubbins/audio-engine';
-import { sampleRate } from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { PeakCacheStore, PeakWorkerPort } from '../peak-host.js';
 import type { ToPeakWorker } from '../peak-messages.js';
 import type { PeakSubject } from '../peak-subject.js';
 import { PeakWorkerCore } from '../peak-worker-core.js';
+import { NO_CHAIN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 /** A turn of the event loop, as a worker's message takes. */
 export function turn(): Promise<void> {
@@ -39,6 +40,7 @@ export class LocalPeakWorker implements PeakWorkerPort {
     },
     yieldToHost: turn,
     dsp: REFERENCE_DSP,
+    processing: NO_CHAIN_PROCESSING,
     reportFault: (error) => {
       throw error;
     },
@@ -112,5 +114,6 @@ export function memorySubject(
     frames: channels[0]?.length ?? 0,
     sampleRate: 48_000,
     describe,
+    quality: MAXIMUM_QUALITY,
   };
 }

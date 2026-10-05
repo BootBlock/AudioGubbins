@@ -39,6 +39,18 @@
       "path": "./packages/audio-engine/scopes/any"
     },
     {
+      "path": "./packages/processors"
+    },
+    {
+      "path": "./packages/processors/scopes/any"
+    },
+    {
+      "path": "./packages/effect-rack"
+    },
+    {
+      "path": "./packages/effect-rack/scopes/any"
+    },
+    {
       "path": "./packages/audio-runtime"
     },
     {

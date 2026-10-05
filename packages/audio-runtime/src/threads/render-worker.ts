@@ -1,13 +1,17 @@
 /**
  * The render worker: a module the browser loads as a dedicated worker.
  *
- * It only connects the worker's global scope to `RenderWorkerCore`, which holds
- * everything the worker does, so that behaviour is tested without a worker. The
- * package is compiled with the DOM's types rather than a worker's, so the scope
- * is typed here by the part of it the worker uses. It is compiled again, with
- * everything it imports, by `scopes/dedicated-worker`, against a worker's
- * definitions alone.
+ * It only connects the worker's global scope, and the effect rack that runs an
+ * edited sound's chains, to `RenderWorkerCore`, which holds everything the
+ * worker does, so that behaviour is tested without a worker. The package is
+ * compiled with the DOM's types rather than a worker's, so the scope is typed
+ * here by the part of it the worker uses. It is compiled again, with everything
+ * it imports, by `scopes/dedicated-worker`, against a worker's definitions
+ * alone.
  */
+
+import { chainProcessing } from '@audiogubbins/effect-rack';
+import { PROCESSOR_TYPES_BY_KEY } from '@audiogubbins/processors';
 
 import type { FromRenderWorker } from '../protocol/render-messages.js';
 import { RenderWorkerCore } from '../render/render-worker-core.js';
@@ -52,6 +56,7 @@ const core = new RenderWorkerCore({
   reportFault: (error) => {
     scope.reportError(error);
   },
+  processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
 });
 
 scope.addEventListener('message', (event) => {

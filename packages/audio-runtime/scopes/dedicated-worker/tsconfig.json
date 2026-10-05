@@ -32,6 +32,12 @@
     },
     {
       "path": "../../../../packages/audio-engine"
+    },
+    {
+      "path": "../../../../packages/effect-rack"
+    },
+    {
+      "path": "../../../../packages/processors"
     }
   ]
 }

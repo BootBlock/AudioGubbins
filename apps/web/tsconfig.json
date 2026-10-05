@@ -97,6 +97,9 @@
       "path": "../../packages/clipboard"
     },
     {
+      "path": "../../packages/processors"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

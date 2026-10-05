@@ -18,7 +18,7 @@
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PcmSource } from '@audiogubbins/audio-engine';
+import type { ChainProcessing, PcmSource } from '@audiogubbins/audio-engine';
 import { sampleCount } from '@audiogubbins/domain';
 
 import type { PostToProcessor } from '../feed/feed-pump.js';
@@ -50,6 +50,8 @@ export interface FeederHost {
   /** Calls a callback after a delay: the worker's own timers, which the page's work never holds up. */
   readonly schedule: Schedule;
   readonly chooseDsp: DspChooser;
+  /** How the chains an edited source's plan names are run: the effect rack's. */
+  readonly processing: ChainProcessing;
   /**
    * Reads a source through what a test puts in front of it, a read that
    * stalls or fails as a disk may; production reads each as it was made.
@@ -135,7 +137,7 @@ export class FeederCore {
 
   #sources(message: Message<typeof ToFeederKind.Sources>): void {
     this.#release(message.request);
-    const made = sourcesFor(message, this.#host.chooseDsp);
+    const made = sourcesFor(message, this.#host.chooseDsp, this.#host.processing);
     if (!made.ok) {
       // The code and summary alone: a failure's details and cause may hold what
       // a structured clone cannot carry, and the main thread shows the summary.

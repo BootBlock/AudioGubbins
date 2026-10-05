@@ -16,11 +16,14 @@ Published paths
   @audiogubbins/domain
   @audiogubbins/domain/testing
   @audiogubbins/editor-view
+  @audiogubbins/effect-rack
   @audiogubbins/history
   @audiogubbins/input
   @audiogubbins/input/testing
   @audiogubbins/media-store
   @audiogubbins/media-store/testing
+  @audiogubbins/processors
+  @audiogubbins/processors/testing
   @audiogubbins/project-commands
   @audiogubbins/project-format
   @audiogubbins/project-format/testing
@@ -57,6 +60,13 @@ Published paths
   CanonicalDsp.sineOfTurns: (turns: number) => number
   CanonicalDsp.createOscillator: (settings: OscillatorSettings) => DomainResult<CanonicalOscillator>
   CanonicalDsp.createResampler: (settings: ResamplerSettings) => DomainResult<CanonicalResampler>
+  CanonicalDsp.createFft: (size: number) => DomainResult<CanonicalFft>
+  interface CanonicalFft
+  readonly CanonicalFft.size: number
+  readonly CanonicalFft.bins: number
+  CanonicalFft.forwardReal: (signal: Float32Array | Float64Array, real: Float64Array, imaginary: Float64Array) => void
+  CanonicalFft.inverseReal: (real: Float64Array, imaginary: Float64Array, signal: Float32Array | Float64Array) => void
+  CanonicalFft.release: () => void
   interface CanonicalOscillator
   CanonicalOscillator.render: (into: Float32Array) => void
   CanonicalOscillator.seek: (frame: number) => void
@@ -71,6 +81,23 @@ Published paths
   CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
+  interface ChainProcessing
+  ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
+  interface ChainRequest
+  readonly ChainRequest.chain: EffectChain
+  readonly ChainRequest.input: ChannelLayout
+  readonly ChainRequest.sampleRate: SampleRate
+  readonly ChainRequest.length: number
+  readonly ChainRequest.quality: QualitySettings
+  readonly ChainRequest.blockFrames: number
+  readonly ChainRequest.dsp: CanonicalDsp
+  interface ChainRun
+  readonly ChainRun.latency: number
+  readonly ChainRun.layout: ChannelLayout
+  readonly ChainRun.leadIn: number
+  ChainRun.process: (input: readonly Float32Array[], output: readonly Float32Array[], frames: number) => void
+  ChainRun.setParameter: (processor: ProcessorId, key: string, value: number) => DomainResult<void>
+  ChainRun.release: () => void
   interface ChannelProgramme
   readonly ChannelProgramme.segments: readonly SignalSegment[]
   readonly ChannelProgramme.repeats: boolean
@@ -91,6 +118,11 @@ Published paths
   readonly ClockAnchor.timelineFrame: SampleCount
   const CoefficientStrategy: { readonly Table: "table"; readonly Computed: "computed"; }
   type CoefficientStrategy = "computed" | "table"
+  class DelayLine
+  new DelayLine(frames: readonly number[]): DelayLine
+  readonly DelayLine.#history: readonly Float32Array<ArrayBufferLike>[]
+  readonly DelayLine.#positions: Float64Array<ArrayBufferLike>
+  DelayLine.process: (input: AudioFrameBlock, output: AudioFrameBlock, frames: number) => void
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   interface GraphExecutor
@@ -111,11 +143,11 @@ Published paths
   KernelContext.feedFor: (node: NodeId) => InputFeed | undefined
   KernelContext.sinkFor: (node: NodeId) => SinkTarget | undefined
   KernelContext.meterFor: (node: NodeId) => MeterTarget | undefined
+  const LARGEST_FFT_SIZE: 65536
   const LATENCY_CATEGORIES: readonly ["interactive", "balanced", "playback"]
   type LatencyCategory = "balanced" | "interactive" | "playback"
   type LatencyHint = "balanced" | "interactive" | "playback" | number
   type LimitingResource = "compute" | "memory" | "storage"
-  const MAXIMUM_RENDER_QUALITY: RenderQualityProfile
   interface MediaClock
   readonly MediaClock.timelineRate: SampleRate
   readonly MediaClock.contextRate: SampleRate
@@ -148,12 +180,34 @@ Published paths
   NodeKernel.setParameter: (name: string, value: number) => DomainResult<void>
   NodeKernel.release: () => void
   type NodePath = { readonly node: NodeId; readonly accelerator: Accelerator; readonly reason: typeof PathReason.Accelerated; } | { readonly node: NodeId; readonly accelerator: undefined; readonly reason: Exclude<PathReason, typeof PathReason.Accelerated>; }
+  interface NodeProblem extends GraphDiagnostic
+  readonly NodeProblem.code: NodeProblemCode
+  readonly NodeProblem.message: string
+  readonly NodeProblem.node?: NodeId
+  readonly NodeProblem.port?: string
+  interface NodeShape
+  readonly NodeShape.id: NodeId
+  readonly NodeShape.type: string
+  readonly NodeShape.inputs: readonly PortShape[]
+  readonly NodeShape.outputs: readonly PortShape[]
+  readonly NodeShape.settings: Readonly<Record<string, SettingValue>>
   interface OscillatorSettings
   readonly OscillatorSettings.frequency: number
   readonly OscillatorSettings.sampleRate: SampleRate
   readonly OscillatorSettings.startPhase: number
   readonly OscillatorSettings.amplitude: number
   const PRESET_SETTINGS: Readonly<Record<PresetProfile, PerformanceSettings>>
+  class ParameterRamp
+  new ParameterRamp(initial: number, length: number): ParameterRamp
+  readonly ParameterRamp.#length: number
+  ParameterRamp.#start: number
+  ParameterRamp.#target: number
+  ParameterRamp.#delta: number
+  ParameterRamp.#step: number
+  ParameterRamp.steady: boolean
+  ParameterRamp.value: number
+  ParameterRamp.set: (target: number) => void
+  ParameterRamp.fill: (into: Float64Array, frames: number) => void
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
   type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Edited; readonly sampleRate: SampleRate; readonly plan: EditPlan; readonly media: readonly MediaEntry[]; } | { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
@@ -172,6 +226,13 @@ Published paths
   readonly PerformanceSettings.feedAheadMilliseconds: number
   readonly PerformanceSettings.backgroundConcurrencyWhileInteractive: number
   readonly PerformanceSettings.renderChunkMilliseconds: number
+  interface PlanProcessing
+  readonly PlanProcessing.processing: ChainProcessing
+  readonly PlanProcessing.quality: QualitySettings
+  readonly PlanProcessing.start: ProcessedStart
+  interface PortShape
+  readonly PortShape.name: string
+  readonly PortShape.layout: ChannelLayout
   type PresetProfile = "balanced" | "low-latency" | "maximum-stability"
   interface PriorityScheduler
   PriorityScheduler.submit: <T>(job: ScheduledJob<T>, signal?: CancellationSignal) => Promise<T>
@@ -183,6 +244,8 @@ Published paths
   readonly PrioritySchedulerOptions.concurrency: number
   readonly PrioritySchedulerOptions.policy?: SchedulingPolicy
   readonly PrioritySchedulerOptions.backgroundConcurrencyWhileInteractive: number
+  const ProcessedStart: { readonly Canonical: "canonical"; readonly Preview: "preview"; }
+  type ProcessedStart = "canonical" | "preview"
   const ProcessingMode: { readonly RealTime: "real-time"; readonly CachedPreview: "cached-preview"; readonly BackgroundOffline: "background-offline"; readonly FinalOffline: "final-offline"; }
   type ProcessingMode = "background-offline" | "cached-preview" | "final-offline" | "real-time"
   interface ProcessingModeChoice
@@ -214,7 +277,7 @@ Published paths
   readonly RenderJob.sinks: ReadonlyMap<NodeId, RenderSink>
   readonly RenderJob.meters?: ReadonlyMap<NodeId, MeterTarget>
   readonly RenderJob.range: RenderRange
-  readonly RenderJob.quality: RenderQualityProfile
+  readonly RenderJob.quality: QualityMode
   readonly RenderJob.chunkFrames: number
   readonly RenderJob.coefficientBudgetBytes?: number
   interface RenderOptions
@@ -224,8 +287,6 @@ Published paths
   interface RenderProgress
   readonly RenderProgress.framesRendered: number
   readonly RenderProgress.framesTotal: number
-  interface RenderQualityProfile
-  readonly RenderQualityProfile.resampling: ResamplingQuality
   interface RenderRange
   readonly RenderRange.start: SampleCount
   readonly RenderRange.length: SampleCount
@@ -265,6 +326,7 @@ Published paths
   readonly ResourceWarning.available: number
   readonly ResourceWarning.explanation: string
   readonly ResourceWarning.saferStrategy: string
+  const SMALLEST_FFT_SIZE: 2
   const STABILITY_WINDOW_SECONDS: 10
   interface ScheduledJob<T>
   readonly ScheduledJob.priority: JobPriority
@@ -289,6 +351,7 @@ Published paths
   readonly StabilityAssessment.underrunsInWindow: number
   readonly StabilityAssessment.recommendation?: PerformanceProfile
   readonly StabilityAssessment.explanation: string
+  type StreamReader = (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
   const TRANSPORT_AT_START: TransportState
   type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "parked"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
@@ -320,27 +383,43 @@ Published paths
   readonly WorkloadShape.sampleRate: SampleRate
   readonly WorkloadShape.conversions?: readonly ResamplerCoefficients[]
   function allocateBlock(layout: ChannelLayout, sampleRate: SampleRate, frames: number): AudioFrameBlock
+  function arctangentTurns(y: number, x: number): number
   function assertReadableInto(source: Pick<PcmSource, "layout" | "sampleRate">, into: AudioFrameBlock): void
   function assessRender(request: RenderStrategyRequest): DomainResult<RenderAssessment>
   function assessStability(history: UnderrunHistory, contextFrame: number, profile: PerformanceProfile, settings: PerformanceSettings): StabilityAssessment
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
+  function channelAt(block: AudioFrameBlock, index: number): Float32Array<ArrayBufferLike>
   function contextFrameFor(clock: MediaClock, anchor: ClockAnchor, timelineFrame: SampleCount): number
   function conversionTableBudget(shape: { readonly channels: number; readonly availableMemoryBytes: number | undefined; }, plan: ChunkPlan): number | undefined
+  function cosineOfTurns(turns: number): number
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
+  function decibelsToGain(decibels: number): number
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
-  function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
+  function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp, processing: PlanProcessing): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
+  function exp(x: number): number
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
+  function gainToDecibels(gain: number): number
   function isLatencyHint(value: unknown): boolean
+  function kernelRefusal(shape: NodeShape, problems: readonly NodeProblem[]): DomainFailureResult
+  function ln(x: number): number
+  function log10(x: number): number
+  function log2(x: number): number
   function memorySource(block: AudioFrameBlock): DomainResult<PcmSource>
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
+  function parameterValueInvalid(type: string, name: string, value: number, describes: string): DomainFailureResult
   function pcmDescription(value: unknown): DomainResult<PcmDescription>
   function planChunks(request: ChunkPlanRequest): DomainResult<ChunkPlan>
+  function plannedShape(step: PlanStep): NodeShape
+  function portAt(blocks: readonly AudioFrameBlock[], index: number): AudioFrameBlock
+  function pow(x: number, y: number): number
+  function previewQualityFor(profile: PerformanceProfile): QualityMode
+  function rampFrames(sampleRate: SampleRate): number
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
   function selectNodePaths(plan: ExecutionPlan, implementations: NodeImplementations, available: Readonly<Record<"gpu", boolean>>, purpose: ProcessingPurpose): readonly NodePath[]
@@ -350,9 +429,12 @@ Published paths
   function signalRecipe(value: unknown): DomainResult<SignalRecipe>
   function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
+  function sineOfTurns(turns: number): number
+  function tangentOfTurns(turns: number): number
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
   function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
+  function unknownParameter(type: string, name: string): DomainFailureResult
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
   function wasmDsp(exports: unknown): DomainResult<CanonicalDsp>
 
@@ -361,6 +443,8 @@ Published paths
   readonly CountingDsp.dsp: CanonicalDsp
   readonly CountingDsp.held: () => number
   readonly CountingDsp.made: () => number
+  const NO_CHAIN_PROCESSING: ChainProcessing
+  const PLAIN_PLAN_PROCESSING: PlanProcessing
   const QUANTA: 1024
   interface Run
   readonly Run.prepare?: () => void
@@ -607,6 +691,7 @@ Published paths
   interface PlaybackRequest
   readonly PlaybackRequest.graph: GraphDescriptor
   readonly PlaybackRequest.sources: readonly SourceDescription[]
+  readonly PlaybackRequest.quality: QualityMode
   class PlaybackSession
   new PlaybackSession(options: PlaybackSessionOptions): PlaybackSession
   readonly PlaybackSession.#lifecycle: ContextLifecycle
@@ -671,7 +756,7 @@ Published paths
   readonly RenderRequest.sampleRate: SampleRate
   readonly RenderRequest.range: RenderRange
   readonly RenderRequest.chunkFrames: number
-  readonly RenderRequest.quality: RenderQualityProfile
+  readonly RenderRequest.quality: QualityMode
   readonly RenderRequest.sources: readonly SourceDescription[]
   readonly RenderRequest.coefficientBudgetBytes?: number
   interface RenderRunOptions
@@ -963,19 +1048,28 @@ Published paths
   function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
 
 @audiogubbins/clipboard
-  interface ClipboardPayload
-  readonly ClipboardPayload.origin: ProjectId
-  readonly ClipboardPayload.plan: EditPlan
-  readonly ClipboardPayload.records: readonly AssetRecord[]
+  interface AudioPayload
+  readonly AudioPayload.kind: "audio"
+  readonly AudioPayload.origin: ProjectId
+  readonly AudioPayload.plan: EditPlan
+  readonly AudioPayload.records: readonly AssetRecord[]
+  type ClipboardPayload = AudioPayload | ProcessingPayload
   interface PasteRequest
-  readonly PasteRequest.payload: ClipboardPayload
+  readonly PasteRequest.payload: AudioPayload
   readonly PasteRequest.asset: AssetId
   readonly PasteRequest.place: { readonly kind: "at"; readonly at: SampleCount; } | { readonly kind: "replace"; readonly range: EditRange; }
   readonly PasteRequest.convertRate: boolean
   interface PlannedPaste
   readonly PlannedPaste.records: readonly AssetRecord[]
   readonly PlannedPaste.operations: readonly [EditOperation, ...EditOperation[]]
-  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<ClipboardPayload>
+  interface ProcessingPayload
+  readonly ProcessingPayload.kind: "processing"
+  readonly ProcessingPayload.slots: readonly [ChainSlot, ...ChainSlot[]]
+  readonly ProcessingPayload.wholeChain: boolean
+  function chainFromProcessing(payload: ProcessingPayload, ids: IdGenerator): EffectChain
+  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<AudioPayload>
+  function copyProcessing(slots: readonly ChainSlot[], wholeChain: boolean): DomainResult<ProcessingPayload>
+  function pasteProcessing(payload: ProcessingPayload, chain: EffectChain, place: SlotPlace, ids: IdGenerator): DomainResult<EffectChain>
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
 @audiogubbins/codecs
@@ -1581,6 +1675,7 @@ Published paths
   readonly Asset.length: SampleCount
   readonly Asset.storageKey: string
   readonly Asset.edits: readonly EditOperation[]
+  readonly Asset.rack?: EffectChainId
   type AssetId = string & { readonly [BrandTag]: "AssetId"; }
   const AssetOrigin: { readonly Imported: "imported"; readonly Recorded: "recorded"; readonly Generated: "generated"; }
   type AssetOrigin = "generated" | "imported" | "recorded"
@@ -1617,6 +1712,17 @@ Published paths
   CancellationSource.cancel: (reason?: unknown) => void
   class Cancelled extends Error
   new Cancelled(message?: string): Cancelled
+  interface ChainBranch
+  readonly ChainBranch.slots: readonly ChainSlot[]
+  type ChainSettings = { readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly quality: import("packages/domain/src/index").QualitySettings; }
+  type ChainSlot = ParallelGroup | ProcessorInstance
+  interface ChainUsers
+  readonly ChainUsers.assetEdits: readonly AssetId[]
+  readonly ChainUsers.regionEdits: readonly RegionId[]
+  readonly ChainUsers.assetRacks: readonly AssetId[]
+  readonly ChainUsers.regionRacks: readonly RegionId[]
+  readonly ChainUsers.tracks: readonly TrackId[]
+  readonly ChainUsers.buses: readonly BusId[]
   type ChannelEdit = { readonly kind: "channel-gains"; readonly gains: readonly number[]; } | { readonly kind: "copy-channel"; readonly from: number; readonly to: number; } | { readonly kind: "swap-channels"; readonly first: number; readonly second: number; }
   type ChannelEditOperation = ({ readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } & { readonly edit: ChannelEdit; }) | { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; }
   interface ChannelLayout
@@ -1648,6 +1754,8 @@ Published paths
   readonly Clip.fadeOutLength: SampleCount
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
+  const DeterminismClass: { readonly Canonical: "canonical"; readonly Pinned: "pinned"; }
+  type DeterminismClass = "canonical" | "pinned"
   interface DomainFailure
   readonly DomainFailure.code: string
   readonly DomainFailure.kind: FailureKind
@@ -1661,7 +1769,8 @@ Published paths
   interface DomainSuccess<TValue>
   readonly DomainSuccess.ok: true
   readonly DomainSuccess.value: TValue
-  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
+  const EMPTY_LIBRARY: ProcessingLibrary
+  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "convert-rate"; readonly sampleRate: SampleRate; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "stretch"; readonly range: EditRange; readonly length: SampleCount; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
   type EditOperationId = string & { readonly [BrandTag]: "EditOperationId"; }
   interface EditPlan
   readonly EditPlan.streams: readonly [PlanStream, ...PlanStream[]]
@@ -1675,9 +1784,9 @@ Published paths
   type EditTarget = { readonly kind: "asset"; readonly asset: AssetId; readonly range: EditRange; readonly channels?: readonly number[]; } | { readonly kind: "region"; readonly asset: AssetId; readonly region: RegionId; readonly basis: number; readonly range: EditRange; readonly channels?: readonly number[]; }
   interface EffectChain
   readonly EffectChain.id: EffectChainId
-  readonly EffectChain.processors: readonly ProcessorInstance[]
+  readonly EffectChain.slots: readonly ChainSlot[]
   type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
-  type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
+  type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorGroupId | ProcessorId | ProjectId | RegionId | TrackId
   const FIRST_ORDER_AMBIX: AmbisonicConvention
   interface FadeCurve
   readonly FadeCurve.kind: "fade"
@@ -1692,17 +1801,29 @@ Published paths
   type FadeShape = "equal-power" | "linear" | "s-curve" | "square"
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
+  interface FoundSlot
+  readonly FoundSlot.slot: ChainSlot
+  readonly FoundSlot.place: SlotPlace
   type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
   interface IdGenerator
   IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
+  const InferencePath: { readonly Pinned: "pinned"; readonly Accelerated: "accelerated"; }
+  type InferencePath = "accelerated" | "pinned"
+  const LONGEST_SAVED_NAME: 120
   type LevelEdit = { readonly kind: "fade"; readonly direction: FadeDirection; readonly shape: FadeShape; } | { readonly kind: "gain"; readonly gain: number; } | { readonly kind: "invert"; } | { readonly kind: "silence"; }
   interface LoopDefinition
   readonly LoopDefinition.loopStart: SampleCount
   readonly LoopDefinition.loopEnd: SampleCount
   readonly LoopDefinition.crossfadeLength: SampleCount
   const MAIN_OUTPUT: RoutingTarget
+  const MAXIMUM_CHAIN_SLOTS: 256
   const MAXIMUM_CHANNEL_COUNT: 256
   const MAXIMUM_EDIT_GAIN: 1000
+  const MAXIMUM_GROUP_BRANCHES: 16
+  const MAXIMUM_GROUP_DEPTH: 8
+  const MAXIMUM_QUALITY: QualityMode
+  const MAXIMUM_STATE_VALUES: 262144
+  const MAXIMUM_STRETCH_RATIO: 8
   interface Marker
   readonly Marker.id: MarkerId
   readonly Marker.assetId: AssetId
@@ -1712,6 +1833,13 @@ Published paths
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
   type MediaShape = { readonly length: import("packages/domain/src/index").SampleCount; readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly channelLayout: import("packages/domain/src/index").ChannelLayout; }
+  interface ModelIdentity
+  readonly ModelIdentity.pack: string
+  readonly ModelIdentity.version: string
+  readonly ModelIdentity.modelHash: string
+  readonly ModelIdentity.runtimeHash: string
+  const NAMED_QUALITY_LEVELS: readonly NamedQualityLevel[]
+  type NamedQualityLevel = "draft" | "high" | "maximum" | "standard"
   interface NumericParameterDescriptor
   readonly NumericParameterDescriptor.kind: "numeric"
   readonly NumericParameterDescriptor.id: ParameterId
@@ -1723,11 +1851,20 @@ Published paths
   readonly NumericParameterDescriptor.taper: ParameterTaper
   readonly NumericParameterDescriptor.unit?: string
   readonly NumericParameterDescriptor.step?: number
+  interface ParallelGroup extends SlotControls
+  readonly ParallelGroup.kind: "group"
+  readonly ParallelGroup.id: ProcessorGroupId
+  readonly ParallelGroup.summing: SummingLaw
+  readonly ParallelGroup.branches: readonly ChainBranch[]
+  readonly ParallelGroup.enabled: boolean
+  readonly ParallelGroup.soloed: boolean
+  readonly ParallelGroup.mix: number
   type ParameterDescriptor = ChoiceParameterDescriptor | NumericParameterDescriptor | ToggleParameterDescriptor
   type ParameterId = string & { readonly [BrandTag]: "ParameterId"; }
   const ParameterTaper: { readonly Linear: "linear"; readonly Logarithmic: "logarithmic"; readonly Decibel: "decibel"; }
   type ParameterTaper = "decibel" | "linear" | "logarithmic"
   type ParameterValue = boolean | number | string
+  type ParameterValues = ReadonlyMap<ParameterId, ParameterValue>
   interface PlacedMarker
   readonly PlacedMarker.id: MarkerId
   readonly PlacedMarker.displayName: string
@@ -1740,6 +1877,9 @@ Published paths
   readonly PlacedRegion.length: SampleCount
   readonly PlacedRegion.loop?: LoopDefinition
   readonly PlacedRegion.tags: readonly string[]
+  interface PlanContext
+  readonly PlanContext.chains: ProjectChains
+  readonly PlanContext.catalogue: ProcessorCatalogue
   interface PlanSegment
   readonly PlanSegment.source: PlanSource
   readonly PlanSegment.start: SampleCount
@@ -1752,20 +1892,51 @@ Published paths
   readonly PlanStream.sampleRate: SampleRate
   readonly PlanStream.layout: ChannelLayout
   readonly PlanStream.segments: readonly PlanSegment[]
+  readonly PlanStream.processing?: StreamProcessing
+  interface ProcessingLibrary
+  readonly ProcessingLibrary.chains: readonly SavedChain[]
+  readonly ProcessingLibrary.presets: readonly SavedPreset[]
+  type ProcessorCatalogue = ReadonlyMap<string, ProcessorDescriptor>
+  const ProcessorCategory: { readonly Level: "level"; readonly Equalisation: "equalisation"; readonly Dynamics: "dynamics"; readonly Time: "time"; readonly Pitch: "pitch"; readonly Space: "space"; readonly Restoration: "restoration"; readonly Separation: "separation"; }
+  type ProcessorCategory = "dynamics" | "equalisation" | "level" | "pitch" | "restoration" | "separation" | "space" | "time"
   interface ProcessorDescriptor
   readonly ProcessorDescriptor.typeKey: string
   readonly ProcessorDescriptor.label: string
-  readonly ProcessorDescriptor.implementationVersion: number
+  readonly ProcessorDescriptor.category: ProcessorCategory
+  readonly ProcessorDescriptor.version: ProcessorStateVersion
   readonly ProcessorDescriptor.parameters: readonly ParameterDescriptor[]
-  readonly ProcessorDescriptor.latency: ProcessorLatency
+  readonly ProcessorDescriptor.qualitySettings: readonly (keyof QualitySettings)[]
+  readonly ProcessorDescriptor.determinism: DeterminismClass
+  readonly ProcessorDescriptor.wholePass: boolean
+  readonly ProcessorDescriptor.realTime: boolean
+  ProcessorDescriptor.outputLayout: (input: ChannelLayout, values: ParameterValues) => DomainResult<ChannelLayout>
+  ProcessorDescriptor.latency: (settings: ProcessorSettings) => ProcessorLatency
+  ProcessorDescriptor.leadIn: (settings: ProcessorSettings) => number
+  type ProcessorGroupId = string & { readonly [BrandTag]: "ProcessorGroupId"; }
   type ProcessorId = string & { readonly [BrandTag]: "ProcessorId"; }
-  interface ProcessorInstance
+  interface ProcessorInstance extends SlotControls
+  readonly ProcessorInstance.kind: "processor"
   readonly ProcessorInstance.id: ProcessorId
   readonly ProcessorInstance.typeKey: string
+  readonly ProcessorInstance.version: ProcessorStateVersion
+  readonly ProcessorInstance.values: ParameterValues
+  readonly ProcessorInstance.state?: ProcessorState
   readonly ProcessorInstance.enabled: boolean
   readonly ProcessorInstance.soloed: boolean
-  readonly ProcessorInstance.values: ReadonlyMap<ParameterId, ParameterValue>
+  readonly ProcessorInstance.mix: number
   type ProcessorLatency = { readonly kind: "known"; readonly frames: SampleCount; } | { readonly kind: "unknown"; readonly reason: string; }
+  interface ProcessorSettings
+  readonly ProcessorSettings.values: ParameterValues
+  readonly ProcessorSettings.sampleRate: SampleRate
+  readonly ProcessorSettings.quality: QualitySettings
+  interface ProcessorState
+  readonly ProcessorState.kind: string
+  readonly ProcessorState.values: readonly number[]
+  interface ProcessorStateVersion
+  readonly ProcessorStateVersion.implementation: number
+  readonly ProcessorStateVersion.parameters: number
+  readonly ProcessorStateVersion.resampler?: number
+  readonly ProcessorStateVersion.model?: ModelIdentity
   interface Project
   readonly Project.id: ProjectId
   readonly Project.displayName: string
@@ -1778,11 +1949,26 @@ Published paths
   readonly Project.markers: ReadonlyMap<MarkerId, Marker>
   readonly Project.effectChains: ReadonlyMap<EffectChainId, EffectChain>
   readonly Project.trackOrder: readonly TrackId[]
+  type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>
   type ProjectId = string & { readonly [BrandTag]: "ProjectId"; }
   interface ProjectSettings
   readonly ProjectSettings.sampleRate: SampleRate
   readonly ProjectSettings.channelLayout: ChannelLayout
-  type RangeEdit = ChannelEdit | LevelEdit
+  const QualityLevel: { readonly Draft: "draft"; readonly Standard: "standard"; readonly High: "high"; readonly Maximum: "maximum"; readonly Custom: "custom"; }
+  type QualityLevel = "custom" | "draft" | "high" | "maximum" | "standard"
+  interface QualityMode
+  readonly QualityMode.level: QualityLevel
+  readonly QualityMode.settings: QualitySettings
+  type QualitySettingKey = keyof QualitySettings
+  interface QualitySettings
+  readonly QualitySettings.resampling: ResamplingGrade
+  readonly QualitySettings.oversampling: 1 | 2 | 4 | 8
+  readonly QualitySettings.spectralOverlap: 2 | 4 | 8
+  readonly QualitySettings.inference: InferencePath
+  interface RackEdit
+  readonly RackEdit.kind: "rack"
+  readonly RackEdit.chain: EffectChainId
+  type RangeEdit = ChannelEdit | LevelEdit | RackEdit
   interface Region
   readonly Region.id: RegionId
   readonly Region.assetId: AssetId
@@ -1793,6 +1979,7 @@ Published paths
   readonly Region.loop?: AnchoredLoop
   readonly Region.tags: readonly string[]
   readonly Region.operations: readonly RegionOperation[]
+  readonly Region.rack?: EffectChainId
   const RegionBoundary: { readonly Start: "start"; readonly End: "end"; }
   type RegionBoundary = "end" | "start"
   type RegionId = string & { readonly [BrandTag]: "RegionId"; }
@@ -1802,13 +1989,27 @@ Published paths
   readonly RegionOperation.range: EditRange
   readonly RegionOperation.channels?: readonly number[]
   readonly RegionOperation.edit: RangeEdit
+  const ResamplingGrade: { readonly Draft: "draft"; readonly High: "high"; readonly Maximum: "maximum"; }
+  type ResamplingGrade = "draft" | "high" | "maximum"
   type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
   type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
   type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
+  interface SavedChain
+  readonly SavedChain.name: string
+  readonly SavedChain.chain: EffectChain
+  interface SavedPreset
+  readonly SavedPreset.name: string
+  readonly SavedPreset.processor: ProcessorInstance
+  interface SlotPlace
+  readonly SlotPlace.group?: { readonly id: ProcessorGroupId; readonly branch: number; }
+  readonly SlotPlace.index: number
   interface Span
   readonly Span.start: number
   readonly Span.end: number
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
+  type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
+  const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
+  type SummingLaw = "equal-power" | "mean" | "sum"
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
   readonly ToggleParameterDescriptor.id: ParameterId
@@ -1833,17 +2034,22 @@ Published paths
   function ambisonicComponentOf(layout: ChannelLayout, channel: number): AmbisonicComponent | undefined
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function anchorResolver(asset: Asset): AnchorResolver
+  function appliedSlots(slots: readonly ChainSlot[]): readonly ChainSlot[]
   function applyStages(stages: readonly PlanStage[], place: BlockPlace, channels: readonly Float32Array<ArrayBufferLike>[]): readonly Float32Array<ArrayBufferLike>[]
-  function assetPlan(asset: Asset, processing?: readonly RegionOperation[]): EditPlan
+  function assetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
   function cancellationReason(signal: CancellationSignal): Error
-  function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
+  function chainLatency(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): DomainResult<ProcessorLatency>
+  function chainOutputLayout(chain: Pick<EffectChain, "slots">, catalogue: ProcessorCatalogue, input: ChannelLayout): DomainResult<ChannelLayout>
+  function chainUseCount(users: ChainUsers): number
+  function chainUsers(project: Project, chain: EffectChainId): ChainUsers
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
   function channelLabelOf(layout: ChannelLayout, index: number): string | undefined
   function channelLayout(roles: readonly ChannelRole[], labels?: readonly string[] | undefined): DomainResult<ChannelLayout>
+  function checkStateVersion(typeKey: string, found: ProcessorStateVersion, implemented: ProcessorStateVersion): DomainResult<ProcessorStateVersion>
   function clipAssetId(clip: Clip): AssetId
   function clipEnd(clip: Clip): number
   function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[]
@@ -1853,6 +2059,8 @@ Published paths
   function conversionMatrix(from: ChannelLayout, to: ChannelLayout): DomainResult<ChannelMatrix>
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
   function convertedFrameCount(length: number, from: number, to: number): number
+  function copyChain(chain: EffectChain, ids: IdGenerator): EffectChain
+  function copySlot(slot: ChainSlot, ids: IdGenerator): ChainSlot
   function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
   function createCancellationSource(): CancellationSource
   function createDeterministicIdGenerator(seed: number): IdGenerator
@@ -1862,13 +2070,17 @@ Published paths
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
   function editPlanFrom(value: unknown): DomainResult<EditPlan>
+  function effectChainFrom(value: unknown): DomainResult<EffectChain>
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
+  function finalRenderSettings(mode: QualityMode): QualitySettings
+  function findSlot(chain: Pick<EffectChain, "slots">, id: string): FoundSlot | undefined
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
   function isLevelEdit(edit: RangeEdit): boolean
+  function isModelIdentity(identity: ModelIdentity): boolean
   function isRetryable(result: DomainFailureResult): boolean
   function isSuccess<TValue>(result: DomainResult<TValue>): boolean
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
@@ -1877,22 +2089,28 @@ Published paths
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
+  function namedQualityMode(level: NamedQualityLevel): QualityMode
+  function parameterOf(descriptor: Pick<ProcessorDescriptor, "parameters">, key: string): ParameterDescriptor | undefined
   function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
   function placeOf(segment: PlanSegment): BlockPlace
   function placeRegion(resolver: AnchorResolver, region: Region): PlacedRegion | undefined
   function placeRegions(asset: Asset, regions: Iterable<Region>, resolver?: AnchorResolver): readonly PlacedRegion[]
   function planReadsAsset(plan: EditPlan, asset: AssetId): boolean
-  function processorsInSignalOrder(chain: EffectChain): readonly ProcessorInstance[]
+  function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function projectLength(project: Project): number
+  function qualityModeFrom(value: unknown): DomainResult<QualityMode>
   function regionEnd(region: PlacedRegion): number
-  function regionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): EditPlan
+  function regionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function restateRegion(region: Region, asset: Asset, span: Span): Region
   function routeToBus(busId: BusId): RoutingTarget
   function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
   function sampleCount(value: number): DomainResult<SampleCount>
   function sampleRate(value: number): DomainResult<SampleRate>
   function samplesToSeconds(count: SampleCount, rate: SampleRate): number
+  function savedName(name: string): DomainResult<string>
   function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
+  function segmentsLayout(stream: PlanStream): ChannelLayout
+  function segmentsLength(stream: Pick<PlanStream, "segments">): number
   function shapeAfter(shape: EditShape, operation: EditOperation): EditShape
   function shapesOf(asset: Asset): readonly EditShape[]
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
@@ -1902,23 +2120,46 @@ Published paths
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
+  function summingFactor(law: SummingLaw, count: number): number
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
-  function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>): DomainResult<Asset>
+  function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<Asset>
+  function validateChainShape(chain: EffectChain): DomainResult<EffectChain>
   function validateMarker(asset: Asset, marker: Marker): DomainResult<Marker>
-  function validateOperation(operation: EditOperation, shape: EditShape, assets: ReadonlyMap<AssetId, Asset>): DomainResult<EditOperation>
+  function validateOperation(operation: EditOperation, shape: EditShape, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<EditOperation>
   function validateParameterValue(descriptor: ParameterDescriptor, value: ParameterValue): DomainResult<ParameterValue>
   function validatePlan(plan: EditPlan, assets: ReadonlyMap<AssetId, MediaShape>): DomainResult<EditPlan>
   function validateProcessorInstance(processor: ProcessorInstance, descriptor: ProcessorDescriptor): DomainResult<readonly ParameterValue[]>
-  function validateRegion(asset: Asset, region: Region): DomainResult<Region>
+  function validateRegion(asset: Asset, region: Region, chains: ProjectChains): DomainResult<Region>
+  function withRack(plan: EditPlan, rack: EffectChainId | undefined, context: PlanContext): DomainResult<EditPlan>
+  function withSaved<T extends SavedChain | SavedPreset>(entries: readonly T[], entry: T, replace: boolean): DomainResult<readonly T[]>
+  function withSlotAt<T extends Pick<EffectChain, "slots">>(chain: T, place: SlotPlace, slot: ChainSlot): T | undefined
+  function withSlotMoved<T extends Pick<EffectChain, "slots">>(chain: T, id: string, place: SlotPlace): T | undefined
+  function withSlotReplaced<T extends Pick<EffectChain, "slots">>(chain: T, slot: ChainSlot): T | undefined
+  function withoutSaved<T extends SavedChain | SavedPreset>(entries: readonly T[], name: string): DomainResult<readonly T[]>
+  function withoutSlot<T extends Pick<EffectChain, "slots">>(chain: T, id: string): T | undefined
 
 @audiogubbins/domain/testing
+  const CUTOFF: ParameterId
+  const GENTLE: ParameterId
+  const LOOK_AHEAD: ParameterId
+  interface OracleWorld
+  readonly OracleWorld.inserted?: Samples
+  readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples) => Samples
+  readonly OracleWorld.stretch?: (samples: Samples, length: number) => Samples
+  readonly OracleWorld.convert?: (samples: Samples, from: number, to: number, length: number) => Samples
+  const PLAN_WITHOUT_CHAINS: PlanContext
   type Samples = readonly Float32Array<ArrayBufferLike>[]
-  function applyEdit(samples: Samples, operation: EditOperation, inserted?: Samples): Samples
+  const TEST_CATALOGUE: ProcessorCatalogue
+  const TEST_DENOISER: ProcessorDescriptor
+  const TEST_FILTER: ProcessorDescriptor
+  const TEST_LIMITER: ProcessorDescriptor
+  const TEST_UPMIXER: ProcessorDescriptor
+  function applyEdit(samples: Samples, operation: EditOperation, world?: OracleWorld, rate?: number): Samples
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
-  function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>): Samples
+  function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>, world?: OracleWorld): Samples
   function sourceShape(asset: Asset): EditShape
 
 @audiogubbins/editor-view
@@ -2077,11 +2318,23 @@ Published paths
   function withAmplitudeStep(state: EditorViewState, steps: number): EditorViewState
   function withChannelShown(state: EditorViewState, channel: number, shown: boolean, channelCount: number): EditorViewState
 
+@audiogubbins/effect-rack
+  interface ChainGraph
+  readonly ChainGraph.graph: GraphDescriptor
+  readonly ChainGraph.input: NodeId
+  readonly ChainGraph.output: NodeId
+  readonly ChainGraph.layout: ChannelLayout
+  readonly ChainGraph.processors: ReadonlyMap<ProcessorId, NodeId>
+  readonly ChainGraph.mixes: ReadonlyMap<ProcessorGroupId | ProcessorId, { readonly wet: NodeId; readonly dry: NodeId; }>
+  readonly ChainGraph.measure?: MeasureTap
+  function chainGraph(chain: Pick<EffectChain, "slots">, types: ReadonlyMap<string, ProcessorType>, input: ChannelLayout, quality: QualitySettings, measuring: Measuring): DomainResult<ChainGraph>
+  function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing
+
 @audiogubbins/history
   interface ChainDifference
   readonly ChainDifference.id: EffectChainId
   readonly ChainDifference.change: "added" | "changed" | "removed"
-  readonly ChainDifference.processors: readonly ProcessorDifference[]
+  readonly ChainDifference.slots: readonly SlotDifference[]
   interface ChainOwner
   readonly ChainOwner.kind: "bus" | "track"
   readonly ChainOwner.name: string
@@ -2203,15 +2456,6 @@ Published paths
   PersistentMap.entries: () => IterableIterator<readonly [TKey, TValue]>
   PersistentMap.changesSince: (earlier: PersistentMap<TKey, TValue>) => MapChanges<TKey, TValue>
   PersistentMap.withChanges: (changes: MapChanges<TKey, TValue>) => PersistentMap<TKey, TValue>
-  interface ProcessorDifference
-  readonly ProcessorDifference.id: ProcessorId
-  readonly ProcessorDifference.change: "added" | "changed" | "removed"
-  readonly ProcessorDifference.typeKey: string
-  readonly ProcessorDifference.before?: number
-  readonly ProcessorDifference.after?: number
-  readonly ProcessorDifference.moved: boolean
-  readonly ProcessorDifference.fields: readonly ("enabled" | "soloed" | "typeKey")[]
-  readonly ProcessorDifference.parameters: readonly ParameterChange[]
   type ProjectField = "channelLayout" | "displayName" | "sampleRate" | "trackOrder"
   interface Restoration
   readonly Restoration.base: HistoryNode
@@ -2226,6 +2470,20 @@ Published paths
   readonly RowQuery.scope?: "active-line" | "all" | "snapshots"
   readonly RowQuery.affecting?: EntityReference
   type SideName = "a" | "b"
+  interface SlotDifference
+  readonly SlotDifference.id: ProcessorGroupId | ProcessorId
+  readonly SlotDifference.kind: "group" | "processor"
+  readonly SlotDifference.change: "added" | "changed" | "removed"
+  readonly SlotDifference.typeKey?: string
+  readonly SlotDifference.before?: SlotPosition
+  readonly SlotDifference.after?: SlotPosition
+  readonly SlotDifference.moved: boolean
+  readonly SlotDifference.fields: readonly SlotField[]
+  readonly SlotDifference.parameters: readonly ParameterChange[]
+  type SlotField = "branches" | "enabled" | "mix" | "soloed" | "state" | "summing" | "typeKey" | "version"
+  interface SlotPosition
+  readonly SlotPosition.group?: { readonly id: ProcessorGroupId; readonly branch: number; }
+  readonly SlotPosition.index: number
   interface StateDifference
   readonly StateDifference.project: readonly ProjectField[]
   readonly StateDifference.assets: EntityDifferences<AssetId, Asset>
@@ -2527,6 +2785,66 @@ Published paths
   function memorySource(bytes: Uint8Array<ArrayBufferLike>): ObservedSource
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
+@audiogubbins/processors
+  const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor>
+  const PROCESSOR_TYPES: readonly ProcessorType[]
+  const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType>
+  interface ParameterReader
+  ParameterReader.number: (key: string) => number
+  ParameterReader.choice: (key: string) => string
+  ParameterReader.toggle: (key: string) => boolean
+  interface ProcessorDefinition
+  readonly ProcessorDefinition.descriptor: ProcessorDescriptor
+  readonly ProcessorDefinition.sideChain?: (input: ChannelLayout, sideChain: ChannelLayout) => boolean
+  ProcessorDefinition.kernel: (run: ProcessorRun) => DomainResult<NodeKernel>
+  readonly ProcessorDefinition.measure?: (run: Omit<ProcessorRun, "measured">) => Measurer
+  const ProcessorPort: { readonly Input: "input"; readonly SideChain: "side-chain"; readonly Output: "output"; }
+  interface ProcessorRun
+  readonly ProcessorRun.parameters: ParameterReader
+  readonly ProcessorRun.input: ChannelLayout
+  readonly ProcessorRun.output: ChannelLayout
+  readonly ProcessorRun.sideChain?: ChannelLayout
+  readonly ProcessorRun.sampleRate: SampleRate
+  readonly ProcessorRun.blockFrames: number
+  readonly ProcessorRun.quality: QualitySettings
+  readonly ProcessorRun.state?: ProcessorState
+  readonly ProcessorRun.measured?: readonly number[]
+  readonly ProcessorRun.dsp: CanonicalDsp
+  interface ProcessorType extends NodeImplementation
+  readonly ProcessorType.descriptor: ProcessorDescriptor
+  ProcessorType.measurer?: (settings: Readonly<Record<string, SettingValue>>, input: ChannelLayout, context: { readonly sampleRate: SampleRate; readonly blockFrames: number; readonly dsp: CanonicalDsp; }) => DomainResult<Measurer>
+  readonly ProcessorType.accelerators?: readonly "gpu"[]
+  ProcessorType.createKernel: (step: import("packages/audio-graph/src/plan").PlanStep, context: import("packages/audio-engine/src/index").KernelContext) => DomainResult<NodeKernel>
+  readonly ProcessorType.type: string
+  readonly ProcessorType.role: NodeRole
+  ProcessorType.check: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor) => readonly GraphDiagnostic[]
+  ProcessorType.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
+  function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: readonly number[] | undefined): Readonly<Record<string, SettingValue>>
+  function processorNodeType(typeKey: string): string
+
+@audiogubbins/processors/testing
+  interface PropertyCases
+  readonly PropertyCases.layouts: readonly ChannelLayout[]
+  readonly PropertyCases.settings?: readonly Readonly<Record<string, ParameterValue>>[]
+  readonly PropertyCases.bound?: number
+  readonly PropertyCases.silenceStays?: boolean
+  readonly PropertyCases.passThrough?: { readonly values: Readonly<Record<string, ParameterValue>>; readonly tolerance: number; }
+  readonly PropertyCases.measured?: readonly number[]
+  interface RunSettings
+  readonly RunSettings.values?: Readonly<Record<string, ParameterValue>>
+  readonly RunSettings.layout: ChannelLayout
+  readonly RunSettings.sampleRate?: SampleRate
+  readonly RunSettings.quality?: QualitySettings
+  readonly RunSettings.measured?: readonly number[]
+  readonly RunSettings.dsp?: CanonicalDsp
+  const TEST_BLOCK_FRAMES: 4096
+  const TEST_RATE: SampleRate
+  function processorKernel(type: ProcessorType, settings: RunSettings): { readonly kernel: NodeKernel; readonly output: ChannelLayout; }
+  function processorProperties(type: ProcessorType, cases: PropertyCases): void
+  function processorStep(type: ProcessorType, settings: RunSettings): PlanStep
+  function processorValues(type: ProcessorType, byKey?: Readonly<Record<string, ParameterValue>>): ParameterValues
+  function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[]): Float32Array<ArrayBufferLike>[]
+
 @audiogubbins/project-commands
   interface ProjectCommand extends Command<ProjectState>
   readonly ProjectCommand.provenance: Readonly<Record<string, import("packages/project-format/src/invocation-provenance").ProvenanceArgument>>
@@ -2540,8 +2858,10 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly AddChain: CommandId; readonly SetChain: CommandId; readonly RemoveChain: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; }
+  type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }
   function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
+  function addChainInvocation(chain: EffectChain): CommandInvocation
   function addMarkerInvocation(marker: Marker): CommandInvocation
   function addRegionInvocation(region: Region): CommandInvocation
   function addRegionWithProcessing(region: Region): readonly [CommandInvocation, ...CommandInvocation[]]
@@ -2550,12 +2870,16 @@ Published paths
   function changeRegionInvocations(old: Region, next: Region): readonly [CommandInvocation, ...CommandInvocation[]]
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
   function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit): CommandInvocation
-  function projectCommands(): readonly ProjectCommand[]
+  function projectCommands(catalogue: ProcessorCatalogue): readonly ProjectCommand[]
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
+  function removeChainInvocation(id: EffectChainId): CommandInvocation
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
   function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
+  function setChainInvocation(chain: EffectChain): CommandInvocation
+  function setEditChainInvocation(target: RackTarget, operation: import("packages/domain/src/index").EditOperationId, chain: EffectChainId): CommandInvocation
   function setMarkerInvocation(marker: Marker): CommandInvocation
+  function setRackInvocation(target: RackTarget, chain: EffectChainId | undefined): CommandInvocation
   function setRegionInvocation(region: Region): CommandInvocation
 
 @audiogubbins/project-format
@@ -2719,6 +3043,7 @@ Published paths
   readonly JsonLimits.maximumDepth: number
   type JsonObject = { readonly [member: string]: JsonValue; }
   type JsonValue = JsonArray | JsonObject | boolean | null | number | string
+  const LIBRARY_DOCUMENT_FORMAT: "audiogubbins.library"
   const LONGEST_CHANGE_DESCRIPTION: 4096
   const LONGEST_HISTORY_LABEL: 1024
   const LONGEST_MANIFEST: number
@@ -2906,7 +3231,7 @@ Published paths
   function checkedRetentionPolicy(policy: RetentionPolicy): DomainResult<RetentionPolicy>
   function compactProjectDocument(state: ProjectState): DomainResult<CanonicalJson>
   function compareCodeUnits(left: string, right: string): number
-  function compatibilityOf(found: number, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): Compatibility
+  function compatibilityOf(found: number, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): Compatibility
   function contentIdFrom(text: string): DomainResult<ContentId>
   function contentIdOf(source: ByteSource, digest: Digest, options?: HashingOptions): Promise<DomainResult<ContentIdentity>>
   function createContentHasher(digest: Digest): ContentHasher
@@ -2934,6 +3259,7 @@ Published paths
   function isTreeSegment(segment: string): boolean
   function isWholeQuantity(value: number): boolean
   function isWithinProjectTree(path: string): boolean
+  function libraryDocumentText(library: ProcessingLibrary): DomainResult<CanonicalJson>
   function listConverter<TValue>(maximum: number, item: Converter<TValue>): Converter<readonly TValue[]>
   function listOf(reading: Reading, value: JsonValue, parent: string, key: number | string, maximum: number): JsonArray | undefined
   function memberOf(object: JsonObject, key: string): JsonValue | undefined
@@ -2944,6 +3270,7 @@ Published paths
   function openZip(source: ByteSource, options: ZipReadingOptions): Promise<DomainResult<ZipArchive>>
   function optional<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
   function parseJson(text: string, limits: JsonLimits): DomainResult<JsonValue>
+  function parseLibraryDocument(text: string): DomainResult<ProcessingLibrary>
   function parseProjectDocument(text: string): DomainResult<ProjectState>
   function pathOf(parent: string, key: number | string): string
   function presentMembers(members: Readonly<Record<string, JsonValue | undefined>>): JsonObject
@@ -2953,14 +3280,17 @@ Published paths
   const readBackupPolicy: Converter<BackupPolicy>
   function readBundleManifest(bytes: Uint8Array<ArrayBufferLike>): DomainResult<BundleManifest>
   const readComparisonChoice: Converter<ComparisonChoiceRecord>
-  function readCompatibleHeader(value: JsonValue, expectedFormat: string, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): DomainResult<FormatHeader>
+  function readCompatibleHeader(value: JsonValue, expectedFormat: string, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): DomainResult<FormatHeader>
   const readEditOperation: Converter<EditOperation>
+  const readEditPlan: Converter<EditPlan>
+  const readEffectChain: Converter<EffectChain>
   const readExportRecord: Converter<ExportRecord>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
   const readHistoryRecord: Converter<HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>>
   const readHistorySegment: Converter<HistorySegmentRecord>
+  function readLibraryDocument(value: JsonValue): DomainResult<ProcessingLibrary>
   const readMarker: Converter<Marker>
   const readMediaSource: Converter<MediaSource>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
@@ -2970,6 +3300,7 @@ Published paths
   const readRegionOperation: Converter<RegionOperation>
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSegmentedHistory: Converter<SegmentedHistoryRecord>
+  const readSlotAlone: Converter<ChainSlot>
   const readSnapshotRecord: Converter<NamedSnapshot>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
@@ -2988,11 +3319,14 @@ Published paths
   function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
   function writeComparisonChoice(choice: ComparisonChoiceRecord): JsonObject
   function writeEditOperation(operation: EditOperation): JsonObject
+  function writeEditPlan(plan: EditPlan): JsonObject
+  function writeEffectChain(chain: EffectChain): JsonObject
   function writeExportRecord(record: ExportRecord): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
   function writeHistoryRecord(history: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>): JsonObject
   function writeHistorySegment(segment: HistorySegmentRecord): JsonObject
+  function writeLibraryDocument(library: ProcessingLibrary): JsonObject
   function writeMarker(marker: Marker): JsonObject
   function writeMediaSource(media: MediaSource): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
@@ -3000,6 +3334,7 @@ Published paths
   function writeRegionOperation(operation: RegionOperation): JsonObject
   function writeRetentionPolicy(policy: RetentionPolicy): JsonObject
   function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
+  function writeSlot(slot: ChainSlot): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
   function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function writtenName(subject: NamedSubject, value: unknown): DomainResult<string>
@@ -3023,14 +3358,15 @@ Published paths
   function editedReferenceState(fixture: SampleProject): ProjectState
   const immediateTurns: YieldToHost
   function randomAssetRecord(random: Random, ids: IdGenerator, projectId: ProjectId): AssetRecord
+  function randomChain(random: Random, ids: IdGenerator): EffectChain
   function randomContentId(random: Random): ContentId
   function randomIdentity(random: Random): ExternalSourceIdentity
   function randomMarker(random: Random, ids: IdGenerator, asset: Asset): Marker
   function randomMedia(random: Random): MediaSource
   function randomName(random: Random): string
-  function randomOperation(random: Random, ids: IdGenerator, asset: Asset, assets: ReadonlyMap<AssetId, Asset>): EditOperation | undefined
-  function randomRegion(random: Random, ids: IdGenerator, asset: Asset): Region | undefined
-  function randomRegionOperation(random: Random, ids: IdGenerator, asset: Asset, region: Region): RegionOperation | undefined
+  function randomOperation(random: Random, ids: IdGenerator, asset: Asset, assets: ReadonlyMap<AssetId, Asset>, context: PlanContext): EditOperation | undefined
+  function randomRegion(random: Random, ids: IdGenerator, asset: Asset, context: PlanContext): Region | undefined
+  function randomRegionOperation(random: Random, ids: IdGenerator, asset: Asset, region: Region, context: PlanContext): RegionOperation | undefined
   function randomState(seed: number): ProjectState
   function referenceState(fixture: SampleProject): ProjectState
   function seededRandom(seed: number): Random
@@ -4110,8 +4446,8 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 2; readonly projectStorage: 6; readonly portableBundle: 2; }
-  type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 3; readonly projectStorage: 7; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
   type PictureCorrection = { readonly kind: "in-sync"; } | { readonly kind: "no-picture"; } | { readonly kind: "seek"; readonly to: number; }
@@ -4216,6 +4552,7 @@ Published paths
   readonly PeakSubject.frames: number
   readonly PeakSubject.sampleRate: number
   readonly PeakSubject.describe: () => PcmDescription
+  readonly PeakSubject.quality: QualityMode
   interface PeakWorkerPort
   PeakWorkerPort.post: (message: ToPeakWorker, transfer: readonly ArrayBuffer[]) => void
   PeakWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
@@ -4351,6 +4688,9 @@ Published paths
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
 
 Named by a published contract, and published by no entry point
+
+packages/audio-engine/src/nodes/node-shape.ts
+  type NodeProblemCode = "layout-unsupported" | "node-settings-invalid" | "role-ports-invalid"
 
 packages/audio-engine/src/pcm/resampled-source.ts
   interface ResampledSource extends PcmSource
@@ -4648,7 +4988,7 @@ packages/audio-runtime/src/playback/worklet-module.ts
 packages/audio-runtime/src/protocol/feeder-messages.ts
   type FeederBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly ring: SharedArrayBuffer; }
   type FromFeeder = { readonly kind: typeof FromFeederKind.Fault; readonly message: string; } | { readonly kind: typeof FromFeederKind.FeedFailed; readonly run: number; readonly node: NodeId; readonly reason: string; } | { readonly kind: typeof FromFeederKind.Primed; readonly run: number; } | { readonly kind: typeof FromFeederKind.SourcesMade; readonly request: number; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; } | { readonly kind: typeof FromFeederKind.SourcesRefused; readonly request: number; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; }
-  type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly dsp: DspDelivery<WebAssembly.Module>; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
+  type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly quality: QualityMode; readonly dsp: DspDelivery<WebAssembly.Module>; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
 
 packages/audio-runtime/src/protocol/message-reading.ts
   interface FailureSummary
@@ -4671,7 +5011,7 @@ packages/audio-runtime/src/protocol/processor-messages.ts
   type ToProcessor = { readonly kind: typeof ToProcessorKind.Halt; } | { readonly kind: typeof ToProcessorKind.Load; readonly graph: GraphDescriptor; readonly dsp: DspDelivery<Uint8Array<ArrayBuffer>>; readonly feeds: readonly FeedBinding[]; readonly reportEveryBlocks: number; readonly feeder: MessagePort | undefined; } | { readonly kind: typeof ToProcessorKind.SetParameter; readonly node: NodeId; readonly name: string; readonly value: number; } | { readonly kind: typeof ToProcessorKind.Start; readonly run: number; readonly epoch: number; readonly from: number; }
 
 packages/audio-runtime/src/protocol/render-messages.ts
-  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly resamplingQuality: ResamplingQuality; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; }
+  type ToRenderWorker = { readonly kind: typeof ToRenderWorkerKind.Cancel; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.ChunkTaken; readonly jobId: string; } | { readonly kind: typeof ToRenderWorkerKind.Render; readonly jobId: string; readonly graph: GraphDescriptor; readonly sampleRate: SampleRate; readonly range: RenderRange; readonly chunkFrames: number; readonly quality: QualityMode; readonly sources: readonly SourceDescription[]; readonly coefficientBudgetBytes: number | undefined; readonly dsp: DspDelivery<WebAssembly.Module>; }
 
 packages/audio-runtime/src/render/worker-render.ts
   interface RenderWorkerEvents
@@ -4721,6 +5061,12 @@ packages/design-system/src/primitives/row-window.ts
   interface WindowRow
   readonly WindowRow.index: number
   readonly WindowRow.before: number
+
+packages/domain/src/processing/effect-chain.ts
+  interface SlotControls
+  readonly SlotControls.enabled: boolean
+  readonly SlotControls.soloed: boolean
+  readonly SlotControls.mix: number
 
 packages/editor-view/src/batch-buffers.ts
   class BuilderPool
@@ -4783,6 +5129,16 @@ packages/editor-view/src/waveform-drawing.ts
   readonly WaveformStyle.clipping: boolean
   readonly WaveformStyle.palette: EditorPalette
 
+packages/effect-rack/src/chain-graph.ts
+  interface MeasureTap
+  readonly MeasureTap.sink: NodeId
+  readonly MeasureTap.layout: ChannelLayout
+  readonly MeasureTap.type: string
+  readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
+  interface Measuring
+  readonly Measuring.measured: ReadonlyMap<ProcessorId, readonly number[]>
+  readonly Measuring.at?: ProcessorId
+
 packages/media-store/src/exclusion-gate.ts
   class ExclusionGate
   new ExclusionGate(): ExclusionGate
@@ -4835,6 +5191,11 @@ packages/media-store/src/testing/memory-tree.ts
   FileBody.length: number
   FileBody.append: (chunk: Uint8Array) => void
   FileBody.slice: (start: number, end: number) => Uint8Array<ArrayBuffer>
+
+packages/processors/src/framework/processor-type.ts
+  interface Measurer
+  Measurer.add: (input: readonly Float32Array[], frames: number) => void
+  Measurer.result: () => readonly number[]
 
 packages/project-format/src/given-names.ts
   type NamedSubject = "asset" | "project"
@@ -5420,7 +5781,7 @@ packages/waveform/src/peak-job.ts
 
 packages/waveform/src/peak-messages.ts
   type FromPeakWorker = { readonly kind: typeof FromPeakWorkerKind.Adopted; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof FromPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly start: number; readonly frames: number; readonly bucketFrames: number; readonly channels: readonly PeakChannel[]; } | { readonly kind: typeof FromPeakWorkerKind.Complete; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; readonly refusedCache: string | undefined; } | { readonly kind: typeof FromPeakWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromPeakWorkerKind.Runs; readonly job: string; readonly runs: readonly PeakRun[]; } | { readonly kind: typeof FromPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly start: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof FromPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number | undefined; }
-  type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
+  type ToPeakWorker = { readonly kind: typeof ToPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Cancel; readonly job: string; readonly request: number; } | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string; } | { readonly kind: typeof ToPeakWorkerKind.Focus; readonly job: string; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Open; readonly job: string; readonly identity: string; readonly revision: string; readonly channels: number; readonly description: PcmDescription; readonly quality: QualityMode; readonly cached: Uint8Array<ArrayBuffer> | undefined; readonly focus: FrameRange | undefined; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
 
 packages/workspace/src/adapter/dock-memory.ts
   interface FocusPlace

@@ -13,14 +13,19 @@ import { describe, expect, it } from 'vitest';
 import { PcmDescriptionKind, REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import {
   AssetOrigin,
-  StandardLayouts,
   assetPlan,
   derivedSampleCount,
+  MAXIMUM_QUALITY,
   sampleRate,
+  StandardLayouts,
   unsafeBrandId,
   type Asset,
 } from '@audiogubbins/domain';
-import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  PLAN_WITHOUT_CHAINS,
+  expectFailureCode,
+  expectSuccess,
+} from '@audiogubbins/domain/testing';
 
 import {
   FromPeakWorkerKind,
@@ -30,6 +35,7 @@ import {
 } from './peak-messages.js';
 import { readFromPeakWorker, readToPeakWorker } from './peak-message-reading.js';
 import { PeakWorkerCore } from './peak-worker-core.js';
+import { NO_CHAIN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 const RATE = expectSuccess(sampleRate(48_000));
 
@@ -49,7 +55,7 @@ const TAKE: Asset = {
 const EDITED = {
   kind: PcmDescriptionKind.Edited,
   sampleRate: RATE,
-  plan: assetPlan(TAKE),
+  plan: expectSuccess(assetPlan(TAKE, PLAN_WITHOUT_CHAINS)),
   media: [
     {
       asset: TAKE.id,
@@ -63,6 +69,7 @@ const EDITED = {
 
 const OPEN: ToPeakWorker = {
   kind: ToPeakWorkerKind.Open,
+  quality: MAXIMUM_QUALITY,
   job: 'peaks-1',
   identity: 'tone',
   revision: '1',
@@ -107,6 +114,7 @@ describe('the messages to the peak worker', () => {
     expect(fieldOf(readToPeakWorker({ ...OPEN, description: { kind: 'file' } }))).toBe(
       'description',
     );
+    expect(fieldOf(readToPeakWorker({ ...OPEN, quality: { level: 'draft' } }))).toBe('quality');
     expect(fieldOf(readToPeakWorker({ ...OPEN, cached: [1, 2] }))).toBe('cached');
     expect(fieldOf(readToPeakWorker({ ...OPEN, focus: { start: 9, end: 2 } }))).toBe('focus');
     expect(expectFailureCode(readToPeakWorker(null))).toBe('waveform.message-to-worker-malformed');
@@ -195,6 +203,7 @@ describe('the peak worker', () => {
       post: (message) => said.push(message),
       yieldToHost: () => Promise.resolve(),
       dsp: REFERENCE_DSP,
+      processing: NO_CHAIN_PROCESSING,
       reportFault: (error) => {
         throw error;
       },
@@ -212,6 +221,7 @@ describe('the peak worker', () => {
       post: () => undefined,
       yieldToHost: () => Promise.resolve(),
       dsp: REFERENCE_DSP,
+      processing: NO_CHAIN_PROCESSING,
       reportFault: (error) => faults.push(error),
       now: () => 0,
     });

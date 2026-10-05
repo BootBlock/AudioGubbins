@@ -58,8 +58,8 @@ export class MediaReadFailure extends Error {
   }
 }
 
-/** Where a block of content comes from: an asset's file, or a converted stream. */
-export interface ContentReader {
+/** Content a stream's segment reads: a file, another stream, or either converted or processed. */
+export interface ReadableContent {
   readonly channels: number;
   read(
     start: number,
@@ -67,6 +67,10 @@ export interface ContentReader {
     into: readonly Float32Array[],
     signal?: CancellationSignal,
   ): Promise<void>;
+}
+
+/** Content that holds what it opened until it is released: a file, a conversion, a run. */
+export interface ContentReader extends ReadableContent {
   release(): void;
 }
 
@@ -148,10 +152,10 @@ export class StreamContent {
   readonly length: number;
   readonly #stream: PlanStream;
   readonly #starts: readonly number[];
-  readonly #sources: (source: PlanSource) => ContentReader;
+  readonly #sources: (source: PlanSource) => ReadableContent;
   readonly #scratch = new Map<number, Float32Array[]>();
 
-  constructor(stream: PlanStream, sources: (source: PlanSource) => ContentReader) {
+  constructor(stream: PlanStream, sources: (source: PlanSource) => ReadableContent) {
     this.#stream = stream;
     this.#sources = sources;
     this.channels = channelCount(stream.layout);

@@ -66,6 +66,22 @@
       ]
     },
     {
+      "name": "processors",
+      "root": "packages/processors",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
+      "name": "effect-rack",
+      "root": "packages/effect-rack",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "audio-runtime",
       "root": "packages/audio-runtime",
       "environment": "jsdom",

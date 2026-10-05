@@ -6,7 +6,8 @@
  * source over the arrays it was transferred, which are read in place and never
  * copied whole, and generated audio from its recipe with the worker's own DSP.
  * Each is made in the layout of the input's port, which is why the description
- * carries none.
+ * carries none, and an edited sound runs its plan's chains as `processing`
+ * says: canonically for a render or a peak, from part way for a preview.
  */
 
 import {
@@ -19,7 +20,12 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { describedSource, type CanonicalDsp, type PcmSource } from '@audiogubbins/audio-engine';
+import {
+  describedSource,
+  type CanonicalDsp,
+  type PcmSource,
+  type PlanProcessing,
+} from '@audiogubbins/audio-engine';
 
 import type { SourceDescription } from '../protocol/source-descriptions.js';
 
@@ -49,6 +55,7 @@ export function makeSources(
   descriptions: readonly SourceDescription[],
   inputs: ReadonlyMap<NodeId, ChannelLayout>,
   dsp: CanonicalDsp,
+  processing: PlanProcessing,
 ): DomainResult<ReadonlyMap<NodeId, PcmSource>> {
   const made = new Map<NodeId, PcmSource>();
   const problems: DomainFailure[] = [];
@@ -59,7 +66,7 @@ export function makeSources(
     } else if (made.has(description.node)) {
       problems.push(duplicated(description.node));
     } else {
-      const source = describedSource(description, layout, dsp);
+      const source = describedSource(description, layout, dsp, processing);
       if (source.ok) made.set(description.node, source.value);
       else problems.push(...source.failures);
     }

@@ -136,6 +136,7 @@ export class PeakJob {
       revision: this.subject.revision,
       channels: this.subject.channels,
       description: this.subject.describe(),
+      quality: this.subject.quality,
       cached,
       focus: this.#focus,
     });

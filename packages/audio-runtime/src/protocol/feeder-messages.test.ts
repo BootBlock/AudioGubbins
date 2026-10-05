@@ -4,14 +4,19 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AssetOrigin,
-  StandardLayouts,
   assetPlan,
   derivedSampleCount,
+  MAXIMUM_QUALITY,
   sampleRate,
+  StandardLayouts,
   unsafeBrandId,
   type Asset,
 } from '@audiogubbins/domain';
-import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  PLAN_WITHOUT_CHAINS,
+  expectFailureCode,
+  expectSuccess,
+} from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import {
   BuiltInNodeType,
@@ -59,7 +64,7 @@ const TAKE: Asset = {
 const EDITED = {
   kind: PcmDescriptionKind.Edited,
   sampleRate: RATE,
-  plan: assetPlan(TAKE),
+  plan: expectSuccess(assetPlan(TAKE, PLAN_WITHOUT_CHAINS)),
   media: [
     {
       asset: TAKE.id,
@@ -99,6 +104,7 @@ function everyToFeeder(): readonly ToFeeder[] {
   return [
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 2,
       graph: GRAPH,
       sources: [
@@ -113,6 +119,7 @@ function everyToFeeder(): readonly ToFeeder[] {
     },
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 3,
       graph: GRAPH,
       sources: [
@@ -127,6 +134,7 @@ function everyToFeeder(): readonly ToFeeder[] {
     },
     {
       kind: ToFeederKind.Sources,
+      quality: MAXIMUM_QUALITY,
       request: 4,
       graph: GRAPH,
       sources: [{ node: IN, ...EDITED }],
@@ -235,9 +243,22 @@ describe('the feeder protocol', () => {
         request: 1,
         graph: GRAPH,
         sources: [],
+        quality: MAXIMUM_QUALITY,
         dsp: { kind: 'available', module: [0, 97] },
       },
       'dsp.module',
+    ],
+    [
+      'a preview quality no level offers',
+      {
+        kind: 'sources',
+        request: 1,
+        graph: GRAPH,
+        sources: [],
+        quality: { level: 'maximum', settings: { ...MAXIMUM_QUALITY.settings, oversampling: 3 } },
+        dsp: { kind: 'unavailable', reason: 'none' },
+      },
+      'quality',
     ],
     [
       'a binding without the end of a channel',

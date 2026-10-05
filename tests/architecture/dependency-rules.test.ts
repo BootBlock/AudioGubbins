@@ -223,11 +223,27 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/renderer',
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
-  '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+  '@audiogubbins/waveform': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+  ],
   '@audiogubbins/audio-engine': [
     '@audiogubbins/domain',
     '@audiogubbins/audio-graph',
     '@audiogubbins/codecs',
+  ],
+  '@audiogubbins/processors': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+  ],
+  '@audiogubbins/effect-rack': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/processors',
   ],
   '@audiogubbins/audio-runtime': [
     '@audiogubbins/domain',
@@ -235,6 +251,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/capabilities',
     '@audiogubbins/audio-graph',
     '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
   ],
   '@audiogubbins/commands': [
     '@audiogubbins/domain',
@@ -291,6 +309,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/history',
     '@audiogubbins/media-store',
+    '@audiogubbins/processors',
     '@audiogubbins/project-commands',
     '@audiogubbins/project-format',
     '@audiogubbins/storage',
@@ -754,9 +773,11 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'commands',
     'domain',
     'editor-view',
+    'effect-rack',
     'history',
     'input',
     'media-store',
+    'processors',
     'project-commands',
     'project-format',
     'renderer',
@@ -1771,50 +1792,57 @@ describe('one fact, held the same in every place it is written', () => {
     ).toEqual([]);
   });
 
-  it('keeps ESLint and Prettier out of every directory the cruise excludes', async () => {
-    // And the checkers are two more readers of the same directories: were one
-    // left out of either, running the development server would fail the lint
-    // gate on work nobody has done, as it would the cruise.
-    //
-    // Each tool is asked through its own API whether it reads a file there, so
-    // a pattern written in a shape the tool does not match fails as a missing
-    // one does. Prettier is asked of `.prettierignore` alone, the list kept
-    // whole for it: its command line also reads `.gitignore`, which the rule
-    // above holds, and asked of both, this rule would pass with
-    // `.prettierignore` missing an entry.
-    const eslint = new ESLint({ cwd: REPOSITORY_ROOT });
-    const ignorePath = inRepository('.prettierignore');
-    const readersOf = async (file: string): Promise<readonly string[]> => {
-      const path = inRepository(file);
-      const readers: string[] = [];
-      if (!(await eslint.isPathIgnored(path))) readers.push(`ESLint reads ${file}`);
-      if (!(await getFileInfo(path, { ignorePath })).ignored) {
-        readers.push(`Prettier reads ${file}`);
-      }
-      return readers;
-    };
-    const readersOfEach = async (files: readonly string[]): Promise<readonly string[]> => {
-      const readers: string[] = [];
-      for (const file of files) readers.push(...(await readersOf(file)));
-      return readers;
-    };
+  // It runs both checkers over the tree: about 1 s alone and several times that
+  // under the whole suite's load, so it is given a budget of its own rather
+  // than Vitest's five-second default.
+  it(
+    'keeps ESLint and Prettier out of every directory the cruise excludes',
+    { timeout: 30_000 },
+    async () => {
+      // And the checkers are two more readers of the same directories: were one
+      // left out of either, running the development server would fail the lint
+      // gate on work nobody has done, as it would the cruise.
+      //
+      // Each tool is asked through its own API whether it reads a file there,
+      // so a pattern written in a shape the tool does not match fails as a
+      // missing one does. Prettier is asked of `.prettierignore` alone, the
+      // list kept whole for it: its command line also reads `.gitignore`, which
+      // the rule above holds, and asked of both, this rule would pass with
+      // `.prettierignore` missing an entry.
+      const eslint = new ESLint({ cwd: REPOSITORY_ROOT });
+      const ignorePath = inRepository('.prettierignore');
+      const readersOf = async (file: string): Promise<readonly string[]> => {
+        const path = inRepository(file);
+        const readers: string[] = [];
+        if (!(await eslint.isPathIgnored(path))) readers.push(`ESLint reads ${file}`);
+        if (!(await getFileInfo(path, { ignorePath })).ignored) {
+          readers.push(`Prettier reads ${file}`);
+        }
+        return readers;
+      };
+      const readersOfEach = async (files: readonly string[]): Promise<readonly string[]> => {
+        const readers: string[] = [];
+        for (const file of files) readers.push(...(await readersOf(file)));
+        return readers;
+      };
 
-    // A build writes at the root, under each package and application, and
-    // under `tests/`, where the cruise excludes its output.
-    const places = ['.', 'tests', ...manifests().map((manifest) => posix.dirname(manifest))];
-    const excluded = [
-      ...BUILD_OUTPUT_DIRECTORIES.flatMap((directory) =>
-        places.map((place) => posix.join(place, directory, 'index.js')),
-      ),
-      ...EXCLUDED_AT_THE_ROOT.map((directory) => posix.join(directory, 'index.js')),
-    ];
-    expect(await readersOfEach(excluded)).toEqual([]);
+      // A build writes at the root, under each package and application, and
+      // under `tests/`, where the cruise excludes its output.
+      const places = ['.', 'tests', ...manifests().map((manifest) => posix.dirname(manifest))];
+      const excluded = [
+        ...BUILD_OUTPUT_DIRECTORIES.flatMap((directory) =>
+          places.map((place) => posix.join(place, directory, 'index.js')),
+        ),
+        ...EXCLUDED_AT_THE_ROOT.map((directory) => posix.join(directory, 'index.js')),
+      ];
+      expect(await readersOfEach(excluded)).toEqual([]);
 
-    // Both tools read a source file in each place, so neither answer passes
-    // by leaving everything unread.
-    const sources = places.map((place) => posix.join(place, 'src', 'index.js'));
-    expect(await readersOfEach(sources)).toHaveLength(sources.length * 2);
-  });
+      // Both tools read a source file in each place, so neither answer passes
+      // by leaving everything unread.
+      const sources = places.map((place) => posix.join(place, 'src', 'index.js'));
+      expect(await readersOfEach(sources)).toHaveLength(sources.length * 2);
+    },
+  );
 
   it('logs no field name redaction would take for a secret', () => {
     // The redaction rules are kept narrow to protect the vocabulary this tree

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, sampleRate, StandardLayouts } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
@@ -17,6 +17,7 @@ import {
   dspModuleBytes,
   graphOf,
   named,
+  NO_CHAIN_PROCESSING,
   nodeOf,
   wire,
 } from '@audiogubbins/audio-engine/testing';
@@ -79,6 +80,7 @@ function sources(
 ): ToFeeder {
   return {
     kind: ToFeederKind.Sources,
+    quality: MAXIMUM_QUALITY,
     request,
     graph: GRAPH,
     sources: [described],
@@ -133,6 +135,7 @@ function feeder(
     },
     schedule: schedule.schedule,
     chooseDsp,
+    processing: NO_CHAIN_PROCESSING,
     ...(readThrough === undefined ? {} : { readThrough }),
   });
   return { core, said, toProcessor, schedule };

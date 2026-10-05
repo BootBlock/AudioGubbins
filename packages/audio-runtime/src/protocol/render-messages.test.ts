@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  FailureKind,
-  StandardLayouts,
   failure,
+  FailureKind,
+  namedQualityMode,
+  QualityLevel,
   sampleCount,
   sampleRate,
+  StandardLayouts,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
@@ -49,7 +51,7 @@ function renderMessage(module: WebAssembly.Module | undefined): ToRenderWorker {
     sampleRate: RATE,
     range: { start: expectSuccess(sampleCount(10)), length: expectSuccess(sampleCount(4_800)) },
     chunkFrames: 1_024,
-    resamplingQuality: ResamplingQuality.High,
+    quality: namedQualityMode(QualityLevel.High),
     coefficientBudgetBytes: module === undefined ? undefined : 250_000,
     sources: [
       {
@@ -198,7 +200,7 @@ describe('the messages a render worker is sent', () => {
     ['range', { range: 'all of it' }],
     ['length', { range: { start: 0, length: -1 } }],
     ['chunkFrames', { chunkFrames: 0.5 }],
-    ['resamplingQuality', { resamplingQuality: 'best' }],
+    ['quality', { quality: { level: 'high', settings: { resampling: 'best' } } }],
     ['sources', { sources: 'in' }],
     ['sources[0]', { sources: [null] }],
     ['kind', { sources: [{ node: 'in', kind: 'file', sampleRate: 48_000 }] }],

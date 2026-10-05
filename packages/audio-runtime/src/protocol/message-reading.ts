@@ -18,10 +18,12 @@ import {
   failure,
   FailureKind,
   fail,
+  qualityModeFrom,
   sampleCount,
   sampleRate,
   succeed,
   type DomainResult,
+  type QualityMode,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
@@ -135,6 +137,17 @@ export function oneOf<TValue extends string | number>(
     throw new MalformedMessage(field, `one of ${Object.values(values).join(', ')}`);
   }
   return found;
+}
+
+/**
+ * A quality mode: its settings read by the domain's one reading of them, and
+ * its level taken from them rather than from the message, so a level and
+ * settings that disagree cannot arrive.
+ */
+export function qualityAt(fields: Fields, field: string): QualityMode {
+  const mode = qualityModeFrom(fieldsOf(fields[field], field)['settings']);
+  if (!mode.ok) throw new MalformedMessage(field, 'a quality mode');
+  return mode.value;
 }
 
 /** An array of samples per channel, each a `Float32Array`. */

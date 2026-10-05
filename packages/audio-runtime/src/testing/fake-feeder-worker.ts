@@ -19,6 +19,7 @@ import type { ToFeeder } from '../protocol/feeder-messages.js';
 import type { FeederWorkerEvents, FeederWorkerPort } from '../playback/feeder-link.js';
 import type { Schedule } from '../schedule.js';
 import { FakeMessagePort, cloneAcross } from './fake-message-channel.js';
+import { NO_CHAIN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 /** What a fake feeder is made with. */
 export interface FakeFeederOptions {
@@ -81,6 +82,7 @@ export class FakeFeederWorker implements FeederWorkerPort {
       },
       schedule,
       chooseDsp: scopeDsp,
+      processing: NO_CHAIN_PROCESSING,
       ...(options.readThrough === undefined ? {} : { readThrough: options.readThrough }),
     });
   }

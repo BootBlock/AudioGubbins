@@ -192,14 +192,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
       [
-        'ChoiceOption',
-        'ChoiceParameterDescriptor',
         'EntityId',
-        'NumericParameterDescriptor',
-        'ParameterDescriptor',
-        'ParameterTaper',
-        'ProcessorDescriptor',
-        'ToggleParameterDescriptor',
         'assetRangeEnd',
         'chainLatency',
         'clipAssetId',
@@ -215,13 +208,59 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'isRetryable',
         'isSuccess',
         'isTrackAudible',
-        'processorsInSignalOrder',
         'projectLength',
         'secondsToSamples',
         'tracksInOrder',
-        'validateParameterValue',
         'validateProcessorInstance',
       ],
+    "The effect rack's domain (ADR-0060, ADR-0061): chain edits, quality modes, the library and the processed stream's parts, which Phase 06's processors, rack commands and rack views take as they are built.":
+      [
+        'ChainSettings',
+        'EMPTY_LIBRARY',
+        'FoundSlot',
+        'LONGEST_SAVED_NAME',
+        'MAXIMUM_CHAIN_SLOTS',
+        'MAXIMUM_GROUP_BRANCHES',
+        'MAXIMUM_STRETCH_RATIO',
+        'chainOutputLayout',
+        'checkStateVersion',
+        'copyChain',
+        'effectChainFrom',
+        'findSlot',
+        'isModelIdentity',
+        'parameterOf',
+        'segmentsLayout',
+        'segmentsLength',
+        'withRack',
+        'withSaved',
+        'withSlotMoved',
+        'withSlotReplaced',
+        'withoutSaved',
+        'withoutSlot',
+      ],
+  },
+  '@audiogubbins/project-commands': {
+    "The rack commands' invocations (ADR-0060), which Phase 06's rack views and the library's apply command run as they are built.":
+      [
+        'RackTarget',
+        'addChainInvocation',
+        'removeChainInvocation',
+        'setChainInvocation',
+        'setEditChainInvocation',
+        'setRackInvocation',
+      ],
+  },
+  '@audiogubbins/processors': {
+    "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
+      ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
+  },
+  '@audiogubbins/effect-rack': {
+    "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
+      ['ChainGraph', 'chainGraph'],
+  },
+  '@audiogubbins/clipboard': {
+    "Copying and pasting processing (ADR-0053 as amended), which Phase 06's rack views run as they are built.":
+      ['chainFromProcessing', 'copyProcessing', 'pasteProcessing'],
   },
   '@audiogubbins/storage': {
     'The journal and the store of whole states, the two contracts ADR-0020 names the storage by. The session and the backups reach both inside the package, and nothing outside it keeps a journal or a state of its own.':
@@ -246,6 +285,16 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readExternalIdentity'],
     'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
       ['stripAssetProvenance', 'stripExportRecords'],
+    "The person's library document and the chain's one persisted form outside a project (ADR-0060), which the storage of the library and the clipboard take as Phase 06 builds them.":
+      [
+        'LIBRARY_DOCUMENT_FORMAT',
+        'libraryDocumentText',
+        'parseLibraryDocument',
+        'readEditPlan',
+        'readLibraryDocument',
+        'readSlotAlone',
+        'writeLibraryDocument',
+      ],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
@@ -289,6 +338,22 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'settingsFor',
         'timelineFrameAt',
       ],
+    "The canonical scalar primitives ADR-0061 admits and the bounds of the FFT's sizes, which Phase 06's processors are the first to call, for filter design, level detection and conversion from decibels, and Phase 08's spectral analysis the first to size a transform by. The engine's own nodes need none of them.":
+      [
+        'LARGEST_FFT_SIZE',
+        'SMALLEST_FFT_SIZE',
+        'arctangentTurns',
+        'cosineOfTurns',
+        'exp',
+        'gainToDecibels',
+        'ln',
+        'log10',
+        'log2',
+        'pow',
+        'tangentOfTurns',
+      ],
+    "What a node type built on the engine reads a node and makes its kernel with (ADR-0061), which Phase 06's processors take as they are written.":
+      ['DelayLine', 'ParameterRamp', 'channelAt', 'parameterValueInvalid', 'portAt', 'rampFrames'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

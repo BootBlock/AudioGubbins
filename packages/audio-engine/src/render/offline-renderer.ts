@@ -20,6 +20,7 @@ import {
   FailureKind,
   fail,
   failure,
+  finalRenderSettings,
   succeed,
   throwIfCancelled,
   type DomainFailure,
@@ -34,6 +35,7 @@ import {
 } from '@audiogubbins/audio-graph';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
+import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { createExecutor, type GraphExecutor } from '../execution/graph-executor.js';
 import type { NodeImplementations } from '../nodes/node-implementation.js';
 import { resampledSource } from '../pcm/resampled-source.js';
@@ -124,6 +126,7 @@ function prepareSources(job: RenderJob, dsp: CanonicalDsp): DomainResult<Prepare
   const feeds = new Map<NodeId, StagedFeed>();
   const made: PcmSource[] = [];
   const conversions: RenderConversion[] = [];
+  const quality = resamplingQualityOf(finalRenderSettings(job.quality).resampling);
   for (const [node, source] of job.sources) {
     let read = source;
     if (source.sampleRate !== job.sampleRate) {
@@ -131,7 +134,7 @@ function prepareSources(job: RenderJob, dsp: CanonicalDsp): DomainResult<Prepare
         dsp,
         source,
         job.sampleRate,
-        job.quality.resampling,
+        quality,
         job.coefficientBudgetBytes,
       );
       if (!converted.ok) {
@@ -144,7 +147,7 @@ function prepareSources(job: RenderJob, dsp: CanonicalDsp): DomainResult<Prepare
         node,
         from: source.sampleRate,
         to: job.sampleRate,
-        quality: job.quality.resampling,
+        quality,
       });
     }
     feeds.set(node, new StagedFeed(read, job.range.start, job.chunkFrames));

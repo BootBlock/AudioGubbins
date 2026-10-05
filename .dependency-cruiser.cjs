@@ -149,7 +149,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -196,11 +196,22 @@ module.exports = {
         'The browser host of the engine is given what the device offers and runs the engine in ' +
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
-        'storage or command package.',
+        'storage or command package. Its thread entries also make the effect rack its workers ' +
+        'run chains with (ADR-0061).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|processors)/)',
       },
+    },
+    {
+      name: 'rack-made-only-in-thread-entries',
+      severity: 'error',
+      comment:
+        'A worker that reads edited sound is given the effect rack as a port (ADR-0060): only the ' +
+        'module that starts the thread makes it, so the cores that render, feed and summarise ' +
+        'depend on the port and run in tests with any processing.',
+      from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/threads/' },
+      to: { path: '^packages/(effect-rack|processors)/' },
     },
     {
       name: 'codecs-owns-nothing-else',
@@ -238,10 +249,11 @@ module.exports = {
       severity: 'error',
       comment:
         'Peaks are derived from sources the engine reads and are drawn by the views above them ' +
-        '(ADR-0043). The package depends on the domain and the engine alone, and knows no ' +
-        'interface or storage: the cache is kept through a port the application implements.',
+        '(ADR-0043). The package depends on the domain and the engine, and its worker entry on ' +
+        'the effect rack it reads chains with; it knows no interface or storage: the cache is ' +
+        'kept through a port the application implements.',
       from: { path: '^packages/waveform/' },
-      to: { path: '^packages/(?!(waveform|audio-engine|domain)/)' },
+      to: { path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|processors)/)' },
     },
     {
       name: 'renderer-owns-nothing-else',
@@ -403,7 +415,7 @@ module.exports = {
         'interface that calls it, or of the audio packages.',
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|project-commands|project-format|storage|storage-runtime)/)',
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|processors|project-commands|project-format|storage|storage-runtime)/)',
       },
     },
     {

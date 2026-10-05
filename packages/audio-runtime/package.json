@@ -29,7 +29,9 @@
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/audio-graph": "workspace:*",
-    "@audiogubbins/audio-engine": "workspace:*"
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/effect-rack": "workspace:*",
+    "@audiogubbins/processors": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

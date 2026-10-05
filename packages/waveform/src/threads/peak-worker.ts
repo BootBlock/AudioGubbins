@@ -12,6 +12,8 @@
  */
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
+import { chainProcessing } from '@audiogubbins/effect-rack';
+import { PROCESSOR_TYPES_BY_KEY } from '@audiogubbins/processors';
 
 import type { FromPeakWorker } from '../peak-messages.js';
 import { PeakWorkerCore } from '../peak-worker-core.js';
@@ -62,6 +64,7 @@ const core = new PeakWorkerCore({
   },
   yieldToHost,
   dsp: REFERENCE_DSP,
+  processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
   reportFault: (error) => {
     self.reportError(error);
   },

@@ -18,7 +18,7 @@
  * start with, and when a source could not be read.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import type { DomainResult, QualityMode } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 
@@ -35,6 +35,7 @@ import {
   nonEmptyListAt,
   numberAt,
   oneOf,
+  qualityAt,
   optionalTextAt,
   portAt,
   readMessage,
@@ -75,6 +76,8 @@ export type ToFeeder =
       /** The graph the sources feed, whose graph inputs give each source its layout. */
       readonly graph: GraphDescriptor;
       readonly sources: readonly SourceDescription[];
+      /** The quality a preview runs an edited sound's chains at (ADR-0061). */
+      readonly quality: QualityMode;
       /** The canonical DSP compiled on the main thread, or why it could not be. */
       readonly dsp: DspDelivery<WebAssembly.Module>;
     }
@@ -173,6 +176,7 @@ function toFeederFrom(fields: Fields): ToFeeder {
         request: countAt(fields, 'request'),
         graph: graphAt(fields, 'graph'),
         sources: listAt(fields, 'sources', sourceFrom),
+        quality: qualityAt(fields, 'quality'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
     case ToFeederKind.Bind:

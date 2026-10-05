@@ -4,6 +4,7 @@ import { StandardLayouts, ZERO_SAMPLES, sampleRate } from '@audiogubbins/domain'
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
+import { PLAIN_PLAN_PROCESSING } from '../testing/plan-processing.js';
 import { allocateBlock } from './frame-block.js';
 import {
   PcmDescriptionKind,
@@ -60,7 +61,9 @@ describe('what a description makes', () => {
       sampleRate: RATE,
       channels: [new Float32Array([0.5, -0.5, 0.25])],
     };
-    const source = expectSuccess(describedSource(description, StandardLayouts.mono, REFERENCE_DSP));
+    const source = expectSuccess(
+      describedSource(description, StandardLayouts.mono, REFERENCE_DSP, PLAIN_PLAN_PROCESSING),
+    );
     const block = allocateBlock(StandardLayouts.mono, RATE, 3);
     expect(await source.read(ZERO_SAMPLES, block)).toBe(3);
     expect([...(block.channels[0] ?? [])]).toEqual([0.5, -0.5, 0.25]);
@@ -73,6 +76,7 @@ describe('what a description makes', () => {
           { kind: PcmDescriptionKind.Pcm, sampleRate: RATE, channels: [new Float32Array(4)] },
           StandardLayouts.stereo,
           REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
         ),
       ),
     ).toBe('pcm.block-channel-count-mismatch');
@@ -86,6 +90,7 @@ describe('what a description makes', () => {
           },
           StandardLayouts.stereo,
           REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
         ),
       ),
     ).toBe('pcm.signal-channels-mismatched');

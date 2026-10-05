@@ -16,6 +16,7 @@ import type { PeakEvent } from './peak-job.js';
 import { ToPeakWorkerKind } from './peak-messages.js';
 import { LocalPeakWorker, MemoryPeakCache, memorySubject, turn } from './testing/peak-rig.js';
 import { nearestZeroCrossing } from './zero-crossings.js';
+import { PLAIN_PLAN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 function ramp(frames: number, from = -0.5): Float32Array {
   return Float32Array.from({ length: frames }, (_, index) => from + index / frames);
@@ -222,6 +223,7 @@ describe('the zero-crossing search', () => {
       { kind: PcmDescriptionKind.Pcm, sampleRate: RATE, channels: [left, right] },
       StandardLayouts.stereo,
       REFERENCE_DSP,
+      PLAIN_PLAN_PROCESSING,
     ),
   );
 

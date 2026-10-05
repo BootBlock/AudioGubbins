@@ -23,6 +23,7 @@ import {
   succeed,
   validatePlan,
   type AssetId,
+  type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
   type EditPlan,
@@ -32,7 +33,8 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import { ResamplingQuality, type CanonicalDsp } from '../dsp/canonical-dsp.js';
+import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
+import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 import {
   ConvertedContent,
@@ -41,11 +43,19 @@ import {
   StreamContent,
   type ContentReader,
   type MediaEntry,
+  type ReadableContent,
 } from './plan-content.js';
+import { ProcessedContent, type PlanProcessing } from './processed-content.js';
 import { resampledSource } from './resampled-source.js';
+import { StretchedContent } from './stretched-content.js';
+
+/** What a stream of the plan makes, at its own rate and in its own layout. */
+interface StreamOutput extends ReadableContent {
+  readonly length: number;
+}
 
 /** A stream of the plan as a source at its own rate and layout. */
-function streamSource(content: StreamContent, stream: PlanStream): PcmSource {
+function streamSource(content: StreamOutput, stream: PlanStream): PcmSource {
   const length = sampleCount(content.length);
   return {
     layout: stream.layout,
@@ -70,15 +80,23 @@ class PlanReaders {
   readonly #plan: EditPlan;
   readonly #entries: ReadonlyMap<AssetId, MediaEntry>;
   readonly #dsp: CanonicalDsp;
+  readonly #processing: PlanProcessing;
   readonly #streams = new Map<number, StreamContent>();
+  readonly #outputs = new Map<number, StreamOutput>();
   readonly #files = new Map<AssetId, FileContent>();
   readonly #converted = new Map<number, ConvertedContent>();
   readonly #made: ContentReader[] = [];
 
-  constructor(plan: EditPlan, media: readonly MediaEntry[], dsp: CanonicalDsp) {
+  constructor(
+    plan: EditPlan,
+    media: readonly MediaEntry[],
+    dsp: CanonicalDsp,
+    processing: PlanProcessing,
+  ) {
     this.#plan = plan;
     this.#entries = new Map(media.map((entry) => [entry.asset, entry]));
     this.#dsp = dsp;
+    this.#processing = processing;
   }
 
   /** The content of the plan's stream at `place`. */
@@ -101,8 +119,49 @@ class PlanReaders {
     return stream;
   }
 
-  #reader(source: PlanSource, rate: SampleRate): ContentReader {
-    return source.kind === 'media' ? this.#file(source.asset) : this.#convert(source.stream, rate);
+  #reader(source: PlanSource, rate: SampleRate): ReadableContent {
+    if (source.kind === 'media') return this.#file(source.asset);
+    return this.#streamAt(source.stream).sampleRate === rate
+      ? this.#output(source.stream)
+      : this.#convert(source.stream, rate);
+  }
+
+  /**
+   * What the stream at `place` makes at its own rate: its segments, or what
+   * its processing makes of them (`processed-content.ts`).
+   */
+  #output(place: number): StreamOutput {
+    const known = this.#outputs.get(place);
+    if (known !== undefined) return known;
+    const stream = this.#streamAt(place);
+    const content = this.stream(place);
+    const { processing } = stream;
+    let output: StreamOutput;
+    if (processing === undefined) {
+      output = content;
+    } else if (processing.kind === 'chain') {
+      const input = {
+        layout: processing.input,
+        sampleRate: stream.sampleRate,
+        length: content.length,
+        read: (
+          start: number,
+          frames: number,
+          into: readonly Float32Array[],
+          signal?: CancellationSignal,
+        ) => content.read(start, frames, into, signal),
+      };
+      const processed = new ProcessedContent(processing.chain, input, stream.layout, {
+        ...this.#processing,
+        dsp: this.#dsp,
+      });
+      this.#made.push(processed);
+      output = processed;
+    } else {
+      output = this.#stretched(content, stream, processing.length);
+    }
+    this.#outputs.set(place, output);
+    return output;
   }
 
   #file(asset: AssetId): FileContent {
@@ -116,14 +175,25 @@ class PlanReaders {
     return file;
   }
 
+  /** The stream's segments made `length` frames long (`stretched-content.ts`). */
+  #stretched(content: StreamContent, stream: PlanStream, length: number): StreamOutput {
+    const stretched = new StretchedContent(content, stream, length, {
+      quality: this.#processing.quality,
+      dsp: this.#dsp,
+      start: this.#processing.start,
+    });
+    this.#made.push(stretched);
+    return stretched;
+  }
+
   #convert(place: number, rate: SampleRate): ConvertedContent {
     const known = this.#converted.get(place);
     if (known !== undefined) return known;
     const resampled = resampledSource(
       this.#dsp,
-      streamSource(this.stream(place), this.#streamAt(place)),
+      streamSource(this.#output(place), this.#streamAt(place)),
       rate,
-      ResamplingQuality.Maximum,
+      resamplingQualityOf(this.#processing.quality.resampling),
     );
     if (!resampled.ok) throw new MediaReadFailure(resampled.failures[0]);
     const reader = new ConvertedContent(resampled.value);
@@ -157,6 +227,7 @@ export function editedSource(
   media: readonly MediaEntry[],
   layout: ChannelLayout,
   dsp: CanonicalDsp,
+  processing: PlanProcessing,
 ): DomainResult<PcmSource> {
   const shapes = mediaShapes(media);
   if (!shapes.ok) return shapes;
@@ -174,7 +245,7 @@ export function editedSource(
   }
   const length = sampleCount(streamLength(first));
   if (!length.ok) return length;
-  const readers = new PlanReaders(plan, media, dsp);
+  const readers = new PlanReaders(plan, media, dsp, processing);
   const sound = readers.stream(0);
   return succeed({
     layout,

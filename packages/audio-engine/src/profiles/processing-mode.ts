@@ -182,14 +182,15 @@ function automaticFinalRender(request: ProcessingModeRequest): ProcessingModeCho
     return {
       mode: ProcessingMode.BackgroundOffline,
       reason:
-        'Rendering in the background at full quality, so playback and editing come first; ' +
+        'Rendering in the background at the chosen render quality, so playback and editing come first; ' +
         `the file is identical on every machine either way. ${compute.explanation}`,
       overridden: false,
     };
   }
   return {
     mode: ProcessingMode.FinalOffline,
-    reason: 'Rendering offline at full quality, so the file is identical on every machine.',
+    reason:
+      'Rendering offline at the chosen render quality, so the file is identical on every machine.',
     overridden: false,
   };
 }

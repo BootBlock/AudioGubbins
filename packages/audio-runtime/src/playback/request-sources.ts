@@ -75,6 +75,7 @@ export class RequestSources {
         request: id,
         graph: request.graph,
         sources: request.sources,
+        quality: request.quality,
         dsp: deliveredAs(dsp, (module) => module.module),
       },
       sourceTransferables(request.sources),

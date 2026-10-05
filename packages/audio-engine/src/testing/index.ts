@@ -18,3 +18,4 @@ export { countingDsp, type CountingDsp } from './counting-dsp.js';
 export { dspModuleBytes, dspModuleExports } from './dsp-module.js';
 export { distinctChannels, graphOf, named, nodeOf, wire } from './graph-builders.js';
 export { fingerprint } from './pcm-fingerprint.js';
+export { NO_CHAIN_PROCESSING, PLAIN_PLAN_PROCESSING } from './plan-processing.js';

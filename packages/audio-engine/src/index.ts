@@ -46,21 +46,34 @@ export {
   describedSource,
   pcmDescription,
 } from './pcm/pcm-description.js';
+export { type PlanProcessing, ProcessedStart } from './pcm/processed-content.js';
 export { resampledSource } from './pcm/resampled-source.js';
 export { type MediaEntry } from './pcm/plan-content.js';
 export { type MediaFile } from './pcm/media-file.js';
 
 export {
   type CanonicalDsp,
+  type CanonicalFft,
   type CanonicalOscillator,
   type CanonicalResampler,
   CoefficientStrategy,
   DspImplementation,
+  LARGEST_FFT_SIZE,
   type OscillatorSettings,
   type ResamplerCoefficients,
   type ResamplerSettings,
   ResamplingQuality,
+  SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
+
+// The canonical scalar primitives (ADR-0032, ADR-0061), pure functions a
+// processor calls per sample: the WebAssembly module answers the same bits.
+export { decibelsToGain, gainToDecibels } from './dsp/reference/decibels.js';
+export { exp } from './dsp/reference/exponential.js';
+export { ln, log10, log2 } from './dsp/reference/logarithm.js';
+export { pow } from './dsp/reference/power.js';
+export { sineOfTurns } from './dsp/reference/primitives.js';
+export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
 
 // The fallback ADR-0031 names, for a host whose WebAssembly is refused.
 export { REFERENCE_DSP } from './dsp/reference/reference-dsp.js';
@@ -89,15 +102,35 @@ export {
 export { BuiltInNodeType } from './nodes/built-in-node-type.js';
 export { BUILT_IN_NODES } from './nodes/built-in-nodes.js';
 
+// What a node type built on the engine, a processor's among them, reads a
+// node and makes its kernel with, so every node type is checked and refused
+// by one rule (ADR-0061).
+export {
+  type NodeProblem,
+  type NodeShape,
+  type PortShape,
+  kernelRefusal,
+  plannedShape,
+} from './nodes/node-shape.js';
+export { channelAt, portAt } from './nodes/kernel-ports.js';
+export { parameterValueInvalid, unknownParameter } from './nodes/node-parameters.js';
+export { ParameterRamp, rampFrames } from './execution/parameter-ramp.js';
+export { DelayLine } from './pcm/delay-line.js';
+
+export {
+  type ChainProcessing,
+  type ChainRequest,
+  type ChainRun,
+  type StreamReader,
+} from './pcm/chain-processing.js';
+
 export { type GraphExecutor, createExecutor } from './execution/graph-executor.js';
 
 export {
-  MAXIMUM_RENDER_QUALITY,
   type RenderConversion,
   type RenderJob,
   type RenderOptions,
   type RenderProgress,
-  type RenderQualityProfile,
   type RenderRange,
   type RenderSink,
   type RenderSummary,
@@ -133,6 +166,7 @@ export {
   settingsFor,
   validatePerformanceSettings,
 } from './profiles/performance-profile.js';
+export { previewQualityFor } from './profiles/preview-quality.js';
 
 export {
   ProcessingMode,

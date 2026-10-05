@@ -2,12 +2,13 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
   Cancelled,
-  FailureKind,
-  StandardLayouts,
   createCancellationSource,
   failure,
+  FailureKind,
+  MAXIMUM_QUALITY,
   sampleCount,
   sampleRate,
+  StandardLayouts,
   type DomainResult,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
@@ -16,7 +17,6 @@ import {
   BuiltInNodeType,
   DspImplementation,
   JobPriority,
-  MAXIMUM_RENDER_QUALITY,
   SchedulingPolicy,
   createPriorityScheduler,
   type AudioFrameBlock,
@@ -111,7 +111,7 @@ function request(channels: readonly Float32Array[] = []): RenderRequest {
     sampleRate: RATE,
     range: { start: expectSuccess(sampleCount(0)), length: expectSuccess(sampleCount(4)) },
     chunkFrames: 2,
-    quality: MAXIMUM_RENDER_QUALITY,
+    quality: MAXIMUM_QUALITY,
     sources:
       channels.length === 0
         ? []
@@ -204,7 +204,7 @@ describe('the render host', () => {
       kind: ToRenderWorkerKind.Render,
       jobId: 'render-1',
       chunkFrames: 2,
-      resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
+      quality: MAXIMUM_QUALITY,
       dsp: { kind: DspDeliveryKind.Unavailable, reason: 'None was compiled.' },
     });
     expect(posted?.transfer).toEqual([shared]);

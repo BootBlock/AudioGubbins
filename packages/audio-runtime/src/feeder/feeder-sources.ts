@@ -7,12 +7,14 @@
  * transferred, read in place, and a tone from the canonical oscillator of the
  * feeder's own DSP, the WebAssembly module where it runs and the reference
  * path, with the reason, where it does not (ADR-0031). The DSP is watched, so
- * the feeder says truthfully whether any source runs on it.
+ * the feeder says truthfully whether any source runs on it. An edited sound
+ * runs its chains at the preview quality the message states, and a chain
+ * starts part way after a seek, as a preview may (ADR-0061).
  */
 
 import { flatMapResult, mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PcmSource } from '@audiogubbins/audio-engine';
+import { ProcessedStart, type ChainProcessing, type PcmSource } from '@audiogubbins/audio-engine';
 
 import type { DspChooser, ScopeDsp } from '../dsp/dsp-instance.js';
 import { watchDspUse } from '../dsp/dsp-use.js';
@@ -34,14 +36,22 @@ export interface RequestSources {
 export function sourcesFor(
   message: SourcesMessage,
   chooseDsp: DspChooser,
+  processing: ChainProcessing,
 ): DomainResult<RequestSources> {
   const dsp = chooseDsp(message.dsp);
   const watched = watchDspUse(dsp.dsp);
   return flatMapResult(renderEndpoints(message.graph), ({ inputs }) =>
-    mapResult(makeSources(message.sources, inputs, watched.dsp), (sources) => ({
-      sources,
-      dsp,
-      dspInUse: watched.used(),
-    })),
+    mapResult(
+      makeSources(message.sources, inputs, watched.dsp, {
+        processing,
+        quality: message.quality.settings,
+        start: ProcessedStart.Preview,
+      }),
+      (sources) => ({
+        sources,
+        dsp,
+        dspInUse: watched.used(),
+      }),
+    ),
   );
 }

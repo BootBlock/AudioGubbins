@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FailureKind,
-  StandardLayouts,
   mapResult,
+  MAXIMUM_QUALITY,
   sampleCount,
   sampleRate,
+  StandardLayouts,
   type ChannelLayout,
   type SampleRate,
 } from '@audiogubbins/domain';
@@ -15,7 +16,6 @@ import {
   BUILT_IN_NODES,
   BuiltInNodeType,
   DspImplementation,
-  MAXIMUM_RENDER_QUALITY,
   REFERENCE_DSP,
   ResamplingQuality,
   frameBlock,
@@ -34,6 +34,7 @@ import {
   dspModuleBytes,
   graphOf,
   named,
+  NO_CHAIN_PROCESSING,
   nodeOf,
   wire,
 } from '@audiogubbins/audio-engine/testing';
@@ -95,7 +96,7 @@ function renderOf(
       length: expectSuccess(sampleCount(options.length ?? 2_500)),
     },
     chunkFrames: options.chunkFrames ?? 700,
-    resamplingQuality: MAXIMUM_RENDER_QUALITY.resampling,
+    quality: MAXIMUM_QUALITY,
     sources,
     coefficientBudgetBytes: options.coefficientBudgetBytes,
     dsp: deliveryOf(options.module),
@@ -149,6 +150,7 @@ class WorkerUnderTest {
           new Promise((resolve) => {
             this.#yields.push(resolve);
           }),
+        processing: NO_CHAIN_PROCESSING,
         reportFault: (error) => {
           this.faults.push(error);
         },
@@ -271,7 +273,7 @@ async function engineRender(
           [named('dry'), dry],
         ]),
         range: { start: expectSuccess(sampleCount(0)), length: expectSuccess(sampleCount(length)) },
-        quality: MAXIMUM_RENDER_QUALITY,
+        quality: MAXIMUM_QUALITY,
         chunkFrames,
       },
       dsp,

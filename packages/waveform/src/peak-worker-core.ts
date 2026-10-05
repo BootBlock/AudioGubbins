@@ -17,11 +17,18 @@ import {
   blockView,
   describedSource,
   allocateBlock,
+  ProcessedStart,
   type AudioFrameBlock,
   type CanonicalDsp,
+  type ChainProcessing,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
-import { discreteLayout, sampleCount, type DomainResult } from '@audiogubbins/domain';
+import {
+  discreteLayout,
+  finalRenderSettings,
+  sampleCount,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import { PeakBuilder } from './peak-builder.js';
 import { decodePeaks, encodePeaks } from './peak-codec.js';
@@ -44,6 +51,8 @@ export interface PeakWorkerHost {
   /** Resolves after the events already queued for the worker have run. */
   readonly yieldToHost: () => Promise<void>;
   readonly dsp: CanonicalDsp;
+  /** How the chains an edited source's plan names are run: the effect rack's. */
+  readonly processing: ChainProcessing;
   /** Reports a message that could not be read, which the page sent wrongly. */
   readonly reportFault: (error: Error) => void;
   /** Milliseconds from any fixed origin, which spaces the batches of runs. */
@@ -156,7 +165,11 @@ export class PeakWorkerCore {
     if (this.#jobs.has(message.job)) this.#close(message.job);
     const layout = discreteLayout(message.channels);
     const source = layout.ok
-      ? describedSource(message.description, layout.value, this.#host.dsp)
+      ? describedSource(message.description, layout.value, this.#host.dsp, {
+          processing: this.#host.processing,
+          quality: finalRenderSettings(message.quality),
+          start: ProcessedStart.Canonical,
+        })
       : layout;
     if (!source.ok) {
       this.#post({

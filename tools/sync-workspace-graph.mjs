@@ -235,6 +235,43 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The processor types: each one object that states its descriptor and
+    // makes its kernel on the engine (ADR-0061). No browser, so a processor
+    // runs on the feeder, the render worker and the worklet alike.
+    dir: 'packages/processors',
+    name: '@audiogubbins/processors',
+    description:
+      'The processor types: each states its descriptor, parameters, layouts, latency and versions, and makes its canonical kernel on the audio engine.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph', '@audiogubbins/audio-engine'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // The effect rack: a chain realised as the engine's processing graph,
+    // its slots, parallel groups, bypass, solo and wet/dry aligned by the
+    // graph's own delay compensation, and run over a stream (ADR-0060).
+    dir: 'packages/effect-rack',
+    name: '@audiogubbins/effect-rack',
+    description:
+      'The effect rack: a chain of processors realised as the processing graph, with parallel groups, bypass, solo and wet/dry, run over a stream.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/processors',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The browser host of the audio engine: the audio context and its
     // lifecycle, the AudioWorklet processor, the feeder worker and the render
     // worker with their typed messages, and the feed of source frames into the
@@ -256,6 +293,8 @@ const PACKAGES = [
       '@audiogubbins/capabilities',
       '@audiogubbins/audio-graph',
       '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
     ],
     devDeps: [],
     external: {},
@@ -291,7 +330,12 @@ const PACKAGES = [
     jsx: false,
     portable: true,
     threads: { 'peak-worker.ts': 'dedicated-worker' },
-    deps: ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+    ],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -560,6 +604,7 @@ const PACKAGES = [
       '@audiogubbins/media-store',
       '@audiogubbins/storage',
       '@audiogubbins/browser-storage',
+      '@audiogubbins/processors',
     ],
     devDeps: [],
     external: {},
@@ -615,6 +660,7 @@ const PACKAGES = [
       '@audiogubbins/editor-view',
       '@audiogubbins/video-reference',
       '@audiogubbins/clipboard',
+      '@audiogubbins/processors',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },
