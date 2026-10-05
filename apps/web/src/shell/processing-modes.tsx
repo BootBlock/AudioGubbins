@@ -2,8 +2,10 @@
  * The Transport panel's account of how the engine processes: the mode
  * playback runs in and the mode the offline render runs in, each with its
  * reason (REQ-ARCH-079); the render mode the person may set over the
- * automatic choice; and what the render's resources warned of, with the
- * choice a warning asks for (REQ-ARCH-087).
+ * automatic choice; the quality each runs at, with every value it stands for
+ * and where the two differ (REQ-AUDIO-080, REQ-AUDIO-086); and what the
+ * render's resources warned of, with the choice a warning asks for
+ * (REQ-ARCH-087).
  *
  * It reads the settings and the render's planning and changes neither: every
  * control runs a command (REQ-EDIT-073).
@@ -12,6 +14,7 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { OptionSelect } from '@audiogubbins/design-system';
+import { finalRenderSettings, type QualitySettings } from '@audiogubbins/domain';
 import {
   JobPriority,
   ProcessingMode,
@@ -29,7 +32,8 @@ import {
   renderModeCommandId,
   renderModeSetting,
 } from '../commands/audio-settings-commands.js';
-import type { AudioSettings } from '../state/audio-settings-store.js';
+import { QUALITY_LEVEL_NAMES, previewDifferenceText, qualitySentence } from '../quality-words.js';
+import { previewQualityOf, type AudioSettings } from '../state/audio-settings-store.js';
 import type { Observable } from '../state/observable.js';
 import {
   PlanningStage,
@@ -135,6 +139,53 @@ function ModeReading({
   );
 }
 
+/** A quality mode's level, and every value it runs at, as a reading. */
+function QualityReading({
+  term,
+  level,
+  settings,
+  after = '',
+}: {
+  readonly term: string;
+  readonly level: string;
+  readonly settings: QualitySettings;
+  readonly after?: string;
+}): ReactNode {
+  return (
+    <div className="ag-reading">
+      <dt>{term}</dt>
+      <dd>
+        {level}
+        <span className="ag-reading-note">{`${qualitySentence(settings)}${after}`}</span>
+      </dd>
+    </div>
+  );
+}
+
+/** The quality a render and playback run at, and where what plays is not what a render makes. */
+function Quality({ settings }: { readonly settings: AudioSettings }): ReactNode {
+  const render = finalRenderSettings(settings.renderQuality);
+  const preview = previewQualityOf(settings);
+  return (
+    <>
+      <dl className="ag-readings" aria-label="Quality">
+        <QualityReading
+          term="Render quality"
+          level={QUALITY_LEVEL_NAMES[settings.renderQuality.level]}
+          settings={render}
+        />
+        <QualityReading
+          term="Preview quality"
+          level={QUALITY_LEVEL_NAMES[preview.level]}
+          settings={preview.settings}
+          after={settings.previewQuality === undefined ? ' Chosen by the performance profile.' : ''}
+        />
+      </dl>
+      <p className="ag-panel-note">{previewDifferenceText(preview.settings, render)}</p>
+    </>
+  );
+}
+
 /** What the render's resources warned of, each naming the resource that limits it. */
 function Warnings({ warnings }: { readonly warnings: readonly ResourceWarning[] }): ReactNode {
   if (warnings.length === 0) return null;
@@ -216,6 +267,7 @@ export function ProcessingModes(props: ProcessingModesProps): ReactNode {
           if (chosen !== undefined && chosen !== setting) props.run(renderModeCommandId(chosen));
         }}
       />
+      <Quality settings={settings} />
       <Warnings warnings={warnings} />
       {planning.stage === PlanningStage.AwaitingDecision && (
         <Decision safer={planning.assessment.safer} commands={props} />

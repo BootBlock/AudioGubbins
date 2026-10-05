@@ -83,12 +83,13 @@ export function assetProgramme(asset: EditorAsset): Programme {
     // The context's rate is not checked here: a context the browser made at
     // another rate is refused by the session, which says so, rather than the
     // asset being played at the wrong speed.
-    request: () =>
+    request: (_contextRate, quality) =>
       flatMapResult(nodeId('asset'), (input) =>
         flatMapResult(nodeId('meter'), (meter) =>
           mapResult(nodeId('output'), (output) => ({
             graph: graphOf(asset.layout, input, meter, output),
             sources: [{ node: input, ...asset.describe() }],
+            quality,
           })),
         ),
       ),

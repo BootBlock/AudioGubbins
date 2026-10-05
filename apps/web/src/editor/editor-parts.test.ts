@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { RegionBoundary, sampleCount, unsafeBrandId, type SampleCount } from '@audiogubbins/domain';
+import {
+  MAXIMUM_QUALITY,
+  RegionBoundary,
+  sampleCount,
+  unsafeBrandId,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { FollowMode, newViewState, type EditorViewState } from '@audiogubbins/editor-view';
 import { samplesPerPixel, pixelsPerSample, type ViewportState } from '@audiogubbins/timeline';
@@ -158,6 +164,7 @@ describe("a view's audio", () => {
     const audio = new ViewAudio({
       peaks: host,
       asset: TONES,
+      quality: MAXIMUM_QUALITY,
       changed: () => undefined,
       progressed: () => undefined,
       failed: () => undefined,
@@ -175,6 +182,7 @@ describe("a view's audio", () => {
     const audio = new ViewAudio({
       peaks: host,
       asset: TONES,
+      quality: MAXIMUM_QUALITY,
       changed: () => {
         changes += 1;
       },
@@ -208,6 +216,7 @@ describe("a view's audio", () => {
       const audio = new ViewAudio({
         peaks: host,
         asset: long,
+        quality: MAXIMUM_QUALITY,
         changed: () => {
           changes += 1;
         },
@@ -237,6 +246,7 @@ describe("a view's audio", () => {
     const audio = new ViewAudio({
       peaks: host,
       asset: TONES,
+      quality: MAXIMUM_QUALITY,
       changed: () => undefined,
       progressed: () => undefined,
       failed: () => undefined,
@@ -263,6 +273,7 @@ describe("a view's audio", () => {
     const audio = new ViewAudio({
       peaks: host,
       asset: TONES,
+      quality: MAXIMUM_QUALITY,
       changed: () => undefined,
       progressed: () => undefined,
       failed: () => undefined,

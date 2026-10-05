@@ -31,6 +31,7 @@ import { audioImportCommands } from './audio-import-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
+import { qualityCommands } from './quality-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
 import { editorAssetCommands } from './editor-asset-commands.js';
 import { editorNavigationCommands } from './editor-navigation-commands.js';
@@ -177,6 +178,7 @@ export function shellCommands(
     ...projectSystemCommands(),
     ...audioCommands(),
     ...audioSettingsCommands(),
+    ...qualityCommands(),
     ...editorAssetCommands(),
     ...editorNavigationCommands(),
     ...editorPresentationCommands(),

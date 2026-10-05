@@ -9,7 +9,7 @@
  * is made at whatever rate the context runs at.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import type { DomainResult, QualityMode } from '@audiogubbins/domain';
 import type { PlaybackRequest } from '@audiogubbins/audio-runtime';
 
 /** What the transport plays. */
@@ -18,8 +18,8 @@ export interface Programme {
   readonly key: string;
   /** The rate its audio is at, which the context is made at; `undefined` to take the device's. */
   readonly rate: number | undefined;
-  /** The request that plays it, in a context of `contextRate`. */
-  readonly request: (contextRate: number) => DomainResult<PlaybackRequest>;
+  /** The request that plays it, in a context of `contextRate`, previewing at `quality`. */
+  readonly request: (contextRate: number, quality: QualityMode) => DomainResult<PlaybackRequest>;
   /** What is said once it is heard. */
   readonly playing: string;
 }

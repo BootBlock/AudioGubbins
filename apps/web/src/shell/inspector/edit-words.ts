@@ -92,6 +92,8 @@ function rangeEditWords(
       return `Copied ${name(edit.from)} to ${name(edit.to)}`;
     case 'channel-gains':
       return `Channel gains of ${edit.gains.map(decibelsOf).join(', ')}`;
+    case 'rack':
+      return 'Processed through a chain of processors';
     default:
       return `${levelWords(edit)}${scopeWords(channels, names)}`;
   }
@@ -120,6 +122,10 @@ export function operationWords(
       const names = channelNames(operation.layout);
       return `Converted to ${counted(channelCount(operation.layout), 'channel', 'channels')}: ${names.join(', ')}`;
     }
+    case 'stretch':
+      return `Stretched ${rangeWords(operation.range, words)} to ${counted(operation.length, 'frame', 'frames')}`;
+    case 'convert-rate':
+      return `Converted to ${String(operation.sampleRate / 1000)} kHz`;
   }
 }
 

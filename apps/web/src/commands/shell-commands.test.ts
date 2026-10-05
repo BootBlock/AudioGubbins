@@ -1052,6 +1052,11 @@ describe('finding the shell commands in the palette', () => {
     'transport.render-mode-automatic': {
       before: (run) => run('transport.render-mode-final-offline'),
     },
+    'transport.render-quality-maximum': { before: (run) => run('transport.render-quality-draft') },
+    'transport.preview-quality-automatic': {
+      before: (run) => run('transport.preview-quality-high'),
+    },
+    'transport.set-custom-render-quality': { arguments: () => ({ oversampling: 4 }) },
     // A render waits on a decision where the foreground was chosen over a
     // warning that the last render ran slower than real time.
     'transport.render-safer': { before: awaitDecision },

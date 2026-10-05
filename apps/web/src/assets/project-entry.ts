@@ -19,11 +19,12 @@ import {
   type AssetId,
   type EditPlan,
   type PlacedMarker,
+  type PlanContext,
   type Region,
   type RegionId,
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
-import type { AssetSource } from '@audiogubbins/project-format';
+import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
 import { counted } from '@audiogubbins/text';
 
 import { quoted } from '../wording.js';
@@ -99,7 +100,7 @@ function mediaOf(
  */
 export function assetSentence(asset: Asset, plan: EditPlan): string {
   const [stream] = plan.streams;
-  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(asset.sampleRate / 1000)} kHz`;
+  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(stream.sampleRate / 1000)} kHz`;
   return asset.edits.length === 0
     ? `Audio of the project: ${shape}.`
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
@@ -123,7 +124,9 @@ export function openedEntry(
     return { kind: files.kind, id: made.id, name: made.name, reason: files.reason };
   }
   const [stream] = plan.streams;
-  const sampleRate = made.owner.asset.sampleRate;
+  // The edited sound's rate, which a conversion in its chain may have changed
+  // from its source's.
+  const { sampleRate } = stream;
   const sources = reads.sources.map((source) => source?.media);
   return {
     kind: 'open',
@@ -134,7 +137,9 @@ export function openedEntry(
       sampleRate,
       layout: stream.layout,
       length: derivedSampleCount(streamLength(stream)),
-      revision: revisionOf(JSON.stringify({ plan, sources })),
+      // Written as the project writes a plan, so every value in it counts,
+      // the parameter values of its chains among them.
+      revision: revisionOf(`${canonicalJson(writeEditPlan(plan))}${JSON.stringify(sources)}`),
       describe: () => ({
         kind: PcmDescriptionKind.Edited,
         sampleRate,
@@ -161,14 +166,19 @@ export function regionEntry(
     readonly region: Region;
     readonly markers: readonly PlacedMarker[];
     readonly resolver: AnchorResolver;
+    readonly context: PlanContext;
   },
   reads: Reads,
 ): ProjectEntry {
-  const { asset, region, markers, resolver } = parts;
+  const { asset, region, markers, resolver, context } = parts;
   const id = regionEntryId(region.id);
   const placed = placeRegion(resolver, region);
   if (placed === undefined || placed.length === 0) {
     return { kind: 'unavailable', id, name: region.displayName, reason: GONE };
+  }
+  const plan = regionPlan(asset, region, context, resolver);
+  if (!plan.ok) {
+    return { kind: 'unavailable', id, name: region.displayName, reason: plan.failures[0].summary };
   }
   return openedEntry(
     {
@@ -179,7 +189,7 @@ export function regionEntry(
         kind: 'project',
         asset,
         region,
-        plan: regionPlan(asset, region, resolver),
+        plan: plan.value,
         offset: placed.start,
       },
       markers: markersInRegion(markers, placed),

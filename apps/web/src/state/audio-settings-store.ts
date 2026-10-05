@@ -1,9 +1,10 @@
 /**
- * How the person has set the audio engine up, and how it survives a reload:
- * the performance profile and the Custom profile's settings (REQ-ARCH-083),
- * how background work shares the machine with interactive work
- * (REQ-ARCH-084), and the processing mode renders use over the automatic
- * choice (REQ-ARCH-079).
+ * How the person has set the audio engine up, and how it survives a reload: the
+ * performance profile and the Custom profile's settings (REQ-ARCH-083), how
+ * background work shares the machine with interactive work (REQ-ARCH-084), the
+ * processing mode renders use over the automatic choice (REQ-ARCH-079), and the
+ * quality a final render and a preview run their processing at (REQ-AUDIO-080,
+ * REQ-AUDIO-086, REQ-AUDIO-143).
  *
  * The user's preferences for audio, which REQ-ARCH-153 keeps apart from what
  * the engine is doing now (`audio-view-store.ts`): written to their own key,
@@ -15,6 +16,7 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
+import { MAXIMUM_QUALITY, type QualityMode } from '@audiogubbins/domain';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import {
   PerformanceProfile,
@@ -23,6 +25,7 @@ import {
   SchedulingPolicy,
   availableProcessingModes,
   isLatencyHint,
+  previewQualityFor,
   validatePerformanceSettings,
   type LatencyHint,
   type PerformanceSettings,
@@ -34,6 +37,7 @@ import { observable, type Observable } from './observable.js';
 import { reasonsOf, type Reasons } from './reasons.js';
 import { isMemberOf, isRecord, versionFound } from './stored-value.js';
 import { PersistedPart, type StateStorage } from './state-storage.js';
+import { canonicalQuality, readStoredQuality, sameQuality } from './stored-quality.js';
 
 /** The key the audio settings are stored under. */
 export const AUDIO_SETTINGS_KEY = 'audiogubbins.audio-settings';
@@ -63,6 +67,20 @@ export interface AudioSettings {
 
   /** The mode renders use over the automatic choice, or `undefined` to choose automatically. */
   readonly renderMode: ProcessingMode | undefined;
+
+  /**
+   * The quality a final render runs at, which the peaks draw too. A new
+   * object only when its settings change, so its identity says whether they
+   * did.
+   */
+  readonly renderQuality: QualityMode;
+
+  /**
+   * The quality playback previews at, or `undefined` to follow the profile
+   * (`previewQualityOf` gives the one in force). A new object only when its
+   * settings change.
+   */
+  readonly previewQuality: QualityMode | undefined;
 }
 
 /** Custom settings start as Balanced's, the default, for the person to adjust from. */
@@ -84,13 +102,36 @@ const PRESET_CHOICES: Readonly<Record<PresetProfile, ChosenProfile>> = {
   },
 };
 
-/** The settings AudioGubbins starts with: Balanced, interactive work first, modes chosen automatically. */
+/**
+ * The settings AudioGubbins starts with: Balanced, interactive work first,
+ * modes chosen automatically, renders at the highest quality (REQ-AUDIO-143)
+ * and previews at the profile's.
+ */
 const DEFAULT_AUDIO_SETTINGS: AudioSettings = {
   chosen: PRESET_CHOICES[PerformanceProfile.Balanced],
   custom: DEFAULT_CUSTOM,
   priorityPolicy: SchedulingPolicy.InteractiveFirst,
   renderMode: undefined,
+  renderQuality: MAXIMUM_QUALITY,
+  previewQuality: undefined,
 };
+
+/** The quality each profile previews at, made once so that each is the same object every time. */
+const PROFILE_PREVIEWS: Readonly<Record<PerformanceProfile, QualityMode>> = {
+  [PerformanceProfile.LowLatency]: canonicalQuality(
+    previewQualityFor(PerformanceProfile.LowLatency),
+  ),
+  [PerformanceProfile.Balanced]: canonicalQuality(previewQualityFor(PerformanceProfile.Balanced)),
+  [PerformanceProfile.MaximumStability]: canonicalQuality(
+    previewQualityFor(PerformanceProfile.MaximumStability),
+  ),
+  [PerformanceProfile.Custom]: canonicalQuality(previewQualityFor(PerformanceProfile.Custom)),
+};
+
+/** The quality playback previews at: the one the person chose, or else the profile's. */
+export function previewQualityOf(settings: AudioSettings): QualityMode {
+  return settings.previewQuality ?? PROFILE_PREVIEWS[settings.chosen.profile];
+}
 
 function chosenFor(profile: PerformanceProfile, custom: PerformanceSettings): ChosenProfile {
   return profile === PerformanceProfile.Custom
@@ -174,16 +215,24 @@ function readAudioSettings(stored: string | null, logger: Logger): AudioSettings
   const profile = parsed['profile'];
   const policy = parsed['priorityPolicy'];
   const renderMode = parsed['renderMode'];
+  const preview = parsed['previewQuality'];
+  const chosen = chosenFor(
+    isMemberOf(PerformanceProfile, profile) ? profile : PerformanceProfile.Balanced,
+    custom,
+  );
   return {
-    chosen: chosenFor(
-      isMemberOf(PerformanceProfile, profile) ? profile : PerformanceProfile.Balanced,
-      custom,
-    ),
+    chosen,
     custom,
     priorityPolicy: isMemberOf(SchedulingPolicy, policy)
       ? policy
       : DEFAULT_AUDIO_SETTINGS.priorityPolicy,
     renderMode: isRenderMode(renderMode) ? renderMode : undefined,
+    renderQuality: readStoredQuality(parsed['renderQuality'], DEFAULT_AUDIO_SETTINGS.renderQuality),
+    // Absent, the preview follows the profile. A chosen one with a spoiled
+    // setting takes that setting from the profile's.
+    previewQuality: isRecord(preview)
+      ? readStoredQuality(preview, PROFILE_PREVIEWS[chosen.profile])
+      : undefined,
   };
 }
 
@@ -202,6 +251,12 @@ export interface AudioSettingsStore extends Observable<AudioSettings> {
 
   /** Sets the mode renders use, or `undefined` to choose automatically. */
   readonly chooseRenderMode: (mode: ProcessingMode | undefined) => Reasons | undefined;
+
+  /** Sets the quality a final render runs at: a named level's mode, or Custom settings. */
+  readonly chooseRenderQuality: (mode: QualityMode) => void;
+
+  /** Sets the quality playback previews at, or `undefined` to follow the profile. */
+  readonly choosePreviewQuality: (mode: QualityMode | undefined) => void;
 }
 
 /** The settings as they are written to storage. */
@@ -212,7 +267,16 @@ function serialised(settings: AudioSettings): string {
     custom: settings.custom,
     priorityPolicy: settings.priorityPolicy,
     ...(settings.renderMode === undefined ? {} : { renderMode: settings.renderMode }),
+    renderQuality: settings.renderQuality.settings,
+    ...(settings.previewQuality === undefined
+      ? {}
+      : { previewQuality: settings.previewQuality.settings }),
   });
+}
+
+/** `current` where `next` sets the same values, so a mode set again is never a new object. */
+function keptQuality(current: QualityMode | undefined, next: QualityMode): QualityMode {
+  return current !== undefined && sameQuality(current, next) ? current : canonicalQuality(next);
 }
 
 /**
@@ -273,6 +337,19 @@ export function createAudioSettingsStore(
       const current = state.get();
       if (current.renderMode !== renderMode) adopt({ ...current, renderMode });
       return undefined;
+    },
+
+    chooseRenderQuality: (mode) => {
+      const current = state.get();
+      const renderQuality = keptQuality(current.renderQuality, mode);
+      if (renderQuality !== current.renderQuality) adopt({ ...current, renderQuality });
+    },
+
+    choosePreviewQuality: (mode) => {
+      const current = state.get();
+      const previewQuality =
+        mode === undefined ? undefined : keptQuality(current.previewQuality, mode);
+      if (previewQuality !== current.previewQuality) adopt({ ...current, previewQuality });
     },
   };
 }

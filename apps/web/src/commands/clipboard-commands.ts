@@ -23,9 +23,11 @@ import {
 import {
   copyAudio,
   planPaste,
+  type AudioPayload,
   type ClipboardPayload,
   type PasteRequest,
 } from '@audiogubbins/clipboard';
+import { canonicalJson, writeEditPlan } from '@audiogubbins/project-format';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import {
@@ -71,9 +73,16 @@ function clipboardCommand(
   });
 }
 
-/** Whether two copies hold the same audio from the same project. */
-function sameCopy(one: ClipboardPayload | undefined, other: ClipboardPayload): boolean {
-  return one?.origin === other.origin && JSON.stringify(one.plan) === JSON.stringify(other.plan);
+/**
+ * Whether two copies hold the same audio from the same project, each plan
+ * compared as the project writes it, so every value in it counts.
+ */
+function sameCopy(one: ClipboardPayload | undefined, other: AudioPayload): boolean {
+  return (
+    one?.kind === 'audio' &&
+    one.origin === other.origin &&
+    canonicalJson(writeEditPlan(one.plan)) === canonicalJson(writeEditPlan(other.plan))
+  );
 }
 
 /** Copies the scope to the clipboard, answering what it was called, or why it could not. */
@@ -153,6 +162,18 @@ function pastedAt(
   return { kind: 'at', at: onAsset(owner, playheadOf(context, view.asset)) };
 }
 
+/** The audio the clipboard holds, and what it was called, or why it holds none. */
+function heldAudio(
+  context: ShellContext,
+): { readonly audio: AudioPayload; readonly description: string | undefined } | string {
+  const { copied, description } = context.clipboard.get();
+  if (copied === undefined) return 'Nothing is copied. Copy or cut some audio first.';
+  if (copied.kind !== 'audio') {
+    return 'The clipboard holds processors, not audio. Paste them into a rack.';
+  }
+  return { audio: copied, description };
+}
+
 /** A paste, converting audio at another rate to the asset's where `convertRate`. */
 function pasteCommand(
   id: string,
@@ -164,41 +185,35 @@ function pasteCommand(
     id,
     label,
     (context, invocation) => {
-      const { copied: held, description } = context.clipboard.get();
-      if (held === undefined) return 'Nothing is copied. Copy or cut some audio first.';
+      const held = heldAudio(context);
+      if (typeof held === 'string') return held;
       const found = editedView(context, invocation);
       if (typeof found === 'string') return found;
       const stores = readyProjects(context);
       if (typeof stores === 'string') return stores;
       const { owner, state, session } = found.project;
-      const planned = planPaste(
-        state,
-        {
-          payload: held,
-          asset: owner.asset.id,
-          place: pastedAt(context, found.view, owner),
-          convertRate,
-        },
-        context.ids,
-      );
+      const place = pastedAt(context, found.view, owner);
+      const request = { payload: held.audio, asset: owner.asset.id, place, convertRate };
+      const planned = planPaste(state, request, context.ids);
       if (!planned.ok) {
         const [failure] = planned.failures;
         if (failure.code !== 'editing.payload-rate') return failure.summary;
-        const from = kilohertz(held.plan.streams[0].sampleRate);
+        const from = kilohertz(held.audio.plan.streams[0].sampleRate);
         const to = kilohertz(owner.asset.sampleRate);
         return `The copied audio is at ${from} and this audio is at ${to}. To convert it to ${to} as it is pasted, use ${PASTE_CONVERTING}.`;
       }
+      const { records, operations } = planned.value;
       sayWhenSettled(
         context,
         stores.pastes.paste(session, {
           description: 'Paste',
-          records: planned.value.records,
+          records,
           asset: owner.asset.id,
-          operations: planned.value.operations,
+          operations,
         }),
         (outcome) =>
           outcome.kind === 'applied'
-            ? onWholeAsset(owner, `Pasted ${description ?? 'the copied audio'}.`)
+            ? onWholeAsset(owner, `Pasted ${held.description ?? 'the copied audio'}.`)
             : outcome.reason,
       );
       return undefined;

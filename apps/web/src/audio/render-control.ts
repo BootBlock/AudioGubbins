@@ -139,7 +139,10 @@ export class RenderControl {
    */
   render(): RenderStart {
     const settings = this.#settings.get();
-    const render = testSignalRender(settings.chosen.settings.renderChunkMilliseconds);
+    const render = testSignalRender(
+      settings.chosen.settings.renderChunkMilliseconds,
+      settings.renderQuality,
+    );
     if (!render.ok) return { kind: 'refused', reasons: reasonsOf(render.failures) };
     const { request } = render.value;
     const { availableMemoryBytes } = this.#resources();

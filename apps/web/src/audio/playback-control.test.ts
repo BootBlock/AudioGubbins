@@ -1,12 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { FailureKind, fail, failure, sampleCount } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  QualityLevel,
+  fail,
+  failure,
+  namedQualityMode,
+  sampleCount,
+  type QualityMode,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
 import { PlaybackPhase } from '@audiogubbins/audio-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
-import { createAudioSettingsStore } from '../state/audio-settings-store.js';
+import { createAudioSettingsStore, previewQualityOf } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
@@ -29,6 +37,7 @@ function rig() {
     view,
     open: parts.open,
     profile: () => settings.get().chosen,
+    quality: () => previewQualityOf(settings.get()),
     announce,
     logger,
   });
@@ -40,7 +49,12 @@ function rig() {
     settings.chooseProfile(profile);
     control.useProfile(settings.get().chosen);
   };
-  return { view, parts, announce, control, settled, settings, choose, logged };
+  /** Chooses a preview quality as its command does: in the settings, and then for playback. */
+  const preview = (mode: QualityMode | undefined) => {
+    settings.choosePreviewQuality(mode);
+    control.usePreviewQuality();
+  };
+  return { view, parts, announce, control, settled, settings, choose, preview, logged };
 }
 
 describe('playing the test signal', () => {
@@ -317,5 +331,76 @@ describe('changing the performance profile', () => {
     expect(parts.opened[0]?.closed).toBe(true);
     expect(parts.latest().disposed).toBe(true);
     expect(view.get().playback).toBeUndefined();
+  });
+});
+
+describe('changing the preview quality', () => {
+  const HIGH = namedQualityMode(QualityLevel.High);
+
+  /** The quality of each load of the latest session, by level. */
+  const loadedLevels = (parts: FakePlayback) =>
+    parts.latest().loads.map((request) => request.quality.level);
+
+  it('loads at the quality the profile previews at until one is chosen', async () => {
+    const { control, parts, settled } = rig();
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard]);
+  });
+
+  it('loads again at the new quality in the same context, and plays on from the same place', async () => {
+    const { control, parts, view, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    parts.latest().contextFrame = 9_600;
+
+    preview(HIGH);
+    await settled();
+
+    expect(parts.opened).toHaveLength(1);
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard, QualityLevel.High]);
+    expect(parts.latest().seeks).toEqual([9_600]);
+    expect(view.get().playback?.transport.mode).toBe(TransportMode.Playing);
+  });
+
+  it('keeps where a paused transport was, and loads at the new quality on the next Play', async () => {
+    const { control, parts, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    parts.latest().contextFrame = 4_800;
+    control.pause();
+
+    preview(HIGH);
+    expect(parts.latest().loads).toHaveLength(1);
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard, QualityLevel.High]);
+    expect(parts.latest().seeks).toEqual([4_800]);
+  });
+
+  it('loads nothing again when the quality in force has not changed', async () => {
+    const { control, parts, settled, preview } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    preview(namedQualityMode(QualityLevel.Standard));
+    preview(undefined);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Standard]);
+  });
+
+  it('follows the profile while automatic, so a new profile previews at its own quality', async () => {
+    const { control, parts, settled, choose } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    choose(PerformanceProfile.LowLatency);
+    await settled();
+
+    expect(loadedLevels(parts)).toEqual([QualityLevel.Draft]);
   });
 });

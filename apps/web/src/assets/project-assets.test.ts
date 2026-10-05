@@ -7,6 +7,7 @@ import {
   unsafeBrandId,
   type Asset,
   type AssetId,
+  type PlanContext,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
@@ -27,9 +28,9 @@ vi.mock(import('@audiogubbins/domain'), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    assetPlan: (asset: Asset) => {
+    assetPlan: (asset: Asset, context: PlanContext) => {
       planned.push(asset.id);
-      return actual.assetPlan(asset);
+      return actual.assetPlan(asset, context);
     },
   };
 });

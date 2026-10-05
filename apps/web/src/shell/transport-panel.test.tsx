@@ -7,7 +7,13 @@ import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubb
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
-import { sampleCount, sampleRate } from '@audiogubbins/domain';
+import {
+  InferencePath,
+  QualityLevel,
+  namedQualityMode,
+  sampleCount,
+  sampleRate,
+} from '@audiogubbins/domain';
 import {
   DspImplementation,
   PRESET_SETTINGS,
@@ -242,7 +248,7 @@ describe('the Transport panel’s processing modes', () => {
 
     expect(reading('Offline render')).toBe(
       'Final offline rendering' +
-        'Rendering offline at full quality, so the file is identical on every machine.',
+        'Rendering offline at the chosen render quality, so the file is identical on every machine.',
     );
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
   });
@@ -281,6 +287,63 @@ describe('the Transport panel’s processing modes', () => {
 
     expect(screen.queryByRole('group', { name: 'How to render' })).not.toBeInTheDocument();
     expect(screen.queryByRole('list', { name: 'What the render was warned of' })).toBeNull();
+  });
+});
+
+describe('the Transport panel’s quality modes', () => {
+  it('shows the render and preview quality with every value each runs at, and where they differ', () => {
+    draw();
+
+    expect(reading('Render quality')).toBe(
+      'Maximum' +
+        'Resampling maximum, oversampling 8 times, spectral overlap 8 frames, inference path pinned.',
+    );
+    expect(reading('Preview quality')).toBe(
+      'Standard' +
+        'Resampling high, oversampling 2 times, spectral overlap 4 frames, inference path pinned.' +
+        ' Chosen by the performance profile.',
+    );
+    expect(
+      screen.getByText(
+        'Playback differs from a render in resampling (high, against maximum), oversampling (2 times, against 8 times) and spectral overlap (4 frames, against 8 frames), so what you hear is not exactly what a render makes.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('follows a change of either, and says so where they match', () => {
+    const settings = audioSettings();
+    draw(undefined, { settings });
+
+    act(() => {
+      settings.choosePreviewQuality(namedQualityMode(QualityLevel.Maximum));
+    });
+
+    expect(reading('Preview quality')).toBe(
+      'Maximum' +
+        'Resampling maximum, oversampling 8 times, spectral overlap 8 frames, inference path pinned.',
+    );
+    expect(
+      screen.getByText(
+        'Playback previews at the values a render runs at, so what you hear is what a render makes.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows a render’s inference pinned, whatever its Custom settings say', () => {
+    const settings = audioSettings();
+    settings.chooseRenderQuality({
+      level: QualityLevel.Custom,
+      settings: {
+        ...namedQualityMode(QualityLevel.Standard).settings,
+        inference: InferencePath.Accelerated,
+      },
+    });
+    draw(undefined, { settings });
+
+    expect(reading('Render quality')).toBe(
+      'Custom' +
+        'Resampling high, oversampling 2 times, spectral overlap 4 frames, inference path pinned.',
+    );
   });
 });
 

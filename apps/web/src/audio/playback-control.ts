@@ -9,10 +9,17 @@
  * ran, before anything is awaited; the session, which needs the DSP module
  * compiled, follows it. A context keeps its latency hint and its rate for its
  * life, so a change of profile, or a programme at another rate, closes it and
- * makes another, going on from where playback was if it was playing.
+ * makes another, going on from where playback was if it was playing. A change
+ * of preview quality keeps the context and loads the programme again at it.
  */
 
-import { flatMapResult, succeed, type DomainResult, type SampleCount } from '@audiogubbins/domain';
+import {
+  flatMapResult,
+  succeed,
+  type DomainResult,
+  type QualityMode,
+  type SampleCount,
+} from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
@@ -79,6 +86,8 @@ interface Opened {
    * context, and which a change of profile goes on playing.
    */
   loaded: Programme | undefined;
+  /** The preview quality `loaded` was loaded at. */
+  quality: QualityMode | undefined;
 }
 
 /** Why Pause or Stop finds nothing to act on; their availability says so first. */
@@ -99,6 +108,7 @@ export class PlaybackControl {
   readonly #view: AudioViewStore;
   readonly #open: OpenPlayback;
   readonly #profile: () => ChosenProfile;
+  readonly #quality: () => QualityMode;
   readonly #announce: (text: string) => void;
   readonly #logger: Logger;
   #opened: Opened | undefined;
@@ -113,12 +123,18 @@ export class PlaybackControl {
     readonly open: OpenPlayback;
     /** The profile the person chose, which the first Play opens with. */
     readonly profile: () => ChosenProfile;
+    /**
+     * The quality playback previews at, the same object until it changes:
+     * read at each load, and compared by identity to learn whether it did.
+     */
+    readonly quality: () => QualityMode;
     readonly announce: (text: string) => void;
     readonly logger: Logger;
   }) {
     this.#view = options.view;
     this.#open = options.open;
     this.#profile = options.profile;
+    this.#quality = options.quality;
     this.#announce = options.announce;
     this.#logger = options.logger;
   }
@@ -228,6 +244,29 @@ export class PlaybackControl {
     }
   }
 
+  /**
+   * Plays at the preview quality in force from now on. The context is kept;
+   * the programme is loaded again at the new quality, playing on from where it
+   * was if it was playing, and otherwise at the next Play from where it
+   * stands.
+   */
+  usePreviewQuality(): void {
+    const current = this.#opened;
+    if (current === undefined) return;
+    const { session, loaded: programme } = current;
+    if (session === undefined || programme === undefined || current.quality === this.#quality()) {
+      return;
+    }
+    const mode = session.status.transport.mode;
+    const position = session.position();
+    const from = position.ok ? position.value : undefined;
+    if (mode === TransportMode.Playing || mode === TransportMode.Suspended) {
+      this.#start(current, programme, from);
+    } else if (from !== undefined) {
+      this.#resumeFrom = { key: programme.key, at: from };
+    }
+  }
+
   /** The timeline frame the listener hears, at the context's rate, or `undefined` with no session. */
   audiblePosition(): SampleCount | undefined {
     const heard = this.#opened?.session?.audiblePosition();
@@ -267,6 +306,7 @@ export class PlaybackControl {
       session: undefined,
       stopListening: undefined,
       loaded: undefined,
+      quality: undefined,
     };
     this.#opened = opened;
     return opened;
@@ -335,9 +375,10 @@ export class PlaybackControl {
   }
 
   /**
-   * Loads `programme`, unless the session has it or will load it again
-   * itself. The audio is described, at the context's rate, and the feeder
-   * worker makes it: the page makes no audio of its own.
+   * Loads `programme`, unless the session has it at the preview quality in
+   * force or will load it again itself. The audio is described, at the
+   * context's rate, and the feeder worker makes it: the page makes no audio of
+   * its own.
    */
   #loaded(
     current: Opened,
@@ -345,14 +386,18 @@ export class PlaybackControl {
     programme: Programme,
   ): Promise<DomainResult<void>> {
     const { phase } = session.status;
-    const holds = current.loaded?.key === programme.key;
+    const quality = this.#quality();
+    const holds = current.loaded?.key === programme.key && current.quality === quality;
     // Lost with its context, the graph is loaded again by the session's Play.
     if (holds && (phase === PlaybackPhase.Ready || phase === PlaybackPhase.Unloaded)) {
       return Promise.resolve(succeed(undefined));
     }
-    const request = flatMapResult(current.parts.contextRate(), programme.request);
+    const request = flatMapResult(current.parts.contextRate(), (rate) =>
+      programme.request(rate, quality),
+    );
     if (!request.ok) return Promise.resolve(request);
     current.loaded = programme;
+    current.quality = quality;
     return session.load(request.value);
   }
 

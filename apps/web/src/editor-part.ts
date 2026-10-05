@@ -40,6 +40,8 @@ import { createEditorViewStore, type EditorViewStore } from './state/editor-view
 import { createRendererReports } from './state/renderer-reports.js';
 import { reconcileSelections } from './state/selection-reconciling.js';
 import { createSelectionStore } from './state/selection-store.js';
+import type { AudioSettings } from './state/audio-settings-store.js';
+import type { Observable } from './state/observable.js';
 import type { StateStorage } from './state/state-storage.js';
 import type { WorkspaceStore } from './state/workspace-store.js';
 
@@ -111,6 +113,7 @@ export function panelPartsOf(
       assets: context.assets,
       picture: context.picture,
       audio: context.audio,
+      audioSettings: context.audioSettings,
       playhead: (asset) => playheadOf(context, asset),
       playing: (asset) =>
         context.playback.programme() === asset &&
@@ -145,13 +148,15 @@ function referencePicture(
 
 /**
  * Builds the editor part, its assets following the open project of `projects`
- * where this browser keeps projects.
+ * where this browser keeps projects, and its peaks drawn at the chosen render
+ * quality of `audioSettings`.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
   storage: StateStorage,
   logger: Logger,
   workspace: WorkspaceStore,
+  audioSettings: Observable<Pick<AudioSettings, 'renderQuality'>>,
   projects: {
     readonly projects: ProjectStores | undefined;
     readonly peakCache: PeakCacheStore;
@@ -174,7 +179,7 @@ export function startEditor(
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
   const peaks = peakHost(projects.peakCache, logger);
-  const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
+  const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {

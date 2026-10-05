@@ -60,7 +60,7 @@ import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.j
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { startEditor, type PanelControls } from './editor-part.js';
-import { createAudioSettingsStore } from './state/audio-settings-store.js';
+import { createAudioSettingsStore, previewQualityOf } from './state/audio-settings-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
@@ -157,6 +157,7 @@ function startAudio(
     view: audio,
     open: browserPlayback({ capabilities: runtime, engine, logger }),
     profile: () => audioSettings.get().chosen,
+    quality: () => previewQualityOf(audioSettings.get()),
     announce,
     logger,
   });
@@ -321,6 +322,7 @@ export function createApplication() {
     storage,
     diagnostics.loggerFor('editor'),
     workspace,
+    audioPart.parts.audioSettings,
     projectSystem,
   );
 

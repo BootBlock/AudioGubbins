@@ -50,13 +50,14 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
         {
           id: CHAIN,
           change: 'changed',
-          processors: [
+          slots: [
             {
               id: EQ,
+              kind: 'processor',
               change: 'changed',
               typeKey: 'parametric-eq',
-              before: 0,
-              after: 1,
+              before: { index: 0 },
+              after: { index: 1 },
               moved: true,
               fields: ['enabled'],
               parameters: [{ id: LEVEL, before: 0.5, after: 0.75 }],

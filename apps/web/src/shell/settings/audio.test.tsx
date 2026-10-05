@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { commandId } from '@audiogubbins/commands';
 import { PRESET_SETTINGS, PerformanceProfile, SchedulingPolicy } from '@audiogubbins/audio-engine';
+import { MAXIMUM_QUALITY, QualityLevel, namedQualityMode } from '@audiogubbins/domain';
 
 import type { ShellContext } from '../../commands/shell-context.js';
 import { busOfShellCommands } from '../../testing/command-availability.js';
@@ -31,6 +33,19 @@ function Section({ context }: { readonly context: ShellContext }): ReactNode {
 
 function field(name: string): HTMLElement {
   return screen.getByRole('textbox', { name });
+}
+
+/** The select called `name` within the group `group`. */
+function select(group: string, name: string): HTMLElement {
+  return within(screen.getByRole('group', { name: group })).getByRole('combobox', { name });
+}
+
+/** Opens the select called `name` within `group` from the keyboard, and picks `option`. */
+async function choose(group: string, name: string, option: string): Promise<void> {
+  const trigger = select(group, name);
+  trigger.focus();
+  await userEvent.keyboard('{Enter}');
+  await userEvent.click(screen.getByRole('option', { name: option }));
 }
 
 describe('the audio settings', () => {
@@ -102,5 +117,57 @@ describe('the audio settings', () => {
       'Background work as fast as possible',
     );
     expect(screen.getByRole('combobox', { name: 'Render mode' })).toHaveTextContent('Automatic');
+  });
+});
+
+describe('the quality settings', () => {
+  it('shows the render quality, every value it sets, and no inference path, which a render pins', () => {
+    const { context } = buildShellContext();
+    render(<Section context={context} />);
+
+    expect(select('Render quality', 'Render quality level')).toHaveTextContent('Maximum');
+    expect(select('Render quality', 'Resampling')).toHaveTextContent('Maximum');
+    expect(select('Render quality', 'Oversampling')).toHaveTextContent('8 times');
+    expect(select('Render quality', 'Spectral overlap')).toHaveTextContent('8 frames');
+    expect(
+      within(screen.getByRole('group', { name: 'Render quality' })).queryByRole('combobox', {
+        name: 'Inference path',
+      }),
+    ).toBeNull();
+  });
+
+  it('shows the preview following the profile, with the values the profile previews at', () => {
+    const { context } = buildShellContext();
+    context.audioSettings.chooseProfile(PerformanceProfile.LowLatency);
+    render(<Section context={context} />);
+
+    expect(select('Preview quality', 'Preview quality level')).toHaveTextContent('Automatic');
+    expect(select('Preview quality', 'Resampling')).toHaveTextContent('Draft');
+    expect(select('Preview quality', 'Oversampling')).toHaveTextContent('None');
+    expect(select('Preview quality', 'Inference path')).toHaveTextContent('Accelerated');
+  });
+
+  it('chooses a level through its command', async () => {
+    const { context } = buildShellContext();
+    render(<Section context={context} />);
+
+    await choose('Render quality', 'Render quality level', 'Draft');
+    await choose('Preview quality', 'Preview quality level', 'High');
+
+    expect(context.audioSettings.get().renderQuality.level).toBe(QualityLevel.Draft);
+    expect(context.audioSettings.get().previewQuality).toEqual(namedQualityMode(QualityLevel.High));
+  });
+
+  it('sets one value through the Custom command, keeping the others, and shows Custom', async () => {
+    const { context } = buildShellContext();
+    render(<Section context={context} />);
+
+    await choose('Render quality', 'Oversampling', '4 times');
+
+    expect(context.audioSettings.get().renderQuality).toEqual({
+      level: QualityLevel.Custom,
+      settings: { ...MAXIMUM_QUALITY.settings, oversampling: 4 },
+    });
+    expect(select('Render quality', 'Render quality level')).toHaveTextContent('Custom');
   });
 });

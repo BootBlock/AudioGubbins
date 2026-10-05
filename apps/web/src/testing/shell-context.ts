@@ -27,7 +27,7 @@ import { KeyboardConvention } from '@audiogubbins/commands';
 import { PlaybackControl } from '../audio/playback-control.js';
 import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { createAudioSettingsStore } from '../state/audio-settings-store.js';
+import { createAudioSettingsStore, previewQualityOf } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
@@ -149,6 +149,7 @@ function fakeAudio(
         view: audio,
         open: fakes.playback.open,
         profile: () => audioSettings.get().chosen,
+        quality: () => previewQualityOf(audioSettings.get()),
         announce,
         logger,
       }),

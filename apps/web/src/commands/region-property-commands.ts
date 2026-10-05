@@ -54,15 +54,19 @@ function loopCommand(): Command<ShellContext> {
         given === undefined ? 0 : typeof given === 'number' ? given : Number.NaN,
       );
       if (!crossfade.ok) return crossfade.failures[0].summary;
-      const looped = validateRegion(found.asset, {
-        ...found.region,
-        loop: {
-          basis: found.asset.edits.length,
-          start: scope.target.range.start,
-          end: scope.target.range.end,
-          crossfadeLength: crossfade.value,
+      const looped = validateRegion(
+        found.asset,
+        {
+          ...found.region,
+          loop: {
+            basis: found.asset.edits.length,
+            start: scope.target.range.start,
+            end: scope.target.range.end,
+            crossfadeLength: crossfade.value,
+          },
         },
-      });
+        found.project.state.project.effectChains,
+      );
       if (!looped.ok) return looped.failures[0].summary;
       changeProject(context, found.project.session, {
         description: `Loop ${found.region.displayName}`,
