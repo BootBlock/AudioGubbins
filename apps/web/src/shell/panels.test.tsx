@@ -135,6 +135,7 @@ describe('every panel', () => {
           framesRendered: () => 0,
           run: () => true,
           unavailableReason: () => undefined,
+          labelFor: (id) => id,
           editor: fakePanelParts(buildShellContext().context, logger),
         })}
       </>,

@@ -161,6 +161,7 @@ export function panelContextOf(
     framesRendered: () => context.rendering.framesRendered(),
     run,
     unavailableReason,
+    labelFor: editorPanels.labelFor,
   };
 }
 
