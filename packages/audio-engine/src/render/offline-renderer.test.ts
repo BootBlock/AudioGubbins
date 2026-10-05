@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  Cancelled,
   StandardLayouts,
+  createCancellationSource,
   labelledLayout,
   mapResult,
   sampleRate,
@@ -9,7 +11,6 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
-import { createCancellationSource, Cancelled } from '../cancellation.js';
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { BUILT_IN_NODES } from '../nodes/built-in-nodes.js';
 import { BuiltInNodeType } from '../nodes/built-in-node-type.js';

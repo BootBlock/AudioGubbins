@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
-import { Cancelled, createCancellationSource, type CancellationSignal } from '../cancellation.js';
+import { Cancelled, createCancellationSource, type CancellationSignal } from '@audiogubbins/domain';
+
 import {
   JobPriority,
   SchedulingPolicy,

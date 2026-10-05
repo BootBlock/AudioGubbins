@@ -8,10 +8,16 @@
  * header, so the two cannot disagree about what a file is.
  */
 
-import { mapResult, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  mapResult,
+  succeed,
+  throwIfCancelled,
+  type CancellationSignal,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import { recogniseAiff } from './aiff-container.js';
-import { throwIfCancelled, type AudioBytes, type ReadSignal } from './audio-bytes.js';
+import type { AudioBytes } from './audio-bytes.js';
 import { HeaderSource, fourCharacterCode, readExactly } from './byte-reading.js';
 import type { FormatStage } from './format-descriptor.js';
 import type { ReadableContainer, ReadableFormat, RecognisedFormat } from './recognised-format.js';
@@ -57,7 +63,7 @@ function foreignFormat(head: Uint8Array): Exclude<RecognisedFormat, ReadableForm
 /** The first stage of the parse: the format, and for a readable one, the rest of the parse. */
 export async function recogniseStage(
   bytes: AudioBytes,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<FormatStage>> {
   if (!Number.isSafeInteger(bytes.size) || bytes.size < 0) {
     throw new RangeError('An audio byte source reports its size as a whole number of bytes.');
@@ -86,7 +92,7 @@ export async function recogniseStage(
  */
 export async function recogniseAudio(
   bytes: AudioBytes,
-  signal?: ReadSignal,
+  signal?: CancellationSignal,
 ): Promise<DomainResult<RecognisedFormat>> {
   return mapResult(await recogniseStage(bytes, signal), (stage) => stage.format);
 }

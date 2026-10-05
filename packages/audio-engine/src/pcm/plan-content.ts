@@ -17,11 +17,14 @@ import {
   FailureKind,
   applyStages,
   channelCount,
+  createCancellationSource,
   failure,
   placeOf,
   sampleCount,
   sliceSegment,
+  throwIfCancelled,
   type AssetId,
+  type CancellationSignal,
   type DomainFailure,
   type PlanSource,
   type PlanStream,
@@ -29,11 +32,6 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import {
-  createCancellationSource,
-  throwIfCancelled,
-  type CancellationSignal,
-} from '../cancellation.js';
 import { mediaBytes, type MediaFile } from './media-file.js';
 import type { PcmSource } from './pcm-source.js';
 

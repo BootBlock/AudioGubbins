@@ -14,7 +14,7 @@
  * domain alone.
  */
 
-export { type AudioBytes, type ReadSignal } from './audio-bytes.js';
+export { type AudioBytes } from './audio-bytes.js';
 
 export { type ReadableContainer } from './recognised-format.js';
 

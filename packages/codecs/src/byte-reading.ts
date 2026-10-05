@@ -9,9 +9,15 @@
  * within them is not read twice.
  */
 
-import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  fail,
+  succeed,
+  throwIfCancelled,
+  type CancellationSignal,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
-import { throwIfCancelled, type AudioBytes, type ReadSignal } from './audio-bytes.js';
+import type { AudioBytes } from './audio-bytes.js';
 import { sourceChanged } from './codec-failures.js';
 
 /**
@@ -22,7 +28,7 @@ export async function readExactly(
   bytes: AudioBytes,
   offset: number,
   length: number,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<Uint8Array>> {
   throwIfCancelled(signal);
   const answer = await bytes.read(offset, length, signal);
@@ -48,7 +54,7 @@ export class HeaderSource {
   async read(
     offset: number,
     length: number,
-    signal: ReadSignal | undefined,
+    signal: CancellationSignal | undefined,
   ): Promise<DomainResult<Uint8Array>> {
     if (offset + length <= this.head.length) {
       throwIfCancelled(signal);

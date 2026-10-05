@@ -12,9 +12,8 @@
  * decide, by which chunk it is.
  */
 
-import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
+import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
 
-import type { ReadSignal } from './audio-bytes.js';
 import { fourCharacterCode, viewOf, type HeaderSource } from './byte-reading.js';
 import { malformed } from './codec-failures.js';
 import { quotedCode } from './recognised-format.js';
@@ -59,7 +58,7 @@ export class ChunkWalk {
   }
 
   /** The next chunk, or `undefined` once no whole chunk header remains in the file. */
-  async next(signal: ReadSignal | undefined): Promise<DomainResult<ChunkSpan | undefined>> {
+  async next(signal: CancellationSignal | undefined): Promise<DomainResult<ChunkSpan | undefined>> {
     if (this.cursor + CHUNK_HEADER_BYTES > this.source.size) return succeed(undefined);
     if (this.walked === MAXIMUM_CHUNKS) {
       return fail(
@@ -95,7 +94,7 @@ export async function readHeaderChunk(
   source: HeaderSource,
   span: ChunkSpan,
   limit: number,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<Uint8Array>> {
   if (span.bodyOffset + span.size > source.size) {
     return fail(malformed(`The ${quotedCode(span.id)} chunk runs past the end of the file.`));

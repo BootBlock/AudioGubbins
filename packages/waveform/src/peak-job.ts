@@ -13,7 +13,7 @@
  * raw PCM per frame").
  */
 
-import { Cancelled, cancellationReason, type CancellationSignal } from '@audiogubbins/audio-engine';
+import { Cancelled, cancellationReason, type CancellationSignal } from '@audiogubbins/domain';
 
 import { decodePeaks } from './peak-codec.js';
 import { peakGeometry } from './peak-geometry.js';

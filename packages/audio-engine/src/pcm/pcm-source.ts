@@ -9,21 +9,21 @@
  */
 
 import {
+  FailureKind,
   addSamples,
   channelCount,
-  failure,
-  FailureKind,
   fail,
+  failure,
   layoutsMatch,
   subtractSamples,
   succeed,
+  type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import type { CancellationSignal } from '../cancellation.js';
 import type { AudioFrameBlock } from './frame-block.js';
 
 /** Audio the engine can read, a chunk at a time. */

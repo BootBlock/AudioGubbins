@@ -9,9 +9,8 @@
  * only the two members it reads, which a browser `Blob` has.
  */
 
+import { throwIfCancelled } from '@audiogubbins/domain';
 import type { AudioBytes } from '@audiogubbins/codecs';
-
-import { throwIfCancelled } from '../cancellation.js';
 
 /** A file whose ranges can be read: a browser `Blob` or `File`, or a test's stand-in. */
 export interface MediaFile {

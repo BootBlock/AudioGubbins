@@ -6,10 +6,9 @@
  * with the caller, who is written each chunk as it arrives.
  */
 
-import type { SampleRate } from '@audiogubbins/domain';
+import type { CancellationSignal, SampleRate } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import type {
-  CancellationSignal,
   DspImplementation,
   JobPriority,
   RenderProgress,

@@ -14,11 +14,13 @@ import {
   fail,
   mapResult,
   succeed,
+  throwIfCancelled,
+  type CancellationSignal,
   type DomainResult,
   type SampleCount,
 } from '@audiogubbins/domain';
 
-import { throwIfCancelled, type AudioBytes, type ReadSignal } from './audio-bytes.js';
+import type { AudioBytes } from './audio-bytes.js';
 import { readExactly } from './byte-reading.js';
 import { readInvalid, readPastEnd, unsupportedFormat } from './codec-failures.js';
 import type { AudioFormatDescriptor } from './format-descriptor.js';
@@ -41,7 +43,7 @@ export interface AudioReader {
     start: SampleCount,
     frames: number,
     into: readonly Float32Array[],
-    signal?: ReadSignal,
+    signal?: CancellationSignal,
   ): Promise<DomainResult<number>>;
 }
 
@@ -92,7 +94,7 @@ function pcmReader(bytes: AudioBytes, format: AudioFormatDescriptor): AudioReade
  */
 export async function openAudio(
   bytes: AudioBytes,
-  signal?: ReadSignal,
+  signal?: CancellationSignal,
 ): Promise<DomainResult<AudioReader>> {
   const stage = await recogniseStage(bytes, signal);
   if (!stage.ok) return stage;

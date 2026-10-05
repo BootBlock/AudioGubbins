@@ -11,9 +11,8 @@
  * and the rest of the parse continues the same walk to the data.
  */
 
-import { fail, succeed, type DomainResult } from '@audiogubbins/domain';
+import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
 
-import type { ReadSignal } from './audio-bytes.js';
 import { fourCharacterCode, viewOf, type HeaderSource } from './byte-reading.js';
 import { speakerMaskLayout } from './channel-layouts.js';
 import { ChunkWalk, readHeaderChunk, type ChunkSizeRules } from './chunk-walk.js';
@@ -92,7 +91,7 @@ function ds64Rules(body: Uint8Array, statedSize: number): DomainResult<ChunkSize
 async function firstWalk(
   source: HeaderSource,
   container: RiffContainer,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<ChunkWalk>> {
   if (container === 'wav')
     return succeed(new ChunkWalk(source, FIRST_CHUNK, { littleEndian: true }));
@@ -120,7 +119,7 @@ async function describeData(
   walk: ChunkWalk,
   container: RiffContainer,
   shape: WaveShape,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<AudioFormatDescriptor>> {
   for (;;) {
     const next = await walk.next(signal);
@@ -157,7 +156,7 @@ async function describeData(
 export async function recogniseRiff(
   source: HeaderSource,
   container: RiffContainer,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<FormatStage>> {
   const walked = await firstWalk(source, container, signal);
   if (!walked.ok) return walked;
