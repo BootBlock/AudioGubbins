@@ -10,4 +10,5 @@
 - **Drivers:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, the packet's failure rule that clipboard data from missing or relinked media must not corrupt the destination, `REQ-ARCH-085`.
 - **Constraints:** a paste is a project command and undoes with the project's history; the clipboard itself is not project state and is not undone.
 - **Change record:** affected requirements `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`; affected phase 05; compatibility impact none beyond `ADR-0051`; verification by the clipboard's tests, the commands' tests and the browser test of the core edits.
+- **Amended by:** `ADR-0060` (2026-10-05): the payload has a second kind, a processor, a slot, a group or a chain in the chain's persisted form, which a rack pastes as a copy under new identifiers. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-ARCH-085`.

@@ -63,7 +63,10 @@
       "adr/ADR-0050-native-rate-reading-in-phase-05.md",
       "adr/ADR-0051-edit-model.md",
       "adr/ADR-0052-read-contract-and-media-threads.md",
-      "adr/ADR-0053-clipboard-and-quick-edit.md"
+      "adr/ADR-0053-clipboard-and-quick-edit.md",
+      "adr/ADR-0060-effect-racks-in-the-edit-model.md",
+      "adr/ADR-0061-processors-quality-and-reproducibility.md",
+      "adr/ADR-0062-local-inference-and-model-packs.md"
     ],
     "phases": [
       "phases/phase-00-requirements-and-architectural-baseline.md",
