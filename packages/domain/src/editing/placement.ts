@@ -8,15 +8,13 @@
  * placed on the asset is shifted and cut to the region there.
  */
 
-import { channelCount } from '../audio/channel-layout.js';
 import type { Asset } from '../project/asset.js';
 import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/timeline.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
 import { assetPlan } from './plan-building.js';
 import type { EditPlan } from './plan.js';
-import { rangeEditStage } from './range-stages.js';
-import { changeRange, sliceSegments } from './segment-list.js';
+import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
 
 /** Markers in position order, and in identifier order at one position. */
@@ -112,36 +110,17 @@ export function markersInRegion(
 
 /**
  * What a region sounds like: its asset's edited audio between its boundaries,
- * through the region's own processing, each operation's range carried from
- * its basis and cut to the region.
+ * through the region's own processing, each operation folded in on the
+ * timeline of its basis (`plan-building.ts`), so it stays on the content it
+ * was put on, and a fade begun outside the region keeps its ramp inside it.
  */
 export function regionPlan(
   asset: Asset,
   region: Region,
   resolver = anchorResolver(asset),
 ): EditPlan {
-  const plan = assetPlan(asset);
-  const [stream, ...others] = plan.streams;
+  const [stream, ...others] = assetPlan(asset, region.operations).streams;
   const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
-  let segments = sliceSegments(stream.segments, span.start, span.end);
-  const count = channelCount(stream.layout);
-  for (const operation of region.operations) {
-    const range = resolver.span(operation.basis, operation.range);
-    if (range === undefined) continue;
-    const from = Math.max(range.start, span.start) - span.start;
-    const to = Math.min(range.end, span.end) - span.start;
-    if (from >= to) continue;
-    segments = changeRange(
-      segments,
-      from,
-      to,
-      rangeEditStage(
-        operation.edit,
-        { start: range.start - span.start, end: range.end - span.start },
-        operation.channels,
-        count,
-      ),
-    );
-  }
+  const segments = sliceSegments(stream.segments, span.start, span.end);
   return pruneStreams({ streams: [{ ...stream, segments }, ...others] });
 }

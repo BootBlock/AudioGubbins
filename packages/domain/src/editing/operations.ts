@@ -136,9 +136,10 @@ export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
  * One operation of a region's own processing (ADR-0051).
  *
  * Its range is stated at `basis`, the number of the asset's operations that
- * existed when it was placed, and is carried through the operations after
- * that, so the processing stays on the content it was put on whatever is later
- * cut or pasted around it.
+ * existed when it was placed. The processing is folded into the region's plan
+ * there, among the asset's operations, so it stays on the content it was put
+ * on whatever is later cut, pasted or reversed around it; the range carried
+ * through the operations after says where that content lies now.
  */
 export interface RegionOperation {
   readonly id: EditOperationId;
