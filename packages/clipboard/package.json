@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/project-format": "workspace:*"
+    "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/text": "workspace:*"
   },
   "devDependencies": {
     "@audiogubbins/test-fixtures": "workspace:*",

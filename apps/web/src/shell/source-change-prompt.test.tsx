@@ -84,7 +84,7 @@ describe('the question about linked files that changed', () => {
       ),
     ).toBeVisible();
     await userEvent.click(
-      within(dialogue).getByRole('button', { name: 'Link "snare.wav" anyway' }),
+      within(dialogue).getByRole('button', { name: 'Link “snare.wav” anyway' }),
     );
     expect(run).toHaveBeenLastCalledWith('source.link-offered', { asset: KICK });
   });
@@ -113,10 +113,10 @@ describe('the question about linked files that changed', () => {
     const dialogue = screen.getByRole('dialog', { name: 'Linked files have changed' });
     expect(
       within(dialogue).getByText(
-        'The file of "Kick" has been changed since the project last used it.',
+        'The file of “Kick” has been changed since the project last used it.',
       ),
     ).toBeVisible();
-    const choices = within(dialogue).getByRole('group', { name: 'What to do about "Kick"' });
+    const choices = within(dialogue).getByRole('group', { name: 'What to do about “Kick”' });
     expect(
       within(choices)
         .getAllByRole('button')
@@ -146,7 +146,7 @@ describe('the question about linked files that changed', () => {
 
     expect(
       screen.getByText(
-        '"Snare" was dealt with as its own setting says: keep the version the project used.',
+        '“Snare” was dealt with as its own setting says: keep the version the project used.',
       ),
     ).toBeVisible();
     await userEvent.keyboard('{Escape}');
@@ -174,13 +174,13 @@ describe('the question about linked files that changed', () => {
     });
 
     expect(
-      screen.getByText('AudioGubbins needs your leave to read the file of "Kick" again.'),
+      screen.getByText('AudioGubbins needs your leave to read the file of “Kick” again.'),
     ).toBeVisible();
-    expect(screen.getByText('Leave to read the file of "Snare" was refused.')).toBeVisible();
-    const snare = screen.getByRole('group', { name: 'What to do about "Snare"' });
+    expect(screen.getByText('Leave to read the file of “Snare” was refused.')).toBeVisible();
+    const snare = screen.getByRole('group', { name: 'What to do about “Snare”' });
     expect(within(snare).queryByRole('button', { name: 'Give access' })).toBeNull();
 
-    const kick = screen.getByRole('group', { name: 'What to do about "Kick"' });
+    const kick = screen.getByRole('group', { name: 'What to do about “Kick”' });
     await userEvent.click(within(kick).getByRole('button', { name: 'Give access' }));
     expect(run).toHaveBeenCalledWith('source.give-access', { asset: KICK });
   });

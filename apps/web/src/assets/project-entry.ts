@@ -25,9 +25,8 @@ import {
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
 import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
-import { counted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
-import { quoted } from '../wording.js';
 import { revisionOf, type EditorAsset } from './editor-asset.js';
 
 /** Whether the page holds the file an asset's media is kept in. */

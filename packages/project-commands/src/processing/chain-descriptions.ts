@@ -5,8 +5,7 @@
 
 import type { ChainSlot, EffectChain, ProcessorCatalogue } from '@audiogubbins/domain';
 import { canonicalJson, writeSlot } from '@audiogubbins/project-format';
-
-import { quoted } from '../project-command.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Every slot of `slots` by identifier, with the list it is in and its place there. */
 function placed(

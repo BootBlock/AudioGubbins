@@ -36,10 +36,10 @@ import {
   ProjectCommandId,
   applied,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from '../project-command.js';
 import { withAssetEdits, withRegion } from '../editing/editing-state.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What a rack command acts on: an asset, or a region and its asset. */
 export type RackTarget =

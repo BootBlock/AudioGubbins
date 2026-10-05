@@ -119,7 +119,7 @@ describe('the composition root', () => {
     await userEvent.click(await screen.findByRole('tab', { name: 'Workspaces' }));
     await userEvent.click(screen.getByRole('button', { name: 'Duplicate' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
-    expect(screen.getByRole('button', { name: 'Restore "Editing copy"' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restore “Editing copy”' })).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole('button', {
         name: 'Discard the text about your saved workspaces that could not be read',

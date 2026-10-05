@@ -13,8 +13,7 @@
 
 import type { DomainFailure } from '@audiogubbins/domain';
 import { storageRefusalOf, unreadableStateOf, type StorageRefusal } from '@audiogubbins/storage';
-
-import { quoted } from './wording.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Why the storage did not take a backup, by why it refused the write. */
 const NOT_MADE: Readonly<Record<StorageRefusal, string>> = {

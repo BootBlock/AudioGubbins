@@ -13,6 +13,17 @@
 
 import type { DomainResult, SampleRate } from '@audiogubbins/domain';
 
+import type {
+  CanonicalDetectorFeatures,
+  CanonicalLoudnessMeter,
+  CanonicalPeakMeter,
+  CanonicalStft,
+  DetectorSettings,
+  LoudnessMeterSettings,
+  PeakMeterSettings,
+  StftSettings,
+} from './canonical-analysis.js';
+
 /** Which implementation answers the port. */
 export const DspImplementation = {
   WebAssembly: 'webassembly',
@@ -224,4 +235,16 @@ export interface CanonicalDsp {
    * {@link SMALLEST_FFT_SIZE} to {@link LARGEST_FFT_SIZE}, or why not.
    */
   createFft(size: number): DomainResult<CanonicalFft>;
+
+  /** A short-time Fourier transform (`canonical-analysis.ts`), or why not. */
+  createStft(settings: StftSettings): DomainResult<CanonicalStft>;
+
+  /** A sample-peak and true-peak meter, or why not. */
+  createPeakMeter(settings: PeakMeterSettings): DomainResult<CanonicalPeakMeter>;
+
+  /** A loudness meter, its channels weighted by their roles, or why not. */
+  createLoudnessMeter(settings: LoudnessMeterSettings): DomainResult<CanonicalLoudnessMeter>;
+
+  /** The feature extractor of the detector `settings` name by kind, or why not. */
+  createDetectorFeatures(settings: DetectorSettings): DomainResult<CanonicalDetectorFeatures>;
 }

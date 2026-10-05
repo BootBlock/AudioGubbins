@@ -65,6 +65,24 @@ export {
   ResamplingQuality,
   SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
+export {
+  type CanonicalDetectorFeatures,
+  type CanonicalLoudnessMeter,
+  type CanonicalPeakMeter,
+  type CanonicalStft,
+  type ClickSettings,
+  type ClippingSettings,
+  type DcOffsetSettings,
+  DetectorKind,
+  type DetectorSettings,
+  type HumSettings,
+  type LoudnessMeterSettings,
+  type LoudnessReading,
+  type NoiseFloorSettings,
+  type PeakMeterSettings,
+  type StftSettings,
+  type TransientSettings,
+} from './dsp/canonical-analysis.js';
 
 // The canonical scalar primitives (ADR-0032, ADR-0061), pure functions a
 // processor calls per sample: the WebAssembly module answers the same bits.
@@ -72,7 +90,7 @@ export { decibelsToGain, gainToDecibels } from './dsp/reference/decibels.js';
 export { exp } from './dsp/reference/exponential.js';
 export { ln, log10, log2 } from './dsp/reference/logarithm.js';
 export { pow } from './dsp/reference/power.js';
-export { sineOfTurns } from './dsp/reference/primitives.js';
+export { besselI0, sineOfTurns } from './dsp/reference/primitives.js';
 export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
 
 // The fallback ADR-0031 names, for a host whose WebAssembly is refused.

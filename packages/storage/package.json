@@ -33,6 +33,7 @@
     "@audiogubbins/history": "workspace:*",
     "@audiogubbins/media-store": "workspace:*",
     "@audiogubbins/project-format": "workspace:*",
+    "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*"
   },
   "devDependencies": {

@@ -105,8 +105,3 @@ export function applied(
 ): AppliedOutcome<ProjectState> {
   return { kind: 'applied', next, inverse, description };
 }
-
-/** A name as the interface quotes it. */
-export function quoted(name: string): string {
-  return `“${name}”`;
-}

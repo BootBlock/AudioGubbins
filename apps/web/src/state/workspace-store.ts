@@ -62,6 +62,7 @@ import {
 } from './text-custody.js';
 import { readCollection } from './workspace-collection.js';
 import { takeCustody } from './workspace-custody.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the workspace store holds. */
 export interface WorkspaceState {
@@ -321,7 +322,7 @@ function asItShips(mounted: WorkspaceLayout, id: string, shipped: WorkspaceLayou
 function resetOf(store: LayoutStore, mounted: WorkspaceLayout, id: string): ResetOrRefusal {
   const shipped = store.resettable(id);
   if (typeof shipped === 'string' || !asItShips(mounted, id, shipped)) return shipped;
-  return `"${shipped.displayName}" is already as it ships.`;
+  return `${quoted(shipped.displayName)} is already as it ships.`;
 }
 
 /**

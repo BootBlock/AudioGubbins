@@ -53,6 +53,7 @@ import {
   type UnreadText,
 } from './text-custody.js';
 import { createUserProfiles } from './user-profiles.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the shortcut store holds. */
 export interface ShortcutState {
@@ -384,7 +385,7 @@ export function createShortcutStore(
       const profile = id === DEFAULT_PROFILE_ID ? defaults.profile() : userProfiles.get(id);
       if (profile === undefined) return noProfileWith(id);
       if (profile.id === state.get().profile.id) {
-        return `"${profile.displayName}" is already in use.`;
+        return `${quoted(profile.displayName)} is already in use.`;
       }
 
       adopt(profile);

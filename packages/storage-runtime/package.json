@@ -39,7 +39,8 @@
     "@audiogubbins/media-store": "workspace:*",
     "@audiogubbins/storage": "workspace:*",
     "@audiogubbins/browser-storage": "workspace:*",
-    "@audiogubbins/processors": "workspace:*"
+    "@audiogubbins/processors": "workspace:*",
+    "@audiogubbins/text": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

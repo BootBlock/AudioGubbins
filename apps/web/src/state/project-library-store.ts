@@ -23,9 +23,9 @@ import { TreeFailure } from '@audiogubbins/project-format';
 import type { CatalogueEntry, ForkRequest, NewProject, ProjectHeader } from '@audiogubbins/storage';
 import type { LibraryClient } from '@audiogubbins/storage-runtime';
 
-import { quoted } from '../wording.js';
 import { Requests, isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The projects kept, and what is being done to them. */
 export interface LibraryState {

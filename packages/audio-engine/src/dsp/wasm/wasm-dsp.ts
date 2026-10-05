@@ -6,15 +6,7 @@
  * call on the audio thread allocates nothing.
  */
 
-import {
-  failure,
-  FailureKind,
-  fail,
-  flatMapResult,
-  mapResult,
-  succeed,
-  type DomainResult,
-} from '@audiogubbins/domain';
+import { flatMapResult, mapResult, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import {
   CoefficientStrategy,
@@ -26,6 +18,12 @@ import {
   type OscillatorSettings,
   type ResamplerSettings,
 } from '../canonical-dsp.js';
+import {
+  checkDetector,
+  checkLoudnessMeter,
+  checkPeakMeter,
+  checkStft,
+} from '../analysis-settings.js';
 import {
   assertFftShape,
   assertSeekFrame,
@@ -42,38 +40,8 @@ import {
   type DspExports,
 } from './dsp-exports.js';
 import { DOUBLES, ModuleBuffer, SAMPLES } from './module-buffer.js';
-
-/**
- * Throws what a status other than done says went wrong in a call on `object`.
- * Each is a fault in the engine or the module, never in audio: the engine
- * checked the call's shape before it was made.
- */
-function throwUnlessDone(status: number, object: string, refusal = 'input after its end'): void {
-  switch (status) {
-    case DspStatus.Done:
-      return;
-    case DspStatus.BadHandle:
-      throw new Error(`The DSP module lost ${object} it made.`);
-    case DspStatus.TooSmall:
-      throw new Error(`The DSP module was given a buffer too small for a call on ${object}.`);
-    case DspStatus.Refused:
-      throw new Error(`The DSP module refused a call on ${object}: ${refusal}.`);
-    default:
-      throw new Error(
-        `The DSP module answered a status this engine does not know: ${String(status)}.`,
-      );
-  }
-}
-
-function refusedByModule(what: string): DomainResult<never> {
-  return fail(
-    failure(
-      'dsp.module-refused',
-      FailureKind.Unrecoverable,
-      `The DSP module refused to make ${what}.`,
-    ),
-  );
-}
+import { detectorIn, loudnessMeterIn, peakMeterIn, stftIn } from './wasm-analysis.js';
+import { refusedByModule, throwUnlessDone } from './module-status.js';
 
 function oscillatorIn(
   module: DspExports,
@@ -244,5 +212,13 @@ export function wasmDsp(exports: unknown): DomainResult<CanonicalDsp> {
     createResampler: (settings) =>
       flatMapResult(checkResampler(settings), (checked) => resamplerIn(module, checked)),
     createFft: (size) => flatMapResult(checkFftSize(size), (checked) => fftIn(module, checked)),
+    createStft: (settings) =>
+      flatMapResult(checkStft(settings), (checked) => stftIn(module, checked)),
+    createPeakMeter: (settings) =>
+      flatMapResult(checkPeakMeter(settings), (checked) => peakMeterIn(module, checked)),
+    createLoudnessMeter: (settings) =>
+      flatMapResult(checkLoudnessMeter(settings), (checked) => loudnessMeterIn(module, checked)),
+    createDetectorFeatures: (settings) =>
+      flatMapResult(checkDetector(settings), (checked) => detectorIn(module, checked)),
   }));
 }

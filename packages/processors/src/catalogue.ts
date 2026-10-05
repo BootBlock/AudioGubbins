@@ -9,10 +9,43 @@
 import type { ProcessorDescriptor } from '@audiogubbins/domain';
 
 import { catalogueOf, type ProcessorType } from './framework/processor-type.js';
+import { COMPRESSOR } from './dynamics/compressor.js';
+import { EXPANDER } from './dynamics/expander.js';
+import { GATE } from './dynamics/gate.js';
+import { LIMITER } from './dynamics/limiter.js';
+import { DC_OFFSET_REMOVAL } from './filters/dc-offset-removal.js';
+import { DE_ESSER } from './filters/de-esser.js';
+import { DE_HUM } from './filters/de-hum.js';
+import { FILTER } from './filters/filter.js';
+import { PARAMETRIC_EQUALISER } from './filters/parametric-equaliser.js';
 import { GAIN_PROCESSOR } from './level/gain-processor.js';
+import { AMBISONIC_DECODER } from './space/ambisonic-decode.js';
+import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
+import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
+import { DELAY } from './space/delay.js';
+import { REVERB } from './space/reverb.js';
 
-/** Every processor type, in the order a menu lists them within a category. */
-export const PROCESSOR_TYPES: readonly ProcessorType[] = [GAIN_PROCESSOR];
+/**
+ * Every processor type, by category in the order the domain lists categories,
+ * and in the order a menu lists them within a category.
+ */
+export const PROCESSOR_TYPES: readonly ProcessorType[] = [
+  GAIN_PROCESSOR,
+  PARAMETRIC_EQUALISER,
+  FILTER,
+  COMPRESSOR,
+  LIMITER,
+  GATE,
+  EXPANDER,
+  DE_ESSER,
+  DELAY,
+  REVERB,
+  AMBISONIC_ENCODER,
+  AMBISONIC_ROTATION,
+  AMBISONIC_DECODER,
+  DC_OFFSET_REMOVAL,
+  DE_HUM,
+];
 
 /** Every processor type by type key, as the effect rack finds a slot's type. */
 export const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType> = new Map(

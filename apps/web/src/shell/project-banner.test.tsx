@@ -122,7 +122,7 @@ describe('the project strip, with projects to reach', () => {
       openWith({ kind: 'writable', transferRequests: [] }),
       quickEdit,
     );
-    expect(within(strip).getByText('"Harbour"')).toBeVisible();
+    expect(within(strip).getByText('“Harbour”')).toBeVisible();
 
     act(() => {
       quickEdit.set({
@@ -133,7 +133,7 @@ describe('the project strip, with projects to reach', () => {
     });
 
     expect(
-      within(strip).getByText('Quick Edit of "Harbour.wav", kept in the project "Harbour"'),
+      within(strip).getByText('Quick Edit of “Harbour.wav”, kept in the project “Harbour”'),
     ).toBeVisible();
   });
 
@@ -143,7 +143,7 @@ describe('the project strip, with projects to reach', () => {
       openWith({ kind: 'writable', transferRequests: [] }),
     );
 
-    expect(within(strip).getByText('"Harbour"')).toBeVisible();
+    expect(within(strip).getByText('“Harbour”')).toBeVisible();
     expect(within(strip).queryAllByRole('button')).toEqual([]);
   });
 
@@ -155,7 +155,7 @@ describe('the project strip, with projects to reach', () => {
 
     expect(
       within(strip).getByText(
-        '"Harbour" is open to read here, because the tab opened at 10:02:00 is changing it.',
+        '“Harbour” is open to read here, because the tab opened at 10:02:00 is changing it.',
       ),
     ).toBeVisible();
     await userEvent.click(within(strip).getByRole('button', { name: 'Ask to change it' }));
@@ -174,7 +174,7 @@ describe('the project strip, with projects to reach', () => {
 
     expect(
       within(strip).getByText(
-        '"Harbour" is open to read here, because the tab opened at 10:02:00 is changing it.',
+        '“Harbour” is open to read here, because the tab opened at 10:02:00 is changing it.',
       ),
     ).toBeVisible();
     expect(
@@ -221,7 +221,7 @@ describe('the project strip, with projects to reach', () => {
     );
 
     expect(announce).toHaveBeenCalledWith(
-      'The tab opened at 10:02:00 asks to change "Harbour". Hand it over, and this tab can only read it until you ask for it back.',
+      'The tab opened at 10:02:00 asks to change “Harbour”. Hand it over, and this tab can only read it until you ask for it back.',
       true,
     );
     await userEvent.click(within(strip).getByRole('button', { name: 'Hand it over' }));
@@ -243,7 +243,7 @@ describe('the project strip, with projects to reach', () => {
     });
 
     const said =
-      'The tab opened at 10:02:00 took "Harbour" over, so this tab can no longer change it. 2 changes not yet saved here were lost.';
+      'The tab opened at 10:02:00 took “Harbour” over, so this tab can no longer change it. 2 changes not yet saved here were lost.';
     expect(within(strip).getByText(said)).toBeVisible();
     expect(announce).toHaveBeenCalledWith(said, true);
     await userEvent.click(within(strip).getByRole('button', { name: 'Open to read' }));
@@ -256,7 +256,7 @@ describe('the project strip, with projects to reach', () => {
       openWith({ kind: 'read-only', reason: { kind: 'released' } }),
     );
 
-    expect(within(strip).getByText(/No tab is changing "Harbour" now/)).toBeVisible();
+    expect(within(strip).getByText(/No tab is changing “Harbour” now/)).toBeVisible();
     await userEvent.click(within(strip).getByRole('button', { name: 'Open to change' }));
     expect(run).toHaveBeenCalledWith('project.open-to-change');
   });
@@ -275,7 +275,7 @@ describe('the project strip, with projects to reach', () => {
     );
 
     const said =
-      'When "Harbour" was opened, some of it had to be recovered. The newest save could not be read, so the project was opened from the one before it.';
+      'When “Harbour” was opened, some of it had to be recovered. The newest save could not be read, so the project was opened from the one before it.';
     expect(within(strip).getByText(said)).toBeVisible();
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(said, false);

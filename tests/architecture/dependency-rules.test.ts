@@ -210,9 +210,13 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/input': ['@audiogubbins/text'],
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
-  '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/audio-graph': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/codecs': ['@audiogubbins/domain'],
-  '@audiogubbins/clipboard': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/clipboard': [
+    '@audiogubbins/domain',
+    '@audiogubbins/project-format',
+    '@audiogubbins/text',
+  ],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
@@ -233,6 +237,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/audio-graph',
     '@audiogubbins/codecs',
+    '@audiogubbins/text',
   ],
   '@audiogubbins/processors': [
     '@audiogubbins/domain',
@@ -293,6 +298,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/history',
     '@audiogubbins/media-store',
     '@audiogubbins/project-format',
+    '@audiogubbins/text',
     '@audiogubbins/version',
   ],
   '@audiogubbins/browser-storage': [
@@ -313,6 +319,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/project-commands',
     '@audiogubbins/project-format',
     '@audiogubbins/storage',
+    '@audiogubbins/text',
   ],
   '@audiogubbins/test-fixtures': ['@audiogubbins/domain'],
 };
@@ -3036,6 +3043,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/commands/src/shortcut-transfer.ts: parseBinding': [
       65,
       'Validates one stored binding step by step, its first press on its own, since a shortcut has one; most of its lines are failure literals.',
+    ],
+    'packages/audio-engine/src/dsp/reference/logarithm.ts: lnParts': [
+      61,
+      'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
     ],
     'packages/diagnostics/src/bundle.ts: assembleBundle': [
       60,

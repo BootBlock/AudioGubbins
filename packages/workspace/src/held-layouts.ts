@@ -12,10 +12,11 @@
  */
 
 import {
-  type NamesHeld,
   identifierRule,
   namesCanBeCompared,
   namesHeldBy,
+  quoted,
+  type NamesHeld,
 } from '@audiogubbins/text';
 
 import type { WorkspaceLayout } from './panel.js';
@@ -255,7 +256,7 @@ export function givenName(
   return holder === undefined
     ? { name }
     : {
-        refusal: `There is already a workspace called "${listedName(holder)}". Choose another name.`,
+        refusal: `There is already a workspace called ${quoted(listedName(holder))}. Choose another name.`,
       };
 }
 

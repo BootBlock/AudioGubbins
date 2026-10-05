@@ -16,8 +16,7 @@ import {
   type HistoryNode,
 } from '@audiogubbins/history';
 import type { ProjectState } from '@audiogubbins/project-format';
-
-import { quoted } from '../../wording.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The name of an entity in a state, where the state holds it. */
 export type EntityNames = (entity: EntityReference) => string | undefined;

@@ -9,10 +9,9 @@
 
 import { channelCount, type Asset } from '@audiogubbins/domain';
 import type { AssetSource, SourceAudioShape, SourceContainer } from '@audiogubbins/project-format';
-import { counted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
-import { quoted } from '../../wording.js';
 
 /** One fact of the source: what it is about, and what it is. */
 export interface SourceFact {

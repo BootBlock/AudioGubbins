@@ -32,12 +32,12 @@ import {
   applied,
   assetAvailability,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from '../project-command.js';
 import { idArgument } from './editing-arguments.js';
 import { withAssetEdits } from './editing-state.js';
 import { editDescription } from './edit-descriptions.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The commands that apply and withdraw an asset's edits. */
 export function editCommands(): readonly ProjectCommand[] {

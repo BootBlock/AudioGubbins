@@ -184,7 +184,7 @@ describe('the backups folder in the backup settings (REQ-STOR-105)', () => {
 
     const folder = screen.getByRole('region', { name: 'Backups folder' });
     expect(within(folder).getByText(/belongs to this browser on this computer/u)).toBeVisible();
-    expect(within(folder).getByText(/until you allow writing to "Backups" again/u)).toBeVisible();
+    expect(within(folder).getByText(/until you allow writing to “Backups” again/u)).toBeVisible();
     await userEvent.click(
       within(folder).getByRole('button', { name: 'Allow writing to the folder' }),
     );

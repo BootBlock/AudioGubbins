@@ -141,12 +141,12 @@ describe('the Storage panel', () => {
     const backups = screen.getByRole('list', {
       name: 'What Backups their policy no longer keeps takes',
     });
-    expect(within(backups).getByText('2 backups of "Harbour"')).toBeVisible();
+    expect(within(backups).getByText('2 backups of “Harbour”')).toBeVisible();
     const history = screen.getByRole('list', {
       name: 'What History the retention settings let go takes',
     });
     expect(
-      within(history).getByText(/^"Harbour": The branch of 3 changes, last used .*, would go\.$/),
+      within(history).getByText(/^“Harbour”: The branch of 3 changes, last used .*, would go\.$/),
     ).toBeVisible();
   });
 

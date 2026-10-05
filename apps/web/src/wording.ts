@@ -1,21 +1,16 @@
 /**
- * How the shell writes a name, a time and a quantity of storage in what it
- * says: the one wording every surface and every command uses, so the Storage
- * panel, a cleanup's confirmation and what a command says after it agree to the
- * byte (REQ-STOR-200, REQ-STOR-106). A count is said by the text package's
- * rule, which the project commands share.
+ * How the shell writes a time and a quantity of storage in what it says: the
+ * one wording every surface and every command uses, so the Storage panel, a
+ * cleanup's confirmation and what a command says after it agree to the byte
+ * (REQ-STOR-200, REQ-STOR-106). A count is said by the text package's rule,
+ * which the project commands share.
  *
- * A name is quoted as the shell quotes a workspace's. A time is written in
- * British English whatever the browser's own locale, so a backup listed in
- * Settings and the same backup named by a command read alike. Storage is
- * written in steps of 1,024, as the diagnostic log's own size is, rounded to
- * no more figures than a person compares by.
+ * A name is quoted by the text package's rule. A time is written in British
+ * English whatever the browser's own locale, so a backup listed in Settings and
+ * the same backup named by a command read alike. Storage is written in steps of
+ * 1,024, as the diagnostic log's own size is, rounded to no more figures than a
+ * person compares by.
  */
-
-/** A name as a sentence quotes it. */
-export function quoted(name: string): string {
-  return `"${name}"`;
-}
 
 /** A moment, to the minute. */
 const MOMENT = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });

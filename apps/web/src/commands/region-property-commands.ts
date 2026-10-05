@@ -7,12 +7,12 @@ import type { Command } from '@audiogubbins/commands';
 import { sampleCount, validateRegion, type Region } from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
-import { quoted } from '../wording.js';
 import { RANGE_OR_WHOLE, editScope } from './edit-target.js';
 import { changeProject } from './project-edits.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 import { oneRegion, regionCommand } from './region-target.js';
+import { quoted } from '@audiogubbins/text';
 
 function renameCommand(): Command<ShellContext> {
   return regionCommand(

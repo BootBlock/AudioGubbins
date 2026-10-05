@@ -16,10 +16,10 @@ import { TextField } from '@audiogubbins/design-system';
 import type { ComparisonSource, HistoryRow } from '@audiogubbins/history';
 import { LONGEST_HISTORY_LABEL, LONGEST_NAME } from '@audiogubbins/project-format';
 
-import { quoted } from '../../wording.js';
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
 import { describeNode } from './history-words.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the actions read and run. */
 export interface HistoryActionsProps {

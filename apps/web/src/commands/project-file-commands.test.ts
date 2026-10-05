@@ -18,7 +18,7 @@ function headers(window: ProjectWindow) {
 /** Makes a project named `name` in a window, and waits until it is open. */
 async function made(window: ProjectWindow, name: string): Promise<void> {
   expect(await window.runAndHear('file.create-project', { name })).toBe(
-    `"${name}" is made and open.`,
+    `“${name}” is made and open.`,
   );
 }
 
@@ -59,7 +59,7 @@ describe('making, opening and closing a project', () => {
         sampleRate: 44_100,
         channels: 'mono',
       }),
-    ).toBe('"Forest walk" is made and open.');
+    ).toBe('“Forest walk” is made and open.');
 
     const open = window.projects.project.get();
     expect(open.kind === 'open' && open.snapshot.access.kind).toBe('writable');
@@ -99,12 +99,12 @@ describe('making, opening and closing a project', () => {
     expect(window.run('file.close-project').kind).toBe('refused');
 
     expect(await window.runAndHear('file.open', { project: header?.id ?? '' })).toBe(
-      '"Harbour" is open.',
+      '“Harbour” is open.',
     );
     expect(openName(window)).toBe('Harbour');
     expect(
       await window.runAndHear('file.open', { project: header?.id ?? '', access: 'read' }),
-    ).toBe('"Harbour" is open to read.');
+    ).toBe('“Harbour” is open to read.');
   });
 
   it('refuses to open a project the argument does not name', async () => {
@@ -124,7 +124,7 @@ describe('renaming and forking the open project', () => {
     await made(window, 'Harbour');
 
     expect(await window.runAndHear('file.rename-project', { name: 'Harbour at dusk' })).toBe(
-      'The project is now called "Harbour at dusk".',
+      'The project is now called “Harbour at dusk”.',
     );
     expect(openName(window)).toBe('Harbour at dusk');
     expect(await window.runAndHear('file.rename-project', { name: 'Harbour at dusk' })).toMatch(
@@ -157,7 +157,7 @@ describe('renaming and forking the open project', () => {
     await made(window, 'Harbour');
 
     expect(await window.runAndHear('file.fork-project', { name: 'Harbour, another way' })).toBe(
-      '"Harbour, another way" is made. Open it from the Projects dialogue.',
+      '“Harbour, another way” is made. Open it from the Projects dialogue.',
     );
     expect(
       headers(window)
@@ -175,14 +175,14 @@ describe('deleting, restoring and purging a project', () => {
     await made(window, 'Harbour');
 
     expect(await window.runAndHear('file.delete-project')).toBe(
-      '"Harbour" is deleted. You can restore it from the Projects dialogue.',
+      '“Harbour” is deleted. You can restore it from the Projects dialogue.',
     );
     expect(window.projects.project.get().kind).toBe('none');
     const [deleted] = headers(window);
     expect(deleted?.deleted).toBeDefined();
 
     expect(await window.runAndHear('file.restore-project', { project: deleted?.id ?? '' })).toBe(
-      '"Harbour" is restored.',
+      '“Harbour” is restored.',
     );
     expect(headers(window)[0]?.deleted).toBeUndefined();
   });
@@ -205,7 +205,7 @@ describe('deleting, restoring and purging a project', () => {
 
     expect(
       await window.runAndHear('file.purge-project', { project, deletedAt: deleted?.deleted ?? 0 }),
-    ).toBe('"Harbour" is purged, and cannot be restored.');
+    ).toBe('“Harbour” is purged, and cannot be restored.');
     expect(window.projects.library.get().entries).toEqual([]);
   });
 

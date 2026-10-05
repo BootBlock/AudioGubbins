@@ -23,7 +23,7 @@
  * file whose part cannot be told is reported rather than counted as nothing.
  */
 
-import { isWellFormedId, succeed, unsafeBrandId, type DomainResult } from '@audiogubbins/domain';
+import { succeed, type DomainResult } from '@audiogubbins/domain';
 import { activeLine, type History } from '@audiogubbins/history';
 import { contentReferencedBy, type MediaObjectStore } from '@audiogubbins/media-store';
 import {
@@ -41,6 +41,7 @@ import { CheckedRecords } from './checked-records.js';
 import { historyUsage, strongerOf, type RetainedBy } from './history-usage.js';
 import { retainedMedia, type UnreadableRoot } from './media-roots.js';
 import { ProjectFiles } from './project-files.js';
+import { projectsIn } from './project-listing.js';
 import { refusalsReported } from './storage-failures.js';
 import { BACKUPS_DIRECTORY, PROJECTS_DIRECTORY } from './storage-layout.js';
 
@@ -127,13 +128,9 @@ export async function measureUsage(
       await measuring.turns.afterStep();
       for (const content of contentReferencedBy(state)) measuring.current.add(content);
     }
-    for (const entry of await tree.list(PROJECTS_DIRECTORY)) {
+    for (const project of await projectsIn(tree, PROJECTS_DIRECTORY)) {
       signal?.throwIfAborted();
-      if (entry.kind !== 'directory' || !isWellFormedId(entry.name)) continue;
-      await measureProject(
-        new ProjectFiles(records, unsafeBrandId<'ProjectId'>(entry.name)),
-        measuring,
-      );
+      await measureProject(new ProjectFiles(records, project), measuring);
     }
     const media = await mediaBytes(services, measuring);
     const caches = await services.caches.usage(signal);

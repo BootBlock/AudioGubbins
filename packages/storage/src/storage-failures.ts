@@ -26,6 +26,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import type { LeaseAcquisition } from './write-lease.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The failure a refusal of the storage tree is reported as. */
 export function storageRefused(refusal: TreeFailure): DomainFailure {
@@ -97,7 +98,7 @@ export function keptStateUnreadable(
     FailureKind.IntegrityViolation,
     snapshot === undefined
       ? 'A state the project’s history keeps cannot be read, so a backup would not be whole and none was made.'
-      : `The state of the snapshot “${snapshot.name}” cannot be read, so a backup would not be whole and none was made.`,
+      : `The state of the snapshot ${quoted(snapshot.name)} cannot be read, so a backup would not be whole and none was made.`,
     {
       details: { project, state, ...(snapshot === undefined ? {} : { snapshot: snapshot.name }) },
       ...(cause === undefined ? {} : { cause }),

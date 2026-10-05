@@ -292,8 +292,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
   'The window a stretch analyses at, which its tests hold to its sizes at the common rates; a stretch sizes its own window.':
     ['packages/audio-engine/src/pcm/stretched-content.ts: stretchWindow'],
-  'Flushing a decayed feedback state, which its test holds to its threshold; the recursive filters and dynamics of the rack take it with their kernels.':
-    ['packages/processors/src/framework/sample-safety.ts: flushSubnormal'],
+  'The max-rE weights of each order, which their test holds to the closed form and to the published second-order value; the decoder takes them when it makes its matrix.':
+    ['packages/processors/src/space/ambisonic-decode.ts: maxReWeights'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':
     ['apps/web/src/state/audio-settings-store.ts: AUDIO_SETTINGS_KEY'],
 };

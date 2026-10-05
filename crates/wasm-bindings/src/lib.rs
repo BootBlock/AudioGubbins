@@ -20,6 +20,7 @@
 // crate exists to export them. No `unsafe` block is written here.
 #![allow(unsafe_code)]
 
+mod analysis;
 mod table;
 
 use std::cell::RefCell;
@@ -42,8 +43,13 @@ use table::{Pair, Table};
 /// `ag_ln`, `ag_log2`, `ag_log10`, `ag_pow`, `ag_decibels_to_gain`,
 /// `ag_gain_to_decibels`, `ag_cosine_of_turns`, `ag_tangent_of_turns`,
 /// `ag_arctangent_turns`), buffers of `f64` (`ag_buffer_f64_*`), and the real
-/// FFT by handle (`ag_fft_*`).
-pub const ABI_VERSION: u32 = 4;
+/// FFT by handle (`ag_fft_*`). 5 added `crates/analysis` by handle: the STFT
+/// (`ag_stft_create`, `_push`, `_pull_complex`, `_pull_polar`, `_release`),
+/// the peak meter (`ag_peak_meter_create`, `_push`, `_read`, `_release`), the
+/// loudness meter (`ag_loudness_meter_create`, `_push`, `_pull_series`,
+/// `_read`, `_release`) and the detector feature extractors
+/// (`ag_detector_create`, `_record_width`, `_push`, `_pull`, `_release`).
+pub const ABI_VERSION: u32 = 5;
 
 /// The call did what it was asked.
 pub const STATUS_DONE: u32 = 0;
@@ -73,6 +79,7 @@ struct Objects {
     oscillators: Table<SineOscillator>,
     resamplers: Table<StreamingResampler>,
     ffts: Table<Fft>,
+    analysis: analysis::Analysis,
 }
 
 thread_local! {
@@ -83,6 +90,7 @@ thread_local! {
             oscillators: Table::new(),
             resamplers: Table::new(),
             ffts: Table::new(),
+            analysis: analysis::Analysis::new(),
         })
     };
 }

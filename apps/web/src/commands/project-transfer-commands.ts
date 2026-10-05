@@ -17,10 +17,9 @@ import {
 } from '@audiogubbins/commands';
 import { ProvenanceLevel } from '@audiogubbins/project-format';
 import type { AssetConsolidation, CopyOptions, PassedOverReason } from '@audiogubbins/storage';
-import { counted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
 import type { RecordedExport } from '../state/export-recorder.js';
-import { quoted } from '../wording.js';
 import {
   projectsAvailability,
   readyProjects,

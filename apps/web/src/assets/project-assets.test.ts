@@ -172,7 +172,7 @@ describe('an asset of the project, as a view opens it (ADR-0051)', () => {
       kind: 'finding',
       id: audio.entry,
       name: 'Loop',
-      reason: 'The audio of "Loop" is being read.',
+      reason: 'The audio of “Loop” is being read.',
     });
     expect(missing.get(audio.entry)).toMatchObject({
       kind: 'unavailable',

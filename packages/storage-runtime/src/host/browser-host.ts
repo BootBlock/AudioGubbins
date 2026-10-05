@@ -29,6 +29,7 @@ import type { PortEndpoint } from '../protocol/port-channel.js';
 import { turnsEvery } from './host-turns.js';
 import type { HostLogs, HostParts } from './host-services.js';
 import { serveStorage } from './storage-host.js';
+import { timeOfDay } from '@audiogubbins/text';
 
 /** What the worker's browser offers, read by the worker's entry module. */
 export interface HostPlatform {
@@ -55,17 +56,6 @@ const TURN_MILLISECONDS = 8;
  */
 const OWNER_PATIENCE_MILLISECONDS = 500;
 
-/**
- * How a tab is named to the others: by the time it was opened, to the second,
- * so two tabs opened in one minute are told apart, and written to be read
- * inside a sentence. The worker starts as its tab opens.
- */
-const OPENED_AT = new Intl.DateTimeFormat('en-GB', {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-});
-
 /** The parts, from the platform, with the digest and random numbers it was found to have. */
 function partsOf(
   platform: HostPlatform,
@@ -77,7 +67,10 @@ function partsOf(
   const nextToken = randomTokens(randomBytes);
   const owner = {
     instance: nextToken(),
-    label: `the tab opened at ${OPENED_AT.format(clock.now())}`,
+    // A tab is named to the others by the time it was opened, to the
+    // second, so two tabs opened in one minute are told apart. The worker
+    // starts as its tab opens.
+    label: `the tab opened at ${timeOfDay(clock.now())}`,
   };
   return {
     tree: originPrivateTree(platform.readRoot),

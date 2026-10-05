@@ -34,29 +34,32 @@ const INVERSE_TAU = ARCTANGENT_COEFFICIENTS[0] ?? 0;
 const TWO_TO_512 = 1.3407807929942597e154;
 const TWO_TO_MINUS_512 = 7.458340731200207e-155;
 
+/**
+ * Where the trigonometry's cores take their arguments and leave their
+ * answers. V8 boxes a double passed to or returned from a call it does not
+ * inline, a heap number per sample on the audio thread, and whether it
+ * inlines a core this size changes from one process to the next. So the
+ * cores return nothing and take and give every double through here or a
+ * caller's `Float64Array`, and each function only stores its arguments here,
+ * calls its core and reads the answer, which keeps the cosine and tangent
+ * small enough that V8 inlines them wherever they run often. Each core reads
+ * its arguments as it starts and writes its answer as it ends, so one it
+ * calls may use the same places.
+ */
+const SLOT = new Float64Array(3);
+
 /** `cos(2π · turns)`, identical to `cosine_of_turns` in `trigonometry.rs`. */
 export function cosineOfTurns(turns: number): number {
-  const r = turns - Math.floor(turns);
-  if (r < 0.125) return cosineOfReduced(r);
-  if (r <= 0.375) return sineOfReduced(0.25 - r);
-  if (r < 0.625) return -cosineOfReduced(r - 0.5);
-  if (r <= 0.875) return sineOfReduced(r - 0.75);
-  return cosineOfReduced(r - 1);
+  SLOT[0] = turns;
+  cosineInto();
+  return SLOT[0];
 }
 
 /** `tan(2π · turns)`: `sineOfTurns(turns) / cosineOfTurns(turns)`, as `tangent_of_turns`. */
 export function tangentOfTurns(turns: number): number {
-  return sineOfTurns(turns) / cosineOfTurns(turns);
-}
-
-/** `cos(2πt)` for `t` in `[−1/8, 1/8]`: Horner's rule in `t²`, highest coefficient first. */
-function cosineOfReduced(t: number): number {
-  const square = t * t;
-  let sum = COSINE_COEFFICIENTS[9] ?? 0;
-  for (let index = 8; index >= 0; index -= 1) {
-    sum = sum * square + (COSINE_COEFFICIENTS[index] ?? 0);
-  }
-  return sum;
+  SLOT[0] = turns;
+  tangentInto();
+  return SLOT[0];
 }
 
 /**
@@ -65,23 +68,92 @@ function cosineOfReduced(t: number): number {
  * states the special values and the order.
  */
 export function arctangentTurns(y: number, x: number): number {
-  if (Number.isNaN(y) || Number.isNaN(x)) return Number.NaN;
-  const across = x < 0 || Object.is(x, -0);
+  SLOT[0] = y;
+  SLOT[1] = x;
+  arctangentInto();
+  return SLOT[0];
+}
+
+/** Replaces a number of turns in {@link SLOT} with its cosine. */
+function cosineInto(): void {
+  const turns = SLOT[0] ?? 0;
+  const r = turns - Math.floor(turns);
+  if (r < 0.125) {
+    SLOT[0] = r;
+    cosineOfReduced();
+  } else if (r <= 0.375) {
+    SLOT[0] = 0.25 - r;
+    sineOfReduced(SLOT);
+  } else if (r < 0.625) {
+    SLOT[0] = r - 0.5;
+    cosineOfReduced();
+    SLOT[0] = -SLOT[0];
+  } else if (r <= 0.875) {
+    SLOT[0] = r - 0.75;
+    sineOfReduced(SLOT);
+  } else {
+    SLOT[0] = r - 1;
+    cosineOfReduced();
+  }
+}
+
+/** Replaces a number of turns in {@link SLOT} with its tangent. */
+function tangentInto(): void {
+  const sine = sineOfTurns(SLOT[0] ?? 0);
+  cosineInto();
+  SLOT[0] = sine / (SLOT[0] ?? 0);
+}
+
+/**
+ * Replaces `t` in `[−1/8, 1/8]` in {@link SLOT} with `cos(2πt)`: Horner's rule
+ * in `t²`, highest coefficient first.
+ */
+function cosineOfReduced(): void {
+  const t = SLOT[0] ?? 0;
+  const square = t * t;
+  let sum = COSINE_COEFFICIENTS[9] ?? 0;
+  for (let index = 8; index >= 0; index -= 1) {
+    sum = sum * square + (COSINE_COEFFICIENTS[index] ?? 0);
+  }
+  SLOT[0] = sum;
+}
+
+/** Replaces `[y, x]` in {@link SLOT} with the angle {@link arctangentTurns} answers. */
+function arctangentInto(): void {
+  const y = SLOT[0] ?? 0;
+  const x = SLOT[1] ?? 0;
+  // NaN alone is not itself, `v − v` is 0 only for finite `v`, and −0 alone
+  // of the zeros has a negative reciprocal. `Number.isNaN`, `Number.isFinite`
+  // and `Object.is` would box their arguments in code V8's middle tier
+  // compiled, which code that runs rarely can stay in.
+  if (y !== y || x !== x) {
+    SLOT[0] = Number.NaN;
+    return;
+  }
+  const across = x < 0 || (x === 0 && 1 / x < 0);
   const a = Math.abs(x);
   const b = Math.abs(y);
   let side: number;
-  if (!Number.isFinite(a) || !Number.isFinite(b) || (a === 0 && b === 0)) {
-    const firstQuadrant = b === 0 ? 0 : a === b ? 0.125 : Number.isFinite(b) ? 0 : 0.25;
+  if (a - a !== 0 || b - b !== 0 || (a === 0 && b === 0)) {
+    const firstQuadrant = b === 0 ? 0 : a === b ? 0.125 : b - b === 0 ? 0 : 0.25;
     side = across ? 0.5 - firstQuadrant : firstQuadrant;
   } else {
-    side = angleOfFinite(b, a, across);
+    SLOT[0] = b;
+    SLOT[1] = a;
+    angleOfFinite(across);
+    side = SLOT[0];
   }
-  const below = y < 0 || Object.is(y, -0);
-  return below && side !== 0.5 ? -side : side;
+  const below = y < 0 || (y === 0 && 1 / y < 0);
+  SLOT[0] = below && side !== 0.5 ? -side : side;
 }
 
-/** The angle in `[0, 1/2]` of `(±a, b)`, finite, not both zero: `angle_of_finite`. */
-function angleOfFinite(b: number, a: number, across: boolean): number {
+/**
+ * Replaces `[b, a]` in {@link SLOT}, finite and not both zero, with the angle
+ * in `[0, 1/2]` of `(±a, b)`: `angle_of_finite`.
+ */
+function angleOfFinite(across: boolean): void {
+  const b = SLOT[0] ?? 0;
+  const a = SLOT[1] ?? 0;
   const fromYAxis = b > a;
   let big = fromYAxis ? b : a;
   let small = fromYAxis ? a : b;
@@ -92,33 +164,51 @@ function angleOfFinite(b: number, a: number, across: boolean): number {
     big *= TWO_TO_512;
     small *= TWO_TO_512;
   }
+  // Worked out before the branch, not in it: V8 inlines no call that runs
+  // rarely, and a number crossing a call it has not inlined is boxed.
+  const d = small + big;
+  const dLow = fastSumError(big, small, d);
   let base: number;
   let inner: number;
   if (small + small <= big) {
     const t = small / big;
     const tb = t * big;
-    const tLow = (small - tb - productError(t, big, tb)) / big;
+    SLOT[0] = t;
+    SLOT[1] = big;
+    SLOT[2] = tb;
+    productError(SLOT);
+    const tLow = (small - tb - SLOT[0]) / big;
     base = 0;
-    inner = t * arctangentSeries(t * t) + tLow * INVERSE_TAU;
+    SLOT[0] = t * t;
+    arctangentSeries();
+    inner = t * SLOT[0] + tLow * INVERSE_TAU;
   } else {
     const n = small - big;
-    const d = small + big;
-    const dLow = fastSumError(big, small, d);
     const u = n / d;
     const ud = u * d;
-    const uLow = (n - ud - productError(u, d, ud) - u * dLow) / d;
+    SLOT[0] = u;
+    SLOT[1] = d;
+    SLOT[2] = ud;
+    productError(SLOT);
+    const uLow = (n - ud - SLOT[0] - u * dLow) / d;
     base = 0.125;
-    inner = u * arctangentSeries(u * u) + uLow * INVERSE_TAU;
+    SLOT[0] = u * u;
+    arctangentSeries();
+    inner = u * SLOT[0] + uLow * INVERSE_TAU;
   }
-  if (fromYAxis) return across ? 0.25 + base + inner : 0.25 - base - inner;
-  return across ? 0.5 - base - inner : base + inner;
+  if (fromYAxis) SLOT[0] = across ? 0.25 + base + inner : 0.25 - base - inner;
+  else SLOT[0] = across ? 0.5 - base - inner : base + inner;
 }
 
-/** `Σ cₙ zⁿ` over the arctangent coefficients, by Horner's rule, highest first. */
-function arctangentSeries(z: number): number {
+/**
+ * Replaces `z` in {@link SLOT} with `Σ cₙ zⁿ` over the arctangent
+ * coefficients, by Horner's rule, highest first.
+ */
+function arctangentSeries(): void {
+  const z = SLOT[0] ?? 0;
   let sum = ARCTANGENT_COEFFICIENTS[25] ?? 0;
   for (let index = 24; index >= 0; index -= 1) {
     sum = sum * z + (ARCTANGENT_COEFFICIENTS[index] ?? 0);
   }
-  return sum;
+  SLOT[0] = sum;
 }

@@ -10,8 +10,11 @@
 
 import { failure, FailureKind, fail, succeed, type DomainResult } from '@audiogubbins/domain';
 
+import { readAnalysisExports, type AnalysisExports } from './analysis-exports.js';
+import type { Call } from './export-call.js';
+
 /** The ABI version this binding speaks; `ABI_VERSION` in `wasm-bindings`. */
-const DSP_ABI_VERSION = 4;
+const DSP_ABI_VERSION = 5;
 
 /** What a call that answers a status answers; `STATUS_*` in `wasm-bindings`. */
 export const DspStatus = {
@@ -99,16 +102,9 @@ export interface DspExports {
   /** The inverse: a spectrum laid out as the forward call writes one, back to `N` samples. */
   readonly fftInverseReal: (fft: number, input: number, output: number) => number;
   readonly fftRelease: (fft: number) => number;
+  /** The measuring objects of `crates/analysis` (`analysis-exports.ts`). */
+  readonly analysis: AnalysisExports;
 }
-
-/** A call into the module: no export takes more than five arguments. */
-type Call = (
-  first?: number,
-  second?: number,
-  third?: number,
-  fourth?: number,
-  fifth?: number,
-) => number;
 
 /** An exported function, called with the arguments the ABI gives it. */
 type ExportedFunction = (
@@ -218,6 +214,7 @@ export function readDspExports(exports: unknown): DomainResult<DspExports> {
     fftForwardReal: call('ag_fft_forward_real'),
     fftInverseReal: call('ag_fft_inverse_real'),
     fftRelease: call('ag_fft_release'),
+    analysis: readAnalysisExports(call),
   };
   return missing.length > 0 ? lacking(missing) : speaksThisAbi(read);
 }

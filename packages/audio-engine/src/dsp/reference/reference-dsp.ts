@@ -17,6 +17,12 @@ import {
   type ResamplerSettings,
 } from '../canonical-dsp.js';
 import {
+  checkDetector,
+  checkLoudnessMeter,
+  checkPeakMeter,
+  checkStft,
+} from '../analysis-settings.js';
+import {
   assertFftShape,
   assertSeekFrame,
   checkFftSize,
@@ -24,6 +30,12 @@ import {
   checkResampler,
   framesOfPlanar,
 } from '../settings.js';
+import {
+  referenceDetector,
+  referenceLoudnessMeter,
+  referencePeakMeter,
+  referenceStft,
+} from './analysis/reference-analysis.js';
 import { ReferenceFft } from './fft.js';
 import { ReferenceOscillator, sineOfTurns } from './primitives.js';
 import { ReferenceResampler } from './resampling.js';
@@ -110,4 +122,9 @@ export const REFERENCE_DSP: CanonicalDsp = {
   createResampler: (settings): DomainResult<CanonicalResampler> =>
     mapResult(checkResampler(settings), resamplerFrom),
   createFft: (size): DomainResult<CanonicalFft> => mapResult(checkFftSize(size), fftOf),
+  createStft: (settings) => mapResult(checkStft(settings), referenceStft),
+  createPeakMeter: (settings) => mapResult(checkPeakMeter(settings), referencePeakMeter),
+  createLoudnessMeter: (settings) =>
+    mapResult(checkLoudnessMeter(settings), referenceLoudnessMeter),
+  createDetectorFeatures: (settings) => mapResult(checkDetector(settings), referenceDetector),
 };

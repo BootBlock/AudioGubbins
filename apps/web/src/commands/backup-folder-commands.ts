@@ -18,10 +18,10 @@ import {
 } from '@audiogubbins/commands';
 
 import type { BackupFolderState } from '../state/backup-folder-store.js';
-import { quoted } from '../wording.js';
 import { readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Why no folder can be chosen in this browser. */
 const NO_FOLDERS =

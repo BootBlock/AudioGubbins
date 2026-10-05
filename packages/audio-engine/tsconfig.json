@@ -24,6 +24,9 @@
     },
     {
       "path": "../../packages/codecs"
+    },
+    {
+      "path": "../../packages/text"
     }
   ]
 }

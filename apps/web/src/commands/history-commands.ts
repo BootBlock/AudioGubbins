@@ -21,10 +21,10 @@ import {
 import { redoTarget, undoTarget } from '@audiogubbins/history';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
-import { quoted } from '../wording.js';
 import { idArgument, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Available where the session has a change for `target` to find. */
 function historyAvailability(

@@ -55,22 +55,44 @@ Published paths
   const BUILT_IN_NODES: NodeImplementations
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
+  interface CanonicalDetectorFeatures
+  readonly CanonicalDetectorFeatures.kind: DetectorKind
+  readonly CanonicalDetectorFeatures.channels: number
+  readonly CanonicalDetectorFeatures.recordWidth: number
+  CanonicalDetectorFeatures.push: (input: readonly Float32Array[]) => void
+  CanonicalDetectorFeatures.pull: (into: Float64Array) => number
+  CanonicalDetectorFeatures.release: () => void
   interface CanonicalDsp
   readonly CanonicalDsp.implementation: DspImplementation
   CanonicalDsp.sineOfTurns: (turns: number) => number
   CanonicalDsp.createOscillator: (settings: OscillatorSettings) => DomainResult<CanonicalOscillator>
   CanonicalDsp.createResampler: (settings: ResamplerSettings) => DomainResult<CanonicalResampler>
   CanonicalDsp.createFft: (size: number) => DomainResult<CanonicalFft>
+  CanonicalDsp.createStft: (settings: StftSettings) => DomainResult<CanonicalStft>
+  CanonicalDsp.createPeakMeter: (settings: PeakMeterSettings) => DomainResult<CanonicalPeakMeter>
+  CanonicalDsp.createLoudnessMeter: (settings: LoudnessMeterSettings) => DomainResult<CanonicalLoudnessMeter>
+  CanonicalDsp.createDetectorFeatures: (settings: DetectorSettings) => DomainResult<CanonicalDetectorFeatures>
   interface CanonicalFft
   readonly CanonicalFft.size: number
   readonly CanonicalFft.bins: number
   CanonicalFft.forwardReal: (signal: Float32Array | Float64Array, real: Float64Array, imaginary: Float64Array) => void
   CanonicalFft.inverseReal: (real: Float64Array, imaginary: Float64Array, signal: Float32Array | Float64Array) => void
   CanonicalFft.release: () => void
+  interface CanonicalLoudnessMeter
+  readonly CanonicalLoudnessMeter.channels: number
+  CanonicalLoudnessMeter.push: (input: readonly Float32Array[]) => void
+  CanonicalLoudnessMeter.pullSeries: (into: Float64Array) => number
+  CanonicalLoudnessMeter.read: () => LoudnessReading
+  CanonicalLoudnessMeter.release: () => void
   interface CanonicalOscillator
   CanonicalOscillator.render: (into: Float32Array) => void
   CanonicalOscillator.seek: (frame: number) => void
   CanonicalOscillator.release: () => void
+  interface CanonicalPeakMeter
+  readonly CanonicalPeakMeter.channels: number
+  CanonicalPeakMeter.push: (input: readonly Float32Array[]) => void
+  CanonicalPeakMeter.read: (into: Float64Array) => void
+  CanonicalPeakMeter.release: () => void
   interface CanonicalResampler
   readonly CanonicalResampler.channels: number
   readonly CanonicalResampler.lookahead: number
@@ -81,6 +103,15 @@ Published paths
   CanonicalResampler.seek: (frame: number) => number
   readonly CanonicalResampler.drained: boolean
   CanonicalResampler.release: () => void
+  interface CanonicalStft
+  readonly CanonicalStft.channels: number
+  readonly CanonicalStft.size: number
+  readonly CanonicalStft.hop: number
+  readonly CanonicalStft.bins: number
+  CanonicalStft.push: (input: readonly Float32Array[]) => void
+  CanonicalStft.pullComplex: (real: Float64Array, imaginary: Float64Array) => boolean
+  CanonicalStft.pullPolar: (magnitudes: Float64Array, phases: Float64Array) => boolean
+  CanonicalStft.release: () => void
   interface ChainProcessing
   ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
   interface ChainRequest
@@ -113,16 +144,38 @@ Published paths
   readonly ChunkPlanRequest.channels: number
   readonly ChunkPlanRequest.sampleRate: SampleRate
   readonly ChunkPlanRequest.conversions?: readonly ResamplerCoefficients[]
+  interface ClickSettings extends DetectorBasis
+  readonly ClickSettings.kind: "clicks"
+  readonly ClickSettings.block: number
+  readonly ClickSettings.sensitivity: number
+  readonly ClickSettings.channels: number
+  readonly ClickSettings.sampleRate: SampleRate
+  interface ClippingSettings extends DetectorBasis
+  readonly ClippingSettings.kind: "clipping"
+  readonly ClippingSettings.block: number
+  readonly ClippingSettings.epsilon: number
+  readonly ClippingSettings.minimumRun: number
+  readonly ClippingSettings.channels: number
+  readonly ClippingSettings.sampleRate: SampleRate
   interface ClockAnchor
   readonly ClockAnchor.contextFrame: number
   readonly ClockAnchor.timelineFrame: SampleCount
   const CoefficientStrategy: { readonly Table: "table"; readonly Computed: "computed"; }
   type CoefficientStrategy = "computed" | "table"
+  interface DcOffsetSettings extends DetectorBasis
+  readonly DcOffsetSettings.kind: "dc-offset"
+  readonly DcOffsetSettings.window: number
+  readonly DcOffsetSettings.hop: number
+  readonly DcOffsetSettings.channels: number
+  readonly DcOffsetSettings.sampleRate: SampleRate
   class DelayLine
   new DelayLine(frames: readonly number[]): DelayLine
   readonly DelayLine.#history: readonly Float32Array<ArrayBufferLike>[]
   readonly DelayLine.#positions: Float64Array<ArrayBufferLike>
   DelayLine.process: (input: AudioFrameBlock, output: AudioFrameBlock, frames: number) => void
+  const DetectorKind: { readonly Clicks: "clicks"; readonly Hum: "hum"; readonly NoiseFloor: "noise-floor"; readonly Clipping: "clipping"; readonly DcOffset: "dc-offset"; readonly Transients: "transients"; }
+  type DetectorKind = "clicks" | "clipping" | "dc-offset" | "hum" | "noise-floor" | "transients"
+  type DetectorSettings = ClickSettings | ClippingSettings | DcOffsetSettings | HumSettings | NoiseFloorSettings | TransientSettings
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
   interface GraphExecutor
@@ -131,6 +184,14 @@ Published paths
   GraphExecutor.process: (frames: number) => void
   GraphExecutor.setParameter: (node: NodeId, name: string, value: number) => DomainResult<void>
   GraphExecutor.release: () => void
+  interface HumSettings extends DetectorBasis
+  readonly HumSettings.kind: "hum"
+  readonly HumSettings.size: number
+  readonly HumSettings.hop: number
+  readonly HumSettings.searchWidth: number
+  readonly HumSettings.floorWidth: number
+  readonly HumSettings.channels: number
+  readonly HumSettings.sampleRate: SampleRate
   interface InputFeed
   readonly InputFeed.layout: ChannelLayout
   InputFeed.fill: (into: AudioFrameBlock) => number
@@ -148,6 +209,12 @@ Published paths
   type LatencyCategory = "balanced" | "interactive" | "playback"
   type LatencyHint = "balanced" | "interactive" | "playback" | number
   type LimitingResource = "compute" | "memory" | "storage"
+  interface LoudnessMeterSettings
+  readonly LoudnessMeterSettings.sampleRate: SampleRate
+  readonly LoudnessMeterSettings.layout: ChannelLayout
+  interface LoudnessReading
+  readonly LoudnessReading.integrated: number
+  readonly LoudnessReading.range: number
   interface MediaClock
   readonly MediaClock.timelineRate: SampleRate
   readonly MediaClock.contextRate: SampleRate
@@ -191,6 +258,14 @@ Published paths
   readonly NodeShape.inputs: readonly PortShape[]
   readonly NodeShape.outputs: readonly PortShape[]
   readonly NodeShape.settings: Readonly<Record<string, SettingValue>>
+  interface NoiseFloorSettings extends DetectorBasis
+  readonly NoiseFloorSettings.kind: "noise-floor"
+  readonly NoiseFloorSettings.frame: number
+  readonly NoiseFloorSettings.hop: number
+  readonly NoiseFloorSettings.percentile: number
+  readonly NoiseFloorSettings.history: number
+  readonly NoiseFloorSettings.channels: number
+  readonly NoiseFloorSettings.sampleRate: SampleRate
   interface OscillatorSettings
   readonly OscillatorSettings.frequency: number
   readonly OscillatorSettings.sampleRate: SampleRate
@@ -219,6 +294,9 @@ Published paths
   readonly PcmSource.length: SampleCount | undefined
   PcmSource.read: (start: SampleCount, into: AudioFrameBlock, signal?: CancellationSignal) => Promise<number>
   PcmSource.release: () => void
+  interface PeakMeterSettings
+  readonly PeakMeterSettings.channels: number
+  readonly PeakMeterSettings.sampleRate: SampleRate
   const PerformanceProfile: { readonly LowLatency: "low-latency"; readonly Balanced: "balanced"; readonly MaximumStability: "maximum-stability"; readonly Custom: "custom"; }
   type PerformanceProfile = "balanced" | "custom" | "low-latency" | "maximum-stability"
   interface PerformanceSettings
@@ -351,8 +429,21 @@ Published paths
   readonly StabilityAssessment.underrunsInWindow: number
   readonly StabilityAssessment.recommendation?: PerformanceProfile
   readonly StabilityAssessment.explanation: string
+  interface StftSettings
+  readonly StftSettings.channels: number
+  readonly StftSettings.size: number
+  readonly StftSettings.hop: number
   type StreamReader = (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
   const TRANSPORT_AT_START: TransportState
+  interface TransientSettings extends DetectorBasis
+  readonly TransientSettings.kind: "transients"
+  readonly TransientSettings.size: number
+  readonly TransientSettings.hop: number
+  readonly TransientSettings.history: number
+  readonly TransientSettings.multiplier: number
+  readonly TransientSettings.offset: number
+  readonly TransientSettings.channels: number
+  readonly TransientSettings.sampleRate: SampleRate
   type TransportEvent = { readonly kind: "clock"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "context-resumed"; readonly contextFrame: number; } | { readonly kind: "context-suspended"; readonly contextFrame: number; } | { readonly kind: "halted"; readonly position: SampleCount; } | { readonly kind: "parked"; readonly position: SampleCount; } | { readonly kind: "pause"; readonly contextFrame: number; } | { readonly kind: "play"; readonly contextFrame: number; readonly position: SampleCount; } | { readonly kind: "reached-end"; readonly position: SampleCount; } | { readonly kind: "seek"; readonly to: SampleCount; readonly contextFrame: number; } | { readonly kind: "stop"; }
   const TransportMode: { readonly Stopped: "stopped"; readonly Playing: "playing"; readonly Paused: "paused"; readonly Suspended: "suspended"; }
   type TransportMode = "paused" | "playing" | "stopped" | "suspended"
@@ -389,6 +480,7 @@ Published paths
   function assessStability(history: UnderrunHistory, contextFrame: number, profile: PerformanceProfile, settings: PerformanceSettings): StabilityAssessment
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
+  function besselI0(x: number): number
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
   function channelAt(block: AudioFrameBlock, index: number): Float32Array<ArrayBufferLike>
   function contextFrameFor(clock: MediaClock, anchor: ClockAnchor, timelineFrame: SampleCount): number
@@ -4304,7 +4396,9 @@ Published paths
   function namesCanBeCompared(): boolean
   function namesHeldBy<T extends Named>(entries: Iterable<T>, self?: string | undefined): NamesHeld<T>
   function oneCharacter(text: string): boolean
+  function quoted(name: string): string
   function sentencesWithin(text: string, words: number): SentencesTaken
+  function timeOfDay(at: number): string
   function utf8Bytes(text: string): number
   function wholeCharactersWithin(text: string, bound: number): string
 
@@ -4688,6 +4782,11 @@ Published paths
   function withoutPanel(layout: WorkspaceLayout, id: string): WorkspaceLayout
 
 Named by a published contract, and published by no entry point
+
+packages/audio-engine/src/dsp/canonical-analysis.ts
+  interface DetectorBasis
+  readonly DetectorBasis.channels: number
+  readonly DetectorBasis.sampleRate: SampleRate
 
 packages/audio-engine/src/nodes/node-shape.ts
   type NodeProblemCode = "layout-unsupported" | "node-settings-invalid" | "role-ports-invalid"

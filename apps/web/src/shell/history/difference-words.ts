@@ -32,8 +32,7 @@ import type {
 } from '@audiogubbins/history';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { AssetSource } from '@audiogubbins/project-format';
-
-import { quoted } from '../../wording.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What a person calls each field of an entity. */
 type FieldWords<TEntity> = Readonly<Record<FieldOf<TEntity>, string>>;

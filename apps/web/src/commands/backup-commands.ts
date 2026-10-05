@@ -13,7 +13,7 @@ import { CommandCategory, type Command, type CommandInvocation } from '@audiogub
 import type { BackupPolicy, BackupRetention, BackupTrigger } from '@audiogubbins/project-format';
 
 import { notMadeReason } from '../backup-words.js';
-import { quoted, when } from '../wording.js';
+import { when } from '../wording.js';
 import {
   projectsAvailability,
   readyProjects,
@@ -23,6 +23,7 @@ import {
 import { recordedNote } from './project-transfer-commands.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** A whole positive number an argument holds, `undefined` where it holds none, or why it is not one. */
 function countArgument(invocation: CommandInvocation, name: string): number | undefined | string {

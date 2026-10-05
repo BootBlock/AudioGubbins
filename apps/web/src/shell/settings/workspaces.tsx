@@ -21,6 +21,7 @@ import type { UnreadText } from '../../state/text-custody.js';
 import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
 import { UnreadTexts } from './unread-text.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the workspace controls need. */
 export interface WorkspacesProps {
@@ -216,7 +217,7 @@ function RestoreDeleted({
           run('workspace.restore', { layoutId: newest.id });
         }}
       >
-        {`Restore "${newest.displayName}"`}
+        {`Restore ${quoted(newest.displayName)}`}
       </ReasonedButton>
     </div>
   );

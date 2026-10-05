@@ -1213,7 +1213,7 @@ describe('a runtime that cannot compare names', () => {
 
 describe('a name another workspace has', () => {
   const presets = buildPresets(AVAILABLE);
-  const IN_USE = 'There is already a workspace called "Mixing". Choose another name.';
+  const IN_USE = 'There is already a workspace called “Mixing”. Choose another name.';
 
   it('is refused by saving as, copying and renaming alike, compared as a reader hears it', () => {
     // Two workspaces of one name were two entries the menu, the settings and
@@ -1233,7 +1233,7 @@ describe('a name another workspace has', () => {
   it("is refused where it is a built-in workspace's name as the list shows it, the mark and all", () => {
     // The menu and the settings list a built-in workspace with its mark, so a
     // workspace given "Editing (built in)" would be listed as the preset is.
-    const MARKED = 'There is already a workspace called "Editing (built in)". Choose another name.';
+    const MARKED = 'There is already a workspace called “Editing (built in)”. Choose another name.';
     const store = createLayoutStore(presets, [validLayout({ displayName: 'Mine' })]);
     const before = store.all();
 
@@ -1286,7 +1286,7 @@ describe('a name another workspace has', () => {
     expect(store.get('mine')?.displayName).toBe('Mastering');
 
     expect(store.saveAs(validLayout(), 'Mixing ')).toBe(
-      'There is already a workspace called "Mixing". Choose another name.',
+      'There is already a workspace called “Mixing”. Choose another name.',
     );
   });
 
@@ -1431,7 +1431,7 @@ describe('refusals name a workspace the way the user does', () => {
     ]);
 
     expect(store.resettable('mixing-desk-2')).toBe(
-      '"Mixing desk" is not a built-in workspace, so there is nothing to reset it to. Delete it instead.',
+      '“Mixing desk” is not a built-in workspace, so there is nothing to reset it to. Delete it instead.',
     );
   });
 

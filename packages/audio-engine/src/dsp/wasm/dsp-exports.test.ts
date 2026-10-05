@@ -8,9 +8,10 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { sampleRate } from '@audiogubbins/domain';
+import { StandardLayouts, sampleRate, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
+import { DetectorKind } from '../canonical-analysis.js';
 import { ResamplingQuality } from '../canonical-dsp.js';
 import { readDspExports } from './dsp-exports.js';
 import { wasmDsp } from './wasm-dsp.js';
@@ -19,7 +20,7 @@ import { wasmDsp } from './wasm-dsp.js';
  * The ABI version the engine speaks, written here rather than read from the
  * binding, so a change of version is a change this test is made to agree to.
  */
-const DSP_ABI_VERSION = 4;
+const DSP_ABI_VERSION = 5;
 
 /** Every function the engine calls, each answering 0 unless a test says otherwise. */
 const FUNCTIONS = [
@@ -58,6 +59,25 @@ const FUNCTIONS = [
   'ag_fft_forward_real',
   'ag_fft_inverse_real',
   'ag_fft_release',
+  'ag_stft_create',
+  'ag_stft_push',
+  'ag_stft_pull_complex',
+  'ag_stft_pull_polar',
+  'ag_stft_release',
+  'ag_peak_meter_create',
+  'ag_peak_meter_push',
+  'ag_peak_meter_read',
+  'ag_peak_meter_release',
+  'ag_loudness_meter_create',
+  'ag_loudness_meter_push',
+  'ag_loudness_meter_pull_series',
+  'ag_loudness_meter_read',
+  'ag_loudness_meter_release',
+  'ag_detector_create',
+  'ag_detector_record_width',
+  'ag_detector_push',
+  'ag_detector_pull',
+  'ag_detector_release',
 ] as const;
 
 /** Exports that speak this engine's ABI, with `changes` laid over them. */
@@ -165,5 +185,25 @@ describe('wasmDsp over a module that refuses to make an object', () => {
 
   it('reports the refusal of an FFT', () => {
     expect(expectFailureCode(dsp.createFft(1_024))).toBe('dsp.module-refused');
+  });
+
+  it('reports the refusal of each measuring object', () => {
+    const rate = expectSuccess(sampleRate(48_000));
+    const made: readonly DomainResult<{ release(): void }>[] = [
+      dsp.createStft({ channels: 2, size: 1_024, hop: 256 }),
+      dsp.createPeakMeter({ channels: 2, sampleRate: rate }),
+      dsp.createLoudnessMeter({ sampleRate: rate, layout: StandardLayouts.stereo }),
+      dsp.createDetectorFeatures({
+        kind: DetectorKind.DcOffset,
+        channels: 2,
+        sampleRate: rate,
+        window: 480,
+        hop: 480,
+      }),
+    ];
+
+    expect(made.map((result) => expectFailureCode(result))).toEqual(
+      Array(4).fill('dsp.module-refused'),
+    );
   });
 });

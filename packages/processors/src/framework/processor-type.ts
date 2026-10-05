@@ -186,6 +186,10 @@ function portsOf(
       port.name === ProcessorPort.Input ||
       (port.name === ProcessorPort.SideChain && definition.sideChain !== undefined),
   );
+  // The engine gives a kernel its input blocks in the order the node declares
+  // its ports, and a kernel reads "input" first and "side-chain" second, so a
+  // node that declared them the other way round would key on its programme.
+  const ordered = shape.inputs[0] === input;
   if (input === undefined || output === undefined || shape.outputs.length !== 1 || !known) {
     const optional = definition.sideChain === undefined ? '' : ' and may take "side-chain"';
     return problem(
@@ -193,6 +197,9 @@ function portsOf(
       'role-ports-invalid',
       `a processor takes the input "input"${optional}, and gives the output "output"`,
     );
+  }
+  if (!ordered) {
+    return problem(shape, 'role-ports-invalid', 'its input "input" must come before "side-chain"');
   }
   return { input, output, ...(sideChain === undefined ? {} : { sideChain }) };
 }

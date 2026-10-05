@@ -14,6 +14,7 @@ authors.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+audiogubbins-analysis = { path = "../analysis" }
 audiogubbins-dsp-core = { path = "../dsp-core" }
 audiogubbins-resampling = { path = "../resampling" }
 

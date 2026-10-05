@@ -5,11 +5,12 @@
 # (REQ-REPO-187) and the canonical DSP Phase 03 owns: deterministic primitives,
 # the resampler, and the narrow WebAssembly boundary the TypeScript engine
 # reaches them through (ADR-0031, ADR-0032). The analysis crate REQ-REPO-154
-# names belongs to the phases that analyse audio.
+# names is Phase 06's: what measures audio rather than changes it (ADR-0061).
 
 [workspace]
 resolver = "3"
 members = [
+  "crates/analysis",
   "crates/audiogubbins-version",
   "crates/dsp-core",
   "crates/resampling",

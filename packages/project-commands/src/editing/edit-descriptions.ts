@@ -4,8 +4,7 @@
  */
 
 import type { EditOperation, RangeEdit } from '@audiogubbins/domain';
-
-import { quoted } from '../project-command.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The verb phrase of a range edit. */
 function rangeEditWords(edit: RangeEdit): string {

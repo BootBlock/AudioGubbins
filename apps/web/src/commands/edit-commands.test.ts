@@ -184,7 +184,7 @@ describe('the commands that change time, selection first (ADR-0042)', () => {
 
     const said = await ran(audio, 'edit.delete');
 
-    expect(said).toMatch(/changes all of "Loop"/);
+    expect(said).toMatch(/changes all of “Loop”/);
     expect(chainOf(audio)).toEqual([
       expect.objectContaining({ kind: 'delete', range: { start: 48_000, end: 96_000 } }),
     ]);

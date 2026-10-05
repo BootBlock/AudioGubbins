@@ -31,6 +31,7 @@ import {
   PRESETS_BY_STABILITY,
   type PerformanceSettings,
 } from './performance-profile.js';
+import { counted } from '@audiogubbins/text';
 
 /** How far back an assessment looks. */
 export const STABILITY_WINDOW_SECONDS = 10;
@@ -199,7 +200,7 @@ function describeUnstable(
   recommendation: PerformanceProfile | undefined,
 ): string {
   const heard =
-    `${String(underruns)} ${underruns === 1 ? 'underrun' : 'underruns'} in the last ` +
+    `${counted(underruns, 'underrun', 'underruns')} in the last ` +
     `${String(STABILITY_WINDOW_SECONDS)} seconds: the audio device ran out of sound to play, ` +
     'which is heard as clicks or drop-outs.';
   if (recommendation === undefined) {

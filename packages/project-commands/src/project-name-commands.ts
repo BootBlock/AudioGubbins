@@ -21,10 +21,10 @@ import {
   ProjectCommandId,
   applied,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from './project-command.js';
 import { withProjectName } from './state-edits.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The two commands that name the project. */
 export function projectNameCommands(): readonly ProjectCommand[] {

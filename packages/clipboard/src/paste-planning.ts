@@ -50,6 +50,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import type { AudioPayload } from './clipboard-payload.js';
+import { quoted } from '@audiogubbins/text';
 
 /** Where a paste goes, and how. */
 export interface PasteRequest {
@@ -174,7 +175,7 @@ function recordsToAdd(
     if (!same) {
       return refused(
         'source-differs',
-        `The copied audio reads “${record.asset.displayName}”, which this project holds with other media.`,
+        `The copied audio reads ${quoted(record.asset.displayName)}, which this project holds with other media.`,
       );
     }
   }

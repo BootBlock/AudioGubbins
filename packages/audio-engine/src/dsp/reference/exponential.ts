@@ -3,11 +3,6 @@
  * operation: Cody and Waite's reduction by a split `ln 2`, the Taylor series
  * to the 14th power, and a scaling by `2ᵏ` built from bits. The constants are
  * the same text as the crate's, so they parse to the same doubles (ADR-0032).
- *
- * The core takes its argument and gives its result through a `Float64Array`
- * rather than as arguments and a return value: V8 boxes a double passed to or
- * returned from a call it does not inline, which on the audio thread is an
- * allocation per sample, and the core is too large to be sure of inlining.
  */
 
 /** `ln 2`'s high 42 bits, so `k · LN2_HIGH` is exact for any `|k| < 2¹¹`. */
@@ -29,19 +24,42 @@ const TAYLOR: readonly number[] = [
   2.505210838544172e-8, 2.08767569878681e-9, 1.6059043836821613e-10, 1.1470745597729725e-11,
 ];
 
-/** The eight bytes `powerOfTwo` builds a double in, made once. */
+/**
+ * The eight bytes `powerOfTwo` builds a power of two in, made once, where its
+ * caller reads the power.
+ */
 const BITS = new DataView(new ArrayBuffer(8));
 
-/** The argument and result of `exp`, handed through the core. */
-const ARGUMENT = new Float64Array(2);
+/**
+ * Where the exponential's core takes its argument and leaves its answer. V8
+ * boxes a double passed to or returned from a call it does not inline, a heap
+ * number per sample on the audio thread, and whether it inlines a core this
+ * size changes from one process to the next. So the cores return nothing and
+ * take and give every double through here or a caller's `Float64Array`, and
+ * {@link exp} is a store, a call and a read, small enough that V8 inlines it
+ * wherever it runs often. Each core reads its arguments as it starts and writes
+ * its answer as it ends, so one it calls may use the same places.
+ */
+const SLOT = new Float64Array(2);
 
 /** `eˣ`, identical to `exp` in `exponential.rs`. */
 export function exp(x: number): number {
-  if (Number.isNaN(x)) return Number.NaN;
-  ARGUMENT[0] = x;
-  ARGUMENT[1] = 0;
-  expOfSum(ARGUMENT);
-  return ARGUMENT[0];
+  SLOT[0] = x;
+  expInto();
+  return SLOT[0];
+}
+
+/** Replaces `x` in {@link SLOT} with `eˣ`. */
+function expInto(): void {
+  const x = SLOT[0] ?? 0;
+  // NaN alone is not itself. `Number.isNaN` would box its argument in code
+  // V8's middle tier compiled, which code that runs rarely can stay in.
+  if (x !== x) {
+    SLOT[0] = Number.NaN;
+    return;
+  }
+  SLOT[1] = 0;
+  expOfSum(SLOT);
 }
 
 /**
@@ -69,20 +87,29 @@ export function expOfSum(parts: Float64Array): void {
   for (let index = 11; index >= 0; index -= 1) {
     q = q * r + (TAYLOR[index] ?? 0);
   }
-  const p = 1 + (r + (r * r * q + lost * (1 + r)));
-  parts[0] = scaleByPowerOfTwo(p, k);
+  parts[0] = 1 + (r + (r * r * q + lost * (1 + r)));
+  scaleByPowerOfTwo(parts, k);
 }
 
-/** `value · 2ⁿ` rounded once, as `scale_by_power_of_two` in `exponential.rs`. */
-function scaleByPowerOfTwo(value: number, n: number): number {
-  if (n > 1023) return value * powerOfTwo(1023) * powerOfTwo(n - 1023);
-  if (n < -1022) return value * powerOfTwo(n + 1000) * powerOfTwo(-1000);
-  return value * powerOfTwo(n);
+/** Replaces `value` in `parts[0]` with `value · 2ⁿ` rounded once, as `scale_by_power_of_two`. */
+function scaleByPowerOfTwo(parts: Float64Array, n: number): void {
+  let scaled = parts[0] ?? 0;
+  if (n > 1023) {
+    powerOfTwo(1023);
+    scaled *= BITS.getFloat64(0);
+    powerOfTwo(n - 1023);
+  } else if (n < -1022) {
+    powerOfTwo(n + 1000);
+    scaled *= BITS.getFloat64(0);
+    powerOfTwo(-1000);
+  } else {
+    powerOfTwo(n);
+  }
+  parts[0] = scaled * BITS.getFloat64(0);
 }
 
-/** `2ⁿ` for `n` in `[−1022, 1023]`, from its bits. */
-function powerOfTwo(n: number): number {
+/** Builds `2ⁿ` for `n` in `[−1022, 1023]` from its bits in {@link BITS}. */
+function powerOfTwo(n: number): void {
   BITS.setUint32(0, (n + 1023) << 20);
   BITS.setUint32(4, 0);
-  return BITS.getFloat64(0);
 }

@@ -178,5 +178,29 @@ Second session, 2026-10-05 (16:00 to 18:00), committed as above with
   since under the whole suite's load V8 left reference primitives
   unoptimised for 20 s and more.
 
-Next: the processors (groups A and B as sub-agents, briefs in the briefs
-folder, `processor-brief.md` corrected), then C, `crates/analysis`, D and E.
+Third session, 2026-10-05 (18:00 on), not yet committed when written:
+
+- Processors of groups A, B and C (filters and equalisation, dynamics,
+  time and space), each in the catalogue in category order; a node must
+  list `input` before `side-chain`; the limiter reads the engine's
+  `besselI0`.
+- `crates/analysis` and its reference: STFT, peak (the BS.1770-4 Annex 2
+  table, checked against the published Recommendation), loudness, and the
+  six detector features; DSP ABI 5.
+- F-07's remnants: `quoted` and `timeOfDay` in the text package (ADR-0018
+  amended), read by the engine's packages, storage, the clipboard, the
+  storage runtime and the application; usage measurement uses
+  `projectsIn`. `packages/text` is now portable.
+- The `processors` test project runs in its own later group, and the
+  allocation tests after it: beside it, the storage round trips ran past
+  their patience.
+- Found: V8 boxes a double a function returns to a caller it was not
+  inlined into, and whether it inlines a mid-sized primitive varies with
+  load, so a kernel could allocate a number a sample on the audio thread
+  (the allocation tests failed now and then at 32 bytes a sample). The
+  fix: a double crosses a call on a per-sample path only through a slot or
+  from a function small enough to be always inlined.
+
+Next: finish that fix and commit; then D (pitch shift, noise reduction,
+de-click, de-pop, dereverb), E (normalisation), `AudioDetector` and the
+assistants.

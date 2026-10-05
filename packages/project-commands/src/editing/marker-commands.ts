@@ -36,11 +36,11 @@ import {
   ProjectCommandId,
   applied,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from '../project-command.js';
 import { targetMarker } from './editing-arguments.js';
 import { withMarker, withoutMarker } from './editing-state.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The commands that add, set and remove markers. */
 export function markerCommands(): readonly ProjectCommand[] {

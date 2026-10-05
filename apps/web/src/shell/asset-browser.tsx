@@ -26,8 +26,8 @@ import type {
 } from '../state/asset-catalogue.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { ProjectStores } from '../state/project-stores.js';
-import { quoted } from '../wording.js';
 import { CommandButton, type PanelCommands } from './command-button.js';
+import { quoted } from '@audiogubbins/text';
 
 /** An asset or region of the project as the browser lists it. */
 interface BrowserEntry {

@@ -31,7 +31,6 @@ import { givenName } from '@audiogubbins/project-format';
 import type { ProjectHeader } from '@audiogubbins/storage';
 
 import { ProjectsSection } from '../state/interaction-store.js';
-import { quoted } from '../wording.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import {
   idArgument,
@@ -44,6 +43,7 @@ import {
 } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The settings of a new project: the sample rate and channels asked for, or the usual ones. */
 export function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettings> {

@@ -20,9 +20,9 @@ import { notCopiedReason } from '../../backup-words.js';
 import type { BackupFolderState } from '../../state/backup-folder-store.js';
 import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
-import { quoted } from '../../wording.js';
 import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the folder is for and whose it is, said wherever it can be chosen. */
 const WHAT_IT_IS =

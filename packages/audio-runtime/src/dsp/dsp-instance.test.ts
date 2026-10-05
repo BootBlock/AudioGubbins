@@ -87,7 +87,13 @@ describe('scopeDsp', () => {
         'ag_resampler_create, ag_resampler_lookahead, ag_resampler_push, ' +
         'ag_resampler_finish, ag_resampler_pull, ag_resampler_drained, ' +
         'ag_resampler_seek, ag_resampler_table_bytes, ag_resampler_release, ' +
-        'ag_fft_create, ag_fft_forward_real, ag_fft_inverse_real, ag_fft_release.',
+        'ag_fft_create, ag_fft_forward_real, ag_fft_inverse_real, ag_fft_release, ' +
+        'ag_stft_create, ag_stft_push, ag_stft_pull_complex, ag_stft_pull_polar, ag_stft_release, ' +
+        'ag_peak_meter_create, ag_peak_meter_push, ag_peak_meter_read, ag_peak_meter_release, ' +
+        'ag_loudness_meter_create, ag_loudness_meter_push, ag_loudness_meter_pull_series, ' +
+        'ag_loudness_meter_read, ag_loudness_meter_release, ' +
+        'ag_detector_create, ag_detector_record_width, ag_detector_push, ag_detector_pull, ' +
+        'ag_detector_release.',
     );
   });
 

@@ -68,7 +68,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     const window = await windowWithProject();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
 
-    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
 
     const state = assetsOf(window);
     const [asset] = state.project.assets.values();
@@ -94,7 +94,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(window.context.editorViews.get().focused).toBeUndefined();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
 
-    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
 
     const [asset] = assetsOf(window).project.assets.values();
     const panel = window.context.editorViews.get().focused;
@@ -110,7 +110,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     window.files.mediaFiles.push(file);
     window.run('settings.source-handling', { handling: SourceHandling.Link });
 
-    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
 
     const [source] = assetsOf(window).sources.values();
     expect(source?.media).toMatchObject({ kind: 'external', policy: 'prompt' });
@@ -136,7 +136,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     window.files.mediaFiles.push(chosen(HARBOUR_WAV.slice(0, HARBOUR_WAV.length - 42)));
 
     expect(await window.runAndHear('file.import-audio')).toBe(
-      '"Harbour" is imported and open. Its audio ends 11 frames before its header says it does, so it was read to its last whole frame.',
+      '“Harbour” is imported and open. Its audio ends 11 frames before its header says it does, so it was read to its last whole frame.',
     );
     const [asset] = assetsOf(window).project.assets.values();
     expect(asset?.length).toBe(22_039);
@@ -150,7 +150,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     cancelOnStart(window);
 
     expect(await window.runAndHear('file.import-audio')).toBe(
-      'The import of "Harbour.wav" was cancelled, and nothing was kept.',
+      'The import of “Harbour.wav” was cancelled, and nothing was kept.',
     );
     expect(assetsOf(window)).toBe(before);
     expect(window.projects.imports.get().kind).toBe('idle');
@@ -169,7 +169,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
       expect(window.run('file.cancel-import').kind).toBe('applied');
     });
 
-    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(await window.runAndHear('file.import-audio')).toBe('“Harbour” is imported and open.');
     expect(assetsOf(window).project.assets.size).toBe(1);
   });
 
@@ -215,7 +215,7 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
       'A file is being imported already. Wait for it, or cancel it.',
       'A file is being imported already. Wait for it, or cancel it.',
     ]);
-    await expect.poll(() => window.said).toContain('"Harbour" is imported and open.');
+    await expect.poll(() => window.said).toContain('“Harbour” is imported and open.');
     expect(assetsOf(window).project.assets.size).toBe(1);
   });
 });

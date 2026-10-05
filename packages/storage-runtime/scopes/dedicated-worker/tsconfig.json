@@ -49,6 +49,9 @@
     },
     {
       "path": "../../../../packages/processors"
+    },
+    {
+      "path": "../../../../packages/text"
     }
   ]
 }

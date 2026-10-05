@@ -365,6 +365,9 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1
@@ -375,6 +378,9 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1
@@ -451,6 +457,9 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       '@audiogubbins/test-fixtures':
         specifier: workspace:*
@@ -741,6 +750,9 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
       '@audiogubbins/version':
         specifier: workspace:*
         version: link:../version
@@ -787,6 +799,9 @@ importers:
       '@audiogubbins/storage':
         specifier: workspace:*
         version: link:../storage
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       vitest:
         specifier: 5.0.1

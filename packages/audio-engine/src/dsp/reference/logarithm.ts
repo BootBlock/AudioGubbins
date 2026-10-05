@@ -3,11 +3,6 @@
  * operation for operation: `x = 2ᵉ · m` from the bits, `m` in `[√½, √2]`, and
  * `ln m = 2 · atanh((m − 1)/(m + 1))` carried as two doubles, accurate to about
  * 2⁻⁶³, so the power can multiply it by a large exponent (ADR-0032).
- *
- * The core takes `x` and gives the two parts through a `Float64Array` rather
- * than as an argument and a pair: V8 boxes a double passed to a call it does
- * not inline, and the core is too large to inline, so a caller per sample
- * would allocate a number a call.
  */
 
 import { doubleProductRounded, fastSumError, productError, sumError } from './exact.js';
@@ -32,31 +27,66 @@ const TWO_TO_54 = 18_014_398_509_481_984;
 /** The eight bytes a double is taken apart in, made once. */
 const BITS = new DataView(new ArrayBuffer(8));
 
-/** The argument of a logarithm, then its two parts, handed through {@link lnParts}. */
-const PARTS = new Float64Array(2);
+/**
+ * Where the logarithms' cores take their arguments and leave their answers. V8
+ * boxes a double passed to or returned from a call it does not inline, a heap
+ * number per sample on the audio thread, and whether it inlines a core this
+ * size changes from one process to the next. So the cores return nothing and
+ * take and give every double through here or a caller's `Float64Array`, and
+ * each logarithm is a store, a call and a read, small enough that V8 inlines it
+ * wherever it runs often. Each core reads its arguments as it starts and writes
+ * its answer as it ends, so one it calls may use the same places.
+ */
+const SLOT = new Float64Array(4);
 
 /** `ln x`, identical to `ln` in `logarithm.rs`. */
 export function ln(x: number): number {
-  if (!hasSeries(x)) return specialLogarithm(x);
-  PARTS[0] = x;
-  lnParts(PARTS);
-  return PARTS[0];
+  SLOT[0] = x;
+  lnInto();
+  return SLOT[0];
 }
 
 /** `log₂ x`: the logarithm's two parts times `1 / ln 2`'s, rounded once. */
 export function log2(x: number): number {
-  if (!hasSeries(x)) return specialLogarithm(x);
-  PARTS[0] = x;
-  lnParts(PARTS);
-  return doubleProductRounded(PARTS[0], PARTS[1] ?? 0, Math.LOG2E, LOG2_E_LOW);
+  SLOT[0] = x;
+  log2Into();
+  return SLOT[0];
 }
 
 /** `log₁₀ x`: the logarithm's two parts times `1 / ln 10`'s, rounded once. */
 export function log10(x: number): number {
-  if (!hasSeries(x)) return specialLogarithm(x);
-  PARTS[0] = x;
-  lnParts(PARTS);
-  return doubleProductRounded(PARTS[0], PARTS[1] ?? 0, Math.LOG10E, LOG10_E_LOW);
+  SLOT[0] = x;
+  log10Into();
+  return SLOT[0];
+}
+
+/**
+ * Replaces `x` in {@link SLOT} with `ln x`, as `[hi, lo]` where the series
+ * gives it, and answers whether it did.
+ */
+function lnInto(): boolean {
+  if (hasSeries(SLOT[0] ?? 0)) {
+    lnParts(SLOT);
+    return true;
+  }
+  specialLogarithm(SLOT);
+  return false;
+}
+
+/** Replaces `x` in {@link SLOT} with `log₂ x`. */
+function log2Into(): void {
+  if (!lnInto()) return;
+  SLOT[2] = Math.LOG2E;
+  SLOT[3] = LOG2_E_LOW;
+  doubleProductRounded(SLOT);
+}
+
+/** Replaces `x` in {@link SLOT} with `log₁₀ x`. */
+function log10Into(): void {
+  if (!lnInto()) return;
+  SLOT[2] = Math.LOG10E;
+  SLOT[3] = LOG10_E_LOW;
+  doubleProductRounded(SLOT);
 }
 
 /**
@@ -68,11 +98,15 @@ export function hasSeries(x: number): boolean {
   return x > 0 && x < Number.POSITIVE_INFINITY;
 }
 
-/** Every logarithm's answer where {@link hasSeries} is false: NaN for NaN and below zero, `−∞` at either zero, `+∞` at `+∞`. */
-export function specialLogarithm(x: number): number {
-  if (x === 0) return Number.NEGATIVE_INFINITY;
-  if (x === Number.POSITIVE_INFINITY) return Number.POSITIVE_INFINITY;
-  return Number.NaN;
+/**
+ * Replaces `x` in `parts[0]`, where {@link hasSeries} is false, with every
+ * logarithm's answer: NaN for NaN and below zero, `−∞` at either zero, `+∞`
+ * at `+∞`.
+ */
+export function specialLogarithm(parts: Float64Array): void {
+  const x = parts[0] ?? 0;
+  if (x === 0) parts[0] = Number.NEGATIVE_INFINITY;
+  else if (x !== Number.POSITIVE_INFINITY) parts[0] = Number.NaN;
 }
 
 /**
@@ -101,12 +135,24 @@ export function lnParts(parts: Float64Array): void {
   const dLow = fastSumError(2, f, d);
   const s = f / d;
   const sd = s * d;
-  const sLow = (f - sd - productError(s, d, sd) - s * dLow) / d;
+  SLOT[0] = s;
+  SLOT[1] = d;
+  SLOT[2] = sd;
+  productError(SLOT);
+  const sLow = (f - sd - SLOT[0] - s * dLow) / d;
 
   const z = s * s;
-  const zLow = productError(s, s, z) + (s + s) * sLow;
+  SLOT[0] = s;
+  SLOT[1] = s;
+  SLOT[2] = z;
+  productError(SLOT);
+  const zLow = SLOT[0] + (s + s) * sLow;
   const c = s * z;
-  const cLow = productError(s, z, c) + (s * zLow + sLow * z);
+  SLOT[0] = s;
+  SLOT[1] = z;
+  SLOT[2] = c;
+  productError(SLOT);
+  const cLow = SLOT[0] + (s * zLow + sLow * z);
 
   let t = SERIES[10] ?? 0;
   for (let index = 9; index >= 0; index -= 1) {
@@ -117,7 +163,11 @@ export function lnParts(parts: Float64Array): void {
   const qLow = fastSumError(TWO_THIRDS_HIGH, u, q) + TWO_THIRDS_LOW;
 
   const p = c * q;
-  const pLow = productError(c, q, p) + (c * qLow + cLow * q);
+  SLOT[0] = c;
+  SLOT[1] = q;
+  SLOT[2] = p;
+  productError(SLOT);
+  const pLow = SLOT[0] + (c * qLow + cLow * q);
 
   const twoS = s + s;
   const g = twoS + p;

@@ -30,20 +30,42 @@ const SINE_COEFFICIENTS: readonly number[] = [
   -8.823533599243006e-5,
 ];
 
+/**
+ * Where the primitives' cores take their arguments and leave their answers. V8
+ * boxes a double passed to or returned from a call it does not inline, a heap
+ * number per sample on the audio thread, and whether it inlines a core this
+ * size changes from one process to the next. So the cores return nothing and
+ * take and give every double through here or a caller's `Float64Array`, and
+ * each primitive is a store, a call and a read, small enough that V8 inlines it
+ * wherever it runs often. Each core reads its arguments as it starts and writes
+ * its answer as it ends, so one it calls may use the same places.
+ */
+const SLOT = new Float64Array(1);
+
 /** `sin(2π · turns)`, identical to `sine_of_turns` in `turns.rs`. */
 export function sineOfTurns(turns: number): number {
-  const r = turns - Math.floor(turns);
-  return sineOfReduced(r < 0.25 ? r : r < 0.75 ? 0.5 - r : r - 1);
+  SLOT[0] = turns;
+  sineOfTurnsInto();
+  return SLOT[0];
 }
 
-/** `sin(2πt)` for `t` in `[−1/4, 1/4]`, as `sine_of_reduced` in `turns.rs`. */
-export function sineOfReduced(t: number): number {
+/** Replaces a number of turns in {@link SLOT} with its sine. */
+function sineOfTurnsInto(): void {
+  const turns = SLOT[0] ?? 0;
+  const r = turns - Math.floor(turns);
+  SLOT[0] = r < 0.25 ? r : r < 0.75 ? 0.5 - r : r - 1;
+  sineOfReduced(SLOT);
+}
+
+/** Replaces `t` in `[−1/4, 1/4]` in `parts[0]` with `sin(2πt)`, as `sine_of_reduced` in `turns.rs`. */
+export function sineOfReduced(parts: Float64Array): void {
+  const t = parts[0] ?? 0;
   const square = t * t;
   let sum = SINE_COEFFICIENTS[11] ?? 0;
   for (let index = 10; index >= 0; index -= 1) {
     sum = sum * square + (SINE_COEFFICIENTS[index] ?? 0);
   }
-  return sum * t;
+  parts[0] = sum * t;
 }
 
 /** `2³²`: one carry from the low half of the phase into the high. */
@@ -163,6 +185,14 @@ const MOST_TERMS = 500;
 
 /** `I₀(x)`, summed from its power series as `bessel_i0` in `window.rs`. */
 export function besselI0(x: number): number {
+  SLOT[0] = x;
+  besselI0Into();
+  return SLOT[0];
+}
+
+/** Replaces `x` in {@link SLOT} with `I₀(x)`. */
+function besselI0Into(): void {
+  const x = SLOT[0] ?? 0;
   const quarterSquare = (x * x) / 4;
   let term = 1;
   let sum = 1;
@@ -171,12 +201,23 @@ export function besselI0(x: number): number {
     sum += term;
     if (term <= sum * SERIES_TOLERANCE) break;
   }
-  return sum;
+  SLOT[0] = sum;
 }
 
-/** The Kaiser window at `position` in `[-1, 1]`, as `kaiser` in `window.rs`. */
-export function kaiser(position: number, beta: number, besselOfBeta: number): number {
+/**
+ * Replaces `[position, beta, besselOfBeta]` in `parts` with the Kaiser window
+ * at `position` in `[-1, 1]`, as `kaiser` in `window.rs`.
+ */
+export function kaiser(parts: Float64Array): void {
+  const position = parts[0] ?? 0;
+  const beta = parts[1] ?? 0;
+  const besselOfBeta = parts[2] ?? 0;
   const inside = 1 - position * position;
-  if (inside < 0) return 0;
-  return besselI0(beta * Math.sqrt(inside)) / besselOfBeta;
+  if (inside < 0) {
+    parts[0] = 0;
+    return;
+  }
+  SLOT[0] = beta * Math.sqrt(inside);
+  besselI0Into();
+  parts[0] = SLOT[0] / besselOfBeta;
 }

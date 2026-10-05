@@ -174,9 +174,9 @@ module.exports = {
         'The processing graph is a value and the decisions made from it, below the engine that ' +
         'runs it and the browser runtime that hosts it (ADR-0030). It depends on the domain alone, ' +
         'whose channel layouts and sample counts it is written in, so it can be checked and ' +
-        'planned on any thread.',
+        'planned on any thread. It words a count by the text package (ADR-0030 amended).',
       from: { path: '^packages/audio-graph/' },
-      to: { path: '^packages/(?!(audio-graph|domain)/)' },
+      to: { path: '^packages/(?!(audio-graph|domain|text)/)' },
     },
     {
       name: 'audio-engine-owns-nothing-else',
@@ -185,9 +185,9 @@ module.exports = {
         'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
         'the browser, the interface or storage: it depends on the domain, the graph and the read ' +
         'contract an edited source reads its files through, and the runtime that hosts it sits ' +
-        'above it (ADR-0030, ADR-0052).',
+        'above it (ADR-0030, ADR-0052). It words a count by the text package (ADR-0030 amended).',
       from: { path: '^packages/audio-engine/' },
-      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain)/)' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain|text)/)' },
     },
     {
       name: 'audio-runtime-owns-nothing-else',
@@ -230,7 +230,7 @@ module.exports = {
         'that keeps or shows a project (ADR-0053).',
       from: { path: '^packages/clipboard/' },
       to: {
-        path: '^packages/(?!(clipboard|domain|project-format)/)',
+        path: '^packages/(?!(clipboard|domain|project-format|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -390,7 +390,7 @@ module.exports = {
         'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052).',
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -415,7 +415,7 @@ module.exports = {
         'interface that calls it, or of the audio packages.',
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|processors|project-commands|project-format|storage|storage-runtime)/)',
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|processors|project-commands|project-format|storage|storage-runtime|text)/)',
       },
     },
     {

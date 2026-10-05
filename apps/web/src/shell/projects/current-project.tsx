@@ -20,9 +20,9 @@ import {
 import { LONGEST_NAME, givenName } from '@audiogubbins/project-format';
 import type { AnotherProject } from '@audiogubbins/storage';
 
-import { quoted } from '../../wording.js';
 import { ReasonedButton } from '../settings/reasoned-button.js';
 import type { RunCommand } from '../settings/section.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the section needs. */
 export interface CurrentProjectProps {

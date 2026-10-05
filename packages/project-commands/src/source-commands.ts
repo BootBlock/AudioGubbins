@@ -59,12 +59,12 @@ import {
   applied,
   assetAvailability,
   projectCommand,
-  quoted,
   type ProjectCommand,
   type ProjectCommandDeclaration,
 } from './project-command.js';
 import { setAssetMediaInvocation } from './project-invocations.js';
 import { withMedia } from './state-edits.js';
+import { quoted } from '@audiogubbins/text';
 
 /** What the undo menu calls choosing each policy, for an asset's quoted name. */
 const POLICY_DESCRIPTIONS: Readonly<Record<SourceChangePolicy, (name: string) => string>> = {

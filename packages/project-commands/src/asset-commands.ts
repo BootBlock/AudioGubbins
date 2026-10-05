@@ -27,7 +27,7 @@ import {
   writtenName,
   type ProjectState,
 } from '@audiogubbins/project-format';
-import { counted } from '@audiogubbins/text';
+import { counted, quoted } from '@audiogubbins/text';
 
 import {
   jsonArgument,
@@ -42,7 +42,6 @@ import {
   applied,
   assetAvailability,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from './project-command.js';
 import { withAsset, withAssetName, withoutAsset } from './state-edits.js';

@@ -26,12 +26,11 @@ import {
   type ProjectId,
 } from '@audiogubbins/domain';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
-import { cutAtAWord } from '@audiogubbins/text';
+import { cutAtAWord, quoted } from '@audiogubbins/text';
 
 import { isAbandoned } from '../state/abandoning.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
-import { quoted } from '../wording.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 

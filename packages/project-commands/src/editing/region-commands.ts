@@ -45,12 +45,12 @@ import {
   ProjectCommandId,
   applied,
   projectCommand,
-  quoted,
   type ProjectCommand,
 } from '../project-command.js';
 import { idArgument, targetRegion } from './editing-arguments.js';
 import { regionEditDescription } from './edit-descriptions.js';
 import { withRegion, withoutRegion } from './editing-state.js';
+import { quoted } from '@audiogubbins/text';
 
 /** The commands that change regions and their processing. */
 export function regionCommands(): readonly ProjectCommand[] {

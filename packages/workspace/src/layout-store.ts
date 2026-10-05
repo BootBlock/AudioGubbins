@@ -11,7 +11,7 @@
  * where it cannot be used, by `layout-reading.ts`.
  */
 
-import { namesCanBeCompared } from '@audiogubbins/text';
+import { namesCanBeCompared, quoted } from '@audiogubbins/text';
 
 import { addTo, givenName, heldLayouts, namesIn, putBack } from './held-layouts.js';
 import { NAMING_REFUSED, nameOfACopy, nameOfANewWorkspace } from './workspace-name.js';
@@ -243,7 +243,7 @@ export function createLayoutStore(
     const existing = layouts.get(id);
     return existing === undefined
       ? noWorkspaceWith(id)
-      : `"${existing.displayName}" is not a built-in workspace, so there is nothing to reset it to. Delete it instead.`;
+      : `${quoted(existing.displayName)} is not a built-in workspace, so there is nothing to reset it to. Delete it instead.`;
   };
 
   return {

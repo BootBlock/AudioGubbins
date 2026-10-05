@@ -69,10 +69,10 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
 
     expect(differenceLines(difference, NAMES)).toEqual([
       'The project differs in its name and sample rate.',
-      'The track "Vocals" is in B only.',
-      'The track "Drums" differs in its gain, mute and pan.',
-      'The marker "Intro" is in A only.',
-      'The effects of the track "Drums": "parametric-eq" differs in its place, whether it is on and a setting (0.5 in A, 0.75 in B).',
+      'The track “Vocals” is in B only.',
+      'The track “Drums” differs in its gain, mute and pan.',
+      'The marker “Intro” is in A only.',
+      'The effects of the track “Drums”: “parametric-eq” differs in its place, whether it is on and a setting (0.5 in A, 0.75 in B).',
     ]);
   });
 
@@ -97,8 +97,8 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
     };
 
     expect(differenceLines(difference, names)).toEqual([
-      'The region "Walk loop" differs in its boundaries and processing.',
-      'The asset "Gravel" differs in its edits.',
+      'The region “Walk loop” differs in its boundaries and processing.',
+      'The asset “Gravel” differs in its edits.',
     ]);
   });
 

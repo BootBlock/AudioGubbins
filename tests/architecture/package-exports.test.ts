@@ -338,22 +338,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'settingsFor',
         'timelineFrameAt',
       ],
-    "The canonical scalar primitives ADR-0061 admits and the bounds of the FFT's sizes, which Phase 06's processors are the first to call, for filter design, level detection and conversion from decibels, and Phase 08's spectral analysis the first to size a transform by. The engine's own nodes need none of them.":
-      [
-        'LARGEST_FFT_SIZE',
-        'SMALLEST_FFT_SIZE',
-        'arctangentTurns',
-        'cosineOfTurns',
-        'exp',
-        'gainToDecibels',
-        'ln',
-        'log10',
-        'log2',
-        'pow',
-        'tangentOfTurns',
-      ],
-    "What a node type built on the engine reads a node and makes its kernel with (ADR-0061), which Phase 06's processors take as they are written.":
-      ['DelayLine', 'ParameterRamp', 'channelAt', 'parameterValueInvalid', 'portAt', 'rampFrames'],
+    "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
+      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'ln', 'log2', 'pow'],
+    "The engine's delay line, which a processor that delays its signal by a set time takes as it is written (ADR-0061).":
+      ['DelayLine'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

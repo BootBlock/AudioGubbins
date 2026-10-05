@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { asQuoted } from './quoting.js';
+import { asQuoted, quoted } from './quoting.js';
 
 /**
  * Quoting a value a refusal was given. The value came from storage or from a
@@ -9,6 +9,16 @@ import { asQuoted } from './quoting.js';
 
 /** A combining acute accent, which a reader sees as part of the letter before it. */
 const ACUTE = String.fromCodePoint(0x301);
+
+describe('a name as a sentence quotes it', () => {
+  it('is the name whole between typographic quotation marks', () => {
+    expect(quoted('Take 2')).toBe('“Take 2”');
+  });
+
+  it('keeps a quotation mark the name holds, so the name is not changed', () => {
+    expect(quoted('The "B" side')).toBe('“The "B" side”');
+  });
+});
 
 describe('a value as a refusal quotes it', () => {
   it('is the value itself while it is short enough to read', () => {

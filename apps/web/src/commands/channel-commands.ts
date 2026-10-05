@@ -28,6 +28,7 @@ import { numberArgument } from './editor-target.js';
 import { changeProject, needsProjectAsset, onWholeAsset } from './project-edits.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
+import { counted } from '@audiogubbins/text';
 
 function channelCommand(
   id: string,
@@ -224,7 +225,7 @@ function converted(
     invocations: [applyInvocation(owner.asset, conversion)],
     said: onWholeAsset(
       owner,
-      `${view.asset.name} now has ${String(channelCount(layout))} ${channelCount(layout) === 1 ? 'channel' : 'channels'}: ${channelNames(layout).join(', ')}.`,
+      `${view.asset.name} now has ${counted(channelCount(layout), 'channel', 'channels')}: ${channelNames(layout).join(', ')}.`,
     ),
   });
   return undefined;
