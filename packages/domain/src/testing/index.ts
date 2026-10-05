@@ -15,6 +15,17 @@
  */
 
 export { expectFailureCode, expectSuccess } from './unwrap.js';
-export { type Samples, applyEdit } from './edit-oracle.js';
+export { type OracleWorld, type Samples, applyEdit } from './edit-oracle.js';
+export { PLAN_WITHOUT_CHAINS } from './plan-context.js';
+export {
+  CUTOFF,
+  GENTLE,
+  LOOK_AHEAD,
+  TEST_CATALOGUE,
+  TEST_DENOISER,
+  TEST_FILTER,
+  TEST_LIMITER,
+  TEST_UPMIXER,
+} from './test-processors.js';
 export { renderPlan } from './plan-render.js';
 export { sourceShape } from '../editing/edit-shape.js';

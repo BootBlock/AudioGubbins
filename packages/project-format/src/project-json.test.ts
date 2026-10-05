@@ -418,13 +418,9 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'a parameter value that is an object': {
     edit: (document) =>
-      withValue(
-        document,
-        ['project', 'effectChains', 0, 'processors', 0, 'values', 0, 'value'],
-        {},
-      ),
+      withValue(document, ['project', 'effectChains', 0, 'slots', 0, 'values', 0, 'value'], {}),
     code: 'schema.unknown-value',
-    at: 'project.effectChains[0].processors[0].values[0].value',
+    at: 'project.effectChains[0].slots[0].values[0].value',
   },
   'an identifier of another shape': {
     edit: (document) => withValue(document, ['project', 'clips', 0, 'trackId'], 'Track 1'),
@@ -674,19 +670,19 @@ const REFUSALS: Readonly<Record<string, Refusal>> = {
   },
   'two processors with one identifier': {
     edit: (document) =>
-      edited(document, ['project', 'effectChains', 0, 'processors'], (list) =>
+      edited(document, ['project', 'effectChains', 0, 'slots'], (list) =>
         Array.isArray(list) ? [...list, ...list] : list,
       ),
     code: 'project.duplicate-processor',
-    at: 'project.effectChains[0].processors[1].id',
+    at: 'project.effectChains[0].slots[2].id',
   },
   'two values for one parameter': {
     edit: (document) =>
-      edited(document, ['project', 'effectChains', 0, 'processors', 0, 'values'], (list) =>
+      edited(document, ['project', 'effectChains', 0, 'slots', 0, 'values'], (list) =>
         Array.isArray(list) ? [...list, withValue(list[0] ?? null, ['value'], 0.75)] : list,
       ),
     code: 'project.duplicate-parameter',
-    at: 'project.effectChains[0].processors[0].values[3].parameter',
+    at: 'project.effectChains[0].slots[0].values[3].parameter',
   },
   'a track naming an effect chain the project does not have': {
     edit: (document) => withValue(document, ['project', 'tracks', 0, 'effectChainId'], UNKNOWN_ID),

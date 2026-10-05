@@ -13,7 +13,7 @@ import {
   type Region,
   type RegionOperation,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
 import { randomAssetRecord, seededRandom } from '@audiogubbins/project-format/testing';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { sampleProject } from '@audiogubbins/test-fixtures';
@@ -269,7 +269,9 @@ describe('project.add-asset and project.remove-asset with edits', () => {
       '“Forest ambience” still has 1 edit. Remove them first.',
     );
 
-    const payload = expectSuccess(slicePlan(assetPlan(forest), at(0), at(100)));
+    const payload = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(forest, PLAN_WITHOUT_CHAINS)), at(0), at(100)),
+    );
     const paste: EditOperation = {
       id: ids.next<'EditOperationId'>(),
       kind: 'insert',

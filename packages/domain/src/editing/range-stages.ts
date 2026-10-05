@@ -21,6 +21,9 @@ import {
   type RangeEdit,
 } from './operations.js';
 
+/** A range edit that a stage carries: every kind but a rack edit, which a stream does. */
+export type StageEdit = Exclude<RangeEdit, { readonly kind: 'rack' }>;
+
 /** The gain a level edit puts on a segment that begins at `segmentStart` in its stream. */
 function levelStage(
   edit: LevelEdit,
@@ -76,7 +79,7 @@ function channelEditMatrix(edit: ChannelEdit, count: number): ChannelMatrix {
  * `segmentStart`, on a stream of `count` channels.
  */
 export function rangeEditStage(
-  edit: RangeEdit,
+  edit: StageEdit,
   range: EditRange,
   channels: readonly number[] | undefined,
   count: number,

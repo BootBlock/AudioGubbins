@@ -12,12 +12,16 @@
  * project format's reader does, and the first problem is what is answered.
  */
 
+import { ambisonicLayout } from '../audio/ambisonic-layout.js';
 import {
+  AmbisonicNormalisation,
+  AmbisonicOrdering,
   ChannelRole,
   StandardLayouts,
   channelLayout,
   type ChannelLayout,
 } from '../audio/channel-layout.js';
+import { effectChainFrom } from '../processing/chain-decoding.js';
 import { isWellFormedId, unsafeBrandId } from '../identity/branded-id.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import {
@@ -35,12 +39,23 @@ import type {
   PlanSource,
   PlanStage,
   PlanStream,
+  StreamProcessing,
 } from './plan.js';
 
 /** The most streams, segments and stages a message may hold. */
 const LIMITS = { streams: 4_096, segments: 1_000_000, stages: 10_000, channels: 256 } as const;
 
 const ROLES: ReadonlySet<string> = new Set(Object.values(ChannelRole));
+const ORDERINGS: ReadonlySet<string> = new Set(Object.values(AmbisonicOrdering));
+const NORMALISATIONS: ReadonlySet<string> = new Set(Object.values(AmbisonicNormalisation));
+
+function isOrdering(value: unknown): value is AmbisonicOrdering {
+  return typeof value === 'string' && ORDERINGS.has(value);
+}
+
+function isNormalisation(value: unknown): value is AmbisonicNormalisation {
+  return typeof value === 'string' && NORMALISATIONS.has(value);
+}
 const SHAPES: ReadonlySet<string> = new Set(Object.values(FadeShape));
 
 function isRole(value: unknown): value is ChannelRole {
@@ -103,8 +118,27 @@ class Check {
   }
 }
 
+/** An ambisonic layout, rebuilt from its convention, which states every channel. */
+function ambisonicOf(check: Check, value: unknown): ChannelLayout {
+  const read = check.fields(value, 'an ambisonic convention');
+  const { ordering, normalisation } = read;
+  if (!isOrdering(ordering) || !isNormalisation(normalisation)) {
+    check.wrong('an ambisonic convention');
+    return StandardLayouts.mono;
+  }
+  const layout = ambisonicLayout({
+    order: check.integer(read['order'], 'an ambisonic order'),
+    ordering,
+    normalisation,
+  });
+  if (layout.ok) return layout.value;
+  check.wrong('an ambisonic convention');
+  return StandardLayouts.mono;
+}
+
 function layoutOf(check: Check, value: unknown): ChannelLayout {
   const read = check.fields(value, 'a layout');
+  if (read['ambisonic'] !== undefined) return ambisonicOf(check, read['ambisonic']);
   const roles = check.list(read['roles'], 'a layout’s roles', LIMITS.channels).map((role) => {
     if (isRole(role)) return role;
     check.wrong('a channel role');
@@ -118,7 +152,6 @@ function layoutOf(check: Check, value: unknown): ChannelLayout {
           check.wrong('a channel label');
           return '';
         });
-  if (read['ambisonic'] !== undefined) check.wrong('a layout a plan can carry');
   const layout = channelLayout(roles, labels);
   if (layout.ok) return layout.value;
   check.wrong('a channel layout');
@@ -215,17 +248,37 @@ function segmentOf(check: Check, value: unknown): PlanSegment {
   };
 }
 
+function processingOf(check: Check, value: unknown): StreamProcessing | undefined {
+  if (value === undefined) return undefined;
+  const read = check.fields(value, 'a stream’s processing');
+  if (read['kind'] === 'stretch') {
+    return { kind: 'stretch', length: check.frames(read['length'], 'a stretch’s length') };
+  }
+  if (read['kind'] !== 'chain') {
+    check.wrong('a stream’s processing');
+    return undefined;
+  }
+  const chain = effectChainFrom(read['chain']);
+  if (!chain.ok) {
+    check.wrong('a stream’s chain');
+    return undefined;
+  }
+  return { kind: 'chain', chain: chain.value, input: layoutOf(check, read['input']) };
+}
+
 function streamOf(check: Check, value: unknown): PlanStream | undefined {
   const read = check.fields(value, 'a stream');
   const rate = check.rate(read['sampleRate']);
   const segments = check.list(read['segments'], 'a stream’s segments', check.segments);
   check.segments -= segments.length;
+  const processing = processingOf(check, read['processing']);
   return rate === undefined
     ? undefined
     : {
         sampleRate: rate,
         layout: layoutOf(check, read['layout']),
         segments: segments.map((segment) => segmentOf(check, segment)),
+        ...(processing === undefined ? {} : { processing }),
       };
 }
 

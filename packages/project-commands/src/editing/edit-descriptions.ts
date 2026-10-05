@@ -24,6 +24,8 @@ function rangeEditWords(edit: RangeEdit): string {
       return 'Copy a channel across';
     case 'channel-gains':
       return 'Balance the channels of';
+    case 'rack':
+      return 'Apply a chain of processors to';
   }
 }
 
@@ -42,6 +44,10 @@ export function editDescription(operation: EditOperation, name: string): string 
       return `Convert the channels of ${quoted(name)}`;
     case 'process':
       return `${rangeEditWords(operation.edit)} ${quoted(name)}`;
+    case 'stretch':
+      return `Stretch part of ${quoted(name)}`;
+    case 'convert-rate':
+      return `Convert the sample rate of ${quoted(name)}`;
   }
 }
 

@@ -24,6 +24,7 @@ import type {
 } from '../identity/branded-id.js';
 import type { SampleRate } from '../time/sample-time.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
+import type { RangeEdit } from '../editing/operations.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from './asset.js';
 import type { Clip, Marker, Region } from './timeline.js';
@@ -162,4 +163,57 @@ export function assetUsers(project: Project, assetId: AssetId): AssetUsers {
 export function isAssetInUse(project: Project, assetId: AssetId): boolean {
   const users = assetUsers(project, assetId);
   return users.clips + users.regions + users.markers + users.pastes > 0;
+}
+
+/** What names a chain (ADR-0060): every rack edit and every rack, of an asset, a region, a track or a bus. */
+export interface ChainUsers {
+  /** The assets whose own edits apply it to a range. */
+  readonly assetEdits: readonly AssetId[];
+  /** The regions whose own processing applies it to a range. */
+  readonly regionEdits: readonly RegionId[];
+  readonly assetRacks: readonly AssetId[];
+  readonly regionRacks: readonly RegionId[];
+  readonly tracks: readonly TrackId[];
+  readonly buses: readonly BusId[];
+}
+
+/** Whether a range edit is a rack edit naming `chain`. */
+function namesChain(edit: RangeEdit, chain: EffectChainId): boolean {
+  return edit.kind === 'rack' && edit.chain === chain;
+}
+
+/** What names the chain `chain`, so a change to it is known to reach each of them. */
+export function chainUsers(project: Project, chain: EffectChainId): ChainUsers {
+  const assets = [...project.assets.values()];
+  const regions = [...project.regions.values()];
+  return {
+    assetEdits: assets
+      .filter((asset) =>
+        asset.edits.some((edit) => edit.kind === 'process' && namesChain(edit.edit, chain)),
+      )
+      .map((asset) => asset.id),
+    regionEdits: regions
+      .filter((region) => region.operations.some((edit) => namesChain(edit.edit, chain)))
+      .map((region) => region.id),
+    assetRacks: assets.filter((asset) => asset.rack === chain).map((asset) => asset.id),
+    regionRacks: regions.filter((region) => region.rack === chain).map((region) => region.id),
+    tracks: [...project.tracks.values()]
+      .filter((track) => track.effectChainId === chain)
+      .map((track) => track.id),
+    buses: [...project.buses.values()]
+      .filter((bus) => bus.effectChainId === chain)
+      .map((bus) => bus.id),
+  };
+}
+
+/** How many operations and targets name the chain (`chainUsers`). */
+export function chainUseCount(users: ChainUsers): number {
+  return (
+    users.assetEdits.length +
+    users.regionEdits.length +
+    users.assetRacks.length +
+    users.regionRacks.length +
+    users.tracks.length +
+    users.buses.length
+  );
 }

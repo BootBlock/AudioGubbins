@@ -42,9 +42,7 @@ describe('the names of what differs between two states (REQ-STOR-195)', () => {
           [background.id, { ...background, displayName: 'Rain bed', effectChainId: chain.id }],
         ]),
         markers,
-        effectChains: new Map([
-          [chain.id, { ...chain, processors: [processor(fixture, 'reverb')] }],
-        ]),
+        effectChains: new Map([[chain.id, { ...chain, slots: [processor(fixture, 'reverb')] }]]),
       },
     };
 

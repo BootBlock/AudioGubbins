@@ -3,23 +3,30 @@
  *
  * REQ-ARCH-004.3 makes processing parametric: a chain records which processors
  * are present, in what order, with what settings. It never records audio.
+ * ADR-0060 makes this the one model of a rack: a chain is an ordered list of
+ * slots, each a processor instance or a parallel group whose branches are
+ * lists of slots of their own, and every slot has its own bypass, solo and
+ * wet/dry mix. A chain is held in the project's `effectChains` and named by
+ * the operations and targets it processes, so sharing one is naming it twice.
  *
  * REQ-ARCH-144 requires processor latency to be explicit and compensable, so a
- * processor declares its latency rather than leaving the engine to discover it.
- * A chain that does not know its own latency cannot be delay-compensated, and
- * material processed through it arrives late against material that was not, so
- * a chain with one such processor applied says so rather than giving a total.
+ * chain that does not know its own latency says so rather than giving a total.
  */
 
-import type { EffectChainId, ParameterId, ProcessorId } from '../identity/branded-id.js';
+import type { EffectChainId, ProcessorGroupId, ProcessorId } from '../identity/branded-id.js';
 import { sampleCount } from '../time/sample-time.js';
-import {
-  defaultParameterValue,
-  type ParameterDescriptor,
-  type ParameterValue,
-  validateParameterValue,
-} from './parameter.js';
+import { defaultParameterValue, type ParameterValue, validateParameterValue } from './parameter.js';
+import type {
+  ParameterValues,
+  ProcessorDescriptor,
+  ProcessorSettings,
+} from './processor-descriptor.js';
 import type { ProcessorLatency } from './processor-latency.js';
+import {
+  checkStateVersion,
+  type ProcessorState,
+  type ProcessorStateVersion,
+} from './processor-version.js';
 import {
   combine,
   failure,
@@ -30,145 +37,225 @@ import {
   succeed,
 } from '../result.js';
 
-/**
- * Describes a kind of processor, independently of any instance of it.
- *
- * The implementation lives in the DSP layer. This is the contract the project
- * model, the Inspector and the command layer work against, so that adding a
- * processor does not mean editing the project model.
- */
-export interface ProcessorDescriptor {
-  /** Stable machine-readable type key, for example `parametric-eq`. */
-  readonly typeKey: string;
-
-  /** British-English label for menus and the Inspector. */
-  readonly label: string;
-
-  /**
-   * Implementation version.
-   *
-   * REQ-REPO-187 requires processor implementation versions to be independent
-   * of the product version. A project records which version processed it, so
-   * that a later correction to the algorithm does not silently change an
-   * existing mix.
-   */
-  readonly implementationVersion: number;
-
-  readonly parameters: readonly ParameterDescriptor[];
-
-  /**
-   * Frames of delay the processor introduces at its declared rate, or that it
-   * cannot say, and why.
-   *
-   * Known zero for a processor that is genuinely instantaneous. REQ-EXEC-216
-   * names "a processor is zero-latency" as an assumption that must not be made
-   * silently, so this is required rather than optional.
-   */
-  readonly latency: ProcessorLatency;
-}
-
-/** One processor placed in a chain, with its settings. */
-export interface ProcessorInstance {
-  readonly id: ProcessorId;
-  readonly typeKey: string;
-
-  /** Whether the processor is currently applied. */
+/** What a slot's bypass, solo and mix are, whatever it holds. */
+interface SlotControls {
+  /** Whether the slot is applied; a bypassed slot passes its input on unchanged. */
   readonly enabled: boolean;
 
   /**
-   * Whether the processor is heard alone.
-   *
-   * Auditioning one processor of a chain is a listening aid. Like track solo,
-   * it is a chain-wide question, answered by {@link processorsInSignalOrder}.
+   * Whether the slot is heard alone among the slots of its list. Auditioning
+   * one slot is a listening aid; solo wins over enabled, as in every rack.
    */
   readonly soloed: boolean;
 
+  /**
+   * The share of the slot's processed output in what it passes on, from 0
+   * (its input alone) to 1 (its output alone), the rest its input aligned to
+   * the output's latency, mixed linearly.
+   */
+  readonly mix: number;
+}
+
+/** One processor placed in a chain, with its settings and the versions that made them. */
+export interface ProcessorInstance extends SlotControls {
+  readonly kind: 'processor';
+  readonly id: ProcessorId;
+  readonly typeKey: string;
+  readonly version: ProcessorStateVersion;
+
   /** Current value of each parameter, keyed by parameter identifier. */
-  readonly values: ReadonlyMap<ParameterId, ParameterValue>;
+  readonly values: ParameterValues;
+
+  /** State that is not a parameter, where the processor keeps any. */
+  readonly state?: ProcessorState;
+}
+
+/** How a parallel group adds its branches together. */
+export const SummingLaw = {
+  /** The branches' sum. */
+  Sum: 'sum',
+  /** The sum divided by the number of branches. */
+  Mean: 'mean',
+  /** The sum divided by the square root of the number of branches. */
+  EqualPower: 'equal-power',
+} as const;
+
+/** How a parallel group adds its branches together. */
+export type SummingLaw = (typeof SummingLaw)[keyof typeof SummingLaw];
+
+/** A list of slots in signal order, first to last. */
+export interface ChainBranch {
+  readonly slots: readonly ChainSlot[];
 }
 
 /**
- * An ordered series of processors.
+ * Branches that each process the same input, added by `summing`. A branch
+ * with no slots is the input itself, which is how a dry path is kept.
+ */
+export interface ParallelGroup extends SlotControls {
+  readonly kind: 'group';
+  readonly id: ProcessorGroupId;
+  readonly summing: SummingLaw;
+  readonly branches: readonly ChainBranch[];
+}
+
+/** What a slot of a chain holds. */
+export type ChainSlot = ProcessorInstance | ParallelGroup;
+
+/**
+ * An ordered list of slots.
  *
- * Order is signal order, first to last. It is significant: a filter before a
- * compressor is a different sound from a compressor before a filter, so the
- * order is stored rather than derived from anything.
+ * Order is signal order. It is significant: a filter before a compressor is a
+ * different sound from a compressor before a filter, so it is stored rather
+ * than derived from anything.
  */
 export interface EffectChain {
   readonly id: EffectChainId;
-  readonly processors: readonly ProcessorInstance[];
+  readonly slots: readonly ChainSlot[];
 }
 
 /**
- * The processors that will actually be applied, in signal order.
- *
- * Solo wins over enabled, matching how every processor rack behaves: soloing
- * one band to hear it does not require disabling the rest by hand.
+ * The slots of one list that are applied: the soloed ones where any is, and
+ * otherwise the enabled ones.
  */
-export function processorsInSignalOrder(chain: EffectChain): readonly ProcessorInstance[] {
-  const soloed = chain.processors.filter((processor) => processor.soloed);
-  return soloed.length > 0 ? soloed : chain.processors.filter((processor) => processor.enabled);
+export function appliedSlots(slots: readonly ChainSlot[]): readonly ChainSlot[] {
+  const soloed = slots.filter((slot) => slot.soloed);
+  return soloed.length > 0 ? soloed : slots.filter((slot) => slot.enabled);
+}
+
+/** Every processor of the slots, depth first in signal order, applied or not. */
+export function* processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance> {
+  for (const slot of slots) {
+    if (slot.kind === 'processor') yield slot;
+    else for (const branch of slot.branches) yield* processorsOf(branch.slots);
+  }
+}
+
+/** The factor a group's sum of `count` branches is multiplied by. */
+export function summingFactor(law: SummingLaw, count: number): number {
+  switch (law) {
+    case SummingLaw.Sum:
+      return 1;
+    case SummingLaw.Mean:
+      return 1 / count;
+    case SummingLaw.EqualPower:
+      return 1 / Math.sqrt(count);
+  }
+}
+
+/** What the running of a chain is answered for: its rate and quality, each processor's values its own. */
+export type ChainSettings = Omit<ProcessorSettings, 'values'>;
+
+/** Latencies added up, or every reason one is not known. */
+interface LatencyTally {
+  readonly frames: number;
+  readonly unknown: readonly string[];
+}
+
+function unknownType(processor: ProcessorInstance): DomainResult<never> {
+  return fail(
+    failure(
+      'effect-chain.unknown-processor-type',
+      FailureKind.IntegrityViolation,
+      `The chain holds a processor of unknown type "${processor.typeKey}".`,
+      { details: { typeKey: processor.typeKey, processorId: processor.id } },
+    ),
+  );
+}
+
+/** The latency of a list of slots in series. */
+function seriesLatency(
+  slots: readonly ChainSlot[],
+  descriptors: ReadonlyMap<string, ProcessorDescriptor>,
+  settings: ChainSettings,
+): DomainResult<LatencyTally> {
+  let frames = 0;
+  const unknown: string[] = [];
+  for (const slot of appliedSlots(slots)) {
+    const latency = slotLatency(slot, descriptors, settings);
+    if (!latency.ok) return latency;
+    frames += latency.value.frames;
+    unknown.push(...latency.value.unknown);
+  }
+  return succeed({ frames, unknown });
 }
 
 /**
- * Total latency the chain introduces, as the latency of one processor.
+ * The latency of one applied slot: its processor's, or the longest of its
+ * group's branches, since the shorter are delayed to meet it. Mixing in the
+ * dry input adds none: the input is delayed to the output's latency.
+ */
+function slotLatency(
+  slot: ChainSlot,
+  descriptors: ReadonlyMap<string, ProcessorDescriptor>,
+  settings: ChainSettings,
+): DomainResult<LatencyTally> {
+  if (slot.kind === 'processor') {
+    const descriptor = descriptors.get(slot.typeKey);
+    if (descriptor === undefined) return unknownType(slot);
+    const latency = descriptor.latency({ ...settings, values: slot.values });
+    return succeed(
+      latency.kind === 'known'
+        ? { frames: latency.frames, unknown: [] }
+        : {
+            frames: 0,
+            unknown: [
+              `the latency of processor ${slot.id} (${slot.typeKey}) is not known: ${latency.reason}`,
+            ],
+          },
+    );
+  }
+  let frames = 0;
+  const unknown: string[] = [];
+  for (const branch of slot.branches) {
+    const latency = seriesLatency(branch.slots, descriptors, settings);
+    if (!latency.ok) return latency;
+    frames = Math.max(frames, latency.value.frames);
+    unknown.push(...latency.value.unknown);
+  }
+  return succeed({ frames, unknown });
+}
+
+/**
+ * Total latency the chain introduces at `settings`, as the latency of one
+ * processor.
  *
- * Only the processors that will be applied contribute, because a bypassed
- * processor delays nothing. REQ-ARCH-144 requires this to be computable, since
- * the engine compensates by exactly this many frames, so where an applied
- * processor cannot say its latency the chain cannot either: it is unknown,
- * with the reason of every processor that makes it so, never a total that
- * leaves them out.
+ * Only applied slots contribute, because a bypassed processor delays nothing.
+ * Where an applied processor cannot say its latency the chain cannot either:
+ * it is unknown, with the reason of every processor that makes it so.
  */
 export function chainLatency(
-  chain: EffectChain,
+  chain: Pick<EffectChain, 'slots'>,
   descriptors: ReadonlyMap<string, ProcessorDescriptor>,
+  settings: ChainSettings,
 ): DomainResult<ProcessorLatency> {
-  let total = 0;
-  const unknown: string[] = [];
-
-  for (const processor of processorsInSignalOrder(chain)) {
-    const descriptor = descriptors.get(processor.typeKey);
-    if (descriptor === undefined) {
-      return fail(
-        failure(
-          'effect-chain.unknown-processor-type',
-          FailureKind.IntegrityViolation,
-          `The chain holds a processor of unknown type "${processor.typeKey}".`,
-          {
-            details: { typeKey: processor.typeKey, processorId: processor.id },
-          },
-        ),
-      );
-    }
-    const latency = descriptor.latency;
-    if (latency.kind === 'known') {
-      total += latency.frames;
-    } else {
-      unknown.push(
-        `the latency of processor ${processor.id} (${processor.typeKey}) is not known: ${latency.reason}`,
-      );
-    }
+  const tally = seriesLatency(chain.slots, descriptors, settings);
+  if (!tally.ok) return tally;
+  if (tally.value.unknown.length > 0) {
+    return succeed({ kind: 'unknown', reason: tally.value.unknown.join('; ') });
   }
-
-  if (unknown.length > 0) return succeed({ kind: 'unknown', reason: unknown.join('; ') });
-
   // Checked like any other count: a sum of latencies can leave the range where
   // every integer is exact, and a total asserted into the type could not say
   // so.
-  return mapResult(sampleCount(total), (frames): ProcessorLatency => ({ kind: 'known', frames }));
+  return mapResult(sampleCount(tally.value.frames), (frames): ProcessorLatency => ({
+    kind: 'known',
+    frames,
+  }));
 }
 
-/** Builds a processor instance with every parameter at its default. */
+/** Builds a processor instance with every parameter at its default, applied fully. */
 export function instantiateProcessor(
   id: ProcessorId,
   descriptor: ProcessorDescriptor,
 ): ProcessorInstance {
   return {
+    kind: 'processor',
     id,
     typeKey: descriptor.typeKey,
     enabled: true,
     soloed: false,
+    mix: 1,
+    version: descriptor.version,
     values: new Map(
       descriptor.parameters.map((parameter) => [parameter.id, defaultParameterValue(parameter)]),
     ),
@@ -176,10 +263,11 @@ export function instantiateProcessor(
 }
 
 /**
- * Checks that a processor instance matches its descriptor.
+ * Checks that a processor instance matches its descriptor: its type, its
+ * versions and every parameter value.
  *
  * Reports every problem rather than the first, so a project opened after a
- * processor gained a parameter tells the user everything that has changed.
+ * processor gained a parameter tells the person everything that has changed.
  */
 export function validateProcessorInstance(
   processor: ProcessorInstance,
@@ -191,12 +279,12 @@ export function validateProcessorInstance(
         'effect-chain.descriptor-mismatch',
         FailureKind.IntegrityViolation,
         'The processor was checked against a descriptor for a different type.',
-        {
-          details: { processorType: processor.typeKey, descriptorType: descriptor.typeKey },
-        },
+        { details: { processorType: processor.typeKey, descriptorType: descriptor.typeKey } },
       ),
     );
   }
+  const version = checkStateVersion(processor.typeKey, processor.version, descriptor.version);
+  if (!version.ok) return version;
 
   const checks = descriptor.parameters.map((parameter) => {
     const value = processor.values.get(parameter.id);
@@ -206,9 +294,7 @@ export function validateProcessorInstance(
           'effect-chain.missing-parameter-value',
           FailureKind.IntegrityViolation,
           `Processor "${descriptor.typeKey}" has no value for parameter "${parameter.key}".`,
-          {
-            details: { typeKey: descriptor.typeKey, parameter: parameter.key },
-          },
+          { details: { typeKey: descriptor.typeKey, parameter: parameter.key } },
         ),
       );
     }
@@ -224,9 +310,7 @@ export function validateProcessorInstance(
           'effect-chain.unexpected-parameter-value',
           FailureKind.IntegrityViolation,
           `Processor "${descriptor.typeKey}" holds values for parameters it does not declare.`,
-          {
-            details: { typeKey: descriptor.typeKey, unexpected: unexpected.join(', ') },
-          },
+          { details: { typeKey: descriptor.typeKey, unexpected: unexpected.join(', ') } },
         ),
       ),
     );

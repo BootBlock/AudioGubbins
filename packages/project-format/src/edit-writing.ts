@@ -32,6 +32,8 @@ function writeRangeEdit(edit: RangeEdit): JsonObject {
       return { kind: edit.kind, from: edit.from, to: edit.to };
     case 'channel-gains':
       return { kind: edit.kind, gains: [...edit.gains] };
+    case 'rack':
+      return { kind: edit.kind, chain: edit.chain };
   }
 }
 
@@ -65,6 +67,15 @@ export function writeEditOperation(operation: EditOperation): JsonObject {
         layout: writeLayout(operation.layout),
         matrix: operation.matrix.map((row) => [...row]),
       };
+    case 'stretch':
+      return {
+        id: operation.id,
+        kind: operation.kind,
+        range: writeEditRange(operation.range),
+        length: operation.length,
+      };
+    case 'convert-rate':
+      return { id: operation.id, kind: operation.kind, sampleRate: operation.sampleRate };
   }
 }
 

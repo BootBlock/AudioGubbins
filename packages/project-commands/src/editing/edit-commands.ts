@@ -101,7 +101,12 @@ function applyEdit(
   }
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) throw new Error('A chain always has a shape.');
-  const valid = validateOperation(operation.value, shape, state.project.assets);
+  const valid = validateOperation(
+    operation.value,
+    shape,
+    state.project.assets,
+    state.project.effectChains,
+  );
   if (!valid.ok) return refusedBy(valid);
   return applied(
     withAssetEdits(state, asset, [...asset.edits, operation.value]),

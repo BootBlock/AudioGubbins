@@ -51,6 +51,11 @@ export const ProjectCommandId = {
   SetRegion: commandId('project.set-region'),
   ApplyRegionEdit: commandId('project.apply-region-edit'),
   WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
+  AddChain: commandId('project.add-chain'),
+  SetChain: commandId('project.set-chain'),
+  RemoveChain: commandId('project.remove-chain'),
+  SetRack: commandId('project.set-rack'),
+  SetEditChain: commandId('project.set-edit-chain'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */

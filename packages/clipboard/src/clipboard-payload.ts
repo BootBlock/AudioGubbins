@@ -21,8 +21,12 @@ import {
 } from '@audiogubbins/domain';
 import type { AssetRecord, ProjectState } from '@audiogubbins/project-format';
 
+import type { ProcessingPayload } from './processing-payload.js';
+
 /** What the clipboard holds after a copy. */
-export interface ClipboardPayload {
+export interface AudioPayload {
+  readonly kind: 'audio';
+
   /** The project it was copied from. */
   readonly origin: ProjectId;
 
@@ -42,8 +46,9 @@ export function copyAudio(
   plan: EditPlan,
   range: EditRange,
   channels?: readonly number[],
-): DomainResult<ClipboardPayload> {
+): DomainResult<AudioPayload> {
   return mapResult(slicePlan(plan, range.start, range.end, channels), (slice) => ({
+    kind: 'audio' as const,
     origin: state.project.id,
     plan: slice,
     records: recordsRead(state, slice),
@@ -66,3 +71,6 @@ function recordsRead(state: ProjectState, slice: EditPlan): readonly AssetRecord
   }
   return [...records.values()];
 }
+
+/** What the one clipboard holds: audio, or processing (ADR-0053 as amended). */
+export type ClipboardPayload = AudioPayload | ProcessingPayload;

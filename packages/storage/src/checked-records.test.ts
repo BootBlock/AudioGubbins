@@ -84,10 +84,17 @@ describe('checked records (REQ-STOR-101, REQ-EXEC-136.12)', () => {
 
   it('reads a record of another schema version as incompatible, with both versions', async () => {
     const { tree, records } = await written();
-    await tree.writeFile('record.json', await envelope({ name: 'Forest' }, { schemaVersion: 7 }));
+    await tree.writeFile(
+      'record.json',
+      await envelope({ name: 'Forest' }, { schemaVersion: SCHEMA_VERSIONS.projectStorage + 1 }),
+    );
     expect(await records.read('record.json', RecordKind.Lease, readName)).toEqual({
       kind: 'invalid',
-      fault: { kind: 'incompatible', found: 7, current: SCHEMA_VERSIONS.projectStorage },
+      fault: {
+        kind: 'incompatible',
+        found: SCHEMA_VERSIONS.projectStorage + 1,
+        current: SCHEMA_VERSIONS.projectStorage,
+      },
     });
   });
 

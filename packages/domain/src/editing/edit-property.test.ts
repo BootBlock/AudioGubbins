@@ -1,3 +1,4 @@
+import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts, layoutsMatch, type ChannelLayout } from '../audio/channel-layout.js';
@@ -110,7 +111,7 @@ function step(
   const count = samples.length;
   const pick = next();
   if (length < 4 || pick < 0.2) {
-    const plan = assetPlan(asset);
+    const plan = expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS));
     const copied = length === 0 ? { start: 0, end: 0 } : rangeIn(next, length);
     const at = Math.floor(next() * (length + 1));
     if (copied.end > copied.start) {
@@ -174,16 +175,26 @@ describe('the edit plan, against each edit applied to the samples one at a time'
         const { operation, inserted } = step(next, asset, expected, operationId);
         const shape = shapesOf(asset).at(-1);
         if (shape === undefined) throw new Error('A chain always has a shape.');
-        expectSuccess(validateOperation(operation, shape, new Map([[asset.id, asset]])));
+        expectSuccess(
+          validateOperation(
+            operation,
+            shape,
+            new Map([[asset.id, asset]]),
+            PLAN_WITHOUT_CHAINS.chains,
+          ),
+        );
         asset = { ...asset, edits: [...asset.edits, operation] };
-        expected = applyEdit(expected, operation, inserted);
-        const rendered = renderPlan(assetPlan(asset), new Map([[asset.id, source.samples]]));
+        expected = applyEdit(expected, operation, { inserted: inserted });
+        const rendered = renderPlan(
+          expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS)),
+          new Map([[asset.id, source.samples]]),
+        );
         expect(
           sameBits(rendered, expected),
           `run ${String(run)}, edit ${String(index)} (${operation.kind})`,
         ).toBe(true);
       }
-      expectSuccess(validateChain(asset, new Map([[asset.id, asset]])));
+      expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), PLAN_WITHOUT_CHAINS.chains));
     }
   });
 
@@ -202,15 +213,15 @@ describe('the edit plan, against each edit applied to the samples one at a time'
         const { operation, inserted } = step(next, asset, expected, operationId);
         const position = Math.floor(next() * ((expected[0]?.length ?? 0) + 1));
         const before = anchorResolver(asset).position(asset.edits.length, position, Affinity.After);
-        const plan = assetPlan(asset);
+        const plan = expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS));
         const edited: Asset = { ...asset, edits: [...asset.edits, operation] };
         const withdrawn: Asset = { ...edited, edits: edited.edits.slice(0, -1) };
-        expect(assetPlan(withdrawn)).toEqual(plan);
+        expect(expectSuccess(assetPlan(withdrawn, PLAN_WITHOUT_CHAINS))).toEqual(plan);
         expect(
           anchorResolver(withdrawn).position(asset.edits.length, position, Affinity.After),
         ).toBe(before);
         asset = edited;
-        expected = applyEdit(expected, operation, inserted);
+        expected = applyEdit(expected, operation, { inserted: inserted });
       }
     }
   });
@@ -234,7 +245,7 @@ describe('a region’s processing, against the same processing applied at its ba
         const made = step(next, asset, current, operationId);
         steps.push(made);
         asset = { ...asset, edits: [...asset.edits, made.operation] };
-        sounds.push(applyEdit(current, made.operation, made.inserted));
+        sounds.push(applyEdit(current, made.operation, { inserted: made.inserted }));
       }
 
       const basis = Math.floor(next() * sounds.length);
@@ -259,15 +270,18 @@ describe('a region’s processing, against the same processing applied at its ba
         tags: [],
         operations: [processing],
       };
-      expectSuccess(validateRegion(asset, region));
+      expectSuccess(validateRegion(asset, region, PLAN_WITHOUT_CHAINS.chains));
 
-      let expected = applyEdit(placedOn, { ...processing, kind: 'process' }, []);
+      let expected = applyEdit(placedOn, { ...processing, kind: 'process' }, { inserted: [] });
       for (const later of steps.slice(basis)) {
-        expected = applyEdit(expected, later.operation, later.inserted);
+        expected = applyEdit(expected, later.operation, { inserted: later.inserted });
       }
       const span = anchorResolver(asset).span(0, { start: 0, end: source.asset.length });
       if (span === undefined) throw new Error('A region at the first basis resolves.');
-      const rendered = renderPlan(regionPlan(asset, region), new Map([[id, source.samples]]));
+      const rendered = renderPlan(
+        expectSuccess(regionPlan(asset, region, PLAN_WITHOUT_CHAINS)),
+        new Map([[id, source.samples]]),
+      );
       expect(
         sameBits(
           rendered,

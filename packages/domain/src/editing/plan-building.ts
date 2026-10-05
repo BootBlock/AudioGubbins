@@ -1,12 +1,14 @@
 /**
- * Folding an asset's chain into its edit plan (ADR-0051).
+ * Folding an asset's chain into its edit plan (ADR-0051, ADR-0060).
  *
  * The plan starts as one segment reading the whole unchanged source, and each
  * operation in order changes the first stream's segments: a deletion, a trim
- * and a reversal cut and reorder them, a range edit adds a stage to those it
- * covers, a layout conversion adds a matrix to all of them, and an insertion
- * splices in its payload, or one segment reading it converted where its rate
- * differs. A chain is validated before it is folded
+ * and a reversal cut and reorder them, a level or channel edit adds a stage to
+ * those it covers, a layout conversion adds a matrix to all of them, and an
+ * insertion splices in its payload, or one segment reading it converted where
+ * its rate differs. A rack edit, a stretch and a conversion of rate each move
+ * segments into a stream of their own that the first stream reads processed
+ * (`processed-streams.ts`). A chain is validated before it is folded
  * (`operation-validation.ts`), so this fold assumes every position lies where
  * its operation says.
  *
@@ -15,55 +17,101 @@
  * placed on. Its stages are then in content frames like any other, so a later
  * cut, paste or reversal moves them with the content and never remakes them
  * from where the range has since been carried.
+ *
+ * The asset's rack then processes the whole of what the fold made, so it
+ * follows the asset through every edit.
  */
 
+import { channelCount, layoutsMatch } from '../audio/channel-layout.js';
+import type { EffectChainId } from '../identity/branded-id.js';
+import { chainOutputLayout, type ProcessorCatalogue } from '../processing/chain-validation.js';
+import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from '../project/asset.js';
+import { FailureKind, fail, failure, mapResult, succeed, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
-import { channelCount } from '../audio/channel-layout.js';
-import type { EditOperation, RegionOperation } from './operations.js';
 import { insertedLength } from './edit-shape.js';
-import type { EditPlan, PlanSegment, PlanStream } from './plan.js';
-import { changeRange, reverseRange, sliceSegments } from './segment-list.js';
+import type { ProjectChains } from './operation-validation.js';
+import type { EditOperation, RangeEdit, RegionOperation } from './operations.js';
+import type { EditPlan, PlanSegment } from './plan.js';
+import {
+  convertWhole,
+  lengthOf,
+  rackRange,
+  rackWhole,
+  stretchRange,
+  type Folding,
+} from './processed-streams.js';
 import { rangeEditStage } from './range-stages.js';
+import { changeRange, reverseRange, sliceSegments } from './segment-list.js';
 import { pruneStreams, shiftStreams } from './stream-tables.js';
 
-/** The plan being folded: its first stream's segments and every other stream. */
-interface Folding {
-  readonly stream: PlanStream;
-  readonly others: readonly PlanStream[];
+/**
+ * What a plan is built with besides its asset: the project's chains, which
+ * rack edits and racks name, and the processor types this build has, which
+ * say what layout a chain makes.
+ */
+export interface PlanContext {
+  readonly chains: ProjectChains;
+  readonly catalogue: ProcessorCatalogue;
 }
-
-/** The total length of a list of segments. */
-function lengthOf(segments: readonly PlanSegment[]): number {
-  let length = 0;
-  for (const segment of segments) length += segment.length;
-  return length;
-}
-
-/** An operation that changes only the first stream's segments. */
-type SegmentOperation = Exclude<EditOperation, { readonly kind: 'insert' | 'convert-layout' }>;
 
 /** A range edit on the first stream: the asset's own processing, or a region's. */
 type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
 
-/** The first stream's segments with `processing` as a stage on each segment it covers. */
-function processedSegments(stream: PlanStream, processing: Processing): PlanSegment[] {
-  const { range } = processing;
-  return changeRange(
-    stream.segments,
-    range.start,
-    range.end,
-    rangeEditStage(processing.edit, range, processing.channels, channelCount(stream.layout)),
-  );
+/** The chain an edit or a rack names, or why the project does not have it. */
+function namedChain(context: PlanContext, id: EffectChainId): DomainResult<EffectChain> {
+  const chain = context.chains.get(id);
+  return chain === undefined
+    ? fail(
+        failure(
+          'editing.chain-missing',
+          FailureKind.IntegrityViolation,
+          'The audio names a chain of processors the project does not have.',
+          { details: { chain: id } },
+        ),
+      )
+    : succeed(chain);
 }
 
-/** The first stream's segments with `operation` applied to them. */
-function segmentsAfter(
-  stream: PlanStream,
-  operation: SegmentOperation,
-  total: number,
+/** The folding with `processing` applied over its range of the first stream. */
+function processRange(
+  folding: Folding,
+  processing: Processing,
+  context: PlanContext,
+): DomainResult<Folding> {
+  const { stream } = folding;
+  const { range } = processing;
+  const edit: RangeEdit = processing.edit;
+  if (edit.kind !== 'rack') {
+    const stage = rangeEditStage(edit, range, processing.channels, channelCount(stream.layout));
+    return succeed({
+      ...folding,
+      stream: { ...stream, segments: changeRange(stream.segments, range.start, range.end, stage) },
+    });
+  }
+  const chain = namedChain(context, edit.chain);
+  if (!chain.ok) return chain;
+  const layout = chainOutputLayout(chain.value, context.catalogue, stream.layout);
+  if (!layout.ok) return layout;
+  if (!layoutsMatch(layout.value, stream.layout)) {
+    return fail(
+      failure(
+        'editing.rack-changes-layout',
+        FailureKind.Rejected,
+        'A chain applied to a range must keep the audio’s channels; give it to the whole asset or region as its rack instead.',
+        { details: { chain: edit.chain } },
+      ),
+    );
+  }
+  return succeed(rackRange(folding, range.start, range.end, chain.value));
+}
+
+/** The first stream's segments after an operation that only cuts or turns them. */
+function cutSegments(
+  segments: readonly PlanSegment[],
+  operation: Extract<EditOperation, { readonly kind: 'delete' | 'trim' | 'reverse' }>,
 ): PlanSegment[] {
-  const { segments } = stream;
+  const total = lengthOf(segments);
   const { start, end } = operation.range;
   switch (operation.kind) {
     case 'delete':
@@ -72,18 +120,19 @@ function segmentsAfter(
       return sliceSegments(segments, start, end);
     case 'reverse':
       return reverseRange(segments, start, end, total);
-    case 'process':
-      return processedSegments(stream, operation);
   }
 }
 
 /** The plan with `operation` folded into it. */
-function foldOperation(plan: Folding, operation: EditOperation): Folding {
+function foldOperation(
+  plan: Folding,
+  operation: EditOperation,
+  context: PlanContext,
+): DomainResult<Folding> {
   const { stream } = plan;
-  const total = lengthOf(stream.segments);
   switch (operation.kind) {
     case 'convert-layout':
-      return {
+      return succeed({
         ...plan,
         stream: {
           ...stream,
@@ -93,11 +142,24 @@ function foldOperation(plan: Folding, operation: EditOperation): Folding {
             stages: [...segment.stages, { kind: 'matrix', matrix: operation.matrix }],
           })),
         },
-      };
+      });
     case 'insert':
-      return foldInsertion(plan, operation, total);
-    default:
-      return { ...plan, stream: { ...stream, segments: segmentsAfter(stream, operation, total) } };
+      return succeed(foldInsertion(plan, operation));
+    case 'process':
+      return processRange(plan, operation, context);
+    case 'stretch':
+      return succeed(
+        stretchRange(plan, operation.range.start, operation.range.end, operation.length),
+      );
+    case 'convert-rate':
+      return succeed(convertWhole(plan, operation.sampleRate));
+    case 'delete':
+    case 'trim':
+    case 'reverse':
+      return succeed({
+        ...plan,
+        stream: { ...stream, segments: cutSegments(stream.segments, operation) },
+      });
   }
 }
 
@@ -109,9 +171,9 @@ function foldOperation(plan: Folding, operation: EditOperation): Folding {
 function foldInsertion(
   plan: Folding,
   operation: Extract<EditOperation, { readonly kind: 'insert' }>,
-  total: number,
 ): Folding {
   const { stream } = plan;
+  const total = lengthOf(stream.segments);
   const converted = operation.payload.streams[0].sampleRate !== stream.sampleRate;
   // Converted, the payload's first stream becomes a stream of the plan, read
   // by one segment; otherwise its segments are spliced in and only the rest
@@ -158,11 +220,12 @@ function byBasis(
   return placed;
 }
 
-/**
- * The plan of an asset's chain as it stands, with a region's `processing`
- * folded in among it where given, and no stream nothing reads.
- */
-export function assetPlan(asset: Asset, processing: readonly RegionOperation[] = []): EditPlan {
+/** The fold of the asset's chain with `processing` among it, before any rack. */
+function editedPlan(
+  asset: Asset,
+  processing: readonly RegionOperation[],
+  context: PlanContext,
+): DomainResult<EditPlan> {
   let folding: Folding = {
     stream: {
       sampleRate: asset.sampleRate,
@@ -182,13 +245,44 @@ export function assetPlan(asset: Asset, processing: readonly RegionOperation[] =
   const placed = byBasis(asset, processing);
   for (let basis = 0; basis <= asset.edits.length; basis += 1) {
     for (const operation of placed.get(basis) ?? []) {
-      folding = {
-        ...folding,
-        stream: { ...folding.stream, segments: processedSegments(folding.stream, operation) },
-      };
+      const folded = processRange(folding, operation, context);
+      if (!folded.ok) return folded;
+      folding = folded.value;
     }
     const operation = asset.edits[basis];
-    if (operation !== undefined) folding = foldOperation(folding, operation);
+    if (operation === undefined) continue;
+    const folded = foldOperation(folding, operation, context);
+    if (!folded.ok) return folded;
+    folding = folded.value;
   }
-  return pruneStreams({ streams: [folding.stream, ...folding.others] });
+  return succeed({ streams: [folding.stream, ...folding.others] });
+}
+
+/** The plan with its whole sound through the rack `rack`, where one is named. */
+export function withRack(
+  plan: EditPlan,
+  rack: EffectChainId | undefined,
+  context: PlanContext,
+): DomainResult<EditPlan> {
+  if (rack === undefined) return succeed(plan);
+  const chain = namedChain(context, rack);
+  if (!chain.ok) return chain;
+  return mapResult(
+    chainOutputLayout(chain.value, context.catalogue, plan.streams[0].layout),
+    (layout) => rackWhole(plan, chain.value, layout),
+  );
+}
+
+/**
+ * The plan of an asset as it stands: its chain, with a region's `processing`
+ * folded in among it where given, then its rack, with no stream nothing reads.
+ */
+export function assetPlan(
+  asset: Asset,
+  context: PlanContext,
+  processing: readonly RegionOperation[] = [],
+): DomainResult<EditPlan> {
+  const edited = editedPlan(asset, processing, context);
+  if (!edited.ok) return edited;
+  return mapResult(withRack(edited.value, asset.rack, context), pruneStreams);
 }

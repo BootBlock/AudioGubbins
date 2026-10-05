@@ -4,15 +4,21 @@ import { StandardLayouts } from '../audio/channel-layout.js';
 import {
   unsafeBrandId,
   type AssetId,
+  type BusId,
+  type EffectChainId,
   type ProjectId,
   type TrackId,
 } from '../identity/branded-id.js';
+import type { EditOperation, RegionOperation } from '../editing/operations.js';
+import { assetOf, operationId, range } from '../testing/editing-fixtures.js';
 import { sampleRate, type SampleCount } from '../time/sample-time.js';
 import { expectSuccess } from '../testing/unwrap.js';
 import type { Clip, Marker, Region } from './timeline.js';
-import { MAIN_OUTPUT, type Track } from './routing.js';
+import { MAIN_OUTPUT, type Bus, type Track } from './routing.js';
 import {
   type Project,
+  chainUseCount,
+  chainUsers,
   clipsOnTrack,
   createProject,
   isAssetInUse,
@@ -239,5 +245,105 @@ describe('isAssetInUse', () => {
 
   it('reports every asset as unused in an empty project', () => {
     expect(isAssetInUse(createProject(projectId, 'Empty', settings), assetId('any'))).toBe(false);
+  });
+});
+
+describe('chainUsers', () => {
+  const shared: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-aaaa');
+  const other: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-bbbb');
+
+  const rackEdit = (chain: EffectChainId, name: string): EditOperation => ({
+    id: operationId(name),
+    kind: 'process',
+    range: range(0, 10),
+    edit: { kind: 'rack', chain },
+  });
+  const regionEdit = (chain: EffectChainId, name: string): RegionOperation => ({
+    id: operationId(name),
+    basis: 0,
+    range: range(0, 10),
+    edit: { kind: 'rack', chain },
+  });
+  const regionOf = (
+    name: string,
+    operations: readonly RegionOperation[],
+    rack?: EffectChainId,
+  ): Region => ({
+    id: unsafeBrandId(`aaaaaaaa-${name}`),
+    assetId: assetId('regioned'),
+    displayName: name,
+    basis: 0,
+    start: 0 as SampleCount,
+    end: 100 as SampleCount,
+    tags: [],
+    operations,
+    ...(rack === undefined ? {} : { rack }),
+  });
+  const busOf = (name: string, effectChainId?: EffectChainId): Bus => ({
+    id: unsafeBrandId<'BusId'>(`bbbbbbbb-${name}`),
+    displayName: name,
+    channelLayout: StandardLayouts.stereo,
+    gain: 1,
+    muted: false,
+    ...(effectChainId === undefined ? {} : { effectChainId }),
+  });
+
+  // Each kind of user names the shared chain once, and once more by a
+  // neighbour naming another chain, so a count of any one kind that ignored
+  // which chain it named, or missed the kind, would be wrong.
+  const edited = assetOf('0001', 100, [
+    {
+      id: operationId('gain'),
+      kind: 'process',
+      range: range(0, 10),
+      edit: { kind: 'gain', gain: 2 },
+    },
+    rackEdit(shared, 'first'),
+    rackEdit(shared, 'second'),
+  ]);
+  const editedElsewhere = assetOf('0002', 100, [rackEdit(other, 'other')]);
+  const racked = { ...assetOf('0003', 100), rack: shared };
+  const rackedElsewhere = { ...assetOf('0004', 100), rack: other };
+  const processedRegion = regionOf('0001', [regionEdit(shared, 'region')]);
+  const processedElsewhere = regionOf('0002', [regionEdit(other, 'elsewhere')]);
+  const rackedRegion = regionOf('0003', [], shared);
+  const rackedRegionElsewhere = regionOf('0004', [], other);
+  const track: Track = { ...makeTrack('aaaa'), effectChainId: shared };
+  const trackElsewhere: Track = { ...makeTrack('bbbb'), effectChainId: other };
+  const bus = busOf('0001', shared);
+  const busElsewhere = busOf('0002', other);
+  const plainBus = busOf('0003');
+
+  const project: Project = {
+    ...withClips([], [track, trackElsewhere, makeTrack('cccc')]),
+    assets: new Map(
+      [edited, editedElsewhere, racked, rackedElsewhere].map((asset) => [asset.id, asset]),
+    ),
+    regions: new Map(
+      [processedRegion, processedElsewhere, rackedRegion, rackedRegionElsewhere].map((region) => [
+        region.id,
+        region,
+      ]),
+    ),
+    buses: new Map<BusId, Bus>([bus, busElsewhere, plainBus].map((each) => [each.id, each])),
+  };
+
+  it('names every asset edit, region edit, asset rack, region rack, track and bus that applies the chain, and no other', () => {
+    expect(chainUsers(project, shared)).toEqual({
+      assetEdits: [edited.id],
+      regionEdits: [processedRegion.id],
+      assetRacks: [racked.id],
+      regionRacks: [rackedRegion.id],
+      tracks: [track.id],
+      buses: [bus.id],
+    });
+  });
+
+  it('counts each user once, an asset with two edits of the chain as one, so a shared chain is known as shared', () => {
+    expect(chainUseCount(chainUsers(project, shared))).toBe(6);
+    expect(chainUseCount(chainUsers(project, other))).toBe(6);
+    expect(
+      chainUseCount(chainUsers(project, unsafeBrandId<'EffectChainId'>('33333333-cccc'))),
+    ).toBe(0);
   });
 });

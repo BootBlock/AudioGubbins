@@ -174,6 +174,17 @@ export { readEditOperation, readRegionOperation } from './edit-reading.js';
 export { writeEditOperation, writeRegionOperation } from './edit-writing.js';
 export { readMarker, readRegion } from './placement-reading.js';
 export { writeMarker, writeRegion } from './placement-writing.js';
+export { readEditPlan } from './plan-reading.js';
+export { writeEditPlan } from './plan-writing.js';
+export { readEffectChain, readSlotAlone } from './chain-reading.js';
+export {
+  LIBRARY_DOCUMENT_FORMAT,
+  libraryDocumentText,
+  parseLibraryDocument,
+  readLibraryDocument,
+  writeLibraryDocument,
+} from './library-json.js';
+export { writeEffectChain, writeSlot } from './chain-writing.js';
 export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
 
 export { asProjectName, givenName, nameFromFile, writtenName } from './given-names.js';

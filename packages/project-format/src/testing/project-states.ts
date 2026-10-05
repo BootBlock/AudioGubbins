@@ -31,7 +31,7 @@ import {
   type RegionOperation,
   type Track,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
 
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import {
@@ -82,17 +82,46 @@ export function referenceState(fixture: SampleProject): ProjectState {
 
   const chain: EffectChain = {
     id: ids.next<'EffectChainId'>(),
-    processors: [
+    slots: [
       {
+        kind: 'processor',
         id: ids.next<'ProcessorId'>(),
         typeKey: 'parametric-eq',
         enabled: true,
         soloed: false,
+        mix: 1,
+        version: { implementation: 1, parameters: 1 },
         values: new Map<ParameterId, ParameterValue>([
           [ids.next<'ParameterId'>(), 0.5],
           [ids.next<'ParameterId'>(), 'low-shelf'],
           [ids.next<'ParameterId'>(), true],
         ]),
+      },
+      {
+        kind: 'group',
+        id: ids.next<'ProcessorGroupId'>(),
+        enabled: true,
+        soloed: false,
+        mix: 0.5,
+        summing: 'equal-power',
+        branches: [
+          { slots: [] },
+          {
+            slots: [
+              {
+                kind: 'processor',
+                id: ids.next<'ProcessorId'>(),
+                typeKey: 'plate-reverb',
+                enabled: false,
+                soloed: false,
+                mix: 0.25,
+                version: { implementation: 2, parameters: 1, resampler: 1 },
+                values: new Map<ParameterId, ParameterValue>([[ids.next<'ParameterId'>(), 1.5]]),
+                state: { kind: 'impulse', values: [0.5, -0.25, 1e-7] },
+              },
+            ],
+          },
+        ],
       },
     ],
   };
@@ -195,7 +224,11 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
     channels: [0],
     edit: { kind: 'gain', gain: 0.5 },
   };
-  const copied = slicePlan(assetPlan({ ...footstep, edits: [louder] }), 6_000, 18_000);
+  const copied = slicePlan(
+    expectSuccess(assetPlan({ ...footstep, edits: [louder] }, PLAN_WITHOUT_CHAINS)),
+    6_000,
+    18_000,
+  );
   if (!copied.ok) throw new Error('The footstep could not be copied.');
   const edits: EditOperation[] = [
     louder,

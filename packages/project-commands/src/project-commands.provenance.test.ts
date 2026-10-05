@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { TEST_CATALOGUE, expectSuccess } from '@audiogubbins/domain/testing';
 import {
   storageKeyOf,
   type ExternalSourceIdentity,
@@ -32,7 +32,7 @@ import { referenceState } from './testing/reference-state.js';
  */
 
 const bus = projectBus();
-const port = commandProvenance(projectCommands());
+const port = commandProvenance(projectCommands(TEST_CATALOGUE));
 const fixture = sampleProject();
 const { state, assets } = referenceState(fixture);
 

@@ -10,9 +10,10 @@
 
 import type { Asset } from '../project/asset.js';
 import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/timeline.js';
+import { mapResult, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
-import { assetPlan } from './plan-building.js';
+import { assetPlan, withRack, type PlanContext } from './plan-building.js';
 import type { EditPlan } from './plan.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
@@ -109,18 +110,26 @@ export function markersInRegion(
 }
 
 /**
- * What a region sounds like: its asset's edited audio between its boundaries,
- * through the region's own processing, each operation folded in on the
- * timeline of its basis (`plan-building.ts`), so it stays on the content it
- * was put on, and a fade begun outside the region keeps its ramp inside it.
+ * What a region sounds like (ADR-0060): its asset's audio through the
+ * region's own processing, each operation folded in on the timeline of its
+ * basis (`plan-building.ts`), so it stays on the content it was put on and a
+ * fade begun outside the region keeps its ramp inside it; then the asset's
+ * rack over the whole asset; then the region's span of that, so its rack
+ * reads exactly that span of its asset's processed audio; then its rack.
  */
 export function regionPlan(
   asset: Asset,
   region: Region,
+  context: PlanContext,
   resolver = anchorResolver(asset),
-): EditPlan {
-  const [stream, ...others] = assetPlan(asset, region.operations).streams;
+): DomainResult<EditPlan> {
+  const whole = assetPlan(asset, context, region.operations);
+  if (!whole.ok) return whole;
+  const [stream, ...others] = whole.value.streams;
   const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
   const segments = sliceSegments(stream.segments, span.start, span.end);
-  return pruneStreams({ streams: [{ ...stream, segments }, ...others] });
+  return mapResult(
+    withRack({ streams: [{ ...stream, segments }, ...others] }, region.rack, context),
+    pruneStreams,
+  );
 }

@@ -15,8 +15,8 @@
  */
 
 import type { ChannelLayout } from '../audio/channel-layout.js';
-import type { AssetId, EditOperationId, RegionId } from '../identity/branded-id.js';
-import type { SampleCount } from '../time/sample-time.js';
+import type { AssetId, EditOperationId, EffectChainId, RegionId } from '../identity/branded-id.js';
+import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import type { FadeDirection, FadeShape } from './fades.js';
 import type { EditPlan } from './plan.js';
 
@@ -65,10 +65,22 @@ export type ChannelEdit =
   | { readonly kind: 'channel-gains'; readonly gains: readonly number[] };
 
 /**
- * A change over a range that moves nothing in time: a level change on the
- * channels an operation names, or a change between channels.
+ * A chain of processors applied over a range (ADR-0060), named by its
+ * identifier so every range and target that names one chain shares it. It
+ * acts on every channel, keeps the range's length and layout, and adds
+ * nothing past the range's end: a reverb's or a delay's tail is cut there.
  */
-export type RangeEdit = LevelEdit | ChannelEdit;
+export interface RackEdit {
+  readonly kind: 'rack';
+  readonly chain: EffectChainId;
+}
+
+/**
+ * A change over a range that moves nothing in time: a level change on the
+ * channels an operation names, a change between channels, or a chain of
+ * processors.
+ */
+export type RangeEdit = LevelEdit | ChannelEdit | RackEdit;
 
 /** One operation in an asset's chain. */
 export type EditOperation =
@@ -113,6 +125,27 @@ export type EditOperation =
       readonly kind: 'convert-layout';
       readonly layout: ChannelLayout;
       readonly matrix: readonly (readonly number[])[];
+    }
+  /**
+   * Stretches the range to `length` frames without changing its pitch, on
+   * every channel. A position inside the range moves by the ratio of the two
+   * lengths, and one after it by their difference (`anchors.ts`).
+   */
+  | {
+      readonly id: EditOperationId;
+      readonly kind: 'stretch';
+      readonly range: EditRange;
+      readonly length: SampleCount;
+    }
+  /**
+   * Converts the whole asset to `sampleRate` by the canonical resampler, the
+   * only way an asset's rate changes (REQ-ARCH-085). Every position moves by
+   * the ratio of the two rates.
+   */
+  | {
+      readonly id: EditOperationId;
+      readonly kind: 'convert-rate';
+      readonly sampleRate: SampleRate;
     };
 
 /**

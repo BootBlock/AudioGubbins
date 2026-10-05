@@ -41,7 +41,7 @@ import {
 } from './edit-value-reading.js';
 import { readEditPlan } from './plan-reading.js';
 import { asBoolean, asId, oneOfConverter } from './scalar-reading.js';
-import { asChannelLayout, asSampleCount } from './value-reading.js';
+import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
 
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['start', 'end']);
 const REGION_OPERATION_MEMBERS: ReadonlySet<string> = new Set([
@@ -64,6 +64,8 @@ const OPERATION_MEMBERS: Readonly<Record<EditOperation['kind'], ReadonlySet<stri
   insert: new Set(['id', 'kind', 'at', 'payload', 'convertRate']),
   process: new Set(['id', 'kind', 'range', 'channels', 'edit']),
   'convert-layout': new Set(['id', 'kind', 'layout', 'matrix']),
+  stretch: new Set(['id', 'kind', 'range', 'length']),
+  'convert-rate': new Set(['id', 'kind', 'sampleRate']),
 };
 
 /** The members of each kind of range edit, a table over every kind for the same reason. */
@@ -75,6 +77,7 @@ const RANGE_EDIT_MEMBERS: Readonly<Record<RangeEdit['kind'], ReadonlySet<string>
   'swap-channels': new Set(['kind', 'first', 'second']),
   'copy-channel': new Set(['kind', 'from', 'to']),
   'channel-gains': new Set(['kind', 'gains']),
+  rack: new Set(['kind', 'chain']),
 };
 
 /** The kinds a table names, which are its own keys. */
@@ -133,6 +136,10 @@ const readRangeEdit: Converter<RangeEdit> = (reading, value, parent, key) => {
       const gains = required(reading, object, at, 'gains', asChannelGains);
       return gains === undefined ? undefined : { kind, gains };
     }
+    case 'rack': {
+      const chain = required(reading, object, at, 'chain', asId<'EffectChainId'>);
+      return chain === undefined ? undefined : { kind, chain };
+    }
   }
 };
 
@@ -188,6 +195,15 @@ function operationBody(
       const layout = required(reading, object, at, 'layout', asChannelLayout);
       const matrix = required(reading, object, at, 'matrix', asChannelMatrix);
       return layout === undefined || matrix === undefined ? undefined : { kind, layout, matrix };
+    }
+    case 'stretch': {
+      const range = required(reading, object, at, 'range', readEditRange);
+      const length = required(reading, object, at, 'length', asSampleCount);
+      return range === undefined || length === undefined ? undefined : { kind, range, length };
+    }
+    case 'convert-rate': {
+      const sampleRate = required(reading, object, at, 'sampleRate', asSampleRate);
+      return sampleRate === undefined ? undefined : { kind, sampleRate };
     }
   }
 }

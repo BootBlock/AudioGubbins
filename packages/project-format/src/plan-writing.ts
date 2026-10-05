@@ -11,9 +11,11 @@ import type {
   PlanSource,
   PlanStage,
   PlanStream,
+  StreamProcessing,
 } from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
+import { writeEffectChain } from './chain-writing.js';
 import { presentMembers } from './document-writing.js';
 import { writeLayout } from './value-writing.js';
 
@@ -22,12 +24,23 @@ export function writeEditPlan(plan: EditPlan): JsonObject {
   return { streams: plan.streams.map(writeStream) };
 }
 
+function writeProcessing(processing: StreamProcessing): JsonObject {
+  return processing.kind === 'stretch'
+    ? { kind: 'stretch', length: processing.length }
+    : {
+        kind: 'chain',
+        chain: writeEffectChain(processing.chain),
+        input: writeLayout(processing.input),
+      };
+}
+
 function writeStream(stream: PlanStream): JsonObject {
-  return {
+  return presentMembers({
     sampleRate: stream.sampleRate,
     layout: writeLayout(stream.layout),
     segments: stream.segments.map(writeSegment),
-  };
+    processing: stream.processing === undefined ? undefined : writeProcessing(stream.processing),
+  });
 }
 
 function writeSegment(segment: PlanSegment): JsonObject {

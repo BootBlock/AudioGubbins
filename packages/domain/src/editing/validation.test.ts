@@ -1,7 +1,10 @@
+import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
-import { unsafeBrandId } from '../identity/branded-id.js';
+import { unsafeBrandId, type EffectChainId } from '../identity/branded-id.js';
+import type { EffectChain } from '../processing/effect-chain.js';
+import { SummingLaw } from '../processing/effect-chain.js';
 import type { Marker, Region } from '../project/timeline.js';
 import { OTHER_RATE, assetOf, frames, operationId, range } from '../testing/editing-fixtures.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
@@ -10,9 +13,9 @@ import { validateChain, validateOperation } from './operation-validation.js';
 import type { EditOperation, RegionOperation } from './operations.js';
 import { validateMarker, validateRegion } from './placement-validation.js';
 import { assetPlan } from './plan-building.js';
-import { validatePlan } from './plan-validation.js';
+import { MAXIMUM_STRETCH_RATIO, validatePlan } from './plan-validation.js';
 import { slicePlan } from './plan-slicing.js';
-import type { EditPlan } from './plan.js';
+import type { EditPlan, StreamProcessing } from './plan.js';
 
 const ASSET = assetOf('source', 1_000);
 const ASSETS = new Map([[ASSET.id, ASSET]]);
@@ -20,14 +23,21 @@ const SHAPE = sourceShape(ASSET);
 const id = operationId('one');
 
 function refusedFor(operation: EditOperation): string {
-  const result = validateOperation(operation, SHAPE, ASSETS);
+  const result = validateOperation(operation, SHAPE, ASSETS, PLAN_WITHOUT_CHAINS.chains);
   if (result.ok) throw new Error('Expected a refusal.');
   return result.failures[0].summary;
 }
 
 describe('validating an edit operation where it stands', () => {
   it('accepts an operation that lies within the audio', () => {
-    expectSuccess(validateOperation({ id, kind: 'delete', range: range(0, 1_000) }, SHAPE, ASSETS));
+    expectSuccess(
+      validateOperation(
+        { id, kind: 'delete', range: range(0, 1_000) },
+        SHAPE,
+        ASSETS,
+        PLAN_WITHOUT_CHAINS.chains,
+      ),
+    );
   });
 
   it('refuses a range past the audio, an empty one and one between frames', () => {
@@ -83,29 +93,110 @@ describe('validating an edit operation where it stands', () => {
   it('refuses a paste at another rate unless converting it was asked for, and converting at the same rate', () => {
     const other = assetOf('other', 441, [], StandardLayouts.stereo, OTHER_RATE);
     const assets = new Map([...ASSETS, [other.id, other]]);
-    const payload = expectSuccess(slicePlan(assetPlan(other), 0, 441));
+    const payload = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(other, PLAN_WITHOUT_CHAINS)), 0, 441),
+    );
     const paste = { id, kind: 'insert', at: frames(0), payload, convertRate: false } as const;
-    expect(expectFailureCode(validateOperation(paste, SHAPE, assets))).toBe('editing.payload-rate');
-    expectSuccess(validateOperation({ ...paste, convertRate: true }, SHAPE, assets));
-    const same = expectSuccess(slicePlan(assetPlan(ASSET), 0, 10));
+    expect(
+      expectFailureCode(validateOperation(paste, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains)),
+    ).toBe('editing.payload-rate');
+    expectSuccess(
+      validateOperation({ ...paste, convertRate: true }, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains),
+    );
+    const same = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(ASSET, PLAN_WITHOUT_CHAINS)), 0, 10),
+    );
     expect(
       expectFailureCode(
-        validateOperation({ ...paste, payload: same, convertRate: true }, SHAPE, ASSETS),
+        validateOperation(
+          { ...paste, payload: same, convertRate: true },
+          SHAPE,
+          ASSETS,
+          PLAN_WITHOUT_CHAINS.chains,
+        ),
       ),
     ).toBe('editing.payload-rate');
   });
 
   it('refuses a paste with other channels than the audio has', () => {
-    const payload = expectSuccess(slicePlan(assetPlan(ASSET), 0, 10, [0]));
+    const payload = expectSuccess(
+      slicePlan(expectSuccess(assetPlan(ASSET, PLAN_WITHOUT_CHAINS)), 0, 10, [0]),
+    );
     expect(
       expectFailureCode(
         validateOperation(
           { id, kind: 'insert', at: frames(0), payload, convertRate: false },
           SHAPE,
           ASSETS,
+          PLAN_WITHOUT_CHAINS.chains,
         ),
       ),
     ).toBe('editing.payload-layout');
+  });
+
+  it('accepts a stretch up to the bound either way and refuses one past it, or of no whole length', () => {
+    const stretchTo = (length: number): EditOperation => ({
+      id,
+      kind: 'stretch',
+      range: range(100, 200),
+      length: frames(length),
+    });
+    expect(MAXIMUM_STRETCH_RATIO).toBe(8);
+    for (const length of [13, 100, 800]) {
+      expectSuccess(
+        validateOperation(stretchTo(length), SHAPE, ASSETS, PLAN_WITHOUT_CHAINS.chains),
+      );
+    }
+    expect(refusedFor(stretchTo(801))).toMatch(/at most 8 times/);
+    expect(refusedFor(stretchTo(12))).toMatch(/at most 8 times/);
+    expect(refusedFor(stretchTo(0))).toMatch(/whole number of frames/);
+    expect(refusedFor(stretchTo(50.5))).toMatch(/whole number of frames/);
+    expect(
+      refusedFor({ id, kind: 'stretch', range: range(900, 1_001), length: frames(100) }),
+    ).toMatch(/past the audio/);
+  });
+
+  it('refuses a conversion to the rate the audio already has, or to no rate audio can have', () => {
+    expectSuccess(
+      validateOperation(
+        { id, kind: 'convert-rate', sampleRate: OTHER_RATE },
+        SHAPE,
+        ASSETS,
+        PLAN_WITHOUT_CHAINS.chains,
+      ),
+    );
+    expect(refusedFor({ id, kind: 'convert-rate', sampleRate: SHAPE.sampleRate })).toMatch(
+      /already at that rate/,
+    );
+    for (const rate of [0, 44_100.5, -48_000]) {
+      expect(
+        refusedFor({ id, kind: 'convert-rate', sampleRate: rate as typeof OTHER_RATE }),
+      ).toMatch(/not a sample rate/);
+    }
+  });
+
+  it('refuses a rack edit scoped to channels, since a chain acts on every channel, or naming a chain the project lacks', () => {
+    const chainId: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-aaaa');
+    const chains = new Map<EffectChainId, EffectChain>([[chainId, { id: chainId, slots: [] }]]);
+    const rack = { kind: 'rack', chain: chainId } as const;
+    expectSuccess(
+      validateOperation(
+        { id, kind: 'process', range: range(0, 10), edit: rack },
+        SHAPE,
+        ASSETS,
+        chains,
+      ),
+    );
+    const scoped = validateOperation(
+      { id, kind: 'process', range: range(0, 10), channels: [0], edit: rack },
+      SHAPE,
+      ASSETS,
+      chains,
+    );
+    expect(scoped.ok ? '' : scoped.failures[0].summary).toMatch(/acts on every channel/);
+    expect(refusedFor({ id, kind: 'process', range: range(0, 10), edit: rack })).toMatch(
+      /chain the project does not have/,
+    );
   });
 
   it('refuses a chain with two operations of one identifier', () => {
@@ -113,7 +204,9 @@ describe('validating an edit operation where it stands', () => {
       { id, kind: 'reverse', range: range(0, 10) },
       { id, kind: 'reverse', range: range(0, 10) },
     ]);
-    expect(expectFailureCode(validateChain(twice, ASSETS))).toBe('editing.duplicate-operation');
+    expect(expectFailureCode(validateChain(twice, ASSETS, PLAN_WITHOUT_CHAINS.chains))).toBe(
+      'editing.duplicate-operation',
+    );
   });
 
   it('checks each operation against the timeline the ones before it left', () => {
@@ -121,12 +214,14 @@ describe('validating an edit operation where it stands', () => {
       { id: operationId('cut'), kind: 'delete', range: range(0, 50) },
       { id, kind: 'reverse', range: range(40, 60) },
     ]);
-    expect(expectFailureCode(validateChain(shortened, ASSETS))).toBe('editing.operation-invalid');
+    expect(expectFailureCode(validateChain(shortened, ASSETS, PLAN_WITHOUT_CHAINS.chains))).toBe(
+      'editing.operation-invalid',
+    );
   });
 });
 
 describe('validating a plan read from a paste', () => {
-  const plan = assetPlan(ASSET);
+  const plan = expectSuccess(assetPlan(ASSET, PLAN_WITHOUT_CHAINS));
 
   it('accepts an asset’s own plan', () => {
     expectSuccess(validatePlan(plan, ASSETS));
@@ -182,6 +277,95 @@ describe('validating a plan read from a paste', () => {
   });
 });
 
+describe('validating a plan’s stream processing', () => {
+  const [base] = expectSuccess(assetPlan(ASSET, PLAN_WITHOUT_CHAINS)).streams;
+
+  /** A plan whose first stream reads ten frames of a second stream processed by `processing`. */
+  function readingProcessed(processing: StreamProcessing): EditPlan {
+    return {
+      streams: [
+        {
+          ...base,
+          segments: [
+            {
+              source: { kind: 'stream', stream: 1 },
+              start: frames(0),
+              length: frames(10),
+              reversed: false,
+              stages: [],
+            },
+          ],
+        },
+        { ...base, processing },
+      ],
+    };
+  }
+
+  const stretched = (length: number): StreamProcessing => ({
+    kind: 'stretch',
+    length: frames(length),
+  });
+
+  it('refuses processing on the first stream, which only a stream it reads may hold', () => {
+    expectSuccess(validatePlan(readingProcessed(stretched(1_000)), ASSETS));
+    const first: EditPlan = { streams: [{ ...base, processing: stretched(1_000) }] };
+    expect(expectFailureCode(validatePlan(first, ASSETS))).toBe('editing.plan-malformed');
+  });
+
+  it('refuses a stretched stream past the bound either way, against its segments’ length of 1 000', () => {
+    expectSuccess(validatePlan(readingProcessed(stretched(125)), ASSETS));
+    expectSuccess(validatePlan(readingProcessed(stretched(8_000)), ASSETS));
+    for (const length of [0, 124, 8_001]) {
+      expect(expectFailureCode(validatePlan(readingProcessed(stretched(length)), ASSETS))).toBe(
+        'editing.plan-malformed',
+      );
+    }
+  });
+
+  it('refuses a stream whose chain is malformed, so no worker runs a chain of the wrong shape', () => {
+    const chainId: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-aaaa');
+    const processed = (chain: EffectChain): StreamProcessing => ({
+      kind: 'chain',
+      chain,
+      input: StandardLayouts.stereo,
+    });
+    expectSuccess(validatePlan(readingProcessed(processed({ id: chainId, slots: [] })), ASSETS));
+    const branchless: EffectChain = {
+      id: chainId,
+      slots: [
+        {
+          kind: 'group',
+          id: unsafeBrandId<'ProcessorGroupId'>('44444444-aaaa'),
+          enabled: true,
+          soloed: false,
+          mix: 1,
+          summing: SummingLaw.Sum,
+          branches: [],
+        },
+      ],
+    };
+    expect(expectFailureCode(validatePlan(readingProcessed(processed(branchless)), ASSETS))).toBe(
+      'editing.plan-malformed',
+    );
+  });
+
+  it('measures a segment reading a stretched stream against the stretched length, not its segments’', () => {
+    const plan = readingProcessed(stretched(500));
+    const [first, second] = plan.streams;
+    const reading = (length: number): EditPlan => ({
+      streams: [
+        {
+          ...first,
+          segments: first.segments.map((segment) => ({ ...segment, length: frames(length) })),
+        },
+        ...(second === undefined ? [] : [second]),
+      ],
+    });
+    expectSuccess(validatePlan(reading(500), ASSETS));
+    expect(expectFailureCode(validatePlan(reading(501), ASSETS))).toBe('editing.plan-malformed');
+  });
+});
+
 describe('validating what is placed on an asset', () => {
   const edited = assetOf('edited', 1_000, [{ id, kind: 'delete', range: range(0, 500) }]);
   const marker: Marker = {
@@ -213,16 +397,22 @@ describe('validating what is placed on an asset', () => {
   });
 
   it('checks a region’s boundaries and loop against the timeline each was placed on', () => {
-    expectSuccess(validateRegion(edited, region));
-    expect(expectFailureCode(validateRegion(edited, { ...region, basis: 1 }))).toBe(
-      'editing.region-outside',
-    );
+    expectSuccess(validateRegion(edited, region, PLAN_WITHOUT_CHAINS.chains));
     expect(
       expectFailureCode(
-        validateRegion(edited, {
-          ...region,
-          loop: { basis: 1, start: frames(10), end: frames(20), crossfadeLength: frames(11) },
-        }),
+        validateRegion(edited, { ...region, basis: 1 }, PLAN_WITHOUT_CHAINS.chains),
+      ),
+    ).toBe('editing.region-outside');
+    expect(
+      expectFailureCode(
+        validateRegion(
+          edited,
+          {
+            ...region,
+            loop: { basis: 1, start: frames(10), end: frames(20), crossfadeLength: frames(11) },
+          },
+          PLAN_WITHOUT_CHAINS.chains,
+        ),
       ),
     ).toBe('editing.loop-crossfade');
   });
@@ -245,10 +435,18 @@ describe('validating what is placed on an asset', () => {
       end: frames(100),
       operations: [operation],
     });
-    expectSuccess(validateRegion(converted, over(scoped)));
-    expect(expectFailureCode(validateRegion(converted, over({ ...scoped, basis: 1 })))).toBe(
-      'editing.region-operation-invalid',
+    expectSuccess(validateRegion(converted, over(scoped), PLAN_WITHOUT_CHAINS.chains));
+    expect(
+      expectFailureCode(
+        validateRegion(converted, over({ ...scoped, basis: 1 }), PLAN_WITHOUT_CHAINS.chains),
+      ),
+    ).toBe('editing.region-operation-invalid');
+    expectSuccess(
+      validateRegion(
+        converted,
+        over({ ...scoped, basis: 1, channels: [0] }),
+        PLAN_WITHOUT_CHAINS.chains,
+      ),
     );
-    expectSuccess(validateRegion(converted, over({ ...scoped, basis: 1, channels: [0] })));
   });
 });

@@ -10,6 +10,13 @@
  * rate, which is how audio pasted from an asset of another rate is kept
  * without being resampled until it is heard (REQ-ARCH-085).
  *
+ * A stream may also state processing (ADR-0060): a chain of processors run
+ * over the whole stream from its own start, or a stretch to a stated length.
+ * A segment that reads such a stream reads what the processing made, so a
+ * range processed by a rack, a target's rack and a stretched range are each a
+ * stream that an earlier stream reads, and the plan stays the only
+ * description of an edited sound.
+ *
  * A stage is stated in the frames of its segment's content, never in the
  * output's, so cutting, moving or reversing a segment never rewrites a stage:
  * a fade stays on the audio it was put on.
@@ -17,6 +24,7 @@
 
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
+import type { EffectChain } from '../processing/effect-chain.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
 import { FadeShape } from './fades.js';
 
@@ -81,11 +89,29 @@ export interface PlanSegment {
   readonly stages: readonly PlanStage[];
 }
 
-/** A run of segments at one rate and layout. */
+/**
+ * What a stream's segments pass through as a whole.
+ *
+ * - `chain`: the chain, rendered from the stream's first frame with its
+ *   latency compensated, keeping the stream's length; what it would add past
+ *   the end is cut. It keeps the layout of the segments, or makes `layout`,
+ *   the stream's, where the chain changes it.
+ * - `stretch`: the segments made `length` frames long without a change of
+ *   pitch.
+ */
+export type StreamProcessing =
+  | { readonly kind: 'chain'; readonly chain: EffectChain; readonly input: ChannelLayout }
+  | { readonly kind: 'stretch'; readonly length: SampleCount };
+
+/**
+ * A run of segments at one rate, and what processes them. Each segment ends
+ * in the layout the stream's processing reads, `layout` where it has none.
+ */
 export interface PlanStream {
   readonly sampleRate: SampleRate;
   readonly layout: ChannelLayout;
   readonly segments: readonly PlanSegment[];
+  readonly processing?: StreamProcessing;
 }
 
 /** An edited sound: its first stream, and the streams its segments read converted. */
@@ -102,11 +128,21 @@ export function planReadsAsset(plan: EditPlan, asset: AssetId): boolean {
   );
 }
 
-/** How many frames a stream holds. */
-export function streamLength(stream: PlanStream): number {
+/** How many frames a stream's segments hold, before its processing. */
+export function segmentsLength(stream: Pick<PlanStream, 'segments'>): number {
   let length = 0;
   for (const segment of stream.segments) length += segment.length;
   return length;
+}
+
+/** How many frames a stream makes: its segments', or the length a stretch makes them. */
+export function streamLength(stream: PlanStream): number {
+  return stream.processing?.kind === 'stretch' ? stream.processing.length : segmentsLength(stream);
+}
+
+/** The layout a stream's segments end in: what its chain reads, or the stream's own. */
+export function segmentsLayout(stream: PlanStream): ChannelLayout {
+  return stream.processing?.kind === 'chain' ? stream.processing.input : stream.layout;
 }
 
 /**

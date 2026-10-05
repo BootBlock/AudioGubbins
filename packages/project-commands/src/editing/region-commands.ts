@@ -114,7 +114,7 @@ function standing(state: ProjectState, region: Region): DomainResult<Region> {
   const asset = state.project.assets.get(region.assetId);
   return asset === undefined
     ? rejected('region.asset-unknown', 'The project has no asset for this region.')
-    : validateRegion(asset, region);
+    : validateRegion(asset, region, state.project.effectChains);
 }
 
 /** The region the argument `region` holds. */

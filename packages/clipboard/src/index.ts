@@ -12,5 +12,11 @@
  * contract change (REQ-REPO-186).
  */
 
-export { type ClipboardPayload, copyAudio } from './clipboard-payload.js';
+export { type AudioPayload, type ClipboardPayload, copyAudio } from './clipboard-payload.js';
+export {
+  type ProcessingPayload,
+  chainFromProcessing,
+  copyProcessing,
+  pasteProcessing,
+} from './processing-payload.js';
 export { type PasteRequest, type PlannedPaste, planPaste } from './paste-planning.js';

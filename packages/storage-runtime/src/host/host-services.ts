@@ -10,6 +10,7 @@
  * (`host-turns.ts`).
  */
 
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
@@ -87,7 +88,7 @@ export function hostServices(parts: HostParts): HostServices {
   const tree = new TurnTakingTree(parts.tree, parts.yieldToHost);
   const coordinated = coordinator === undefined ? {} : { coordinator };
   const registry = createCommandRegistry<ProjectState>();
-  const commands = projectCommands();
+  const commands = projectCommands(PROCESSOR_CATALOGUE);
   for (const command of commands) registry.register(command);
   return {
     tree,

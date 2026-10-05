@@ -53,6 +53,17 @@ export function shapeAfter(shape: EditShape, operation: EditOperation): EditShap
       return { ...shape, length: shape.length + insertedLength(operation, shape.sampleRate) };
     case 'convert-layout':
       return { ...shape, layout: operation.layout };
+    case 'stretch':
+      return {
+        ...shape,
+        length: shape.length - (operation.range.end - operation.range.start) + operation.length,
+      };
+    case 'convert-rate':
+      return {
+        ...shape,
+        sampleRate: operation.sampleRate,
+        length: convertedFrameCount(shape.length, shape.sampleRate, operation.sampleRate),
+      };
     case 'reverse':
     case 'process':
       return shape;

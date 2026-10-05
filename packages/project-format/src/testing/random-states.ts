@@ -12,7 +12,9 @@
 import {
   MAIN_OUTPUT,
   createDeterministicIdGenerator,
+  SummingLaw,
   createProject,
+  instantiateProcessor,
   routeToBus,
   sampleRate,
   type Asset,
@@ -24,13 +26,17 @@ import {
   type EffectChain,
   type EffectChainId,
   type IdGenerator,
+  type ChainSlot,
+  type ParallelGroup,
   type ParameterId,
   type ParameterValue,
+  type PlanContext,
+  type ProcessorInstance,
   type ProjectId,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { TEST_CATALOGUE, expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { AssetSource, ProjectState } from '../project-state.js';
 import { randomMarker, randomRegion, withRandomEdits } from './random-edits.js';
@@ -56,6 +62,11 @@ export function randomState(seed: number): ProjectState {
   return build.state();
 }
 
+/** A random chain, as a random state's chains are made (`StateBuilder.chain`). */
+export function randomChain(random: Random, ids: IdGenerator): EffectChain {
+  return new StateBuilder(random, ids).chain();
+}
+
 /** Builds one random state; each method adds one kind of entity. */
 class StateBuilder {
   private readonly random: Random;
@@ -73,7 +84,8 @@ class StateBuilder {
     const buses = this.buses(chainIds);
     const busIds = [...buses.keys()];
     const tracks = this.entities(5, () => this.track(busIds, chainIds));
-    const { assets, sources } = this.assets(projectId);
+    const context = { chains, catalogue: TEST_CATALOGUE };
+    const { assets, sources } = this.assets(projectId, context);
     const placedOn = [...assets.values()];
     const trackIds = [...tracks.keys()];
     const clips =
@@ -90,7 +102,9 @@ class StateBuilder {
       tracks,
       buses,
       clips,
-      regions: this.placed(placedOn, 4, randomRegion),
+      regions: this.placed(placedOn, 4, (random, ids, asset) =>
+        randomRegion(random, ids, asset, context),
+      ),
       markers: this.placed(placedOn, 4, randomMarker),
       effectChains: chains,
       trackOrder: this.shuffled(trackIds),
@@ -99,7 +113,10 @@ class StateBuilder {
   }
 
   /** Up to five assets, each with its source and a small chain of edits. */
-  private assets(projectId: ProjectId): {
+  private assets(
+    projectId: ProjectId,
+    context: PlanContext,
+  ): {
     readonly assets: Map<AssetId, Asset>;
     readonly sources: Map<AssetId, AssetSource>;
   } {
@@ -110,7 +127,7 @@ class StateBuilder {
       assets.set(asset.id, asset);
       sources.set(asset.id, source);
     }
-    return { assets: withRandomEdits(this.random, this.ids, assets), sources };
+    return { assets: withRandomEdits(this.random, this.ids, assets, context), sources };
   }
 
   private entities<TEntity extends { readonly id: string }>(
@@ -150,20 +167,78 @@ class StateBuilder {
     }
   }
 
-  private chain(): EffectChain {
-    const processors = Array.from({ length: this.random.below(4) }, () => ({
-      id: this.ids.next<'ProcessorId'>(),
-      typeKey: this.random.pick(['parametric-eq', 'compressor', 'gate:v2', 'Reverb.Plate']),
+  /**
+   * A chain of up to four slots: processors of the test catalogue made as a
+   * command makes them, so a plan can run them, and processors of types and
+   * values no build has, which a document still holds as they are; groups of
+   * up to three branches, nested twice.
+   */
+  chain(): EffectChain {
+    return { id: this.ids.next<'EffectChainId'>(), slots: this.slots(0) };
+  }
+
+  private slots(depth: number): ChainSlot[] {
+    return Array.from({ length: this.random.below(depth === 0 ? 5 : 3) }, () =>
+      depth < 2 && this.random.chance(0.2) ? this.group(depth) : this.processor(),
+    );
+  }
+
+  private controls(): { enabled: boolean; soloed: boolean; mix: number } {
+    return {
       enabled: this.random.chance(0.7),
       soloed: this.random.chance(0.2),
+      mix: this.random.pick([0, 0.25, 0.5, 1, 0.1 + 0.2]),
+    };
+  }
+
+  private group(depth: number): ParallelGroup {
+    return {
+      kind: 'group',
+      id: this.ids.next<'ProcessorGroupId'>(),
+      ...this.controls(),
+      summing: this.random.pick(Object.values(SummingLaw)),
+      branches: Array.from({ length: 1 + this.random.below(3) }, () => ({
+        slots: this.slots(depth + 1),
+      })),
+    };
+  }
+
+  private processor(): ProcessorInstance {
+    const id = this.ids.next<'ProcessorId'>();
+    if (this.random.chance(0.5)) {
+      const descriptor = this.random.pick([...TEST_CATALOGUE.values()]);
+      return { ...instantiateProcessor(id, descriptor), ...this.controls(), mix: 1 };
+    }
+    const model = maybe(this.random, () => ({
+      pack: 'deepfilternet-3',
+      version: '3.0.0',
+      modelHash: 'a'.repeat(64),
+      runtimeHash: 'b'.repeat(64),
+    }));
+    const resampler = maybe(this.random, () => this.random.below(4));
+    const state = maybe(this.random, () => ({
+      kind: 'noise-profile',
+      values: Array.from({ length: this.random.below(6) }, () => this.random.pick(NUMBERS)),
+    }));
+    return {
+      kind: 'processor',
+      id,
+      typeKey: this.random.pick(['parametric-eq', 'compressor', 'gate:v2', 'Reverb.Plate']),
+      ...this.controls(),
+      version: {
+        implementation: this.random.below(4),
+        parameters: this.random.below(4),
+        ...(resampler === undefined ? {} : { resampler }),
+        ...(model === undefined ? {} : { model }),
+      },
       values: new Map<ParameterId, ParameterValue>(
         Array.from({ length: this.random.below(4) }, () => [
           this.ids.next<'ParameterId'>(),
           this.parameterValue(),
         ]),
       ),
-    }));
-    return { id: this.ids.next<'EffectChainId'>(), processors };
+      ...(state === undefined ? {} : { state }),
+    };
   }
 
   /** Buses, each sending to the main output or to a bus made before it, so no send loops. */

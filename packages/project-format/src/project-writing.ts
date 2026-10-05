@@ -15,8 +15,6 @@ import type {
   AssetId,
   Bus,
   Clip,
-  EffectChain,
-  ProcessorInstance,
   Project,
   RoutingTarget,
   Track,
@@ -24,6 +22,7 @@ import type {
 
 import type { JsonArray, JsonObject } from './canonical-json.js';
 import { presentMembers, sortedBy } from './document-writing.js';
+import { writeEffectChain } from './chain-writing.js';
 import { writeEditOperation } from './edit-writing.js';
 import { writeMarker, writeRegion } from './placement-writing.js';
 import type {
@@ -58,7 +57,7 @@ export function writeProject(project: Project): JsonObject {
 
 /** Writes one asset, as the project's list of assets holds it. */
 export function writeAsset(asset: Asset): JsonObject {
-  return {
+  return presentMembers({
     id: asset.id,
     displayName: asset.displayName,
     origin: asset.origin,
@@ -67,7 +66,8 @@ export function writeAsset(asset: Asset): JsonObject {
     length: asset.length,
     storageKey: asset.storageKey,
     edits: asset.edits.map(writeEditOperation),
-  };
+    rack: asset.rack,
+  });
 }
 
 function writeTarget(target: RoutingTarget): JsonObject {
@@ -113,24 +113,6 @@ function writeClip(clip: Clip): JsonObject {
     fadeInLength: clip.fadeInLength,
     fadeOutLength: clip.fadeOutLength,
     muted: clip.muted,
-  };
-}
-
-function writeEffectChain(chain: EffectChain): JsonObject {
-  return { id: chain.id, processors: chain.processors.map(writeProcessor) };
-}
-
-function writeProcessor(processor: ProcessorInstance): JsonObject {
-  return {
-    id: processor.id,
-    typeKey: processor.typeKey,
-    enabled: processor.enabled,
-    soloed: processor.soloed,
-    values: sortedBy(
-      processor.values,
-      ([parameter]) => parameter,
-      ([parameter, value]) => ({ parameter, value }),
-    ),
   };
 }
 

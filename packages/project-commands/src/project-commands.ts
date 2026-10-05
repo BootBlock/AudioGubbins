@@ -12,12 +12,15 @@
  * which arguments hold provenance, and storage learns no command's shape.
  */
 
+import type { ProcessorCatalogue } from '@audiogubbins/domain';
 import { invocationProvenance, type InvocationProvenance } from '@audiogubbins/project-format';
 
 import { assetCommands } from './asset-commands.js';
 import { editCommands } from './editing/edit-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
+import { chainCommands } from './processing/chain-commands.js';
+import { rackCommands } from './processing/rack-commands.js';
 import type { ProjectCommand } from './project-command.js';
 import { projectNameCommands } from './project-name-commands.js';
 import { sourceCommands } from './source-commands.js';
@@ -26,7 +29,7 @@ import { sourceCommands } from './source-commands.js';
  * The project commands, for a registry the command bus runs them through. The
  * commands hold no state, so the composition root builds the list once.
  */
-export function projectCommands(): readonly ProjectCommand[] {
+export function projectCommands(catalogue: ProcessorCatalogue): readonly ProjectCommand[] {
   return [
     ...projectNameCommands(),
     ...assetCommands(),
@@ -34,6 +37,8 @@ export function projectCommands(): readonly ProjectCommand[] {
     ...editCommands(),
     ...markerCommands(),
     ...regionCommands(),
+    ...chainCommands(catalogue),
+    ...rackCommands(),
   ];
 }
 

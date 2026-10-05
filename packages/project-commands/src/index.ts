@@ -41,3 +41,13 @@ export {
   setRegionInvocation,
 } from './editing/region-commands.js';
 export { processTargetInvocation } from './editing/target-invocations.js';
+export {
+  addChainInvocation,
+  removeChainInvocation,
+  setChainInvocation,
+} from './processing/chain-commands.js';
+export {
+  type RackTarget,
+  setEditChainInvocation,
+  setRackInvocation,
+} from './processing/rack-commands.js';

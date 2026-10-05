@@ -13,7 +13,7 @@ import {
   type EditOperation,
   type EditPlan,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { readAssetRecord, writeAssetRecord, type AssetRecord } from './asset-record-json.js';
@@ -73,12 +73,14 @@ describe('every edit-model value survives being written and read alone', () => {
     for (const [index, { project }] of STATES.entries()) {
       const label = `seed ${String(index + 1)}`;
       for (const asset of project.assets.values()) {
+        if (asset.rack !== undefined) seen.add('asset rack');
         for (const operation of asset.edits) {
           seen.add(operation.kind);
           if (operation.kind === 'process') seen.add(operation.edit.kind);
           expectRoundTrip(readEditOperation, writeEditOperation, operation, label);
           if (operation.kind === 'insert') {
             for (const stream of operation.payload.streams) {
+              if (stream.processing !== undefined) seen.add(`processing ${stream.processing.kind}`);
               for (const segment of stream.segments) {
                 seen.add(`source ${segment.source.kind}`);
                 for (const stage of segment.stages) {
@@ -91,6 +93,7 @@ describe('every edit-model value survives being written and read alone', () => {
         }
       }
       for (const region of project.regions.values()) {
+        if (region.rack !== undefined) seen.add('region with a rack');
         expectRoundTrip(readRegion, writeRegion, region, label);
         if (region.loop !== undefined) {
           expectRoundTrip(readAnchoredLoop, writeAnchoredLoop, region.loop, label);
@@ -108,8 +111,10 @@ describe('every edit-model value survives being written and read alone', () => {
     // segment source and stage passed through it.
     expect([...seen].sort()).toEqual(
       [
+        'asset rack',
         'channel-gains',
         'convert-layout',
+        'convert-rate',
         'copy-channel',
         'curve constant',
         'curve fade',
@@ -120,17 +125,23 @@ describe('every edit-model value survives being written and read alone', () => {
         'invert',
         'matrix',
         'process',
+        'processing chain',
+        'processing stretch',
+        'rack',
         'region channel-gains',
         'region copy-channel',
         'region fade',
         'region gain',
         'region invert',
+        'region rack',
         'region silence',
         'region swap-channels',
+        'region with a rack',
         'reverse',
         'silence',
         'source media',
         'source stream',
+        'stretch',
         'swap-channels',
         'trim',
       ].sort(),
@@ -167,7 +178,9 @@ function deepestAsset(): Asset {
     matrix: [[1], [1]],
   };
   const base = assetOf([conversion]);
-  const payload: EditPlan = expectSuccess(slicePlan(assetPlan(base), 0, 1_000));
+  const payload: EditPlan = expectSuccess(
+    slicePlan(expectSuccess(assetPlan(base, PLAN_WITHOUT_CHAINS)), 0, 1_000),
+  );
   const paste: EditOperation = {
     id: IDS.next<'EditOperationId'>(),
     kind: 'insert',
@@ -176,7 +189,7 @@ function deepestAsset(): Asset {
     convertRate: false,
   };
   const asset = { ...base, edits: [conversion, paste] };
-  expectSuccess(validateChain(asset, new Map([[asset.id, asset]])));
+  expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), PLAN_WITHOUT_CHAINS.chains));
   return asset;
 }
 
@@ -233,7 +246,7 @@ describe('an edit-model value read alone refuses', () => {
     [
       'a kind the domain does not name',
       readEditOperation,
-      { id: '0000aaaa', kind: 'stretch', range },
+      { id: '0000aaaa', kind: 'time-warp', range },
       'schema.unknown-value',
       'value.kind',
     ],

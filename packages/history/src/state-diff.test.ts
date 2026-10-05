@@ -261,10 +261,10 @@ describe('the difference of two states (REQ-STOR-195)', () => {
     const compressor = processor(fixture, 'compressor');
     const limiter = processor(fixture, 'limiter');
     const reverb = processor(fixture, 'reverb');
-    const before = withChain(state, { ...chain, processors: [eq, compressor, limiter] });
+    const before = withChain(state, { ...chain, slots: [eq, compressor, limiter] });
     const after = withChain(state, {
       ...chain,
-      processors: [
+      slots: [
         reverb,
         { ...limiter, enabled: false },
         { ...eq, values: new Map<ParameterId, string | number | boolean>([[gain, 0.75]]) },
@@ -275,32 +275,35 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       {
         id: chain.id,
         change: 'changed',
-        processors: [
+        slots: [
           {
             id: reverb.id,
+            kind: 'processor',
             change: 'added',
             typeKey: 'reverb',
-            after: 0,
+            after: { index: 0 },
             moved: false,
             fields: [],
             parameters: [],
           },
           {
             id: limiter.id,
+            kind: 'processor',
             change: 'changed',
             typeKey: 'limiter',
-            before: 2,
-            after: 1,
+            before: { index: 2 },
+            after: { index: 1 },
             moved: true,
             fields: ['enabled'],
             parameters: [],
           },
           {
             id: eq.id,
+            kind: 'processor',
             change: 'changed',
             typeKey: 'parametric-eq',
-            before: 0,
-            after: 2,
+            before: { index: 0 },
+            after: { index: 2 },
             moved: false,
             fields: [],
             parameters: [
@@ -310,9 +313,10 @@ describe('the difference of two states (REQ-STOR-195)', () => {
           },
           {
             id: compressor.id,
+            kind: 'processor',
             change: 'removed',
             typeKey: 'compressor',
-            before: 1,
+            before: { index: 1 },
             moved: false,
             fields: [],
             parameters: [],
@@ -327,12 +331,12 @@ describe('the difference of two states (REQ-STOR-195)', () => {
     const first = processor(fixture, 'eq');
     const second = processor(fixture, 'compressor');
     const inserted = processor(fixture, 'gate');
-    const before = withChain(state, { ...chain, processors: [first, second] });
-    const after = withChain(state, { ...chain, processors: [inserted, first, second] });
+    const before = withChain(state, { ...chain, slots: [first, second] });
+    const after = withChain(state, { ...chain, slots: [inserted, first, second] });
     const [difference] = diffStates(before, after).effectChains;
-    expect(
-      difference?.processors.map((entry) => [entry.typeKey, entry.change, entry.moved]),
-    ).toEqual([['gate', 'added', false]]);
+    expect(difference?.slots.map((entry) => [entry.typeKey, entry.change, entry.moved])).toEqual([
+      ['gate', 'added', false],
+    ]);
   });
 
   it('lists every processor of an added or removed chain, with its parameters', () => {
@@ -340,17 +344,17 @@ describe('the difference of two states (REQ-STOR-195)', () => {
     const level = fixture.ids.next<'ParameterId'>();
     const added: EffectChain = {
       id: fixture.ids.next<'EffectChainId'>(),
-      processors: [processor(fixture, 'gain', [[level, 1]])],
+      slots: [processor(fixture, 'gain', [[level, 1]])],
     };
     const after = withChain(state, added);
     expect(diffStates(state, after).effectChains).toEqual([
       {
         id: added.id,
         change: 'added',
-        processors: [
+        slots: [
           expect.objectContaining({
             change: 'added',
-            after: 0,
+            after: { index: 0 },
             parameters: [{ id: level, after: 1 }],
           }),
         ],
@@ -360,10 +364,10 @@ describe('the difference of two states (REQ-STOR-195)', () => {
       {
         id: added.id,
         change: 'removed',
-        processors: [
+        slots: [
           expect.objectContaining({
             change: 'removed',
-            before: 0,
+            before: { index: 0 },
             parameters: [{ id: level, before: 1 }],
           }),
         ],
@@ -413,7 +417,7 @@ describe('the entities a change affected', () => {
           ...state.project.assets,
           [footstep.id, { ...footstep, displayName: 'Step' }],
         ]),
-        effectChains: new Map([[chain.id, { ...chain, processors: [processor(fixture, 'eq')] }]]),
+        effectChains: new Map([[chain.id, { ...chain, slots: [processor(fixture, 'eq')] }]]),
         markers: new Map(),
       },
       sources: new Map([

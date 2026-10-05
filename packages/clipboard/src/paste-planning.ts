@@ -49,11 +49,11 @@ import {
   type ProjectState,
 } from '@audiogubbins/project-format';
 
-import type { ClipboardPayload } from './clipboard-payload.js';
+import type { AudioPayload } from './clipboard-payload.js';
 
 /** Where a paste goes, and how. */
 export interface PasteRequest {
-  readonly payload: ClipboardPayload;
+  readonly payload: AudioPayload;
 
   /** The asset pasted into. */
   readonly asset: AssetId;
@@ -113,7 +113,7 @@ export function planPaste(
       kind: 'delete',
       range: request.place.range,
     };
-    const valid = validateOperation(deletion, shape, assets);
+    const valid = validateOperation(deletion, shape, assets, state.project.effectChains);
     if (!valid.ok) return valid;
     operations.push(deletion);
     shape = shapeAfter(shape, deletion);
@@ -130,7 +130,7 @@ export function planPaste(
       payload: piece,
       convertRate,
     };
-    const valid = validateOperation(insertion, shape, assets);
+    const valid = validateOperation(insertion, shape, assets, state.project.effectChains);
     if (!valid.ok) return valid;
     operations.push(insertion);
     const after = shapeAfter(shape, insertion);

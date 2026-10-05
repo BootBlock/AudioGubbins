@@ -23,7 +23,14 @@ import {
   type TrackId,
 } from '@audiogubbins/domain';
 
-import { objectOf, pathOf, required, type Converter, type Reading } from './document-reading.js';
+import {
+  objectOf,
+  optional,
+  pathOf,
+  required,
+  type Converter,
+  type Reading,
+} from './document-reading.js';
 import { asEditChain } from './edit-reading.js';
 import { asAssetName } from './given-names.js';
 import { asBoolean, asId, oneOfConverter, textConverter } from './scalar-reading.js';
@@ -38,6 +45,7 @@ const ASSET_MEMBERS: ReadonlySet<string> = new Set([
   'length',
   'storageKey',
   'edits',
+  'rack',
 ]);
 const CLIP_MEMBERS: ReadonlySet<string> = new Set([
   'id',
@@ -74,6 +82,7 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   const length = required(reading, object, at, 'length', asSampleCount);
   const storageKey = required(reading, object, at, 'storageKey', asStorageKey);
   const edits = required(reading, object, at, 'edits', asEditChain);
+  const rack = optional(reading, object, at, 'rack', asId<'EffectChainId'>);
 
   if (
     id === undefined ||
@@ -87,7 +96,17 @@ export const asAsset: Converter<Asset> = (reading, value, parent, key) => {
   ) {
     return undefined;
   }
-  return { id, displayName, origin, sampleRate, channelLayout, length, storageKey, edits };
+  return {
+    id,
+    displayName,
+    origin,
+    sampleRate,
+    channelLayout,
+    length,
+    storageKey,
+    edits,
+    ...(rack === undefined ? {} : { rack }),
+  };
 };
 
 /**
