@@ -435,11 +435,15 @@ describe('the conversion rule', () => {
     expect(Array.from(bitsOf(into[0]!))).toEqual([0x3f800000, 0x3f800002, 0xbf800001]);
   });
 
-  it('reads the extremes of each integer depth as −1 and one step short of 1', async () => {
+  it('reads the extremes of each integer depth as −1 and one step short of 1, or 1 past 25 bits', async () => {
     const cases = [
       { bits: 8, low: 0xbf800000, high: 0x3f7e0000 },
       { bits: 16, low: 0xbf800000, high: 0x3f7ffe00 },
       { bits: 24, low: 0xbf800000, high: 0x3f7ffffe },
+      // 1 − 2^-24 is the largest float32 below 1, so 25 bits are still exact.
+      { bits: 25, low: 0xbf800000, high: 0x3f7fffff },
+      // 1 − 2^-25 is halfway to 1 and rounds to it, the even one of the two.
+      { bits: 26, low: 0xbf800000, high: 0x3f800000 },
       // 1 − 2^-31 is nearer 1 than any float32 below it, so it rounds up to 1.
       { bits: 32, low: 0xbf800000, high: 0x3f800000 },
     ];
@@ -449,6 +453,8 @@ describe('the conversion rule', () => {
         sampleRate: 48_000,
         encoding: { kind: 'integer', bits },
         channels: [Float64Array.of(-1, (half - 1) / half)],
+        // Only the extensible form states valid bits narrower than their container.
+        ...(bits % 8 === 0 ? {} : { extensible: { channelMask: 0x4 } }),
       });
       const into = [new Float32Array(2)];
       await expectSuccess(await openAudio(memoryBytes(file))).read(0 as SampleCount, 2, into);

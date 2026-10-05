@@ -10,9 +10,10 @@
  *   eight-bit samples and AIFF-C `raw `). The padding bits below the valid ones
  *   are dropped by an arithmetic shift right of `8 × bytes − bits`. The integer
  *   is divided by `2^(bits − 1)`, exact in a double since the divisor is a
- *   power of two, and rounded to float32 by `Math.fround`: exact for 24 bits or
+ *   power of two, and rounded to float32 by `Math.fround`: exact for 25 bits or
  *   fewer, correctly rounded for more. Full scale is therefore −1 inclusive to
- *   1 exclusive.
+ *   1 exclusive for 25 bits or fewer, and −1 to 1 inclusive past 25 bits, where
+ *   the largest codes round to exactly 1.
  * - A 32-bit float is taken as it is, its four bytes copied into the output's
  *   own, so every bit survives, a NaN's payload included.
  * - A 64-bit float is rounded to the nearest float32 by `Math.fround`.
