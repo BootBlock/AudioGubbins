@@ -60,7 +60,7 @@ const PROCESSING: readonly (readonly [
   ['edit.quieter', {}, { kind: 'gain', gain: 10 ** (-3 / 20) }, true],
   ['edit.gain', { decibels: 6 }, { kind: 'gain', gain: 10 ** (6 / 20) }, true],
   ['edit.swap-channels', {}, { kind: 'swap-channels', first: 0, second: 1 }, false],
-  ['edit.copy-channel', { from: 0, to: 1 }, { kind: 'copy-channel', from: 0, to: 1 }, false],
+  ['edit.copy-channel', { from: 'left', to: 2 }, { kind: 'copy-channel', from: 0, to: 1 }, false],
   ['edit.channel-gains', { gains: '1,0.5' }, { kind: 'channel-gains', gains: [1, 0.5] }, false],
   ['edit.balance', { balance: 0.5 }, { kind: 'channel-gains', gains: [0.5, 1] }, false],
 ];
@@ -99,9 +99,8 @@ describe('the processing commands, selection first (ADR-0042)', () => {
       await ran(audio, id, args);
 
       const [operation] = chainOf(audio);
-      expect(
-        operation !== undefined && 'channels' in operation ? operation.channels : undefined,
-      ).toEqual(scoped ? [1] : undefined);
+      if (operation?.kind !== 'process') throw new Error(`${id} recorded no processing.`);
+      expect(operation.channels).toEqual(scoped ? [1] : undefined);
     },
   );
 
@@ -240,6 +239,17 @@ describe('the clipboard (ADR-0053)', () => {
     expect(audio.window.context.clipboard.get().copied).toBeDefined();
   });
 
+  it('copies the whole sound with nothing selected', async () => {
+    const audio = await editedLoop();
+    audio.window.run('editor.set-playhead', { position: 0 });
+
+    expect(audio.window.run('edit.copy').kind).toBe('applied');
+    expect(audio.window.said).toContain('Copied all of Loop.');
+    await ran(audio, 'edit.paste');
+
+    expect(audio.asset().length).toBe(2 * LENGTH);
+  });
+
   it('refuses a paste with nothing copied', async () => {
     const audio = await editedLoop();
 
@@ -251,24 +261,76 @@ describe('the clipboard (ADR-0053)', () => {
 });
 
 describe('the channel layout (REQ-EDIT-015)', () => {
-  it.each([
-    ['edit.to-mono', {}, ['mono']],
-    ['edit.convert-layout', { layout: 'mono' }, ['mono']],
-    ['edit.remap-channels', { order: '1,0' }, ['left', 'right']],
-  ] as const)(
-    '%s converts the whole sound, keeping the roles of its layout',
-    async (id, args, roles) => {
+  /** What each conversion is given, and the roles and matrix it records. */
+  const CONVERSIONS: readonly (readonly [
+    id: string,
+    args: Readonly<Record<string, string>>,
+    roles: readonly string[],
+    matrix: readonly (readonly number[])[],
+  ])[] = [
+    ['edit.to-mono', {}, ['mono'], [[0.5, 0.5]]],
+    ['edit.convert-layout', { layout: 'mono' }, ['mono'], [[0.5, 0.5]]],
+    [
+      'edit.remap-channels',
+      { order: 'Right, 1' },
+      ['left', 'right'],
+      [
+        [0, 1],
+        [1, 0],
+      ],
+    ],
+  ];
+
+  it.each(
+    CONVERSIONS.flatMap(([id, ...rest]) => [
+      [id, 'with the selection', ...rest] as const,
+      [id, 'with nothing selected', ...rest] as const,
+    ]),
+  )(
+    '%s converts the whole sound %s, keeping the roles of its layout',
+    async (id, selection, args, roles, matrix) => {
       const audio = await editedLoop();
-      audio.window.run('editor.select-time', SELECTED);
+      if (selection === 'with the selection') audio.window.run('editor.select-time', SELECTED);
 
       await ran(audio, id, args);
 
       expect(chainOf(audio)).toEqual([
-        expect.objectContaining({ kind: 'convert-layout', layout: { roles } }),
+        expect.objectContaining({ kind: 'convert-layout', layout: { roles }, matrix }),
       ]);
       expect(audio.asset().layout.roles).toEqual(roles);
     },
   );
+
+  it('makes a mono sound stereo, each side its one channel', async () => {
+    const audio = await editedLoop();
+    await ran(audio, 'edit.to-mono');
+
+    await ran(audio, 'edit.to-stereo');
+
+    expect(chainOf(audio).at(-1)).toMatchObject({
+      kind: 'convert-layout',
+      layout: { roles: ['left', 'right'] },
+      matrix: [[1], [1]],
+    });
+    expect(audio.asset().layout.roles).toEqual(['left', 'right']);
+  });
+
+  it.each([
+    ['edit.swap-channels', { first: 0, second: 1 }],
+    ['edit.copy-channel', { from: 'Centre', to: 'Left' }],
+  ])('%s asks for channels by name or by number from 1', async (id, args) => {
+    const audio = await editedLoop();
+
+    expect(audio.window.run(id, args)).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary: 'Say which two channels, by name, such as Left, or by number, counting from 1.',
+        },
+      ],
+    });
+    expect(chainOf(audio)).toEqual([]);
+  });
 });
 
 describe('regions (REQ-EDIT-014)', () => {
@@ -335,5 +397,26 @@ describe('regions (REQ-EDIT-014)', () => {
 
     await ran(audio, 'region.remove');
     expect(regionsOf(audio)).toEqual([]);
+  });
+
+  it('stops a region looping, which one undo puts back', async () => {
+    const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
+    const [region] = regionsOf(audio);
+    if (region === undefined) throw new Error('No region.');
+    audio.window.run('region.open', { region: region.id });
+    audio.window.run('editor.select-time', { start: 0, end: 48_000 });
+    await ran(audio, 'region.loop', { crossfade: 64 });
+    const looped = regionsOf(audio)[0]?.loop;
+    expect(looped).toBeDefined();
+
+    expect(await ran(audio, 'region.clear-loop')).toBe('Body no longer loops.');
+    expect(regionsOf(audio)[0]?.loop).toBeUndefined();
+    expect(audio.window.run('region.clear-loop')).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'Body does not loop.' }],
+    });
+    await ran(audio, 'edit.undo');
+
+    expect(regionsOf(audio)[0]?.loop).toEqual(looped);
   });
 });

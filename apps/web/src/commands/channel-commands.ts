@@ -22,9 +22,9 @@ import {
 } from '@audiogubbins/domain';
 import { applyInvocation, processTargetInvocation } from '@audiogubbins/project-commands';
 
-import { channelNames } from '../assets/channel-names.js';
+import { channelNamed, channelNames } from '../assets/channel-names.js';
 import { RANGE_OR_WHOLE, editScope, editedView } from './edit-target.js';
-import { channelsArgument, numberArgument } from './editor-target.js';
+import { numberArgument } from './editor-target.js';
 import { changeProject, needsProjectAsset, onWholeAsset } from './project-edits.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -71,18 +71,35 @@ function betweenChannels(
   return undefined;
 }
 
+/** How a person names a channel, which every channel command reads and says alike. */
+const CHANNEL_NAMING = 'by name, such as Left, or by number, counting from 1';
+
+/**
+ * The index of the channel of `layout` the argument `name` names, by its name
+ * or its number from 1 (`channelNamed`); `undefined` where it is absent or
+ * names none.
+ */
+function channelArgument(
+  invocation: CommandInvocation,
+  name: string,
+  layout: ChannelLayout,
+): number | undefined {
+  const written = invocation.arguments?.[name];
+  return typeof written === 'string' || typeof written === 'number'
+    ? channelNamed(layout, written)
+    : undefined;
+}
+
 /** Two channels an invocation names, as `first` and `second`, or the two of a stereo sound. */
 function twoChannels(
   invocation: CommandInvocation,
   layout: ChannelLayout,
   names: readonly [string, string],
 ): readonly [number, number] | string {
-  const count = channelCount(layout);
-  const [one, other] = names.map((name) => numberArgument(invocation, name));
-  if (one === undefined && other === undefined && count === 2) return [0, 1];
-  const valid = (channel: number | undefined): channel is number =>
-    channel !== undefined && Number.isInteger(channel) && channel >= 0 && channel < count;
-  if (!valid(one) || !valid(other)) return 'Say which two channels, by their numbers from 0.';
+  const absent = names.every((name) => invocation.arguments?.[name] === undefined);
+  if (absent && channelCount(layout) === 2) return [0, 1];
+  const [one, other] = names.map((name) => channelArgument(invocation, name, layout));
+  if (one === undefined || other === undefined) return `Say which two channels, ${CHANNEL_NAMING}.`;
   return one === other ? 'Choose two different channels.' : [one, other];
 }
 
@@ -253,9 +270,15 @@ function remapCommand(): Command<ShellContext> {
       if (typeof found === 'string') return found;
       const { layout } = found.view.asset;
       const count = channelCount(layout);
-      const order = channelsArgument(invocation, 'order', count);
-      if (order?.length !== count || new Set(order).size !== count) {
-        return `Give the ${String(count)} channels in their new order, each once, by their numbers from 0.`;
+      const order = (textArgument(invocation, 'order') ?? '')
+        .split(',')
+        .map((written) => channelNamed(layout, written));
+      if (
+        order.length !== count ||
+        !order.every((channel) => channel !== undefined) ||
+        new Set(order).size !== count
+      ) {
+        return `Give the ${String(count)} channels in their new order, each once, ${CHANNEL_NAMING}, separated by commas.`;
       }
       // Channel `index` of the new layout takes the old channel `order[index]`,
       // and keeps its own role.
