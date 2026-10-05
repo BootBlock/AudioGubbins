@@ -1,6 +1,16 @@
+import { Blob as PlatformBlob } from 'node:buffer';
+
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleRate } from '@audiogubbins/domain';
+import {
+  AssetOrigin,
+  StandardLayouts,
+  assetPlan,
+  derivedSampleCount,
+  sampleRate,
+  unsafeBrandId,
+  type Asset,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { GRAPH_DESCRIPTOR_VERSION, nodeId, type GraphDescriptor } from '@audiogubbins/audio-graph';
 import {
@@ -28,6 +38,38 @@ const IN = expectSuccess(nodeId('in'));
 const OUT = expectSuccess(nodeId('out'));
 const STEREO = StandardLayouts.stereo;
 const RATE = expectSuccess(sampleRate(48_000));
+
+/** A stereo asset of four frames, whose edited sound a message describes. */
+const TAKE: Asset = {
+  id: unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1'),
+  displayName: 'Take',
+  origin: AssetOrigin.Imported,
+  sampleRate: RATE,
+  channelLayout: StandardLayouts.stereo,
+  length: derivedSampleCount(4),
+  storageKey: 'content:take',
+  edits: [],
+};
+
+/**
+ * The edited sound of `TAKE`, its file a Blob as the page holds one: the
+ * platform's, since jsdom's own does not survive the structured clone a
+ * browser's Blob does.
+ */
+const EDITED = {
+  kind: PcmDescriptionKind.Edited,
+  sampleRate: RATE,
+  plan: assetPlan(TAKE),
+  media: [
+    {
+      asset: TAKE.id,
+      sampleRate: RATE,
+      channels: 2,
+      length: TAKE.length,
+      file: new PlatformBlob([new Uint8Array(16)]),
+    },
+  ],
+} as const;
 
 const GRAPH: GraphDescriptor = {
   version: GRAPH_DESCRIPTOR_VERSION,
@@ -81,6 +123,13 @@ function everyToFeeder(): readonly ToFeeder[] {
           channels: [Float32Array.of(0.5)],
         },
       ],
+      dsp: { kind: DspDeliveryKind.Unavailable, reason: 'WebAssembly is switched off.' },
+    },
+    {
+      kind: ToFeederKind.Sources,
+      request: 4,
+      graph: GRAPH,
+      sources: [{ node: IN, ...EDITED }],
       dsp: { kind: DspDeliveryKind.Unavailable, reason: 'WebAssembly is switched off.' },
     },
     {

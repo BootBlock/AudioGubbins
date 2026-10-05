@@ -271,16 +271,23 @@ describe('an edited description crossing a thread', () => {
   const samples = samplesOf(100, 2, 5);
   const source = assetOf('crossing', 100, RATE, StandardLayouts.stereo);
 
-  it('reads back the plan and files it was sent with, and makes their source', async () => {
+  it('reads back the plan and the files it was sent with, and makes their source', async () => {
+    // The file crosses as the page holds it, a Blob, which a structured clone
+    // carries by reference to the same bytes.
+    const bytes = writeWav({
+      sampleRate: RATE,
+      encoding: { kind: 'float', bits: 32 },
+      channels: samples,
+    });
     const description = {
       kind: PcmDescriptionKind.Edited,
       sampleRate: RATE,
       plan: assetPlan(source),
-      media: [entryOf(source, samples)],
+      media: [{ ...entryOf(source, samples), file: new Blob([bytes]) }],
     };
-    const read = expectSuccess(pcmDescription(structuredClone({ ...description, media: [] })));
+    const read = expectSuccess(pcmDescription(structuredClone(description)));
     expect(read.kind).toBe(PcmDescriptionKind.Edited);
-    const made = expectSuccess(describedSource(description, StandardLayouts.stereo, REFERENCE_DSP));
+    const made = expectSuccess(describedSource(read, StandardLayouts.stereo, REFERENCE_DSP));
     expect(bitsOf(await readAll(made, 33))).toEqual(bitsOf(samples));
   });
 

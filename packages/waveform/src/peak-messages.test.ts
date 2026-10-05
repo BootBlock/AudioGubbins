@@ -11,7 +11,15 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { PcmDescriptionKind, REFERENCE_DSP } from '@audiogubbins/audio-engine';
-import { sampleRate } from '@audiogubbins/domain';
+import {
+  AssetOrigin,
+  StandardLayouts,
+  assetPlan,
+  derivedSampleCount,
+  sampleRate,
+  unsafeBrandId,
+  type Asset,
+} from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
 import {
@@ -24,6 +32,34 @@ import { readFromPeakWorker, readToPeakWorker } from './peak-message-reading.js'
 import { PeakWorkerCore } from './peak-worker-core.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
+
+/** A stereo asset of four frames, whose edited sound a message describes. */
+const TAKE: Asset = {
+  id: unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1'),
+  displayName: 'Take',
+  origin: AssetOrigin.Imported,
+  sampleRate: RATE,
+  channelLayout: StandardLayouts.stereo,
+  length: derivedSampleCount(4),
+  storageKey: 'content:take',
+  edits: [],
+};
+
+/** The edited sound of `TAKE`, its file a Blob as the page holds one. */
+const EDITED = {
+  kind: PcmDescriptionKind.Edited,
+  sampleRate: RATE,
+  plan: assetPlan(TAKE),
+  media: [
+    {
+      asset: TAKE.id,
+      sampleRate: RATE,
+      channels: 2,
+      length: TAKE.length,
+      file: new Blob([new Uint8Array(16)]),
+    },
+  ],
+} as const;
 
 const OPEN: ToPeakWorker = {
   kind: ToPeakWorkerKind.Open,
@@ -44,6 +80,7 @@ describe('the messages to the peak worker', () => {
   it('reads each back from its structured clone', () => {
     const messages: ToPeakWorker[] = [
       OPEN,
+      { ...OPEN, job: 'peaks-2', channels: 2, description: EDITED },
       { kind: ToPeakWorkerKind.Focus, job: 'peaks-1', range: { start: 5, end: 9 } },
       { kind: ToPeakWorkerKind.Samples, job: 'peaks-1', request: 3, range: { start: 0, end: 2 } },
       { kind: ToPeakWorkerKind.Buckets, job: 'peaks-1', request: 5, range: { start: 0, end: 64 } },
