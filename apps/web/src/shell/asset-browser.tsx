@@ -129,6 +129,9 @@ function ImportControls({
   readonly labelFor: (id: string) => string;
 }): ReactNode {
   const importing = useSyncExternalStore(projects.imports.subscribe, projects.imports.get);
+  // Followed for the import command's availability, which the open project
+  // decides: the dock mounts a panel once, so nothing above redraws it.
+  useSyncExternalStore(projects.project.subscribe, projects.project.get);
   return (
     <div className="ag-asset-import">
       {importing.kind === 'importing' ? (

@@ -147,6 +147,14 @@ export default defineConfig<SuiteOptions>({
       testMatch: /timeline\.spec\.ts/,
     },
     {
+      // Core non-destructive editing: a file imported, marked and edited, and
+      // the same project found after a reload (the packet's
+      // `test:e2e:core-editing`).
+      name: 'chromium-core-editing',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /core-editing\.spec\.ts/,
+    },
+    {
       // The editor's renderer losing its WebGL 2 context, where WebGPU gives
       // no adapter, as it does in the headless shell.
       name: 'chromium-renderer',

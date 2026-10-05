@@ -18,8 +18,14 @@ const LABELS: Readonly<Record<string, string>> = {
   'file.cancel-import': 'Cancel the import',
 };
 
-/** Draws the panel over a window's stores, its controls running the window's commands. */
-function browserOver(window: ProjectWindow) {
+/**
+ * Draws the panel over a window's stores, its controls running the window's
+ * commands, and refusing as `unavailableReason` says.
+ */
+function browserOver(
+  window: ProjectWindow,
+  unavailableReason: (id: string) => string | undefined = () => undefined,
+) {
   render(
     <AssetBrowserPanel
       title="Asset Browser"
@@ -31,7 +37,7 @@ function browserOver(window: ProjectWindow) {
         run: (id, args) => {
           window.run(id, args);
         },
-        unavailableReason: () => undefined,
+        unavailableReason,
       }}
       labelFor={(id) => LABELS[id] ?? id}
     />,
@@ -140,6 +146,18 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     expect(await heard).toBe('The import of "Harbour.wav" was cancelled, and nothing was kept.');
     expect(await screen.findByRole('button', { name: 'Import audio…' })).toBeInTheDocument();
     expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('offers the import once a project opens, following the project as its command does', async () => {
+    const window = await projectWorld().window();
+    browserOver(window, () =>
+      window.projects.project.session() === undefined ? 'No project is open.' : undefined,
+    );
+    expect(screen.getByRole('button', { name: 'Import audio…' })).toBeDisabled();
+
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+
+    expect(await screen.findByRole('button', { name: 'Import audio…' })).toBeEnabled();
   });
 
   it('says why it lists nothing where no project is open', async () => {
