@@ -8,7 +8,9 @@
  * another rate is pasted only when the person asks for it to be converted
  * (REQ-ARCH-085). A payload whose insertion would be longer than an invocation
  * argument may be is inserted as consecutive insertions, split between its
- * segments, which the caller runs as one change. Every edit is checked by the
+ * segments, which the caller runs as one change; one being converted is refused
+ * instead, since the resampler converts a payload as a whole and converting its
+ * pieces apart would put a seam at every split. Every edit is checked by the
  * domain's own rule against the timeline it acts on, the media to be added
  * counted among the project's, so what is planned is exactly what the commands
  * will accept.
@@ -61,7 +63,10 @@ export interface PasteRequest {
     | { readonly kind: 'at'; readonly at: SampleCount }
     | { readonly kind: 'replace'; readonly range: EditRange };
 
-  /** Whether the person asked for audio at another rate to be converted. */
+  /**
+   * Whether the person asked for audio at another rate to be converted. Audio
+   * at the asset's own rate is pasted as it is either way.
+   */
   readonly convertRate: boolean;
 }
 
@@ -78,11 +83,16 @@ function refused(code: string, summary: string): DomainResult<never> {
   return fail(failure(`clipboard.${code}`, FailureKind.Rejected, summary));
 }
 
-/** The paste `request` asks of `state`, with identities from `ids`, or why it cannot be made. */
+/**
+ * The paste `request` asks of `state`, with identities from `ids`, or why it
+ * cannot be made. Each insertion is at most `longestArgument` characters as an
+ * invocation argument, the length the commands read one with.
+ */
 export function planPaste(
   state: ProjectState,
   request: PasteRequest,
   ids: IdGenerator,
+  longestArgument: number = NESTED_ARGUMENT_LIMITS.maximumLength,
 ): DomainResult<PlannedPaste> {
   const asset = state.project.assets.get(request.asset);
   if (asset === undefined) return refused('asset-unknown', 'The project has no such asset.');
@@ -109,7 +119,9 @@ export function planPaste(
     shape = shapeAfter(shape, deletion);
   }
 
-  const pieces = argumentSized(payload.value, request.convertRate);
+  const convertRate =
+    request.convertRate && payload.value.streams[0].sampleRate !== shape.sampleRate;
+  const pieces = argumentSized(payload.value, convertRate, longestArgument);
   if (!pieces.ok) return pieces;
   for (const piece of pieces.value) {
     const insertion: EditOperation = {
@@ -117,7 +129,7 @@ export function planPaste(
       kind: 'insert',
       at: derivedSampleCount(at),
       payload: piece,
-      convertRate: request.convertRate,
+      convertRate,
     };
     const valid = validateOperation(insertion, shape, assets);
     if (!valid.ok) return valid;
@@ -197,7 +209,11 @@ function fitted(payload: ClipboardPayload, shape: EditShape): DomainResult<Clipb
 }
 
 /** Whether an insertion of `payload` fits in one invocation argument. */
-function fitsOneArgument(payload: ClipboardPayload, convertRate: boolean): boolean {
+function fitsOneArgument(
+  payload: ClipboardPayload,
+  convertRate: boolean,
+  longestArgument: number,
+): boolean {
   const probe: EditOperation = {
     // The longest identity is the one the probe is measured with.
     id: unsafeBrandId<'EditOperationId'>('ffffffff-ffff-4fff-bfff-ffffffffffff'),
@@ -206,18 +222,26 @@ function fitsOneArgument(payload: ClipboardPayload, convertRate: boolean): boole
     payload,
     convertRate,
   };
-  return canonicalJson(writeEditOperation(probe)).length <= NESTED_ARGUMENT_LIMITS.maximumLength;
+  return canonicalJson(writeEditOperation(probe)).length <= longestArgument;
 }
 
 /**
  * `payload` in consecutive pieces, each small enough to insert in one
- * argument, split between segments of its first stream; whole where it fits.
+ * argument, split between segments of its first stream; whole where it fits,
+ * and refused where it does not and is being converted.
  */
 function argumentSized(
   payload: ClipboardPayload,
   convertRate: boolean,
+  longestArgument: number,
 ): DomainResult<readonly ClipboardPayload[]> {
-  if (fitsOneArgument(payload, convertRate)) return succeed([payload]);
+  if (fitsOneArgument(payload, convertRate, longestArgument)) return succeed([payload]);
+  if (convertRate) {
+    return refused(
+      'too-large-to-convert',
+      'The copied audio is too intricate to convert to this audio’s rate in one change. Paste it into audio at its own rate, or copy less of it.',
+    );
+  }
   const { segments } = payload.streams[0];
   if (segments.length < 2) {
     return refused('too-large', 'The copied audio is too intricate to paste in one change.');
@@ -230,7 +254,7 @@ function argumentSized(
   const pieces: ClipboardPayload[] = [];
   for (const half of halves) {
     if (!half.ok) return half;
-    const split = argumentSized(half.value, convertRate);
+    const split = argumentSized(half.value, convertRate, longestArgument);
     if (!split.ok) return split;
     pieces.push(...split.value);
   }

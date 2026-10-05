@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  StandardLayouts,
   assetPlan,
   createDeterministicIdGenerator,
   derivedSampleCount,
@@ -10,6 +9,7 @@ import {
   sampleRate,
   shapeAfter,
   shapesOf,
+  unsafeBrandId,
   type Asset,
   type AssetId,
   type EditOperation,
@@ -240,6 +240,21 @@ describe('pasting (ADR-0053)', () => {
     expect(shapeAfter(before, insertion).length - before.length).toBe(480);
   });
 
+  it('pastes audio at the asset’s own rate as it is when asked to convert it', () => {
+    const copy = copied(assetPlan(footstep), 0, 100);
+    const planned = expectSuccess(
+      planPaste(
+        state,
+        { ...request(copy, footstep, { kind: 'at', at: at(0) }), convertRate: true },
+        ids,
+      ),
+    );
+
+    expect(planned.operations).toEqual([
+      expect.objectContaining({ kind: 'insert', convertRate: false }),
+    ]);
+  });
+
   it('brings the records of media another project lacks, and refuses one it holds differently', () => {
     const other = referenceState(sampleProject(77));
     const copy = copied(assetPlan(footstep), 0, 100);
@@ -270,24 +285,42 @@ describe('pasting (ADR-0053)', () => {
     ).toBe('clipboard.source-differs');
   });
 
-  it('splits a payload too long for one argument into consecutive insertions between its segments', () => {
-    const count = 200_000;
+  /** A copy of `count` one-frame segments of `asset`, alternately reversed. */
+  function intricate(asset: Asset, count: number): CopiedAudio {
     const segments: PlanSegment[] = Array.from({ length: count }, (_, index) => ({
-      source: { kind: 'media', asset: footstep.id },
-      start: at(index % 24_000),
+      source: { kind: 'media', asset: asset.id },
+      start: at(index % 400),
       length: at(1),
       reversed: index % 2 === 1,
       stages: [],
     }));
-    const copy: CopiedAudio = {
+    return {
       origin: state.project.id,
       payload: {
-        streams: [{ sampleRate: footstep.sampleRate, layout: StandardLayouts.mono, segments }],
+        streams: [{ sampleRate: asset.sampleRate, layout: asset.channelLayout, segments }],
       },
-      records: copied(assetPlan(footstep), 0, 1).records,
+      records: [],
     };
+  }
+
+  /** How long the insertion of `copy` whole is as an argument. */
+  function wholeLength(copy: CopiedAudio, convertRate: boolean): number {
+    return canonicalJson(
+      writeEditOperation({
+        id: unsafeBrandId<'EditOperationId'>('ffffffff-ffff-4fff-bfff-ffffffffffff'),
+        kind: 'insert',
+        at: at(Number.MAX_SAFE_INTEGER),
+        payload: copy.payload,
+        convertRate,
+      }),
+    ).length;
+  }
+
+  it('splits a payload too long for one argument into consecutive insertions between its segments', () => {
+    const copy = intricate(footstep, 50);
+    const longest = Math.floor(wholeLength(copy, false) / 3);
     const planned = expectSuccess(
-      planPaste(state, request(copy, footstep, { kind: 'at', at: at(7) }), ids),
+      planPaste(state, request(copy, footstep, { kind: 'at', at: at(7) }), ids, longest),
     );
 
     expect(planned.operations.length).toBeGreaterThan(1);
@@ -296,24 +329,43 @@ describe('pasting (ADR-0053)', () => {
     for (const operation of planned.operations) {
       if (operation.kind !== 'insert') throw new Error('A paste at a position only inserts.');
       expect(operation.at).toBe(position);
-      expect(canonicalJson(writeEditOperation(operation)).length).toBeLessThanOrEqual(
-        NESTED_ARGUMENT_LIMITS.maximumLength,
-      );
+      expect(canonicalJson(writeEditOperation(operation)).length).toBeLessThanOrEqual(longest);
       joined.push(...operation.payload.streams[0].segments);
       position += operation.payload.streams[0].segments.length;
     }
-    expect(joined).toEqual(segments);
-    // The whole would not have fitted, so the split was needed.
+    expect(joined).toEqual(copy.payload.streams[0].segments);
+  });
+
+  it('splits only past the longest argument, which is the one the commands read by default', () => {
+    const copy = intricate(footstep, 50);
+    const whole = wholeLength(copy, false);
+    const place = { kind: 'at', at: at(0) } as const;
+    const pieces = (longest?: number) =>
+      expectSuccess(planPaste(state, request(copy, footstep, place), ids, longest)).operations
+        .length;
+
+    expect(pieces(whole)).toBe(1);
+    expect(pieces(whole - 1)).toBeGreaterThan(1);
+    expect(pieces()).toBe(pieces(NESTED_ARGUMENT_LIMITS.maximumLength));
+    expect(pieces()).toBe(1);
+  });
+
+  it('refuses to split audio it converts, which the resampler converts only whole', () => {
+    const slower: Asset = {
+      ...footstep,
+      id: ids.next<'AssetId'>(),
+      sampleRate: expectSuccess(sampleRate(44_100)),
+    };
+    const withSlower = withAsset(state, slower, footstep);
+    const copy = intricate(slower, 50);
+    const converting = { ...request(copy, footstep, { kind: 'at', at: at(0) }), convertRate: true };
+
+    const whole = expectSuccess(planPaste(withSlower, converting, ids, wholeLength(copy, true)));
+    expect(whole.operations).toEqual([
+      expect.objectContaining({ kind: 'insert', payload: copy.payload }),
+    ]);
     expect(
-      canonicalJson(
-        writeEditOperation({
-          id: ids.next<'EditOperationId'>(),
-          kind: 'insert',
-          at: at(7),
-          payload: copy.payload,
-          convertRate: false,
-        }),
-      ).length,
-    ).toBeGreaterThan(NESTED_ARGUMENT_LIMITS.maximumLength);
+      expectFailureCode(planPaste(withSlower, converting, ids, wholeLength(copy, true) - 1)),
+    ).toBe('clipboard.too-large-to-convert');
   });
 });
