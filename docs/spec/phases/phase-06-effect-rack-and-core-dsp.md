@@ -2,15 +2,15 @@
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 03, 05 reaching `PASS`.
+`READY` — its hard dependencies, Phases 03 and 05, are `PASS`, and its readiness review on 2026-10-05 settled its scope in `ADR-0060`, `ADR-0061` and `ADR-0062`.
 
 ## Objective
 
-Implement the professional effect-rack and DSP subsystem, canonical processor library, advanced quality modes, local ML model-pack infrastructure, processor versioning, and deterministic render integration.
+Implement the professional effect-rack and DSP subsystem, canonical processor library, advanced quality modes, local ML model-pack infrastructure, processor versioning, and deterministic render integration. A rack is a chain of processors that the edit plan runs, over a selected range or over a whole asset or region, so the plan stays the only description of an edited sound (`ADR-0060`).
 
 ## User-Visible Outcome
 
-Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview them interactively, and render at maximum quality using a broad professional processor set and optional local ML restoration/separation packs.
+Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview them interactively, and render at maximum quality using a broad professional processor set and optional local ML restoration/separation packs. They can apply a chain to a selection, give an asset or a region a rack that follows it through later edits, share one chain between several regions, save chains and presets to their library and apply them to several targets at once, and find all of it again after a reload.
 
 ## Hard Dependencies
 
@@ -34,6 +34,28 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 
 - `REQ-PROD-039` — Third-Party Plugins (`DEFERRED`)
 
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-EDIT-014` — Regions (Phase 05): shared processing chains, which the Phase 05 handoff gave this phase (`ADR-0060`).
+- `REQ-EDIT-012` — Timeline and Editing Requirements (Phase 04): a chain applied to a selection, or to the whole target without one.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector shows and changes processors and racks.
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): effect chains are authoritative project state.
+- `REQ-ARCH-081` — Canonical Deterministic Processing (Phase 03): every processor's final render is canonical; inference is pinned, with any tolerance documented and tested.
+- `REQ-ARCH-140` — Typed Directed Processing Graph (Phase 03): a rack is realised as a graph; serial and parallel slots, with no central processor manager.
+- `REQ-ARCH-141` — DSP Implementation Languages (Phase 03): Rust for heavy kernels behind the narrow ABI.
+- `REQ-ARCH-144` — Processor Latency and Delay Compensation (Phase 03): every processor reports its latency, inference included.
+- `REQ-ARCH-157` — Multichannel (Phase 03): every processor declares the layouts it accepts.
+- `REQ-ARCH-085` — Native Asset Sample Rates (Phase 03): an asset's rate changes only by an explicit conversion.
+- `REQ-ARCH-088` — Fully Local Core Processing (Phase 03): no remote processing, ever.
+- `REQ-ARCH-153` — State Ownership (Phase 01): model-pack installation is an explicit state machine.
+- `REQ-REPO-187` — Product Versioning (Phase 01): processor implementation versions and model-pack versions.
+- `REQ-REPO-191` — Fixtures (Phase 01): model weights and large media stay out of Git history.
+- `REQ-STOR-166` — Asset Provenance and Traceability (Phase 02): processor versions, render-quality mode and model versions in provenance.
+- `REQ-STOR-195` — Whole-Project A/B State Comparison (Phase 02): chains and parameters compared between states.
+- `REQ-PRIV-161` — Diagnostic Consent (Phase 01): a diagnostic bundle may name processor and model versions.
+
 ## Referenced Global Execution Requirements
 
 - `REQ-EXEC-136`
@@ -53,22 +75,37 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 
 ## In Scope
 
-- [ ] Effect racks and processor descriptors
-- [ ] Professional core DSP suite
+- [ ] Effect racks and processor descriptors: one object per processor type that states its `ProcessorDescriptor` and makes its kernel (`ADR-0061`)
+- [ ] The domain's `EffectChain` extended with slots, parallel groups, bypass and wet/dry; no second chain model (`ADR-0060`)
+- [ ] A chain applied to a selected range as a processing operation, and a rack on an asset and on a region over the whole target, both realised by the plan (`ADR-0060`)
+- [ ] Shared chains: several operations or targets naming one chain, and making one independent (`REQ-EDIT-014`)
+- [ ] Professional core DSP suite: every processor of `REQ-AUDIO-018` that is not already an edit operation, listed under WU-06.B
+- [ ] Time stretching and the sample-rate conversion of an asset as operations in its chain that carry positions by their ratio
+- [ ] New canonical primitives (exponential, logarithm, power, trigonometric functions) in both implementations (`ADR-0032`, `ADR-0061`)
+- [ ] `crates/analysis`: the short-time Fourier transform, peak and loudness measurement, and the detectors restoration needs
 - [ ] Serial/parallel graph usage, wet/dry, side-chain-ready contracts
-- [ ] Preview/final quality modes
-- [ ] Processor presets/chains
+- [ ] Preview/final quality modes: `QualityMode` replacing `RenderQualityProfile`
+- [ ] Real-time preview, bypass, A/B and processed/original comparison, and parameter changes during playback
+- [ ] The cached preview producer that Phase 03's mode selector reports as missing
+- [ ] Processor presets/chains: saved in the person's library, applied to one or to several selected targets in one history step
 - [ ] Processor versioning
 - [ ] Local ML model-pack manager
-- [ ] Local ML restoration/source-separation processors
+- [ ] Local ML restoration/source-separation processors: the packs `ADR-0062` names
 - [ ] Deterministic canonical render integration
 - [ ] Third-party plugin extension boundary only; no third-party loading
+- [ ] Rack and processor views in the editor and the Inspector, invoking only project commands
 
 ## Explicitly Out of Scope
 
-- Spectral painting UI
+- Spectral painting UI and spectral selection editing (Phase 08, which reads this phase's `crates/analysis` and ML processors)
 - Third-party plugin ecosystem
 - Cloud ML processing
+- Track, bus and master racks: no track or bus exists yet; their `effectChainId` fields stay, and a later phase runs them as `ADR-0060` says
+- Export and every audio writer (Phase 09), which renders through this phase's chains
+- Monitoring through effects while recording (Phase 07)
+- Loudness matching across groups and variation sets (Phases 10 and 13), which read this phase's loudness measurement
+- Advanced batch workflows beyond applying a saved chain to several selected targets (Phase 13)
+- ML packs whose weights are not licensed for redistribution, and the candidate ML assistants with no such model today (`ADR-0062`)
 
 ## Owned Modules / Packages
 
@@ -76,15 +113,22 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - `packages/effect-rack`
 - `packages/ml-runtime`
 - `packages/model-packs`
-- `crates/dsp-core`
 - `crates/analysis`
-- `crates/wasm-bindings`
+- `crates/dsp-core` (Phase 03's; this phase extends it with the new primitives and kernels)
+- `crates/wasm-bindings` (Phase 03's; this phase extends its ABI and raises its version)
+- `packages/domain/processing` and `packages/domain/editing` (the chain, processor state and the plan's processed stream)
+- `packages/project-commands` rack and processor commands
+- `apps/web rack, processor and model-pack views`
 
 ## Cross-Package Dependency Rules
 
 - Processors implement audio-graph contracts and are independent of React/workspace.
 - Model-pack storage uses storage public APIs, not OPFS internals.
 - Third-party plugin code loading remains absent.
+- `packages/processors` depends on the domain, `audio-graph`, `audio-engine` and `text`; `packages/effect-rack` on the domain, `audio-graph` and `processors`; neither knows a browser global (`ADR-0061`).
+- `packages/audio-graph` and `packages/audio-engine` may depend on `packages/text` (`ADR-0030` amended); on nothing else new.
+- `packages/ml-runtime` is reached by the ML processors through its inference port; only its worker adapter knows ONNX Runtime Web, and capabilities are probed by `packages/capabilities` (`ADR-0062`).
+- The interface changes racks, chains, processors and packs only through project and application commands.
 
 ## Required Public Contracts
 
@@ -96,16 +140,24 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - ModelPackManifest
 - MLProcessorCapability
 - QualityMode
+- The rack edit, and the rack of an asset and of a region (`ADR-0060`)
+- The plan's processed stream (`ADR-0060`)
+- The inference port (`ADR-0062`)
 
 ## Data / Schema Changes
 
 - Introduces versioned processor state, effect-rack/chain preset formats, processor implementation IDs, model-pack manifests and quality-profile data.
+- The project format gains rack edits, the racks of assets and regions, the extended chain, and time-stretch and rate-conversion operations, raising the project's schema version; before 1.0 nothing migrates (`REQ-STOR-052`).
+- The person's library gains saved chains and presets, in the chain's one persisted form.
+- The WASM ABI version is raised.
+- Settled by this phase's readiness review (`ADR-0060`, `ADR-0061`, `ADR-0062`): where a rack sits in the edit model, how processors are joined to the engine and held canonical, and the inference runtime and first packs.
 
 ## Browser / Platform Considerations
 
 - WASM/SIMD/GPU/inference acceleration is capability-based.
 - ML model availability/storage may vary; no remote fallback.
 - Real-time preview may use a different disclosed quality path than final render.
+- ONNX Runtime Web's files are served by the application and loaded only when an ML processor first runs; a final render's inference uses one thread, so it needs no cross-origin isolation.
 
 ## Architectural Invariants
 
@@ -113,36 +165,51 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - Final render defaults to highest-quality supported mode; user may choose lower/faster modes.
 - ML audio never leaves device.
 - Changing processor algorithm/version cannot silently change old post-1.0 project sound.
+- The edit plan is the only description of an edited sound; racks are realised in it.
+- A chain has one persisted form, in a project or a library.
+- A processed stream renders from its own start; a region's audio is exactly its span of its asset's.
+- Every canonical kernel in Rust has its reference TypeScript implementation, run by the same golden test.
+- No platform transcendental function or browser-native node is in a canonical path.
 
 ## Internal Work Units
 
 ### WU-06.A — Processor framework
 
 - [ ] Implement typed processor descriptors/parameters/state versioning
+- [ ] Join each processor's descriptor to its node implementation
 - [ ] Implement effect racks, bypass, reorder, wet/dry, preset/chain serialisation
 - [ ] Integrate graph latency compensation
+- [ ] Fold rack edits and racks into the plan as processed streams, with their commands, inverses and validation
+- [ ] Implement shared chains, making one independent, and applying a saved chain to several targets
 
 ### WU-06.B — Core DSP
 
-- [ ] Implement gain/normalisation/EQ/filter/compression/limiting/gate/expansion/de-ess/DC/resample/channel/fade/reverse/delay/reverb and cleanup processors
+- [ ] Add the canonical exponential, logarithm, power and trigonometric primitives in both implementations
+- [ ] Implement gain/normalisation/EQ/filter/compression/limiting/gate/expansion/de-ess/DC/resample/channel/fade/reverse/delay/reverb and cleanup processors, where fade, reverse, polarity, silence and channel edits are Phase 05's edit operations and gain is the engine's gain node
+- [ ] Implement peak and loudness normalisation with a whole-input analysis pass
+- [ ] Implement silence generation and silence trimming through the insertion and trim operations
+- [ ] Implement pitch shifting as a processor, and time stretching and asset rate conversion as chain operations
+- [ ] Implement ambisonic encode, decode and rotate processors (Phase 03's F-38)
 - [ ] Provide deterministic audio golden tests and N-channel behaviour
 
 ### WU-06.C — Advanced restoration
 
 - [ ] Implement de-hum/de-click/de-pop/noise-reduction foundations
+- [ ] Implement dereverberation by weighted prediction error, and click and pop detection, as canonical processors
 - [ ] Implement analysis and preview caching where needed
 
 ### WU-06.D — Local ML infrastructure
 
 - [ ] Implement model-pack download/import, integrity/version/storage/delete controls
 - [ ] Implement local inference abstraction and quality tiers
-- [ ] Add agreed restoration/separation/dereverberation capabilities without remote fallback
+- [ ] Add the restoration, enhancement and separation packs `ADR-0062` names, without remote fallback
 
 ### WU-06.E — Quality/reproducibility
 
 - [ ] Implement preview vs final quality disclosure
 - [ ] Persist processor implementation versions
 - [ ] Add A/B and processed/original comparison
+- [ ] Replace `RenderQualityProfile` with `QualityMode`, and produce cached preview renders
 
 ## Failure and Recovery Behaviour
 
@@ -150,14 +217,21 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - Model-pack corruption/incompatibility must not affect project validity.
 - Processor failure must not silently output zero/unchanged audio as success.
 - Unsupported channel layouts must fail/adapt explicitly.
+- A chain, processor or state version the reader does not know is refused with the reason, before 1.0 with no migration.
+- A chain that something names cannot be removed.
+- An interrupted or cancelled pack download or import keeps nothing unverified, and can be resumed or retried.
 
 ## Required Verification Commands / Suites
 
 - `cargo test --workspace`
-- `pnpm test --filter processors --filter effect-rack --filter model-packs`
+- `pnpm --filter @audiogubbins/processors --filter @audiogubbins/effect-rack --filter @audiogubbins/ml-runtime --filter @audiogubbins/model-packs test`
 - `pnpm test:audio-golden`
-- `pnpm test:dsp-property`
-- `pnpm test:ml-locality`
+- `pnpm test:audio-latency`
+- `pnpm test:editing-property`
+- `pnpm test:project-roundtrip`
+- `pnpm test:dsp-property`, which this phase adds
+- `pnpm test:ml-locality`, which this phase adds
+- `pnpm test:architecture`
 
 ## Acceptance Criteria
 
@@ -167,6 +241,11 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - [ ] Model packs can be installed/verified/removed without transmitting audio or breaking projects.
 - [ ] Processor latency and channel-layout declarations are enforced.
 - [ ] No third-party arbitrary code/plugin loading exists.
+- [ ] Every Rust kernel and new primitive renders the same bits as its reference implementation.
+- [ ] A chain applied to a selection, an asset's rack and a region's rack render as `ADR-0060` orders them, and a region renders exactly as its span of its asset.
+- [ ] A change to a shared chain reaches every operation and target that names it, and one undo restores it.
+- [ ] Each ML pack's final render is one hash per pack and settings in every browser the tests run, or within a documented and tested tolerance.
+- [ ] A browser test applies a chain to a selection, gives a region a rack, reloads, and hears the same project.
 
 ## Forbidden Shortcuts
 
@@ -179,6 +258,9 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - No hidden online ML.
 - No processor parameters stored only in UI components.
 - No universal plugin framework built for hypothetical third parties.
+- No second chain model beside the domain's `EffectChain`, and no rack rendered outside the plan.
+- No processor that re-implements an edit operation Phase 05 made.
+- No model weights or large test media committed to the repository.
 
 ## Required Review Lenses
 
@@ -198,6 +280,16 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by the Phase 03 and Phase 05 reviews and their handoffs:
+
+- F-07's remnants (Phase 05, LOW): `audio-graph` and `audio-engine` each write their own count (`layout-description.ts`, `stability.ts`) and take `counted` from `packages/text` (`ADR-0030` amended); a time of day to the second is written three ways (`packages/storage-runtime/src/host/browser-host.ts`, `apps/web/src/app.tsx`, `apps/web/src/shell/diagnostics-panel.tsx`); `packages/storage/src/usage-measurement.ts` lists projects by hand; and names are quoted two ways, curly in `packages/project-commands/src/project-command.ts` and straight in `apps/web/src/wording.ts`.
+- The shared processing chains of `REQ-EDIT-014` (Phase 05), listed under In Scope.
+- F-38 (Phase 03): ambisonic encode, decode and rotate are processors, listed under WU-06.B.
+- Phase 03's cached preview mode, which has no producer, listed under In Scope.
+- The golden render that times out under load at Vitest's five-second default (Phase 05), which this phase's `pnpm test:audio-golden` gate meets. The other tests that do so stay Phase 14's.
 
 ## Handoff Capsule
 

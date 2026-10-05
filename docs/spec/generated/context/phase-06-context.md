@@ -112,15 +112,15 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 03, 05 reaching `PASS`.
+`READY` — its hard dependencies, Phases 03 and 05, are `PASS`, and its readiness review on 2026-10-05 settled its scope in `ADR-0060`, `ADR-0061` and `ADR-0062`.
 
 ## Objective
 
-Implement the professional effect-rack and DSP subsystem, canonical processor library, advanced quality modes, local ML model-pack infrastructure, processor versioning, and deterministic render integration.
+Implement the professional effect-rack and DSP subsystem, canonical processor library, advanced quality modes, local ML model-pack infrastructure, processor versioning, and deterministic render integration. A rack is a chain of processors that the edit plan runs, over a selected range or over a whole asset or region, so the plan stays the only description of an edited sound (`ADR-0060`).
 
 ## User-Visible Outcome
 
-Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview them interactively, and render at maximum quality using a broad professional processor set and optional local ML restoration/separation packs.
+Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview them interactively, and render at maximum quality using a broad professional processor set and optional local ML restoration/separation packs. They can apply a chain to a selection, give an asset or a region a rack that follows it through later edits, share one chain between several regions, save chains and presets to their library and apply them to several targets at once, and find all of it again after a reload.
 
 ## Hard Dependencies
 
@@ -144,6 +144,28 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 
 - `REQ-PROD-039` — Third-Party Plugins (`DEFERRED`)
 
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-EDIT-014` — Regions (Phase 05): shared processing chains, which the Phase 05 handoff gave this phase (`ADR-0060`).
+- `REQ-EDIT-012` — Timeline and Editing Requirements (Phase 04): a chain applied to a selection, or to the whole target without one.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector shows and changes processors and racks.
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): effect chains are authoritative project state.
+- `REQ-ARCH-081` — Canonical Deterministic Processing (Phase 03): every processor's final render is canonical; inference is pinned, with any tolerance documented and tested.
+- `REQ-ARCH-140` — Typed Directed Processing Graph (Phase 03): a rack is realised as a graph; serial and parallel slots, with no central processor manager.
+- `REQ-ARCH-141` — DSP Implementation Languages (Phase 03): Rust for heavy kernels behind the narrow ABI.
+- `REQ-ARCH-144` — Processor Latency and Delay Compensation (Phase 03): every processor reports its latency, inference included.
+- `REQ-ARCH-157` — Multichannel (Phase 03): every processor declares the layouts it accepts.
+- `REQ-ARCH-085` — Native Asset Sample Rates (Phase 03): an asset's rate changes only by an explicit conversion.
+- `REQ-ARCH-088` — Fully Local Core Processing (Phase 03): no remote processing, ever.
+- `REQ-ARCH-153` — State Ownership (Phase 01): model-pack installation is an explicit state machine.
+- `REQ-REPO-187` — Product Versioning (Phase 01): processor implementation versions and model-pack versions.
+- `REQ-REPO-191` — Fixtures (Phase 01): model weights and large media stay out of Git history.
+- `REQ-STOR-166` — Asset Provenance and Traceability (Phase 02): processor versions, render-quality mode and model versions in provenance.
+- `REQ-STOR-195` — Whole-Project A/B State Comparison (Phase 02): chains and parameters compared between states.
+- `REQ-PRIV-161` — Diagnostic Consent (Phase 01): a diagnostic bundle may name processor and model versions.
+
 ## Referenced Global Execution Requirements
 
 - `REQ-EXEC-136`
@@ -163,22 +185,37 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 
 ## In Scope
 
-- [ ] Effect racks and processor descriptors
-- [ ] Professional core DSP suite
+- [ ] Effect racks and processor descriptors: one object per processor type that states its `ProcessorDescriptor` and makes its kernel (`ADR-0061`)
+- [ ] The domain's `EffectChain` extended with slots, parallel groups, bypass and wet/dry; no second chain model (`ADR-0060`)
+- [ ] A chain applied to a selected range as a processing operation, and a rack on an asset and on a region over the whole target, both realised by the plan (`ADR-0060`)
+- [ ] Shared chains: several operations or targets naming one chain, and making one independent (`REQ-EDIT-014`)
+- [ ] Professional core DSP suite: every processor of `REQ-AUDIO-018` that is not already an edit operation, listed under WU-06.B
+- [ ] Time stretching and the sample-rate conversion of an asset as operations in its chain that carry positions by their ratio
+- [ ] New canonical primitives (exponential, logarithm, power, trigonometric functions) in both implementations (`ADR-0032`, `ADR-0061`)
+- [ ] `crates/analysis`: the short-time Fourier transform, peak and loudness measurement, and the detectors restoration needs
 - [ ] Serial/parallel graph usage, wet/dry, side-chain-ready contracts
-- [ ] Preview/final quality modes
-- [ ] Processor presets/chains
+- [ ] Preview/final quality modes: `QualityMode` replacing `RenderQualityProfile`
+- [ ] Real-time preview, bypass, A/B and processed/original comparison, and parameter changes during playback
+- [ ] The cached preview producer that Phase 03's mode selector reports as missing
+- [ ] Processor presets/chains: saved in the person's library, applied to one or to several selected targets in one history step
 - [ ] Processor versioning
 - [ ] Local ML model-pack manager
-- [ ] Local ML restoration/source-separation processors
+- [ ] Local ML restoration/source-separation processors: the packs `ADR-0062` names
 - [ ] Deterministic canonical render integration
 - [ ] Third-party plugin extension boundary only; no third-party loading
+- [ ] Rack and processor views in the editor and the Inspector, invoking only project commands
 
 ## Explicitly Out of Scope
 
-- Spectral painting UI
+- Spectral painting UI and spectral selection editing (Phase 08, which reads this phase's `crates/analysis` and ML processors)
 - Third-party plugin ecosystem
 - Cloud ML processing
+- Track, bus and master racks: no track or bus exists yet; their `effectChainId` fields stay, and a later phase runs them as `ADR-0060` says
+- Export and every audio writer (Phase 09), which renders through this phase's chains
+- Monitoring through effects while recording (Phase 07)
+- Loudness matching across groups and variation sets (Phases 10 and 13), which read this phase's loudness measurement
+- Advanced batch workflows beyond applying a saved chain to several selected targets (Phase 13)
+- ML packs whose weights are not licensed for redistribution, and the candidate ML assistants with no such model today (`ADR-0062`)
 
 ## Owned Modules / Packages
 
@@ -186,15 +223,22 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - `packages/effect-rack`
 - `packages/ml-runtime`
 - `packages/model-packs`
-- `crates/dsp-core`
 - `crates/analysis`
-- `crates/wasm-bindings`
+- `crates/dsp-core` (Phase 03's; this phase extends it with the new primitives and kernels)
+- `crates/wasm-bindings` (Phase 03's; this phase extends its ABI and raises its version)
+- `packages/domain/processing` and `packages/domain/editing` (the chain, processor state and the plan's processed stream)
+- `packages/project-commands` rack and processor commands
+- `apps/web rack, processor and model-pack views`
 
 ## Cross-Package Dependency Rules
 
 - Processors implement audio-graph contracts and are independent of React/workspace.
 - Model-pack storage uses storage public APIs, not OPFS internals.
 - Third-party plugin code loading remains absent.
+- `packages/processors` depends on the domain, `audio-graph`, `audio-engine` and `text`; `packages/effect-rack` on the domain, `audio-graph` and `processors`; neither knows a browser global (`ADR-0061`).
+- `packages/audio-graph` and `packages/audio-engine` may depend on `packages/text` (`ADR-0030` amended); on nothing else new.
+- `packages/ml-runtime` is reached by the ML processors through its inference port; only its worker adapter knows ONNX Runtime Web, and capabilities are probed by `packages/capabilities` (`ADR-0062`).
+- The interface changes racks, chains, processors and packs only through project and application commands.
 
 ## Required Public Contracts
 
@@ -206,16 +250,24 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - ModelPackManifest
 - MLProcessorCapability
 - QualityMode
+- The rack edit, and the rack of an asset and of a region (`ADR-0060`)
+- The plan's processed stream (`ADR-0060`)
+- The inference port (`ADR-0062`)
 
 ## Data / Schema Changes
 
 - Introduces versioned processor state, effect-rack/chain preset formats, processor implementation IDs, model-pack manifests and quality-profile data.
+- The project format gains rack edits, the racks of assets and regions, the extended chain, and time-stretch and rate-conversion operations, raising the project's schema version; before 1.0 nothing migrates (`REQ-STOR-052`).
+- The person's library gains saved chains and presets, in the chain's one persisted form.
+- The WASM ABI version is raised.
+- Settled by this phase's readiness review (`ADR-0060`, `ADR-0061`, `ADR-0062`): where a rack sits in the edit model, how processors are joined to the engine and held canonical, and the inference runtime and first packs.
 
 ## Browser / Platform Considerations
 
 - WASM/SIMD/GPU/inference acceleration is capability-based.
 - ML model availability/storage may vary; no remote fallback.
 - Real-time preview may use a different disclosed quality path than final render.
+- ONNX Runtime Web's files are served by the application and loaded only when an ML processor first runs; a final render's inference uses one thread, so it needs no cross-origin isolation.
 
 ## Architectural Invariants
 
@@ -223,36 +275,51 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - Final render defaults to highest-quality supported mode; user may choose lower/faster modes.
 - ML audio never leaves device.
 - Changing processor algorithm/version cannot silently change old post-1.0 project sound.
+- The edit plan is the only description of an edited sound; racks are realised in it.
+- A chain has one persisted form, in a project or a library.
+- A processed stream renders from its own start; a region's audio is exactly its span of its asset's.
+- Every canonical kernel in Rust has its reference TypeScript implementation, run by the same golden test.
+- No platform transcendental function or browser-native node is in a canonical path.
 
 ## Internal Work Units
 
 ### WU-06.A — Processor framework
 
 - [ ] Implement typed processor descriptors/parameters/state versioning
+- [ ] Join each processor's descriptor to its node implementation
 - [ ] Implement effect racks, bypass, reorder, wet/dry, preset/chain serialisation
 - [ ] Integrate graph latency compensation
+- [ ] Fold rack edits and racks into the plan as processed streams, with their commands, inverses and validation
+- [ ] Implement shared chains, making one independent, and applying a saved chain to several targets
 
 ### WU-06.B — Core DSP
 
-- [ ] Implement gain/normalisation/EQ/filter/compression/limiting/gate/expansion/de-ess/DC/resample/channel/fade/reverse/delay/reverb and cleanup processors
+- [ ] Add the canonical exponential, logarithm, power and trigonometric primitives in both implementations
+- [ ] Implement gain/normalisation/EQ/filter/compression/limiting/gate/expansion/de-ess/DC/resample/channel/fade/reverse/delay/reverb and cleanup processors, where fade, reverse, polarity, silence and channel edits are Phase 05's edit operations and gain is the engine's gain node
+- [ ] Implement peak and loudness normalisation with a whole-input analysis pass
+- [ ] Implement silence generation and silence trimming through the insertion and trim operations
+- [ ] Implement pitch shifting as a processor, and time stretching and asset rate conversion as chain operations
+- [ ] Implement ambisonic encode, decode and rotate processors (Phase 03's F-38)
 - [ ] Provide deterministic audio golden tests and N-channel behaviour
 
 ### WU-06.C — Advanced restoration
 
 - [ ] Implement de-hum/de-click/de-pop/noise-reduction foundations
+- [ ] Implement dereverberation by weighted prediction error, and click and pop detection, as canonical processors
 - [ ] Implement analysis and preview caching where needed
 
 ### WU-06.D — Local ML infrastructure
 
 - [ ] Implement model-pack download/import, integrity/version/storage/delete controls
 - [ ] Implement local inference abstraction and quality tiers
-- [ ] Add agreed restoration/separation/dereverberation capabilities without remote fallback
+- [ ] Add the restoration, enhancement and separation packs `ADR-0062` names, without remote fallback
 
 ### WU-06.E — Quality/reproducibility
 
 - [ ] Implement preview vs final quality disclosure
 - [ ] Persist processor implementation versions
 - [ ] Add A/B and processed/original comparison
+- [ ] Replace `RenderQualityProfile` with `QualityMode`, and produce cached preview renders
 
 ## Failure and Recovery Behaviour
 
@@ -260,14 +327,21 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - Model-pack corruption/incompatibility must not affect project validity.
 - Processor failure must not silently output zero/unchanged audio as success.
 - Unsupported channel layouts must fail/adapt explicitly.
+- A chain, processor or state version the reader does not know is refused with the reason, before 1.0 with no migration.
+- A chain that something names cannot be removed.
+- An interrupted or cancelled pack download or import keeps nothing unverified, and can be resumed or retried.
 
 ## Required Verification Commands / Suites
 
 - `cargo test --workspace`
-- `pnpm test --filter processors --filter effect-rack --filter model-packs`
+- `pnpm --filter @audiogubbins/processors --filter @audiogubbins/effect-rack --filter @audiogubbins/ml-runtime --filter @audiogubbins/model-packs test`
 - `pnpm test:audio-golden`
-- `pnpm test:dsp-property`
-- `pnpm test:ml-locality`
+- `pnpm test:audio-latency`
+- `pnpm test:editing-property`
+- `pnpm test:project-roundtrip`
+- `pnpm test:dsp-property`, which this phase adds
+- `pnpm test:ml-locality`, which this phase adds
+- `pnpm test:architecture`
 
 ## Acceptance Criteria
 
@@ -277,6 +351,11 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - [ ] Model packs can be installed/verified/removed without transmitting audio or breaking projects.
 - [ ] Processor latency and channel-layout declarations are enforced.
 - [ ] No third-party arbitrary code/plugin loading exists.
+- [ ] Every Rust kernel and new primitive renders the same bits as its reference implementation.
+- [ ] A chain applied to a selection, an asset's rack and a region's rack render as `ADR-0060` orders them, and a region renders exactly as its span of its asset.
+- [ ] A change to a shared chain reaches every operation and target that names it, and one undo restores it.
+- [ ] Each ML pack's final render is one hash per pack and settings in every browser the tests run, or within a documented and tested tolerance.
+- [ ] A browser test applies a chain to a selection, gives a region a rack, reloads, and hears the same project.
 
 ## Forbidden Shortcuts
 
@@ -289,6 +368,9 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - No hidden online ML.
 - No processor parameters stored only in UI components.
 - No universal plugin framework built for hypothetical third parties.
+- No second chain model beside the domain's `EffectChain`, and no rack rendered outside the plan.
+- No processor that re-implements an edit operation Phase 05 made.
+- No model weights or large test media committed to the repository.
 
 ## Required Review Lenses
 
@@ -308,6 +390,16 @@ Users can build/reorder/bypass/preset/A-B non-destructive effect chains, preview
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by the Phase 03 and Phase 05 reviews and their handoffs:
+
+- F-07's remnants (Phase 05, LOW): `audio-graph` and `audio-engine` each write their own count (`layout-description.ts`, `stability.ts`) and take `counted` from `packages/text` (`ADR-0030` amended); a time of day to the second is written three ways (`packages/storage-runtime/src/host/browser-host.ts`, `apps/web/src/app.tsx`, `apps/web/src/shell/diagnostics-panel.tsx`); `packages/storage/src/usage-measurement.ts` lists projects by hand; and names are quoted two ways, curly in `packages/project-commands/src/project-command.ts` and straight in `apps/web/src/wording.ts`.
+- The shared processing chains of `REQ-EDIT-014` (Phase 05), listed under In Scope.
+- F-38 (Phase 03): ambisonic encode, decode and rotate are processors, listed under WU-06.B.
+- Phase 03's cached preview mode, which has no producer, listed under In Scope.
+- The golden render that times out under load at Vitest's five-second default (Phase 05), which this phase's `pnpm test:audio-golden` gate meets. The other tests that do so stay Phase 14's.
 
 ## Handoff Capsule
 
@@ -630,6 +722,581 @@ The initial implementation will not expose arbitrary third-party plugin loading.
 However, internal processor/plugin abstractions should avoid preventing a future plugin ecosystem.
 
 Security boundaries, sandboxing, compatibility, and versioning must be considered before third-party plugins are exposed.
+
+---
+
+## REQ-EDIT-014 — Regions
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** section 14 of the pre-hardening baseline
+
+A single source asset may contain multiple independently editable regions.
+
+Regions may support:
+
+- Independent names
+- Independent boundaries
+- Independent processing
+- Shared processing chains
+- Per-region export
+- Batch export
+- Loop settings
+- Metadata
+
+Example:
+
+- `footstep_grass_01`
+- `footstep_grass_02`
+- `footstep_grass_03`
+
+A long source recording should be capable of producing many separately exported game-audio assets.
+
+---
+
+## REQ-EDIT-012 — Timeline and Editing Requirements
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 12 of the pre-hardening baseline
+
+The editor shall support:
+
+- Sample-accurate editing
+- Movement down to individual samples
+- Time display
+- Millisecond display
+- Sample display
+- Future-ready musical time display
+- Playhead
+- Selection ranges
+- Markers
+- Named regions
+- Loop boundaries
+- Zoom
+- Pan/scroll
+- Channel-separated waveform display
+
+Processing behaviour:
+
+- If a selection exists, processing applies to the selection.
+- If no selection exists, processing applies to the entire target asset or region.
+
+---
+
+## REQ-EDIT-072 — Contextual Inspector
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 72 of the pre-hardening baseline
+
+A contextual Inspector shall be a core workspace concept.
+
+Depending on selection, it may expose properties for:
+
+- Assets
+- Regions
+- Clips
+- Markers
+- Loop definitions
+- Channels
+- Processors
+- Effect racks
+- Recording configuration
+- Export jobs
+- Future tracks/buses/automation objects
+
+Direct manipulation in the editor and property editing in the Inspector must update the same underlying domain state.
+
+---
+
+## REQ-ARCH-004 — Core Architectural Principles
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 4 of the pre-hardening baseline
+
+#### 4.1 Local-First
+
+The editor must function primarily on the user's local machine.
+
+Core editing functionality must not depend on:
+
+- A user account
+- A remote application server
+- Cloud storage
+- External processing
+- Mandatory telemetry
+- Uploading audio to third parties
+
+Audio should remain local unless the user explicitly invokes a future online integration.
+
+Future user-configured cloud integrations should be possible through provider-neutral abstractions, but the local project model must never depend on a cloud provider.
+
+---
+
+#### 4.2 Non-Destructive Editing
+
+Non-destructive editing is mandatory.
+
+Original source audio must remain unchanged unless the user explicitly requests a destructive export or replacement workflow.
+
+Edits must be represented as operations and parameters rather than repeatedly rewriting the source audio.
+
+---
+
+#### 4.3 Parametric Editing
+
+The editing architecture shall use a parametric model wherever practical.
+
+Examples include:
+
+- Gain changes
+- Normalisation
+- Equalisation
+- Compression
+- Filters
+- Fades
+- Time ranges
+- Noise-reduction parameters
+- Pitch processing
+- Time stretching
+- Spectral operations
+- Loop definitions
+- Region boundaries
+
+The authoritative project state should be composed of:
+
+- Immutable source assets or source references
+- Parametric edit operations
+- Effect chains
+- Region and marker data
+- Project metadata
+- User configuration
+
+Rendered intermediates, waveform peaks, spectrogram tiles, preview renders, proxies, and other derived data should be treated as disposable caches.
+
+---
+
+#### 4.4 Future Multitrack Readiness
+
+Initial releases shall focus on high-quality single-file and region-based waveform editing.
+
+True multitrack editing is deferred to a later approved phase/specification, but the architecture SHALL remain multitrack-ready from the first production phase.
+
+The initial internal model must therefore avoid assumptions such as:
+
+> one project = one waveform
+
+The domain model should already support concepts such as:
+
+- Projects
+- Assets
+- Clips
+- Regions
+- Tracks
+- Processors
+- Effect chains
+- Buses
+- Routing
+- Automation-ready parameters
+
+Even if some of those concepts are not exposed in the first UI.
+
+---
+
+## REQ-ARCH-081 — Canonical Deterministic Processing
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 81 of the pre-hardening baseline
+
+AudioGubbins shall aim for deterministic, reproducible output wherever technically practical.
+
+The long-term canonical processing path should favour application-controlled DSP, resampling, and encoding implementations when that materially improves reproducibility.
+
+Browser-native implementations may be used as accelerators or convenience paths when they meet correctness and reproducibility requirements.
+
+Given identical source data, project state, processing settings, export settings, and AudioGubbins version, the target is bit-identical PCM output across supported machines and browsers wherever feasible.
+
+Where bit-identical behaviour cannot be guaranteed, the cause and expected tolerance must be documented and tested.
+
+---
+
+## REQ-ARCH-140 — Typed Directed Processing Graph
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 140 of the pre-hardening baseline
+
+The canonical processing architecture shall be a typed directed graph rather than a permanently linear effect-chain implementation.
+
+The initial user interface may present conventional linear effect racks for approachability, but the engine must support future graph capabilities without architectural replacement.
+
+The graph architecture must be capable of representing:
+
+- Serial processing
+- Parallel branches
+- Split/mix paths
+- Wet/dry paths
+- Side-chain inputs
+- Mid/side branches
+- Analysis-only nodes
+- Render/cache nodes
+- Future multitrack sends and returns
+- Future buses
+- Future parameter-controlled routing
+- Reusable subgraphs
+- Future plugin-host nodes
+
+Graph nodes and edges must use explicit typed contracts.
+
+Invalid graph states must be rejected deterministically with actionable diagnostics.
+
+The graph implementation must avoid a central god-object processor manager. Node lifecycle, scheduling, graph validation, latency propagation, and render planning should be decomposed into cohesive subsystems with explicit ownership and dependency direction.
+
+---
+
+## REQ-ARCH-141 — DSP Implementation Languages
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 141 of the pre-hardening baseline
+
+TypeScript remains the primary application, domain, orchestration, and UI language.
+
+Performance-critical, numerically sensitive, safety-critical, or deterministic DSP infrastructure should use WebAssembly where it provides material benefits.
+
+For new AudioGubbins-owned WASM/DSP infrastructure, Rust is the preferred default implementation language because of:
+
+- Memory safety
+- Strong type system
+- Mature WebAssembly support
+- Suitability for deterministic numerical code
+- Strong tooling
+- Good interoperability with generated bindings
+
+This is a default, not an ideological restriction.
+
+Mature C/C++ or other native-code libraries may be used where they provide objectively stronger DSP, codec, numerical, or interoperability capabilities and satisfy licensing, security, maintainability, portability, and deterministic-render requirements.
+
+Language selection must never be made solely because one option is easier or faster for the implementation agent.
+
+Bindings between TypeScript and WASM must use narrow, documented, typed interfaces and avoid leaking implementation-specific memory ownership throughout the application.
+
+---
+
+## REQ-ARCH-144 — Processor Latency and Automatic Delay Compensation
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 144 of the pre-hardening baseline
+
+Processor latency must be a first-class engine concept from the initial DSP architecture.
+
+Processors that introduce latency must report it accurately or expose sufficient information for the engine to calculate it.
+
+Examples include:
+
+- Look-ahead dynamics
+- Linear-phase filtering
+- Convolution
+- Spectral processing
+- ML inference
+- Oversampled processors
+- Time-domain buffering
+
+The processing graph must propagate latency information and provide automatic delay compensation where required so that:
+
+- Parallel processing paths remain phase/time aligned
+- Future multitrack playback remains aligned
+- Side chains remain coherent
+- Offline renders remain sample-correct
+- Monitoring latency can be reported accurately
+
+Latency compensation must not be retrofitted as a future multitrack-only concern.
+
+---
+
+## REQ-ARCH-157 — Multichannel, Surround, and Ambisonic Audio
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 157 of the pre-hardening baseline
+
+AudioGubbins shall support professional multichannel authoring beyond mono and stereo.
+
+The channel model must be layout-aware rather than relying only on channel count. It should be capable of representing, validating, displaying, processing, and exporting layouts such as:
+
+- Mono
+- Stereo
+- LCR
+- Quadraphonic layouts
+- 5.1
+- 7.1
+- Other discrete-channel layouts supported by relevant formats
+- Ambisonic channel sets and ordering/normalisation conventions where supported
+- Custom labelled channel maps
+
+The architecture shall include explicit channel-layout metadata and channel-role identity. Channel order must not be inferred from array position alone when a format or workflow requires semantic channel identity.
+
+Waveform, metering, selection, processor, routing, analysis, export, and future multitrack contracts must all be designed for N-channel operation.
+
+Where a processor cannot support an input layout, it must declare that limitation explicitly and provide a well-defined adaptation policy where one is acoustically valid. Silent downmixing or accidental channel truncation is prohibited.
+
+AudioGubbins should support professional channel-layout operations, including:
+
+- Remapping
+- Reordering
+- Extraction
+- Duplication
+- Downmixing
+- Upmix-assist workflows where appropriate
+- Per-channel gain/polarity/delay
+- Linked and unlinked processing
+- Mid/side and other matrix operations
+- Surround metering
+- Phase/correlation analysis
+- Ambisonic encode/decode/rotate/normalisation utilities where supported
+
+Export recipes must preserve or intentionally transform channel-layout metadata according to explicit user configuration.
+
+---
+
+## REQ-ARCH-085 — Native Asset Sample Rates and Future Session Rate
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 85 of the pre-hardening baseline
+
+During single-asset editing, source assets should retain their native sample rates internally wherever practical.
+
+AudioGubbins must avoid unnecessary resampling merely to conform to a global project rate.
+
+When multitrack sessions are introduced, a session or mix sample rate may be defined while preserving original source assets at their native rates.
+
+Resampling must remain explicit, deterministic, and high quality.
+
+---
+
+## REQ-ARCH-088 — Fully Local Core Processing
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 88 of the pre-hardening baseline
+
+All core DSP, analysis, rendering, encoding, decoding, waveform generation, and project processing must remain local and offline-capable once required application assets are available.
+
+AudioGubbins must never silently upload work or switch to remote/cloud processing because a local device is slow.
+
+Any future cloud-assisted processing must be:
+
+- Explicitly enabled by the user
+- Clearly identified
+- Optional
+- Provider-aware
+- Privacy-transparent
+- Non-essential to the core editor
+
+---
+
+## REQ-ARCH-153 — State Ownership and Workflow State
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 153 of the pre-hardening baseline
+
+AudioGubbins must not create a single global application store containing all project, UI, renderer, audio, and job state.
+
+State shall be partitioned according to ownership and lifetime, including at least:
+
+- Authoritative project/domain state
+- Persisted command journal/history state
+- User preferences
+- Workspace/layout state
+- Per-editor-view state
+- Ephemeral interaction state
+- Audio-engine runtime state
+- Renderer runtime state
+- Background job state
+- Capability/runtime diagnostics
+
+The typed command/domain layer remains authoritative for meaningful project mutations.
+
+React-facing state libraries may be used for UI-oriented state, but they must not become an alternative domain model or bypass command validation, transactions, undo/redo, persistence, or architectural boundaries.
+
+Explicit state machines should be used where workflows have meaningful lifecycle rules, failure/recovery states, or concurrency constraints—for example recording, export jobs, schema reset/backup flows, project ownership transfer, PWA updates, and long-running model installation—rather than representing complex lifecycle behaviour through scattered booleans.
+
+---
+
+## REQ-REPO-187 — Product Versioning
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 187 of the pre-hardening baseline
+
+AudioGubbins shall expose one primary product release version shared across the web application and first-party Godot integration packages.
+
+A release should therefore be understandable to users as, for example:
+
+`AudioGubbins 0.x.y`
+
+rather than requiring users to reason about unrelated public versions for the PWA, editor addon, and runtime addon.
+
+Independent internal compatibility/version identifiers are still required where technically necessary, including:
+
+- Project schema version.
+- Persistence schema version.
+- Processor implementation version.
+- DSP graph contract version.
+- Godot generated-resource schema version.
+- Runtime event schema/API version.
+- Model-pack version.
+- Cache-format version.
+
+Internal compatibility identifiers must not be conflated with the product marketing/release version.
+
+Pre-1.0 schema-breaking policy and post-1.0 migration policy remain as defined elsewhere in this specification.
+
+---
+
+## REQ-REPO-191 — Reference Assets, Fixtures, and Example Projects
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 191 of the pre-hardening baseline
+
+The public repository shall contain a deliberately small, legally clean set of reference assets and examples sufficient for contributors, agents, and automated tests to exercise AudioGubbins without external setup.
+
+This should include, as appropriate:
+
+- Synthetic deterministic test signals.
+- Small openly licensed audio clips.
+- Mono and stereo examples.
+- Representative multichannel examples.
+- Loopable examples.
+- Deliberately damaged/noisy reference samples for restoration tests.
+- Known transient/click/DC-offset test signals.
+- Small reference video clips for sound-to-picture tests where licensing permits.
+- Example AudioGubbins projects.
+- Example Godot integration project.
+- Example event/variation resources.
+
+Rules:
+
+- Licensing/provenance must be documented for non-generated fixtures.
+- Test fixtures must remain stable once they are used for golden/reference tests unless a deliberate reviewed change is required.
+- Large corpora and heavyweight ML/audio datasets must not bloat normal Git history; they should be generated or fetched on demand with integrity/version metadata.
+- Deterministic synthetic signals are preferred wherever they adequately test the required behaviour.
+
+---
+
+## REQ-STOR-166 — Asset Provenance and Traceability
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 166 of the pre-hardening baseline
+
+AudioGubbins should retain structured provenance for assets and generated outputs so that developers and sound designers can determine how a game-ready audio file was produced.
+
+Provenance may include:
+
+- Original filename
+- Original source reference/handle where appropriate
+- Import date/time
+- Source fingerprint/hash
+- Source size and format
+- Source sample rate, bit depth, channel layout, and duration
+- Originating AudioGubbins project and project identifier
+- Asset/region identifiers
+- Processing graph and processor-version references
+- Relevant render/export recipe identifier
+- Export date/time
+- Destination information
+- Generated Godot resource identifiers
+- Variation-set/event membership
+- Application version used for render
+- Determinism/render-quality mode
+- ML model version where applicable
+
+Provenance must be represented as structured project metadata rather than inferred from filenames.
+
+Users must be able to strip or minimise provenance and embedded metadata during export where privacy, distribution, or file-size requirements make that desirable.
+
+Provenance metadata must not require network services and must remain compatible with local-first operation.
+
+For deterministic or Git-friendly project modes, provenance serialisation should use stable ordering and avoid meaningless timestamp churn where the timestamp itself is not semantically required.
+
+---
+
+## REQ-STOR-195 — Whole-Project A/B State Comparison
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 195 of the pre-hardening baseline
+
+AudioGubbins shall support comparison and auditioning of complete historical project states, not only processor-level A/B comparison.
+
+The user should be able to select two compatible snapshots/history states and:
+
+- Switch rapidly between them.
+- Audition the resulting audio.
+- Compare processor chains and parameters.
+- Compare region/marker/loop state.
+- Inspect meaningful differences where practical.
+- Promote either state to become the current working state without destroying the other.
+
+Comparison state must not mutate either source snapshot merely by auditioning it.
+
+---
+
+## REQ-PRIV-161 — Diagnostic Submission and Consent Policy
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 161 of the pre-hardening baseline
+
+AudioGubbins must never transmit diagnostic information, crash data, logs, capability information, project metadata, file metadata, source media, rendered audio, or any other user/project information without the user's express permission.
+
+There must be no silent crash reporting, background error reporting, or automatic diagnostic upload.
+
+The application may provide an explicit diagnostic-sharing workflow that allows the user to review and submit a sanitised diagnostic bundle. The bundle may include, where useful and non-sensitive:
+
+- AudioGubbins version/build identifier
+- Browser and operating-system information
+- Runtime capability matrix
+- Relevant feature flags and degraded-capability state
+- Sanitised stack traces
+- Structured application logs
+- Performance timings and resource statistics
+- Processor/plugin/model version identifiers
+- Project/schema version numbers without project content
+- Reproduction metadata explicitly selected by the user
+
+By default, diagnostic bundles must exclude:
+
+- Raw or rendered audio
+- Project files or project contents
+- Source filenames where they may reveal sensitive information
+- Full local filesystem paths
+- Credentials, access tokens, API keys, cookies, or authentication data
+- User-entered free-form content unless deliberately included
+- Cloud-provider data
+- Private Godot project contents
+
+The diagnostic-bundle UI must show the user what will be included before submission or export.
+
+A user may explicitly opt into a remembered diagnostic-sharing preference so that AudioGubbins does not repeatedly present the same consent dialogue for equivalent diagnostic submissions. This opt-in must be:
+
+- Explicit
+- Revocable
+- Easy to inspect and change
+- Narrowly scoped to diagnostic sharing
+- Never interpreted as permission to send analytics, audio, project content, or unrelated data
+
+Even with remembered consent, AudioGubbins must not silently expand the categories of information being transmitted. Materially new data categories require renewed explicit consent.
+
+Where automatic submission is later supported after opt-in, the user must be able to disable it immediately and inspect locally retained submission history where practical.
 
 ---
 
@@ -1286,7 +1953,75 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 ---
 
+## REQ-STOR-052 — Project Schema Compatibility Policy
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 52 of the pre-hardening baseline
+
+#### Pre-1.0.0
+
+Before version 1.0.0, the project and storage schemas are explicitly allowed to break.
+
+The application must not accumulate backwards-compatibility shims or migration code during this period.
+
+When a breaking schema change is detected, the application shall present a blocking compatibility screen that clearly explains that the current stored data is incompatible with the new schema.
+
+The user must be able to choose, where technically possible, to:
+
+- Back up/export current data before proceeding
+- Cancel and remain on the current state
+- Proceed and wipe incompatible local application data
+
+After wipe, the application shall initialise storage using the current schema.
+
+#### Version 1.0.0 and Later
+
+From 1.0.0 onward, backwards-compatible project/schema migration becomes a supported product responsibility.
+
+Migration infrastructure should then include:
+
+- Versioned schemas
+- Explicit migration steps
+- Validation
+- Recovery/failure handling
+- Migration tests
+- Preservation of user project data wherever technically possible
+
+---
+
 # Relevant Accepted ADRs
+
+<!-- adr/ADR-0001-web-stack.md -->
+
+# ADR-0001 — Web Application Stack
+
+- **Status:** Accepted
+- **Decision:** Use React 19.x + TypeScript + Vite 8.x for the web shell, Radix Primitives for accessible low-level controls, Dockview behind an AudioGubbins-owned workspace abstraction, and Motion for React for application-shell animation.
+- **Drivers:** rich professional UI, accessibility, mature ecosystem, dockable workspaces, strong animation, static/PWA deployment.
+- **Constraints:** React must not own high-frequency audio/render state or authoritative project state. Domain packages remain framework-agnostic.
+- **Related requirements:** `REQ-ARCH-151`, `REQ-ARCH-153`, `REQ-UX-057`, `REQ-EDIT-073`.
+- **Superseded in part:** the animation clause, by `ADR-0014`. Motion for React is not installed until a component imports it.
+
+<!-- adr/ADR-0003-audio-engine-wasm.md -->
+
+# ADR-0003 — Canonical Audio Engine and WASM Strategy
+
+- **Status:** Accepted
+- **Decision:** Use Web Audio/AudioWorklet for real-time browser I/O and a typed processing graph, with Rust as the default language for new performance/safety-critical canonical DSP compiled to WebAssembly. Mature C/C++/other libraries may be used when objectively superior and licence-compatible.
+- **Drivers:** deterministic rendering, performance, numerical correctness, local processing, portability.
+- **Constraints:** SharedArrayBuffer/threaded WASM is an enhancement, not a GitHub Pages hard dependency. Final render defaults to maximum quality.
+- **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`.
+
+<!-- adr/ADR-0008-monorepo.md -->
+
+# ADR-0008 — Monorepo and Workspace Model
+
+- **Status:** Accepted
+- **Decision:** Keep the web app, TypeScript packages, Rust crates, Godot addons, fixtures, tests and specification in one coordinated monorepo using pnpm workspaces and Cargo workspaces.
+- **Drivers:** shared schema/versioning, cross-component refactors, agent worktree coordination, unified release version.
+- **Constraints:** package boundaries must reflect coherent ownership; no package proliferation for appearances; circular dependencies are prohibited.
+- **Related requirements:** `REQ-REPO-154`, `REQ-REPO-185`, `REQ-REPO-186`, `REQ-REPO-187`.
 
 <!-- adr/ADR-0009-design-system-boundary.md -->
 
@@ -1317,6 +2052,19 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** state partitioned by ownership; a store testable without React; a composition root that is the only place knowing what the real clock, storage and capability probes are.
 - **Constraints:** a store exposes its members as properties rather than methods, so a reader cannot capture an unbound method. Authoritative project and audio state does not live here, and React never owns high-frequency state.
 - **Related requirements:** `REQ-ARCH-153`, `REQ-EXEC-136.4`, `REQ-EDIT-073`.
+
+<!-- adr/ADR-0015-phase-01-owns-domain-value-model.md -->
+
+# ADR-0015 — Phase 01 Owns the Non-Authoritative Domain Value Model
+
+- **Status:** Accepted. Approved by the project owner on 2026-09-18, as the disposition of Phase 01 review finding F-24.
+- **Supersedes:** the `packages/domain/project` entry in Phase 02's owned modules. Phase 02 keeps everything else it owns, including the authoritative project schema.
+- **Decision:** Phase 01 owns the domain value model in `packages/domain`: the result and failure model, branded identifiers and their generator, sample time, channel layout, and the project, asset, timeline, routing, processing-parameter, effect-chain and selection value types. These are in-memory values that nothing persists. Phase 02 owns the authoritative, versioned, persisted project format built on them, in `packages/project-format` and the storage packages, and extends these types where the format needs it rather than owning a second copy of them. Phase 01's statement that it owns no authoritative audio-project schema stands, because this model is not one: it has no schema version, no serialisation and no storage path.
+- **Drivers:** `REQ-REPO-191` makes Phase 01 own deterministic fixtures and example projects, and a fixture project needs a project type to be built from; `REQ-ARCH-151` requires core editing logic and project state to be testable without rendering a component, which is what the package's dependency-free compilation provides; the review found the model present in Phase 01's tree against the packet's wording, and the two ways to reconcile them were to move the code or to state the ownership. The owner chose to state it.
+- **Constraints:** no Phase 01 module persists these types or treats them as a format. A later phase that needs a persisted shape defines it in its own format package and converts, so a change to an in-memory value type is never silently a change to users' stored projects (`REQ-STOR-052`). Two phases do not claim one module: the Phase 02 packet no longer lists `packages/domain/project`.
+- **Change record:** affected requirements `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`; affected phases 01 and 02; compatibility impact none, because nothing has been persisted in this format and Phase 02 has not started; already-passed phase remediation none; verification unchanged, because the package's existing tests and the architecture rule that it depends on no other package already cover it.
+- **Related requirements:** `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`, `REQ-STOR-026`, `REQ-STOR-052`.
+- **Amended by:** `ADR-0051` (2026-10-02), in the timeline values: the project-timeline `Region` and `Marker`, which no phase had built on and nothing stored, are restated as values of one asset, anchored to its content, and the editor draws them as `PlacedRegion` and `PlacedMarker`. Every other clause stands.
 
 <!-- adr/ADR-0016-version-registry-package.md -->
 
@@ -1351,6 +2099,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** the package holds text rules and nothing else, and the architecture rules keep it a leaf. Its entry point offers the fifteen rules its consumers use (fourteen until the Phase 05 review, inherited F-55, which added `counted`; four until the fourteenth round, F-813, six until the eighteenth, F-970, F-971, F-978 and F-982, eleven until the twentieth, F-1038, which added `isIdentifier`, and twelve until F-1061 and F-1041 in the same round added `namesHeldBy` and `namesCanBeCompared`; `holderOf` and `identifiersHeldBy` stand where `sameName` and `freeIdentifier` stood until the nineteenth, F-1012, and `identifierRule` and `utf8Bytes` where `identifiersHeldBy` and `isIdentifier` stood until the twenty-first, F-1074) and not the pieces they are built from, the segmenter, the count of the characters a reader sees, the comparison of two names and the cut to a bound that adds an ellipsis, so a caller that wants another cut or another count reads one of these rather than assembling another. `wholeCharactersWithin` is offered as a rule, not as one of those pieces: it keeps a reader's own text, such as a reproduction note, to a size and adds nothing to say it was cut, because the reader wrote it and sees it whole where they wrote it; that the ellipsis cut and the cut at a word are built on it inside the package is the package's business. The dependency `ADR-0017` forbade is permitted for this package alone, and the cruiser rule that keeps the input package a leaf names it: the input model still sits below the command layer, still knows nothing of the browser, and gains no second edge. A text rule that belongs to one reader of it — what a key is called on a layout, how a log record is redacted — stays with that reader, because it is about what the text means there; this package holds the rules about the shape of text a reader is shown or read, how it is measured, cut, quoted and compared, whichever package shows it, and the identifier derived from a name, because that identifier is readable text that storage keys and a message or a file name quotes, so a rule for it is a rule for text a reader is shown; nine of the fifteen are built on its one reading of the characters a reader sees (eight until the twentieth round, F-1038, when an identifier came to be cut at a whole character to its bound, which `isIdentifier` and `identifiersHeldBy` read, and ten until the twenty-first, F-1074, when the two became the one rule `identifierRule` and `utf8Bytes`, which reads no character a reader sees, came to the entry point). How many packages read a rule is not the test: most of the fifteen have one reader today (restated in the fifteenth round, F-855, where this clause said the package holds only what more than one reader needs). The package has one responsibility, the rules for text a reader is shown: its measure, its cut, its quoting, its count of a noun, its comparison, and the identifiers named from it. Each of the fifteen rules is one of those: the holder of a name is the comparison read over a list, the names a list holds are that comparison read over a list sorted by it, whether names can be compared is the comparison's own condition, the identifier rule within its caller's bound answers the identifiers a list holds, the rule read over a list, and the shape a stored identifier is held to, the rule's result stated as a test, the bytes a text takes are its size in the unit that bound is written in, and a count is the number and the noun that agrees with it, the shape a sentence gives how many there are, so none is a second responsibility, and the package's description names the one (reviewed against the description test of `CLAUDE.md` G1 in the nineteenth round, F-1006, when the name rules, the comparison and the identifiers had made the description false).
 - **Change record:** affected requirements `REQ-REPO-154`, `REQ-UX-005`, `REQ-UX-066`; affected phase 01, whose owned modules gain `packages/text`; affected `ADR-0017`, whose leaf clause is amended here and nowhere else; compatibility impact: names cut by these rules, a copy's and that of a workspace saved with no name, and identifiers derived by them are stored in `audiogubbins.workspaces` and `audiogubbins.shortcuts`, so a change to the cut or the derivation changes what a later save writes, and, where a stored identifier or the name of the workspace on screen clashes with one held, what it is read under, while a stored name and a stored identifier that clash with none are read as they are stored (corrected in the nineteenth round, F-1006, where this clause said no persisted format holds text cut by these rules), and a stored identifier out of the shape an identifier is derived in, or past its bound, is read as text that cannot be read: the shortcut profile or the workspace stored under it is left out, with a notice, its collection's text set aside as for any other entry that cannot be read, never kept under it nor renamed without a word (since the twentieth round, F-1038, where such an identifier was kept as stored and became the name of an exported profile's file and the words of the announcement); every quoted value keeps its bound, and a rule of this package decides whether a stored name is read. A stored workspace whose name is longer than 120 characters is left out of the saved workspaces, with a notice and its text set aside, and a stored shortcut profile whose name is longer than 120 characters is left out, with a notice, the stored text it came in set aside under `audiogubbins.shortcuts.unreadable` before anything is written over it, and the profiles' write withheld and tried again with every write where there is no room to set it aside (amended in the eighteenth round, F-973, where this clause said the profile was left out with a log record). No build has shipped, so no stored data is affected (corrected in the sixteenth round, F-902, where this clause said the impact was none; the bound on a stored workspace's name came in the fifteenth round, F-864, and a stored profile's name, bounded since the tenth, is counted so since the fifteenth, F-850); already-passed phase remediation none; verification by the moved quoting tests, new tests for each cut and for the browser without a segmenter, and the architecture layering rules, which name the package.
 - **Amended:** in the fourteenth review round, in two clauses (review finding F-813). Two more surfaces had text a reader writes or is told about measured in code units: a reproduction note cut at its bound wherever the bound fell, and a profile name refused as "longer than 120 characters" by its code units, so a name of sixty emoji was refused. The entry point offers two more rules for them: `wholeCharactersWithin`, which keeps a reader's own text to a size on a whole character and adds nothing to say it was cut, and `longerThan`, which counts the characters a reader sees and reads no further than the one past the bound. Since the fifteenth round (F-850), a character longer than any real one counts once for each allowance it fills, so a bound in characters is also a bound in size, and the checks on a profile's name and a workspace's name rely on it for that (stated here in the sixteenth round, F-902). `packages/diagnostics` depends on this package for the first, which cannot close a cycle because this package depends on nothing; `packages/commands` read the second (superseded in the eighteenth round, F-970, when `longerThan` left the entry point and the command layer came to read the bound through `asName` and `asWrittenName`). The clause that the entry point offers four rules now reads six, and the list of consumers gains diagnostics; until the fifteenth round (F-855) this row said so and the two clauses did not, and the Decision and Constraints clauses now read so where they stand. The architecture rules keep the package a leaf and framework-free by name, which the verification clause above claimed and the rules did not do until this round. Since the seventeenth round (F-936), the ellipsis a cut adds is counted inside the cut's bound, so a caller passes the room it has rather than allowing for a character added past it, and the cut at a word keeps a word the cut ends exactly at, which is the bound less the ellipsis (corrected in the eighteenth round, F-984, where this row said the bound). Since the eighteenth round (F-970, F-978, F-982, F-971), the entry point offers `asName`, the shape of a name, which answers `blank` for a value that is not text as for one of nothing but space and `too-long` for one past its bound, so each package words each part of the rule once; a name given, whether typed, carried in a file or made for a copy, is held without the space around it, trimmed before the rule reads it and before it is numbered, and `asWrittenName` holds a name in stored text to the same rule and keeps it as it is written, so a stored name is read as it was stored; `sameName`, which holds two names to be one where they differ only in case, in how a letter is encoded, or in space, trimmed and each run inside one space, as a screen reader says them alike, and by which the workspace refuses a name another workspace has, and the command layer a name typed for a profile that another has; `firstFreeName`, the first of a name, then of the name with a number after it, that no name in use has, the name cut at a word in the characters `longerThan` counts to leave room for what follows it, by which each package names a workspace or a profile nobody named and the command layer numbers a profile imported under a name another profile has, where a cut in code units kept half the characters its bound allows of a name outside the basic plane; `firstFreeCopyName`, the first free of the name with the word a copy adds after it (" copy" in the eighteenth round, the word the caller gives since the nineteenth, F-1004), then with a number after that, cut the same way, by which each package names a copy nobody named, and by which a copy of a name that is itself a copy's, "<stem> copy" or "<stem> copy <number>", takes the stem's next free number, so a copy of "Editing copy" is "Editing copy 2" rather than "Editing copy copy"; and `freeIdentifier`, the identifier derived from a name, in lower case, each run of anything but a letter or a digit one hyphen and the caller's word where nothing is left, then numbered until no identifier in use has it, which the workspace and the command layer each derived for themselves, and which belongs here because the identifier is readable text that storage keys and a message or a file name quotes. `longerThan` and the cut at a word in characters are not on the entry point: the two name rules read the first through `asName` and `asWrittenName`, and `firstFreeName` and `firstFreeCopyName` read the second inside the package. The clause that the entry point offers six rules now reads eleven. Since the nineteenth round (F-999, F-1001, F-1004, F-1012 and F-1023), two names are compared by English collation with every option that decides whether two names are one stated, punctuation not ignored and digits compared as they are written, on every machine, because a name travels in an exported file and is refused or numbered on the machine it is imported on, where the reader's language made Turkish hold "MIXING" and "mixing" to be two names, Danish "Gaard" and "Gård" to be one, and Thai ignore punctuation, and the rule refuses to load where the runtime resolves another collation, ignores punctuation or reads digits as numbers; the identifier derived from a name keeps the letters, marks and digits of every script, taken from the name's compatibility form (NFKC) in a lower case without a locale, where it kept the letters a to z alone, so "Écoute" gave `coute` and a name in Cyrillic the caller's word; `firstFreeCopyName` takes the word a copy adds from the package that names the copy, which words it for its reader, reads a copy's series by that word as `sameName` compares a name, so a copy of "Editing Copy" is "Editing copy 2", and counts the word in the characters the bound counts; and `holderOf`, the entry of a list other than the one a name is being given to whose name is that name as a reader hears it, and `identifiersHeldBy`, the identifiers a list of entries holds, from which each entry added is given the one derived from its name or, for an entry read from storage, its own where it is free, numbered from two where the one it would take is held, take the place of `sameName` and `freeIdentifier` on the entry point, so the workspace and the command layer each keep their list and word their refusal and neither writes the rule. The identifiers a list holds are read as a set, and each count resumes where the last under the same identifier stopped, which is the first free number because nothing held is let go while the set lives, so an allocation costs about the same however many entries share its identifier, where counting from two for each entry over every entry held made a list read from storage take time that grew with the cube of its length. Since the twentieth round (F-1038), `isIdentifier` holds exactly the identifiers the package gives, one that is not empty and is its own identifier, so letters, marks and digits of any script in their compatibility form and lower case, in runs joined by single hyphens, with no hyphen at either end, where a stored `Mine` would sit beside the `mine` its name derives, and within its bound, in UTF-8 bytes (one bound for every caller until the twenty-first round, F-1074, set here from the name of a file a caller writes, when each caller came to give its own); a name's identifier is cut at a whole character to the bound, and cut again before it is numbered, so every identifier derived, numbered or not, is one it accepts, where 120 letters in Cyrillic derived 240 bytes; and `identifiersHeldBy` holds an identifier read from storage only where it accepts it, answering none, and holding none, for one it refuses, which the workspace's reading and the command layer's restore of a stored list each read as an entry that cannot be read. Since the twentieth round (F-1041), the collation is resolved once and held to the rule at the capability probe at start or at the first comparison, whichever comes first, never where the package loads (corrected in the twenty-first round, F-1091, where this clause placed it at the first comparison alone), where the refusal to load stopped every package that reads this one, the logger and the keyboard among them, and the page started blank with nothing said: `namesCanBeCompared` is the one statement of the check, which every comparison reads, and a comparison asked where it does not hold throws, a caller's fault, since each caller asks first. A runtime that fails it stops naming alone, and says so through the unsupported-capability path: the capabilities package probes the check at start as the name-comparison capability, which the status bar counts among the missing and the Capabilities panel explains under "Naming workspaces and shortcut profiles", and saving a workspace as a new one, copying or renaming a workspace, importing a profile and changing the built-in shortcuts, which are changed in a copy that is named, are unavailable with a sentence that names that feature and the panel; the layout store and the command layer refuse the same operations in words of their own for any caller that does not ask first. It does not stop the rest of this package, nor the start: the stored workspaces and profiles are read, each name as it is stored, and the workspace on screen is placed among them under the name it has, since whether another has that name cannot be decided, so it may be listed beside a workspace of its name, as two stored ones of one name are. Since the same round (F-1061), `namesHeldBy` holds the names of a list, other than the entry a name is being given to, sorted by the collator names are compared by, and answers which entry holds a name, and whether one is taken, by a binary search with the same collator, so numbering a name beside a list that holds it with every number to thousands costs comparisons that grow as n log n, where asking `holderOf` of every entry for each number made the start, which numbers the workspace on screen, grow with the square of the stored collection; sorted by the collator rather than keyed by a folding of the text, because the collator holds two names one that differ in a code point it ignores, a soft hyphen or a joiner, which no folding sees. `holderOf` stays for one question of a list. Since the twenty-first round (F-1074, F-1089 and F-1091), the identifier rule takes its bound from its caller: `identifierRule(longestBytes)` answers `isIdentifier` and `identifiersHeldBy`, and derives and numbers within that bound, and `utf8Bytes` counts a text's bytes in the unit a bound is written in, so this package knows no name a caller gives a file; the command layer derives its bound from the ending it writes after a profile's identifier, and the workspace holds a layout's identifier to 227 bytes, the bound storage holds it to, which no file name sets, so no stored layout changes verdict. An identifier keeps no code point a reader does not see, `\p{Default_Ignorable_Code_Point}`, and derives each as it looks: one that is not a letter, a variation selector, U+034F, a Mongolian free variation selector, a joiner or non-joiner, a soft hyphen, a zero-width space, a tag, or one not yet assigned, which a runtime that does not know it shows as nothing, is left out of the name before anything else reads it and adds nothing, so "Mix", a zero-width joiner and "ing" give `mixing`, and a mark after one reaches its letter; the four that are letters, the Hangul fillers U+115F, U+1160, U+3164 and U+FFA0, which show as a blank gap, separate as a space does, so `a`, U+3164 and `b` give `a-b`. A name of nothing but such code points and space is refused as blank, given or written, since a list would show it as nothing. The names Windows reserves for a device, `con`, `prn`, `aux`, `nul`, `com0` to `com9` and `lpt0` to `lpt9`, compared after the derivation, are never an identifier, because Windows reserves the name of a file before its first dot whatever follows it, and a browser renames a download so named: a name that derives one is numbered from two as a clash is, "Con" as `con-2`, and `isIdentifier` refuses one, so a profile or a workspace stored under one, or under an identifier holding a code point a reader does not see, is set aside with a notice. A runtime whose collator cannot be made fails the check as one that resolves another collation does, answered once and held, so the probe and every comparison read one answer, and a comparison asked there throws the package's refusal. Since the Phase 05 review (inherited F-55), the entry point offers `counted`, a count and the noun of the two its caller gives that agrees with it, the singular for one alone, which the application, the project commands and, through the writing the application gives it, the timeline each wrote for themselves; the project commands depend on this package for it, and the timeline, which depends on the domain alone and runs in any scope, is given it by its caller rather than reading it. Every other clause stands.
+- **Amended:** on 2026-10-05, by Phase 06's readiness review (`ADR-0030` amended): `packages/audio-graph` and `packages/audio-engine` depend on this package for `counted`, where each wrote its own count of channels and of underruns. Every other clause stands.
 - **Related requirements:** `REQ-REPO-154`, `REQ-REPO-185`, `REQ-REPO-186`, `REQ-UX-005`, `REQ-UX-066`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0019-tests-take-the-fixtures-package.md -->
@@ -1419,6 +2168,8 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-ARCH-140` forbids a central processor manager and asks for node lifecycle, scheduling, validation, latency propagation and render planning as cohesive subsystems with explicit ownership. `REQ-ARCH-036` separates real-time playback, AudioWorklet processing and worker-based offline computation. The packet names the three packages. Validation and planning are decisions over a value, execution is work over buffers, and hosting is the browser, and each has a different set of things it may know.
 - **Constraints:** a node type is one object that states its contract and makes its kernel (`NodeImplementation` in the engine extends `NodeContract` in the graph), so a type cannot be validated by one table and run by another. Browser probes stay in `packages/capabilities`: the runtime is given what exists, never asks. The engine takes the WASM instance from its host, so it never touches a browser global. No package here imports React.
 - **Change record:** affected requirements `REQ-ARCH-036`, `REQ-ARCH-140`, `REQ-REPO-154`, `REQ-EXEC-184`; affected phase 03, whose owned modules these are; compatibility impact none; verification by the dependency cruise, the layering rules in `tests/architecture/dependency-rules.test.ts` and the generated graph.
+- **Amended:** on 2026-10-05, by Phase 06's readiness review, on the maintainer's decision on the Phase 05 review's F-07 remnants: `packages/audio-graph` and `packages/audio-engine` may also depend on `packages/text` (`ADR-0018`), a leaf with no dependencies that is compiled without the browser's type definitions, so each words a count with its one `counted` rather than writing its own. Neither gains a browser global, a thread or React, and every other reason this record gives stands.
+- **Amended by:** `ADR-0061` (2026-10-05), which names the packages that build on these three: `packages/processors`, `packages/effect-rack`, `packages/ml-runtime` and `packages/model-packs`, and `crates/analysis`. Every other clause stands.
 - **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-140`, `REQ-REPO-154`, `REQ-EXEC-136`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0031-narrow-wasm-boundary.md -->
@@ -1442,6 +2193,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Documented platform variation:** the canonical path ends at the frames the engine produces. What the browser does after that is outside it: the audio context's own output resampling when the device rate differs from the context rate, its channel up- or down-mixing to the device, and its output latency. Real-time playback is therefore not canonical and is not held to a hash. Offline renders are. The tolerance for the canonical path is zero, and the tests hold it to zero.
 - **Constraints:** a new canonical primitive states its operation order in both implementations and gains a golden test that runs both. Performance work may not change the order of operations without new golden values, which `REQ-EXEC-180` requires to be justified and reviewed.
 - **Change record:** affected requirements `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`; affected phase 03; compatibility impact none; verification by the golden tests (`pnpm test:audio-golden`) and the Rust vectors in `cargo test --workspace`.
+- **Amended by:** `ADR-0062` (2026-10-05): inference by a model is outside this record's two-implementation rule, since no reference implementation can run a model's graph in the same order, and is held instead to the pinned determinism `ADR-0062` states, with a documented tolerance where a browser cannot meet it (`REQ-ARCH-081`). The new primitives Phase 06's processors need, an exponential, a logarithm, a power and the trigonometric functions beyond the sine, are canonical under this record's constraint (`ADR-0061`). Every other clause stands.
 - **Related requirements:** `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-011`, `REQ-ARCH-085`.
 
 <!-- adr/ADR-0033-channel-layouts-in-the-domain.md -->
@@ -1558,6 +2310,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-ARCH-004` (immutable source, parametric edits), `REQ-EDIT-014` (independently editable regions, loops and metadata from one recording), `REQ-EDIT-015` (per-channel editing and channel conversion on any layout), `REQ-EDIT-012` (selection or whole target), `REQ-EDIT-061` (one authoritative edit graph shared by every view), `REQ-STOR-021` (every change undoable through the project's history), `REQ-EXEC-136.11` (one home for what an edit means), `ADR-0006` (commands with inverses).
 - **Constraints:** arithmetic follows `ADR-0032`: a ramp's shape uses only addition, multiplication, division and square root in a stated order (linear, equal-power as the square root, an S-curve and a square law), and a gain is stored as a linear factor, so a stage gives the same bits on every machine. A sample rate is never changed implicitly: a payload pasted into an asset of another rate is converted by the canonical resampler only when the command says so, and the conversion is part of the plan (`REQ-ARCH-085`). Every operation is validated against the chain it joins by the same domain function, when a command makes it and when the project document is read, so a replayed or imported journal cannot hold an operation that reaches outside its asset. An asset that a region, a marker or a payload names cannot be removed until they are. A layout conversion keeps the new layout's roles, and every per-channel operation keeps the roles it found (`REQ-EDIT-015`).
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-ARCH-004`; affected phases 01 (whose project-timeline `Region` and `Marker` are restated as asset values, amending `ADR-0015`), 04 (whose editor view draws placed values) and 05; compatibility impact: the project document's schema version is raised, with no migration before 1.0 (`REQ-STOR-052`); verification by the domain's property tests of the chain, the anchors and the plan, the project round trip, and the commands' selection tests.
+- **Amended by:** `ADR-0060` (2026-10-05), in the plan and the regions: a processing operation may apply a chain of processors to its range, an asset and a region may each name a rack that processes the whole of it, and the plan realises both by a stream that reads a range of an earlier stream processed by a chain, rendered from its own start. A region's audio is the asset's edited and processed audio between its boundaries, processed by its own chain and then by its rack. Time stretching and the sample-rate conversion of an asset are operations in the chain that carry positions by their ratio. The plan is still the only description of an edited sound. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-EDIT-063`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-ARCH-004`, `REQ-ARCH-085`, `REQ-EXEC-136`.
 
 <!-- adr/ADR-0052-read-contract-and-media-threads.md -->
@@ -1577,6 +2330,81 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** every read takes an `AbortSignal`, and the header walk is bounded in chunks and in bytes, so a hostile file cannot make a reader read without end or allocate past its chunk. RF64 and BW64 sizes are read as 64-bit values and must fit a safe integer. A file the storage worker answers is a snapshot of a written-once object, never a handle that can write. Phase 09 adds its decoders and writers to this package and introduces no second contract.
 - **Change record:** affected requirements `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`; affected phases 03 (whose source description gains a kind), 04 (whose peak worker reads it) and 09 (which extends this package); compatibility impact none beyond `ADR-0051`'s schema change; verification by the codec fixtures, written by a test writer for every encoding, depth, byte order and form and compared sample for sample, the malformed-media suite, and the import's tests.
 - **Related requirements:** `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0053-clipboard-and-quick-edit.md -->
+
+# ADR-0053 — The Clipboard Holds A Payload Of Plan Segments, And Quick Edit Is A Project The Shell Makes
+
+- **Status:** Accepted
+- **Decision:** `packages/clipboard` (`@audiogubbins/clipboard`) owns what copying and pasting mean.
+  - **The payload.** `ClipboardPayload` is a slice of an edit plan (`ADR-0051`): its streams, rate and layout, and the asset records of the media its segments read. It names immutable sources only, never an operation, so what was copied sounds the same whatever later happens to the asset it came from.
+  - **Copy and cut.** Copying takes the resolved target's range and channels from the plan of the asset or region shown; a cut is a copy and a deletion, recorded as one change.
+  - **Paste.** Pasting inserts the payload at the target's position, or replaces the target's range. A payload whose layout differs is mapped by the conversion matrix the domain states for the two layouts, and refused with the reason when it states none. A payload at another rate is pasted only when the person asks for it to be converted. A payload copied from another project brings the asset records it reads, which the storage worker adds only after it has checked that the stored or linked media is there, so a missing or changed source refuses the paste and leaves the destination unchanged. A payload too large for one recorded change is inserted as consecutive insertions in one change.
+  - **The holder.** The clipboard is held by the page for its session, replaced by each copy, and never persisted or sent anywhere.
+  - **Quick Edit.** `REQ-EDIT-008`'s Quick Edit is a facade over the project model: choosing a file makes a project named after it, imports the file with the person's copy-or-link setting and opens it in the editor, with no project dialogue. The `QuickEditSession` the shell holds names that project and asset, and every edit is the same project command Project Mode runs, so the two make the same structures. Exporting is Phase 09's.
+- **Drivers:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, the packet's failure rule that clipboard data from missing or relinked media must not corrupt the destination, `REQ-ARCH-085`.
+- **Constraints:** a paste is a project command and undoes with the project's history; the clipboard itself is not project state and is not undone.
+- **Change record:** affected requirements `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`; affected phase 05; compatibility impact none beyond `ADR-0051`; verification by the clipboard's tests, the commands' tests and the browser test of the core edits.
+- **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-ARCH-085`.
+
+<!-- adr/ADR-0060-effect-racks-in-the-edit-model.md -->
+
+# ADR-0060 — An Effect Rack Is A Shared Chain That The Edit Plan Runs, On A Range Or On A Whole Target
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review places the effect rack inside the edit model of `ADR-0051` rather than beside it, so the edit plan stays the only description of an edited sound.
+  - **The chain is the domain's.** A rack's persisted form is the domain's `EffectChain` (`packages/domain/src/processing/effect-chain.ts`, Phase 01), held in the project's `effectChains` map and changed only by project commands with inverses. Phase 06 extends that value and introduces no second one: a chain is an ordered list of slots, each holding a processor instance or a parallel group whose branches are chains of their own, summed by a stated law; each slot has its own bypass and a wet/dry mix, and the chain keeps the enable and solo rules it has. `ProcessorInstance` keeps its parameter values and gains its versioned state (`ADR-0061`).
+  - **Two placements, one mechanism.** A chain reaches audio in exactly two ways, and the plan realises both by the same kind of stream: a stream that reads a range of an earlier stream processed by a chain, as a rate-converted stream reads one converted.
+    - *Processing a range.* Selection-first, as every edit is (`REQ-EDIT-012`): applying a chain to a selection is a processing operation whose edit is a rack edit naming a chain, anchored and folded like the gains and fades of `ADR-0051`. It is made on an asset's chain, or, in a region's view, on the region's own processing. It changes no time and carries every position unchanged: the processed range keeps its length, and what a processor would add past the range's end (a reverb's or a delay's tail) is not added.
+    - *A target's rack.* An asset and a region each name at most one rack, a chain that processes the whole target as it stands after every operation on it, so it follows the target through later edits. The order is fixed: the asset's chain, with each region's processing folded in at its basis; the asset's rack over the whole edited asset; the region's span of that; the region's rack over the whole region.
+  - **Sharing is naming one chain.** A rack edit and a target's rack name a chain by its `EffectChainId`. A chain several operations or targets name is shared: a change to it reaches all of them, which is the shared processing chain of `REQ-EDIT-014`. Making one independent copies the chain under a new identifier. A chain that something names cannot be removed until nothing does, as an asset cannot (`ADR-0051`).
+  - **Saved chains and presets.** A saved chain and a processor preset are the same values kept outside any project, in the person's library, read and written by the project format's chain reader, so a chain has one persisted form. Applying a saved chain copies it into the project; applying it to several selected targets is one command and one history step. A preset names explicit parameter values (`REQ-AUDIO-086`).
+  - **Canonical rendering of a processed stream.** A processed stream is rendered from its own start, so a region's audio is exactly that span of its asset's processed audio, and a render of either is one answer. Real-time playback, which `ADR-0032` already keeps out of the canonical path, may start a stateful processor part way through with the lead-in its descriptor declares, and says it is a preview; an expensive chain is played from a cached render, which is derived data (`REQ-STOR-027`) and never authoritative.
+  - **Racks elsewhere.** `Track.effectChainId` and `Bus.effectChainId` stay as Phase 01 made them. No track, bus or master exists to process yet; when one does, its rack is a chain named the same way and run the same way (`REQ-AUDIO-017`, its future racks).
+- **Drivers:** `REQ-AUDIO-017` asks for stacking, reordering, bypass, presets, A/B, copy and paste, saved chains and batch reuse. `REQ-EDIT-014` asks for shared processing chains, which the Phase 05 handoff gave to Phase 06. `REQ-ARCH-004` makes effect chains part of authoritative state, and `ADR-0051` makes the plan the only description of an edited sound, so a rack that rendered outside the plan would be a second description that playback, the render worker, the peak worker and the clipboard each had to learn. Phase 01 already persists `EffectChain`, and the history already compares chains and processors (`packages/history/src/state-diff.ts`), so a new rack model would leave two. A rack that only processed whole targets would break the selection-first invariant of Phase 05, and one that only processed ranges fixed at their basis would not follow a target through later edits, which is what a rack in an audio editor does.
+- **Constraints:** the time-changing processors of `REQ-AUDIO-018`, time stretching and sample-rate conversion of an asset, are operations in the asset's chain, not rack slots, because they move every later position; each states how it carries a position, as `ADR-0051` requires, and acts on every channel. Pitch shifting that keeps the length is a processor. Fades, polarity inversion, reversal, silence, per-channel gains, channel swap and copy, and layout conversion stay the edit operations Phase 05 made, and are not written again as processors; a rack's gain is the engine's existing gain node. Every operation that names a chain is validated against the project's chains when a command makes it and when the project is read. Persisting racks raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-AUDIO-017`, `REQ-AUDIO-019`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`; affected phases 06, which becomes `READY` with this placement, and 05, whose edit model this extends (`ADR-0051` amended) and whose handoff gave it the shared chains; Phases 01 to 05, already passed, need no remediation. Compatibility impact: the project's format gains rack edits and the racks of assets and regions, raising its schema version; no build has shipped, so no stored project is affected. Public API: `EffectChain` and `ProcessorInstance` in `@audiogubbins/domain` gain slots, parallel groups, bypass, wet/dry and state; the plan gains the processed stream. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with rack edits and racks against the domain's oracle, a project round trip of chains with identical parameter state, the commands' selection tests, and golden renders of a processed range and of a region's span against its asset.
+- **Amends:** `ADR-0051`, in its clauses on the plan and on regions. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-017`, `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-086`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-ARCH-140`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`, `REQ-STOR-195`.
+
+<!-- adr/ADR-0061-processors-quality-and-reproducibility.md -->
+
+# ADR-0061 — A Processor Is One Object That States Its Descriptor And Makes Its Kernel, Canonical And Versioned
+
+- **Status:** Accepted
+- **Decision:** Phase 06's processors are built on Phase 03's engine and Phase 01's descriptors, joined into one object, and held to the canonical arithmetic of `ADR-0032`.
+  - **One object per processor type.** A processor type states its `ProcessorDescriptor` (the domain's, Phase 01) and is the `NodeImplementation` (`ADR-0030`) that makes its kernel, so a processor cannot be described by one table and run by another, as a node type cannot today. The descriptor gains what the packet's contracts name: typed `ParameterDescriptor`s with units, ranges and smoothing; the channel layouts the processor accepts and what it makes of each (`ADR-0033`, `REQ-ARCH-157`); its latency (`REQ-ARCH-144`); the lead-in a stateful kernel needs to settle when started part way through; whether it needs a whole pass over its input before it can run (peak and loudness normalisation, a learned noise profile); its determinism class; and its versions.
+  - **Versions.** A processor's implementation version (`REQ-REPO-187`) and its parameter schema version are persisted with every instance (`ProcessorStateVersion`), with the model's identity and version for an ML processor (`ADR-0062`) and the resampler's for a conversion. State that is not a parameter, a learned noise profile or a mask, is versioned with them. Before 1.0 a version the reader does not know is refused with the reason, with no migration (`REQ-AUDIO-145`, `REQ-STOR-052`); from 1.0, a change that alters a processor's output raises its version, and its golden values, under `REQ-EXEC-180`.
+  - **Canonical arithmetic.** Every processor's final-render path is canonical under `ADR-0032`. A kernel is TypeScript in the engine's node style, or a canonical DSP object in `crates/dsp-core` behind the narrow ABI of `ADR-0031` where speed asks for it, in which case its reference TypeScript implementation runs the same operations in the same order and serves as both the fallback and the oracle. What filter design, level detection and conversion from decibels need, an exponential, a logarithm, a power and the trigonometric functions beyond the existing sine, are new canonical primitives under `ADR-0032`'s existing constraint: each states its operation order in both implementations and gains a golden test that runs both. No platform transcendental function and no browser-native node is a canonical processor (the packet's forbidden shortcut).
+  - **Quality.** `QualityMode` is the one statement of processing quality: the named levels Draft, Standard, High and Maximum, and Custom, each mapping to explicit values of the processors' own quality parameters (`REQ-AUDIO-086`). It takes the place of `RenderQualityProfile` (`packages/audio-engine/src/render/render-job.ts`), whose resampling quality becomes one of its entries, so there is one quality model, not one per processor. A final render defaults to Maximum (`REQ-AUDIO-143`) and preview to the mode the performance profile chooses; where preview and final render differ, the interface says so, and the person can inspect and change both (`REQ-AUDIO-080`).
+  - **Preview and the cached producer.** Real-time preview runs a processor in the worklet when its kernel is real-time safe, and otherwise plays a cached render made ahead by the render worker. That makes Phase 06 the producer of the cached preview mode Phase 03's mode selector reports as unavailable. A parameter changed during playback is smoothed by the engine's parameter ramp (`REQ-AUDIO-019`).
+  - **Packages.** `packages/processors` holds the processor types: descriptors and kernels, depending on the domain, `audio-graph`, `audio-engine` and `text`. `packages/effect-rack` turns a chain into the processing graph that runs it: slots, parallel groups, bypass, solo, wet/dry and delay compensation, depending on the domain, `audio-graph` and `processors`. `crates/analysis` holds what measures audio rather than changes it, the short-time Fourier transform, loudness and peak measurement and the detectors restoration needs, exported through `crates/wasm-bindings` with its reference TypeScript implementation; Phase 08's spectral editing and Phase 10's loudness matching read it rather than write another. `crates/dsp-core` and `crates/wasm-bindings` stay Phase 03's, and Phase 06 extends them, raising the ABI version. Rack and processor commands are project commands in `packages/project-commands`; the interface only invokes them.
+- **Drivers:** `REQ-AUDIO-018` and `REQ-AUDIO-146` ask for a broad, deterministic, numerically stable processor set. `REQ-ARCH-081` asks for bit-identical renders where feasible, and every processor in `REQ-AUDIO-018` can meet it with basic arithmetic and canonical primitives, so none needs a documented tolerance. `REQ-AUDIO-145` asks for processor identity and version in authoritative state. The domain already has `ProcessorDescriptor` and `ParameterDescriptor` and the engine already has `NodeImplementation`, and nothing joins them; a third model would make three. The gain node takes linear factors because `ADR-0032` had no canonical power, and filter design cannot be written without one.
+- **Constraints:** a kernel allocates nothing per quantum and performs no I/O or blocking wait on the real-time path (`REQ-AUDIO-146`, `kernel-allocation.test.ts`). A processor that cannot accept an input layout says so, and the graph refuses the edge, never downmixing in silence. A processor that fails during a render fails the render with the reason; it never outputs silence or its input as success. Each processor's golden and property tests cover silence, an impulse, full scale, denormals, NaN and infinity, and representative programme material, at every layout it accepts. `packages/processors` and `packages/effect-rack` know no browser global and no React.
+- **Change record:** affected requirements `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-080`, `REQ-AUDIO-086`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-AUDIO-146`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`, `REQ-ARCH-157`, `REQ-REPO-187`; affected phases 06 and 03, whose crates Phase 06 extends and whose `RenderQualityProfile` it replaces; Phase 03, already passed, needs no remediation. Compatibility impact: the WASM ABI version is raised; the project format gains versioned processor state, raising its schema version with no migration before 1.0. Public API: `ProcessorDescriptor`, `ParameterDescriptor` and `ProcessorStateVersion` in the domain; `QualityMode`; the processor types and `EffectRack` realisation. Godot interchange and runtime: none. PWA and browser: none. Verification: `cargo test --workspace`, the golden tests running both implementations of every new primitive and kernel, the DSP property tests, the latency and layout tests, and the kernel allocation test.
+- **Amends:** `ADR-0030`, by naming the packages that build on its three. Its clauses stand, as amended for the text package.
+- **Related requirements:** `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-080`, `REQ-AUDIO-086`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-AUDIO-146`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`, `REQ-ARCH-157`, `REQ-REPO-187`, `REQ-EXEC-180`.
+
+<!-- adr/ADR-0062-local-inference-and-model-packs.md -->
+
+# ADR-0062 — Local Inference Runs ONNX Runtime Web In A Worker, Pinned For Final Renders, From Model Packs Kept On The Device
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review settles the runtime, the determinism rule and the first model packs that the packet left as "agreed".
+  - **The runtime.** Inference runs ONNX Runtime Web (MIT licence), self-hosted with the application's own files and loaded only when an ML processor first runs, so the base bundle carries none of it (`REQ-AUDIO-139`). It runs in a dedicated worker, never on the UI thread or in the worklet. `packages/ml-runtime` holds the inference port the ML processors call, its adapter over ONNX Runtime Web and the worker that hosts it; the port is the seam the tests run a fake runtime through. The runtime's capabilities (WebAssembly SIMD, threads, WebGPU) are probed by `packages/capabilities`, never by the runtime itself (`ADR-0030`).
+  - **Determinism.** An ML processor is a processor of `ADR-0061`, whose determinism class is *pinned*: its final render runs the WebAssembly CPU backend with fixed-width SIMD, one thread, no reduced precision and a stated graph optimisation level, a fixed chunk length and overlap, and the runtime build and model identified by their hashes. Those are persisted with the instance (`REQ-AUDIO-138`, `REQ-AUDIO-145`), so the same project renders the same bits with the same pack and runtime. Golden tests hold each pack's final render to one hash in every browser the tests run; where a browser cannot meet it, the cause and the tolerance are documented and tested (`REQ-ARCH-081`). A faster path, more threads or WebGPU, may serve preview, and the interface says it is a preview (`REQ-AUDIO-080`); it never replaces the pinned path for a final render (`REQ-AUDIO-143`). A model's rate is converted to and from by the canonical resampler, stated in the instance.
+  - **Model packs.** A pack is a manifest (`ModelPackManifest`) and the files it names: its name and purpose, version, download and installed sizes, the hash of every file, the licence of its code and of its weights, the runtime versions and capabilities it needs, its quality tier, and the processors it serves. `packages/model-packs` holds the manifest, the pack's install state machine (`REQ-ARCH-153`: available, downloading, paused, verifying, installed, failed, removing, with update available and incompatible as stated conditions) and the integrity check, and stores packs through the storage package's public client, never through OPFS directly. A pack is installed by download from the catalogue the build configures, which the application's own origin serves by default, or imported from a file the person has; both verify every hash before anything is used. Download sends a request for the pack and nothing else: no audio, no project data and nothing derived from either leaves the device (`REQ-AUDIO-138`). A pack is never fetched because a project was opened, unless it is required and the person has chosen automatic download (`REQ-AUDIO-139`). A version a post-1.0 project needs is retained until the person removes it knowingly.
+  - **The first packs.** Each was chosen because its code and weights are licensed for redistribution, which is recorded in its manifest and checked again when the pack is built:
+    - DeepFilterNet 3 (MIT or Apache-2.0): broadband noise removal and speech enhancement at 48 kHz, the Standard and High tiers.
+    - MossFormer2 SE 48K (Apache-2.0): speech and dialogue enhancement, the Maximum tier.
+    - Spleeter, two and four stems (MIT): source separation and stem isolation.
+  - **Excluded until their weights are licensed for redistribution:** HTDemucs and its variants, whose author states the weights are for research; Open-Unmix's published weights, non-commercial or trained on research-only data; and the UVR, MDX and RoFormer families, whose weights carry no licence or a non-commercial one. The infrastructure admits any of them as a pack, without change, once one is.
+  - **What is not ML.** Dereverberation (weighted prediction error) and click and pop detection and repair are canonical DSP processors (`ADR-0061`), because no model with redistributable weights does them better and the canonical path is reproducible to the bit. The other candidate assistants of `REQ-AUDIO-138`, transient and noise classification, restoration assistance, repair suggestions and analysis that recommends processing, have no model licensed for redistribution today; each is a pack and a processor on this infrastructure when one is, and none may apply processing without the person's action.
+- **Drivers:** `REQ-AUDIO-138` and `REQ-AUDIO-139` put local ML and model packs in Phase 06's scope and forbid sending audio anywhere. `REQ-ARCH-081` asks for reproducible renders, and `REQ-AUDIO-145` for the model's identity and version in project state. ONNX Runtime Web is maintained, runs in a worker, and has the only browser backend whose CPU arithmetic WebAssembly makes the same on every machine: fixed-width SIMD is deterministic, while relaxed SIMD, thread scheduling and GPU drivers are not. TensorFlow.js has had no release since 2024, LiteRT has almost no audio models, and the Rust runtimes that compile into the existing module cover too few operators for the first packs. A model's weights are distributed with the application's packs, so their licence decides whether a pack can exist at all.
+- **Constraints:** missing, corrupt or incompatible packs make the processor that needs them unavailable, saying which of `REQ-AUDIO-139`'s five conditions holds, and never make a project invalid; a project that names a pack keeps its instances and renders nothing in their place until the pack is present, saying so. No ML path calls a remote service, and the ML locality test asserts no request carrying audio, project data or derived content. Model weights and large test media are not committed to the repository (`REQ-REPO-191`); the golden tests fetch pinned fixtures by hash. ML results are stored as the inputs, model identity, settings, masks and regions that reproduce them; a cached inference output is derived data and never the only record (`REQ-AUDIO-138`).
+- **Change record:** affected requirements `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-REPO-191`; affected phases 06, and 08, whose spectral editing integrates ML processors on this infrastructure; no passed phase needs remediation. Compatibility impact: the project format gains ML processor state, under `ADR-0061`'s schema change. Public API: `ModelPackManifest`, `MLProcessorCapability`, the inference port. Godot interchange and runtime: none. PWA and browser: the runtime's WebAssembly files are served by the application, and Phase 12 caches them for offline use with the rest. Verification: `pnpm test:ml-locality`, the pack manifest and integrity tests, the install state machine tests, and each pack's pinned golden render.
+- **Amends:** `ADR-0032`, by stating that inference is outside its two-implementation rule and held to this record's pinned determinism instead. Its other clauses stand.
+- **Related requirements:** `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-080`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-PRIV-161`, `REQ-REPO-191`.
 
 # Passed Dependency Handoffs
 
@@ -1923,7 +2751,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 6,
   "name": "Effect Rack and Core DSP",
-  "status": "NOT_READY",
+  "status": "READY",
   "hard_dependencies": [
     3,
     5

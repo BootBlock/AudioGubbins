@@ -249,7 +249,7 @@
     "06": {
       "phase": 6,
       "name": "Effect Rack and Core DSP",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         3,
         5
