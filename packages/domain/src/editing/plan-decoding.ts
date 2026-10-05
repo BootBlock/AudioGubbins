@@ -27,7 +27,7 @@ import {
   type SampleCount,
   type SampleRate,
 } from '../time/sample-time.js';
-import { FadeShape } from './operations.js';
+import { FadeShape } from './fades.js';
 import type {
   EditPlan,
   GainCurve,

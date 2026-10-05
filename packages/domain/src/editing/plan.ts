@@ -18,7 +18,7 @@
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
-import { FadeShape } from './operations.js';
+import { FadeShape } from './fades.js';
 
 /** What a segment reads: an asset's unchanged source, or a later stream of the plan. */
 export type PlanSource =

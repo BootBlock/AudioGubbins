@@ -126,11 +126,10 @@ export {
   type LevelEdit,
   type RangeEdit,
   type RegionOperation,
-  FadeDirection,
-  FadeShape,
   MAXIMUM_EDIT_GAIN,
   isLevelEdit,
 } from './editing/operations.js';
+export { FadeDirection, FadeShape } from './editing/fades.js';
 
 export {
   type ClipboardPayload,

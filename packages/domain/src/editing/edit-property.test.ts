@@ -11,7 +11,8 @@ import { Affinity, anchorResolver } from './anchors.js';
 import { conversionMatrix } from './channel-matrices.js';
 import { shapesOf } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
-import { FadeShape, type EditOperation, type LevelEdit, type RangeEdit } from './operations.js';
+import { FadeShape } from './fades.js';
+import type { EditOperation, LevelEdit, RangeEdit } from './operations.js';
 import { assetPlan } from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
 

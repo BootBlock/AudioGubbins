@@ -12,13 +12,8 @@
 
 import type { PlanSegment, PlanStage } from './plan.js';
 import { copyMatrix, gainsMatrix, swapMatrix, type ChannelMatrix } from './channel-matrices.js';
-import {
-  FadeDirection,
-  isLevelEdit,
-  type ChannelEdit,
-  type LevelEdit,
-  type RangeEdit,
-} from './operations.js';
+import { FadeDirection } from './fades.js';
+import { isLevelEdit, type ChannelEdit, type LevelEdit, type RangeEdit } from './operations.js';
 
 /**
  * The output span an edit was made over. Its start may lie before the part of

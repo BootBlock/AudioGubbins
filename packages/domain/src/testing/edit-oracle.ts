@@ -9,7 +9,8 @@
  * position `k / (n − 1)` through its range.
  */
 
-import type { EditOperation, FadeShape, LevelEdit } from '../editing/operations.js';
+import type { FadeShape } from '../editing/fades.js';
+import type { EditOperation, LevelEdit } from '../editing/operations.js';
 
 /** Audio as one array per channel. */
 export type Samples = readonly Float32Array[];

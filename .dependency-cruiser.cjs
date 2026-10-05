@@ -474,7 +474,11 @@ module.exports = {
       comment:
         'REQ-REPO-191: deterministic fixtures exist for tests. Shipping one in production code ' +
         'would be exactly the fabricated production data REQ-EXEC-181 forbids.',
-      from: { pathNot: '\\.(test|spec|bench)\\.(ts|tsx)$|^tests/|^packages/test-fixtures/' },
+      // Support under `src/testing/` is test code here, as it is to the
+      // architecture tests, which refuse a production import of it.
+      from: {
+        pathNot: '\\.(test|spec|bench)\\.(ts|tsx)$|/testing/|^tests/|^packages/test-fixtures/',
+      },
       to: { path: '^packages/test-fixtures/' },
     },
     {
