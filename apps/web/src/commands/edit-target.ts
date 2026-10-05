@@ -1,10 +1,9 @@
 /**
  * What an edit command acts on, its `EditTarget`, selection first (ADR-0042,
- * ADR-0051): the
- * range and channels the active selection resolves to, or the whole asset or
- * region shown where nothing is selected and the command says it acts on the
- * whole; stated on the asset's edited timeline, where every operation is
- * placed, at a basis of its chain as it stands.
+ * ADR-0051): the range and channels the active selection resolves to, or the
+ * whole asset or region shown where nothing is selected and the command says it
+ * acts on the whole; stated on the asset's edited timeline, where every
+ * operation is placed, at a basis of its chain as it stands.
  *
  * A view of a region shows the region's slice of its asset, so the view's
  * range is moved on by the region's start. Each command names what it does

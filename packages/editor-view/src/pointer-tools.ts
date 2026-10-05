@@ -3,11 +3,12 @@
  *
  * The explicit tools and the contextual behaviour (a held space bar for the
  * hand, a drag on a selection's edge to move it, a drag on a marker or on a
- * region's end in the strip to move it, shift to extend) resolve here to the same intents, which the application
- * carries out through the same commands a key press or the palette runs, so a
- * selection made with the time-selection tool and one made by a shortcut are
- * the same thing. This is a value in, value out: the view keeps the interaction
- * between events, and nothing here reads the pointer or the page.
+ * region's end in the strip to move it, shift to extend) resolve here to the
+ * same intents, which the application carries out through the same commands a
+ * key press or the palette runs, so a selection made with the time-selection
+ * tool and one made by a shortcut are the same thing. This is a value in, value
+ * out: the view keeps the interaction between events, and nothing here reads
+ * the pointer or the page.
  *
  * A press becomes a drag once the pointer has moved past a few pixels, more for
  * a finger than for a mouse, so a tap is never read as a tiny drag. A tap on a

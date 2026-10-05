@@ -6,8 +6,9 @@
  * the ends of regions are grabbed in the strip above the lanes, a marker before
  * a region's end where both are in reach, since a marker is the narrower
  * target; the edges of the time selection are grabbed in the lanes, the nearer
- * of the two where both are in reach; the ruler is the playhead's. Everything is measured from the view's state, not from what was
- * last drawn, so a hit never depends on a stale frame.
+ * of the two where both are in reach; the ruler is the playhead's. Everything
+ * is measured from the view's state, not from what was last drawn, so a hit
+ * never depends on a stale frame.
  */
 
 import {
