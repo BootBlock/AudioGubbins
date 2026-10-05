@@ -37,7 +37,9 @@ import {
 } from './marker-commands.js';
 import {
   addRegionInvocation,
+  addRegionWithProcessing,
   applyRegionEditInvocation,
+  changeRegionInvocations,
   removeRegionInvocation,
   setRegionInvocation,
   withdrawRegionEditInvocation,
@@ -543,5 +545,52 @@ describe('project.withdraw-region-edit', () => {
     expect(refusalCodeOf(bus.execute(processed, withdrawRegionEditInvocation(loop, first)))).toBe(
       'region.not-last',
     );
+  });
+});
+
+describe('a change to a region’s processing anywhere in its chain', () => {
+  /** Runs `invocations` as one change, checks it applied and is undone whole by its inverses. */
+  function groupAppliedAndUndone(
+    from: ProjectState,
+    invocations: readonly [CommandInvocation, ...CommandInvocation[]],
+  ): ProjectState {
+    const result = bus.executeGroup(from, 'Change', invocations);
+    const { next } = appliedOf(result);
+    assertReadsBack(next);
+    let undone = next;
+    for (const inverse of entryOf(result).inverse)
+      undone = appliedOf(bus.execute(undone, inverse)).next;
+    expect(undone).toEqual(from);
+    return next;
+  }
+
+  it('withdraws back to the first operation not kept in place and applies the rest, undone whole', () => {
+    const [early, middle, late] = [louder(0, 10), louder(10, 20), louder(20, 30)];
+    const processed = after(
+      state,
+      ...[early, middle, late].map((operation) => applyRegionEditInvocation(loop, operation)),
+    );
+    const old = processed.project.regions.get(loop.id);
+    if (old === undefined) throw new Error('The region is in the project.');
+    const next = groupAppliedAndUndone(
+      processed,
+      changeRegionInvocations(old, { ...old, displayName: 'Walk', operations: [early, late] }),
+    );
+
+    expect(next.project.regions.get(loop.id)).toEqual({
+      ...old,
+      displayName: 'Walk',
+      operations: [early, late],
+    });
+  });
+
+  it('adds a region with its processing, each operation a step, removed whole by undo', () => {
+    const region = { ...regionOn(footstep, 100, 900), operations: [louder(0, 10), louder(5, 50)] };
+    const invocations = addRegionWithProcessing(region);
+    expect(invocations).toHaveLength(3);
+
+    const next = groupAppliedAndUndone(state, invocations);
+
+    expect(next.project.regions.get(region.id)).toEqual(region);
   });
 });

@@ -312,8 +312,10 @@ export function placeDefaults(
  * tools are the letters their names or their habits give: V selects, R selects
  * a range of time, H is the hand, Z zooms, C cuts with the razor, N places
  * markers and G groups a range into a region; M adds a marker at the playhead,
- * as in most editors. Delete deletes what the selection holds, and the usual
- * modifier with X, C and V cuts, copies and pastes, as everywhere.
+ * as in most editors. The brackets select the next and previous marker, and
+ * with Shift the next and previous region, so either is reached without a
+ * pointer. Delete deletes what the selection holds, and the usual modifier with
+ * X, C and V cuts, copies and pastes, as everywhere.
  */
 function editorBindings(
   of: (
@@ -368,6 +370,10 @@ function editorBindings(
     bind('editor.tool-marker', of(alone('n'))),
     bind('editor.tool-region', of(alone('g'))),
     bind('editor.add-marker', of(alone('m'))),
+    bind('editor.select-next-marker', of(alone(']'))),
+    bind('editor.select-previous-marker', of(alone('['))),
+    bind('editor.select-next-region', of(alone(']', true))),
+    bind('editor.select-previous-region', of(alone('[', true))),
     bind('edit.delete', of(named('Delete'))),
     bind('edit.cut', of(withPrimary('x'))),
     bind('edit.copy', of(withPrimary('c'))),

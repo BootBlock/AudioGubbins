@@ -185,6 +185,25 @@ describe('composing a frame', () => {
     ]);
   });
 
+  it('draws a selected region’s span in the strip apart from the others', () => {
+    const chosen = region('chosen', 10_000, 20_000);
+    const composed = new FrameComposer().compose(
+      scene({
+        content: {
+          length: at(100_000),
+          channelNames: ['L', 'R'],
+          markers: [],
+          regions: [chosen, region('other', 50_000, 10_000)],
+        },
+        selection: withObjects(EMPTY_SELECTION, { kind: 'regions', ids: [chosen.id] }),
+      }),
+    );
+
+    const strip = composed.layers.find((layer) => layer.clip?.y === 24 && layer.clip.height === 18);
+    expect(rectanglesOf(strip?.batches ?? [], PALETTE.selectedRegion)).toBe(1);
+    expect(rectanglesOf(strip?.batches ?? [], PALETTE.region)).toBe(1);
+  });
+
   it('composes the same frame from the same state, so a lost device is recovered by composing it again', () => {
     const composer = new FrameComposer();
     const given = scene({

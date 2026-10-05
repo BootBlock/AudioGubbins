@@ -7,7 +7,7 @@
  */
 
 import { unchanged, type Command, type CommandInvocation } from '@audiogubbins/commands';
-import type { Region } from '@audiogubbins/domain';
+import { restateRegion, type Region } from '@audiogubbins/domain';
 import {
   addRegionInvocation,
   removeRegionInvocation,
@@ -19,7 +19,7 @@ import { RANGE_ONLY, editScope, type EditScope } from './edit-target.js';
 import { changeProject, currentBasis } from './project-edits.js';
 import { textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
-import { foundRegions, nextName, oneRegion, regionCommand, restated } from './region-target.js';
+import { foundRegions, nextName, oneRegion, regionCommand } from './region-target.js';
 
 function createCommand(): Command<ShellContext> {
   return regionCommand(
@@ -60,7 +60,7 @@ export function setRegionBounds(context: ShellContext, scope: EditScope): BodyAn
     return 'That region is no longer in the project.';
   changeProject(context, session, {
     description: `Trim ${region.displayName}`,
-    invocations: [setRegionInvocation(restated(region, asset, target.range))],
+    invocations: [setRegionInvocation(restateRegion(region, asset, target.range))],
     said: `Trimmed ${region.displayName} to the selection.`,
   });
   return undefined;

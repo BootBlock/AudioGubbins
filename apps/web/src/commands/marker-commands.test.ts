@@ -44,6 +44,43 @@ describe('the marker commands (ADR-0047)', () => {
     expect(placed(audio.asset()).map(([name]) => name)).toEqual(['Attack', 'Sustain', 'Release']);
   });
 
+  it('select the next and previous marker from the keyboard, from the playhead or the one selected', async () => {
+    const audio = await markedLoop();
+    const { window } = audio;
+    const [attack, sustain, release] = audio.asset().markers;
+    const selected = () => window.context.selections.of(audio.entry).objects;
+    window.run('editor.set-playhead', { position: 2400 });
+
+    window.run('editor.select-next-marker');
+    expect(selected()).toEqual({ kind: 'markers', ids: [sustain?.id] });
+    window.run('editor.select-next-marker');
+    expect(selected()).toEqual({ kind: 'markers', ids: [release?.id] });
+    expect(window.run('editor.select-next-marker')).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'No marker lies after the one selected.' }],
+    });
+    window.run('editor.select-previous-marker');
+    window.run('editor.select-previous-marker');
+    expect(selected()).toEqual({ kind: 'markers', ids: [attack?.id] });
+  });
+
+  it('say how to select a marker when a command needs one and a region is selected instead', async () => {
+    const audio = await markedLoop();
+    audio.window.run('editor.select-time', { start: 0, end: 4800 });
+    await audio.window.runAndHear('region.create');
+    audio.window.run('editor.select-next-region');
+
+    expect(audio.window.run('editor.remove-markers')).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'The active selection holds no markers. Select a marker first: tap one in the strip above the lanes, or use “Select the next marker”.',
+        },
+      ],
+    });
+  });
+
   it('remove the selected markers as one change, which one undo restores whole', async () => {
     const audio = await markedLoop();
     const { window } = audio;

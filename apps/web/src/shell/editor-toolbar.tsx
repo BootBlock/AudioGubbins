@@ -29,15 +29,6 @@ export interface ToolbarCommands {
   readonly shortcutFor: (id: string) => string | undefined;
 }
 
-const TOOL_ORDER: readonly ToolId[] = [
-  ToolId.Select,
-  ToolId.TimeSelect,
-  ToolId.Hand,
-  ToolId.Zoom,
-  ToolId.Razor,
-  ToolId.Marker,
-];
-
 function ToolButtons({
   panel,
   state,
@@ -47,7 +38,8 @@ function ToolButtons({
   readonly state: EditorViewState;
   readonly commands: ToolbarCommands;
 }): ReactNode {
-  return TOOL_ORDER.map((tool) => {
+  // Every tool, in the order they are declared, so a new one is never left off.
+  return Object.values(ToolId).map((tool) => {
     const id = `editor.tool-${tool}`;
     const shortcut = commands.shortcutFor(id);
     return (

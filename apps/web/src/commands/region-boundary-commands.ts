@@ -6,14 +6,20 @@
  */
 
 import { unchanged, type Command } from '@audiogubbins/commands';
-import { RegionBoundary, anchorResolver, placeRegion, regionEnd } from '@audiogubbins/domain';
+import {
+  RegionBoundary,
+  anchorResolver,
+  placeRegion,
+  regionEnd,
+  restateRegion,
+} from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import { boundaryArgument, playheadOf } from './editor-target.js';
 import { changeProject, onAsset } from './project-edits.js';
 import type { ShellContext } from './shell-context.js';
-import { oneRegion, regionCommand, restated } from './region-target.js';
+import { oneRegion, regionCommand } from './region-target.js';
 
 /** How each end's command is named, and how the end is spoken of beside the other. */
 const ENDS: Readonly<
@@ -77,7 +83,7 @@ function moveBoundaryCommand(boundary: RegionBoundary): Command<ShellContext> {
       const at = formatPosition(shown, view.asset.sampleRate, view.state.timeFormat);
       changeProject(context, project.session, {
         description: `Move the ${words.noun} of ${name}`,
-        invocations: [setRegionInvocation(restated(region, asset, span))],
+        invocations: [setRegionInvocation(restateRegion(region, asset, span))],
         said: `Moved the ${words.noun} of ${name} to ${at}.`,
       });
       return undefined;

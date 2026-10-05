@@ -130,6 +130,8 @@ const EDITOR_GROUPS: readonly {
     label: 'Markers',
     ids: [
       'editor.add-marker',
+      'editor.select-next-marker',
+      'editor.select-previous-marker',
       'editor.remove-markers',
       'editor.nudge-markers-back',
       'editor.nudge-markers-forward',

@@ -158,6 +158,7 @@ export { type MediaShape, validatePlan } from './editing/plan-validation.js';
 export { editPlanFrom } from './editing/plan-decoding.js';
 export { validateChain, validateOperation } from './editing/operation-validation.js';
 export { namesChannels, validateMarker, validateRegion } from './editing/placement-validation.js';
+export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
 export {
   markersInRegion,
   placeMarkers,

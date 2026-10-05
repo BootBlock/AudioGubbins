@@ -129,13 +129,14 @@ describe('what a pointer is over', () => {
     expect(hitTest(scene, 103, stripY, PointerKind.Touch)).toEqual({ kind: 'marker', id: 'a' });
   });
 
-  it('is the nearest end of a region in the strip within reach, and the strip elsewhere', () => {
+  it('is the nearest end of a region in the strip within reach, its span inside, and the strip elsewhere', () => {
     expect(hitTest(scene, 248, stripY, PointerKind.Mouse)).toEqual({
       kind: 'region-edge',
       id: 's',
       boundary: RegionBoundary.End,
     });
-    expect(hitTest(scene, 160, stripY, PointerKind.Mouse)).toEqual({ kind: 'strip' });
+    expect(hitTest(scene, 160, stripY, PointerKind.Mouse)).toEqual({ kind: 'region', id: 'r' });
+    expect(hitTest(scene, 300, stripY, PointerKind.Mouse)).toEqual({ kind: 'strip' });
     // Where one region ends and the next starts, the start is taken, whichever is listed first.
     expect(hitTest(scene, 203, stripY, PointerKind.Mouse)).toEqual({
       kind: 'region-edge',
@@ -147,6 +148,20 @@ describe('what a pointer is over', () => {
     ).toEqual({ kind: 'region-edge', id: 's', boundary: RegionBoundary.Start });
     // In a lane a region's end is not grabbed: the lanes are the selection's.
     expect(hitTest(scene, 248, laneY, PointerKind.Mouse)).toMatchObject({ kind: 'lane' });
+  });
+
+  it('is the shortest of the regions whose spans hold the pointer, so a longer one is reached outside it', () => {
+    // Drawn from 100 to 300, and from 150 to 200 inside it.
+    const nested = {
+      ...scene,
+      markers: [],
+      regions: [region('long', 1000, 2000), region('short', 1500, 500)],
+    };
+    expect(hitTest(nested, 170, stripY, PointerKind.Mouse)).toEqual({
+      kind: 'region',
+      id: 'short',
+    });
+    expect(hitTest(nested, 250, stripY, PointerKind.Mouse)).toEqual({ kind: 'region', id: 'long' });
   });
 
   it('is a marker before a nearer end of a region, since a marker is the narrower target', () => {

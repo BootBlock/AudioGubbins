@@ -7,7 +7,9 @@
  * asset's, applied at the end and withdrawn from the end. Every command keeps
  * an inverse short enough to journal whatever the region holds: a region is
  * removed only once its processing is withdrawn, which the interface does in
- * the same change, so no inverse carries a whole chain.
+ * the same change, so no inverse carries a whole chain. A change to a region's
+ * processing anywhere but at its end, such as a split's, is made the same way,
+ * as one change of those steps (`changeRegionInvocations`).
  */
 
 import {
@@ -267,6 +269,50 @@ export function setRegionInvocation(region: Region): CommandInvocation {
     commandId: ProjectCommandId.SetRegion,
     arguments: { regionId: region.id, region: canonicalJson(properties) },
   };
+}
+
+/**
+ * Adds `region` with its processing, as the steps of one change: the region
+ * without processing, then each of its operations in turn.
+ */
+export function addRegionWithProcessing(
+  region: Region,
+): readonly [CommandInvocation, ...CommandInvocation[]] {
+  return [
+    addRegionInvocation({ ...region, operations: [] }),
+    ...region.operations.map((operation) => applyRegionEditInvocation(region, operation)),
+  ];
+}
+
+function sameOperation(one: RegionOperation, other: RegionOperation): boolean {
+  return canonicalJson(writeRegionOperation(one)) === canonicalJson(writeRegionOperation(other));
+}
+
+/**
+ * Makes region `old` what `next` gives, as the steps of one change: its
+ * properties set, its processing withdrawn from the end back to the first
+ * operation `next` does not keep where it stands, and the rest of `next`'s
+ * applied after. The region stays `old`'s, on `old`'s asset.
+ */
+export function changeRegionInvocations(
+  old: Region,
+  next: Region,
+): readonly [CommandInvocation, ...CommandInvocation[]] {
+  const into: Region = { ...next, id: old.id, assetId: old.assetId };
+  let kept = 0;
+  for (const [index, operation] of old.operations.entries()) {
+    const wanted = into.operations[index];
+    if (wanted === undefined || !sameOperation(operation, wanted)) break;
+    kept = index + 1;
+  }
+  return [
+    setRegionInvocation(into),
+    ...old.operations
+      .slice(kept)
+      .toReversed()
+      .map((operation) => withdrawRegionEditInvocation(old, operation)),
+    ...into.operations.slice(kept).map((operation) => applyRegionEditInvocation(into, operation)),
+  ];
 }
 
 /** Removes `region`. */

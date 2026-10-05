@@ -28,6 +28,7 @@ import { laneAt, type Lane, type ViewLayout } from './lane-layout.js';
 export type HitTarget =
   | { readonly kind: 'marker'; readonly id: MarkerId }
   | { readonly kind: 'region-edge'; readonly id: RegionId; readonly boundary: RegionBoundary }
+  | { readonly kind: 'region'; readonly id: RegionId }
   | { readonly kind: 'selection-edge'; readonly edge: 'start' | 'end' }
   | { readonly kind: 'ruler' }
   | { readonly kind: 'strip' }
@@ -120,6 +121,28 @@ function nearestRegionEdge(scene: HitScene, x: number, reach: number): HitTarget
     : { kind: 'region-edge', id: best.id, boundary: best.boundary };
 }
 
+/**
+ * The region whose span holds `x`, the shortest where several do, then the
+ * earlier, then the lesser identity, or `undefined`.
+ */
+function regionUnder(scene: HitScene, x: number): HitTarget | undefined {
+  let best: PlacedRegion | undefined;
+  for (const region of scene.regions) {
+    const from = pixelOf(scene.viewport, region.start);
+    const to = pixelOf(scene.viewport, regionEnd(region));
+    if (x < from || x >= to) continue;
+    if (
+      best === undefined ||
+      region.length < best.length ||
+      (region.length === best.length &&
+        (region.start < best.start || (region.start === best.start && region.id < best.id)))
+    ) {
+      best = region;
+    }
+  }
+  return best === undefined ? undefined : { kind: 'region', id: best.id };
+}
+
 function selectionEdge(scene: HitScene, x: number, reach: number): 'start' | 'end' | undefined {
   if (scene.selection === undefined) return undefined;
   const start = Math.abs(pixelOf(scene.viewport, scene.selection.start) - x);
@@ -136,7 +159,7 @@ export function hitTest(scene: HitScene, x: number, y: number, pointer: PointerK
   if (inside(layout.strip, x, y)) {
     const marker = nearestMarker(scene, x, reach);
     if (marker !== undefined) return { kind: 'marker', id: marker.id };
-    return nearestRegionEdge(scene, x, reach) ?? { kind: 'strip' };
+    return nearestRegionEdge(scene, x, reach) ?? regionUnder(scene, x) ?? { kind: 'strip' };
   }
   if (layout.picture !== undefined && inside(layout.picture, x, y)) return { kind: 'picture' };
   const lane = laneAt(layout, y);
