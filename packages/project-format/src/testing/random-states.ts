@@ -5,6 +5,8 @@
  * again by its seed. Every entity kind appears in random numbers with valid
  * references, numbers range from the tiny to the huge, and each asset comes
  * with a source from `random-values.ts`, so the aggregate's invariants hold.
+ * Assets carry small chains of edits, and regions and markers are anchored on
+ * them, from `random-edits.ts`.
  */
 
 import {
@@ -12,7 +14,6 @@ import {
   createDeterministicIdGenerator,
   createProject,
   routeToBus,
-  sampleCount,
   sampleRate,
   type Asset,
   type AssetId,
@@ -23,17 +24,16 @@ import {
   type EffectChain,
   type EffectChainId,
   type IdGenerator,
-  type Marker,
   type ParameterId,
   type ParameterValue,
   type ProjectId,
-  type Region,
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { AssetSource, ProjectState } from '../project-state.js';
+import { randomMarker, randomRegion, withRandomEdits } from './random-edits.js';
 import {
   RATES,
   maybe,
@@ -74,6 +74,7 @@ class StateBuilder {
     const busIds = [...buses.keys()];
     const tracks = this.entities(5, () => this.track(busIds, chainIds));
     const { assets, sources } = this.assets(projectId);
+    const placedOn = [...assets.values()];
     const trackIds = [...tracks.keys()];
     const clips =
       trackIds.length > 0 && assets.size > 0
@@ -89,15 +90,15 @@ class StateBuilder {
       tracks,
       buses,
       clips,
-      regions: this.entities(4, () => this.region()),
-      markers: this.entities(4, () => this.marker()),
+      regions: this.placed(placedOn, 4, randomRegion),
+      markers: this.placed(placedOn, 4, randomMarker),
       effectChains: chains,
       trackOrder: this.shuffled(trackIds),
     };
     return { project, sources };
   }
 
-  /** Up to five assets, each with its source. */
+  /** Up to five assets, each with its source and a small chain of edits. */
   private assets(projectId: ProjectId): {
     readonly assets: Map<AssetId, Asset>;
     readonly sources: Map<AssetId, AssetSource>;
@@ -109,7 +110,7 @@ class StateBuilder {
       assets.set(asset.id, asset);
       sources.set(asset.id, source);
     }
-    return { assets, sources };
+    return { assets: withRandomEdits(this.random, this.ids, assets), sources };
   }
 
   private entities<TEntity extends { readonly id: string }>(
@@ -233,36 +234,18 @@ class StateBuilder {
     };
   }
 
-  private region(): Region {
-    const length = randomCount(this.random, 1_000_000);
-    const tags = [
-      ...new Set(Array.from({ length: this.random.below(4) }, () => randomName(this.random))),
-    ].sort();
-    const base = {
-      id: this.ids.next<'RegionId'>(),
-      displayName: randomName(this.random),
-      start: randomCount(this.random, 100_000_000),
-      length,
-      tags,
-    };
-    if (length < 2 || this.random.chance(0.4)) return base;
-    const loopStart = randomCount(this.random, length - 2);
-    const loopEnd = expectSuccess(
-      sampleCount(loopStart + 1 + this.random.below(length - loopStart)),
-    );
-    return {
-      ...base,
-      loop: { loopStart, loopEnd, crossfadeLength: randomCount(this.random, loopEnd - loopStart) },
-    };
-  }
-
-  private marker(): Marker {
-    const paletteKey = maybe(this.random, () => 'rose');
-    return {
-      id: this.ids.next<'MarkerId'>(),
-      displayName: randomName(this.random),
-      position: randomCount(this.random, 100_000_000),
-      ...(paletteKey === undefined ? {} : { paletteKey }),
-    };
+  /** Up to `most` values on random assets, as `make` places one, where it can. */
+  private placed<TEntity extends { readonly id: string }>(
+    assets: readonly Asset[],
+    most: number,
+    make: (random: Random, ids: IdGenerator, asset: Asset) => TEntity | undefined,
+  ): Map<TEntity['id'], TEntity> {
+    const entities = new Map<TEntity['id'], TEntity>();
+    if (assets.length === 0) return entities;
+    for (let count = this.random.below(most + 1); count > 0; count -= 1) {
+      const entity = make(this.random, this.ids, this.random.pick(assets));
+      if (entity !== undefined) entities.set(entity.id, entity);
+    }
+    return entities;
   }
 }

@@ -24,6 +24,7 @@ import {
   type KeyboardLayout,
   type TypedKey,
 } from '@audiogubbins/input';
+import { counted } from '@audiogubbins/text';
 
 import type { ReservedBinding, WaitingDefault } from '../../state/shortcut-layout.js';
 import { useSettled, type Settled } from '../use-settled.js';
@@ -59,7 +60,7 @@ export function ConflictList(props: {
   return (
     <div className="ag-shortcut-notes" role="group" aria-label="Conflicts">
       <p className="ag-settings-note" data-ag-status="unavailable">
-        {`${String(conflicts.length)} ${conflicts.length === 1 ? 'shortcut runs' : 'shortcuts run'} more than one command, so only one of them will ever run.`}
+        {`${counted(conflicts.length, 'shortcut runs', 'shortcuts run')} more than one command, so only one of them will ever run.`}
       </p>
       <ul>
         {conflicts.map((conflict) => (
@@ -88,7 +89,7 @@ export function ReservedList(props: {
   return (
     <div className="ag-shortcut-notes" role="group" aria-label="Left to the browser or the system">
       <p className="ag-settings-note" data-ag-status="unavailable">
-        {`On this keyboard, ${String(reserved.length)} ${reserved.length === 1 ? 'shortcut is one' : 'shortcuts are ones'} that a browser or the system may take before the page sees ${reserved.length === 1 ? 'it' : 'them'}, or that ${reserved.length === 1 ? 'is' : 'are'} left to the browser because you may rely on ${reserved.length === 1 ? 'it' : 'them'} there. AudioGubbins does not answer ${reserved.length === 1 ? 'it' : 'them'} on any browser. Change ${reserved.length === 1 ? 'it' : 'them'} below.`}
+        {`On this keyboard, ${counted(reserved.length, 'shortcut is one', 'shortcuts are ones')} that a browser or the system may take before the page sees ${reserved.length === 1 ? 'it' : 'them'}, or that ${reserved.length === 1 ? 'is' : 'are'} left to the browser because you may rely on ${reserved.length === 1 ? 'it' : 'them'} there. AudioGubbins does not answer ${reserved.length === 1 ? 'it' : 'them'} on any browser. Change ${reserved.length === 1 ? 'it' : 'them'} below.`}
       </p>
       <ul>
         {reserved.map((one) => (

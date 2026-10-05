@@ -19,6 +19,7 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import type { RetentionPolicy } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
 import { describeBytes } from '../wording.js';
 import { idArgument, sayWhenSettled, sessionAvailability } from './project-access.js';
@@ -52,7 +53,7 @@ function planned(plan: {
 }) {
   return plan.removable.length === 0
     ? 'Nothing in the history would be removed.'
-    : `The plan would remove ${String(plan.removable.length)} ${plan.removable.length === 1 ? 'point' : 'points'} of the history and free ${describeBytes(plan.reclaimableBytes)}. Review it before you confirm it.`;
+    : `The plan would remove ${counted(plan.removable.length, 'point', 'points')} of the history and free ${describeBytes(plan.reclaimableBytes)}. Review it before you confirm it.`;
 }
 
 /** Available where a plan waits for the person's decision. */

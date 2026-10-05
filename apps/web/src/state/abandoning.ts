@@ -8,6 +8,9 @@
  * and everything the project system started once the page takes it down. An
  * operation given up rejects with its signal's reason, an `AbortError`, which
  * is no failure: nothing waits for its outcome, so nothing says it or logs it.
+ * One the worker had carried out before it heard answers as it would have,
+ * since what it changed must be known, so an answer only worth having for the
+ * request that asked it is dropped once that request was given up.
  */
 
 /**
@@ -24,6 +27,12 @@ export function isAbandoned(error: unknown): boolean {
 /** The reason work is given up for `why`, as every abandoned call rejects with it. */
 export function abandonment(why: string): DOMException {
   return new DOMException(why, 'AbortError');
+}
+
+/** The reason `signal` aborted with, as the error a call given up with it rejects with. */
+export function reasonOf(signal: AbortSignal): Error {
+  const reason: unknown = signal.reason;
+  return reason instanceof Error ? reason : abandonment('The work was given up.');
 }
 
 /**

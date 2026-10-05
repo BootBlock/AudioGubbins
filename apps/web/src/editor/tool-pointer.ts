@@ -43,10 +43,7 @@ import {
 
 /** What the pointer reads of its view at the moment of each event. */
 export interface PointerSnapshot {
-  readonly sources: Pick<
-    SceneSources,
-    'state' | 'asset' | 'content' | 'selection' | 'playhead' | 'picture'
-  >;
+  readonly sources: Pick<SceneSources, 'state' | 'asset' | 'selection' | 'playhead' | 'picture'>;
   readonly layout: ViewLayout;
 }
 
@@ -118,7 +115,8 @@ export class ToolPointer {
         {
           layout: snapshot.layout,
           viewport: state.viewport,
-          markers: snapshot.sources.content.markers,
+          markers: state.overlays.markers ? snapshot.sources.asset.markers : [],
+          regions: state.overlays.regions ? snapshot.sources.asset.regions : [],
           selection: selection.time,
         },
         sample.x,
@@ -218,6 +216,7 @@ export class ToolPointer {
     const interaction = this.#interaction;
     if (interaction.kind === 'idle') return {};
     if (interaction.hit.kind === 'marker') return { marker: interaction.hit.id };
+    if (interaction.hit.kind === 'region-edge') return { region: interaction.hit.id };
     return interaction.hit.kind === 'selection-edge' ? { selectionEdges: true } : {};
   }
 

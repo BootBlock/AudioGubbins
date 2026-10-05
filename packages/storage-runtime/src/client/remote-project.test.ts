@@ -63,6 +63,20 @@ describe('a project open to write in the storage worker, as the page holds it', 
     expect(session.getSnapshot().model.history.nodes.size).toBe(3);
   });
 
+  it('runs several commands as one change, which one undo reverses whole', async () => {
+    const { session } = await projectScene();
+
+    const outcome = expectSuccess(
+      await session.runGroup('Two renames', [rename('One'), rename('Two')]),
+    );
+
+    expect(outcome.kind).toBe('applied');
+    expect(nameOf(session)).toBe('Two');
+    expect(session.getSnapshot().model.history.nodes.size).toBe(2);
+    expectSuccess(await session.undo());
+    expect(nameOf(session)).toBe('Forest walk');
+  });
+
   it('keeps snapshots and branch names, and lets them go', async () => {
     const { storage, project, session } = await projectScene();
     expectSuccess(await session.run(rename('Approved')));
@@ -98,6 +112,10 @@ describe('a project open to write in the storage worker, as the page holds it', 
     const compared = expectSuccess(await session.compare(...sides));
     expect(compared.compared.difference.project).not.toEqual([]);
     expect(expectSuccess(await session.comparedDifference())).toEqual(compared.compared);
+    // Each side's state crosses whole, and the project stays at B.
+    expect(expectSuccess(await session.comparedState('a')).project.displayName).toBe('Loop A');
+    expect(expectSuccess(await session.comparedState('b')).project.displayName).toBe('Loop B');
+    expect(session.getSnapshot().model.state.project.displayName).toBe('Loop B');
     expect(session.getSnapshot().model.comparison).toMatchObject({
       a: { node: a },
       b: { node: b },

@@ -29,20 +29,27 @@ import {
   sampleRate,
   unsafeBrandId,
   type Asset,
+  type EditOperation,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
   ProvenanceArgument,
+  NESTED_ARGUMENT_LIMITS,
   canonicalJson,
   contentIdFrom,
   invocationProvenance,
   parseJson,
+  readAssetRecord,
+  readEditOperation,
   readMediaSource,
   startReading,
   storageKeyOf,
+  writeAssetRecord,
+  writeEditOperation,
   writeMediaSource,
   type ContentId,
   type InvocationProvenance,
+  type AssetSource,
   type MediaSource,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -53,6 +60,10 @@ const SET_NAME = commandId('test.set-name');
 const ADD_ASSET = commandId('test.add-asset');
 const REMOVE_ASSET = commandId('test.remove-asset');
 const SET_MEDIA = commandId('test.set-media');
+const ADD_RECORD = commandId('test.add-record');
+const REMOVE_RECORD = commandId('test.remove-record');
+const APPLY_EDIT = commandId('test.apply-edit');
+const WITHDRAW_EDIT = commandId('test.withdraw-edit');
 
 const RATE = expectSuccess(sampleRate(48_000));
 const LENGTH = expectSuccess(sampleCount(4_800));
@@ -143,6 +154,7 @@ function addAssetCommand(): Command<ProjectState> {
       channelLayout: StandardLayouts.mono,
       length: LENGTH,
       storageKey: storageKeyOf(id, media),
+      edits: [],
     };
     return {
       kind: 'applied',
@@ -178,7 +190,7 @@ function removeAssetCommand(): Command<ProjectState> {
 function mediaIn(invocation: CommandInvocation): MediaSource | undefined {
   const text = invocation.arguments?.['media'];
   if (typeof text !== 'string') return undefined;
-  const parsed = parseJson(text, { maximumLength: 65_536, maximumDepth: 8 });
+  const parsed = parseJson(text, NESTED_ARGUMENT_LIMITS);
   if (!parsed.ok) return undefined;
   const reading = startReading();
   const media = reading.outcome(readMediaSource(reading, parsed.value, '', 'media'));
@@ -203,6 +215,7 @@ function setMediaCommand(): Command<ProjectState> {
       channelLayout: StandardLayouts.mono,
       length: LENGTH,
       storageKey: '',
+      edits: [],
     };
     return {
       kind: 'applied',
@@ -225,6 +238,124 @@ function setMediaCommand(): Command<ProjectState> {
   });
 }
 
+/** Adds a whole asset record, as the project commands' `addAssetInvocation` does. */
+export function addRecord(asset: Asset, source: AssetSource): CommandInvocation {
+  return {
+    commandId: ADD_RECORD,
+    arguments: { record: canonicalJson(writeAssetRecord({ asset, source })) },
+  };
+}
+
+function addRecordCommand(): Command<ProjectState> {
+  return command(ADD_RECORD, (state, invocation): CommandOutcome<ProjectState> => {
+    const text = invocation.arguments?.['record'];
+    const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
+    const reading = startReading();
+    const record =
+      parsed?.ok === true
+        ? reading.outcome(readAssetRecord(reading, parsed.value, '', ''))
+        : undefined;
+    if (record?.ok !== true) return refusal('test.record', 'An asset record is needed.');
+    const { asset, source } = record.value;
+    if (state.project.assets.has(asset.id)) return refusal('test.asset-taken', 'The asset exists.');
+    return {
+      kind: 'applied',
+      next: {
+        project: { ...state.project, assets: new Map(state.project.assets).set(asset.id, asset) },
+        sources: new Map(state.sources).set(asset.id, source),
+      },
+      inverse: { commandId: REMOVE_RECORD, arguments: { asset: asset.id } },
+      description: 'Add an asset record',
+    };
+  });
+}
+
+function removeRecordCommand(): Command<ProjectState> {
+  return command(REMOVE_RECORD, (state, invocation): CommandOutcome<ProjectState> => {
+    const id = invocation.arguments?.['asset'];
+    if (typeof id !== 'string' || !isWellFormedId(id)) return refusal('test.asset', 'No asset.');
+    const asset = state.project.assets.get(unsafeBrandId<'AssetId'>(id));
+    const source = state.sources.get(unsafeBrandId<'AssetId'>(id));
+    if (asset === undefined || source === undefined) {
+      return refusal('test.asset-missing', 'No such asset.');
+    }
+    const assets = new Map(state.project.assets);
+    assets.delete(asset.id);
+    const sources = new Map(state.sources);
+    sources.delete(asset.id);
+    return {
+      kind: 'applied',
+      next: { project: { ...state.project, assets }, sources },
+      inverse: addRecord(asset, source),
+      description: 'Remove an asset record',
+    };
+  });
+}
+
+/**
+ * Appends an edit to an asset's chain, as the project commands'
+ * `applyInvocation` does, with none of their checks: the storage tests run a
+ * chain, never judge one.
+ */
+export function applyEdit(asset: Pick<Asset, 'id'>, operation: EditOperation): CommandInvocation {
+  return {
+    commandId: APPLY_EDIT,
+    arguments: { asset: asset.id, operation: canonicalJson(writeEditOperation(operation)) },
+  };
+}
+
+function applyEditCommand(): Command<ProjectState> {
+  return command(APPLY_EDIT, (state, invocation): CommandOutcome<ProjectState> => {
+    const id = invocation.arguments?.['asset'];
+    const text = invocation.arguments?.['operation'];
+    const asset =
+      typeof id === 'string' ? state.project.assets.get(unsafeBrandId<'AssetId'>(id)) : undefined;
+    const parsed = typeof text === 'string' ? parseJson(text, NESTED_ARGUMENT_LIMITS) : undefined;
+    const reading = startReading();
+    const operation =
+      parsed?.ok === true
+        ? reading.outcome(readEditOperation(reading, parsed.value, '', ''))
+        : undefined;
+    if (asset === undefined || operation?.ok !== true) {
+      return refusal('test.edit', 'An asset and an edit are needed.');
+    }
+    const edited = { ...asset, edits: [...asset.edits, operation.value] };
+    return {
+      kind: 'applied',
+      next: {
+        ...state,
+        project: { ...state.project, assets: new Map(state.project.assets).set(asset.id, edited) },
+      },
+      inverse: { commandId: WITHDRAW_EDIT, arguments: { asset: asset.id } },
+      description: 'Apply an edit',
+    };
+  });
+}
+
+function withdrawEditCommand(): Command<ProjectState> {
+  return command(WITHDRAW_EDIT, (state, invocation): CommandOutcome<ProjectState> => {
+    const id = invocation.arguments?.['asset'];
+    const asset =
+      typeof id === 'string' ? state.project.assets.get(unsafeBrandId<'AssetId'>(id)) : undefined;
+    const last = asset?.edits.at(-1);
+    if (asset === undefined || last === undefined)
+      return refusal('test.edit', 'No edit to withdraw.');
+    const withdrawn = { ...asset, edits: asset.edits.slice(0, -1) };
+    return {
+      kind: 'applied',
+      next: {
+        ...state,
+        project: {
+          ...state.project,
+          assets: new Map(state.project.assets).set(asset.id, withdrawn),
+        },
+      },
+      inverse: applyEdit(asset, last),
+      description: 'Withdraw an edit',
+    };
+  });
+}
+
 /**
  * What the test commands declare of the provenance their arguments hold, as
  * the project commands declare theirs: only setting media carries any.
@@ -235,6 +366,10 @@ export const TEST_INVOCATION_PROVENANCE: InvocationProvenance = invocationProven
     [ADD_ASSET, {}],
     [REMOVE_ASSET, {}],
     [SET_MEDIA, { media: ProvenanceArgument.MediaSource }],
+    [ADD_RECORD, { record: ProvenanceArgument.AssetRecord }],
+    [REMOVE_RECORD, {}],
+    [APPLY_EDIT, {}],
+    [WITHDRAW_EDIT, {}],
   ]),
 );
 
@@ -246,6 +381,10 @@ export function testBus(): CommandBus<ProjectState> {
     addAssetCommand(),
     removeAssetCommand(),
     setMediaCommand(),
+    addRecordCommand(),
+    removeRecordCommand(),
+    applyEditCommand(),
+    withdrawEditCommand(),
   ]) {
     registry.register(each);
   }

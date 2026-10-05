@@ -4,11 +4,11 @@
  *
  * Presentation is the view's own: two views of one asset keep their own zoom,
  * scroll, display mode, tool, channels and overlays, while the asset, its
- * content, its selection and its playhead are shared (`session-content.ts`,
- * `selection-store.ts`, `cue-store.ts`). A view's state is a value from the
- * editor-view package; it changes through the view commands, and the one
- * change the page makes itself is the width it measures, which is not an
- * action a person takes.
+ * content, its selection and its playhead are shared (the project's assets in
+ * `project-assets.ts`, `selection-store.ts`, `cue-store.ts`). A view's state is
+ * a value from the editor-view package; it changes through the view commands,
+ * and the one change the page makes itself is the width it measures, which is
+ * not an action a person takes.
  *
  * Written to its own key in schema `editorViews`, a moment after a change
  * rather than on every one, so a drag that scrolls sixty times a second is not

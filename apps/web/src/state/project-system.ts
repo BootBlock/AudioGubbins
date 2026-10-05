@@ -29,10 +29,15 @@ import { browserBackupFolder } from '../io/backup-folder.js';
 import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
-import { projectPlatformOf } from '../storage/project-services.js';
+import { projectPlatformOf, type ProjectServices } from '../storage/project-services.js';
 import { abandonment, isAbandoned } from './abandoning.js';
 import type { PageVisibility } from './layout-map-watch.js';
-import { createProjectStores, startProjects, type ProjectStores } from './project-stores.js';
+import {
+  createProjectStores,
+  startProjects,
+  type ProjectPorts,
+  type ProjectStores,
+} from './project-stores.js';
 import type { StateStorage } from './state-storage.js';
 import {
   StorageRoot,
@@ -118,26 +123,33 @@ export function startProjectSystem(
   }
 
   const { services } = made;
+  const ports: ProjectPorts = {
+    files: browserTransferFiles(platform.pickers, services.keeper),
+    canLink: platform.pickers !== undefined,
+    backupFolder: browserBackupFolder(platform.pickers, services.keeper),
+    linkedFiles: browserLinkedFiles(services.keeper),
+  };
+  return { ...projectSystemOver(services, ports, needs), storageAbsences };
+}
+
+/**
+ * The project system over the storage `services` reach and the page's `ports`,
+ * started: the root opened, the stores made, and the peak cache kept to a root
+ * that is ready.
+ */
+export function projectSystemOver(
+  services: ProjectServices,
+  ports: ProjectPorts,
+  needs: ProjectSystemNeeds,
+): Omit<ProjectSystem, 'storageAbsences'> {
   const lifetime = new AbortController();
   const storageRoot = new StorageRoot(services.client.root, lifetime.signal);
-  const files = browserTransferFiles(platform.pickers, services.keeper);
-  const projects = createProjectStores(
-    services,
-    needs.storage,
-    {
-      files,
-      canLink: platform.pickers !== undefined,
-      backupFolder: browserBackupFolder(platform.pickers, services.keeper),
-      linkedFiles: browserLinkedFiles(services.keeper),
-    },
-    lifetime.signal,
-  );
+  const projects = createProjectStores(services, needs.storage, ports, lifetime.signal);
   const stop = run(storageRoot, projects, needs);
 
   return {
     storageRoot,
     projects,
-    storageAbsences,
     peakCache: storedPeakCache({
       ready: () => storageRoot.get().kind === 'ready',
       caches: services.client.caches,

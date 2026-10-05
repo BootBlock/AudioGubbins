@@ -224,6 +224,35 @@ describe('bundles and unpacked trees round-trip (REQ-STOR-103)', () => {
     expect(history.nodes.size).toBe(1);
     expect(history.nodes.get(history.root)).toMatchObject({ origin: { kind: 'import' } });
   });
+
+  it('begins the state alone with the retention a new project begins with, not the one it left', async () => {
+    const test = harness(11);
+    const source = storageOf(test, new MemoryStorageTree());
+    const header = await madeProject(test, source.tree);
+    const session = await openToWrite(test, source.tree, header.id);
+    const kept = { kind: 'budget', bytes: 1_000_000_000_000 } as const;
+    expectSuccess(await session.setRetentionPolicy(kept));
+    expectSuccess(await session.close());
+    const bundle = await bundleOf(source, header.id, {
+      scope: { kind: 'current-state', provenance: ProvenanceLevel.Full },
+      includeCaches: false,
+    });
+
+    const other = harness(12);
+    const target = storageOf(other, new MemoryStorageTree());
+    expectSuccess(await importBundle(memorySource(bundle), 'original', target.importing));
+    const fresh = await madeProject(other, target.tree);
+    const retentionOf = async (project: ProjectId) => {
+      const opened = expectSuccess(
+        await openProject({ project, access: 'read' }, other.services(target.tree)),
+      );
+      if (opened.kind !== 'read-only') throw new Error('Expected read-only.');
+      return opened.view.getSnapshot().model.retention;
+    };
+    const imported = await retentionOf(header.id);
+    expect(imported).not.toEqual(kept);
+    expect(imported).toEqual(await retentionOf(fresh.id));
+  });
 });
 
 /**

@@ -201,6 +201,23 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The read contract for audio files: recognition by content, the format
+    // descriptor and readers that read frames on demand at the native rate
+    // (ADR-0050, ADR-0052). Bytes reach it through a port, so it runs in any
+    // scope.
+    dir: 'packages/codecs',
+    name: '@audiogubbins/codecs',
+    description:
+      'The read contract for audio files: recognising a format by its contents, describing it, and reading its frames on demand at the rate it was recorded at.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    deps: ['@audiogubbins/domain'],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The audio core that runs on any thread: blocks and sources, the canonical
     // DSP port, graph execution, transport, offline render, profiles and
     // scheduling (ADR-0030). No browser, so it runs in an AudioWorklet, a
@@ -212,7 +229,7 @@ const PACKAGES = [
     dom: false,
     jsx: false,
     portable: true,
-    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph', '@audiogubbins/codecs'],
     devDeps: [],
     external: {},
     externalDev: {},
@@ -425,7 +442,26 @@ const PACKAGES = [
       'The typed commands that change an AudioGubbins project, each with its inverse, deterministic under replay.',
     dom: false,
     jsx: false,
-    deps: ['@audiogubbins/domain', '@audiogubbins/commands', '@audiogubbins/project-format'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/commands',
+      '@audiogubbins/project-format',
+      '@audiogubbins/text',
+    ],
+    devDeps: ['@audiogubbins/test-fixtures'],
+    external: {},
+    externalDev: {},
+  },
+  {
+    // What copying and pasting audio mean: the payload a copy takes from an
+    // edit plan, and how a paste fits it to the asset it joins (ADR-0053).
+    dir: 'packages/clipboard',
+    name: '@audiogubbins/clipboard',
+    description:
+      'Copying and pasting audio: the payload a copy takes from an edit plan, with the records of the media it reads, and how a paste fits it to its destination.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/project-format'],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},
@@ -471,6 +507,7 @@ const PACKAGES = [
     jsx: false,
     deps: [
       '@audiogubbins/domain',
+      '@audiogubbins/codecs',
       '@audiogubbins/commands',
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',
@@ -577,6 +614,7 @@ const PACKAGES = [
       '@audiogubbins/renderer',
       '@audiogubbins/editor-view',
       '@audiogubbins/video-reference',
+      '@audiogubbins/clipboard',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

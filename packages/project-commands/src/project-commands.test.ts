@@ -6,7 +6,7 @@ import {
   isCommandId,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { createDeterministicIdGenerator, type IdGenerator } from '@audiogubbins/domain';
+import { createDeterministicIdGenerator, type Asset, type IdGenerator } from '@audiogubbins/domain';
 import {
   SourceChangePolicy,
   canonicalJson,
@@ -23,7 +23,11 @@ import {
   randomContentId,
   randomIdentity,
   randomMedia,
+  randomMarker,
   randomName,
+  randomOperation,
+  randomRegion,
+  randomRegionOperation,
   randomState,
   seededRandom,
   type Random,
@@ -31,6 +35,19 @@ import {
 
 import { ProjectCommandId } from './project-command.js';
 import { projectCommands } from './project-commands.js';
+import { applyInvocation, withdrawInvocation } from './editing/edit-commands.js';
+import {
+  addMarkerInvocation,
+  removeMarkerInvocation,
+  setMarkerInvocation,
+} from './editing/marker-commands.js';
+import {
+  addRegionInvocation,
+  applyRegionEditInvocation,
+  removeRegionInvocation,
+  setRegionInvocation,
+  withdrawRegionEditInvocation,
+} from './editing/region-commands.js';
 import {
   addAssetInvocation,
   adoptSourceVersionInvocation,
@@ -58,7 +75,7 @@ function randomInvocation(
   state: ProjectState,
 ): CommandInvocation {
   const assets = [...state.project.assets.values()];
-  const choice = random.below(11);
+  const choice = random.below(21);
   if (choice === 0)
     return { commandId: ProjectCommandId.Rename, arguments: { name: randomName(random) } };
   if (choice === 1)
@@ -70,6 +87,7 @@ function randomInvocation(
 
   const asset = random.pick(assets);
   const assetId = asset.id;
+  if (choice >= 11) return randomEditingInvocation(random, ids, state, asset, choice);
   const current = state.sources.get(assetId)?.media;
   const retained = random.chance(0.5) ? randomContentId(random) : undefined;
   switch (choice) {
@@ -111,6 +129,80 @@ function randomInvocation(
     default:
       return { commandId: ProjectCommandId.FreezeSource, arguments: { assetId } };
   }
+}
+
+/**
+ * A random invocation of an editing command on `asset`: mostly one the domain
+ * accepts, sometimes one refused because something is placed on the edit it
+ * withdraws, or the region still has processing.
+ */
+function randomEditingInvocation(
+  random: Random,
+  ids: IdGenerator,
+  state: ProjectState,
+  asset: Asset,
+  choice: number,
+): CommandInvocation {
+  const { assets } = state.project;
+  const markers = [...state.project.markers.values()].filter(
+    (marker) => marker.assetId === asset.id,
+  );
+  const regions = [...state.project.regions.values()].filter(
+    (region) => region.assetId === asset.id,
+  );
+  const marker = markers.length > 0 ? random.pick(markers) : undefined;
+  const region = regions.length > 0 ? random.pick(regions) : undefined;
+  const last = asset.edits.at(-1);
+  const fresh = randomRegion(random, ids, asset);
+  switch (choice) {
+    case 11: {
+      const operation = randomOperation(random, ids, asset, assets);
+      if (operation !== undefined) return applyInvocation(asset, operation);
+      break;
+    }
+    case 12:
+      if (last !== undefined) return withdrawInvocation(asset, last);
+      break;
+    case 13:
+      return addMarkerInvocation(randomMarker(random, ids, asset));
+    case 14:
+      if (marker !== undefined) {
+        return setMarkerInvocation({ ...randomMarker(random, ids, asset), id: marker.id });
+      }
+      break;
+    case 15:
+      if (marker !== undefined) return removeMarkerInvocation(marker);
+      break;
+    case 16:
+      if (fresh !== undefined) return addRegionInvocation({ ...fresh, operations: [] });
+      break;
+    case 17:
+      if (region !== undefined && fresh !== undefined) {
+        return setRegionInvocation({ ...fresh, id: region.id });
+      }
+      break;
+    case 18:
+      if (region !== undefined) return removeRegionInvocation(region);
+      break;
+    case 19: {
+      const operation =
+        region === undefined ? undefined : randomRegionOperation(random, ids, asset, region);
+      if (region !== undefined && operation !== undefined) {
+        return applyRegionEditInvocation(region, operation);
+      }
+      break;
+    }
+    default: {
+      const processing = region?.operations.at(-1);
+      if (region !== undefined && processing !== undefined) {
+        return withdrawRegionEditInvocation(region, processing);
+      }
+    }
+  }
+  return {
+    commandId: ProjectCommandId.RenameAsset,
+    arguments: { assetId: asset.id, name: randomName(random) },
+  };
 }
 
 /** A journal's text of invocations, as the history would keep it. */

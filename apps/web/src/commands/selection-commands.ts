@@ -1,10 +1,10 @@
 /**
- * The selection commands (ADR-0042): the one way a selection changes, whether
- * a tool's drag, a click on a marker, a key or the palette asked for it
- * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the
- * editor last in use, and every view of that asset shows the result
- * (REQ-EDIT-061). The editor's selection scope, a live region, says what is
- * selected after each, so none of them speaks as well.
+ * The selection commands (ADR-0042): the one way a selection changes, whether a
+ * tool's drag, a tap on a marker or a region, a key or the palette asked for it
+ * (REQ-EDIT-065). Each acts on the asset of the view it names, or of the editor
+ * last in use, and every view of that asset shows the result (REQ-EDIT-061).
+ * The editor's selection scope, a live region, says what is selected after
+ * each, so none of them speaks as well.
  *
  * The commands that select time with the playhead are
  * `selection-playhead-commands.ts`.
@@ -21,6 +21,7 @@ import {
   sampleCount,
   unsafeBrandId,
   type MarkerId,
+  type RegionId,
   type SampleCount,
 } from '@audiogubbins/domain';
 import {
@@ -39,8 +40,10 @@ import {
   channelsArgument,
   editorTarget,
   needsEditor,
+  playheadOf,
   type EditorTarget,
 } from './editor-target.js';
+import type { EditorAsset } from '../assets/editor-asset.js';
 import { shellCommand, textArgument, type ShellCommandOptions } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -114,30 +117,132 @@ function rangeCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
-function markerSelection(): Command<ShellContext> {
+/** The identities `held` holds after `id` is chosen: added or taken away when adding, alone otherwise. */
+function chosen<T extends string>(held: readonly T[], id: T, adding: boolean): readonly T[] {
+  if (!adding) return [id];
+  return held.includes(id) ? held.filter((each) => each !== id) : [...held, id];
+}
+
+/** `current` with the markers `ids` selected, or no object selected where there are none. */
+function withMarkers(current: SelectionSet, ids: readonly MarkerId[]): SelectionSet {
+  const [first, ...rest] = ids;
+  return first === undefined
+    ? withoutFacet(current, SelectionFacet.Objects)
+    : withObjects(current, { kind: 'markers', ids: [first, ...rest] });
+}
+
+/** `current` with the regions `ids` selected, or no object selected where there are none. */
+function withRegions(current: SelectionSet, ids: readonly RegionId[]): SelectionSet {
+  const [first, ...rest] = ids;
+  return first === undefined
+    ? withoutFacet(current, SelectionFacet.Objects)
+    : withObjects(current, { kind: 'regions', ids: [first, ...rest] });
+}
+
+function heldMarkers(current: SelectionSet): readonly MarkerId[] {
+  return current.objects?.kind === 'markers' ? current.objects.ids : [];
+}
+
+function heldRegions(current: SelectionSet): readonly RegionId[] {
+  return current.objects?.kind === 'regions' ? current.objects.ids : [];
+}
+
+function objectSelections(): readonly Command<ShellContext>[] {
+  return [
+    selectionCommand(
+      'editor.select-marker',
+      'Select a marker',
+      (current, { asset }, _context, invocation) => {
+        const [id] = markerIdsOf(textArgument(invocation, 'marker'));
+        if (id === undefined || !asset.markers.some((marker) => marker.id === id)) {
+          return `That marker is not in ${asset.name}.`;
+        }
+        const adding = invocation.arguments?.['add'] === true;
+        return withMarkers(current, chosen(heldMarkers(current), id, adding));
+      },
+      { discoverable: false },
+    ),
+    selectionCommand(
+      'editor.select-region',
+      'Select a region',
+      (current, { asset }, _context, invocation) => {
+        const named = textArgument(invocation, 'region')?.trim() ?? '';
+        const region = asset.regions.find((one) => one.id === named);
+        if (region === undefined) return `That region is not in ${asset.name}.`;
+        const adding = invocation.arguments?.['add'] === true;
+        return withRegions(current, chosen(heldRegions(current), region.id, adding));
+      },
+      { discoverable: false },
+    ),
+  ];
+}
+
+/** Which way a step goes through a view's markers or regions. */
+const Step = { Next: 'next', Previous: 'previous' } as const;
+
+type Step = (typeof Step)[keyof typeof Step];
+
+/**
+ * The object a step from `held` reaches among `ordered`, each at its position
+ * on the view's timeline: past the last of those selected, or before the
+ * first; with none of them selected, the first at or after the playhead, or
+ * the last at or before it.
+ */
+function stepped<T extends string>(
+  ordered: readonly { readonly id: T; readonly at: number }[],
+  held: readonly T[],
+  playhead: number,
+  step: Step,
+): T | undefined {
+  const places = ordered.flatMap((one, index) => (held.includes(one.id) ? [index] : []));
+  if (places.length > 0) {
+    const index = step === Step.Next ? Math.max(...places) + 1 : Math.min(...places) - 1;
+    return ordered[index]?.id;
+  }
+  return step === Step.Next
+    ? ordered.find((one) => one.at >= playhead)?.id
+    : ordered.findLast((one) => one.at <= playhead)?.id;
+}
+
+/** A kind of object a view's selection steps through: what it is called, and where each is. */
+interface Steppable<T extends string> {
+  readonly noun: string;
+  readonly plural: string;
+  readonly ordered: (asset: EditorAsset) => readonly { readonly id: T; readonly at: number }[];
+  readonly held: (current: SelectionSet) => readonly T[];
+  readonly selected: (current: SelectionSet, ids: readonly T[]) => SelectionSet;
+}
+
+const MARKERS: Steppable<MarkerId> = {
+  noun: 'marker',
+  plural: 'markers',
+  ordered: (asset) => asset.markers.map((marker) => ({ id: marker.id, at: marker.position })),
+  held: heldMarkers,
+  selected: withMarkers,
+};
+
+const REGIONS: Steppable<RegionId> = {
+  noun: 'region',
+  plural: 'regions',
+  ordered: (asset) => asset.regions.map((region) => ({ id: region.id, at: region.start })),
+  held: heldRegions,
+  selected: withRegions,
+};
+
+/** Selects the next or previous object of a kind in the view, from the keyboard or the palette. */
+function stepCommand<T extends string>(kind: Steppable<T>, step: Step): Command<ShellContext> {
   return selectionCommand(
-    'editor.select-marker',
-    'Select a marker',
-    (current, { asset }, context, invocation) => {
-      const [id] = markerIdsOf(textArgument(invocation, 'marker'));
-      const markers = context.content.of(asset).markers;
-      if (id === undefined || !markers.some((marker) => marker.id === id)) {
-        return `That marker is not in ${asset.name}.`;
-      }
-      const adding = invocation.arguments?.['add'] === true;
-      const held: readonly MarkerId[] =
-        current.objects?.kind === 'markers' ? current.objects.ids : [];
-      const ids = adding
-        ? held.includes(id)
-          ? held.filter((each) => each !== id)
-          : [...held, id]
-        : [id];
-      const [first, ...rest] = ids;
-      return first === undefined
-        ? withoutFacet(current, SelectionFacet.Objects)
-        : withObjects(current, { kind: 'markers', ids: [first, ...rest] });
+    `editor.select-${step}-${kind.noun}`,
+    `Select the ${step} ${kind.noun}`,
+    (current, { asset }, context) => {
+      const held = kind.held(current);
+      const id = stepped(kind.ordered(asset), held, playheadOf(context, asset), step);
+      if (id !== undefined) return kind.selected(current, [id]);
+      const way = step === Step.Next ? 'after' : 'before';
+      if (held.length === 0) return `${asset.name} has no ${kind.plural} ${way} the playhead.`;
+      return `No ${kind.noun} lies ${way} the ${held.length === 1 ? 'one' : 'ones'} selected.`;
     },
-    { discoverable: false },
+    { keywords: [kind.noun, 'select', step, 'step', 'jump'] },
   );
 }
 
@@ -168,5 +273,13 @@ function wholeCommands(): readonly Command<ShellContext>[] {
 
 /** The commands that change the selection. */
 export function selectionCommands(): readonly Command<ShellContext>[] {
-  return [...rangeCommands(), markerSelection(), ...wholeCommands()];
+  return [
+    ...rangeCommands(),
+    ...objectSelections(),
+    stepCommand(MARKERS, Step.Next),
+    stepCommand(MARKERS, Step.Previous),
+    stepCommand(REGIONS, Step.Next),
+    stepCommand(REGIONS, Step.Previous),
+    ...wholeCommands(),
+  ];
 }

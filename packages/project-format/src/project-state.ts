@@ -9,12 +9,20 @@
  * field (REQ-EXEC-136.12).
  *
  * Invariants, which the document reader enforces: every asset of the project
- * has exactly one source and every source belongs to an asset, and each asset's
- * `storageKey` is {@link storageKeyOf} its source. Serves REQ-STOR-026,
- * REQ-STOR-053, REQ-STOR-099, REQ-STOR-104 and REQ-STOR-166.
+ * has exactly one source and every source belongs to an asset, each asset's
+ * `storageKey` is {@link storageKeyOf} its source, and the audio shape its
+ * provenance keeps, where it keeps one, agrees with the asset. Serves
+ * REQ-STOR-026, REQ-STOR-053, REQ-STOR-099, REQ-STOR-104 and REQ-STOR-166.
  */
 
-import type { AssetId, Project, ProjectId } from '@audiogubbins/domain';
+import type {
+  AssetId,
+  ChannelLayout,
+  Project,
+  ProjectId,
+  SampleCount,
+  SampleRate,
+} from '@audiogubbins/domain';
 
 import type { ContentId } from './content-identity.js';
 
@@ -162,9 +170,46 @@ export interface AssetProvenance {
   /** The project the asset was first imported into. */
   readonly originProjectId: ProjectId;
 
-  /** The source's bits per sample, where its container says. */
-  readonly bitDepth?: number;
+  /**
+   * The audio shape of the file imported, where it was read from one: what
+   * its header states and how much of it was there (REQ-AUDIO-220).
+   */
+  readonly audio?: SourceAudioShape;
 }
+
+/**
+ * The audio shape of an imported file, as its reader found it (REQ-STOR-166,
+ * REQ-AUDIO-220, ADR-0052).
+ *
+ * The asset carries the rate and length it plays at; these are kept as the
+ * file stated them, so how a sound was produced can be traced back to the
+ * file and a file that was cut short says so. The document's reader holds the
+ * two to agree: the same rate, and the asset as long as the frames read.
+ */
+export interface SourceAudioShape {
+  readonly container: SourceContainer;
+  readonly sampleRate: SampleRate;
+  readonly encoding: 'integer' | 'float';
+
+  /** Bits per sample, as the file states them. */
+  readonly bitDepth: number;
+  readonly byteOrder: 'little' | 'big';
+
+  /** The layout the file states, or absent where it states none. */
+  readonly statedLayout?: ChannelLayout;
+
+  /** The whole frames read. */
+  readonly frames: SampleCount;
+
+  /** The frames the header declared, more than `frames` where the file was cut short. */
+  readonly declaredFrames: SampleCount;
+}
+
+/** The containers an imported file's audio is read from (ADR-0052). */
+export const SOURCE_CONTAINERS = ['wav', 'rf64', 'bw64', 'aiff', 'aifc'] as const;
+
+/** A container an imported file's audio is read from. */
+export type SourceContainer = (typeof SOURCE_CONTAINERS)[number];
 
 /**
  * The storage key a domain asset carries for its source: `content:` and the

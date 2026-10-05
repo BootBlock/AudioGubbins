@@ -27,6 +27,7 @@ import {
 } from '@audiogubbins/history';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
 import type { ProjectModel } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { ProjectPanelKinds } from '../../panel-kinds.js';
 import { showPanelCommandId } from '../../commands/panel-commands.js';
@@ -53,6 +54,7 @@ export interface HistoryPanelProps {
   readonly rowOrders: Pick<HistoryRowOrders, 'orderOf'>;
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
+  readonly labelFor: (id: string) => string;
 }
 
 const SCOPES = [
@@ -64,7 +66,7 @@ const SCOPES = [
 /** How much history there is, in a sentence. */
 function summaryOf({ history, changes, branches }: HistoryRowOrder): string {
   const snapshots = history.snapshots.size;
-  return `${String(changes)} ${changes === 1 ? 'change' : 'changes'}, ${String(branches)} other ${branches === 1 ? 'branch' : 'branches'} and ${String(snapshots)} ${snapshots === 1 ? 'snapshot' : 'snapshots'}.`;
+  return `${counted(changes, 'change', 'changes')}, ${counted(branches, 'other branch', 'other branches')} and ${counted(snapshots, 'snapshot', 'snapshots')}.`;
 }
 
 /** What finds the rows: the words typed, the scope chosen, and the entity whose changes alone are shown. */
@@ -95,11 +97,10 @@ function Reviewing({
   reviewing,
   run,
   unavailableReason,
-}: {
+  labelFor,
+}: Pick<HistoryPanelProps, 'run' | 'unavailableReason' | 'labelFor'> & {
   readonly model: ProjectModel;
   readonly reviewing: HistoryReviewState;
-  readonly run: RunCommand;
-  readonly unavailableReason: (id: string) => string | undefined;
 }): ReactNode {
   const pending = reviewing.compaction;
   return (
@@ -110,7 +111,8 @@ function Reviewing({
           history={model.history}
           comparison={model.comparison}
           difference={reviewing.difference}
-          run={run}
+          commands={{ run, unavailableReason }}
+          labelFor={labelFor}
         />
       )}
       {pending !== undefined && pending.policy === undefined && (
@@ -171,6 +173,7 @@ function OpenHistory({
   rowOrders,
   run,
   unavailableReason,
+  labelFor,
 }: Omit<HistoryPanelProps, 'project' | 'review'> & {
   readonly model: ProjectModel;
   readonly reviewing: HistoryReviewState;
@@ -213,6 +216,7 @@ function OpenHistory({
         reviewing={reviewing}
         run={run}
         unavailableReason={unavailableReason}
+        labelFor={labelFor}
       />
     </section>
   );

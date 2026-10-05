@@ -23,6 +23,7 @@ import type {
 import type {
   BackupPolicy,
   HistoryNodeId,
+  ProjectState,
   RetentionPolicy,
   SnapshotId,
 } from '@audiogubbins/project-format';
@@ -77,6 +78,13 @@ export class RemoteProjectSession {
   readonly run = (invocation: CommandInvocation): Promise<DomainResult<ChangeOutcome>> =>
     this.#channel.call('projects.run', { handle: this.handle, invocation });
 
+  /** Runs several commands as one change, which undo reverses whole. */
+  readonly runGroup = (
+    description: string,
+    invocations: readonly [CommandInvocation, ...CommandInvocation[]],
+  ): Promise<DomainResult<ChangeOutcome>> =>
+    this.#channel.call('projects.runGroup', { handle: this.handle, description, invocations });
+
   readonly undo = (): Promise<DomainResult<WriteOutcome>> =>
     this.#channel.call('projects.undo', { handle: this.handle });
 
@@ -111,6 +119,16 @@ export class RemoteProjectSession {
   /** What differs between the sides of the open comparison, worked out again in the worker. */
   readonly comparedDifference = (): Promise<DomainResult<ComparedStates>> =>
     this.#channel.call('projects.comparedDifference', { handle: this.handle });
+
+  /**
+   * The project as it stands at side `side` of the open comparison, worked out
+   * in the worker, which stops once `signal` aborts.
+   */
+  readonly comparedState = (
+    side: SideName,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<ProjectState>> =>
+    this.#channel.call('projects.comparedState', { handle: this.handle, side }, { signal });
 
   readonly switchSide = (side?: SideName): Promise<DomainResult<WriteOutcome>> =>
     this.#channel.call('projects.switchSide', { handle: this.handle, side });

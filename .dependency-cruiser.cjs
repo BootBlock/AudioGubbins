@@ -56,12 +56,12 @@
  * - project-format: the authoritative, versioned project and the forms it is
  *   written in; depends on domain + text + version.
  * - project-commands: the commands that change a project; depends on domain +
- *   commands + project-format.
+ *   commands + project-format + text.
  * - history: branching history as values; depends on domain + commands +
  *   project-format.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
- * - storage: keeping projects over a backend port; depends on domain +
+ * - storage: keeping projects over a backend port; depends on domain + codecs +
  *   commands + diagnostics + history + media-store + project-format + version,
  *   and on no browser API.
  * - browser-storage: the browser beneath the storage ports; depends on
@@ -149,7 +149,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|history|input|media-store|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -183,10 +183,11 @@ module.exports = {
       severity: 'error',
       comment:
         'The engine runs on the audio thread, in workers and in tests, so it may know nothing of ' +
-        'the browser, the interface or storage: it depends on the domain and the graph alone, ' +
-        'and the runtime that hosts it sits above it (ADR-0030).',
+        'the browser, the interface or storage: it depends on the domain, the graph and the read ' +
+        'contract an edited source reads its files through, and the runtime that hosts it sits ' +
+        'above it (ADR-0030, ADR-0052).',
       from: { path: '^packages/audio-engine/' },
-      to: { path: '^packages/(?!(audio-engine|audio-graph|domain)/)' },
+      to: { path: '^packages/(?!(audio-engine|audio-graph|codecs|domain)/)' },
     },
     {
       name: 'audio-runtime-owns-nothing-else',
@@ -199,6 +200,27 @@ module.exports = {
       from: { path: '^packages/audio-runtime/' },
       to: {
         path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain)/)',
+      },
+    },
+    {
+      name: 'codecs-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'The read contract parses bytes it is handed through a port into values of the domain, ' +
+        'so every thread that plays, renders or summarises a file reads it alike (ADR-0052).',
+      from: { path: '^packages/codecs/' },
+      to: { path: '^packages/(?!(codecs|domain)/)', pathNot: '^packages/test-fixtures/' },
+    },
+    {
+      name: 'clipboard-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Copying and pasting read edit plans and the records of the media they name, and nothing ' +
+        'that keeps or shows a project (ADR-0053).',
+      from: { path: '^packages/clipboard/' },
+      to: {
+        path: '^packages/(?!(clipboard|domain|project-format)/)',
+        pathNot: '^packages/test-fixtures/',
       },
     },
     {
@@ -315,10 +337,11 @@ module.exports = {
       severity: 'error',
       comment:
         'A project command reads the project it changes and the command contract, and nothing ' +
-        'that keeps or shows a project: replay stays deterministic (ADR-0020).',
+        'that keeps or shows a project: replay stays deterministic (ADR-0020). It reads the text ' +
+        'leaf for the count a description says (ADR-0018).',
       from: { path: '^packages/project-commands/' },
       to: {
-        path: '^packages/(?!(commands|domain|project-commands|project-format)/)',
+        path: '^packages/(?!(commands|domain|project-commands|project-format|text)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -350,12 +373,12 @@ module.exports = {
       name: 'storage-owns-nothing-else',
       severity: 'error',
       comment:
-        'Storage depends on domain and project-format contracts, not the interface, and on no ' +
-        'browser adapter: the browser implements its ports from above (Phase 02 packet, ' +
-        'ADR-0020).',
+        'Storage depends on domain and project-format contracts, and on the read contract an ' +
+        'import opens a file with, not the interface, and on no browser adapter: the browser ' +
+        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052).',
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },
@@ -452,7 +475,11 @@ module.exports = {
       comment:
         'REQ-REPO-191: deterministic fixtures exist for tests. Shipping one in production code ' +
         'would be exactly the fabricated production data REQ-EXEC-181 forbids.',
-      from: { pathNot: '\\.(test|spec|bench)\\.(ts|tsx)$|^tests/|^packages/test-fixtures/' },
+      // Support under `src/testing/` is test code here, as it is to the
+      // architecture tests, which refuse a production import of it.
+      from: {
+        pathNot: '\\.(test|spec|bench)\\.(ts|tsx)$|/testing/|^tests/|^packages/test-fixtures/',
+      },
       to: { path: '^packages/test-fixtures/' },
     },
     {

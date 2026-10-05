@@ -135,6 +135,7 @@ function added(run: SessionRun, media: MediaSource, step: number): CommandInvoca
     channelLayout: StandardLayouts.mono,
     length: LENGTH,
     storageKey: storageKeyOf(id, media),
+    edits: [],
   };
   return addAssetInvocation(asset, {
     media,

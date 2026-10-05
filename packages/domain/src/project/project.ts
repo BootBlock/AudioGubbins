@@ -27,7 +27,8 @@ import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { EffectChain } from '../processing/effect-chain.js';
 import type { Asset } from './asset.js';
 import type { Clip, Marker, Region } from './timeline.js';
-import { clipEnd, regionEnd } from './timeline.js';
+import { clipEnd } from './timeline.js';
+import { planReadsAsset } from '../editing/plan.js';
 import type { Bus, Track } from './routing.js';
 
 /**
@@ -115,24 +116,50 @@ export function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[
 }
 
 /**
- * The first timeline frame after everything in the project.
- *
- * Zero for an empty project. Markers extend the length so that a marker placed
- * past the last clip stays reachable rather than falling outside the timeline
- * the moment the clip it referred to is shortened.
+ * The first timeline frame after every clip in the project, or zero for a
+ * project with none. Regions and markers belong to assets, at their own rates
+ * (ADR-0051), so they place nothing on the project timeline.
  */
 export function projectLength(project: Project): number {
   let end = 0;
   for (const clip of project.clips.values()) end = Math.max(end, clipEnd(clip));
-  for (const region of project.regions.values()) end = Math.max(end, regionEnd(region));
-  for (const marker of project.markers.values()) end = Math.max(end, marker.position);
   return end;
 }
 
-/** Whether any clip reads from the asset. */
+/** What still names an asset, so it cannot be removed before they are. */
+export interface AssetUsers {
+  readonly clips: number;
+  readonly regions: number;
+  readonly markers: number;
+
+  /** Other assets whose pasted audio reads it. */
+  readonly pastes: number;
+}
+
+/** What names the asset: clips that read it, its regions and markers, and pastes of it elsewhere. */
+export function assetUsers(project: Project, assetId: AssetId): AssetUsers {
+  const count = <T>(values: Iterable<T>, uses: (value: T) => boolean): number => {
+    let total = 0;
+    for (const value of values) if (uses(value)) total += 1;
+    return total;
+  };
+  return {
+    clips: count(project.clips.values(), (clip) => clip.source.assetId === assetId),
+    regions: count(project.regions.values(), (region) => region.assetId === assetId),
+    markers: count(project.markers.values(), (marker) => marker.assetId === assetId),
+    pastes: count(
+      project.assets.values(),
+      (asset) =>
+        asset.id !== assetId &&
+        asset.edits.some(
+          (operation) => operation.kind === 'insert' && planReadsAsset(operation.payload, assetId),
+        ),
+    ),
+  };
+}
+
+/** Whether anything names the asset (`assetUsers`). */
 export function isAssetInUse(project: Project, assetId: AssetId): boolean {
-  for (const clip of project.clips.values()) {
-    if (clip.source.assetId === assetId) return true;
-  }
-  return false;
+  const users = assetUsers(project, assetId);
+  return users.clips + users.regions + users.markers + users.pastes > 0;
 }

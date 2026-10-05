@@ -31,7 +31,8 @@ import { frameBoundary, pictureFrameAt, pictureTimecodeAt } from '@audiogubbins/
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { focusedEditor, playheadOf } from './editor-target.js';
-import { addedMarker, markerCommand } from './marker-commands.js';
+import { addMarker, markerCommand } from './marker-commands.js';
+import { projectTarget } from './project-edits.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -263,6 +264,14 @@ function fullScreenCommand(): Command<ShellContext> {
   );
 }
 
+/** Available where the picture is bound to an asset of the project, which takes markers. */
+function needsBoundProject(context: ShellContext): CommandAvailability {
+  const bound = boundAsset(context);
+  if (typeof bound === 'string') return unavailable(bound);
+  const project = projectTarget(context, bound);
+  return typeof project === 'string' ? unavailable(project) : AVAILABLE;
+}
+
 function markFrameCommand(): Command<ShellContext> {
   return markerCommand(
     'picture.mark-frame',
@@ -270,23 +279,26 @@ function markFrameCommand(): Command<ShellContext> {
     (context) => {
       const asset = boundAsset(context);
       if (typeof asset === 'string') return asset;
+      const project = projectTarget(context, asset);
+      if (typeof project === 'string') return project;
       const { binding } = context.picture.get();
       if (binding === undefined) return 'The picture is not bound to an asset.';
       const at = playheadOf(context, asset);
       const frame = pictureFrameAt(binding, at);
       const start = sampleCount(Math.min(asset.length, Math.max(0, frameBoundary(binding, frame))));
       if (!start.ok) return 'This frame starts outside the asset.';
-      return addedMarker(
+      addMarker(
         context,
-        asset,
-        { kind: 'timecode', frames: binding.frames },
+        { asset, format: { kind: 'timecode', frames: binding.frames }, project },
         start.value,
-        {
-          name: `Frame ${pictureTimecodeAt(binding, start.value)}`,
-        },
+        { name: `Frame ${pictureTimecodeAt(binding, start.value)}` },
       );
+      return undefined;
     },
-    { keywords: ['picture', 'marker', 'frame', 'mark', 'hit'], availability: needsBound },
+    {
+      keywords: ['picture', 'marker', 'frame', 'mark', 'hit'],
+      availability: needsBoundProject,
+    },
   );
 }
 

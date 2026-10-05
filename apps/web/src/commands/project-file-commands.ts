@@ -22,6 +22,7 @@ import {
   StandardLayouts,
   mapResult,
   sampleRate,
+  succeed,
   type DomainResult,
   type ProjectSettings,
 } from '@audiogubbins/domain';
@@ -45,13 +46,25 @@ import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The settings of a new project: the sample rate and channels asked for, or the usual ones. */
-function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettings> {
+export function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettings> {
   const rate = invocation.arguments?.['sampleRate'];
   const mono = invocation.arguments?.['channels'] === 'mono';
   return mapResult(sampleRate(typeof rate === 'number' ? rate : 48_000), (value) => ({
     sampleRate: value,
     channelLayout: mono ? StandardLayouts.mono : StandardLayouts.stereo,
   }));
+}
+
+/** Opens the project just made as `made`, closing the dialogue once it is open. */
+export async function openedMade(
+  context: ShellContext,
+  stores: ProjectStores,
+  made: ProjectHeader,
+): Promise<DomainResult<ProjectHeader>> {
+  const opened = await stores.project.open(made.id);
+  if (!opened.ok) return opened;
+  context.interaction.setProjectsSection(undefined);
+  return succeed(made);
 }
 
 /** Makes a project and opens it, closing the dialogue once it is open. */
@@ -62,11 +75,7 @@ async function madeAndOpened(
   settings: ProjectSettings,
 ): Promise<DomainResult<ProjectHeader>> {
   const made = await stores.library.create({ name, settings });
-  if (!made.ok) return made;
-  const opened = await stores.project.open(made.value.id);
-  if (!opened.ok) return opened;
-  context.interaction.setProjectsSection(undefined);
-  return made;
+  return made.ok ? await openedMade(context, stores, made.value) : made;
 }
 
 function projectsCommand(): Command<ShellContext> {

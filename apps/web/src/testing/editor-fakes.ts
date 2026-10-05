@@ -20,11 +20,11 @@ import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
 import { createChosenFiles } from '../state/chosen-files.js';
+import { createClipboardStore } from '../state/clipboard-store.js';
 import { createCueStore } from '../state/cue-store.js';
 import { createEditorViewStore } from '../state/editor-view-store.js';
 import { reconcileSelections } from '../state/selection-reconciling.js';
 import { createSelectionStore } from '../state/selection-store.js';
-import { createSessionContent } from '../state/session-content.js';
 import type { StateStorage } from '../state/state-storage.js';
 
 /**
@@ -145,7 +145,6 @@ export function fakeEditor(
 ): Pick<
   ShellContext,
   | 'assets'
-  | 'content'
   | 'selections'
   | 'cues'
   | 'editorViews'
@@ -153,15 +152,14 @@ export function fakeEditor(
   | 'picture'
   | 'pictureSound'
   | 'chosenFiles'
+  | 'clipboard'
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
-  const content = createSessionContent();
   const selections = createSelectionStore();
-  reconcileSelections(content, selections, assets);
+  reconcileSelections(selections, assets);
   return {
     assets,
-    content,
     selections,
     cues: createCueStore(),
     // Written at once, so a test reads back what a view keeps without waiting.
@@ -178,6 +176,7 @@ export function fakeEditor(
       resources: () => ({ availableMemoryBytes: undefined }),
     }),
     chosenFiles: createChosenFiles(),
+    clipboard: createClipboardStore(),
   };
 }
 

@@ -203,3 +203,5 @@ export {
 } from './consolidation.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
+export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';
+export { type AudioPaste, pasteAudio } from './audio-paste.js';

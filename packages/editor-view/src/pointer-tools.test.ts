@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MarkerId } from '@audiogubbins/domain';
+import { RegionBoundary, unsafeBrandId, type MarkerId } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 
 import type { HitTarget } from './hit-testing.js';
@@ -120,6 +120,52 @@ describe('the selection tools', () => {
     ]);
   });
 
+  it('move the end of a region dragged in the strip, showing it where the drag is', () => {
+    const id = unsafeBrandId<'RegionId'>('r1');
+    const start: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.Start };
+    const pressed = press(context(ToolId.Select, start), input(10));
+    expect(move(pressed.interaction, input(25)).preview).toEqual({
+      kind: 'region-boundary',
+      id,
+      boundary: RegionBoundary.Start,
+      position: 250,
+    });
+    expect(gesture(context(ToolId.Select, start), input(10), input(25))).toEqual([
+      { kind: 'move-region-boundary', id, boundary: RegionBoundary.Start, to: 250 },
+    ]);
+    const end: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.End };
+    expect(gesture(context(ToolId.Region, end), input(40), input(30))).toEqual([
+      { kind: 'move-region-boundary', id, boundary: RegionBoundary.End, to: 300 },
+    ]);
+  });
+
+  it('select a region tapped on its span or its end in the strip, adding with shift', () => {
+    const id = unsafeBrandId<'RegionId'>('r1');
+    const span: HitTarget = { kind: 'region', id };
+    const end: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.End };
+    expect(gesture(context(ToolId.Select, span), input(10))).toEqual([
+      { kind: 'select-region', id, add: false },
+    ]);
+    expect(gesture(context(ToolId.Region, end), input(10), input(11))).toEqual([
+      { kind: 'select-region', id, add: false },
+    ]);
+    const touch = { pointer: PointerKind.Touch, shift: true };
+    expect(gesture(context(ToolId.TimeSelect, span), input(10, touch), input(15, touch))).toEqual([
+      { kind: 'select-region', id, add: true },
+    ]);
+  });
+
+  it('place a marker on a region with the marker tool, and leave a region to the hand and zoom', () => {
+    const span: HitTarget = { kind: 'region', id: unsafeBrandId('r1') };
+    expect(gesture(context(ToolId.Marker, span), input(10))).toEqual([
+      { kind: 'add-marker', at: 100 },
+    ]);
+    expect(gesture(context(ToolId.Hand, span), input(10))).toEqual([]);
+    expect(gesture(context(ToolId.Zoom, span), input(10))).toEqual([
+      { kind: 'zoom-step', x: 10, direction: 'in' },
+    ]);
+  });
+
   it('read a small movement as a click, and need more of it from a finger than a mouse', () => {
     expect(gesture(context(ToolId.Select, LANE), input(10), input(12))).toEqual([
       { kind: 'set-playhead', position: 100 },
@@ -160,6 +206,15 @@ describe('the other tools', () => {
     ]);
     expect(gesture(context(ToolId.Razor, LANE), input(10))).toEqual([
       { kind: 'split-at', position: 100 },
+    ]);
+  });
+
+  it('make a region of the range the region tool drags over, across every channel', () => {
+    expect(gesture(context(ToolId.Region, LANE), input(40), input(10))).toEqual([
+      { kind: 'make-region', range: { start: 100, end: 400 } },
+    ]);
+    expect(gesture(context(ToolId.Region, LANE), input(10))).toEqual([
+      { kind: 'set-playhead', position: 100 },
     ]);
   });
 

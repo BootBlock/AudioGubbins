@@ -118,6 +118,11 @@ function partsOf(
     ids: createDeterministicIdGenerator(seed),
     nextToken: countingTokens(),
     owner,
+    // A snapshot of the bytes the tree holds now, as the browser's file is.
+    fileAt: async (path) => {
+      const bytes = await shared.tree.readFile(path);
+      return bytes === undefined ? undefined : new Blob([bytes]);
+    },
   };
 }
 

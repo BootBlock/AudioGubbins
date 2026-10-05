@@ -15,7 +15,9 @@ describe('the names of what differs between two states (REQ-STOR-195)', () => {
     const { start } = fixture.markers;
     const extra: Marker = {
       id: fixture.ids.next<'MarkerId'>(),
+      assetId: start.assetId,
       displayName: 'Scuff',
+      basis: start.basis,
       position: start.position,
     };
     const before: ProjectState = {

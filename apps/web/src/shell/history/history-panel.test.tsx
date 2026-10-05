@@ -2,13 +2,23 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { shellCommands } from '../../commands/shell-commands.js';
 import { HistoryRowOrders } from '../../state/history-row-orders.js';
 import { observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
 import { countedHistory, longHistory } from '../../testing/long-history.js';
 import { addLinkedAsset, linkedFile } from '../../testing/linked-assets.js';
 import { projectWorld, type ProjectWindow } from '../../testing/project-context.js';
+import { DESCRIPTORS } from '../../testing/shell-context.js';
 import { HistoryPanel } from './history-panel.js';
+
+/** Each command's label, by its identifier, as the registry gives it. */
+const LABELS: ReadonlyMap<string, string> = new Map(
+  shellCommands(DESCRIPTORS).map((command) => [String(command.id), command.label]),
+);
+
+/** What a command is called, as the menus call it. */
+const labelFor = (id: string): string => LABELS.get(id) ?? id;
 
 /** A project made as A, renamed B then C, undone once and renamed D: a branch after B. */
 async function branched(): Promise<ProjectWindow> {
@@ -35,6 +45,7 @@ function panelOver(
       rowOrders={window.projects.rowOrders}
       run={run}
       unavailableReason={unavailableReason}
+      labelFor={labelFor}
     />,
   );
   return { run, list: () => screen.getByRole('listbox', { name: 'Points in the history' }) };
@@ -60,6 +71,7 @@ describe('the History panel', () => {
         rowOrders={new HistoryRowOrders(observable({ kind: 'none' }))}
         run={() => true}
         unavailableReason={() => undefined}
+        labelFor={labelFor}
       />,
     );
 
@@ -242,6 +254,26 @@ describe('the History panel', () => {
     ]);
   });
 
+  it('says the side heard once, by the command that switches it, and plays it only where playback can', async () => {
+    const window = await branched();
+    await window.runAndHear('history.compare', { node: nodeOf(window, 'Rename project to “C”') });
+    panelOver(window, (id) =>
+      id === 'history.audition' ? 'This browser cannot play audio.' : undefined,
+    );
+
+    const comparison = screen.getByRole('group', { name: 'Comparison' });
+    expect(within(comparison).getByText(/^Side A, .*, is the one heard\.$/u)).toBeVisible();
+    // Switching says which side is heard as it is made, so no status says it again.
+    expect(
+      within(comparison)
+        .queryAllByRole('status')
+        .filter((status) => status.textContent.includes('heard')),
+    ).toEqual([]);
+    const play = within(comparison).getByRole('button', { name: 'Play the side heard' });
+    expect(play).toHaveAttribute('aria-disabled', 'true');
+    expect(play).toHaveAccessibleDescription('This browser cannot play audio.');
+  });
+
   it('shows what a plan to remove history costs before it is confirmed', async () => {
     const window = await branched();
     await window.runAndHear('history.plan-compaction', {
@@ -285,6 +317,7 @@ describe('the History panel', () => {
           rowOrders={rowOrders}
           run={vi.fn()}
           unavailableReason={() => undefined}
+          labelFor={labelFor}
         />,
       );
       expect(screen.getByText(`${String(changes)} changes`, { exact: false })).toBeVisible();

@@ -94,6 +94,9 @@
       "path": "../../packages/video-reference"
     },
     {
+      "path": "../../packages/clipboard"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

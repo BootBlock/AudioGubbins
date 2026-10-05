@@ -1,17 +1,21 @@
 /**
- * Timeline entities: clips, regions, markers and loops.
+ * Timeline entities: clips on the project timeline, and the regions, markers
+ * and loops placed on an asset.
  *
  * REQ-ARCH-004.4 requires the model to carry these concepts from the first
  * production phase even where the first user interface exposes only some of
  * them, so that multitrack editing is a later feature rather than a rewrite.
  *
- * Every position here is a sample frame on the *project* timeline at the
- * project's own sample rate. An asset's internal positions use the asset's
- * rate. Conflating the two is the classic source of material that plays at the
- * wrong speed, so the two never share a type without an explicit conversion.
+ * A clip's position is a sample frame on the *project* timeline at the
+ * project's own sample rate. A region's and a marker's are boundaries in one
+ * asset's edited timeline at the asset's own rate, anchored to its content
+ * (ADR-0051). Conflating the two is the classic source of material that plays
+ * at the wrong speed, so the two never share a type without an explicit
+ * conversion.
  */
 
 import type { AssetId, ClipId, MarkerId, RegionId, TrackId } from '../identity/branded-id.js';
+import type { RegionOperation } from '../editing/operations.js';
 import type { SampleCount } from '../time/sample-time.js';
 import type { AssetRange } from './asset.js';
 
@@ -72,19 +76,24 @@ export function clipsOverlap(left: Clip, right: Clip): boolean {
 }
 
 /**
- * A named span of the project timeline.
+ * A named span of one asset, which game-audio work exports, loops and names,
+ * so it is a project entity rather than a transient selection (REQ-EDIT-014).
  *
- * Regions are what game-audio work exports, loops and names, so a region is a
- * first-class project entity rather than a transient selection.
+ * Its boundaries are stated at `basis`, the number of the asset's edit
+ * operations that existed when they were set, and resolved by carrying them
+ * through the operations after (ADR-0051). Its own processing changes its
+ * audio and no other region's.
  */
 export interface Region {
   readonly id: RegionId;
+  readonly assetId: AssetId;
   readonly displayName: string;
+  readonly basis: number;
   readonly start: SampleCount;
-  readonly length: SampleCount;
+  readonly end: SampleCount;
 
-  /** Loop behaviour, or `undefined` if the region is not a loop. */
-  readonly loop?: LoopDefinition;
+  /** How the region loops, or `undefined` if it is not a loop. */
+  readonly loop?: AnchoredLoop;
 
   /**
    * Free-form user tags, for example `footstep` or `gravel`.
@@ -93,45 +102,42 @@ export interface Region {
    * tags compare equal regardless of the order the user typed them.
    */
   readonly tags: readonly string[];
+
+  /** The region's own processing, in the order it was made. */
+  readonly operations: readonly RegionOperation[];
 }
 
-/** The first timeline sample frame after the region. */
-export function regionEnd(region: Region): number {
-  return region.start + region.length;
-}
+/** Which end of a region a command moves. */
+export const RegionBoundary = { Start: 'start', End: 'end' } as const;
+
+/** Which end of a region a command moves. */
+export type RegionBoundary = (typeof RegionBoundary)[keyof typeof RegionBoundary];
 
 /**
- * How a region loops.
+ * A region's loop as it is kept: a span inside the region, anchored like the
+ * region's own boundaries, with the length of the crossfade at its join.
  *
- * REQ-EXEC-136.11 names loop rules as a domain rule that must have one
- * authoritative home, so the definition lives here and the audio engine, the
- * exporter and the Godot integration all read it rather than each deciding what
- * a loop means.
+ * Distinct from the region's start and end so that a sound can have an attack
+ * that plays once followed by a sustaining body that repeats.
  */
-export interface LoopDefinition {
-  /**
-   * Where playback returns to, as an offset from the region start.
-   *
-   * Distinct from the region start so that a sound can have an attack that
-   * plays once followed by a sustaining body that repeats.
-   */
-  readonly loopStart: SampleCount;
+export interface AnchoredLoop {
+  readonly basis: number;
+  readonly start: SampleCount;
+  readonly end: SampleCount;
 
-  /** Where playback loops from, as an offset from the region start. */
-  readonly loopEnd: SampleCount;
-
-  /**
-   * Whether the loop crossfades at the join.
-   *
-   * Zero means a hard join. A non-zero length crossfades that many frames.
-   */
+  /** Zero for a hard join, or how many frames cross-fade at it. */
   readonly crossfadeLength: SampleCount;
 }
 
-/** A point of interest on the timeline. */
+/**
+ * A point of interest on one asset, anchored to its content like a region's
+ * boundaries (ADR-0051).
+ */
 export interface Marker {
   readonly id: MarkerId;
+  readonly assetId: AssetId;
   readonly displayName: string;
+  readonly basis: number;
   readonly position: SampleCount;
 
   /**
@@ -144,8 +150,49 @@ export interface Marker {
   readonly paletteKey?: string;
 }
 
-/** Every entity that can be placed on the timeline. */
-export type TimelineEntity = Clip | Region | Marker;
+/** A marker where it lies on the timeline a view shows. */
+export interface PlacedMarker {
+  readonly id: MarkerId;
+  readonly displayName: string;
+  readonly position: SampleCount;
+  readonly paletteKey?: string;
+}
+
+/** A region where it lies on the timeline a view shows. */
+export interface PlacedRegion {
+  readonly id: RegionId;
+  readonly displayName: string;
+  readonly start: SampleCount;
+  readonly length: SampleCount;
+
+  /** Loop behaviour, or `undefined` if the region is not a loop or its loop closed up. */
+  readonly loop?: LoopDefinition;
+  readonly tags: readonly string[];
+}
+
+/** The first boundary after a placed region. */
+export function regionEnd(region: PlacedRegion): number {
+  return region.start + region.length;
+}
+
+/**
+ * How a placed region loops.
+ *
+ * REQ-EXEC-136.11 names loop rules as a domain rule that must have one
+ * authoritative home, so the definition lives here and the audio engine, the
+ * exporter and the Godot integration all read it rather than each deciding what
+ * a loop means.
+ */
+export interface LoopDefinition {
+  /** Where playback returns to, as an offset from the region start. */
+  readonly loopStart: SampleCount;
+
+  /** Where playback loops from, as an offset from the region start. */
+  readonly loopEnd: SampleCount;
+
+  /** Zero for a hard join, or how many frames cross-fade at it. */
+  readonly crossfadeLength: SampleCount;
+}
 
 /** Identifies the asset a clip reads from. */
 export function clipAssetId(clip: Clip): AssetId {

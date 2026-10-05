@@ -28,17 +28,27 @@ import {
 } from './canonical-json.js';
 import { startReading, type Converter } from './document-reading.js';
 import type { InvocationRecord } from './history-record.js';
+import { LONGEST_ARGUMENT_TEXT } from './invocation-json.js';
 import { parseJson } from './json-parsing.js';
 import { writeExternalIdentity, writeMediaSource } from './project-writing.js';
 import type { SourceRewrite } from './provenance-stripping.js';
 import { readExternalIdentity, readMediaSource } from './source-reading.js';
 
 /**
- * The bounds a nested argument's text is read within: far past the longest
- * asset record, whose names are bounded at a kibibyte and whose path at four,
- * and as deep as a record nests with room to spare.
+ * The bounds a nested argument's text is read within.
+ *
+ * As long as an argument's text may be, since an asset record carries the
+ * asset's chain of edits and a paste carries its plan, neither of which any
+ * count of names bounds. As deep as the deepest value an argument holds: an
+ * asset record (1) holds its asset (2), whose edits (3) hold a paste (4) whose
+ * payload (5) has streams (6), each a stream (7) of segments (8), each a
+ * segment (9) of stages (10), each a stage (11) whose matrix (12) has rows
+ * (13). A single operation or plan nests less, and a region less still.
  */
-export const NESTED_ARGUMENT_LIMITS: JsonLimits = { maximumLength: 65_536, maximumDepth: 8 };
+export const NESTED_ARGUMENT_LIMITS: JsonLimits = {
+  maximumLength: LONGEST_ARGUMENT_TEXT,
+  maximumDepth: 13,
+};
 
 /** The shapes of value with provenance in it that an argument may hold. */
 export const ProvenanceArgument = {

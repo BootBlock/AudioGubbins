@@ -29,12 +29,13 @@ import type {
   CompactionRequest,
   Comparison,
   ComparisonSource,
+  SideName,
 } from '@audiogubbins/history';
-import type { RetentionPolicy } from '@audiogubbins/project-format';
+import type { ProjectState, RetentionPolicy } from '@audiogubbins/project-format';
 import type { ComparedStates, WriteOutcome } from '@audiogubbins/storage';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
-import { isAbandoned } from './abandoning.js';
+import { Requests, isAbandoned, reasonOf } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 import type { OpenProjectStore } from './open-project-store.js';
 
@@ -76,12 +77,19 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
   /** The sides of the comparison whose difference is being asked for, where one is. */
   private asking: string | undefined;
 
+  /** The asking for a side's state, each replacing the one before. */
+  private readonly sideStates: Requests;
+
+  /** The side last given to the transport to play, by the key of what plays it. */
+  private heard: { readonly programme: string; readonly side: SideName } | undefined;
+
   readonly get = this.state.get;
   readonly subscribe = this.state.subscribe;
 
   constructor(project: OpenProjectStore, logger: Logger) {
     this.project = project;
     this.logger = logger;
+    this.sideStates = new Requests(() => project.scope());
     // What is held belongs to one project, and is let go when another opens.
     project.subscribe(() => {
       const current = project.get();
@@ -89,6 +97,7 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
       if (now !== this.reviewing) {
         this.state.set({});
         this.asking = undefined;
+        this.heard = undefined;
       }
       this.reviewing = now;
       this.followComparison();
@@ -147,6 +156,29 @@ export class HistoryReviewStore implements Observable<HistoryReviewState> {
       if (done.ok) this.state.update(({ compaction: _carried, ...rest }) => rest);
       return done;
     });
+
+  /**
+   * The project as side `side` of the open comparison has it, worked out in
+   * the worker. Asking again gives this up, as letting the project go does,
+   * so a side asked for after another is never answered before it.
+   */
+  readonly sideState = (side: SideName): Promise<DomainResult<ProjectState>> =>
+    this.withSession(async (session) => {
+      const signal = this.sideStates.next();
+      const state = await session.comparedState(side, signal);
+      // Answered as a newer asking was made, it is given up as the call is.
+      if (signal.aborted) throw reasonOf(signal);
+      return state;
+    });
+
+  /** Holds that the programme keyed `programme` plays side `side`. */
+  readonly hearing = (programme: string, side: SideName): void => {
+    this.heard = { programme, side };
+  };
+
+  /** The side the programme keyed `programme` plays, where it plays one. */
+  readonly sidePlayedBy = (programme: string | undefined): SideName | undefined =>
+    programme !== undefined && this.heard?.programme === programme ? this.heard.side : undefined;
 
   /** Puts the plan waiting away, changing nothing. */
   readonly cancel = (): void => {

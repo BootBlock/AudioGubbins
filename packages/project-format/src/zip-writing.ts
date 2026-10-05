@@ -13,10 +13,16 @@
  * plain fields.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  crc32,
+  fail,
+  failure,
+  succeed,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import type { ByteSink, ByteSource } from './byte-ports.js';
-import { crc32 } from './crc32.js';
 import { Turns, type YieldToHost } from './work-turns.js';
 import { ArchiveNames, entryNameBytes } from './zip-paths.js';
 import {

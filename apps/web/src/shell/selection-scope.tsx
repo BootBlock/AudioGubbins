@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 
 import { channelCount } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
+import { counted } from '@audiogubbins/text';
 import {
   SelectionFacet,
   describeTarget,
@@ -42,7 +43,7 @@ const PROCESSING: TargetRequest = {
 const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 /** The scope, in words, and whether it is outside the view. */
-function scopeOf(
+export function scopeOf(
   selection: SelectionSet,
   asset: EditorAsset,
   state: EditorViewState,
@@ -59,6 +60,7 @@ function scopeOf(
     channel: (index) => names[index] ?? String(index + 1),
     channelCount: count,
     frequency: (hertz) => `${HERTZ.format(hertz)} Hz`,
+    counted,
   });
   return {
     text,

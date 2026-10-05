@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — Phases 01 and 03, its hard dependencies, have reached `PASS`; see `traceability/handoffs/phase-01.md` and `traceability/handoffs/phase-03.md`.
+`PASS` — completed on 2026-09-30; see `reviews/phase-04-evidence.md`, `reviews/phase-04-review.md` and `traceability/handoffs/phase-04.md`.
 
 ## Objective
 

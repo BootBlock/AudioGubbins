@@ -20,13 +20,15 @@
  */
 
 import {
-  addSamples,
-  failure,
   FailureKind,
+  addSamples,
+  cancellationReason,
   fail,
+  failure,
   flatMapResult,
   sampleCount,
   succeed,
+  type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
   type SampleCount,
@@ -35,10 +37,8 @@ import {
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   allocateBlock,
-  cancellationReason,
   blockView,
   type AudioFrameBlock,
-  type CancellationSignal,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
 

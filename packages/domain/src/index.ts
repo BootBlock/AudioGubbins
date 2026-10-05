@@ -31,10 +31,20 @@ export {
 } from './result.js';
 
 export {
+  type CancellationSignal,
+  type CancellationSource,
+  Cancelled,
+  cancellationReason,
+  createCancellationSource,
+  throwIfCancelled,
+} from './cancellation.js';
+
+export {
   type AssetId,
   type Branded,
   type BusId,
   type ClipId,
+  type EditOperationId,
   type EffectChainId,
   type EntityId,
   type MarkerId,
@@ -60,6 +70,7 @@ export {
   addSamples,
   containsSample,
   convertSampleRate,
+  derivedSampleCount,
   sampleCount,
   sampleRate,
   samplesToSeconds,
@@ -101,16 +112,69 @@ export {
 } from './project/asset.js';
 
 export {
+  type AnchoredLoop,
   type Clip,
   type LoopDefinition,
   type Marker,
+  type PlacedMarker,
+  type PlacedRegion,
   type Region,
-  type TimelineEntity,
+  RegionBoundary,
   clipAssetId,
   clipEnd,
   clipsOverlap,
   regionEnd,
 } from './project/timeline.js';
+
+export {
+  type ChannelEdit,
+  type ChannelEditOperation,
+  type EditOperation,
+  type EditRange,
+  type EditTarget,
+  type LevelEdit,
+  type RangeEdit,
+  type RegionOperation,
+  MAXIMUM_EDIT_GAIN,
+  isLevelEdit,
+} from './editing/operations.js';
+export { FadeDirection, FadeShape } from './editing/fades.js';
+
+export {
+  type EditPlan,
+  type FadeCurve,
+  type GainCurve,
+  type PlanSegment,
+  type PlanSource,
+  type PlanStage,
+  type PlanStream,
+  convertedFrameCount,
+  planReadsAsset,
+  streamLength,
+} from './editing/plan.js';
+
+export { type EditShape, shapeAfter, shapesOf } from './editing/edit-shape.js';
+
+export { Affinity, type AnchorResolver, type Span, anchorResolver } from './editing/anchors.js';
+
+export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices.js';
+
+export { assetPlan } from './editing/plan-building.js';
+export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
+export { sliceSegment } from './editing/segment-list.js';
+export { slicePlan } from './editing/plan-slicing.js';
+export { type MediaShape, validatePlan } from './editing/plan-validation.js';
+export { editPlanFrom } from './editing/plan-decoding.js';
+export { validateChain, validateOperation } from './editing/operation-validation.js';
+export { validateMarker, validateRegion } from './editing/placement-validation.js';
+export { restateRegion, splitRegion, splitWholeAsset } from './editing/region-split.js';
+export {
+  markersInRegion,
+  placeMarkers,
+  placeRegion,
+  placeRegions,
+  regionPlan,
+} from './editing/placement.js';
 
 export {
   type Bus,
@@ -148,10 +212,14 @@ export { type ProcessorLatency } from './processing/processor-latency.js';
 
 export {
   type Project,
+  type AssetUsers,
   type ProjectSettings,
+  assetUsers,
   clipsOnTrack,
   createProject,
   isAssetInUse,
   projectLength,
   tracksInOrder,
 } from './project/project.js';
+
+export { crc32 } from './integrity/crc32.js';

@@ -130,6 +130,8 @@ const EDITOR_GROUPS: readonly {
     label: 'Markers',
     ids: [
       'editor.add-marker',
+      'editor.select-next-marker',
+      'editor.select-previous-marker',
       'editor.remove-markers',
       'editor.nudge-markers-back',
       'editor.nudge-markers-forward',
@@ -147,6 +149,7 @@ const EDITOR_GROUPS: readonly {
       'editor.tool-zoom',
       'editor.tool-razor',
       'editor.tool-marker',
+      'editor.tool-region',
     ],
   },
   {

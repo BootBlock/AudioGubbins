@@ -6,8 +6,8 @@
  * with the other left in the history, so nothing is lost either way. What
  * differs is said entity by entity, worked out in the storage worker as the
  * comparison is opened and again for one kept from before, as after a reload.
- * Hearing a side needs the audio engine, which a later phase brings; the side
- * chosen is the one it will play.
+ * Playing plays the audio in the editor in use as the side heard has it, and
+ * switching while it plays goes on with the other side from the same place.
  */
 
 import type { ReactNode } from 'react';
@@ -23,7 +23,7 @@ import {
 
 import type { ComparedStates } from '@audiogubbins/storage';
 
-import type { RunCommand } from '../settings/section.js';
+import { CommandButton, type PanelCommands } from '../command-button.js';
 import { differenceLines } from './difference-words.js';
 import { describeNode } from './history-words.js';
 
@@ -40,11 +40,14 @@ function sideOf(history: History, chosen: ComparisonSide): string {
 /** Hearing each side, keeping one, and stopping. */
 function ComparisonControls({
   listening,
-  run,
+  commands,
+  labelFor,
 }: {
   readonly listening: SideName;
-  readonly run: RunCommand;
+  readonly commands: PanelCommands;
+  readonly labelFor: (id: string) => string;
 }): ReactNode {
+  const { run } = commands;
   return (
     <div className="ag-settings-row">
       {SIDES.map((side) => (
@@ -52,22 +55,37 @@ function ComparisonControls({
           key={`hear-${side}`}
           compact
           aria-pressed={listening === side}
-          onClick={() => run('history.switch-side', { side })}
+          onClick={() => {
+            run('history.switch-side', { side });
+          }}
         >
           {`Hear ${side.toUpperCase()}`}
         </Button>
       ))}
+      <CommandButton
+        id="history.audition"
+        label={labelFor('history.audition')}
+        commands={commands}
+        compact
+      />
       {SIDES.map((side) => (
         <Button
           key={`keep-${side}`}
           compact
           tone={ButtonTone.Primary}
-          onClick={() => run('history.promote', { side })}
+          onClick={() => {
+            run('history.promote', { side });
+          }}
         >
           {`Keep ${side.toUpperCase()}`}
         </Button>
       ))}
-      <Button compact onClick={() => run('history.close-comparison')}>
+      <Button
+        compact
+        onClick={() => {
+          run('history.close-comparison');
+        }}
+      >
         Stop comparing
       </Button>
     </div>
@@ -79,14 +97,16 @@ export function ComparisonView({
   history,
   comparison,
   difference,
-  run,
+  commands,
+  labelFor,
 }: {
   readonly history: History;
   readonly comparison: Comparison;
 
   /** What differs, where it was worked out for these two sides. */
   readonly difference: ComparedStates | undefined;
-  readonly run: RunCommand;
+  readonly commands: PanelCommands;
+  readonly labelFor: (id: string) => string;
 }): ReactNode {
   const known = difference?.a === comparison.a.node && difference.b === comparison.b.node;
   const heard = comparison.listening.toUpperCase();
@@ -95,7 +115,9 @@ export function ComparisonView({
     <div role="group" className="ag-history-comparison" aria-label="Comparison">
       <h3 className="ag-section-heading">Comparing two states</h3>
       <p>{`A is ${sideOf(history, comparison.a)}. B is ${sideOf(history, comparison.b)}.`}</p>
-      <p role="status">{`Side ${heard}, ${heardState}, is the one heard. Playing it arrives with the audio engine.`}</p>
+      {/* Not a status: switching sides says which is heard as it is made,
+          and a status would say it again. */}
+      <p>{`Side ${heard}, ${heardState}, is the one heard.`}</p>
       {known ? (
         <ul className="ag-history-differences" aria-label="What differs">
           {differenceLines(difference.difference, difference.names).map((line, index) => (
@@ -108,7 +130,11 @@ export function ComparisonView({
           Working out what differs between them…
         </p>
       )}
-      <ComparisonControls listening={comparison.listening} run={run} />
+      <ComparisonControls
+        listening={comparison.listening}
+        commands={commands}
+        labelFor={labelFor}
+      />
     </div>
   );
 }

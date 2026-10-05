@@ -22,7 +22,7 @@ import {
 } from '@audiogubbins/media-store';
 import type { ContentId, Digest, ExternalSourceIdentity } from '@audiogubbins/project-format';
 
-import { releaseOnceSaved } from './media-holds.js';
+import { runHolding } from './media-holds.js';
 import type { ProjectSession } from './project-session.js';
 import type { ChangeOutcome } from './session-contracts.js';
 
@@ -82,15 +82,11 @@ export async function takeSourceVersion(
   );
   if (!kept.ok) return kept;
   const { identity, contentId } = kept.value;
-  const release = (): void => {
-    services.store.release(contentId);
-  };
-  let ran: DomainResult<ChangeOutcome> | undefined;
-  try {
-    ran = await session.run(build(asset, identity, contentId));
-    return ran;
-  } finally {
-    if (ran?.ok === true && ran.value.kind === 'applied') releaseOnceSaved(session, release);
-    else release();
-  }
+  return await runHolding(
+    session,
+    () => {
+      services.store.release(contentId);
+    },
+    async () => await session.run(build(asset, identity, contentId)),
+  );
 }

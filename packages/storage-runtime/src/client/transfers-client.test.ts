@@ -47,6 +47,7 @@ function assetOf(media: MediaSource): Asset {
     channelLayout: SETTINGS.channelLayout,
     length: expectSuccess(sampleCount(4_800)),
     storageKey: storageKeyOf(ASSET, media),
+    edits: [],
   };
 }
 

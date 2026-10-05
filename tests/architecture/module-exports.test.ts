@@ -182,6 +182,23 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
+    ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  "Carrying a position and a span through the operations after their basis, which the anchors' tests hold to the edit model's rules one operation at a time; the domain places markers and regions through the resolver they make.":
+    [
+      'packages/domain/src/editing/anchors.ts: carryPosition',
+      'packages/domain/src/editing/anchors.ts: carrySpan',
+    ],
+  "The invocations that withdraw an asset's last operation and a region's, the inverses a change records, which the command tests run on their own; the history applies the inverses it recorded.":
+    [
+      'packages/project-commands/src/editing/edit-commands.ts: withdrawInvocation',
+      'packages/project-commands/src/editing/region-commands.ts: withdrawRegionEditInvocation',
+    ],
+  "Reading and writing a region's loop on its own, which the document's tests round-trip apart from the region holding it; a document reads and writes a loop with its region.":
+    [
+      'packages/project-format/src/placement-reading.ts: readAnchoredLoop',
+      'packages/project-format/src/placement-writing.ts: writeAnchoredLoop',
+    ],
   'The storage tree over any synchronous root, which its tests run over a directory in memory; the storage worker builds it through `originPrivateTree`, over the origin-private file system.':
     ['packages/browser-storage/src/sync-storage-tree.ts: SyncStorageTree'],
   'How many entries of a history one slice of an opening carries, which the test of a long opening exceeds twice over so the page must apply slices in turn; the worker cuts every opening by it.':
@@ -203,8 +220,6 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/timeline/src/zoom.ts: ONE_SAMPLE_PER_PIXEL',
       'packages/timeline/src/zoom.ts: zoomShowing',
     ],
-  'The checksum a peak cache carries, held by its test to the value zlib and ZIP give, so a cache written here reads anywhere that checks it.':
-    ['packages/waveform/src/peak-codec.ts: crc32'],
   'Which element is a text field, and which control keeps a key pressed alone, asked of every kind of element by the listener tests; the listener asks each of an event target alone.':
     [
       'apps/web/src/input/use-shortcuts.ts: isTextField',
@@ -212,6 +227,8 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   "The test signal's request at a context rate the test names, whose graph and source its tests read; the transport reaches it through `TEST_SIGNAL_PROGRAMME`.":
     ['apps/web/src/audio/test-signal.ts: testSignalPlayback'],
+  "The project system over storage services and page ports given, which its test makes over storage in memory to hold the peak cache to a ready root; the application starts it through `startProjectSystem`, which starts the browser's storage worker.":
+    ['apps/web/src/state/project-system.ts: projectSystemOver'],
   "The editor panels' parts, made over a context with the services given, which the panel tests make with a peak worker that answers nothing; the application makes them through `startEditor`.":
     ['apps/web/src/editor-part.ts: panelPartsOf'],
   "The asset a picture's decoded sound makes, which its tests build from arrays they name; the application reaches it through `decodePictureSound`, which a test cannot hand a browser's decoder.":

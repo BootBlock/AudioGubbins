@@ -27,6 +27,12 @@
       "path": "./packages/audio-graph/scopes/any"
     },
     {
+      "path": "./packages/codecs"
+    },
+    {
+      "path": "./packages/codecs/scopes/any"
+    },
+    {
       "path": "./packages/audio-engine"
     },
     {
@@ -85,6 +91,9 @@
     },
     {
       "path": "./packages/project-commands"
+    },
+    {
+      "path": "./packages/clipboard"
     },
     {
       "path": "./packages/history"

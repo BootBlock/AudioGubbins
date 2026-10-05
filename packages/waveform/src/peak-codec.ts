@@ -21,7 +21,14 @@
  * the time to make it again.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  crc32,
+  fail,
+  failure,
+  succeed,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import {
   BASE_BUCKET_FRAMES,
@@ -51,23 +58,6 @@ export interface PeakCacheIdentity {
 export interface DecodedPeaks {
   readonly geometry: PeakGeometry;
   readonly levels: readonly PeakLevel[];
-}
-
-const CRC_TABLE: Uint32Array = (() => {
-  const table = new Uint32Array(256);
-  for (let byte = 0; byte < 256; byte += 1) {
-    let crc = byte;
-    for (let bit = 0; bit < 8; bit += 1) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
-    table[byte] = crc >>> 0;
-  }
-  return table;
-})();
-
-/** The CRC-32 of `bytes`, as zlib and ZIP compute it. */
-export function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (const byte of bytes) crc = (CRC_TABLE[(crc ^ byte) & 0xff] ?? 0) ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function padded(length: number): number {

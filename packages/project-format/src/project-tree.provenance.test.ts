@@ -28,7 +28,7 @@ import { decodeUtf8 } from './utf8.js';
 const KEPT = {
   full: {
     provenance: [
-      'bitDepth',
+      'audio',
       'byteLength',
       'importedAt',
       'mediaType',
@@ -66,7 +66,7 @@ const KEPT = {
   },
   minimal: {
     provenance: [
-      'bitDepth',
+      'audio',
       'byteLength',
       'importedAt',
       'mediaType',

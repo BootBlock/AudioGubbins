@@ -14,6 +14,7 @@
 import type { AssetId } from '../identity/branded-id.js';
 import type { ChannelLayout } from '../audio/channel-layout.js';
 import type { SampleCount, SampleRate } from '../time/sample-time.js';
+import type { EditOperation } from '../editing/operations.js';
 
 /**
  * Where an asset's audio comes from.
@@ -66,6 +67,13 @@ export interface Asset {
    * (REQ-EXEC-136.4).
    */
   readonly storageKey: string;
+
+  /**
+   * What has been done to the asset, in order, over its unchanged source
+   * (ADR-0051). Its source is never rewritten: an edit is an operation here,
+   * and an undo withdraws the last.
+   */
+  readonly edits: readonly EditOperation[];
 }
 
 /**

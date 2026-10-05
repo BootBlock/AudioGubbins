@@ -16,9 +16,10 @@ import type {
   RecoverabilityLoss,
   StorageUsage,
 } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { quoted } from '../../wording.js';
-import { counted, lostSentence } from '../history/history-words.js';
+import { lostSentence } from '../history/history-words.js';
 
 /** What each cache is called. */
 const CACHE_NAMES: Readonly<Record<CacheCategory, string>> = {

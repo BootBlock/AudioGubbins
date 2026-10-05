@@ -15,6 +15,7 @@
 
 import {
   createLeaseCoordinator,
+  originPrivateFile,
   originPrivateTree,
   randomTokens,
   webDigest,
@@ -97,6 +98,7 @@ function partsOf(
     }),
     yieldToHost: turnsEvery(TURN_MILLISECONDS, platform.elapsed, yieldToHost(storage.hostYielding)),
     logs,
+    fileAt: originPrivateFile(platform.readRoot),
   };
 }
 

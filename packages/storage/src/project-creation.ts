@@ -18,7 +18,13 @@
  * takes a project being made for one a crash left unfinished.
  */
 
-import { mapResult, succeed, type DomainResult, type IdGenerator } from '@audiogubbins/domain';
+import {
+  mapResult,
+  succeed,
+  type DomainResult,
+  type IdGenerator,
+  type ProjectId,
+} from '@audiogubbins/domain';
 import { startHistory, withStateFingerprint, type History } from '@audiogubbins/history';
 import {
   DEFAULT_BACKUP_POLICY,
@@ -95,10 +101,37 @@ export interface ProjectContents {
 }
 
 /** A project that keeps no state besides the cursor's. */
-export const NO_KEPT_STATES: TreeStates = {
+const NO_KEPT_STATES: TreeStates = {
   fingerprints: [],
   load: () => Promise.reject(new Error('A project that keeps no state was asked for one.')),
 };
+
+/**
+ * The history of a project that begins here rather than carrying one in: a
+ * single origin node naming the state it begins with, no state kept besides
+ * the cursor's, and the retention every such project begins with. A project
+ * made, forked or brought in without its history begins alike.
+ */
+export function begunHistory(
+  beginning: Omit<ProjectBeginning, 'state'> & {
+    readonly project: ProjectId;
+    readonly stateFingerprint: StateFingerprint;
+  },
+  ids: IdGenerator,
+): Pick<ProjectContents, 'history' | 'kept' | 'retention'> {
+  const history = startHistory(beginning.project, {
+    kind: 'origin',
+    id: ids.next<'HistoryNodeId'>(),
+    at: beginning.at,
+    origin: beginning.origin,
+    stateFingerprint: beginning.stateFingerprint,
+  });
+  return {
+    history: () => succeed(history),
+    kept: NO_KEPT_STATES,
+    retention: DEFAULT_RETENTION_POLICY,
+  };
+}
 
 /**
  * Writes a new project's files, the project being the state's own, and gives
@@ -110,24 +143,18 @@ export async function writeNewProject(
   writing: ProjectWriting,
 ): Promise<DomainResult<ProjectHeader>> {
   const { state, origin, at } = beginning;
-  const history = startHistory(state.project.id, {
-    kind: 'origin',
-    id: writing.ids.next<'HistoryNodeId'>(),
-    at,
-    origin,
-    stateFingerprint: await files.states.fingerprint(state),
-  });
+  const begun = begunHistory(
+    {
+      project: state.project.id,
+      origin,
+      at,
+      stateFingerprint: await files.states.fingerprint(state),
+    },
+    writing.ids,
+  );
   return await writeProject(
     files,
-    {
-      state,
-      history: () => succeed(history),
-      kept: NO_KEPT_STATES,
-      exports: [],
-      retention: DEFAULT_RETENTION_POLICY,
-      backup: DEFAULT_BACKUP_POLICY,
-      created: at,
-    },
+    { state, ...begun, exports: [], backup: DEFAULT_BACKUP_POLICY, created: at },
     writing,
   );
 }

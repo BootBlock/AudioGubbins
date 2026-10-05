@@ -19,7 +19,7 @@ import { handlesIn } from './directory-handles.js';
 import type { ChosenFile } from './external-files.js';
 import { fileSource } from './file-source.js';
 import { openFileSink } from './file-stream-sink.js';
-import { meansAbsent, treeFailureOf } from './platform-failures.js';
+import { fileAt, finding, folderAt, partsOf, refusing } from './folder-paths.js';
 
 /**
  * The files of a folder the person chose, as a directory to read: each by where
@@ -42,51 +42,6 @@ export function listedFolder(
       Promise.resolve(Array.from(byPath, ([path, source]) => ({ path, size: source.size }))),
     open: (path) => Promise.resolve(byPath.get(path)),
   };
-}
-
-/** Runs a step of the platform, its refusal made the designed failure. */
-async function refusing<Result>(step: () => Promise<Result>): Promise<Result> {
-  try {
-    return await step();
-  } catch (error) {
-    if (error instanceof DOMException) throw treeFailureOf(error);
-    throw error;
-  }
-}
-
-/** Runs a step that finds something, `undefined` where it is not there. */
-async function finding<Result>(step: () => Promise<Result>): Promise<Result | undefined> {
-  try {
-    return await refusing(step);
-  } catch (error) {
-    // The failure keeps the platform's refusal as its cause, which is what says
-    // whether nothing of the kind asked for was there.
-    if (error instanceof Error && meansAbsent(error.cause)) return undefined;
-    throw error;
-  }
-}
-
-/** A path's folders and its last segment. */
-function partsOf(path: string): { readonly folders: readonly string[]; readonly name: string } {
-  const segments = path.split('/');
-  const name = segments.pop();
-  if (name === undefined || name === '') throw new Error(`Not a file path: ${path}`);
-  return { folders: segments, name };
-}
-
-/** The folder a run of names leads to, made where `create` asks, `undefined` where absent. */
-async function folderAt(
-  root: FileSystemDirectoryHandle,
-  folders: readonly string[],
-  create: boolean,
-): Promise<FileSystemDirectoryHandle | undefined> {
-  let folder: FileSystemDirectoryHandle | undefined = root;
-  for (const name of folders) {
-    const parent: FileSystemDirectoryHandle = folder;
-    folder = await finding(() => parent.getDirectoryHandle(name, { create }));
-    if (folder === undefined) return undefined;
-  }
-  return folder;
 }
 
 /** Every file under a folder, at any depth, by where it lies inside it. */
@@ -117,12 +72,8 @@ export function writableFolder(root: FileSystemDirectoryHandle): DirectoryWriter
       return found;
     },
     open: async (path) => {
-      const { folders, name } = partsOf(path);
-      const folder = await folderAt(root, folders, false);
-      const handle = await finding(async () => await folder?.getFileHandle(name));
-      if (handle === undefined) return undefined;
-      const file = await finding(() => handle.getFile());
-      return file === undefined ? undefined : fileSource(file, () => handle.getFile());
+      const found = await fileAt(root, path);
+      return found === undefined ? undefined : fileSource(found.file, () => found.handle.getFile());
     },
     create: async (path): Promise<ByteSink> => {
       const { folders, name } = partsOf(path);

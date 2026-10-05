@@ -11,7 +11,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { ButtonTone } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
@@ -31,8 +31,10 @@ import {
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
+import { CommandButton, useCommandReasons, type PanelCommands } from './command-button.js';
 import { PerformanceChoice } from './performance-choice.js';
 import { ProcessingModes } from './processing-modes.js';
+import { SharedReasonNotes } from './settings/reasoned-button.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
 /** What the panel reads, and how it runs a command. */
@@ -60,35 +62,6 @@ export interface TransportPanelProps {
   readonly editorViews: Observable<unknown>;
 }
 
-type Commands = Pick<TransportPanelProps, 'run' | 'unavailableReason'>;
-
-/** A button that runs a command, disabled with the command's own reason. */
-function CommandButton({
-  id,
-  label,
-  commands,
-  tone,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly commands: Commands;
-  readonly tone?: ButtonTone;
-}): ReactNode {
-  const reason = commands.unavailableReason(id);
-  return (
-    <Button
-      {...(tone === undefined ? {} : { tone })}
-      disabled={reason !== undefined}
-      title={reason}
-      onClick={() => {
-        commands.run(id);
-      }}
-    >
-      {label}
-    </Button>
-  );
-}
-
 /** A transport position as the editor writes a clock, or the start where nothing plays. */
 function positionOf(frame: number | undefined, rate: number | undefined): string {
   const read = rate === undefined ? undefined : sampleRate(rate);
@@ -96,6 +69,14 @@ function positionOf(frame: number | undefined, rate: number | undefined): string
     ? '0:00.000'
     : formatPosition(frame, read.value, { kind: TimeFormatKind.Clock });
 }
+
+/** The commands of the transport's buttons, whose reasons are said once above them. */
+const TRANSPORT_COMMANDS: readonly string[] = [
+  'transport.play',
+  'transport.play-test-signal',
+  'transport.pause',
+  'transport.stop',
+];
 
 /** Play, Pause and Stop, and where playback is. */
 function TransportControls({
@@ -105,38 +86,44 @@ function TransportControls({
 }: {
   readonly view: AudioView;
   readonly playhead: () => number | undefined;
-  readonly commands: Commands;
+  readonly commands: PanelCommands;
 }): ReactNode {
   const mode = view.playback?.transport.mode;
   const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
   const rate = view.playback?.device?.sampleRate;
+  const reasons = useCommandReasons(commands, TRANSPORT_COMMANDS);
   return (
-    <div className="ag-transport-controls" role="group" aria-label="Transport">
-      <CommandButton
-        id="transport.play"
-        label="Play"
-        tone={ButtonTone.Primary}
-        commands={commands}
-      />
-      <CommandButton
-        id="transport.play-test-signal"
-        label="Play the test signal"
-        commands={commands}
-      />
-      <CommandButton id="transport.pause" label="Pause" commands={commands} />
-      <CommandButton id="transport.stop" label="Stop" commands={commands} />
-      <span className="ag-transport-position">
-        <span className="ag-panel-note" aria-hidden="true">
-          Position{' '}
-        </span>
-        {/* A timer, whose changes a screen reader does not read out as they
+    <>
+      <SharedReasonNotes reasons={reasons} />
+      <div className="ag-transport-controls" role="group" aria-label="Transport">
+        <CommandButton
+          id="transport.play"
+          label="Play"
+          tone={ButtonTone.Primary}
+          commands={commands}
+          shared={reasons}
+        />
+        <CommandButton
+          id="transport.play-test-signal"
+          label="Play the test signal"
+          commands={commands}
+          shared={reasons}
+        />
+        <CommandButton id="transport.pause" label="Pause" commands={commands} shared={reasons} />
+        <CommandButton id="transport.stop" label="Stop" commands={commands} shared={reasons} />
+        <span className="ag-transport-position">
+          <span className="ag-panel-note" aria-hidden="true">
+            Position{' '}
+          </span>
+          {/* A timer, whose changes a screen reader does not read out as they
             come, as a status would be every frame; it is read when reached. */}
-        <span role="timer" aria-label="Position">
-          {positionOf(frame, rate)}
+          <span role="timer" aria-label="Position">
+            {positionOf(frame, rate)}
+          </span>
         </span>
-      </span>
-      {view.starting && <span className="ag-panel-note">Starting…</span>}
-    </div>
+        {view.starting && <span className="ag-panel-note">Starting…</span>}
+      </div>
+    </>
   );
 }
 
@@ -181,7 +168,7 @@ function OfflineRender({
 }: {
   readonly view: AudioView;
   readonly framesRendered: () => number;
-  readonly commands: Commands;
+  readonly commands: PanelCommands;
 }): ReactNode {
   const { render } = view;
   const rendered = useDisplayFrame(framesRendered, render.stage === RenderStage.Running);

@@ -12,7 +12,7 @@
  * - `full` keeps everything.
  * - `minimal` keeps what identifies content and when it arrived: the import
  *   time, the source's content identity and fingerprint, its length, media
- *   type and bit depth, and the originating project. It drops the original
+ *   type and audio shape, and the originating project. It drops the original
  *   file name, and from an external source's identity the kept handle, the
  *   file name and the relative path.
  * - `none` drops each asset's provenance whole, and strips external identity

@@ -1,0 +1,13 @@
+# ADR-0053 — The Clipboard Holds A Payload Of Plan Segments, And Quick Edit Is A Project The Shell Makes
+
+- **Status:** Accepted
+- **Decision:** `packages/clipboard` (`@audiogubbins/clipboard`) owns what copying and pasting mean.
+  - **The payload.** `ClipboardPayload` is a slice of an edit plan (`ADR-0051`): its streams, rate and layout, and the asset records of the media its segments read. It names immutable sources only, never an operation, so what was copied sounds the same whatever later happens to the asset it came from.
+  - **Copy and cut.** Copying takes the resolved target's range and channels from the plan of the asset or region shown; a cut is a copy and a deletion, recorded as one change.
+  - **Paste.** Pasting inserts the payload at the target's position, or replaces the target's range. A payload whose layout differs is mapped by the conversion matrix the domain states for the two layouts, and refused with the reason when it states none. A payload at another rate is pasted only when the person asks for it to be converted. A payload copied from another project brings the asset records it reads, which the storage worker adds only after it has checked that the stored or linked media is there, so a missing or changed source refuses the paste and leaves the destination unchanged. A payload too large for one recorded change is inserted as consecutive insertions in one change.
+  - **The holder.** The clipboard is held by the page for its session, replaced by each copy, and never persisted or sent anywhere.
+  - **Quick Edit.** `REQ-EDIT-008`'s Quick Edit is a facade over the project model: choosing a file makes a project named after it, imports the file with the person's copy-or-link setting and opens it in the editor, with no project dialogue. The `QuickEditSession` the shell holds names that project and asset, and every edit is the same project command Project Mode runs, so the two make the same structures. Exporting is Phase 09's.
+- **Drivers:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, the packet's failure rule that clipboard data from missing or relinked media must not corrupt the destination, `REQ-ARCH-085`.
+- **Constraints:** a paste is a project command and undoes with the project's history; the clipboard itself is not project state and is not undone.
+- **Change record:** affected requirements `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`; affected phase 05; compatibility impact none beyond `ADR-0051`; verification by the clipboard's tests, the commands' tests and the browser test of the core edits.
+- **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-ARCH-085`.

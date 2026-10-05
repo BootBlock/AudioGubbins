@@ -6,6 +6,9 @@ Published paths
   @audiogubbins/audio-runtime/threads/*
   @audiogubbins/browser-storage
   @audiogubbins/capabilities
+  @audiogubbins/clipboard
+  @audiogubbins/codecs
+  @audiogubbins/codecs/testing
   @audiogubbins/commands
   @audiogubbins/design-system
   @audiogubbins/design-system/styles/*.css
@@ -49,16 +52,6 @@ Published paths
   const BUILT_IN_NODES: NodeImplementations
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
-  interface CancellationSignal
-  readonly CancellationSignal.aborted: boolean
-  readonly CancellationSignal.reason: unknown
-  CancellationSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
-  CancellationSignal.removeEventListener: (type: "abort", listener: () => void) => void
-  interface CancellationSource
-  readonly CancellationSource.signal: CancellationSignal
-  CancellationSource.cancel: (reason?: unknown) => void
-  class Cancelled extends Error
-  new Cancelled(message?: string): Cancelled
   interface CanonicalDsp
   readonly CanonicalDsp.implementation: DspImplementation
   CanonicalDsp.sineOfTurns: (turns: number) => number
@@ -126,6 +119,15 @@ Published paths
   interface MediaClock
   readonly MediaClock.timelineRate: SampleRate
   readonly MediaClock.contextRate: SampleRate
+  interface MediaEntry
+  readonly MediaEntry.asset: AssetId
+  readonly MediaEntry.sampleRate: SampleRate
+  readonly MediaEntry.channels: number
+  readonly MediaEntry.length: SampleCount
+  readonly MediaEntry.file: MediaFile
+  interface MediaFile
+  readonly MediaFile.size: number
+  MediaFile.slice: (start: number, end: number) => { arrayBuffer(): Promise<ArrayBuffer>; }
   interface MeterReading
   readonly MeterReading.frames: number
   readonly MeterReading.peak: readonly number[]
@@ -154,9 +156,9 @@ Published paths
   const PRESET_SETTINGS: Readonly<Record<PresetProfile, PerformanceSettings>>
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
-  type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
-  const PcmDescriptionKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; }
-  type PcmDescriptionKind = "pcm" | "signal"
+  type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Edited; readonly sampleRate: SampleRate; readonly plan: EditPlan; readonly media: readonly MediaEntry[]; } | { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
+  const PcmDescriptionKind: { readonly Pcm: "pcm"; readonly Signal: "signal"; readonly Edited: "edited"; }
+  type PcmDescriptionKind = "edited" | "pcm" | "signal"
   interface PcmSource
   readonly PcmSource.layout: ChannelLayout
   readonly PcmSource.sampleRate: SampleRate
@@ -324,10 +326,8 @@ Published paths
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
-  function cancellationReason(signal: CancellationSignal): Error
   function contextFrameFor(clock: MediaClock, anchor: ClockAnchor, timelineFrame: SampleCount): number
   function conversionTableBudget(shape: { readonly channels: number; readonly availableMemoryBytes: number | undefined; }, plan: ChunkPlan): number | undefined
-  function createCancellationSource(): CancellationSource
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
@@ -350,7 +350,6 @@ Published paths
   function signalRecipe(value: unknown): DomainResult<SignalRecipe>
   function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
-  function throwIfCancelled(signal: CancellationSignal | undefined): void
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
   function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
@@ -788,6 +787,7 @@ Published paths
   function listedFolder(files: readonly Pick<ChosenFile, "file" | "handle" | "relativePath">[]): DirectoryReader
   function openFileSink(file: WritableFile): Promise<ByteSink>
   function openFileSinkIn(directory: WritableDirectory, name: string): Promise<ByteSink>
+  function originPrivateFile(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): (path: string) => Promise<File | undefined>
   function originPrivateTree(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): StorageTree
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
   function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ChosenFile[]>>
@@ -961,6 +961,93 @@ Published paths
   function watchAppearanceSettings(): AppearanceSettingsWatch
   function watchAudioDevices(changed: () => void): () => void
   function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
+
+@audiogubbins/clipboard
+  interface ClipboardPayload
+  readonly ClipboardPayload.origin: ProjectId
+  readonly ClipboardPayload.plan: EditPlan
+  readonly ClipboardPayload.records: readonly AssetRecord[]
+  interface PasteRequest
+  readonly PasteRequest.payload: ClipboardPayload
+  readonly PasteRequest.asset: AssetId
+  readonly PasteRequest.place: { readonly kind: "at"; readonly at: SampleCount; } | { readonly kind: "replace"; readonly range: EditRange; }
+  readonly PasteRequest.convertRate: boolean
+  interface PlannedPaste
+  readonly PlannedPaste.records: readonly AssetRecord[]
+  readonly PlannedPaste.operations: readonly [EditOperation, ...EditOperation[]]
+  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<ClipboardPayload>
+  function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
+
+@audiogubbins/codecs
+  interface AudioBytes
+  readonly AudioBytes.size: number
+  AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
+  interface AudioFormatDescriptor
+  readonly AudioFormatDescriptor.container: ReadableContainer
+  readonly AudioFormatDescriptor.sampleRate: SampleRate
+  readonly AudioFormatDescriptor.encoding: SampleEncoding
+  readonly AudioFormatDescriptor.channelCount: number
+  readonly AudioFormatDescriptor.statedLayout: ChannelLayout | undefined
+  readonly AudioFormatDescriptor.layout: ChannelLayout
+  readonly AudioFormatDescriptor.frames: SampleCount
+  readonly AudioFormatDescriptor.declaredFrames: SampleCount
+  readonly AudioFormatDescriptor.dataOffset: number
+  readonly AudioFormatDescriptor.blockAlign: number
+  interface AudioReader
+  readonly AudioReader.format: AudioFormatDescriptor
+  AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
+  type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
+  function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
+
+@audiogubbins/codecs/testing
+  interface AiffOptions
+  readonly AiffOptions.form?: "aifc" | "aiff"
+  readonly AiffOptions.compressionType?: string
+  readonly AiffOptions.sampleSize: number
+  readonly AiffOptions.sampleRate: number
+  readonly AiffOptions.channels: readonly FixtureChannel[]
+  readonly AiffOptions.commonOverrides?: { readonly declaredFrames?: number; readonly channelCount?: number; }
+  readonly AiffOptions.channelLayout?: Uint8Array<ArrayBufferLike>
+  readonly AiffOptions.soundOffset?: number
+  readonly AiffOptions.commonAfterSound?: boolean
+  readonly AiffOptions.beforeSound?: readonly FixtureChunk[]
+  readonly AiffOptions.afterSound?: readonly FixtureChunk[]
+  readonly AiffOptions.truncate?: number
+  type FixtureChannel = Float32Array<ArrayBufferLike> | Float64Array<ArrayBufferLike>
+  interface FixtureChunk
+  readonly FixtureChunk.id: string
+  readonly FixtureChunk.body: Uint8Array<ArrayBufferLike>
+  readonly FixtureChunk.statedSize?: number
+  interface MemoryBytes extends AudioBytes
+  readonly MemoryBytes.requests: readonly ReadRequest[]
+  readonly MemoryBytes.bytesRequested: number
+  readonly MemoryBytes.size: number
+  MemoryBytes.read: (offset: number, length: number, signal?: import("packages/domain/src/cancellation").CancellationSignal) => Promise<Uint8Array>
+  interface MemoryBytesOptions
+  readonly MemoryBytesOptions.answer?: (request: ReadRequest, honest: Uint8Array) => Uint8Array
+  interface ReadRequest
+  readonly ReadRequest.offset: number
+  readonly ReadRequest.length: number
+  type WavEncoding = { readonly kind: "float"; readonly bits: 32 | 64; } | { readonly kind: "integer"; readonly bits: number; readonly bytes?: number; }
+  interface WavOptions
+  readonly WavOptions.form?: "bw64" | "rf64" | "wav"
+  readonly WavOptions.sampleRate: number
+  readonly WavOptions.encoding: WavEncoding
+  readonly WavOptions.channels: readonly FixtureChannel[]
+  readonly WavOptions.extensible?: { readonly channelMask: number; readonly subFormat?: Uint8Array; }
+  readonly WavOptions.formatTag?: number
+  readonly WavOptions.formatOverrides?: { readonly channelCount?: number; readonly blockAlign?: number; }
+  readonly WavOptions.beforeFormat?: readonly FixtureChunk[]
+  readonly WavOptions.beforeData?: readonly FixtureChunk[]
+  readonly WavOptions.afterData?: readonly FixtureChunk[]
+  readonly WavOptions.factFrames?: number
+  readonly WavOptions.sizesInDs64?: readonly string[]
+  readonly WavOptions.truncate?: number
+  function channelLayoutBody(layout: { readonly tag: number; readonly bitmap?: number; readonly labels?: readonly number[]; }): Uint8Array<ArrayBufferLike>
+  function memoryBytes(bytes: Uint8Array<ArrayBufferLike>, options?: MemoryBytesOptions): MemoryBytes
+  function writeAiff(options: AiffOptions): Uint8Array<ArrayBufferLike>
+  function writeWav(options: WavOptions): Uint8Array<ArrayBufferLike>
 
 @audiogubbins/commands
   const AVAILABLE: CommandAvailability
@@ -1463,6 +1550,8 @@ Published paths
   function severityPasses(severity: LogSeverity, minimum: LogSeverity): boolean
 
 @audiogubbins/domain
+  const Affinity: { readonly Before: "before"; readonly After: "after"; }
+  type Affinity = "after" | "before"
   interface AmbisonicComponent
   readonly AmbisonicComponent.degree: number
   readonly AmbisonicComponent.index: number
@@ -1475,6 +1564,14 @@ Published paths
   type AmbisonicNormalisation = "fuma" | "n3d" | "sn3d"
   const AmbisonicOrdering: { readonly Acn: "acn"; readonly FuMa: "fuma"; }
   type AmbisonicOrdering = "acn" | "fuma"
+  interface AnchorResolver
+  AnchorResolver.position: (basis: number, position: number, affinity: Affinity) => number | undefined
+  AnchorResolver.span: (basis: number, span: Span) => Span | undefined
+  interface AnchoredLoop
+  readonly AnchoredLoop.basis: number
+  readonly AnchoredLoop.start: SampleCount
+  readonly AnchoredLoop.end: SampleCount
+  readonly AnchoredLoop.crossfadeLength: SampleCount
   interface Asset
   readonly Asset.id: AssetId
   readonly Asset.displayName: string
@@ -1483,6 +1580,7 @@ Published paths
   readonly Asset.channelLayout: ChannelLayout
   readonly Asset.length: SampleCount
   readonly Asset.storageKey: string
+  readonly Asset.edits: readonly EditOperation[]
   type AssetId = string & { readonly [BrandTag]: "AssetId"; }
   const AssetOrigin: { readonly Imported: "imported"; readonly Recorded: "recorded"; readonly Generated: "generated"; }
   type AssetOrigin = "generated" | "imported" | "recorded"
@@ -1490,6 +1588,15 @@ Published paths
   readonly AssetRange.assetId: AssetId
   readonly AssetRange.start: SampleCount
   readonly AssetRange.length: SampleCount
+  interface AssetUsers
+  readonly AssetUsers.clips: number
+  readonly AssetUsers.regions: number
+  readonly AssetUsers.markers: number
+  readonly AssetUsers.pastes: number
+  interface BlockPlace
+  readonly BlockPlace.first: number
+  readonly BlockPlace.step: -1 | 1
+  readonly BlockPlace.frames: number
   type Branded<TBrand extends string> = string & { readonly [BrandTag]: TBrand; }
   interface Bus
   readonly Bus.id: BusId
@@ -1500,10 +1607,23 @@ Published paths
   readonly Bus.output?: RoutingTarget
   readonly Bus.effectChainId?: EffectChainId
   type BusId = string & { readonly [BrandTag]: "BusId"; }
+  interface CancellationSignal
+  readonly CancellationSignal.aborted: boolean
+  readonly CancellationSignal.reason: unknown
+  CancellationSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
+  CancellationSignal.removeEventListener: (type: "abort", listener: () => void) => void
+  interface CancellationSource
+  readonly CancellationSource.signal: CancellationSignal
+  CancellationSource.cancel: (reason?: unknown) => void
+  class Cancelled extends Error
+  new Cancelled(message?: string): Cancelled
+  type ChannelEdit = { readonly kind: "channel-gains"; readonly gains: readonly number[]; } | { readonly kind: "copy-channel"; readonly from: number; readonly to: number; } | { readonly kind: "swap-channels"; readonly first: number; readonly second: number; }
+  type ChannelEditOperation = ({ readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } & { readonly edit: ChannelEdit; }) | { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; }
   interface ChannelLayout
   readonly ChannelLayout.roles: readonly [ChannelRole, ...ChannelRole[]]
   readonly ChannelLayout.labels?: readonly [string, ...string[]]
   readonly ChannelLayout.ambisonic?: AmbisonicConvention
+  type ChannelMatrix = readonly (readonly number[])[]
   const ChannelRole: { readonly Mono: "mono"; readonly Left: "left"; readonly Right: "right"; readonly Centre: "centre"; readonly LowFrequency: "low-frequency"; readonly SurroundLeft: "surround-left"; readonly SurroundRight: "surround-right"; readonly RearLeft: "rear-left"; readonly RearRight: "rear-right"; readonly RearCentre: "rear-centre"; readonly FrontLeftOfCentre: "front-left-of-centre"; readonly FrontRightOfCentre: "front-right-of-centre"; readonly TopCentre: "top-centre"; readonly TopFrontLeft: "top-front-left"; readonly TopFrontCentre: "top-front-centre"; readonly TopFrontRight: "top-front-right"; readonly TopRearLeft: "top-rear-left"; readonly TopRearCentre: "top-rear-centre"; readonly TopRearRight: "top-rear-right"; readonly Discrete: "discrete"; readonly Ambisonic: "ambisonic"; }
   type ChannelRole = "ambisonic" | "centre" | "discrete" | "front-left-of-centre" | "front-right-of-centre" | "left" | "low-frequency" | "mono" | "rear-centre" | "rear-left" | "rear-right" | "right" | "surround-left" | "surround-right" | "top-centre" | "top-front-centre" | "top-front-left" | "top-front-right" | "top-rear-centre" | "top-rear-left" | "top-rear-right"
   interface ChoiceOption
@@ -1541,28 +1661,57 @@ Published paths
   interface DomainSuccess<TValue>
   readonly DomainSuccess.ok: true
   readonly DomainSuccess.value: TValue
+  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
+  type EditOperationId = string & { readonly [BrandTag]: "EditOperationId"; }
+  interface EditPlan
+  readonly EditPlan.streams: readonly [PlanStream, ...PlanStream[]]
+  interface EditRange
+  readonly EditRange.start: SampleCount
+  readonly EditRange.end: SampleCount
+  interface EditShape
+  readonly EditShape.sampleRate: SampleRate
+  readonly EditShape.layout: ChannelLayout
+  readonly EditShape.length: number
+  type EditTarget = { readonly kind: "asset"; readonly asset: AssetId; readonly range: EditRange; readonly channels?: readonly number[]; } | { readonly kind: "region"; readonly asset: AssetId; readonly region: RegionId; readonly basis: number; readonly range: EditRange; readonly channels?: readonly number[]; }
   interface EffectChain
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.processors: readonly ProcessorInstance[]
   type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
-  type EntityId = AssetId | BusId | ClipId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
+  type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorId | ProjectId | RegionId | TrackId
   const FIRST_ORDER_AMBIX: AmbisonicConvention
+  interface FadeCurve
+  readonly FadeCurve.kind: "fade"
+  readonly FadeCurve.origin: number
+  readonly FadeCurve.step: -1 | 1
+  readonly FadeCurve.length: number
+  readonly FadeCurve.shape: FadeShape
+  readonly FadeCurve.rising: boolean
+  const FadeDirection: { readonly In: "in"; readonly Out: "out"; }
+  type FadeDirection = "in" | "out"
+  const FadeShape: { readonly Linear: "linear"; readonly EqualPower: "equal-power"; readonly SCurve: "s-curve"; readonly Square: "square"; }
+  type FadeShape = "equal-power" | "linear" | "s-curve" | "square"
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
+  type GainCurve = FadeCurve | { readonly kind: "constant"; readonly gain: number; }
   interface IdGenerator
   IdGenerator.next: <TBrand extends string>() => Branded<TBrand>
+  type LevelEdit = { readonly kind: "fade"; readonly direction: FadeDirection; readonly shape: FadeShape; } | { readonly kind: "gain"; readonly gain: number; } | { readonly kind: "invert"; } | { readonly kind: "silence"; }
   interface LoopDefinition
   readonly LoopDefinition.loopStart: SampleCount
   readonly LoopDefinition.loopEnd: SampleCount
   readonly LoopDefinition.crossfadeLength: SampleCount
   const MAIN_OUTPUT: RoutingTarget
   const MAXIMUM_CHANNEL_COUNT: 256
+  const MAXIMUM_EDIT_GAIN: 1000
   interface Marker
   readonly Marker.id: MarkerId
+  readonly Marker.assetId: AssetId
   readonly Marker.displayName: string
+  readonly Marker.basis: number
   readonly Marker.position: SampleCount
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
+  type MediaShape = { readonly length: import("packages/domain/src/index").SampleCount; readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly channelLayout: import("packages/domain/src/index").ChannelLayout; }
   interface NumericParameterDescriptor
   readonly NumericParameterDescriptor.kind: "numeric"
   readonly NumericParameterDescriptor.id: ParameterId
@@ -1579,6 +1728,30 @@ Published paths
   const ParameterTaper: { readonly Linear: "linear"; readonly Logarithmic: "logarithmic"; readonly Decibel: "decibel"; }
   type ParameterTaper = "decibel" | "linear" | "logarithmic"
   type ParameterValue = boolean | number | string
+  interface PlacedMarker
+  readonly PlacedMarker.id: MarkerId
+  readonly PlacedMarker.displayName: string
+  readonly PlacedMarker.position: SampleCount
+  readonly PlacedMarker.paletteKey?: string
+  interface PlacedRegion
+  readonly PlacedRegion.id: RegionId
+  readonly PlacedRegion.displayName: string
+  readonly PlacedRegion.start: SampleCount
+  readonly PlacedRegion.length: SampleCount
+  readonly PlacedRegion.loop?: LoopDefinition
+  readonly PlacedRegion.tags: readonly string[]
+  interface PlanSegment
+  readonly PlanSegment.source: PlanSource
+  readonly PlanSegment.start: SampleCount
+  readonly PlanSegment.length: SampleCount
+  readonly PlanSegment.reversed: boolean
+  readonly PlanSegment.stages: readonly PlanStage[]
+  type PlanSource = { readonly kind: "media"; readonly asset: AssetId; } | { readonly kind: "stream"; readonly stream: number; }
+  type PlanStage = { readonly kind: "gain"; readonly from: number; readonly to: number; readonly channels?: readonly number[]; readonly gain: GainCurve; } | { readonly kind: "matrix"; readonly range?: { readonly from: number; readonly to: number; }; readonly matrix: readonly (readonly number[])[]; }
+  interface PlanStream
+  readonly PlanStream.sampleRate: SampleRate
+  readonly PlanStream.layout: ChannelLayout
+  readonly PlanStream.segments: readonly PlanSegment[]
   interface ProcessorDescriptor
   readonly ProcessorDescriptor.typeKey: string
   readonly ProcessorDescriptor.label: string
@@ -1609,19 +1782,33 @@ Published paths
   interface ProjectSettings
   readonly ProjectSettings.sampleRate: SampleRate
   readonly ProjectSettings.channelLayout: ChannelLayout
+  type RangeEdit = ChannelEdit | LevelEdit
   interface Region
   readonly Region.id: RegionId
+  readonly Region.assetId: AssetId
   readonly Region.displayName: string
+  readonly Region.basis: number
   readonly Region.start: SampleCount
-  readonly Region.length: SampleCount
-  readonly Region.loop?: LoopDefinition
+  readonly Region.end: SampleCount
+  readonly Region.loop?: AnchoredLoop
   readonly Region.tags: readonly string[]
+  readonly Region.operations: readonly RegionOperation[]
+  const RegionBoundary: { readonly Start: "start"; readonly End: "end"; }
+  type RegionBoundary = "end" | "start"
   type RegionId = string & { readonly [BrandTag]: "RegionId"; }
+  interface RegionOperation
+  readonly RegionOperation.id: EditOperationId
+  readonly RegionOperation.basis: number
+  readonly RegionOperation.range: EditRange
+  readonly RegionOperation.channels?: readonly number[]
+  readonly RegionOperation.edit: RangeEdit
   type RoutingTarget = { readonly kind: "bus"; readonly busId: BusId; } | { readonly kind: "main-output"; }
   type SampleCount = number & { readonly [SampleCountTag]: "SampleCount"; }
   type SampleRate = number & { readonly [SampleRateTag]: "SampleRate"; }
+  interface Span
+  readonly Span.start: number
+  readonly Span.end: number
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
-  type TimelineEntity = Clip | Marker | Region
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
   readonly ToggleParameterDescriptor.id: ParameterId
@@ -1645,8 +1832,13 @@ Published paths
   function ambisonicChannelCount(order: number): number
   function ambisonicComponentOf(layout: ChannelLayout, channel: number): AmbisonicComponent | undefined
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
+  function anchorResolver(asset: Asset): AnchorResolver
+  function applyStages(stages: readonly PlanStage[], place: BlockPlace, channels: readonly Float32Array<ArrayBufferLike>[]): readonly Float32Array<ArrayBufferLike>[]
+  function assetPlan(asset: Asset, processing?: readonly RegionOperation[]): EditPlan
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
+  function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function cancellationReason(signal: CancellationSignal): Error
   function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
@@ -1658,18 +1850,25 @@ Published paths
   function clipsOverlap(left: Clip, right: Clip): boolean
   function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
   function containsSample(start: SampleCount, length: SampleCount, inner: SampleCount): boolean
+  function conversionMatrix(from: ChannelLayout, to: ChannelLayout): DomainResult<ChannelMatrix>
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
+  function convertedFrameCount(length: number, from: number, to: number): number
+  function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
+  function createCancellationSource(): CancellationSource
   function createDeterministicIdGenerator(seed: number): IdGenerator
   function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
   function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project
   function defaultParameterValue(descriptor: ParameterDescriptor): ParameterValue
+  function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
+  function editPlanFrom(value: unknown): DomainResult<EditPlan>
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
+  function isLevelEdit(edit: RangeEdit): boolean
   function isRetryable(result: DomainFailureResult): boolean
   function isSuccess<TValue>(result: DomainResult<TValue>): boolean
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
@@ -1677,25 +1876,50 @@ Published paths
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
+  function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
+  function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
+  function placeOf(segment: PlanSegment): BlockPlace
+  function placeRegion(resolver: AnchorResolver, region: Region): PlacedRegion | undefined
+  function placeRegions(asset: Asset, regions: Iterable<Region>, resolver?: AnchorResolver): readonly PlacedRegion[]
+  function planReadsAsset(plan: EditPlan, asset: AssetId): boolean
   function processorsInSignalOrder(chain: EffectChain): readonly ProcessorInstance[]
   function projectLength(project: Project): number
-  function regionEnd(region: Region): number
+  function regionEnd(region: PlacedRegion): number
+  function regionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): EditPlan
+  function restateRegion(region: Region, asset: Asset, span: Span): Region
   function routeToBus(busId: BusId): RoutingTarget
   function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
   function sampleCount(value: number): DomainResult<SampleCount>
   function sampleRate(value: number): DomainResult<SampleRate>
   function samplesToSeconds(count: SampleCount, rate: SampleRate): number
   function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
+  function shapeAfter(shape: EditShape, operation: EditOperation): EditShape
+  function shapesOf(asset: Asset): readonly EditShape[]
+  function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
+  function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
+  function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
+  function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
+  function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
+  function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
+  function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>): DomainResult<Asset>
+  function validateMarker(asset: Asset, marker: Marker): DomainResult<Marker>
+  function validateOperation(operation: EditOperation, shape: EditShape, assets: ReadonlyMap<AssetId, Asset>): DomainResult<EditOperation>
   function validateParameterValue(descriptor: ParameterDescriptor, value: ParameterValue): DomainResult<ParameterValue>
+  function validatePlan(plan: EditPlan, assets: ReadonlyMap<AssetId, MediaShape>): DomainResult<EditPlan>
   function validateProcessorInstance(processor: ProcessorInstance, descriptor: ProcessorDescriptor): DomainResult<readonly ParameterValue[]>
+  function validateRegion(asset: Asset, region: Region): DomainResult<Region>
 
 @audiogubbins/domain/testing
+  type Samples = readonly Float32Array<ArrayBufferLike>[]
+  function applyEdit(samples: Samples, operation: EditOperation, inserted?: Samples): Samples
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
+  function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>): Samples
+  function sourceShape(asset: Asset): EditShape
 
 @audiogubbins/editor-view
   const AMPLITUDES: readonly number[]
@@ -1723,6 +1947,7 @@ Published paths
   readonly EditorPalette.marker: Colour
   readonly EditorPalette.selectedMarker: Colour
   readonly EditorPalette.region: Colour
+  readonly EditorPalette.selectedRegion: Colour
   readonly EditorPalette.loop: Colour
   readonly EditorPalette.snap: Colour
   readonly EditorPalette.spectrogramBackground: Colour
@@ -1754,9 +1979,10 @@ Published paths
   interface HitScene
   readonly HitScene.layout: ViewLayout
   readonly HitScene.viewport: ViewportState
-  readonly HitScene.markers: readonly Marker[]
+  readonly HitScene.markers: readonly PlacedMarker[]
+  readonly HitScene.regions: readonly PlacedRegion[]
   readonly HitScene.selection: BoundaryRange | undefined
-  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
+  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "region"; readonly id: RegionId; } | { readonly kind: "region-edge"; readonly id: RegionId; readonly boundary: RegionBoundary; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
   const IDLE: Interaction
   type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; }
   interface KnownAudio
@@ -1778,8 +2004,8 @@ Published paths
   readonly Overlays.regions: boolean
   readonly Overlays.filmstrip: boolean
   interface SnapSources
-  readonly SnapSources.markers: readonly Marker[]
-  readonly SnapSources.regions: readonly Region[]
+  readonly SnapSources.markers: readonly PlacedMarker[]
+  readonly SnapSources.regions: readonly PlacedRegion[]
   readonly SnapSources.playhead: SampleCount | undefined
   readonly SnapSources.selection: BoundaryRange | undefined
   readonly SnapSources.grid: readonly SampleCount[]
@@ -1795,8 +2021,8 @@ Published paths
   readonly ToolContext.hit: HitTarget
   readonly ToolContext.selection: BoundaryRange | undefined
   readonly ToolContext.visibleChannels: readonly number[]
-  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; }
-  type ToolId = "hand" | "marker" | "razor" | "select" | "time-select" | "zoom"
+  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; readonly Region: "region"; }
+  type ToolId = "hand" | "marker" | "razor" | "region" | "select" | "time-select" | "zoom"
   interface ToolInput
   readonly ToolInput.x: number
   readonly ToolInput.y: number
@@ -1805,8 +2031,8 @@ Published paths
   readonly ToolInput.channel: number | undefined
   readonly ToolInput.shift: boolean
   readonly ToolInput.alt: boolean
-  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
-  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
+  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "make-region"; readonly range: BoundaryRange; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "move-region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-region"; readonly id: RegionId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
+  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
   interface ToolStep
   readonly ToolStep.interaction: Interaction
   readonly ToolStep.preview: ToolPreview | undefined
@@ -1814,8 +2040,8 @@ Published paths
   interface ViewContent
   readonly ViewContent.length: SampleCount
   readonly ViewContent.channelNames: readonly string[]
-  readonly ViewContent.markers: readonly Marker[]
-  readonly ViewContent.regions: readonly Region[]
+  readonly ViewContent.markers: readonly PlacedMarker[]
+  readonly ViewContent.regions: readonly PlacedRegion[]
   interface ViewLayout
   readonly ViewLayout.width: number
   readonly ViewLayout.height: number
@@ -2018,6 +2244,7 @@ Published paths
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
+  function comparisonSurviving(comparison: Comparison, history: History): Comparison | undefined
   function contentRetention(history: History, contentOf: (node: HistoryNode) => Iterable<ContentId>): ReadonlyMap<ContentId, ContentRetention>
   function createSnapshot(history: History, snapshot: NamedSnapshot): DomainResult<History>
   function deleteSnapshot(history: History, id: SnapshotId): DomainResult<History>
@@ -2159,6 +2386,7 @@ Published paths
   readonly ImportRequest.choice: ImportChoice
   readonly ImportRequest.projectId: ProjectId
   readonly ImportRequest.importedAt: number
+  readonly ImportRequest.audio?: SourceAudioShape
   interface ImportServices
   readonly ImportServices.store: MediaObjectStore
   readonly ImportServices.digest: Digest
@@ -2185,6 +2413,7 @@ Published paths
   MediaObjectStore.isHeld: (contentId: ContentId) => boolean
   MediaObjectStore.find: (contentId: ContentId) => Promise<DomainResult<StoredObject | undefined>>
   MediaObjectStore.open: (contentId: ContentId) => Promise<DomainResult<ByteSource>>
+  MediaObjectStore.locate: (contentId: ContentId) => Promise<DomainResult<string>>
   MediaObjectStore.verify: (contentId: ContentId, options?: HashingOptions) => Promise<DomainResult<StoredObject>>
   MediaObjectStore.list: (signal?: AbortSignal) => AsyncGenerator<StoredObject, void, undefined>
   MediaObjectStore.recoverIncomplete: () => Promise<DomainResult<RecoveryReport>>
@@ -2243,11 +2472,11 @@ Published paths
   type UnavailableReason = "no-retained-copy"
   function classifySource(recorded: ExternalSourceIdentity, observation: SourceObservation, candidate?: ExternalSourceIdentity | undefined): SourceClassification
   function collect(store: MediaObjectStore, plan: CollectionPlan, confirmation: PurgeConfirmation, freshRoots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionReport>>
-  function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
   function contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined>
   function examineFile(recorded: ExternalSourceIdentity, file: ExternalFile, services: CompletionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function importMedia(request: ImportRequest, services: ImportServices, options?: PutOptions): Promise<DomainResult<ImportedMedia>>
   function keepRetainedCopy(file: ExternalFile, identity: ExternalSourceIdentity, services: { readonly store: MediaObjectStore; readonly digest: Digest; }, options?: PutOptions): Promise<DomainResult<RetainedCopy>>
+  function objectMissing(contentId: ContentId): DomainFailure
   function planCollection(store: MediaObjectStore, roots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionPlan>>
   function resolutionsFor(classification: SourceClassification, media: ExternalMedia): ResolutionPlan
 
@@ -2290,6 +2519,7 @@ Published paths
   class SimulatedCrash extends Error
   new SimulatedCrash(): SimulatedCrash
   type TornWrite = "full-length" | "short"
+  function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
   function countedSharing(): CountedSharing
   function countingTokens(): () => string
   function generatedBytes(offset: number, length: number, seed: number): Uint8Array<ArrayBuffer>
@@ -2310,13 +2540,23 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; }
   function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
+  function addMarkerInvocation(marker: Marker): CommandInvocation
+  function addRegionInvocation(region: Region): CommandInvocation
+  function addRegionWithProcessing(region: Region): readonly [CommandInvocation, ...CommandInvocation[]]
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
+  function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
+  function changeRegionInvocations(old: Region, next: Region): readonly [CommandInvocation, ...CommandInvocation[]]
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
+  function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit): CommandInvocation
   function projectCommands(): readonly ProjectCommand[]
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
+  function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
+  function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
+  function setMarkerInvocation(marker: Marker): CommandInvocation
+  function setRegionInvocation(region: Region): CommandInvocation
 
 @audiogubbins/project-format
   interface AffectedEntities
@@ -2336,7 +2576,7 @@ Published paths
   readonly AssetProvenance.byteLength: number
   readonly AssetProvenance.mediaType: string
   readonly AssetProvenance.originProjectId: ProjectId
-  readonly AssetProvenance.bitDepth?: number
+  readonly AssetProvenance.audio?: SourceAudioShape
   interface AssetRecord
   readonly AssetRecord.asset: Asset
   readonly AssetRecord.source: AssetSource
@@ -2434,6 +2674,7 @@ Published paths
   readonly ExternalSourceIdentity.signature: string
   readonly ExternalSourceIdentity.fastFingerprint: string
   readonly ExternalSourceIdentity.contentId?: ContentId
+  const FOLDER_KEY_PREFIX: "folder:"
   interface FormatHeader
   readonly FormatHeader.format: string
   readonly FormatHeader.schemaVersion: number
@@ -2547,6 +2788,7 @@ Published paths
   Reading.outcome: <TValue>(value: TValue | undefined) => DomainResult<TValue>
   type RetentionPolicy = { readonly kind: "budget"; readonly bytes: number; } | { readonly kind: "rules"; readonly rules: readonly [RetentionRule, ...RetentionRule[]]; } | { readonly kind: "unlimited"; }
   type RetentionRule = { readonly kind: "recent-changes"; readonly count: number; } | { readonly kind: "recent-days"; readonly days: number; }
+  const SOURCE_CONTAINERS: readonly ["wav", "rf64", "bw64", "aiff", "aifc"]
   interface SegmentedHistoryRecord
   readonly SegmentedHistoryRecord.project: ProjectId
   readonly SegmentedHistoryRecord.cursor: HistoryNodeId
@@ -2557,8 +2799,18 @@ Published paths
   readonly SegmentedHistoryRecord.snapshots: readonly NamedSnapshot[]
   type SnapshotId = string & { readonly [BrandTag]: "SnapshotId"; }
   type SnapshotKind = "named" | "recovery"
+  interface SourceAudioShape
+  readonly SourceAudioShape.container: "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  readonly SourceAudioShape.sampleRate: SampleRate
+  readonly SourceAudioShape.encoding: "float" | "integer"
+  readonly SourceAudioShape.bitDepth: number
+  readonly SourceAudioShape.byteOrder: "big" | "little"
+  readonly SourceAudioShape.statedLayout?: ChannelLayout
+  readonly SourceAudioShape.frames: SampleCount
+  readonly SourceAudioShape.declaredFrames: SampleCount
   const SourceChangePolicy: { readonly Prompt: "prompt"; readonly Adopt: "adopt"; readonly Freeze: "freeze"; }
   type SourceChangePolicy = "adopt" | "freeze" | "prompt"
+  type SourceContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   interface SourceRewrite
   readonly SourceRewrite.source: (source: AssetSource) => AssetSource
   readonly SourceRewrite.media: (media: MediaSource) => MediaSource
@@ -2685,6 +2937,7 @@ Published paths
   function listConverter<TValue>(maximum: number, item: Converter<TValue>): Converter<readonly TValue[]>
   function listOf(reading: Reading, value: JsonValue, parent: string, key: number | string, maximum: number): JsonArray | undefined
   function memberOf(object: JsonObject, key: string): JsonValue | undefined
+  function nameFromFile(subject: NamedSubject, fileName: string): DomainResult<string>
   function numberConverter(minimum: number, maximum: number): Converter<number>
   function objectOf(reading: Reading, value: JsonValue, parent: string, key: number | string, members: ReadonlySet<string>): JsonObject | undefined
   function oneOfConverter<TValue extends string>(values: readonly TValue[]): Converter<TValue>
@@ -2701,16 +2954,20 @@ Published paths
   function readBundleManifest(bytes: Uint8Array<ArrayBufferLike>): DomainResult<BundleManifest>
   const readComparisonChoice: Converter<ComparisonChoiceRecord>
   function readCompatibleHeader(value: JsonValue, expectedFormat: string, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): DomainResult<FormatHeader>
+  const readEditOperation: Converter<EditOperation>
   const readExportRecord: Converter<ExportRecord>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
   const readHistoryLabel: Converter<HistoryLabel>
   const readHistoryNodeRecord: Converter<HistoryNodeRecord>
   const readHistoryRecord: Converter<HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>>
   const readHistorySegment: Converter<HistorySegmentRecord>
+  const readMarker: Converter<Marker>
   const readMediaSource: Converter<MediaSource>
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, services: TreeReadingServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
+  const readRegion: Converter<Region>
+  const readRegionOperation: Converter<RegionOperation>
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSegmentedHistory: Converter<SegmentedHistoryRecord>
   const readSnapshotRecord: Converter<NamedSnapshot>
@@ -2730,13 +2987,17 @@ Published paths
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
   function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
   function writeComparisonChoice(choice: ComparisonChoiceRecord): JsonObject
+  function writeEditOperation(operation: EditOperation): JsonObject
   function writeExportRecord(record: ExportRecord): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
   function writeHistoryRecord(history: HistoryRecord<import("packages/project-format/src/history-record").InvocationRecord>): JsonObject
   function writeHistorySegment(segment: HistorySegmentRecord): JsonObject
+  function writeMarker(marker: Marker): JsonObject
   function writeMediaSource(media: MediaSource): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
+  function writeRegion(region: Region): JsonObject
+  function writeRegionOperation(operation: RegionOperation): JsonObject
   function writeRetentionPolicy(policy: RetentionPolicy): JsonObject
   function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
@@ -2759,12 +3020,17 @@ Published paths
   readonly SampleProject.tracks: { readonly foley: Track; readonly background: Track; }
   function contentIdOfDigit(digit: string): ContentId
   function countedTurns(onTurn?: (asked: number) => void): CountedTurns
+  function editedReferenceState(fixture: SampleProject): ProjectState
   const immediateTurns: YieldToHost
   function randomAssetRecord(random: Random, ids: IdGenerator, projectId: ProjectId): AssetRecord
   function randomContentId(random: Random): ContentId
   function randomIdentity(random: Random): ExternalSourceIdentity
+  function randomMarker(random: Random, ids: IdGenerator, asset: Asset): Marker
   function randomMedia(random: Random): MediaSource
   function randomName(random: Random): string
+  function randomOperation(random: Random, ids: IdGenerator, asset: Asset, assets: ReadonlyMap<AssetId, Asset>): EditOperation | undefined
+  function randomRegion(random: Random, ids: IdGenerator, asset: Asset): Region | undefined
+  function randomRegionOperation(random: Random, ids: IdGenerator, asset: Asset, region: Region): RegionOperation | undefined
   function randomState(seed: number): ProjectState
   function referenceState(fixture: SampleProject): ProjectState
   function seededRandom(seed: number): Random
@@ -2878,6 +3144,16 @@ Published paths
   interface AnotherProject
   readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
+  interface AudioImport
+  readonly AudioImport.file: ExternalFile
+  readonly AudioImport.choice: ImportChoice
+  readonly AudioImport.assetId: AssetId
+  readonly AudioImport.importedAt: number
+  interface AudioPaste
+  readonly AudioPaste.description: string
+  readonly AudioPaste.records: readonly AssetRecord[]
+  readonly AudioPaste.asset: AssetId
+  readonly AudioPaste.operations: readonly [EditOperation, ...EditOperation[]]
   interface BackupGeneration
   readonly BackupGeneration.number: number
   readonly BackupGeneration.at: number
@@ -3114,6 +3390,10 @@ Published paths
   readonly ImportServices.coordinator?: LeaseCoordinator
   readonly ImportServices.owner: LeaseOwner
   readonly ImportServices.yieldToHost: YieldToHost
+  interface ImportedAudio
+  readonly ImportedAudio.outcome: ChangeOutcome
+  readonly ImportedAudio.asset: Asset
+  readonly ImportedAudio.shortfall: number
   interface ImportedProject
   readonly ImportedProject.header: ProjectHeader
   readonly ImportedProject.asCopy: boolean
@@ -3228,6 +3508,7 @@ Published paths
   readonly ProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly ProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
+  readonly ProjectSession.comparedState: (side: SideName, signal?: AbortSignal) => Promise<DomainResult<ProjectState>>
   readonly ProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3378,6 +3659,7 @@ Published paths
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
+  function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function isStorageFull(cause: DomainFailure): boolean
@@ -3386,6 +3668,7 @@ Published paths
   function openProject(request: OpeningRequest, services: OpeningServices): Promise<DomainResult<OpenedProject>>
   function openStorageRoot(tree: StorageTree, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<StorageRootOpening>>
   function packUnpacked(reader: DirectoryReader, sink: ByteSink, services: BundleServices, signal?: AbortSignal | undefined): Promise<DomainResult<ZipWritten>>
+  function pasteAudio(session: ProjectSession, paste: AudioPaste, services: AudioPasteServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function planBackupPruning(generations: readonly BackupGeneration[], retention: BackupRetention, now: number): BackupPruning
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
@@ -3400,6 +3683,11 @@ Published paths
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage-runtime
+  interface AudioFileImport
+  readonly AudioFileImport.file: PageFile
+  readonly AudioFileImport.choice: ImportChoice
+  readonly AudioFileImport.assetId: AssetId
+  readonly AudioFileImport.importedAt: number
   interface BackupsClient
   BackupsClient.tick: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupsClient.backUpNow: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
@@ -3428,6 +3716,10 @@ Published paths
   LibraryClient.restore: (project: ProjectId) => Promise<DomainResult<ProjectHeader>>
   LibraryClient.purge: (project: ProjectId, confirmation: PurgeProjectConfirmation) => Promise<DomainResult<void>>
   LibraryClient.fork: (request: ForkRequest, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  interface MediaClient
+  MediaClient.importFile: (session: RemoteProjectSession, request: AudioFileImport, signal?: AbortSignal) => Promise<DomainResult<ImportedAudio>>
+  MediaClient.file: (contentId: ContentId, signal?: AbortSignal) => Promise<DomainResult<Blob>>
+  MediaClient.paste: (session: RemoteProjectSession, paste: AudioPaste, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
   interface OwnershipClient
   OwnershipClient.ownerOf: (project: ProjectId) => Promise<LeaseOwner | undefined>
   OwnershipClient.watch: (project: ProjectId, listener: (event: OwnershipEvent) => void) => Promise<() => Promise<void>>
@@ -3451,6 +3743,7 @@ Published paths
   readonly RemoteProjectSession.#channel: ClientChannel
   readonly RemoteProjectSession.#stopHearing: () => void
   readonly RemoteProjectSession.run: (invocation: CommandInvocation) => Promise<DomainResult<ChangeOutcome>>
+  readonly RemoteProjectSession.runGroup: (description: string, invocations: readonly [CommandInvocation, ...CommandInvocation[]]) => Promise<DomainResult<ChangeOutcome>>
   readonly RemoteProjectSession.undo: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.redo: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.goTo: (node: HistoryNodeId) => Promise<DomainResult<WriteOutcome>>
@@ -3460,6 +3753,7 @@ Published paths
   readonly RemoteProjectSession.recordExport: (draft: ExportDraft) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly RemoteProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
+  readonly RemoteProjectSession.comparedState: (side: SideName, signal?: AbortSignal) => Promise<DomainResult<ProjectState>>
   readonly RemoteProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3497,6 +3791,7 @@ Published paths
   readonly StorageClient.backups: BackupsClient
   readonly StorageClient.root: RootClient
   readonly StorageClient.sources: SourcesClient
+  readonly StorageClient.media: MediaClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.usage: UsageClient
   readonly StorageClient.ownership: OwnershipClient
@@ -3518,6 +3813,7 @@ Published paths
   interface HostServices extends OpeningServices, CleanupRunServices
   readonly HostServices.repository: ProjectRepository
   readonly HostServices.invocationProvenance: InvocationProvenance
+  readonly HostServices.fileAt: (path: string) => Promise<Blob | undefined>
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
@@ -3640,6 +3936,7 @@ Published paths
   function stereo(left: SignalFixture, right: SignalFixture, name?: string): SignalFixture
   function surround5_1(options?: SignalOptions): SignalFixture
   function transient(atFrame?: number, options?: SignalOptions): SignalFixture
+  function wavFile(fixture: SignalFixture): Uint8Array<ArrayBuffer>
 
 @audiogubbins/text
   interface IdentifierRule
@@ -3662,6 +3959,7 @@ Published paths
   function asName(value: unknown, characters: number): NameProblem | string
   function asQuoted(value: unknown): string
   function asWrittenName(value: unknown, characters: number): NameProblem | string
+  function counted(count: number, one: string, many: string): string
   function cutAtAWord(text: string, bound: number): string
   function firstFreeCopyName(name: string, word: string, characters: number, taken: (name: string) => boolean): string
   function firstFreeName(name: string, characters: number, taken: (name: string) => boolean): string
@@ -3748,6 +4046,7 @@ Published paths
   readonly TargetWriting.channel: (index: number) => string
   readonly TargetWriting.channelCount: number
   readonly TargetWriting.frequency: (hertz: number) => string
+  readonly TargetWriting.counted: (count: number, one: string, many: string) => string
   type TimeFormat = { readonly kind: "clock"; } | { readonly kind: "milliseconds"; } | { readonly kind: "samples"; } | { readonly kind: "timecode"; readonly frames: FrameRate; }
   const TimeFormatKind: { readonly Samples: "samples"; readonly Milliseconds: "milliseconds"; readonly Clock: "clock"; readonly Timecode: "timecode"; }
   type TimeFormatKind = "clock" | "milliseconds" | "samples" | "timecode"
@@ -3811,7 +4110,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 1; readonly projectStorage: 5; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 1; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 2; readonly projectStorage: 6; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -4383,6 +4682,20 @@ packages/audio-runtime/src/render/worker-render.ts
 packages/audio-runtime/src/schedule.ts
   type Schedule = (callback: () => void, delayMs: number) => () => void
 
+packages/codecs/src/format-descriptor.ts
+  type ByteOrder = "big" | "little"
+  interface FloatSampleEncoding
+  readonly FloatSampleEncoding.kind: "float"
+  readonly FloatSampleEncoding.bits: 32 | 64
+  readonly FloatSampleEncoding.bytes: 4 | 8
+  readonly FloatSampleEncoding.byteOrder: ByteOrder
+  interface IntegerSampleEncoding
+  readonly IntegerSampleEncoding.kind: "integer"
+  readonly IntegerSampleEncoding.bits: number
+  readonly IntegerSampleEncoding.bytes: number
+  readonly IntegerSampleEncoding.byteOrder: ByteOrder
+  readonly IntegerSampleEncoding.signed: boolean
+
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }
 
@@ -4571,6 +4884,9 @@ packages/storage-runtime/src/protocol/backup-operations.ts
   readonly RestoredInPlace.slices: number
   type Tick = Operation<{ readonly handle: ProjectHandle; readonly folder?: PagePort; }, DomainResult<BackupTick>>
 
+packages/storage-runtime/src/protocol/media-operations.ts
+  type MediaOperations = { 'media.import': Operation<{ readonly handle: ProjectHandle; readonly file: CrossingFile; readonly choice: ImportChoice; readonly assetId: AssetId; readonly importedAt: number; }, DomainResult<ImportedAudio>>; 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
+
 packages/storage-runtime/src/protocol/operations.ts
   type Answered<TValue> = TValue | Transferring<TValue>
   type Handlers<TTable extends Readonly<Record<string, Operation<unknown, unknown>>>> = { readonly [TName in keyof TTable]: (argument: TTable[TName]["argument"], context: ServeContext) => Promise<Answered<TTable[TName]["answer"]>>; }
@@ -4653,7 +4969,7 @@ packages/storage-runtime/src/protocol/project-operations.ts
   readonly ProjectOpening.report: ProjectRecoveryReport
   readonly ProjectOpening.first: FirstUpdate
   readonly ProjectOpening.slices: number
-  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
+  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.runGroup': Of<{ readonly description: string; readonly invocations: readonly [CommandInvocation, ...CommandInvocation[]]; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>; 'projects.comparedState': Of<{ readonly side: SideName; }, DomainResult<ProjectState>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
   type ProjectStream = `project:${string}`
   interface ProjectUpdate
   readonly ProjectUpdate.save: SaveStatus
@@ -4670,13 +4986,29 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
   type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
   type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
+
+packages/storage/src/audio-import.ts
+  interface AudioImportServices extends ImportServices
+  readonly AudioImportServices.invocation: (asset: Asset, source: AssetSource) => CommandInvocation
+  readonly AudioImportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
+  readonly AudioImportServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly AudioImportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
+
+packages/storage/src/audio-paste.ts
+  interface AudioPasteServices extends Pick<ConsolidationServices, "digest" | "locate" | "store" | "yieldToHost">
+  readonly AudioPasteServices.addAsset: (asset: Asset, source: AssetRecord["source"]) => CommandInvocation
+  readonly AudioPasteServices.applyEdit: (asset: Pick<Asset, "id">, operation: EditOperation) => CommandInvocation
+  readonly AudioPasteServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly AudioPasteServices.store: import("packages/media-store/src/object-store").MediaObjectStore
+  readonly AudioPasteServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
+  readonly AudioPasteServices.locate: (asset: AssetId, identity: import("packages/project-format/src/project-state").ExternalSourceIdentity, signal?: AbortSignal) => Promise<import("packages/storage/src/consolidation").LocatedFile>
 
 packages/storage/src/backup-generations.ts
   interface KeptStates
@@ -4914,6 +5246,7 @@ packages/storage/src/session-writer.ts
   class SessionWriter
   new SessionWriter(start: WriterStart): SessionWriter
   readonly SessionWriter.queue: WriteQueue
+  readonly SessionWriter.keptStates: KeptStates
   readonly SessionWriter.kept: Set<StateFingerprint>
   readonly SessionWriter.unwritten: Map<StateFingerprint, ProjectState>
   readonly SessionWriter.start: WriterStart
@@ -4924,6 +5257,7 @@ packages/storage/src/session-writer.ts
   SessionWriter.headerName: string | undefined
   SessionWriter.status: SaveStatus
   SessionWriter.append: (event: JournalEvent, model: ProjectModel) => Promise<WriteOutcome>
+  SessionWriter.holdUnwritten: (fingerprint: StateFingerprint, state: ProjectState) => void
   SessionWriter.keep: (state: ProjectState, fingerprint: StateFingerprint) => Promise<WriteOutcome>
   SessionWriter.checkpoint: (model: ProjectModel) => Promise<WriteOutcome>
   SessionWriter.checkpointReplaced: (model: ProjectModel) => Promise<WriteOutcome>

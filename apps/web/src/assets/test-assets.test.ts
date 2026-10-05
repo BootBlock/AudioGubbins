@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  StandardLayouts,
-  channelCount,
-  labelledLayout,
-  sampleCount,
-  type SampleCount,
-} from '@audiogubbins/domain';
+import { StandardLayouts, channelCount, labelledLayout, sampleCount } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
   PcmDescriptionKind,
@@ -94,29 +88,31 @@ describe('the test assets', () => {
     expect(left?.[0]).toBe(1);
   });
 
-  it('joins the looped region in phase: both loop points fall on the same point of the cycle', async () => {
+  it('joins in phase between any two points a multiple of 128 frames from the tone’s start', async () => {
     const loop = asset('test:loop');
-    const [region] = loop.regions;
-    const points = region?.loop;
-    if (region === undefined || points === undefined) throw new Error('The loop test has no loop.');
+    const toneStart = 4_800;
 
-    const at = async (offset: SampleCount): Promise<readonly number[]> =>
-      (await framesOf(loop, region.start + offset, 4)).flatMap((samples) => [...samples]);
+    const at = async (offset: number): Promise<readonly number[]> =>
+      (await framesOf(loop, toneStart + offset, 4)).flatMap((samples) => [...samples]);
 
-    expect(await at(points.loopEnd)).toEqual(await at(points.loopStart));
-    expect(loop.markers.map((marker) => [marker.displayName, marker.position])).toEqual([
-      ['Attack', 0],
-      ['Sustain', 4_800],
-      ['Release', 244_800],
-    ]);
+    expect(await at(128 * 1500)).toEqual(await at(128 * 375));
+    expect(await at(128 * 375 + 64)).not.toEqual(await at(128 * 375));
   });
 
-  it('keeps each asset the same from one start to the next, identifiers included', () => {
+  it('keeps each asset the same from one start to the next', () => {
     const again = expectSuccess(testAssets());
 
-    expect(again.map((each) => [each.revision, each.markers, each.regions])).toEqual(
-      ASSETS.map((each) => [each.revision, each.markers, each.regions]),
-    );
+    expect(again.map((each) => each.revision)).toEqual(ASSETS.map((each) => each.revision));
+  });
+
+  it('takes no marker, region or edit, and says why', () => {
+    for (const each of ASSETS) {
+      expect([each.markers, each.regions]).toEqual([[], []]);
+      expect(each.owner).toEqual({
+        kind: 'session',
+        reason: expect.stringMatching(/Import audio/),
+      });
+    }
   });
 });
 

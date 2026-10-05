@@ -60,9 +60,8 @@ import {
 
 import { reportRetention, retentionDue } from './automatic-retention.js';
 import { choiceOf } from './comparison-record.js';
-import { arriveBy, type MoveServices } from './history-moves.js';
+import { arriveBy, stateAt, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
-import { keptStatesOf } from './journal-replay.js';
 import {
   compactedModel,
   planHistoryCompaction,
@@ -148,7 +147,7 @@ export class ProjectSession {
     this.moves = {
       bus: services.bus,
       logger: services.logger,
-      states: keptStatesOf(services.files, this.writer.kept, this.writer.unwritten),
+      states: this.writer.keptStates,
     };
     this.compacting = {
       ...this.moves,
@@ -288,6 +287,20 @@ export class ProjectSession {
         : await comparedStates(this.model, comparison, this.moves);
     });
 
+  /**
+   * The project as it stands at side `side` of the open comparison, worked
+   * out from the project as it is, so that side can be heard without moving
+   * the project to it (REQ-STOR-195), until `signal` aborts. Neither state is
+   * touched.
+   */
+  readonly comparedState = async (side: SideName, signal?: AbortSignal) =>
+    await this.exclusive(async (): Promise<DomainResult<ProjectState>> => {
+      const { comparison, history, state } = this.model;
+      return comparison === undefined
+        ? fail(NO_COMPARISON)
+        : await stateAt(history, state, comparison[side].node, this.moves, signal);
+    });
+
   /** Listens to the named side of the open comparison, or to the other side. */
   readonly switchSide = async (side?: SideName): Promise<DomainResult<WriteOutcome>> => {
     const { comparison } = this.model;
@@ -386,7 +399,7 @@ export class ProjectSession {
       const made = await changeMade(this.model, result, this.services, this.keepStateEvery);
       if (!made.ok) return made;
       const { kept } = made.value;
-      if (kept !== undefined) this.writer.unwritten.set(kept.fingerprint, kept.state);
+      if (kept !== undefined) this.writer.holdUnwritten(kept.fingerprint, kept.state);
       return succeed({
         kind: 'applied',
         saved: await this.commit(made.value.event, made.value.model),
@@ -452,7 +465,7 @@ export class ProjectSession {
     readonly states: ReadonlyMap<StateFingerprint, ProjectState>;
   }): Promise<WriteOutcome> {
     for (const [fingerprint, state] of compacted.states)
-      this.writer.unwritten.set(fingerprint, state);
+      this.writer.holdUnwritten(fingerprint, state);
     this.model = compacted.model;
     this.publish();
     return await this.writer.checkpointReplaced(this.model);

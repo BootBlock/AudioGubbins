@@ -1,15 +1,17 @@
 /**
- * Cancellation, as the engine reads it.
+ * Cancellation, as every package compiled without a host's types reads it.
  *
  * `CLAUDE.md` G4 passes a cancellation down every asynchronous path. The
- * engine is compiled without the browser's or Node's type definitions, since
- * it runs in an AudioWorklet, a worker and a test alike, so it names the part
- * of an `AbortSignal` it reads rather than the host's type. A browser's or
- * Node's `AbortSignal` is one, and so is the source below, which the engine
- * uses where it must cancel work it started itself.
+ * readers, the engine and the workers that run them are compiled without the
+ * browser's or Node's type definitions, since they run in an AudioWorklet, a
+ * worker and a test alike, so they name the part of an `AbortSignal` they read
+ * rather than the host's type. A browser's or Node's `AbortSignal` is one, and
+ * so is the source below, for work that must cancel what it started itself.
+ * One mechanism serves them all, so work cancelled in one package fails with
+ * the same `Cancelled` that the package awaiting it recognises.
  */
 
-/** The part of an `AbortSignal` the engine reads. */
+/** The part of an `AbortSignal` a cancellable path reads. */
 export interface CancellationSignal {
   readonly aborted: boolean;
   readonly reason: unknown;

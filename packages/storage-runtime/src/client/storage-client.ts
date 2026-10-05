@@ -3,12 +3,13 @@
  * thing the application's stores ask of project storage, over the page's end
  * of the port (ADR-0022).
  *
- * Each facade's long operations take a signal, which abandons the call and
- * reaches the worker's work, and a refusal of the storage tree rejects with
- * the same `TreeFailure` it was in the worker. The page serves the worker's
- * calls on the ports its facades lend (`page-ports.ts`). The records the
- * worker's loggers make are admitted into the page's diagnostics, under their
- * own categories, by the page's verbosity.
+ * Each facade's long operations take a signal, which reaches the worker's work
+ * and settles the call once the worker has stopped, or with its answer where it
+ * had finished first, and a refusal of the storage tree rejects with the same
+ * `TreeFailure` it was in the worker. The page serves the worker's calls on the
+ * ports its facades lend (`page-ports.ts`). The records the worker's loggers
+ * make are admitted into the page's diagnostics, under their own categories, by
+ * the page's verbosity.
  */
 
 import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
@@ -18,6 +19,7 @@ import type { ClientChannel } from '../protocol/storage-operations.js';
 import { backupsClient, type BackupsClient } from './backups-client.js';
 import { cacheClient, type CacheClient } from './cache-client.js';
 import { libraryClient, type LibraryClient } from './library-client.js';
+import { mediaClient, type MediaClient } from './media-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
 import { PagePorts, lendingCall } from './page-ports.js';
 import { handleCounter, projectsClient, type ProjectsClient } from './projects-client.js';
@@ -34,6 +36,7 @@ export interface StorageClient {
   readonly backups: BackupsClient;
   readonly root: RootClient;
   readonly sources: SourcesClient;
+  readonly media: MediaClient;
   readonly caches: CacheClient;
   readonly usage: UsageClient;
   readonly ownership: OwnershipClient;
@@ -73,6 +76,7 @@ export function storageClientOver(
     backups: backupsClient(channel, lending, nextHandle),
     root: rootClient(channel, lending),
     sources: sourcesClient(lending),
+    media: mediaClient(channel, lending),
     caches: cacheClient(channel),
     usage: usageClient(channel),
     ownership: ownershipClient(channel),

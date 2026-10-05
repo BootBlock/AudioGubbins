@@ -31,6 +31,12 @@ export type RegionId = Branded<'RegionId'>;
 /** Identifies a point marker on the timeline. */
 export type MarkerId = Branded<'MarkerId'>;
 
+/**
+ * Identifies one edit operation in an asset's chain or a region's processing,
+ * so an undo withdraws exactly the operation it was given.
+ */
+export type EditOperationId = Branded<'EditOperationId'>;
+
 /** Identifies a track. */
 export type TrackId = Branded<'TrackId'>;
 
@@ -53,6 +59,7 @@ export type EntityId =
   | ClipId
   | RegionId
   | MarkerId
+  | EditOperationId
   | TrackId
   | BusId
   | ProcessorId

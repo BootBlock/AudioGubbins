@@ -31,9 +31,11 @@ import type { AssetRecord } from '../asset-record-json.js';
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import { writtenName } from '../given-names.js';
 import {
+  SOURCE_CONTAINERS,
   SourceChangePolicy,
   storageKeyOf,
   type AssetProvenance,
+  type SourceAudioShape,
   type ExternalMedia,
   type ExternalSourceIdentity,
   type ManagedMedia,
@@ -251,16 +253,22 @@ export function randomAssetRecord(
     channelLayout: randomLayout(random),
     length: randomCount(random, 10_000_000),
     storageKey: storageKeyOf(id, media),
+    edits: [],
   };
-  const provenance = maybe(random, () => randomProvenance(random, ids, projectId));
+  const provenance = maybe(random, () => randomProvenance(random, ids, projectId, asset));
   return { asset, source: { media, ...(provenance === undefined ? {} : { provenance }) } };
 }
 
-function randomProvenance(random: Random, ids: IdGenerator, projectId: ProjectId): AssetProvenance {
+function randomProvenance(
+  random: Random,
+  ids: IdGenerator,
+  projectId: ProjectId,
+  asset: Asset,
+): AssetProvenance {
   const originalFileName = maybe(random, () => `${randomHex(random, 5)} ß.flac`);
   const sourceContentId = maybe(random, () => randomContentId(random));
   const sourceFingerprint = maybe(random, () => randomHex(random, 64));
-  const bitDepth = maybe(random, () => random.pick([8, 16, 24, 32, 64]));
+  const audio = maybe(random, () => randomAudioShape(random, asset));
   return {
     ...(originalFileName === undefined ? {} : { originalFileName }),
     importedAt: random.below(2 ** 42),
@@ -269,6 +277,27 @@ function randomProvenance(random: Random, ids: IdGenerator, projectId: ProjectId
     byteLength: random.below(2 ** 40),
     mediaType: random.pick(MEDIA_TYPES),
     originProjectId: random.chance(0.7) ? projectId : ids.next<'ProjectId'>(),
-    ...(bitDepth === undefined ? {} : { bitDepth }),
+    ...(audio === undefined ? {} : { audio }),
+  };
+}
+
+/**
+ * The audio shape of the file an asset was imported from, agreeing with the
+ * asset as the reader requires, and sometimes cut short of what it declared.
+ */
+function randomAudioShape(random: Random, asset: Asset): SourceAudioShape {
+  const statedLayout = maybe(random, () => asset.channelLayout);
+  const float = random.chance(0.3);
+  return {
+    container: random.pick(SOURCE_CONTAINERS),
+    sampleRate: asset.sampleRate,
+    encoding: float ? 'float' : 'integer',
+    bitDepth: float ? random.pick([32, 64]) : random.pick([8, 12, 16, 20, 24, 32]),
+    byteOrder: random.chance(0.5) ? 'little' : 'big',
+    ...(statedLayout === undefined ? {} : { statedLayout }),
+    frames: asset.length,
+    declaredFrames: random.chance(0.8)
+      ? asset.length
+      : expectSuccess(sampleCount(asset.length + 1 + random.below(10_000))),
   };
 }

@@ -40,10 +40,10 @@ pub const EDITOR_VIEWS_SCHEMA_VERSION: u32 = 1;
 pub const DIAGNOSTIC_BUNDLE_SCHEMA_VERSION: u32 = 1;
 
 /// Version of the persisted `projectDocument` schema.
-pub const PROJECT_DOCUMENT_SCHEMA_VERSION: u32 = 1;
+pub const PROJECT_DOCUMENT_SCHEMA_VERSION: u32 = 2;
 
 /// Version of the persisted `projectStorage` schema.
-pub const PROJECT_STORAGE_SCHEMA_VERSION: u32 = 5;
+pub const PROJECT_STORAGE_SCHEMA_VERSION: u32 = 6;
 
 /// Version of the persisted `portableBundle` schema.
 pub const PORTABLE_BUNDLE_SCHEMA_VERSION: u32 = 2;

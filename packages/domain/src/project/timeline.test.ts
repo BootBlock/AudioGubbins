@@ -7,7 +7,7 @@ import { expectSuccess } from '../testing/unwrap.js';
 import { AssetOrigin, type Asset, assetRangeEnd, assetRangeFitsAsset } from './asset.js';
 import {
   type Clip,
-  type Region,
+  type PlacedRegion,
   clipAssetId,
   clipEnd,
   clipsOverlap,
@@ -22,6 +22,7 @@ const asset: Asset = {
   channelLayout: StandardLayouts.mono,
   length: 10_000 as SampleCount,
   storageKey: 'opaque-to-the-domain',
+  edits: [],
 };
 
 function makeClip(start: number, length: number, suffix = 'aaaa'): Clip {
@@ -88,7 +89,7 @@ describe('clipAssetId', () => {
 
 describe('regionEnd', () => {
   it('is the first frame after the region', () => {
-    const region: Region = {
+    const region: PlacedRegion = {
       id: unsafeBrandId('87658765-region'),
       displayName: 'Loop body',
       start: 2_000 as SampleCount,

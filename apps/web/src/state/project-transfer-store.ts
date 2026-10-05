@@ -300,22 +300,24 @@ export class ProjectTransferStore implements Observable<TransferState> {
     session: RemoteProjectSession,
   ): Promise<DomainResult<readonly AssetConsolidation[]>> =>
     this.working('consolidating', async () => {
+      const scope = this.project.scope();
       for (const { media } of session.getSnapshot().model.state.sources.values()) {
         // A frozen asset is copied from its retained copy, never its file.
         if (media.kind === 'external' && media.policy !== SourceChangePolicy.Freeze) {
-          await this.linkedFiles.ask(media.identity);
+          await this.linkedFiles.ask(media.identity, scope);
         }
       }
       const locate = async (
         _asset: AssetId,
         identity: ExternalSourceIdentity,
+        signal?: AbortSignal,
       ): Promise<PageLocated> => {
-        const access = await this.linkedFiles.look(identity);
+        const access = await this.linkedFiles.look(identity, signal);
         return access.kind === 'available'
           ? { kind: 'found', file: access.file }
           : { kind: 'absent', reason: absenceOf(access) };
       };
-      return await this.transfers.consolidate(session, locate, this.project.scope());
+      return await this.transfers.consolidate(session, locate, scope);
     });
 
   /**

@@ -51,6 +51,13 @@ import {
 export const MAXIMUM_ENTITIES = 1_000_000;
 
 /**
+ * The longest project document, in UTF-16 code units: 2^28, a quarter of a
+ * gibibyte and below the longest string every engine builds. A list whose
+ * items no count of edits bounds is bounded by what this can hold.
+ */
+export const LONGEST_PROJECT_DOCUMENT = 2 ** 28;
+
+/**
  * The most items a list inside one entity holds: a region's tags, a chain's
  * processors, a processor's values, an export's settings and problems.
  */

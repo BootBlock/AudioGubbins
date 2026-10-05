@@ -18,6 +18,7 @@
  */
 
 export { originPrivateTree } from './sync-storage-tree.js';
+export { originPrivateFile } from './folder-paths.js';
 
 export {
   FileHandleKeeper,

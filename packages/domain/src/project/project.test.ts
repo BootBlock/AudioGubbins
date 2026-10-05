@@ -165,33 +165,32 @@ describe('projectLength', () => {
     expect(projectLength(project)).toBe(2_000);
   });
 
-  it('extends to a marker placed past the last clip', () => {
+  it('places nothing for a region or a marker, which lie on an asset at its own rate', () => {
     const track = makeTrack('aaaa');
+    const asset = assetId('marked');
     const marker: Marker = {
       id: unsafeBrandId('88888888-marker'),
+      assetId: asset,
       displayName: 'End',
+      basis: 0,
       position: 9_000 as SampleCount,
+    };
+    const region: Region = {
+      id: unsafeBrandId('aaaaaaaa-region'),
+      assetId: asset,
+      displayName: 'Tail',
+      basis: 0,
+      start: 4_000 as SampleCount,
+      end: 5_000 as SampleCount,
+      tags: [],
+      operations: [],
     };
     const project: Project = {
       ...withClips([makeClip('1111', track.id, 0, 100)], [track]),
       markers: new Map([[marker.id, marker]]),
-    };
-    expect(projectLength(project)).toBe(9_000);
-  });
-
-  it('extends to the end of a region placed past the last clip', () => {
-    const region: Region = {
-      id: unsafeBrandId('aaaaaaaa-region'),
-      displayName: 'Tail',
-      start: 4_000 as SampleCount,
-      length: 1_000 as SampleCount,
-      tags: [],
-    };
-    const project: Project = {
-      ...createProject(projectId, 'Test', settings),
       regions: new Map([[region.id, region]]),
     };
-    expect(projectLength(project)).toBe(5_000);
+    expect(projectLength(project)).toBe(100);
   });
 });
 
@@ -206,6 +205,35 @@ describe('isAssetInUse', () => {
   it('reports an asset no clip reads from as unused', () => {
     const track = makeTrack('aaaa');
     const project = withClips([makeClip('1111', track.id, 0, 100, assetId('used'))], [track]);
+    expect(isAssetInUse(project, assetId('unused'))).toBe(false);
+  });
+
+  it('reports an asset its own region or marker names as in use, and no other', () => {
+    const asset = assetId('marked');
+    const marker: Marker = {
+      id: unsafeBrandId('88888888-marker'),
+      assetId: asset,
+      displayName: 'Hit',
+      basis: 0,
+      position: 10 as SampleCount,
+    };
+    const region: Region = {
+      id: unsafeBrandId('aaaaaaaa-region'),
+      assetId: assetId('regioned'),
+      displayName: 'Body',
+      basis: 0,
+      start: 0 as SampleCount,
+      end: 10 as SampleCount,
+      tags: [],
+      operations: [],
+    };
+    const project: Project = {
+      ...createProject(projectId, 'Test', settings),
+      markers: new Map([[marker.id, marker]]),
+      regions: new Map([[region.id, region]]),
+    };
+    expect(isAssetInUse(project, asset)).toBe(true);
+    expect(isAssetInUse(project, assetId('regioned'))).toBe(true);
     expect(isAssetInUse(project, assetId('unused'))).toBe(false);
   });
 

@@ -4,6 +4,9 @@
  * samples themselves.
  */
 
+import { createHash } from 'node:crypto';
+import { crc32 as zlibCrc32 } from 'node:zlib';
+
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts, discreteLayout, sampleRate } from '@audiogubbins/domain';
@@ -11,7 +14,7 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { frameBlock } from '@audiogubbins/audio-engine';
 
 import { PeakBuilder } from './peak-builder.js';
-import { decodePeaks, encodePeaks, crc32 } from './peak-codec.js';
+import { decodePeaks, encodePeaks } from './peak-codec.js';
 import { summariseBucket } from './bucket-summary.js';
 import {
   columnPeaks,
@@ -191,8 +194,15 @@ describe('the cache format', () => {
     );
   });
 
-  it('computes the CRC-32 zlib does', () => {
-    expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926);
+  it('writes the bytes it always has, closed by the CRC-32 zlib gives of them', () => {
+    const bytes = encodePeaks(builder.geometry, builder.levels, source);
+    const body = bytes.subarray(0, bytes.length - 4);
+    const checksum = new DataView(bytes.buffer).getUint32(bytes.length - 4, true);
+    expect(checksum).toBe(zlibCrc32(body));
+    expect(checksum).toBe(0x37391235);
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(
+      '05edba11cd1d59e49d53ce1e1385bd31110528af9a6ef93731e4e07fa179a535',
+    );
   });
 });
 

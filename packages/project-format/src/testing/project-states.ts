@@ -9,17 +9,26 @@
  */
 
 import {
+  FadeDirection,
+  FadeShape,
   MAIN_OUTPUT,
   StandardLayouts,
+  assetPlan,
+  derivedSampleCount,
   routeToBus,
+  slicePlan,
   type Asset,
   type AssetId,
   type Bus,
+  type EditOperation,
+  type EditRange,
   type EffectChain,
   type IdGenerator,
   type ParameterId,
   type ParameterValue,
   type Project,
+  type Region,
+  type RegionOperation,
   type Track,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -124,7 +133,15 @@ export function referenceState(fixture: SampleProject): ProjectState {
               byteLength: 48_044,
               mediaType: 'audio/wav',
               originProjectId: project.id,
-              bitDepth: 16,
+              audio: {
+                container: 'wav',
+                sampleRate: asset.sampleRate,
+                encoding: 'integer',
+                bitDepth: 16,
+                byteOrder: 'little',
+                frames: asset.length,
+                declaredFrames: asset.length,
+              },
             },
           }
         : {
@@ -153,4 +170,98 @@ export function referenceState(fixture: SampleProject): ProjectState {
             },
           },
   );
+}
+
+function span(start: number, end: number): EditRange {
+  return { start: derivedSampleCount(start), end: derivedSampleCount(end) };
+}
+
+/**
+ * The reference state with the edit model in it (ADR-0051): the footstep
+ * carries a chain of every kind of operation, among them a paste whose plan
+ * holds a gain stage and a conversion from mono to stereo, and the region on
+ * it carries processing placed before and after that conversion.
+ */
+export function editedReferenceState(fixture: SampleProject): ProjectState {
+  const state = referenceState(fixture);
+  const { ids } = fixture;
+  const footstep = state.project.assets.get(fixture.assets.footstep.id);
+  if (footstep === undefined) throw new Error('The reference state has no footstep.');
+
+  const louder: EditOperation = {
+    id: ids.next<'EditOperationId'>(),
+    kind: 'process',
+    range: span(0, 12_000),
+    channels: [0],
+    edit: { kind: 'gain', gain: 0.5 },
+  };
+  const copied = slicePlan(assetPlan({ ...footstep, edits: [louder] }), 6_000, 18_000);
+  if (!copied.ok) throw new Error('The footstep could not be copied.');
+  const edits: EditOperation[] = [
+    louder,
+    {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'insert',
+      at: derivedSampleCount(24_000),
+      payload: copied.value,
+      convertRate: false,
+    },
+    {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'convert-layout',
+      layout: StandardLayouts.stereo,
+      matrix: [[1], [-0.5]],
+    },
+    {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'process',
+      range: span(0, 2_400),
+      edit: { kind: 'fade', direction: FadeDirection.In, shape: FadeShape.SCurve },
+    },
+    { id: ids.next<'EditOperationId'>(), kind: 'reverse', range: span(100, 200) },
+    { id: ids.next<'EditOperationId'>(), kind: 'delete', range: span(30_000, 31_000) },
+  ];
+  const edited: Asset = { ...footstep, edits };
+
+  const processing: RegionOperation[] = [
+    {
+      id: ids.next<'EditOperationId'>(),
+      basis: 0,
+      range: span(0, 1_000),
+      edit: { kind: 'invert' },
+    },
+    {
+      id: ids.next<'EditOperationId'>(),
+      basis: 4,
+      range: span(500, 1_500),
+      edit: { kind: 'swap-channels', first: 0, second: 1 },
+    },
+    {
+      id: ids.next<'EditOperationId'>(),
+      basis: 5,
+      range: span(0, 600),
+      channels: [1],
+      edit: { kind: 'gain', gain: 2 },
+    },
+    {
+      id: ids.next<'EditOperationId'>(),
+      basis: 6,
+      range: span(0, 100),
+      edit: { kind: 'channel-gains', gains: [1, 0.25] },
+    },
+  ];
+  const regions = new Map(
+    [...state.project.regions].map(([id, region]): [Region['id'], Region] => [
+      id,
+      region.assetId === footstep.id ? { ...region, operations: processing } : region,
+    ]),
+  );
+  return {
+    ...state,
+    project: {
+      ...state.project,
+      assets: new Map([...state.project.assets, [footstep.id, edited]]),
+      regions,
+    },
+  };
 }

@@ -169,6 +169,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'firefox-projects': ['projects'],
   'chromium-transport': ['transport'],
   'chromium-timeline': ['timeline'],
+  'chromium-core-editing': ['core-editing'],
   'chromium-renderer': ['renderer-loss'],
   'chromium-renderer-webgpu': ['renderer-webgpu'],
   'chromium-renderer-reduced': ['renderer-reduced'],
@@ -322,6 +323,7 @@ describe('the browser matrix', () => {
   it('reads the specs it is ruling on, so a passing rule is not passing vacuously', () => {
     expect(SPECS).toEqual([
       'tests/e2e/accessibility.spec.ts',
+      'tests/e2e/core-editing.spec.ts',
       'tests/e2e/input.spec.ts',
       'tests/e2e/pages.spec.ts',
       'tests/e2e/projects.spec.ts',

@@ -211,6 +211,8 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/domain': [],
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain'],
+  '@audiogubbins/codecs': ['@audiogubbins/domain'],
+  '@audiogubbins/clipboard': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
@@ -222,7 +224,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   ],
   '@audiogubbins/video-reference': ['@audiogubbins/domain', '@audiogubbins/timeline'],
   '@audiogubbins/waveform': ['@audiogubbins/domain', '@audiogubbins/audio-engine'],
-  '@audiogubbins/audio-engine': ['@audiogubbins/domain', '@audiogubbins/audio-graph'],
+  '@audiogubbins/audio-engine': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-graph',
+    '@audiogubbins/codecs',
+  ],
   '@audiogubbins/audio-runtime': [
     '@audiogubbins/domain',
     '@audiogubbins/diagnostics',
@@ -253,6 +259,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/commands',
     '@audiogubbins/project-format',
+    '@audiogubbins/text',
   ],
   '@audiogubbins/history': [
     '@audiogubbins/domain',
@@ -262,6 +269,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
   '@audiogubbins/storage': [
     '@audiogubbins/domain',
+    '@audiogubbins/codecs',
     '@audiogubbins/commands',
     '@audiogubbins/diagnostics',
     '@audiogubbins/history',
@@ -305,6 +313,8 @@ const FIXTURES = '@audiogubbins/test-fixtures';
  */
 const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'browser-storage',
+  'clipboard',
+  'codecs',
   'diagnostics',
   'history',
   'media-store',
@@ -739,6 +749,8 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
   const FRAMEWORK_FREE_PACKAGES = [
     'audio-engine',
     'audio-graph',
+    'clipboard',
+    'codecs',
     'commands',
     'domain',
     'editor-view',
@@ -2698,8 +2710,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The workspace partition's one owner of state: every operation on the layout on screen and the saved workspaces, the restore of a deleted one and the discard of text that could not be read among them, updates the layout, the list, the notices, the wait for room, the unread text and the deletions in one observable update. Each rule it applies is a module of its own — the custody of unread text, the reading of a stored layout, the naming of a workspace — so what is left is the state and the methods that change it together; split, two halves would each need the whole state to publish one update.",
     ],
     'apps/web/src/state/source-change-store.ts': [
-      300,
-      "The linked files of the open project and the person's answers to their changes: looking at each file through the kept handles, taking at once what an asset's own policy takes, asking leave to read a file in the handler of the person's gesture, and taking each answer, relinking and taking a new version through the storage worker so a protected copy is kept. Each rule it applies is a module of its own — the records and the freeze command (`source-changes.ts`), the classification and the choices (the media store), the reading and copying of a file (the worker) — so what is left is the one observable state of the changes waiting and the methods that answer them; split, each half would need that state and the look in flight it is given up with.",
+      312,
+      "The linked files of the open project and the person's answers to their changes: looking at each file through the kept handles, saying when a look reached its end so the files may be read, taking at once what an asset's own policy takes, asking leave to read a file in the handler of the person's gesture, and taking each answer, relinking and taking a new version through the storage worker so a protected copy is kept. Each rule it applies is a module of its own — the records and the freeze command (`source-changes.ts`), the classification and the choices (the media store), the reading and copying of a file (the worker) — so what is left is the one observable state of the changes waiting and the methods that answer them; split, each half would need that state and the look in flight it is given up with.",
     ],
     'packages/storage/src/project-session.ts': [
       392,
@@ -2847,6 +2859,14 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     // Tables: a list of independent definitions, each whole in itself.
+    'apps/web/src/editor/intent-commands.ts: commandsOf': [
+      57,
+      'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
+    ],
+    'apps/web/src/state/default-shortcuts.ts: editorBindings': [
+      53,
+      "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key.",
+    ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [
       214,
       'A list of independent appearance commands, each self-contained, sharing only the command builder and `unlessAlready`.',
@@ -2872,8 +2892,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'The bindings that ship as the default profile, each written as the character it is pressed with and given its reason; the helper that places a character, pressed with the usual modifier, on the layout the user types with, and the one that joins presses into a shortcut or names the characters it waits for; and the split of the placed defaults from those waiting for a key and those waiting for a Command press.',
     ],
     'packages/test-fixtures/src/projects.ts: sampleProject': [
-      108,
-      'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic.',
+      116,
+      'Fixture data built in a fixed order, because the order of its identifiers is what makes them deterministic. Reviewed again when the region and the marker were anchored to the footstep (ADR-0051): the growth is their basis and loop fields, still data.',
     ],
     'apps/web/src/shell/menus.ts: shellMenus': [
       142,

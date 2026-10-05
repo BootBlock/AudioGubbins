@@ -55,7 +55,7 @@ describe('the menu bar', () => {
       'Editor',
       'Help',
     ]);
-    expect(entries).toHaveLength(116);
+    expect(entries).toHaveLength(147);
   });
 
   it('names the panel the arrangement entries act on', () => {

@@ -11,7 +11,9 @@
  * never silently.
  */
 
-import { describedBuffers, type CancellationSignal } from '@audiogubbins/audio-engine';
+import { describedBuffers } from '@audiogubbins/audio-engine';
+
+import type { CancellationSignal } from '@audiogubbins/domain';
 
 import type { BucketWindow, SampleWindow } from './peak-columns.js';
 import { PeakJob, type PeakEvent, type PeakStatus } from './peak-job.js';

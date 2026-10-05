@@ -27,7 +27,8 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
-    "@audiogubbins/audio-graph": "workspace:*"
+    "@audiogubbins/audio-graph": "workspace:*",
+    "@audiogubbins/codecs": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

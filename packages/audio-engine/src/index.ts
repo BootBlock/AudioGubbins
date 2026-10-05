@@ -16,15 +16,6 @@
  */
 
 export {
-  type CancellationSignal,
-  type CancellationSource,
-  Cancelled,
-  cancellationReason,
-  createCancellationSource,
-  throwIfCancelled,
-} from './cancellation.js';
-
-export {
   type AudioFrameBlock,
   allocateBlock,
   blockView,
@@ -56,6 +47,8 @@ export {
   pcmDescription,
 } from './pcm/pcm-description.js';
 export { resampledSource } from './pcm/resampled-source.js';
+export { type MediaEntry } from './pcm/plan-content.js';
+export { type MediaFile } from './pcm/media-file.js';
 
 export {
   type CanonicalDsp,

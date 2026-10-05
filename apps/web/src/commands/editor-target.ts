@@ -40,7 +40,10 @@ function targetOf(context: ShellContext, panel: string | undefined): EditorTarge
   if (entry === undefined) return NO_VIEW;
   const asset = context.assets.find(entry.asset);
   if (asset === undefined) {
-    return 'The asset this view showed is not open in this session. Choose another in the view.';
+    const unopened = context.assets.get().unopened.get(entry.asset);
+    return unopened === undefined
+      ? 'The asset this view showed is not open in this session. Choose another in the view.'
+      : `${unopened.name} cannot be shown yet. ${unopened.reason}`;
   }
   return { panel, entry, state: entry.state, asset };
 }

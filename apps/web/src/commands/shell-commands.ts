@@ -20,12 +20,15 @@ import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
+import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
+import { audioImportCommands } from './audio-import-commands.js';
+import { quickEditCommands } from './quick-edit-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
 import { diagnosticCommands } from './diagnostic-commands.js';
@@ -33,7 +36,14 @@ import { editorAssetCommands } from './editor-asset-commands.js';
 import { editorNavigationCommands } from './editor-navigation-commands.js';
 import { editorOptionCommands } from './editor-option-commands.js';
 import { editorPresentationCommands } from './editor-presentation-commands.js';
+import { channelCommands } from './channel-commands.js';
+import { clipboardCommands } from './clipboard-commands.js';
+import { editCommands } from './edit-commands.js';
 import { markerCommands } from './marker-commands.js';
+import { regionBoundaryCommands } from './region-boundary-commands.js';
+import { regionCommands } from './region-commands.js';
+import { regionPropertyCommands } from './region-property-commands.js';
+import { splitCommands } from './split-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
@@ -132,10 +142,13 @@ function projectSystemCommands(): readonly Command<ShellContext>[] {
     ...projectFileCommands(),
     ...deletionCommands(),
     ...projectTransferCommands(),
+    ...audioImportCommands(),
+    ...quickEditCommands(),
     ...backupCommands(),
     ...backupFolderCommands(),
     ...historyCommands(),
     ...comparisonCommands(),
+    ...auditionCommands(),
     ...compactionCommands(),
     ...ownershipCommands(),
     ...storageCommands(),
@@ -172,6 +185,13 @@ export function shellCommands(
     ...selectionPlayheadCommands(),
     ...markerCommands(),
     ...markerNudgeCommands(),
+    ...clipboardCommands(),
+    ...editCommands(),
+    ...channelCommands(),
+    ...regionCommands(),
+    ...regionBoundaryCommands(),
+    ...regionPropertyCommands(),
+    ...splitCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

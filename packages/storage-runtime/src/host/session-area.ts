@@ -37,6 +37,8 @@ export function sessionHandlers(
   // longer held throws, which the caller hears as the fault it is.
   return {
     'projects.run': ({ handle, invocation }) => session(handle).run(invocation),
+    'projects.runGroup': ({ handle, description, invocations }) =>
+      session(handle).runGroup(description, invocations),
     'projects.undo': ({ handle }) => session(handle).undo(),
     'projects.redo': ({ handle }) => session(handle).redo(),
     'projects.goTo': ({ handle, node }) => session(handle).goTo(node),
@@ -51,6 +53,8 @@ export function sessionHandlers(
       }),
     'projects.compare': ({ handle, a, b }) => session(handle).compare(a, b),
     'projects.comparedDifference': ({ handle }) => session(handle).comparedDifference(),
+    'projects.comparedState': ({ handle, side }, { signal }) =>
+      session(handle).comparedState(side, signal),
     'projects.switchSide': ({ handle, side }) => session(handle).switchSide(side),
     'projects.closeComparison': ({ handle }) => session(handle).closeComparison(),
     'projects.promote': ({ handle, side }) => session(handle).promote(side),

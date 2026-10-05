@@ -122,9 +122,18 @@ describe('a default that waits for a key', () => {
     expect(mine).not.toContain(commandId('view.theme-dark'));
 
     // K is typed on the key a US keyboard has V on, so the Selection tool's V
-    // waits in turn until the key Dvorak types V on, a US full stop, is seen.
+    // and Paste's V wait in turn until the key Dvorak types V on, a US full
+    // stop, is seen.
     layout.learn(keyEventOf('KeyV', 'k'));
-    expect(context.shortcuts.get().waiting.map((one) => one.characters)).toEqual([['v']]);
+    expect(
+      context.shortcuts
+        .get()
+        .waiting.map((one) => [one.commandId, one.characters])
+        .toSorted(),
+    ).toEqual([
+      [commandId('edit.paste'), ['v']],
+      [commandId('editor.tool-select'), ['v']],
+    ]);
     layout.learn(keyEventOf('Period', 'v'));
     expect(context.shortcuts.get().waiting).toEqual([]);
   });

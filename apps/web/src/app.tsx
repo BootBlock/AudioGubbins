@@ -173,6 +173,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
             <ProjectBanner
               root={context.storageRoot}
               project={context.projects?.project}
+              quickEdit={context.projects?.quickEdit}
               run={runNamed}
               announce={announce}
             />

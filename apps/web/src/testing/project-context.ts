@@ -44,7 +44,9 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { abandonment } from '../state/abandoning.js';
+import { followProjectAssets } from '../state/project-catalogue.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
+import type { FakePlayback } from './audio-fakes.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
 import { StorageRoot } from '../state/storage-root-store.js';
 import { DESCRIPTORS, buildShellContext } from './shell-context.js';
@@ -76,7 +78,7 @@ export interface ScriptedFiles extends TransferFiles {
 export const CHOSEN_FOLDER_NAME = 'Sounds';
 
 /** Files scripted by the test, with the folder picker where `canWriteFolders`. */
-function scriptedFiles(canWriteFolders = true): ScriptedFiles {
+export function scriptedFiles(canWriteFolders = true): ScriptedFiles {
   const files: ScriptedFiles = {
     saved: [],
     bundles: [],
@@ -133,6 +135,9 @@ export interface ProjectWindow {
   /** The world's own services over its storage, for a test to prepare or look into it. */
   readonly storage: HostServices;
 
+  /** The audio engine the window plays through, which a test reads what it was given from. */
+  readonly audio: { readonly playback: FakePlayback };
+
   /** Runs a shell command as the interface runs one. */
   run(id: string, args?: CommandInvocation['arguments']): ExecutionResult<ShellContext>;
 
@@ -159,6 +164,12 @@ export interface ProjectWorld {
 
   /** The world's own services over its storage, as another window of the profile holds them. */
   readonly storage: HostServices;
+
+  /**
+   * A page joined to a storage worker of its own over the world's storage,
+   * for a test that composes the project system itself.
+   */
+  page(context: ShellContext): ProjectServices;
 
   /**
    * Opens a window: its storage root is opened and its list read, and its
@@ -230,14 +241,18 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
     tab: { name: 'the test', seed: 7 },
   });
   let windows = 0;
+  const page = (context: ShellContext): ProjectServices => {
+    windows += 1;
+    return pageOf(world, clock, context, windows);
+  };
   const world: ProjectWorld = {
     tree,
     coordinator,
     storage,
+    page,
     window: async (options = {}) => {
-      windows += 1;
       const built = buildShellContext();
-      const services = pageOf(world, clock, built.context, windows);
+      const services = page(built.context);
       const files = scriptedFiles(options.canWriteFolders);
       const lifetime = new AbortController();
       const root = new StorageRoot(services.client.root, lifetime.signal);
@@ -263,6 +278,7 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
         projects,
         files,
         takeDown,
+        audio: built.audio,
       });
     },
   };
@@ -272,10 +288,14 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
 /** A window of the world, started as the application starts it. */
 async function windowOver(
   base: ShellContext,
-  parts: Pick<ProjectWindow, 'services' | 'storage' | 'root' | 'projects' | 'files' | 'takeDown'>,
+  parts: Pick<
+    ProjectWindow,
+    'services' | 'storage' | 'root' | 'projects' | 'files' | 'takeDown' | 'audio'
+  >,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
   const context: ShellContext = { ...base, storageRoot: root, projects };
+  followProjectAssets(projects, context.assets);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
   const bus = createCommandBus(registry, context.diagnostics.loggerFor('commands'));

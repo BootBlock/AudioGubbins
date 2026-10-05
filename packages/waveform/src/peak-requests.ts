@@ -12,16 +12,18 @@
  */
 
 import {
-  Cancelled,
   allocateBlock,
   blockView,
-  createCancellationSource,
-  throwIfCancelled,
   type AudioFrameBlock,
-  type CancellationSource,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
-import { sampleCount } from '@audiogubbins/domain';
+import {
+  Cancelled,
+  createCancellationSource,
+  sampleCount,
+  throwIfCancelled,
+  type CancellationSource,
+} from '@audiogubbins/domain';
 
 import { summariseBucket } from './bucket-summary.js';
 import { CHUNK_FRAMES, DETAIL_BUCKET_FRAMES, DetailKind, largestWindow } from './peak-geometry.js';

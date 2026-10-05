@@ -10,16 +10,9 @@
 
 import type { CompactionPlan, HistoryNode, LostCapability } from '@audiogubbins/history';
 import type { ExportRecord } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
-import { describeBytes, quoted } from '../../wording.js';
-
-/** How a time in the history is written. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-
-/** When something happened, as the panel writes it. */
-export function when(at: number): string {
-  return WHEN.format(at);
-}
+import { describeBytes, quoted, when } from '../../wording.js';
 
 /** What a point of the history is, in a phrase. */
 export function describeNode(node: HistoryNode): string {
@@ -40,11 +33,6 @@ export function describeExport(record: ExportRecord): string {
   const status =
     record.status === 'succeeded' ? '' : record.status === 'partial' ? ', in part' : ', and failed';
   return `Exported as ${where} on ${when(record.at)}${status}`;
-}
-
-/** How many of something, in words. */
-export function counted(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
 }
 
 /** What letting history go takes away, in a sentence. */

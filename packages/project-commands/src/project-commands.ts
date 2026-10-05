@@ -15,6 +15,9 @@
 import { invocationProvenance, type InvocationProvenance } from '@audiogubbins/project-format';
 
 import { assetCommands } from './asset-commands.js';
+import { editCommands } from './editing/edit-commands.js';
+import { markerCommands } from './editing/marker-commands.js';
+import { regionCommands } from './editing/region-commands.js';
 import type { ProjectCommand } from './project-command.js';
 import { projectNameCommands } from './project-name-commands.js';
 import { sourceCommands } from './source-commands.js';
@@ -24,7 +27,14 @@ import { sourceCommands } from './source-commands.js';
  * commands hold no state, so the composition root builds the list once.
  */
 export function projectCommands(): readonly ProjectCommand[] {
-  return [...projectNameCommands(), ...assetCommands(), ...sourceCommands()];
+  return [
+    ...projectNameCommands(),
+    ...assetCommands(),
+    ...sourceCommands(),
+    ...editCommands(),
+    ...markerCommands(),
+    ...regionCommands(),
+  ];
 }
 
 /**

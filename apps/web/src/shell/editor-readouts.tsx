@@ -12,7 +12,7 @@
 import type { ReactNode, RefObject } from 'react';
 
 import { Button, ButtonTone } from '@audiogubbins/design-system';
-import type { Marker } from '@audiogubbins/domain';
+import type { PlacedMarker } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { formatPosition, visibleRange, type SelectionSet, type Zoom } from '@audiogubbins/timeline';
 
@@ -93,7 +93,7 @@ export function MarkerList({
   readonly panel: string;
   readonly asset: EditorAsset;
   readonly state: EditorViewState;
-  readonly markers: readonly Marker[];
+  readonly markers: readonly PlacedMarker[];
   readonly selection: SelectionSet;
   readonly parts: EditorPanelParts;
 }): ReactNode {

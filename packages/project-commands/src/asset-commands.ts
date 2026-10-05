@@ -17,7 +17,7 @@ import {
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
-import type { AssetId } from '@audiogubbins/domain';
+import { assetUsers, type Asset } from '@audiogubbins/domain';
 import {
   ProvenanceArgument,
   canonicalJson,
@@ -27,6 +27,7 @@ import {
   writtenName,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
 import {
   jsonArgument,
@@ -107,6 +108,12 @@ function addAsset(
       `The project already has an asset with that identifier, ${quoted(existing.displayName)}.`,
     );
   }
+  if (asset.edits.length > 0) {
+    return refusal(
+      'asset.added-with-edits',
+      'An asset is added unedited, and its edits are applied after it.',
+    );
+  }
   return applied(
     withAsset(state, asset, source),
     { commandId: ProjectCommandId.RemoveAsset, arguments: { assetId: asset.id } },
@@ -122,12 +129,11 @@ function removeAsset(
   if (!target.ok) return refusedBy(target);
   const { asset, source } = target.value;
 
-  const users = clipsUsing(state, asset.id);
-  if (users > 0) {
-    const clips = users === 1 ? '1 clip' : `${String(users)} clips`;
+  const users = usersOf(state, asset);
+  if (users !== undefined) {
     return refusal(
       'asset.in-use',
-      `${quoted(asset.displayName)} is used by ${clips}. Remove or change them first.`,
+      `${quoted(asset.displayName)} still has ${users}. Remove them first.`,
     );
   }
   return applied(
@@ -164,11 +170,25 @@ function renameAsset(
   );
 }
 
-/** How many clips read from the asset. */
-function clipsUsing(state: ProjectState, assetId: AssetId): number {
-  let count = 0;
-  for (const clip of state.project.clips.values()) {
-    if (clip.source.assetId === assetId) count += 1;
-  }
-  return count;
+/**
+ * What still names the asset or rests on it, as a sentence lists it, or
+ * `undefined` where nothing does. Its edits count: an asset is removed
+ * unedited, so its inverse never carries a whole chain (ADR-0051).
+ */
+function usersOf(state: ProjectState, asset: Asset): string | undefined {
+  const users = assetUsers(state.project, asset.id);
+  const parts = (
+    [
+      [users.clips, 'clip that plays it', 'clips that play it'],
+      [users.regions, 'region', 'regions'],
+      [users.markers, 'marker', 'markers'],
+      [users.pastes, 'asset with audio pasted from it', 'assets with audio pasted from it'],
+      [asset.edits.length, 'edit', 'edits'],
+    ] as const
+  )
+    .filter(([count]) => count > 0)
+    .map(([count, one, many]) => counted(count, one, many));
+  if (parts.length === 0) return undefined;
+  const last = parts.pop();
+  return parts.length === 0 ? last : `${parts.join(', ')} and ${String(last)}`;
 }

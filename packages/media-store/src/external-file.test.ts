@@ -52,6 +52,12 @@ describe('what a file says about itself', () => {
     ).toMatchObject({ handleKey: 'h:0001', relativePath: 'Takes/Day 2/Take 1.wav' });
   });
 
+  it('refuses a handle token that names the backups folder’s kept handle', () => {
+    expect(codesOf(fileOf({ handleKey: 'folder:backups' }))).toEqual([
+      'media.handle-key-malformed',
+    ]);
+  });
+
   it('refuses every signal that cannot be recorded, all at once', () => {
     expect(
       codesOf(

@@ -321,7 +321,7 @@ export function createApplication() {
     storage,
     diagnostics.loggerFor('editor'),
     workspace,
-    projectSystem.peakCache,
+    projectSystem,
   );
 
   const context: ShellContext = {

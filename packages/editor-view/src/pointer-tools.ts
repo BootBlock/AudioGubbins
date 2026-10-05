@@ -2,18 +2,23 @@
  * What a press, a drag and a release do with each tool (REQ-EDIT-065).
  *
  * The explicit tools and the contextual behaviour (a held space bar for the
- * hand, a drag on a selection's edge to move it, a drag on a marker to move it,
- * shift to extend) resolve here to the same intents, which the application
- * carries out through the same commands a key press or the palette runs, so a
- * selection made with the time-selection tool and one made by a shortcut are
- * the same thing. This is a value in, value out: the view keeps the interaction
- * between events, and nothing here reads the pointer or the page.
+ * hand, a drag on a selection's edge to move it, a drag on a marker or on a
+ * region's end in the strip to move it, shift to extend) resolve here to the
+ * same intents, which the application carries out through the same commands a
+ * key press or the palette runs, so a selection made with the time-selection
+ * tool and one made by a shortcut are the same thing. This is a value in, value
+ * out: the view keeps the interaction between events, and nothing here reads
+ * the pointer or the page.
  *
  * A press becomes a drag once the pointer has moved past a few pixels, more for
- * a finger than for a mouse, so a tap is never read as a tiny drag.
+ * a finger than for a mouse, so a tap is never read as a tiny drag. A tap on a
+ * marker selects it, and a tap on a region's span or end in the strip selects
+ * the region, shift adding it to those selected, with every tool but the hand
+ * and zoom, which act on the view, and, for a region, the marker tool, which
+ * places a marker there.
  */
 
-import type { MarkerId, SampleCount } from '@audiogubbins/domain';
+import type { MarkerId, RegionBoundary, RegionId, SampleCount } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import type { BoundaryRange } from '@audiogubbins/timeline';
 
@@ -53,13 +58,21 @@ export type ToolIntent =
       readonly channels: readonly number[] | undefined;
     }
   | { readonly kind: 'select-marker'; readonly id: MarkerId; readonly add: boolean }
+  | { readonly kind: 'select-region'; readonly id: RegionId; readonly add: boolean }
   | { readonly kind: 'set-playhead'; readonly position: SampleCount }
   | { readonly kind: 'move-marker'; readonly id: MarkerId; readonly to: SampleCount }
+  | {
+      readonly kind: 'move-region-boundary';
+      readonly id: RegionId;
+      readonly boundary: RegionBoundary;
+      readonly to: SampleCount;
+    }
   | { readonly kind: 'add-marker'; readonly at: SampleCount }
   | { readonly kind: 'scroll'; readonly dx: number }
   | { readonly kind: 'zoom-to-range'; readonly range: BoundaryRange }
   | { readonly kind: 'zoom-step'; readonly x: number; readonly direction: 'in' | 'out' }
-  | { readonly kind: 'split-at'; readonly position: SampleCount };
+  | { readonly kind: 'split-at'; readonly position: SampleCount }
+  | { readonly kind: 'make-region'; readonly range: BoundaryRange };
 
 /** What the view draws while a drag is under way, before anything is committed. */
 export type ToolPreview =
@@ -69,6 +82,12 @@ export type ToolPreview =
       readonly channels: readonly number[] | undefined;
     }
   | { readonly kind: 'marker'; readonly id: MarkerId; readonly position: SampleCount }
+  | {
+      readonly kind: 'region-boundary';
+      readonly id: RegionId;
+      readonly boundary: RegionBoundary;
+      readonly position: SampleCount;
+    }
   | { readonly kind: 'zoom-range'; readonly range: BoundaryRange }
   | { readonly kind: 'razor'; readonly position: SampleCount };
 
@@ -160,6 +179,14 @@ function dragPreview(
   if (hit.kind === 'marker' && (tool === ToolId.Select || tool === ToolId.Marker)) {
     return { kind: 'marker', id: hit.id, position: input.boundary };
   }
+  if (hit.kind === 'region-edge' && (tool === ToolId.Select || tool === ToolId.Region)) {
+    return {
+      kind: 'region-boundary',
+      id: hit.id,
+      boundary: hit.boundary,
+      position: input.boundary,
+    };
+  }
   if (hit.kind === 'ruler') return undefined;
   switch (tool) {
     case ToolId.Select:
@@ -171,6 +198,14 @@ function dragPreview(
           : draggedChannels(context, state.start.channel, input.channel);
       return { kind: 'time-range', range: range(anchorOf(state), input.boundary), channels };
     }
+    case ToolId.Region:
+      return hit.kind === 'lane' || hit.kind === 'selection-edge'
+        ? {
+            kind: 'time-range',
+            range: range(state.start.boundary, input.boundary),
+            channels: undefined,
+          }
+        : undefined;
     case ToolId.Zoom:
       return { kind: 'zoom-range', range: range(state.start.boundary, input.boundary) };
     case ToolId.Razor:
@@ -207,10 +242,18 @@ export function move(interaction: Interaction, input: ToolInput): ToolStep {
   return { interaction: next, preview: dragPreview(next, input), intents: [] };
 }
 
+const STRIP: HitTarget = { kind: 'strip' };
+
 function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly ToolIntent[] {
-  const { hit, tool, start } = state;
+  const { tool, start } = state;
+  const selects = tool !== ToolId.Hand && tool !== ToolId.Zoom;
+  const onRegion = state.hit.kind === 'region-edge' || state.hit.kind === 'region';
+  if (onRegion && selects && tool !== ToolId.Marker) {
+    return [{ kind: 'select-region', id: state.hit.id, add: start.shift }];
+  }
+  const hit = onRegion ? STRIP : state.hit;
   if (hit.kind === 'ruler') return [{ kind: 'set-playhead', position: start.boundary }];
-  if (hit.kind === 'marker' && tool !== ToolId.Hand && tool !== ToolId.Zoom) {
+  if (hit.kind === 'marker' && selects) {
     return [{ kind: 'select-marker', id: hit.id, add: start.shift }];
   }
   switch (tool) {
@@ -236,6 +279,9 @@ function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly Too
       return [{ kind: 'zoom-step', x: start.x, direction: start.alt ? 'out' : 'in' }];
     case ToolId.Razor:
       return hit.kind === 'lane' ? [{ kind: 'split-at', position: start.boundary }] : [];
+    case ToolId.Region:
+      // A click makes no region of nothing; it places the playhead, as a drag's start.
+      return hit.kind === 'lane' ? [{ kind: 'set-playhead', position: start.boundary }] : [];
     case ToolId.Hand:
       return [];
   }
@@ -250,12 +296,23 @@ export function release(interaction: Interaction, input: ToolInput): ToolStep {
   const intents: ToolIntent[] = [];
   switch (preview?.kind) {
     case 'time-range':
-      if (preview.range.end > preview.range.start) {
-        intents.push({ kind: 'select-time', range: preview.range, channels: preview.channels });
-      }
+      if (preview.range.end <= preview.range.start) break;
+      intents.push(
+        interaction.tool === ToolId.Region
+          ? { kind: 'make-region', range: preview.range }
+          : { kind: 'select-time', range: preview.range, channels: preview.channels },
+      );
       break;
     case 'marker':
       intents.push({ kind: 'move-marker', id: preview.id, to: preview.position });
+      break;
+    case 'region-boundary':
+      intents.push({
+        kind: 'move-region-boundary',
+        id: preview.id,
+        boundary: preview.boundary,
+        to: preview.position,
+      });
       break;
     case 'zoom-range':
       if (preview.range.end > preview.range.start)

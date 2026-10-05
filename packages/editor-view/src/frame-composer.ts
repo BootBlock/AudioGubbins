@@ -13,7 +13,13 @@
  * which the lane says.
  */
 
-import type { Marker, MarkerId, Region, SampleCount } from '@audiogubbins/domain';
+import type {
+  MarkerId,
+  PlacedMarker,
+  PlacedRegion,
+  RegionId,
+  SampleCount,
+} from '@audiogubbins/domain';
 import type {
   PlacedImage,
   RenderBatch,
@@ -37,8 +43,8 @@ export interface ViewContent {
   readonly length: SampleCount;
   /** Each channel's name, by its role or label, in layout order. */
   readonly channelNames: readonly string[];
-  readonly markers: readonly Marker[];
-  readonly regions: readonly Region[];
+  readonly markers: readonly PlacedMarker[];
+  readonly regions: readonly PlacedRegion[];
 }
 
 /** Everything one frame of a view is composed from. */
@@ -119,9 +125,11 @@ export class FrameComposer {
       ruler,
     );
     const strip: RenderBatch[] = [];
-    const selected: ReadonlySet<MarkerId> = new Set(
-      scene.selection.objects?.kind === 'markers' ? scene.selection.objects.ids : [],
-    );
+    const { objects } = scene.selection;
+    const selected = {
+      markers: new Set<MarkerId>(objects?.kind === 'markers' ? objects.ids : []),
+      regions: new Set<RegionId>(objects?.kind === 'regions' ? objects.ids : []),
+    };
     const content = {
       markers: state.overlays.markers ? scene.content.markers : [],
       regions: state.overlays.regions ? scene.content.regions : [],

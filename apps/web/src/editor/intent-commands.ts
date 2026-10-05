@@ -1,12 +1,13 @@
 /**
  * What each of a tool's intents runs: the same commands a key, a menu entry
  * or the palette runs (REQ-EDIT-065), named with the view the pointer was in.
- *
- * The razor resolves where a split would go, which is Phase 05's to make
- * (`REQ-EDIT-014`); until then its click places the playhead exactly there,
- * snapped as a split will be, and the tool says so.
+ * The razor splits where it is clicked, and the region tool makes a region of
+ * the range it was dragged over by selecting it and making a region of the
+ * selection, as a person with a keyboard does. A region's end dragged in the
+ * strip moves to where it was let go.
  */
 
+import { RegionBoundary } from '@audiogubbins/domain';
 import type { ToolIntent } from '@audiogubbins/editor-view';
 
 /** A command to run, and what it is given. */
@@ -32,10 +33,19 @@ export function commandsOf(intent: ToolIntent, view: string): readonly IntentCom
       ];
     case 'select-marker':
       return [{ id: 'editor.select-marker', args: { view, marker: intent.id, add: intent.add } }];
+    case 'select-region':
+      return [{ id: 'editor.select-region', args: { view, region: intent.id, add: intent.add } }];
     case 'set-playhead':
       return [{ id: 'editor.set-playhead', args: { view, position: intent.position } }];
     case 'move-marker':
       return [{ id: 'editor.move-marker', args: { view, marker: intent.id, to: intent.to } }];
+    case 'move-region-boundary':
+      return [
+        {
+          id: intent.boundary === RegionBoundary.Start ? 'region.move-start' : 'region.move-end',
+          args: { view, region: intent.id, to: intent.to },
+        },
+      ];
     case 'add-marker':
       return [{ id: 'editor.add-marker', args: { view, at: intent.at } }];
     case 'scroll':
@@ -55,6 +65,14 @@ export function commandsOf(intent: ToolIntent, view: string): readonly IntentCom
         },
       ];
     case 'split-at':
-      return [{ id: 'editor.set-playhead', args: { view, position: intent.position } }];
+      return [{ id: 'edit.split', args: { view, at: intent.position } }];
+    case 'make-region':
+      return [
+        {
+          id: 'editor.select-time',
+          args: { view, start: intent.range.start, end: intent.range.end },
+        },
+        { id: 'region.create', args: { view } },
+      ];
   }
 }

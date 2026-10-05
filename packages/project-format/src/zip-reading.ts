@@ -11,10 +11,9 @@
  * built, so it is refused rather than read.
  */
 
-import { FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
+import { FailureKind, crc32, succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { ByteSource } from './byte-ports.js';
-import { crc32 } from './crc32.js';
 import { Turns, type YieldToHost } from './work-turns.js';
 import { readCentralDirectory, type DirectoryRecord } from './zip-directory.js';
 import type { ZipLimits } from './zip-end-records.js';

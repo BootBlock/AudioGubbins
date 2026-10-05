@@ -7,9 +7,8 @@
  * through into the source.
  */
 
-import { mapResult, sampleCount, type DomainResult } from '@audiogubbins/domain';
+import { mapResult, sampleCount, throwIfCancelled, type DomainResult } from '@audiogubbins/domain';
 
-import { throwIfCancelled } from '../cancellation.js';
 import type { AudioFrameBlock } from './frame-block.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 

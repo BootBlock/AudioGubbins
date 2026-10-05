@@ -244,6 +244,26 @@ describe('reading stored media', () => {
     expect(expectSuccess(await store.find(absent))).toBeUndefined();
   });
 
+  it('locates a sealed whole object by its path, and no object unsealed or cut short', async () => {
+    const tree = new MemoryStorageTree();
+    const bytes = generatedBytes(0, 1_000, 5);
+    const { contentId } = expectSuccess(await storeOver(tree).put(memorySource(bytes)));
+
+    const path = expectSuccess(await storeOver(tree).locate(contentId));
+
+    expect(path).toBe(`media/${contentId.slice(3, 5)}/${contentId}`);
+    expect(tree.snapshot().get(path)).toEqual(bytes);
+    const shortened = new Map(tree.snapshot());
+    shortened.set(path, bytes.subarray(0, 999));
+    const short = storeOver(new MemoryStorageTree({}, shortened));
+    expect(expectFailureCode(await short.locate(contentId))).toBe('media.object-missing');
+    const unsealed = new Map(tree.snapshot());
+    unsealed.delete(`${path}.seal`);
+    expect(
+      expectFailureCode(await storeOver(new MemoryStorageTree({}, unsealed)).locate(contentId)),
+    ).toBe('media.object-missing');
+  });
+
   it('proves damage by hashing again, and trusts no object whose length is not its seal’s', async () => {
     const tree = new MemoryStorageTree();
     const { contentId } = expectSuccess(

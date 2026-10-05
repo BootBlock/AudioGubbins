@@ -8,8 +8,9 @@
  * is applied as it arrives, in a task of its own, so no one task of the page
  * holds a long history; the copy is made once the answer brings the last
  * slice, and the updates that arrived before it are applied to it in order. An
- * ask abandoned by its signal stops hearing, and tells the worker to let go of
- * the project should it hold it all the same.
+ * ask abandoned by its signal stops hearing; where the worker held the project
+ * before it heard so, the page tells it to let the project go, since nothing
+ * will hold it.
  */
 
 import { succeed, type DomainResult, type ProjectId } from '@audiogubbins/domain';
@@ -61,12 +62,13 @@ export async function heldUnder<TAnswer extends HeldOpening>(
     answered = await ask();
   } finally {
     stopSlices();
-    if (answered?.ok !== true) stopHearing();
-    if (answered === undefined && signal?.aborted === true) {
-      await channel.call('projects.abandon', { handle });
-    }
+    if (answered?.ok !== true || signal?.aborted === true) stopHearing();
   }
   if (!answered.ok) return answered;
+  if (signal?.aborted === true) {
+    await channel.call('projects.abandon', { handle });
+    signal.throwIfAborted();
+  }
 
   const { first } = answered.value;
   if (slices !== answered.value.slices) {

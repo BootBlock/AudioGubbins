@@ -52,6 +52,7 @@ export function sampleProject(seed = 20_260_918): ProjectFixture {
     channelLayout: StandardLayouts.mono,
     length: fixtureSampleCount(24_000),
     storageKey: 'fixture:gravel-footstep',
+    edits: [],
   };
 
   const ambience: Asset = {
@@ -62,6 +63,7 @@ export function sampleProject(seed = 20_260_918): ProjectFixture {
     channelLayout: StandardLayouts.stereo,
     length: fixtureSampleCount(480_000),
     storageKey: 'fixture:forest-ambience',
+    edits: [],
   };
 
   const foley: Track = {
@@ -111,22 +113,30 @@ export function sampleProject(seed = 20_260_918): ProjectFixture {
   // touches without overlapping.
   const secondStep = step(12_000, 12_000, 12_000, 'Step 2');
 
+  // The region and the marker are placed on the footstep before any edit, so
+  // their basis is its unedited source.
   const loop: Region = {
     id: ids.next<'RegionId'>(),
+    assetId: footstep.id,
     displayName: 'Walk loop',
+    basis: 0,
     start: fixtureSampleCount(0),
-    length: fixtureSampleCount(24_000),
+    end: fixtureSampleCount(24_000),
     loop: {
-      loopStart: fixtureSampleCount(2_400),
-      loopEnd: fixtureSampleCount(21_600),
+      basis: 0,
+      start: fixtureSampleCount(2_400),
+      end: fixtureSampleCount(21_600),
       crossfadeLength: fixtureSampleCount(480),
     },
     tags: ['footstep', 'gravel'],
+    operations: [],
   };
 
   const start: Marker = {
     id: ids.next<'MarkerId'>(),
+    assetId: footstep.id,
     displayName: 'Walk begins',
+    basis: 0,
     position: fixtureSampleCount(0),
     paletteKey: 'teal',
   };

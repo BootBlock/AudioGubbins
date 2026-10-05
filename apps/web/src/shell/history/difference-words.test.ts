@@ -75,6 +75,32 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
     ]);
   });
 
+  it('says a region’s moved boundaries once, and its processing and an asset’s edits', () => {
+    const region = unsafeBrandId<'RegionId'>('00000000-0000-4000-8000-000000000007');
+    const asset = unsafeBrandId<'AssetId'>('00000000-0000-4000-8000-000000000008');
+    const difference: StateDifference = {
+      ...SAME,
+      regions: {
+        added: [],
+        removed: [],
+        changed: [{ id: region, fields: ['basis', 'start', 'end', 'operations'] }],
+      },
+      assets: { added: [], removed: [], changed: [{ id: asset, fields: ['edits'] }] },
+    };
+    const names: DifferenceNames = {
+      entities: new Map<string, string>([
+        [region, 'Walk loop'],
+        [asset, 'Gravel'],
+      ]),
+      chains: new Map(),
+    };
+
+    expect(differenceLines(difference, names)).toEqual([
+      'The region "Walk loop" differs in its boundaries and processing.',
+      'The asset "Gravel" differs in its edits.',
+    ]);
+  });
+
   it('says so where the two states are the same', () => {
     expect(differenceLines(SAME, { entities: new Map(), chains: new Map() })).toEqual([
       'The two states are the same.',

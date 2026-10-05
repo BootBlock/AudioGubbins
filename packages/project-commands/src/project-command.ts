@@ -41,6 +41,16 @@ export const ProjectCommandId = {
   RelinkSource: commandId('project.relink-source'),
   AdoptSourceVersion: commandId('project.adopt-source-version'),
   FreezeSource: commandId('project.freeze-source'),
+  ApplyEdit: commandId('project.apply-edit'),
+  WithdrawEdit: commandId('project.withdraw-edit'),
+  AddMarker: commandId('project.add-marker'),
+  RemoveMarker: commandId('project.remove-marker'),
+  SetMarker: commandId('project.set-marker'),
+  AddRegion: commandId('project.add-region'),
+  RemoveRegion: commandId('project.remove-region'),
+  SetRegion: commandId('project.set-region'),
+  ApplyRegionEdit: commandId('project.apply-region-edit'),
+  WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */

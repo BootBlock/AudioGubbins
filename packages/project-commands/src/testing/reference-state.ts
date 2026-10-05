@@ -48,6 +48,7 @@ export function referenceState(fixture: SampleProject): {
     length: fixture.assets.ambience.length,
     // Replaced by the key the asset's source gives.
     storageKey: '',
+    edits: [],
   };
 
   const sources = new Map<Asset['id'], AssetSource>([
@@ -66,7 +67,15 @@ export function referenceState(fixture: SampleProject): {
           byteLength: 48_044,
           mediaType: 'audio/wav',
           originProjectId: project.id,
-          bitDepth: 16,
+          audio: {
+            container: 'wav',
+            sampleRate: fixture.assets.footstep.sampleRate,
+            encoding: 'integer',
+            bitDepth: 16,
+            byteOrder: 'little',
+            frames: fixture.assets.footstep.length,
+            declaredFrames: fixture.assets.footstep.length,
+          },
         },
       },
     ],

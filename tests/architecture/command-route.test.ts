@@ -75,12 +75,12 @@ const READ_ONLY_MEMBERS: Readonly<Record<string, readonly string[]>> = {
   AudioViewStore: ['get', 'subscribe'],
   PlaybackSession: ['status', 'subscribe', 'position', 'audiblePosition'],
 
-  // The editor's session: assets, their content, selections and playheads,
-  // and each view's presentation. Every change is a command; a view's surface
-  // reports the width it is laid out at, which is a measurement of the page
-  // and not an action the person takes.
+  // The editor's session: the assets it opens, whose markers and regions are
+  // the project's, selections and playheads, and each view's presentation.
+  // Every change is a command; a view's surface reports the width it is laid
+  // out at, which is a measurement of the page and not an action the person
+  // takes.
   AssetCatalogue: ['get', 'subscribe', 'find'],
-  SessionContent: ['get', 'subscribe', 'of'],
   SelectionStore: ['get', 'subscribe', 'of'],
   CueStore: ['get', 'subscribe', 'of'],
   EditorViewStore: ['get', 'subscribe', 'entry', 'measured'],
@@ -117,7 +117,6 @@ const DECLARED_IN: Readonly<Record<string, string>> = {
   AudioViewStore: 'apps/web/src/state/audio-view-store.ts',
   PlaybackSession: 'packages/audio-runtime/src/playback/playback-session.ts',
   AssetCatalogue: 'apps/web/src/state/asset-catalogue.ts',
-  SessionContent: 'apps/web/src/state/session-content.ts',
   SelectionStore: 'apps/web/src/state/selection-store.ts',
   CueStore: 'apps/web/src/state/cue-store.ts',
   EditorViewStore: 'apps/web/src/state/editor-view-store.ts',

@@ -16,6 +16,8 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
+import { AudioImports } from './audio-imports.js';
+import { QuickEditStore } from './quick-edit-store.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
@@ -25,6 +27,8 @@ import { OpenProjectStore } from './open-project-store.js';
 import { relieveWhenFull } from './pressure-relief.js';
 import { checkSourcesOnOpening, keepListInStep } from './project-follow-ups.js';
 import { ProjectLibraryStore } from './project-library-store.js';
+import { ProjectMediaStore } from './project-media-store.js';
+import { ProjectPastes } from './project-pastes.js';
 import {
   createProjectPreferencesStore,
   type ProjectPreferencesStore,
@@ -39,6 +43,10 @@ import { StorageUsageStore } from './storage-usage-store.js';
 export interface ProjectStores {
   readonly library: ProjectLibraryStore;
   readonly transfer: ProjectTransferStore;
+  /** Brings audio files into the open project. */
+  readonly imports: AudioImports;
+  /** The Quick Edit in progress, while its project is open. */
+  readonly quickEdit: QuickEditStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -46,6 +54,10 @@ export interface ProjectStores {
   readonly backups: BackupStore;
   readonly backupFolder: BackupFolderStore;
   readonly sources: SourceChangeStore;
+  /** The file behind each asset of the open project, for the audio threads. */
+  readonly media: ProjectMediaStore;
+  /** Runs the pastes the clipboard plans in the open project. */
+  readonly pastes: ProjectPastes;
   readonly preferences: ProjectPreferencesStore;
   readonly files: TransferFiles;
 }
@@ -97,6 +109,8 @@ export function createProjectStores(
       project,
       recorder: new ExportRecorder(logger, project),
     }),
+    imports: new AudioImports(client.media, files, project, preferences),
+    quickEdit: new QuickEditStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),
@@ -111,6 +125,8 @@ export function createProjectStores(
     ),
     backupFolder,
     sources,
+    media: new ProjectMediaStore({ media: client.media, project, sources, linkedFiles, logger }),
+    pastes: new ProjectPastes(client.media, project, linkedFiles),
     preferences,
     files,
   };

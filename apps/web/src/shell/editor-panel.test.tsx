@@ -10,34 +10,76 @@ import {
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
 import { fakePanelParts } from '../testing/editor-fakes.js';
+import type { ShellContext } from '../commands/shell-context.js';
+import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import { EditorPanel } from './editor-panel.js';
 
 const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('editor');
 
+holdPlatformFiles();
+
+/** The Editor panel of `context`, drawn. */
+function drawn(context: ShellContext): void {
+  render(
+    <ThemeProvider
+      preferences={DEFAULT_THEME_PREFERENCES}
+      system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
+    >
+      <EditorPanel panel="editor" title="Editor" parts={fakePanelParts(context, logger)} />
+    </ThemeProvider>,
+  );
+}
+
 describe('the Editor panel', () => {
-  it('says that markers and selections are not kept, and what keeping them waits for', () => {
-    // The editor opens the test assets and a picture's sound, none of them an
-    // asset of the project, so what is marked on them lasts for the session
-    // alone until audio is imported into a project at its own rate (ADR-0021).
+  it('says of a test sound that no project holds it, so it cannot be marked or edited', () => {
     const { context } = buildShellContext();
     const tones = context.assets.find('test:tone-bursts');
     if (tones === undefined) throw new Error('No tone bursts.');
     context.editorViews.open('editor', tones);
 
-    render(
-      <ThemeProvider
-        preferences={DEFAULT_THEME_PREFERENCES}
-        system={fixedSystemAppearance(UNKNOWN_SYSTEM_APPEARANCE)}
-      >
-        <EditorPanel panel="editor" title="Editor" parts={fakePanelParts(context, logger)} />
-      </ThemeProvider>,
-    );
+    drawn(context);
 
     expect(
       screen.getByText(
-        'Markers and selections last for this session. Keeping them in a project arrives with importing audio into projects.',
+        'Test sounds are not part of a project, so they cannot be marked or edited. Import audio to mark and edit it.',
       ),
+    ).toBeVisible();
+  });
+
+  it('shows an asset of the project with no such note', async () => {
+    const audio = await windowWithAudio();
+    audio.window.context.editorViews.open('editor', audio.asset());
+
+    drawn(audio.window.context);
+
+    expect(screen.getByText('Loop')).toBeVisible();
+    expect(screen.queryByText(/not part of a project/)).toBeNull();
+  });
+
+  it('says why an asset of the project cannot be shown yet, where its file is not held', () => {
+    const { context } = buildShellContext();
+    const tones = context.assets.find('test:tone-bursts');
+    if (tones === undefined) throw new Error('No tone bursts.');
+    context.editorViews.open('editor', { ...tones, id: 'asset:kick' });
+    context.assets.showProject(
+      new Map([
+        [
+          'asset:kick',
+          {
+            kind: 'unavailable',
+            id: 'asset:kick',
+            name: 'Kick',
+            reason: 'The file it is linked to could not be found.',
+          },
+        ],
+      ]),
+    );
+
+    drawn(context);
+
+    expect(
+      screen.getByText('Kick cannot be shown yet. The file it is linked to could not be found.'),
     ).toBeVisible();
   });
 });

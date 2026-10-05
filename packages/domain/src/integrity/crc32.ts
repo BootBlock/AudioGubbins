@@ -1,12 +1,15 @@
 /**
- * CRC-32 as ZIP defines it: the reflected polynomial 0xEDB88320, initialised
- * and finished by inversion (REQ-STOR-026).
+ * CRC-32 as ZIP and zlib define it: the reflected polynomial 0xEDB88320,
+ * initialised and finished by inversion (REQ-STOR-026).
  *
  * Every entry of a portable bundle carries one, computed while the entry is
  * written and checked while it is read, so a byte changed in transit is found
- * without holding an entry whole (REQ-EXEC-216). Bundles hold hours of audio,
- * so the CRC is taken eight bytes at a time (slicing-by-8), which runs at
- * more than twice the speed of a byte at a time.
+ * without holding an entry whole (REQ-EXEC-216), and a peak cache closes with
+ * one, so a cache torn or changed on disk is refused. It lives in the domain,
+ * which depends on nothing, because the project format and the waveform both
+ * check bytes by it and neither may depend on the other. Bundles hold hours of
+ * audio, so the CRC is taken eight bytes at a time (slicing-by-8), which runs
+ * at more than twice the speed of a byte at a time.
  */
 
 /** The reflected ZIP polynomial. */

@@ -14,6 +14,7 @@ import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
 import { Button } from '@audiogubbins/design-system';
 import type { StorageUsage } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import type { Observable } from '../../state/observable.js';
 import type { LibraryState } from '../../state/project-library-store.js';
@@ -49,7 +50,7 @@ function Usage({ usage }: { readonly usage: StorageUsage }): ReactNode {
       </dl>
       {usage.unreadable.length > 0 && (
         <p data-ag-status="reduced">
-          {`${String(usage.unreadable.length)} stored ${usage.unreadable.length === 1 ? 'file' : 'files'} could not be read, so ${usage.unreadable.length === 1 ? 'it is' : 'they are'} not counted.`}
+          {`${counted(usage.unreadable.length, 'stored file', 'stored files')} could not be read, so ${usage.unreadable.length === 1 ? 'it is' : 'they are'} not counted.`}
         </p>
       )}
     </>

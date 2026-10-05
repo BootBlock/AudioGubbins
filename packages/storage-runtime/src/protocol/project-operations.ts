@@ -126,6 +126,14 @@ export type ProjectOperations = {
   'projects.closeView': Of<unknown, undefined>;
 
   'projects.run': Of<{ readonly invocation: CommandInvocation }, DomainResult<ChangeOutcome>>;
+  /** Runs several commands as one change, which undo reverses whole. */
+  'projects.runGroup': Of<
+    {
+      readonly description: string;
+      readonly invocations: readonly [CommandInvocation, ...CommandInvocation[]];
+    },
+    DomainResult<ChangeOutcome>
+  >;
   'projects.undo': Written;
   'projects.redo': Written;
   'projects.goTo': Written<{ readonly node: HistoryNodeId }>;
@@ -141,6 +149,7 @@ export type ProjectOperations = {
     DomainResult<ComparisonOutcome>
   >;
   'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>;
+  'projects.comparedState': Of<{ readonly side: SideName }, DomainResult<ProjectState>>;
   'projects.switchSide': Written<{ readonly side: SideName | undefined }>;
   'projects.closeComparison': Written;
   'projects.promote': Written<{ readonly side: SideName }>;

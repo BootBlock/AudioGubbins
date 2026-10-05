@@ -20,14 +20,11 @@ import type { BackupFolderState } from '../../state/backup-folder-store.js';
 import type { BackupState } from '../../state/backup-store.js';
 import type { Observable } from '../../state/observable.js';
 import type { OpenProjectState } from '../../state/open-project-store.js';
-import { describeBytes } from '../../wording.js';
+import { describeBytes, when } from '../../wording.js';
 import { BackupFolder } from './backup-folder.js';
 import { PolicyFormView } from './backup-policy-form.js';
 import { ReasonedButton } from './reasoned-button.js';
 import type { RunCommand } from './section.js';
-
-/** How a time is written in the list. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** Why each backup was made. */
 const REASONS: Readonly<Record<BackupGeneration['reason'], string>> = {
@@ -174,18 +171,18 @@ function GenerationRow({
   readonly run: RunCommand;
 }): ReactNode {
   const [confirming, setConfirming] = useState<Confirming | undefined>(undefined);
-  const when = WHEN.format(generation.at);
+  const madeAt = when(generation.at);
   const kept = generation.protected;
   return (
     <li className="ag-project-row">
-      <span className="ag-project-row-name">{when}</span>
+      <span className="ag-project-row-name">{madeAt}</span>
       <span className="ag-project-row-note">
         {`${REASONS[generation.reason]}, ${describeBytes(generation.bytes)}${kept ? ', kept until you let it go' : ''}`}
       </span>
       {confirming === undefined ? (
         <GenerationActions
           generation={generation}
-          when={when}
+          when={madeAt}
           onConfirm={setConfirming}
           run={run}
         />
@@ -193,7 +190,7 @@ function GenerationRow({
         <Confirmation
           confirming={confirming}
           generation={generation}
-          when={when}
+          when={madeAt}
           onCancel={() => {
             setConfirming(undefined);
           }}

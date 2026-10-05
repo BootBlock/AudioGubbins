@@ -23,6 +23,7 @@ import { showPanelCommandId } from '../commands/panel-commands.js';
 import type { Announce } from '../commands/voiced-execution.js';
 import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
+import type { QuickEditSession } from '../state/quick-edit-store.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
 import { quoted } from '../wording.js';
 import { OwnershipActions } from './ownership-actions.js';
@@ -38,6 +39,9 @@ export interface ProjectBannerProps {
 
   /** The open project, absent where this browser keeps no projects. */
   readonly project: Observable<OpenProjectState> | undefined;
+
+  /** The Quick Edit in progress, absent where this browser keeps no projects. */
+  readonly quickEdit: Observable<QuickEditSession | undefined> | undefined;
   readonly run: RunCommand;
   readonly announce: Announce;
 }
@@ -94,16 +98,24 @@ function NoProject({ run }: { readonly run: RunCommand }): ReactNode {
       <Button compact onClick={() => run('file.projects', { section: 'open' })}>
         Open project…
       </Button>
+      <Button compact onClick={() => run('file.quick-edit')}>
+        Quick Edit a file…
+      </Button>
     </>
   );
 }
 
-/** The open project: its name, how this tab may use it, and what recovery found. */
+/**
+ * The open project: its name, or the file it is a Quick Edit of, how this tab
+ * may use it, and what recovery found.
+ */
 function OpenProject({
   open,
+  quickEdit,
   run,
 }: {
   readonly open: Extract<OpenProjectState, { kind: 'open' }>;
+  readonly quickEdit: QuickEditSession | undefined;
   readonly run: RunCommand;
 }): ReactNode {
   const { snapshot } = open;
@@ -111,7 +123,11 @@ function OpenProject({
   const said = accessSentence(snapshot.access, name);
   return (
     <>
-      <p className="ag-project-banner-name">{name}</p>
+      <p className="ag-project-banner-name">
+        {quickEdit?.project === snapshot.project
+          ? `Quick Edit of ${quoted(quickEdit.fileName)}, kept in the project ${name}`
+          : name}
+      </p>
       {said !== undefined && (
         <p className="ag-project-banner-text" data-ag-status={statusOf(snapshot)}>
           {said}
@@ -133,13 +149,24 @@ function statusOf(snapshot: ProjectSnapshot): 'reduced' | 'unavailable' {
 /** Nothing to hear of, where the browser keeps no projects. */
 const NO_PROJECT: OpenProjectState = { kind: 'none' };
 const subscribeToNothing = (): (() => void) => () => undefined;
+const noQuickEdit = (): undefined => undefined;
 
 /** The banner (see the module comment). */
-export function ProjectBanner({ root, project, run, announce }: ProjectBannerProps): ReactNode {
+export function ProjectBanner({
+  root,
+  project,
+  quickEdit,
+  run,
+  announce,
+}: ProjectBannerProps): ReactNode {
   const rootState = useSyncExternalStore(root.subscribe, root.get);
   const open = useSyncExternalStore(
     project?.subscribe ?? subscribeToNothing,
     project?.get ?? (() => NO_PROJECT),
+  );
+  const quick = useSyncExternalStore(
+    quickEdit?.subscribe ?? subscribeToNothing,
+    quickEdit?.get ?? noQuickEdit,
   );
   useOwnershipAnnouncements(open, announce);
   const strip = useRef<HTMLElement>(null);
@@ -153,7 +180,7 @@ export function ProjectBanner({ root, project, run, announce }: ProjectBannerPro
     ) : open.kind === 'opening' ? (
       <p className="ag-project-banner-text">Opening the project…</p>
     ) : (
-      <OpenProject open={open} run={run} />
+      <OpenProject open={open} quickEdit={quick} run={run} />
     );
 
   return (

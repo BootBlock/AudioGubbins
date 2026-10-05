@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { sampleCount, type SampleCount } from '@audiogubbins/domain';
+import { RegionBoundary, sampleCount, unsafeBrandId, type SampleCount } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { FollowMode, newViewState, type EditorViewState } from '@audiogubbins/editor-view';
 import { samplesPerPixel, pixelsPerSample, type ViewportState } from '@audiogubbins/timeline';
@@ -60,10 +60,35 @@ describe('what a tool intent runs', () => {
     ]);
   });
 
-  it('places the playhead where the razor would split, as clip editing will', () => {
+  it('splits where the razor clicks', () => {
     expect(commandsOf({ kind: 'split-at', position: at(480) }, 'editor')).toEqual([
-      { id: 'editor.set-playhead', args: { view: 'editor', position: 480 } },
+      { id: 'edit.split', args: { view: 'editor', at: 480 } },
     ]);
+  });
+
+  it('makes a region of what the region tool dragged over, by selecting it first', () => {
+    expect(
+      commandsOf({ kind: 'make-region', range: { start: at(480), end: at(960) } }, 'editor'),
+    ).toEqual([
+      { id: 'editor.select-time', args: { view: 'editor', start: 480, end: 960 } },
+      { id: 'region.create', args: { view: 'editor' } },
+    ]);
+  });
+
+  it('moves the end of a region dragged by the command for that end', () => {
+    const id = unsafeBrandId<'RegionId'>('region-1');
+    expect(
+      commandsOf(
+        { kind: 'move-region-boundary', id, boundary: RegionBoundary.Start, to: at(480) },
+        'editor',
+      ),
+    ).toEqual([{ id: 'region.move-start', args: { view: 'editor', region: id, to: 480 } }]);
+    expect(
+      commandsOf(
+        { kind: 'move-region-boundary', id, boundary: RegionBoundary.End, to: at(960) },
+        'editor',
+      ),
+    ).toEqual([{ id: 'region.move-end', args: { view: 'editor', region: id, to: 960 } }]);
   });
 
   it('zooms about the pixel the zoom tool was clicked at', () => {

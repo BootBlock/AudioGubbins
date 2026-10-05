@@ -6,8 +6,8 @@
 import {
   sampleCount,
   unsafeBrandId,
-  type Marker,
-  type Region,
+  type PlacedMarker,
+  type PlacedRegion,
   type SampleCount,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -48,17 +48,18 @@ export const PALETTE: EditorPalette = {
   snap: named(21),
   spectrogramBackground: named(22),
   rulerText: named(23),
+  selectedRegion: named(24),
 };
 
 const TYPE: EditorType = { label: '12px sans-serif', small: '11px sans-serif' };
 
 const NO_TICKS: RulerTicks = { major: [], minor: [] };
 
-export function marker(id: string, position: number): Marker {
+export function marker(id: string, position: number): PlacedMarker {
   return { id: unsafeBrandId<'MarkerId'>(id), displayName: id, position: at(position) };
 }
 
-export function region(id: string, start: number, length: number): Region {
+export function region(id: string, start: number, length: number): PlacedRegion {
   return {
     id: unsafeBrandId<'RegionId'>(id),
     displayName: id,

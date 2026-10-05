@@ -13,7 +13,7 @@ import { CommandCategory, type Command, type CommandInvocation } from '@audiogub
 import type { BackupPolicy, BackupRetention, BackupTrigger } from '@audiogubbins/project-format';
 
 import { notMadeReason } from '../backup-words.js';
-import { quoted } from '../wording.js';
+import { quoted, when } from '../wording.js';
 import {
   projectsAvailability,
   readyProjects,
@@ -23,9 +23,6 @@ import {
 import { recordedNote } from './project-transfer-commands.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
-
-/** How a time is written in what is said about a backup. */
-const WHEN = new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** A whole positive number an argument holds, `undefined` where it holds none, or why it is not one. */
 function countArgument(invocation: CommandInvocation, name: string): number | undefined | string {
@@ -165,7 +162,7 @@ function restoreCommand(): Command<ShellContext> {
       sayWhenSettled(context, stores.backups.restore(generation, target), (restored) =>
         restored.kind === 'new-project'
           ? `${quoted(restored.header.name)} is restored as a new project.`
-          : `The project is back as the backup kept it. How it was just before is kept as the backup of ${WHEN.format(restored.previous.at)}.`,
+          : `The project is back as the backup kept it. How it was just before is kept as the backup of ${when(restored.previous.at)}.`,
       );
       return undefined;
     },

@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { RegionBoundary } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import {
   DEFAULT_SNAP_SETTINGS,
@@ -108,6 +109,8 @@ describe('what a pointer is over', () => {
     layout,
     viewport: viewportAtStart(samplesPerPixel(10), 1000),
     markers: [marker('a', 1000), marker('b', 1060)],
+    // Drawn from 130 to 200, and from 200 to 250, listed out of order.
+    regions: [region('s', 2000, 500), region('r', 1300, 700)],
     selection: { start: at(3000), end: at(5000) },
   };
   const stripY = layout.strip.y + 2;
@@ -124,6 +127,52 @@ describe('what a pointer is over', () => {
     expect(hitTest(scene, 112, stripY, PointerKind.Touch)).toEqual({ kind: 'marker', id: 'b' });
     // Equally near two markers, the earlier wins.
     expect(hitTest(scene, 103, stripY, PointerKind.Touch)).toEqual({ kind: 'marker', id: 'a' });
+  });
+
+  it('is the nearest end of a region in the strip within reach, its span inside, and the strip elsewhere', () => {
+    expect(hitTest(scene, 248, stripY, PointerKind.Mouse)).toEqual({
+      kind: 'region-edge',
+      id: 's',
+      boundary: RegionBoundary.End,
+    });
+    expect(hitTest(scene, 160, stripY, PointerKind.Mouse)).toEqual({ kind: 'region', id: 'r' });
+    expect(hitTest(scene, 300, stripY, PointerKind.Mouse)).toEqual({ kind: 'strip' });
+    // Where one region ends and the next starts, the start is taken, whichever is listed first.
+    expect(hitTest(scene, 203, stripY, PointerKind.Mouse)).toEqual({
+      kind: 'region-edge',
+      id: 's',
+      boundary: RegionBoundary.Start,
+    });
+    expect(
+      hitTest({ ...scene, regions: scene.regions.toReversed() }, 197, stripY, PointerKind.Mouse),
+    ).toEqual({ kind: 'region-edge', id: 's', boundary: RegionBoundary.Start });
+    // In a lane a region's end is not grabbed: the lanes are the selection's.
+    expect(hitTest(scene, 248, laneY, PointerKind.Mouse)).toMatchObject({ kind: 'lane' });
+  });
+
+  it('is the shortest of the regions whose spans hold the pointer, so a longer one is reached outside it', () => {
+    // Drawn from 100 to 300, and from 150 to 200 inside it.
+    const nested = {
+      ...scene,
+      markers: [],
+      regions: [region('long', 1000, 2000), region('short', 1500, 500)],
+    };
+    expect(hitTest(nested, 170, stripY, PointerKind.Mouse)).toEqual({
+      kind: 'region',
+      id: 'short',
+    });
+    expect(hitTest(nested, 250, stripY, PointerKind.Mouse)).toEqual({ kind: 'region', id: 'long' });
+  });
+
+  it('is a marker before a nearer end of a region, since a marker is the narrower target', () => {
+    const crowded = { ...scene, regions: [region('r', 1080, 200)] };
+    // The marker at 106 is three pixels away, the region's start at 108 one.
+    expect(hitTest(crowded, 109, stripY, PointerKind.Mouse)).toEqual({ kind: 'marker', id: 'b' });
+    expect(hitTest(crowded, 111, stripY, PointerKind.Mouse)).toEqual({
+      kind: 'region-edge',
+      id: 'r',
+      boundary: RegionBoundary.Start,
+    });
   });
 
   it('is the nearer edge of the time selection in a lane, and the lane elsewhere', () => {

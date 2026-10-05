@@ -4,11 +4,21 @@
  * REQ-EXEC-136.12).
  *
  * Chains are read first, since tracks and buses name them; then buses, whose
- * routing is checked once all are known; then tracks, assets, and the clips,
+ * routing is checked once all are known; then tracks and assets, each asset's
+ * edits checked once every asset a paste may read is known; then the clips,
  * regions and markers that refer to them; and the track order last.
  */
 
-import type { Project, ProjectSettings, ProcessorId, Track, TrackId } from '@audiogubbins/domain';
+import {
+  validateChain,
+  type Asset,
+  type AssetId,
+  type Project,
+  type ProjectSettings,
+  type ProcessorId,
+  type Track,
+  type TrackId,
+} from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
 import {
@@ -23,7 +33,13 @@ import {
 import { effectChainConverter } from './processing-reading.js';
 import { readBuses, trackConverter } from './routing-reading.js';
 import { asId } from './scalar-reading.js';
-import { asAsset, asMarker, asRegion, clipConverter } from './timeline-reading.js';
+import {
+  markerConverter,
+  refuseFailed,
+  regionConverter,
+  type PlacementAssets,
+} from './placement-reading.js';
+import { asAsset, clipConverter } from './timeline-reading.js';
 import { asProjectName } from './given-names.js';
 import { MAXIMUM_ENTITIES, asChannelLayout, asSampleRate } from './value-reading.js';
 
@@ -93,9 +109,10 @@ function readContents(
   const buses = readBuses(reading, object, at, effectChains);
   const tracks = entities('tracks', trackConverter(buses, effectChains));
   const assets = entities('assets', asAsset);
+  const placement = assets === undefined ? undefined : checkChains(reading, assets, at);
   const clips = entities('clips', clipConverter(tracks, assets));
-  const regions = entities('regions', asRegion);
-  const markers = entities('markers', asMarker);
+  const regions = entities('regions', regionConverter(placement));
+  const markers = entities('markers', markerConverter(placement));
   const trackOrder = required(reading, object, at, 'trackOrder', asTrackOrder);
   if (trackOrder !== undefined && tracks !== undefined) {
     checkTrackOrder(reading, trackOrder, tracks, pathOf(at, 'trackOrder'));
@@ -114,6 +131,29 @@ function readContents(
     return undefined;
   }
   return { assets, tracks, buses, clips, regions, markers, effectChains, trackOrder };
+}
+
+/**
+ * Checks each asset's chain of edits by the domain's own rule, against every
+ * asset a paste in it may read (ADR-0051), so nothing a document holds reaches
+ * outside its asset. Gives every asset, and those whose chains hold.
+ */
+function checkChains(
+  reading: Reading,
+  assets: ReadonlyMap<AssetId, Asset>,
+  at: string,
+): PlacementAssets {
+  const sound = new Map<AssetId, Asset>();
+  for (const asset of assets.values()) {
+    const checked = validateChain(asset, assets);
+    if (checked.ok) sound.set(asset.id, asset);
+    else {
+      refuseFailed(reading, checked, 'project.asset-edits-invalid', pathOf(at, 'assets'), {
+        assetId: asset.id,
+      });
+    }
+  }
+  return { all: assets, sound };
 }
 
 /** Checks that the track order names every track exactly once. */

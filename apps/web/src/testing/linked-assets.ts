@@ -80,6 +80,7 @@ export async function addLinkedAsset(
         channelLayout: StandardLayouts.mono,
         length: expectSuccess(sampleCount(4_800)),
         storageKey: storageKeyOf(asset, media),
+        edits: [],
       },
       { media },
     ),

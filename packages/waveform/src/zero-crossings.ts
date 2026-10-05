@@ -11,13 +11,8 @@
  * samples to find, and a search reads at most its bounded reach either side.
  */
 
-import { sampleCount } from '@audiogubbins/domain';
-import {
-  allocateBlock,
-  throwIfCancelled,
-  type CancellationSignal,
-  type PcmSource,
-} from '@audiogubbins/audio-engine';
+import { sampleCount, throwIfCancelled, type CancellationSignal } from '@audiogubbins/domain';
+import { allocateBlock, type PcmSource } from '@audiogubbins/audio-engine';
 
 /** The search a view makes for the zero crossing nearest a position. */
 export interface ZeroCrossingSearch {

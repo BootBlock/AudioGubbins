@@ -8,6 +8,8 @@ import {
   isWellFormedId,
   projectLength,
   tracksInOrder,
+  validateMarker,
+  validateRegion,
 } from '@audiogubbins/domain';
 
 import { emptyProject, sampleProject } from './projects.js';
@@ -97,13 +99,15 @@ describe('sampleProject', () => {
     expect(fixture.assets.ambience.channelLayout.roles).toHaveLength(2);
   });
 
-  it('gives the loop region a loop that sits inside it', () => {
-    const { loop } = sampleProject().regions;
+  it('places its region, with a loop, and its marker validly on the footstep', () => {
+    const fixture = sampleProject();
+    const { loop } = fixture.regions;
     if (loop.loop === undefined) throw new Error('the loop region has no loop');
 
-    expect(loop.loop.loopStart).toBeGreaterThanOrEqual(0);
-    expect(loop.loop.loopEnd).toBeLessThanOrEqual(loop.length);
-    expect(loop.loop.loopStart).toBeLessThan(loop.loop.loopEnd);
+    expect(validateRegion(fixture.assets.footstep, loop).ok).toBe(true);
+    expect(validateMarker(fixture.assets.footstep, fixture.markers.start).ok).toBe(true);
+    expect(loop.loop.start).toBeGreaterThanOrEqual(loop.start);
+    expect(loop.loop.end).toBeLessThanOrEqual(loop.end);
   });
 
   it('records marker colour as a palette key, never as a colour', () => {

@@ -44,6 +44,7 @@ const ASSET_WORDS: FieldWords<Asset> = {
   channelLayout: 'channels',
   length: 'length',
   storageKey: 'where its audio is kept',
+  edits: 'edits',
 };
 
 const SOURCE_WORDS: FieldWords<AssetSource> = {
@@ -87,18 +88,28 @@ const CLIP_WORDS: FieldWords<Clip> = {
   muted: 'mute',
 };
 
+/**
+ * A region's boundaries are stated at a basis, the edits that existed when
+ * they were set, so a person calls the three of them its boundaries; a
+ * marker's basis is part of its position the same way.
+ */
 const REGION_WORDS: FieldWords<Region> = {
   id: 'identity',
+  assetId: 'asset',
   displayName: 'name',
-  start: 'start',
-  length: 'length',
+  basis: 'boundaries',
+  start: 'boundaries',
+  end: 'boundaries',
   loop: 'loop',
   tags: 'tags',
+  operations: 'processing',
 };
 
 const MARKER_WORDS: FieldWords<Marker> = {
   id: 'identity',
+  assetId: 'asset',
   displayName: 'name',
+  basis: 'position',
   position: 'position',
   paletteKey: 'colour',
 };
@@ -132,7 +143,9 @@ function entityLines<TId extends string, TEntity>(
     ...differences.removed.map((id) => `${called(id)} is in A only.`),
     ...differences.added.map((id) => `${called(id)} is in B only.`),
     ...differences.changed.map(
-      ({ id, fields }) => `${called(id)} differs in its ${listed(fields.map((f) => words[f]))}.`,
+      // Several fields can share their words, and each is said once.
+      ({ id, fields }) =>
+        `${called(id)} differs in its ${listed([...new Set(fields.map((f) => words[f]))])}.`,
     ),
   ];
 }

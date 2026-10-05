@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/codecs": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/history": "workspace:*",

@@ -8,7 +8,9 @@
  *
  * The listener sits on the document rather than on a container, because a
  * shortcut has to work wherever focus is, including on a panel the docking
- * engine has portalled elsewhere in the tree.
+ * engine has portalled elsewhere in the tree. The clipboard commands are the
+ * exception: their shortcuts are the platform's own clipboard keys, so they are
+ * the editor's only where an editor has the keyboard (see `runsHere`).
  */
 
 import { useEffect } from 'react';
@@ -24,6 +26,7 @@ import {
 } from '@audiogubbins/input';
 import type { Logger } from '@audiogubbins/diagnostics';
 
+import { CLIPBOARD_COMMANDS } from '../commands/clipboard-commands.js';
 import type { Announce } from '../commands/voiced-execution.js';
 
 /** Whether the event is aimed at a field the user types into. */
@@ -44,6 +47,15 @@ const selectorOf = (roles: readonly string[], elements: readonly string[]): stri
 
 /** Where the editor's navigation keys pressed alone are its shortcuts: its surface. */
 const TAKES_NAVIGATION = '[role="application"]';
+
+/**
+ * The attribute an editor panel marks itself with, so a clipboard key pressed
+ * on any control in it, its toolbar as much as its surface, is the editor's.
+ */
+export const EDITOR_PANEL = 'data-ag-editor-panel';
+
+/** Where an editor has the keyboard: on its surface, or in its panel. */
+const IN_AN_EDITOR = `${TAKES_NAVIGATION}, [${EDITOR_PANEL}]`;
 
 /** Controls that also take a letter pressed alone, to find the entry it starts. */
 const TYPES_AHEAD = selectorOf(
@@ -135,6 +147,23 @@ export function ownsItsKeys(target: EventTarget | null, reading: KeyEventReading
     return target !== target.ownerDocument.body && target.closest(TAKES_NAVIGATION) === null;
   }
   return target.closest(TYPES_AHEAD) !== null;
+}
+
+/**
+ * Whether the command a shortcut completed runs where the press was aimed.
+ *
+ * Everywhere, but for a clipboard command, which runs only where an editor has
+ * the keyboard and not in a text field there, which keeps its own clipboard
+ * keys (`fieldEditsWith`). Anywhere else the platform's clipboard keys copy the
+ * text a reader selected on the page, a diagnostic or a history entry, and
+ * paste where the browser pastes, which a shortcut taking them would stop.
+ * Decided by the command rather than by the keys, so a clipboard command bound
+ * to other keys keeps the rule, and no other command bound to these keys is
+ * given it.
+ */
+function runsHere(id: CommandId, target: EventTarget | null): boolean {
+  if (!CLIPBOARD_COMMANDS.has(id)) return true;
+  return target instanceof Element && !isTextField(target) && target.closest(IN_AN_EDITOR) !== null;
 }
 
 /** What a shortcut press is, before the chord tracker reads it. */
@@ -324,7 +353,15 @@ function listen(options: ShortcutBindingOptions): () => void {
     if (owner === PressOwner.Typing && waiting) cancelChord();
     if (owner !== PressOwner.Shortcuts) return;
 
-    answer(tracker.press(keyPressFromEvent(reading)), event, { ...options, modal });
+    const outcome = tracker.press(keyPressFromEvent(reading));
+    // Away from the editor, a clipboard command's press is the page's, as a
+    // field's typing is the field's: it reaches the browser, and a chord it
+    // completed is given up, and said to be.
+    if (outcome.kind === 'run' && !runsHere(outcome.commandId, event.target)) {
+      if (waiting) cancelChord();
+      return;
+    }
+    answer(outcome, event, { ...options, modal });
   };
 
   /**

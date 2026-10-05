@@ -29,13 +29,17 @@ export type LinkedFileAccess =
   | { readonly kind: 'available'; readonly file: PageFile }
   | Exclude<KeptFileAccess, { readonly kind: 'available' }>;
 
-/** How the file a linked asset was recorded from is found again. */
+/**
+ * How the file a linked asset was recorded from is found again. Each takes the
+ * signal of the work that wants the file, and stops where that work was given
+ * up.
+ */
 export interface LinkedFilesPort {
   /** The file, as far as it can be reached without asking the person. */
-  look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess>;
+  look(identity: ExternalSourceIdentity, signal?: AbortSignal): Promise<LinkedFileAccess>;
 
   /** The file, asking the person for leave to read it where the browser needs it. */
-  ask(identity: ExternalSourceIdentity): Promise<LinkedFileAccess>;
+  ask(identity: ExternalSourceIdentity, signal?: AbortSignal): Promise<LinkedFileAccess>;
 }
 
 /** A kept file that could not be read, as the media store names why. */
@@ -68,9 +72,14 @@ function lent(access: KeptFileAccess): LinkedFileAccess {
 export function browserLinkedFiles(keeper: FileHandleKeeper | undefined): LinkedFilesPort {
   const reach =
     (open: typeof reopenKeptFile) =>
-    async (identity: ExternalSourceIdentity): Promise<LinkedFileAccess> =>
-      keeper === undefined || identity.handleKey === undefined
-        ? MISSING
-        : lent(await open(keeper, identity.handleKey));
+    async (identity: ExternalSourceIdentity, signal?: AbortSignal): Promise<LinkedFileAccess> => {
+      signal?.throwIfAborted();
+      if (keeper === undefined || identity.handleKey === undefined) return MISSING;
+      // The browser cannot call off finding a kept file, so a look given up
+      // meanwhile is given up once it is found.
+      const access = await open(keeper, identity.handleKey);
+      signal?.throwIfAborted();
+      return lent(access);
+    };
   return { look: reach(reopenKeptFile), ask: reach(requestKeptFileAccess) };
 }

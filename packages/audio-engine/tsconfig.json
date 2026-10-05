@@ -21,6 +21,9 @@
     },
     {
       "path": "../../packages/audio-graph"
+    },
+    {
+      "path": "../../packages/codecs"
     }
   ]
 }

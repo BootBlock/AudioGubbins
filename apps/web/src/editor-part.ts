@@ -31,13 +31,15 @@ import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-p
 import { PictureSoundDecoder } from './picture/picture-sound.js';
 import { ReferencePicture } from './picture/reference-picture.js';
 import { createAssetCatalogue, type AssetCatalogue } from './state/asset-catalogue.js';
+import { followProjectAssets } from './state/project-catalogue.js';
+import type { ProjectStores } from './state/project-stores.js';
 import { createChosenFiles } from './state/chosen-files.js';
+import { createClipboardStore } from './state/clipboard-store.js';
 import { createCueStore } from './state/cue-store.js';
 import { createEditorViewStore, type EditorViewStore } from './state/editor-view-store.js';
 import { createRendererReports } from './state/renderer-reports.js';
 import { reconcileSelections } from './state/selection-reconciling.js';
 import { createSelectionStore } from './state/selection-store.js';
-import { createSessionContent } from './state/session-content.js';
 import type { StateStorage } from './state/state-storage.js';
 import type { WorkspaceStore } from './state/workspace-store.js';
 
@@ -105,7 +107,6 @@ export function panelPartsOf(
     stores: {
       editorViews: context.editorViews,
       selections: context.selections,
-      content: context.content,
       cues: context.cues,
       assets: context.assets,
       picture: context.picture,
@@ -142,18 +143,25 @@ function referencePicture(
   return { picture, pictureSound };
 }
 
-/** Builds the editor part. */
+/**
+ * Builds the editor part, its assets following the open project of `projects`
+ * where this browser keeps projects.
+ */
 export function startEditor(
   capabilities: CapabilityRegistry,
   storage: StateStorage,
   logger: Logger,
   workspace: WorkspaceStore,
-  peakCache: PeakCacheStore,
+  projects: {
+    readonly projects: ProjectStores | undefined;
+    readonly peakCache: PeakCacheStore;
+  },
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
-  const content = createSessionContent();
+  const stopFollowing =
+    projects.projects === undefined ? undefined : followProjectAssets(projects.projects, assets);
   const selections = createSelectionStore();
-  reconcileSelections(content, selections, assets);
+  reconcileSelections(selections, assets);
   const editorViews = createEditorViewStore(storage, logger, (write) => {
     setTimeout(write, 250);
   });
@@ -165,14 +173,13 @@ export function startEditor(
   };
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
-  const peaks = peakHost(peakCache, logger);
+  const peaks = peakHost(projects.peakCache, logger);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
   return {
     parts: {
       assets,
-      content,
       selections,
       cues: createCueStore(),
       editorViews,
@@ -180,11 +187,13 @@ export function startEditor(
       picture,
       pictureSound,
       chosenFiles: createChosenFiles(),
+      clipboard: createClipboardStore(),
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>
       panelPartsOf(context, controls, { peaks, graphics, rendererReports, logger }),
     dispose: () => {
+      stopFollowing?.();
       document.removeEventListener('visibilitychange', flushViews);
       editorViews.flush();
       letShownPeaksGo();

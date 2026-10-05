@@ -451,4 +451,37 @@ describe('the keyboard layout, as the application is wired', () => {
     expect(delivered).toBe(true);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('copies with the editor where it has the keyboard, and leaves the browser to copy the page', async () => {
+    // Placed on the keys that type them, cut, copy and paste were taken
+    // wherever the keyboard was, and a reader who selected a diagnostic's text
+    // to copy it copied nothing; the editor's panel is what keeps them its own.
+    stubLayoutMap(
+      Array.from(
+        'abcdefghijklmnopqrstuvwxyz',
+        (letter) => [`Key${letter.toUpperCase()}`, letter] as const,
+      ),
+    );
+    const { mount } = await import('./app.js');
+    const container = document.createElement('div');
+    document.body.append(container);
+    await act(async () => {
+      unmount = mount(container);
+      await everythingQueued();
+    });
+
+    /** Presses Ctrl+C on `target`, and says whether the browser may act on it. */
+    const copyOn = async (target: Element): Promise<boolean> => {
+      let delivered = false;
+      await act(async () => {
+        delivered = fireEvent.keyDown(target, { code: 'KeyC', key: 'c', ctrlKey: true });
+        await Promise.resolve();
+      });
+      return delivered;
+    };
+
+    // A control in the editor's panel: the panel, as drawn, marks itself.
+    expect(await copyOn(screen.getByRole('button', { name: 'Tone bursts' }))).toBe(false);
+    expect(await copyOn(document.body)).toBe(true);
+  });
 });
