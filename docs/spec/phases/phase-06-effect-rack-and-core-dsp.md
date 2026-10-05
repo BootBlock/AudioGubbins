@@ -145,6 +145,7 @@ Owned elsewhere; this phase delivers the part named, or keeps what it asks.
 - The rack edit, and the rack of an asset and of a region (`ADR-0060`)
 - The plan's processed stream (`ADR-0060`)
 - The inference port (`ADR-0062`)
+- AudioDetector, the analysis contract detectors and model packs implement (`ADR-0061`)
 
 ## Data / Schema Changes
 
