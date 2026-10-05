@@ -45,7 +45,7 @@ import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The settings of a new project: the sample rate and channels asked for, or the usual ones. */
-function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettings> {
+export function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettings> {
   const rate = invocation.arguments?.['sampleRate'];
   const mono = invocation.arguments?.['channels'] === 'mono';
   return mapResult(sampleRate(typeof rate === 'number' ? rate : 48_000), (value) => ({
@@ -55,7 +55,7 @@ function settingsFrom(invocation: CommandInvocation): DomainResult<ProjectSettin
 }
 
 /** Makes a project and opens it, closing the dialogue once it is open. */
-async function madeAndOpened(
+export async function madeAndOpened(
   context: ShellContext,
   stores: ProjectStores,
   name: string,

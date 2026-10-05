@@ -178,7 +178,7 @@ export { readAnchoredLoop, readMarker, readRegion } from './placement-reading.js
 export { writeAnchoredLoop, writeMarker, writeRegion } from './placement-writing.js';
 export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
 
-export { asProjectName, givenName, writtenName } from './given-names.js';
+export { asProjectName, givenName, nameFromFile, writtenName } from './given-names.js';
 
 export { readExportRecord, writeExportRecord } from './export-record-json.js';
 

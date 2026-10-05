@@ -33,7 +33,7 @@ function shortfallSentence({ shortfall }: ImportedAudio): string {
  * Opens the asset `imported` made in the editor last in use, or a new one,
  * once the page holds its file, and answers what is said of it.
  */
-async function openedSentence(context: ShellContext, imported: ImportedAudio): Promise<string> {
+export async function openedSentence(context: ShellContext, imported: ImportedAudio): Promise<string> {
   const name = quoted(imported.asset.displayName);
   const shortfall = shortfallSentence(imported);
   const scope = context.projects?.project.scope();

@@ -17,6 +17,7 @@ import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { AudioImports } from './audio-imports.js';
+import { QuickEditStore } from './quick-edit-store.js';
 import { BackupFolderStore } from './backup-folder-store.js';
 import { BackupStore } from './backup-store.js';
 import { ExportRecorder } from './export-recorder.js';
@@ -44,6 +45,8 @@ export interface ProjectStores {
   readonly transfer: ProjectTransferStore;
   /** Brings audio files into the open project. */
   readonly imports: AudioImports;
+  /** The Quick Edit in progress, while its project is open. */
+  readonly quickEdit: QuickEditStore;
   readonly project: OpenProjectStore;
   readonly review: HistoryReviewStore;
   readonly rowOrders: HistoryRowOrders;
@@ -107,6 +110,7 @@ export function createProjectStores(
       recorder: new ExportRecorder(logger, project),
     }),
     imports: new AudioImports(client.media, files, project, preferences),
+    quickEdit: new QuickEditStore(project),
     project,
     review: new HistoryReviewStore(project, logger),
     rowOrders: new HistoryRowOrders(project),

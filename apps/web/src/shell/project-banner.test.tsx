@@ -2,11 +2,12 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { failure, FailureKind } from '@audiogubbins/domain';
+import { failure, FailureKind, unsafeBrandId } from '@audiogubbins/domain';
 import type { ProjectAccess, ProjectRecoveryReport, ProjectSnapshot } from '@audiogubbins/storage';
 
-import { observable } from '../state/observable.js';
+import { observable, type Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
+import type { QuickEditSession } from '../state/quick-edit-store.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
 import { projectWorld } from '../testing/project-context.js';
 import { ProjectBanner } from './project-banner.js';
@@ -25,11 +26,23 @@ beforeAll(async () => {
 const OTHER = { instance: 'window-2', label: 'the tab opened at 10:02:00' };
 
 /** Draws the banner over the root and the open project given, and what it runs and says. */
-function banner(root: StorageRootState, open: OpenProjectState) {
+function banner(
+  root: StorageRootState,
+  open: OpenProjectState,
+  quickEdit?: Observable<QuickEditSession | undefined>,
+) {
   const project = observable(open);
   const run = vi.fn((_id: string, _args?: unknown) => true);
   const announce = vi.fn();
-  render(<ProjectBanner root={observable(root)} project={project} run={run} announce={announce} />);
+  render(
+    <ProjectBanner
+      root={observable(root)}
+      project={project}
+      quickEdit={quickEdit}
+      run={run}
+      announce={announce}
+    />,
+  );
   return { project, run, announce, strip: screen.getByRole('region', { name: 'Project' }) };
 }
 
@@ -89,15 +102,39 @@ describe('the project strip, where projects cannot be reached', () => {
 });
 
 describe('the project strip, with projects to reach', () => {
-  it('offers to make or open a project where none is open', async () => {
+  it('offers to make or open a project, or to Quick Edit a file, where none is open', async () => {
     const { run, strip } = banner({ kind: 'ready' }, { kind: 'none' });
 
     await userEvent.click(within(strip).getByRole('button', { name: 'New project…' }));
     await userEvent.click(within(strip).getByRole('button', { name: 'Open project…' }));
+    await userEvent.click(within(strip).getByRole('button', { name: 'Quick Edit a file…' }));
     expect(run.mock.calls).toEqual([
       ['file.projects', { section: 'new' }],
       ['file.projects', { section: 'open' }],
+      ['file.quick-edit'],
     ]);
+  });
+
+  it('names the file a Quick Edit is of, and the project it is kept in', () => {
+    const quickEdit = observable<QuickEditSession | undefined>(undefined);
+    const { strip } = banner(
+      { kind: 'ready' },
+      openWith({ kind: 'writable', transferRequests: [] }),
+      quickEdit,
+    );
+    expect(within(strip).getByText('"Harbour"')).toBeVisible();
+
+    act(() => {
+      quickEdit.set({
+        project: made.project,
+        asset: unsafeBrandId<'AssetId'>('0000aaaa-0000-4000-8000-0000000000a1'),
+        fileName: 'Harbour.wav',
+      });
+    });
+
+    expect(
+      within(strip).getByText('Quick Edit of "Harbour.wav", kept in the project "Harbour"'),
+    ).toBeVisible();
   });
 
   it('names the project open to change, and says nothing more', () => {

@@ -34,7 +34,7 @@ import {
   type ImportServices,
 } from '@audiogubbins/media-store';
 import {
-  givenName,
+  nameFromFile,
   storageKeyOf,
   type AssetSource,
   type SourceAudioShape,
@@ -86,7 +86,7 @@ export async function importAudio(
   const opened = await openAudio(file.source, signal);
   if (!opened.ok) return opened;
   const { format } = opened.value;
-  const name = assetName(file.fileName);
+  const name = nameFromFile('asset', file.fileName);
   if (!name.ok) return name;
 
   const imported = await importMedia(
@@ -138,12 +138,6 @@ function importedAsset(
     storageKey: storageKeyOf(request.assetId, source.media),
     edits: [],
   };
-}
-
-/** The name an imported file's asset takes: its file name without the extension. */
-function assetName(fileName: string): DomainResult<string> {
-  const dot = fileName.lastIndexOf('.');
-  return givenName('asset', dot > 0 ? fileName.slice(0, dot) : fileName);
 }
 
 /** The audio shape the reader found, as the provenance records it. */

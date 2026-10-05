@@ -78,6 +78,7 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
         items: [
           dialogueEntry(builders, ProjectsSection.New, 'New project…'),
           dialogueEntry(builders, ProjectsSection.Open, 'Open project…'),
+          entry('file.quick-edit'),
           entry('file.close-project'),
         ],
       },

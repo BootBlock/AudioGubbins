@@ -59,6 +59,17 @@ export function givenName(subject: NamedSubject, value: unknown): DomainResult<s
   return bounded(subject, asName(value, LONGEST_NAME));
 }
 
+/**
+ * The name a file brought in gives what it is made into: its file name
+ * without the extension, as a name of `subject`, or why it cannot be one. An
+ * imported file names its asset so, and a file chosen for Quick Edit its
+ * project too.
+ */
+export function nameFromFile(subject: NamedSubject, fileName: string): DomainResult<string> {
+  const dot = fileName.lastIndexOf('.');
+  return givenName(subject, dot > 0 ? fileName.slice(0, dot) : fileName);
+}
+
 /** `value` as a name exactly as written, or why it cannot be one. */
 export function writtenName(subject: NamedSubject, value: unknown): DomainResult<string> {
   return bounded(subject, asWrittenName(value, LONGEST_NAME));

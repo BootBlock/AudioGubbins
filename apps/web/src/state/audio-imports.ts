@@ -24,7 +24,7 @@ import {
 } from '@audiogubbins/domain';
 import { SourceHandling, type ImportChoice } from '@audiogubbins/media-store';
 import type { ImportedAudio } from '@audiogubbins/storage';
-import type { MediaClient, RemoteProjectSession } from '@audiogubbins/storage-runtime';
+import type { MediaClient, PageFile, RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import type { TransferFiles } from '../io/transfer-files.js';
 import { abandonment, isAbandoned, within } from './abandoning.js';
@@ -44,7 +44,8 @@ export type AudioImportOutcome =
 
 const IDLE: AudioImportState = { kind: 'idle' };
 
-const ONE_AT_A_TIME = failure(
+/** Why a second file is refused while one is being imported. */
+export const ONE_AT_A_TIME = failure(
   'import.one-at-a-time',
   FailureKind.Conflict,
   'A file is being imported already. Wait for it, or cancel it.',
@@ -99,6 +100,20 @@ export class AudioImports implements Observable<AudioImportState> {
     if (this.busy()) return fail(ONE_AT_A_TIME);
     const file = await this.files.chooseMediaFile();
     if (file === undefined) return succeed({ kind: 'dismissed' });
+    return await this.importChosen(session, file, assetId, clock);
+  };
+
+  /**
+   * Brings `file`, which the person chose already, into the project `session`
+   * writes as the asset `assetId`, at the time `clock` gives: the one path
+   * Quick Edit shares, which chooses the file before it makes the project.
+   */
+  readonly importChosen = async (
+    session: RemoteProjectSession,
+    file: PageFile,
+    assetId: AssetId,
+    clock: Clock,
+  ): Promise<DomainResult<Exclude<AudioImportOutcome, { readonly kind: 'dismissed' }>>> => {
     if (this.busy()) return fail(ONE_AT_A_TIME);
     const controller = new AbortController();
     const unfollow = within(controller, this.project.scope());
