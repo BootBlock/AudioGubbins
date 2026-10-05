@@ -1877,7 +1877,6 @@ Published paths
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
-  function namesChannels(operation: RegionOperation): boolean
   function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
   function placeOf(segment: PlanSegment): BlockPlace
   function placeRegion(resolver: AnchorResolver, region: Region): PlacedRegion | undefined

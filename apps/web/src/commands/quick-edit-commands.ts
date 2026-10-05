@@ -16,12 +16,7 @@
  * Edit leaves no empty project behind it.
  */
 
-import {
-  CommandCategory,
-  unavailable,
-  type Command,
-  type CommandInvocation,
-} from '@audiogubbins/commands';
+import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
   FailureKind,
   combine,
@@ -37,10 +32,9 @@ import { nameFromFile } from '@audiogubbins/project-format';
 import type { ImportedAudio, ProjectHeader } from '@audiogubbins/storage';
 import type { PageFile } from '@audiogubbins/storage-runtime';
 
-import { ONE_AT_A_TIME } from '../state/audio-imports.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import { quoted } from '../wording.js';
-import { openedSentence } from './audio-import-commands.js';
+import { openedSentence, whileNoImportRuns } from './audio-import-commands.js';
 import { projectsAvailability, readyProjects, sayWhenSettled } from './project-access.js';
 import { openedMade, settingsFrom } from './project-file-commands.js';
 import { shellCommand } from './shell-command.js';
@@ -173,7 +167,6 @@ function quickEditCommand(): Command<ShellContext> {
     (context, invocation) => {
       const stores = readyProjects(context);
       if (typeof stores === 'string') return stores;
-      if (stores.imports.get().kind === 'importing') return ONE_AT_A_TIME.summary;
       sayWhenSettled(context, quickEdited(context, stores, invocation), (said) => said);
       return undefined;
     },
@@ -181,13 +174,7 @@ function quickEditCommand(): Command<ShellContext> {
       keywords: ['quick', 'edit', 'open', 'file', 'audio', 'wav', 'aiff'],
       description:
         'Opens an audio file to edit straight away, in a project of its own named after it.',
-      availability: (context) => {
-        const ready = projectsAvailability(context);
-        if (!ready.available) return ready;
-        return context.projects?.imports.get().kind === 'importing'
-          ? unavailable(ONE_AT_A_TIME.summary)
-          : ready;
-      },
+      availability: (context) => whileNoImportRuns(context, projectsAvailability(context)),
     },
   );
 }

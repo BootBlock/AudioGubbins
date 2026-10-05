@@ -5,11 +5,10 @@
  * only the last is withdrawn: the inverse of applying is withdrawing that
  * operation, and the inverse of withdrawing is applying it again, written as it
  * was. The domain's `validateOperation` decides whether an edit may join, the
- * same rule the project document is read by. Two rules need the rest of the
- * project: a layout conversion is refused while a region's processing names
- * channels of the old layout, and an edit is not withdrawn while a marker or a
- * region is placed on the timeline it made, since that would leave them placed
- * on edits the asset no longer has.
+ * same rule the project document is read by. One rule needs the rest of the
+ * project: an edit is not withdrawn while a marker or a region is placed on the
+ * timeline it made, since that would leave them placed on edits the asset no
+ * longer has.
  */
 
 import {
@@ -18,14 +17,7 @@ import {
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
-import {
-  namesChannels,
-  shapesOf,
-  validateOperation,
-  type Asset,
-  type EditOperation,
-  type Region,
-} from '@audiogubbins/domain';
+import { shapesOf, validateOperation, type Asset, type EditOperation } from '@audiogubbins/domain';
 import {
   canonicalJson,
   readEditOperation,
@@ -71,13 +63,6 @@ export function editCommands(): readonly ProjectCommand[] {
   ];
 }
 
-/** The asset's regions whose processing names channels, by name. */
-function regionsNamingChannels(state: ProjectState, asset: Asset): readonly Region[] {
-  return [...state.project.regions.values()].filter(
-    (region) => region.assetId === asset.id && region.operations.some(namesChannels),
-  );
-}
-
 /** Whether anything is placed on the timeline the asset's last edit made. */
 function placedOnLast(state: ProjectState, asset: Asset): boolean {
   const last = asset.edits.length;
@@ -118,15 +103,6 @@ function applyEdit(
   if (shape === undefined) throw new Error('A chain always has a shape.');
   const valid = validateOperation(operation.value, shape, state.project.assets);
   if (!valid.ok) return refusedBy(valid);
-  if (operation.value.kind === 'convert-layout') {
-    const blocking = regionsNamingChannels(state, asset);
-    if (blocking.length > 0) {
-      return refusal(
-        'edit.region-channels',
-        `The processing of ${blocking.map((region) => quoted(region.displayName)).join(', ')} names channels of this layout; withdraw it before converting the channels.`,
-      );
-    }
-  }
   return applied(
     withAssetEdits(state, asset, [...asset.edits, operation.value]),
     withdrawInvocation(asset, operation.value),

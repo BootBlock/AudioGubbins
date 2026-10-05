@@ -9,8 +9,9 @@
  * G2), and it follows every change to them, an undo included.
  */
 
-import { useId, useSyncExternalStore, type ReactNode } from 'react';
+import { useId, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
+import { shapesOf } from '@audiogubbins/domain';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import { channelNames } from '../../assets/channel-names.js';
@@ -88,8 +89,8 @@ function AssetProperties({
         <p>None. It plays as its source does.</p>
       ) : (
         <ol className="ag-inspector-edits">
-          {asset.edits.map((operation) => (
-            <li key={operation.id}>{operationWords(operation, words)}</li>
+          {asset.edits.map((operation, basis) => (
+            <li key={operation.id}>{operationWords(operation, basis, words)}</li>
           ))}
         </ol>
       )}
@@ -108,9 +109,15 @@ function ProjectSubject({
   readonly commands: PanelCommands;
 }): ReactNode {
   const { view, state, panel } = subject;
+  // The asset's own layout is its source's: each edit is worded by the layout
+  // its place in the chain had, a conversion before it included.
+  const names = useMemo(
+    () => shapesOf(subject.asset).map((shape) => channelNames(shape.layout)),
+    [subject.asset],
+  );
   const words: EditWording = {
     position: (frames) => formatPosition(frames, view.sampleRate, state.timeFormat),
-    channels: channelNames(subject.asset.channelLayout),
+    channelsAt: (basis) => names[basis] ?? [],
   };
   const scope = scopeOf(parts.selections.of(view.id), view, state);
   return (

@@ -190,21 +190,31 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(asked).not.toHaveBeenCalled();
   });
 
-  it('refuses a second import while one runs', async () => {
+  it('offers neither another import nor a Quick Edit while one runs, saying why', async () => {
     const window = await windowWithProject();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV), chosen(HARBOUR_WAV, 'Again.wav'));
-    // Asked the moment the first import starts, which a poll could miss.
-    const second = new Promise<string>((resolve) => {
+    // Asked the moment the first import starts, which a poll could miss. The
+    // bus refuses a command its availability turns down, so a refusal here is
+    // what the File menu and the palette read before anything is pressed.
+    const refused = new Promise<readonly string[]>((resolve) => {
       const stop = window.projects.imports.subscribe(() => {
         if (window.projects.imports.get().kind !== 'importing') return;
         stop();
-        resolve(window.runAndHear('file.import-audio'));
+        resolve(
+          ['file.import-audio', 'file.quick-edit'].map((id) => {
+            const ran = window.run(id);
+            return ran.kind === 'refused' ? ran.failures[0].summary : ran.kind;
+          }),
+        );
       });
     });
 
     window.run('file.import-audio');
 
-    expect(await second).toBe('A file is being imported already. Wait for it, or cancel it.');
+    expect(await refused).toEqual([
+      'A file is being imported already. Wait for it, or cancel it.',
+      'A file is being imported already. Wait for it, or cancel it.',
+    ]);
     await expect.poll(() => window.said).toContain('"Harbour" is imported and open.');
     expect(assetsOf(window).project.assets.size).toBe(1);
   });

@@ -241,10 +241,7 @@ describe('a region’s processing, against the same processing applied at its ba
       const placedOn = sounds[basis] ?? [];
       const length = placedOn[0]?.length ?? 0;
       if (length === 0) continue;
-      const converted = asset.edits
-        .slice(basis)
-        .some((operation) => operation.kind === 'convert-layout');
-      const made = converted ? { edit: levelEdit(next) } : rangeEdit(next, placedOn.length);
+      const made = rangeEdit(next, placedOn.length);
       const edges = rangeIn(next, length);
       const processing = {
         id: unsafeBrandId<'EditOperationId'>('0000ffff-region'),
