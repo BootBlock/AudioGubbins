@@ -177,7 +177,8 @@ export function RegionProperties({
           : `From ${words.position(placed.start)}, ${counted(placed.length, 'frame', 'frames')} long.`}
       </p>
       {/* Keyed by the region, so a draft typed for one is never shown for
-          another, and a change to its value starts the field again in place. */}
+          another, and a change to its value starts the field again in
+          place. */}
       <KeptField
         key={`name:${region.id}`}
         label="Name"
