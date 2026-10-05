@@ -164,7 +164,7 @@ describe('project.apply-edit', () => {
     ).toBe('edit.duplicate-id');
   });
 
-  it('refuses to convert the layout while a region’s processing names channels, naming the region', () => {
+  it('converts the layout under a region’s processing that names channels, which reads back with it', () => {
     const region = regionOn(forest, 0, 4_800);
     const swap: RegionOperation = {
       id: ids.next<'EditOperationId'>(),
@@ -183,17 +183,11 @@ describe('project.apply-edit', () => {
       layout: StandardLayouts.mono,
       matrix: [[0.5, 0.5]],
     };
-    const result = bus.execute(processed, applyInvocation(forest, toMono));
 
-    expect(refusalCodeOf(result)).toBe('edit.region-channels');
-    expect(result.kind === 'refused' ? result.failures[0].summary : '').toContain('“Crunch”');
-    // A level change names no channels, so the same conversion applies over it.
-    const level = after(
-      state,
-      addRegionInvocation(region),
-      applyRegionEditInvocation(region, louder(0, 480)),
-    );
-    appliedAndUndone(level, applyInvocation(forest, toMono));
+    const { next } = appliedAndUndone(processed, applyInvocation(forest, toMono));
+
+    expect(next.project.assets.get(forest.id)?.edits).toEqual([toMono]);
+    expect(next.project.regions.get(region.id)?.operations).toEqual([swap]);
   });
 });
 

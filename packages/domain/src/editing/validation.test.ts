@@ -227,7 +227,7 @@ describe('validating what is placed on an asset', () => {
     ).toBe('editing.loop-crossfade');
   });
 
-  it('refuses processing that names channels from before the asset’s last layout conversion', () => {
+  it('checks the channels processing names by the layout at its basis, across a later conversion', () => {
     const converted = assetOf('converted', 1_000, [
       { id, kind: 'convert-layout', layout: StandardLayouts.mono, matrix: [[0.5, 0.5]] },
     ]);
@@ -238,25 +238,17 @@ describe('validating what is placed on an asset', () => {
       channels: [1],
       edit: { kind: 'silence' },
     };
-    expect(
-      expectFailureCode(
-        validateRegion(converted, {
-          ...region,
-          assetId: converted.id,
-          start: frames(0),
-          end: frames(100),
-          operations: [scoped],
-        }),
-      ),
-    ).toBe('editing.region-operation-invalid');
-    expectSuccess(
-      validateRegion(converted, {
-        ...region,
-        assetId: converted.id,
-        start: frames(0),
-        end: frames(100),
-        operations: [{ ...scoped, basis: 1, channels: [0] }],
-      }),
+    const over = (operation: RegionOperation): Region => ({
+      ...region,
+      assetId: converted.id,
+      start: frames(0),
+      end: frames(100),
+      operations: [operation],
+    });
+    expectSuccess(validateRegion(converted, over(scoped)));
+    expect(expectFailureCode(validateRegion(converted, over({ ...scoped, basis: 1 })))).toBe(
+      'editing.region-operation-invalid',
     );
+    expectSuccess(validateRegion(converted, over({ ...scoped, basis: 1, channels: [0] })));
   });
 });

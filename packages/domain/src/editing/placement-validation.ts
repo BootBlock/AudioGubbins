@@ -4,10 +4,8 @@
  * Each of their positions is stated at a basis (ADR-0051), so each is checked
  * against the asset's timeline at that basis: a basis the chain does not have,
  * or a position past the timeline it names, is refused. A region's processing
- * is checked the same way. A layout conversion made after a region's
- * processing was placed would leave that processing naming channels by an old
- * layout, so processing that names channels must come after the asset's last
- * conversion, and a command converting a layout under it is refused.
+ * is checked the same way, its channels by the layout at its basis, since it is
+ * folded in there, ahead of any later conversion (`plan-building.ts`).
  */
 
 import { channelCount } from '../audio/channel-layout.js';
@@ -15,7 +13,7 @@ import type { Asset } from '../project/asset.js';
 import type { Marker, Region } from '../project/timeline.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { shapesOf, type EditShape } from './edit-shape.js';
-import { isLevelEdit, type RegionOperation } from './operations.js';
+import type { RegionOperation } from './operations.js';
 import { rangeEditProblem, rangeProblem } from './operation-validation.js';
 
 function refused(code: string, summary: string): DomainResult<never> {
@@ -25,16 +23,6 @@ function refused(code: string, summary: string): DomainResult<never> {
 /** The timeline at `basis`, or `undefined` where the chain has no such point. */
 function shapeAt(shapes: readonly EditShape[], basis: number): EditShape | undefined {
   return Number.isInteger(basis) ? shapes[basis] : undefined;
-}
-
-/** Whether `operation` names channels, by a scope or as a change between them. */
-export function namesChannels(operation: RegionOperation): boolean {
-  return operation.channels !== undefined || !isLevelEdit(operation.edit);
-}
-
-/** The index of the asset's last layout conversion, or −1 where it has none. */
-function lastConversion(asset: Asset): number {
-  return asset.edits.findLastIndex((operation) => operation.kind === 'convert-layout');
 }
 
 /** The marker, where it lies on its asset's timeline at its basis. */
@@ -51,16 +39,12 @@ export function validateMarker(asset: Asset, marker: Marker): DomainResult<Marke
 
 /** Why one of a region's processing operations does not stand, or `undefined`. */
 function regionOperationProblem(
-  asset: Asset,
   shapes: readonly EditShape[],
   operation: RegionOperation,
 ): string | undefined {
   const shape = shapeAt(shapes, operation.basis);
   if (shape === undefined)
     return 'The region’s processing is placed on edits the asset does not have.';
-  if (namesChannels(operation) && operation.basis <= lastConversion(asset)) {
-    return 'The region’s processing names channels the asset’s layout has since changed.';
-  }
   return (
     rangeProblem(operation.range, shape.length) ??
     rangeEditProblem(operation.edit, operation.channels, channelCount(shape.layout))
@@ -96,7 +80,7 @@ export function validateRegion(asset: Asset, region: Region): DomainResult<Regio
     if (seen.has(operation.id))
       return refused('duplicate-operation', 'Two of the region’s edits share an identifier.');
     seen.add(operation.id);
-    const problem = regionOperationProblem(asset, shapes, operation);
+    const problem = regionOperationProblem(shapes, operation);
     if (problem !== undefined) return refused('region-operation-invalid', problem);
   }
   return succeed(region);
