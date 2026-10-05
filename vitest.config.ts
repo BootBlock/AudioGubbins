@@ -25,6 +25,9 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 import generated from './vitest.projects.json' with { type: 'json' };
 
+/** The files of the allocation tests, which run apart from the rest (see the `allocation` project). */
+const ALLOCATION_TESTS = '**/*allocation.test.ts';
+
 /** The environment a generated project names, refusing one Vitest has no runner for. */
 function environmentOf(name: string): 'node' | 'jsdom' {
   if (name === 'node' || name === 'jsdom') return name;
@@ -48,8 +51,28 @@ export default defineConfig({
 
     projects: [
       ...generated.projects.map((project) => ({
-        test: { ...project, environment: environmentOf(project.environment) },
+        test: {
+          ...project,
+          environment: environmentOf(project.environment),
+          exclude: [...configDefaults.exclude, ALLOCATION_TESTS],
+        },
       })),
+
+      {
+        // The tests that hold the audio thread's code to allocating nothing
+        // measure the optimised code V8 makes, and with every other project's
+        // workers busy its optimiser can wait longer than any patience for a
+        // core, leaving a function unoptimised and allocating. So they run in a
+        // later group, after every other project, one file at a time.
+        test: {
+          name: 'allocation',
+          root: '.',
+          environment: 'node' as const,
+          include: [`packages/*/src/${ALLOCATION_TESTS}`],
+          sequence: { groupOrder: 1 },
+          fileParallelism: false,
+        },
+      },
 
       {
         test: {
