@@ -1,8 +1,9 @@
 /**
- * How the shell writes a name, a count, a time and a quantity of storage in
- * what it says: the one wording every surface and every command uses, so the
- * Storage panel, a cleanup's confirmation and what a command says after it
- * agree to the byte (REQ-STOR-200, REQ-STOR-106).
+ * How the shell writes a name, a time and a quantity of storage in what it
+ * says: the one wording every surface and every command uses, so the Storage
+ * panel, a cleanup's confirmation and what a command says after it agree to the
+ * byte (REQ-STOR-200, REQ-STOR-106). A count is said by the text package's
+ * rule, which the project commands share.
  *
  * A name is quoted as the shell quotes a workspace's. A time is written in
  * British English whatever the browser's own locale, so a backup listed in
@@ -14,11 +15,6 @@
 /** A name as a sentence quotes it. */
 export function quoted(name: string): string {
   return `"${name}"`;
-}
-
-/** How many of something, in words a sentence reads: "1 change", "3 changes". */
-export function counted(count: number, one: string, many: string): string {
-  return `${String(count)} ${count === 1 ? one : many}`;
 }
 
 /** A moment, to the minute. */

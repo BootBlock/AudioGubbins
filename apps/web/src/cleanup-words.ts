@@ -11,6 +11,7 @@
  */
 
 import type { CleanupRefusal, StepOutcome } from '@audiogubbins/storage';
+import { counted } from '@audiogubbins/text';
 
 import { describeBytes } from './wording.js';
 
@@ -18,7 +19,7 @@ import { describeBytes } from './wording.js';
 export function refusalSentence(refusal: CleanupRefusal): string {
   switch (refusal.kind) {
     case 'unreadable':
-      return `Audio cannot be purged now: ${String(refusal.roots.length)} stored ${refusal.roots.length === 1 ? 'file' : 'files'} could not be read, and might need it.`;
+      return `Audio cannot be purged now: ${counted(refusal.roots.length, 'stored file', 'stored files')} could not be read, and might need it.`;
     case 'no-coordination':
       return 'Audio cannot be purged in this browser, because it cannot keep other tabs from storing audio meanwhile.';
     case 'storing':
@@ -38,11 +39,6 @@ function keptWhileSaving(step: StepOutcome['step']): string {
   return `Something is being saved now, so ${what} kept. Try again shortly.`;
 }
 
-/** How many projects, as a sentence counts them. */
-function projects(count: number): string {
-  return count === 1 ? '1 project' : `${String(count)} projects`;
-}
-
 /** What a cleanup came to: what it freed, then each thing it left and why. */
 export function cleanedSentences(outcomes: readonly StepOutcome[]): readonly string[] {
   const freed = outcomes.reduce((sum, one) => sum + one.freed, 0);
@@ -51,12 +47,12 @@ export function cleanedSentences(outcomes: readonly StepOutcome[]): readonly str
   const sentences = [`The cleanup freed ${describeBytes(freed)}.`];
   if (busy.size > 0) {
     sentences.push(
-      `${projects(busy.size)} another tab has open ${busy.size === 1 ? 'was' : 'were'} left as ${busy.size === 1 ? 'it was' : 'they were'}.`,
+      `${counted(busy.size, 'project', 'projects')} another tab has open ${busy.size === 1 ? 'was' : 'were'} left as ${busy.size === 1 ? 'it was' : 'they were'}.`,
     );
   }
   if (unapplied.size > 0) {
     sentences.push(
-      `The history of ${projects(unapplied.size)} changed after the cleanup was planned, so it was kept. Plan the cleanup again to compact it.`,
+      `The history of ${counted(unapplied.size, 'project', 'projects')} changed after the cleanup was planned, so it was kept. Plan the cleanup again to compact it.`,
     );
   }
   for (const { step, refused } of outcomes) {

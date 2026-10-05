@@ -9,10 +9,11 @@
  * copy nobody named by it and hold each entry under an identifier derived from
  * its name, which storage and a message quote, and hold one read from storage
  * to the shape it is derived in by it, each within the bound in bytes it gives,
- * a report keeps a reader's note to its size by it, and the application cuts a
- * reason and a notice by it. A rule written in the package that needs it first
- * could not be read by another beside it, and two copies of one rule would cut
- * the same character in different places.
+ * a report keeps a reader's note to its size by it, the application cuts a
+ * reason and a notice by it, and the project commands and the application say
+ * how many of something there are by it. A rule written in the package that
+ * needs it first could not be read by another beside it, and two copies of one
+ * rule would cut the same character in different places.
  *
  * What the rules are built from — the segmenter, the count of characters, the
  * comparison of two names, the cut to a bound that adds an ellipsis — stays
@@ -24,6 +25,8 @@
  *
  * Nothing here knows the browser, the domain or a command. It is text.
  */
+
+export { counted } from './counting.js';
 
 export { oneCharacter } from './graphemes.js';
 

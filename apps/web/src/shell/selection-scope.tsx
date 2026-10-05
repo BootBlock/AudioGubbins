@@ -14,6 +14,7 @@ import type { ReactNode } from 'react';
 
 import { channelCount } from '@audiogubbins/domain';
 import type { EditorViewState } from '@audiogubbins/editor-view';
+import { counted } from '@audiogubbins/text';
 import {
   SelectionFacet,
   describeTarget,
@@ -59,6 +60,7 @@ export function scopeOf(
     channel: (index) => names[index] ?? String(index + 1),
     channelCount: count,
     frequency: (hertz) => `${HERTZ.format(hertz)} Hz`,
+    counted,
   });
   return {
     text,

@@ -625,6 +625,9 @@ importers:
       '@audiogubbins/project-format':
         specifier: workspace:*
         version: link:../project-format
+      '@audiogubbins/text':
+        specifier: workspace:*
+        version: link:../text
     devDependencies:
       '@audiogubbins/test-fixtures':
         specifier: workspace:*

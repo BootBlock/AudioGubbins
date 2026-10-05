@@ -44,8 +44,9 @@ import {
 } from '@audiogubbins/domain';
 import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
 import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
-import { counted, quoted } from '../wording.js';
+import { quoted } from '../wording.js';
 import { revisionOf, type EditorAsset } from './editor-asset.js';
 import { sameRecord, sameRecords } from './record-values.js';
 

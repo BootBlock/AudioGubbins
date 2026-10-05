@@ -165,6 +165,9 @@ export interface TargetWriting {
   readonly channel: (index: number) => string;
   readonly channelCount: number;
   readonly frequency: (hertz: number) => string;
+
+  /** How many objects there are, with the noun, of the two given, that agrees with the count. */
+  readonly counted: (count: number, one: string, many: string) => string;
 }
 
 function channelsText(channels: readonly number[], writing: TargetWriting): string {
@@ -202,8 +205,7 @@ export function describeTarget(target: SelectionTarget, writing: TargetWriting):
     }
     case 'objects': {
       const [one, many] = OBJECT_NOUNS[target.objects.kind];
-      const count = target.objects.ids.length;
-      return count === 1 ? `1 ${one}` : `${String(count)} ${many}`;
+      return writing.counted(target.objects.ids.length, one, many);
     }
   }
 }

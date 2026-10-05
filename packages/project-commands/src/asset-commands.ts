@@ -27,6 +27,7 @@ import {
   writtenName,
   type ProjectState,
 } from '@audiogubbins/project-format';
+import { counted } from '@audiogubbins/text';
 
 import {
   jsonArgument,
@@ -176,20 +177,18 @@ function renameAsset(
  */
 function usersOf(state: ProjectState, asset: Asset): string | undefined {
   const users = assetUsers(state.project, asset.id);
-  const parts = [
-    counted(users.clips, 'clip that plays it', 'clips that play it'),
-    counted(users.regions, 'region', 'regions'),
-    counted(users.markers, 'marker', 'markers'),
-    counted(users.pastes, 'asset with audio pasted from it', 'assets with audio pasted from it'),
-    counted(asset.edits.length, 'edit', 'edits'),
-  ].filter((part) => part !== undefined);
+  const parts = (
+    [
+      [users.clips, 'clip that plays it', 'clips that play it'],
+      [users.regions, 'region', 'regions'],
+      [users.markers, 'marker', 'markers'],
+      [users.pastes, 'asset with audio pasted from it', 'assets with audio pasted from it'],
+      [asset.edits.length, 'edit', 'edits'],
+    ] as const
+  )
+    .filter(([count]) => count > 0)
+    .map(([count, one, many]) => counted(count, one, many));
   if (parts.length === 0) return undefined;
   const last = parts.pop();
   return parts.length === 0 ? last : `${parts.join(', ')} and ${String(last)}`;
-}
-
-/** `count` and the noun it agrees with, or `undefined` for none. */
-function counted(count: number, one: string, many: string): string | undefined {
-  if (count === 0) return undefined;
-  return count === 1 ? `1 ${one}` : `${String(count)} ${many}`;
 }

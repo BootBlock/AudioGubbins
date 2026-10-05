@@ -18,9 +18,9 @@ import {
   type RangeEdit,
   type RegionOperation,
 } from '@audiogubbins/domain';
+import { counted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
-import { counted } from '../../wording.js';
 
 /** What each fade shape is called, in the order a person is offered them. */
 export const FADE_SHAPE_NAMES: ReadonlyMap<FadeShape, string> = new Map([
