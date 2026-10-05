@@ -56,11 +56,19 @@ function mixed(
 ): Samples {
   const length = samples[0]?.length ?? 0;
   return matrix.map((row, output) => {
-    const out = Float32Array.from(samples[output] ?? new Float32Array(length));
+    // Copied as bytes, so a −0 and a NaN's payload pass as they are.
+    const out = (samples[output] ?? new Float32Array(length)).slice();
+    const used = row.flatMap((factor, input) => (factor === 0 ? [] : [{ factor, input }]));
+    const [only] = used;
+    if (used.length === 1 && only?.factor === 1) {
+      const from = samples[only.input] ?? new Float32Array(length);
+      out.set(from.subarray(start, end), start);
+      return out;
+    }
     for (let frame: number = start; frame < end; frame += 1) {
-      let sum = 0;
-      row.forEach((factor, input) => (sum += factor * (samples[input]?.[frame] ?? 0)));
-      out[frame] = Math.fround(sum);
+      const products = used.map(({ factor, input }) => factor * (samples[input]?.[frame] ?? 0));
+      const [first = 0, ...rest] = products;
+      out[frame] = Math.fround(rest.reduce((sum, product) => sum + product, first));
     }
     return out;
   });
