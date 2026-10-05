@@ -142,6 +142,8 @@ function editMenu(builders: MenuBuilders): ProjectMenu {
       ]),
       builders.labelled('regions', 'Regions', [
         'region.create',
+        'editor.select-next-region',
+        'editor.select-previous-region',
         'region.open',
         'region.move-start',
         'region.move-end',

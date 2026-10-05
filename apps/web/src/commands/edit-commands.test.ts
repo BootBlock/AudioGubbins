@@ -325,6 +325,55 @@ describe('regions (REQ-EDIT-014)', () => {
     ]);
   });
 
+  it('selects a region in a view of its sound from the keyboard, so its ends move both ways', async () => {
+    const audio = await editedLoop([
+      { name: 'Body', start: 48_000, end: 96_000 },
+      { name: 'Tail', start: 144_000, end: 192_000 },
+    ]);
+    const { window } = audio;
+    const [body, tail] = audio.asset().regions;
+    const selected = () => window.context.selections.of(audio.entry).objects;
+    expect(window.run('region.move-end')).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'No region is selected. Tap one in the strip above the lanes, use “Select the next region”, or open one in a view of its own.',
+        },
+      ],
+    });
+
+    window.run('editor.select-next-region');
+    window.run('editor.select-next-region');
+    expect(selected()).toEqual({ kind: 'regions', ids: [tail?.id] });
+    window.run('editor.select-previous-region');
+    expect(selected()).toEqual({ kind: 'regions', ids: [body?.id] });
+    window.run('editor.set-playhead', { position: 120_000 });
+    await ran(audio, 'region.move-end');
+
+    expect(regionsOf(audio).find((region) => region.displayName === 'Body')).toMatchObject({
+      start: 48_000,
+      end: 120_000,
+    });
+  });
+
+  it('selects a region named, and adds or takes one away with add', async () => {
+    const audio = await editedLoop([
+      { name: 'Body', start: 48_000, end: 96_000 },
+      { name: 'Tail', start: 144_000, end: 192_000 },
+    ]);
+    const { window } = audio;
+    const [body, tail] = audio.asset().regions;
+    const selected = () => window.context.selections.of(audio.entry).objects;
+
+    window.run('editor.select-region', { region: body?.id ?? '' });
+    window.run('editor.select-region', { region: tail?.id ?? '', add: true });
+    expect(selected()).toEqual({ kind: 'regions', ids: [body?.id, tail?.id] });
+    window.run('editor.select-region', { region: body?.id ?? '', add: true });
+    expect(selected()).toEqual({ kind: 'regions', ids: [tail?.id] });
+    expect(window.run('editor.select-region', { region: 'nothing' }).kind).toBe('refused');
+  });
+
   it('names, loops, tags and removes a region, each through the project', async () => {
     const audio = await editedLoop([{ name: 'Body', start: 48_000, end: 240_000 }]);
     const [region] = regionsOf(audio);

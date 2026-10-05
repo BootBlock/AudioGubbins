@@ -33,6 +33,8 @@ export function commandsOf(intent: ToolIntent, view: string): readonly IntentCom
       ];
     case 'select-marker':
       return [{ id: 'editor.select-marker', args: { view, marker: intent.id, add: intent.add } }];
+    case 'select-region':
+      return [{ id: 'editor.select-region', args: { view, region: intent.id, add: intent.add } }];
     case 'set-playhead':
       return [{ id: 'editor.set-playhead', args: { view, position: intent.position } }];
     case 'move-marker':

@@ -11,6 +11,7 @@ import {
   type MarkerId,
   type PlacedMarker,
   type PlacedRegion,
+  type RegionId,
 } from '@audiogubbins/domain';
 import type { RenderBatch, TextLabel } from '@audiogubbins/renderer';
 import {
@@ -139,14 +140,18 @@ function shownSpan(
 }
 
 /**
- * Draws the strip: region spans with their names, the end of one being dragged
- * where the drag is, and marker flags with their names.
+ * Draws the strip: region spans with their names, those selected standing out
+ * and the end of one being dragged where the drag is, and marker flags with
+ * their names.
  */
 export function drawStrip(
   pool: BuilderPool,
   layout: ViewLayout,
   content: { readonly markers: readonly PlacedMarker[]; readonly regions: readonly PlacedRegion[] },
-  selectedMarkers: ReadonlySet<MarkerId>,
+  selected: {
+    readonly markers: ReadonlySet<MarkerId>;
+    readonly regions: ReadonlySet<RegionId>;
+  },
   preview: ToolPreview | undefined,
   style: OverlayStyle,
   out: RenderBatch[],
@@ -154,6 +159,7 @@ export function drawStrip(
   const { strip } = layout;
   const middle = strip.y + strip.height / 2;
   const spans = pool.rectangles(style.palette.region);
+  const chosenSpans = pool.rectangles(style.palette.selectedRegion);
   const flags = pool.rectangles(style.palette.marker);
   const chosen = pool.rectangles(style.palette.selectedMarker);
   const labels: TextLabel[] = [];
@@ -162,17 +168,22 @@ export function drawStrip(
     const from = Math.max(0, pixelOf(style.viewport, span.start));
     const to = Math.min(strip.width, pixelOf(style.viewport, span.end));
     if (to <= from) continue;
-    spans.add(from, strip.y, to - from, strip.height);
+    (selected.regions.has(region.id) ? chosenSpans : spans).add(
+      from,
+      strip.y,
+      to - from,
+      strip.height,
+    );
     labels.push(label(style, region.displayName, from + 4, middle, 'middle', style.palette.text));
   }
   for (const marker of content.markers) {
     const moving = preview?.kind === 'marker' && preview.id === marker.id;
     const x = pixelOf(style.viewport, moving ? preview.position : marker.position);
     if (x < -8 || x > strip.width + 8) continue;
-    (selectedMarkers.has(marker.id) ? chosen : flags).add(x - 1, strip.y, 7, strip.height);
+    (selected.markers.has(marker.id) ? chosen : flags).add(x - 1, strip.y, 7, strip.height);
     labels.push(label(style, marker.displayName, x + 9, middle, 'middle', style.palette.text));
   }
-  out.push(spans.batch(), flags.batch(), chosen.batch(), {
+  out.push(spans.batch(), chosenSpans.batch(), flags.batch(), chosen.batch(), {
     kind: 'text',
     labels: spacedLabels(labels),
   });

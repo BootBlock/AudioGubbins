@@ -66,7 +66,7 @@ export function presentationCommand(
 export const TOOLS: Readonly<Record<ToolId, { readonly name: string; readonly does: string }>> = {
   [ToolId.Select]: {
     name: 'Selection',
-    does: 'Selects time across the lanes it is dragged over, and moves markers and selection edges.',
+    does: 'Selects time across the lanes it is dragged over, selects a marker or a region where it is clicked in the strip, and moves markers, the ends of regions and the edges of the selection.',
   },
   [ToolId.TimeSelect]: {
     name: 'Time selection',
@@ -82,7 +82,10 @@ export const TOOLS: Readonly<Record<ToolId, { readonly name: string; readonly do
     does: 'Splits where it is clicked: the regions there, or the whole sound into two regions.',
   },
   [ToolId.Marker]: { name: 'Marker', does: 'Adds a marker where it is clicked.' },
-  [ToolId.Region]: { name: 'Region', does: 'Makes a region of the range it is dragged over.' },
+  [ToolId.Region]: {
+    name: 'Region',
+    does: 'Makes a region of the range it is dragged over, selects a region where it is clicked in the strip, and moves the ends of regions.',
+  },
 };
 
 /** What each display mode is called. */

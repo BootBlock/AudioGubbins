@@ -139,16 +139,30 @@ describe('the selection tools', () => {
     ]);
   });
 
-  it('read a click on the end of a region as a click on the strip, which moves nothing', () => {
-    const end: HitTarget = {
-      kind: 'region-edge',
-      id: unsafeBrandId('r1'),
-      boundary: RegionBoundary.End,
-    };
-    expect(gesture(context(ToolId.Select, end), input(10))).toEqual([]);
-    expect(gesture(context(ToolId.Region, end), input(10), input(11))).toEqual([]);
-    expect(gesture(context(ToolId.Marker, end), input(10))).toEqual([
+  it('select a region tapped on its span or its end in the strip, adding with shift', () => {
+    const id = unsafeBrandId<'RegionId'>('r1');
+    const span: HitTarget = { kind: 'region', id };
+    const end: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.End };
+    expect(gesture(context(ToolId.Select, span), input(10))).toEqual([
+      { kind: 'select-region', id, add: false },
+    ]);
+    expect(gesture(context(ToolId.Region, end), input(10), input(11))).toEqual([
+      { kind: 'select-region', id, add: false },
+    ]);
+    const touch = { pointer: PointerKind.Touch, shift: true };
+    expect(gesture(context(ToolId.TimeSelect, span), input(10, touch), input(15, touch))).toEqual([
+      { kind: 'select-region', id, add: true },
+    ]);
+  });
+
+  it('place a marker on a region with the marker tool, and leave a region to the hand and zoom', () => {
+    const span: HitTarget = { kind: 'region', id: unsafeBrandId('r1') };
+    expect(gesture(context(ToolId.Marker, span), input(10))).toEqual([
       { kind: 'add-marker', at: 100 },
+    ]);
+    expect(gesture(context(ToolId.Hand, span), input(10))).toEqual([]);
+    expect(gesture(context(ToolId.Zoom, span), input(10))).toEqual([
+      { kind: 'zoom-step', x: 10, direction: 'in' },
     ]);
   });
 

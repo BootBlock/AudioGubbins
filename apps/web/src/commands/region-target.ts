@@ -70,7 +70,7 @@ export function foundRegions(
   }
   const [first, ...rest] = held;
   return first === undefined
-    ? 'No region is selected. Click a region, or open one in a view of its own.'
+    ? 'No region is selected. Tap one in the strip above the lanes, use “Select the next region”, or open one in a view of its own.'
     : [first, ...rest];
 }
 

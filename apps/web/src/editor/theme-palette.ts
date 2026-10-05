@@ -52,6 +52,7 @@ export function editorPaletteOf(theme: Theme): EditorPalette {
     marker: colour(category(theme, 'amber')),
     selectedMarker: colour(selection.handle),
     region: colour(category(theme, 'teal'), 0.22),
+    selectedRegion: colour(category(theme, 'teal'), 0.55),
     loop: colour(category(theme, 'violet')),
     snap: colour(selection.handle),
     spectrogramBackground: colour(spectrogram[0]),

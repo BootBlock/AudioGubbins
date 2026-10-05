@@ -248,6 +248,44 @@ describe('a search the press no longer needs', () => {
   });
 });
 
+describe('tapping a region in the strip (REQ-EDIT-014, REQ-EDIT-065)', () => {
+  it('selects the region tapped, on its span or its end, and adds one with shift', async () => {
+    const state = viewOf();
+    const { viewport } = state;
+    const regionOver = (id: string, from: number, to: number) => {
+      const start = boundaryAt(viewport, from, TONES.length);
+      return {
+        id: unsafeBrandId<'RegionId'>(id),
+        displayName: id,
+        start,
+        length: expectSuccess(sampleCount(boundaryAt(viewport, to, TONES.length) - start)),
+        tags: [],
+      };
+    };
+    const asset: EditorAsset = {
+      ...TONES,
+      regions: [regionOver('region-1', 100, 300), regionOver('region-2', 500, 700)],
+    };
+    const { tool, ran } = pointerOver(state, () => Promise.resolve(undefined), asset);
+    const strip = layoutView(state, 1000, 200, 2, false).strip.y + 2;
+    const tap = (x: number, modifiers = NONE) => {
+      tool.down({ ...at(x), y: strip }, modifiers);
+      tool.up({ ...at(x), y: strip }, modifiers);
+    };
+
+    tap(200);
+    tap(700, { shift: true, alt: false });
+
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(2);
+    });
+    expect(ran).toEqual([
+      { id: 'editor.select-region', args: { view: 'editor', region: 'region-1', add: false } },
+      { id: 'editor.select-region', args: { view: 'editor', region: 'region-2', add: true } },
+    ]);
+  });
+});
+
 describe('dragging the end of a region in the strip (REQ-EDIT-014)', () => {
   it('moves that end to where it is let go, not back to where it was', async () => {
     // The end's own place is a region boundary within the snapping tolerance

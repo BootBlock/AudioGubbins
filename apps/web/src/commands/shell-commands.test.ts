@@ -883,6 +883,11 @@ describe('finding the shell commands in the palette', () => {
     },
   });
 
+  /** The playhead a second into the project's loop, after its markers and its region's start. */
+  const playheadAfterTheMarks: NonNullable<Scenario['before']> = (run) => {
+    run('editor.set-playhead', { position: 48_000 });
+  };
+
   /** The playhead a second into the asset, which can move either way. */
   const playheadInside = inEditor({
     before: (run) => run('editor.set-playhead', { position: 48_000 }),
@@ -1078,6 +1083,18 @@ describe('finding the shell commands in the palette', () => {
     }),
     'editor.select-time': inEditor({ arguments: () => ({ start: 100, end: 200, channels: '1' }) }),
     'editor.select-marker': onProjectMarker(),
+    'editor.select-region': {
+      inProject: true,
+      arguments: (context) => {
+        const region = context.assets.get().assets[0]?.regions[0];
+        if (region === undefined) throw new Error('The loop has no region.');
+        return { region: region.id };
+      },
+    },
+    'editor.select-next-marker': { inProject: true },
+    'editor.select-previous-marker': { inProject: true, before: playheadAfterTheMarks },
+    'editor.select-next-region': { inProject: true },
+    'editor.select-previous-region': { inProject: true, before: playheadAfterTheMarks },
     'edit.copy': { inProject: true },
     'region.open': {
       inProject: true,

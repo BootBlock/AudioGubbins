@@ -32,6 +32,8 @@ export interface EditorPalette {
   readonly marker: Colour;
   readonly selectedMarker: Colour;
   readonly region: Colour;
+  /** A selected region's span in the strip, which stands out from the others. */
+  readonly selectedRegion: Colour;
   readonly loop: Colour;
   readonly snap: Colour;
   readonly spectrogramBackground: Colour;

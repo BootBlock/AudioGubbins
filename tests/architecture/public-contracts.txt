@@ -1954,6 +1954,7 @@ Published paths
   readonly EditorPalette.marker: Colour
   readonly EditorPalette.selectedMarker: Colour
   readonly EditorPalette.region: Colour
+  readonly EditorPalette.selectedRegion: Colour
   readonly EditorPalette.loop: Colour
   readonly EditorPalette.snap: Colour
   readonly EditorPalette.spectrogramBackground: Colour
@@ -1988,7 +1989,7 @@ Published paths
   readonly HitScene.markers: readonly PlacedMarker[]
   readonly HitScene.regions: readonly PlacedRegion[]
   readonly HitScene.selection: BoundaryRange | undefined
-  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "region-edge"; readonly id: RegionId; readonly boundary: RegionBoundary; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
+  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "region"; readonly id: RegionId; } | { readonly kind: "region-edge"; readonly id: RegionId; readonly boundary: RegionBoundary; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
   const IDLE: Interaction
   type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; }
   interface KnownAudio
@@ -2037,7 +2038,7 @@ Published paths
   readonly ToolInput.channel: number | undefined
   readonly ToolInput.shift: boolean
   readonly ToolInput.alt: boolean
-  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "make-region"; readonly range: BoundaryRange; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "move-region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
+  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "make-region"; readonly range: BoundaryRange; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "move-region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-region"; readonly id: RegionId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
   type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
   interface ToolStep
   readonly ToolStep.interaction: Interaction

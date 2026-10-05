@@ -12,7 +12,10 @@
  *
  * A press becomes a drag once the pointer has moved past a few pixels, more for
  * a finger than for a mouse, so a tap is never read as a tiny drag. A tap on a
- * region's end is a tap on the strip.
+ * marker selects it, and a tap on a region's span or end in the strip selects
+ * the region, shift adding it to those selected, with every tool but the hand
+ * and zoom, which act on the view, and, for a region, the marker tool, which
+ * places a marker there.
  */
 
 import type { MarkerId, RegionBoundary, RegionId, SampleCount } from '@audiogubbins/domain';
@@ -55,6 +58,7 @@ export type ToolIntent =
       readonly channels: readonly number[] | undefined;
     }
   | { readonly kind: 'select-marker'; readonly id: MarkerId; readonly add: boolean }
+  | { readonly kind: 'select-region'; readonly id: RegionId; readonly add: boolean }
   | { readonly kind: 'set-playhead'; readonly position: SampleCount }
   | { readonly kind: 'move-marker'; readonly id: MarkerId; readonly to: SampleCount }
   | {
@@ -242,9 +246,14 @@ const STRIP: HitTarget = { kind: 'strip' };
 
 function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly ToolIntent[] {
   const { tool, start } = state;
-  const hit = state.hit.kind === 'region-edge' ? STRIP : state.hit;
+  const selects = tool !== ToolId.Hand && tool !== ToolId.Zoom;
+  const onRegion = state.hit.kind === 'region-edge' || state.hit.kind === 'region';
+  if (onRegion && selects && tool !== ToolId.Marker) {
+    return [{ kind: 'select-region', id: state.hit.id, add: start.shift }];
+  }
+  const hit = onRegion ? STRIP : state.hit;
   if (hit.kind === 'ruler') return [{ kind: 'set-playhead', position: start.boundary }];
-  if (hit.kind === 'marker' && tool !== ToolId.Hand && tool !== ToolId.Zoom) {
+  if (hit.kind === 'marker' && selects) {
     return [{ kind: 'select-marker', id: hit.id, add: start.shift }];
   }
   switch (tool) {

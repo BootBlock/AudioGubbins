@@ -181,7 +181,7 @@ export function selectedMarkers(
   const target = selectedTarget(context, asset, MARKERS_SELECTED);
   if (typeof target === 'string') return target;
   if (target.kind !== 'objects' || target.objects.kind !== 'markers') {
-    return 'The active selection holds no markers. Click a marker first.';
+    return 'The active selection holds no markers. Select a marker first: tap one in the strip above the lanes, or use “Select the next marker”.';
   }
   return target.objects.ids;
 }
