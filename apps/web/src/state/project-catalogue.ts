@@ -8,7 +8,9 @@
  * project stores, so no command remembers to tell the editor what changed.
  */
 
-import type { MadeEntry } from '../assets/project-assets.js';
+import type { AssetId } from '@audiogubbins/domain';
+
+import type { MadeAsset } from '../assets/project-assets.js';
 import { projectEntries } from '../assets/project-assets.js';
 import type { AssetCatalogue } from './asset-catalogue.js';
 import type { ProjectStores } from './project-stores.js';
@@ -18,7 +20,7 @@ export function followProjectAssets(
   projects: Pick<ProjectStores, 'project' | 'media'>,
   catalogue: AssetCatalogue,
 ): () => void {
-  let made: ReadonlyMap<string, MadeEntry> = new Map();
+  let made: ReadonlyMap<AssetId, MadeAsset> = new Map();
   const follow = (): void => {
     const open = projects.project.get();
     if (open.kind !== 'open') {
