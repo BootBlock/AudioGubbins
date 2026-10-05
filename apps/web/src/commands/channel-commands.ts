@@ -17,19 +17,15 @@ import {
   conversionMatrix,
   layoutsMatch,
   type ChannelEdit,
+  type ChannelEditOperation,
   type ChannelLayout,
 } from '@audiogubbins/domain';
+import { applyInvocation, processTargetInvocation } from '@audiogubbins/project-commands';
 
 import { channelNames } from '../assets/channel-names.js';
 import { RANGE_OR_WHOLE, editScope, editedView } from './edit-target.js';
 import { channelsArgument, numberArgument } from './editor-target.js';
-import {
-  chainInvocation,
-  changeProject,
-  needsProjectAsset,
-  onWholeAsset,
-  processInvocation,
-} from './project-edits.js';
+import { changeProject, needsProjectAsset, onWholeAsset } from './project-edits.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -68,11 +64,7 @@ function betweenChannels(
   changeProject(context, scope.project.session, {
     description: words,
     invocations: [
-      processInvocation(context, scope.project.owner, {
-        range: scope.range,
-        channels: undefined,
-        edit,
-      }),
+      processTargetInvocation(scope.target, context.ids.next<'EditOperationId'>(), edit),
     ],
     said: `${words}${scope.whole ? '' : ' over the selection'}.`,
   });
@@ -202,11 +194,17 @@ function converted(
   const rows = matrix ?? stated?.value;
   if (rows === undefined) return 'There is no conversion to that layout.';
   const { owner } = project;
+  // A conversion is made on the asset's chain even in a region's view, as it
+  // changes the layout of every region over the asset (ADR-0051).
+  const conversion: ChannelEditOperation = {
+    id: context.ids.next<'EditOperationId'>(),
+    kind: 'convert-layout',
+    layout,
+    matrix: rows,
+  };
   changeProject(context, project.session, {
     description: 'Convert the layout',
-    invocations: [
-      chainInvocation(context, owner, { kind: 'convert-layout', layout, matrix: rows }),
-    ],
+    invocations: [applyInvocation(owner.asset, conversion)],
     said: onWholeAsset(
       owner,
       `${view.asset.name} now has ${String(channelCount(layout))} ${channelCount(layout) === 1 ? 'channel' : 'channels'}: ${channelNames(layout).join(', ')}.`,

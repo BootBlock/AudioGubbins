@@ -172,10 +172,28 @@ export interface RegionOperation {
 }
 
 /**
- * What an edit command acts on: an asset's own timeline, or one of its regions
- * (ADR-0051). In a region an edit that changes time or the layout is made on
- * the asset, and processing on the region.
+ * What an edit command acts on: a range of an asset's own timeline, or of one
+ * of its regions, with the channels the selection set resolves (ADR-0042,
+ * ADR-0051). The range is on the asset's edited timeline as its chain stands,
+ * where every operation is placed; `channels` is absent where every channel is
+ * the target.
+ *
+ * In a region an edit that changes time or the layout is made on the asset,
+ * and processing on the region, whose operations are anchored at `basis`, the
+ * length of the asset's chain the range is stated at.
  */
 export type EditTarget =
-  | { readonly kind: 'asset'; readonly asset: AssetId }
-  | { readonly kind: 'region'; readonly asset: AssetId; readonly region: RegionId };
+  | {
+      readonly kind: 'asset';
+      readonly asset: AssetId;
+      readonly range: EditRange;
+      readonly channels?: readonly number[];
+    }
+  | {
+      readonly kind: 'region';
+      readonly asset: AssetId;
+      readonly region: RegionId;
+      readonly basis: number;
+      readonly range: EditRange;
+      readonly channels?: readonly number[];
+    };

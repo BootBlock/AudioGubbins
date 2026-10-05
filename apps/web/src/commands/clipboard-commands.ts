@@ -68,7 +68,7 @@ function copied(
 ): string | { readonly description: string; readonly again: boolean } {
   const { owner, state } = scope.project;
   // The plan shown is the view's own, so its range is the view's.
-  const copy = copyAudio(state, owner.plan, scope.shown, scope.channels);
+  const copy = copyAudio(state, owner.plan, scope.shown, scope.target.channels);
   if (!copy.ok) return copy.failures[0].summary;
   const { asset, state: view } = scope.view;
   const length = formatPosition(
@@ -113,7 +113,7 @@ function cutCommand(): Command<ShellContext> {
       const { owner, session } = scope.project;
       changeProject(context, session, {
         description: 'Cut',
-        invocations: [chainInvocation(context, owner, { kind: 'delete', range: scope.range })],
+        invocations: [chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range })],
         said: onWholeAsset(owner, `Cut ${done.description}.`),
       });
       return undefined;

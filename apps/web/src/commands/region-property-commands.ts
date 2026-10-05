@@ -49,14 +49,14 @@ function loopCommand(): Command<ShellContext> {
       const scope = editScope(context, invocation, RANGE_OR_WHOLE);
       if (typeof scope === 'string') return scope;
       const crossfade = numberArgument(invocation, 'crossfade') ?? 0;
-      const length = scope.range.end - scope.range.start;
+      const length = scope.target.range.end - scope.target.range.start;
       if (!Number.isInteger(crossfade) || crossfade < 0 || crossfade > length) {
         return 'A loop’s crossfade is a whole number of frames no longer than the loop.';
       }
       const loop = {
         basis: found.asset.edits.length,
-        start: scope.range.start,
-        end: scope.range.end,
+        start: scope.target.range.start,
+        end: scope.target.range.end,
         crossfadeLength: derivedSampleCount(crossfade),
       };
       changeProject(context, found.project.session, {

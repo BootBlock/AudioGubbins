@@ -1,5 +1,6 @@
 /**
- * What an edit command acts on, selection first (ADR-0042, ADR-0051): the
+ * What an edit command acts on, its `EditTarget`, selection first (ADR-0042,
+ * ADR-0051): the
  * range and channels the active selection resolves to, or the whole asset or
  * region shown where nothing is selected and the command says it acts on the
  * whole; stated on the asset's edited timeline, where every operation is
@@ -12,24 +13,22 @@
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import type { EditRange } from '@audiogubbins/domain';
+import type { EditRange, EditTarget } from '@audiogubbins/domain';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { editorTarget, selectedTarget, type EditorTarget } from './editor-target.js';
-import { onAsset, projectTarget, type ProjectTarget } from './project-edits.js';
+import { currentBasis, onAsset, projectTarget, type ProjectTarget } from './project-edits.js';
 import type { ShellContext } from './shell-context.js';
 
-/** A range of the asset, the channels it acts on, and the view and project it came from. */
+/** The target a command acts on, and the view and project it came from. */
 export interface EditScope {
   readonly view: EditorTarget;
   readonly project: ProjectTarget;
-  /** The range on the asset's edited timeline. */
-  readonly range: EditRange;
+  /** The asset or region shown, with the range and channels the selection resolves. */
+  readonly target: EditTarget;
   /** The range as the view shows it. */
   readonly shown: EditRange;
-  /** The channels it acts on, or `undefined` where it acts on every channel. */
-  readonly channels: readonly number[] | undefined;
   /** Whether nothing was selected, so the whole asset or region is the target. */
   readonly whole: boolean;
 }
@@ -52,7 +51,7 @@ export const RANGE_ONLY: TargetRequest = {
  * would put the others out of step (ADR-0051).
  */
 export function partOfTheChannels(scope: EditScope): string | undefined {
-  return scope.channels === undefined
+  return scope.target.channels === undefined
     ? undefined
     : 'A change of time acts on every channel, or the channels would fall out of step. Select every channel first.';
 }
@@ -83,16 +82,28 @@ export function editScope(
     return 'This acts on a time range. Select one first, or select nothing to act on the whole sound.';
   }
   if (target.range.end <= target.range.start) return 'The selected range holds no audio.';
-  const every = target.channels.length === channelCountOf(view.asset);
+  const { owner } = project;
+  const range: EditRange = {
+    start: onAsset(owner, target.range.start),
+    end: onAsset(owner, target.range.end),
+  };
+  const channels =
+    target.channels.length === channelCountOf(view.asset) ? {} : { channels: target.channels };
   return {
     view,
     project,
-    range: {
-      start: onAsset(project.owner, target.range.start),
-      end: onAsset(project.owner, target.range.end),
-    },
+    target:
+      owner.region === undefined
+        ? { kind: 'asset', asset: owner.asset.id, range, ...channels }
+        : {
+            kind: 'region',
+            asset: owner.asset.id,
+            region: owner.region.id,
+            basis: currentBasis(owner),
+            range,
+            ...channels,
+          },
     shown: target.range,
-    channels: every ? undefined : target.channels,
     whole: target.kind === 'whole-asset',
   };
 }

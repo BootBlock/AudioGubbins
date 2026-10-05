@@ -14,6 +14,7 @@
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import { FadeDirection, FadeShape, MAXIMUM_EDIT_GAIN, type RangeEdit } from '@audiogubbins/domain';
+import { processTargetInvocation } from '@audiogubbins/project-commands';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
@@ -33,7 +34,6 @@ import {
   changeProject,
   needsProjectAsset,
   onWholeAsset,
-  processInvocation,
 } from './project-edits.js';
 import { removeRegions, setRegionBounds } from './region-commands.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
@@ -72,11 +72,7 @@ function processed(context: ShellContext, scope: EditScope, edit: RangeEdit, sai
   changeProject(context, scope.project.session, {
     description: said,
     invocations: [
-      processInvocation(context, scope.project.owner, {
-        range: scope.range,
-        channels: scope.channels,
-        edit,
-      }),
+      processTargetInvocation(scope.target, context.ids.next<'EditOperationId'>(), edit),
     ],
     said: `${said}.`,
   });
@@ -117,7 +113,7 @@ function deleteCommand(): Command<ShellContext> {
       const { owner } = scope.project;
       changeProject(context, scope.project.session, {
         description: 'Delete',
-        invocations: [chainInvocation(context, owner, { kind: 'delete', range: scope.range })],
+        invocations: [chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range })],
         said: onWholeAsset(owner, `Deleted ${what(scope)}.`),
       });
       return undefined;
@@ -135,12 +131,11 @@ function trimCommand(): Command<ShellContext> {
       if (typeof scope === 'string') return scope;
       const split = partOfTheChannels(scope);
       if (split !== undefined) return split;
-      const { owner } = scope.project;
       // A region is trimmed by its boundaries, which leaves its asset whole.
-      if (owner.region !== undefined) return setRegionBounds(context, scope);
+      if (scope.target.kind === 'region') return setRegionBounds(context, scope);
       changeProject(context, scope.project.session, {
         description: 'Trim',
-        invocations: [chainInvocation(context, owner, { kind: 'trim', range: scope.range })],
+        invocations: [chainInvocation(context, scope.target, { kind: 'trim', range: scope.target.range })],
         said: `Trimmed ${scope.view.asset.name} to ${lengthOf(scope)}.`,
       });
       return undefined;
@@ -161,7 +156,7 @@ function reverseCommand(): Command<ShellContext> {
       const { owner } = scope.project;
       changeProject(context, scope.project.session, {
         description: 'Reverse',
-        invocations: [chainInvocation(context, owner, { kind: 'reverse', range: scope.range })],
+        invocations: [chainInvocation(context, scope.target, { kind: 'reverse', range: scope.target.range })],
         said: onWholeAsset(owner, `Reversed ${what(scope)}.`),
       });
       return undefined;

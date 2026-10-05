@@ -17,13 +17,11 @@ import {
 } from '@audiogubbins/commands';
 import {
   derivedSampleCount,
-  isLevelEdit,
   type EditOperation,
-  type EditRange,
-  type RangeEdit,
+  type EditTarget,
   type SampleCount,
 } from '@audiogubbins/domain';
-import { applyInvocation, applyRegionEditInvocation } from '@audiogubbins/project-commands';
+import { applyInvocation } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
 import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
@@ -93,43 +91,16 @@ export function changeProject(
 }
 
 /**
- * The invocation that processes `range` of what `owner` shows with `edit`: a
- * region's own processing in a region's view, and the asset's chain anywhere
- * else (ADR-0051). A level edit acts on `channels`, or on every channel where
- * they are absent; a channel edit names its own channels and takes no scope.
+ * An operation of the chain of `target`'s asset, with an identity of its own:
+ * one that changes time or the layout is made on the asset even where the
+ * target is a region (ADR-0051).
  */
-export function processInvocation(
-  context: ShellContext,
-  owner: ProjectOwner,
-  change: {
-    readonly range: EditRange;
-    readonly channels: readonly number[] | undefined;
-    readonly edit: RangeEdit;
-  },
-): CommandInvocation {
-  const id = context.ids.next<'EditOperationId'>();
-  const { range, edit } = change;
-  const channels =
-    change.channels === undefined || !isLevelEdit(edit) ? {} : { channels: change.channels };
-  if (owner.region !== undefined) {
-    return applyRegionEditInvocation(owner.region, {
-      id,
-      basis: currentBasis(owner),
-      range,
-      ...channels,
-      edit,
-    });
-  }
-  return applyInvocation(owner.asset, { id, kind: 'process', range, ...channels, edit });
-}
-
-/** An operation of the asset's chain, with an identity of its own. */
 export function chainInvocation(
   context: ShellContext,
-  owner: ProjectOwner,
+  target: EditTarget,
   operation: DistributiveOmit<EditOperation, 'id'>,
 ): CommandInvocation {
-  return applyInvocation(owner.asset, {
+  return applyInvocation({ id: target.asset }, {
     ...operation,
     id: context.ids.next<'EditOperationId'>(),
   });

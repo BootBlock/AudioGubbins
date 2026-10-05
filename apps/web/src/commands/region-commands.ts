@@ -34,8 +34,8 @@ function createCommand(): Command<ShellContext> {
         assetId: owner.asset.id,
         displayName: textArgument(invocation, 'name') ?? nextName(state, owner.asset),
         basis: currentBasis(owner),
-        start: scope.range.start,
-        end: scope.range.end,
+        start: scope.target.range.start,
+        end: scope.target.range.end,
         tags: [],
         operations: [],
       };
@@ -52,15 +52,15 @@ function createCommand(): Command<ShellContext> {
 
 /** Sets the boundaries of the region a view shows to the scope's range, which trims it. */
 export function setRegionBounds(context: ShellContext, scope: EditScope): BodyAnswer {
-  const { owner, state, session } = scope.project;
-  const region =
-    owner.region === undefined ? undefined : state.project.regions.get(owner.region.id);
-  const asset = state.project.assets.get(owner.asset.id);
+  const { state, session } = scope.project;
+  const { target } = scope;
+  const region = target.kind === 'region' ? state.project.regions.get(target.region) : undefined;
+  const asset = state.project.assets.get(target.asset);
   if (region === undefined || asset === undefined)
     return 'That region is no longer in the project.';
   changeProject(context, session, {
     description: `Trim ${region.displayName}`,
-    invocations: [setRegionInvocation(restated(region, asset, scope.range))],
+    invocations: [setRegionInvocation(restated(region, asset, target.range))],
     said: `Trimmed ${region.displayName} to the selection.`,
   });
   return undefined;
