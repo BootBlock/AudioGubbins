@@ -15,7 +15,7 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import type { DomainResult } from '@audiogubbins/domain';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-import type { ProjectEntries, ProjectEntry } from '../assets/project-assets.js';
+import type { ProjectEntries, ProjectEntry } from '../assets/project-entry.js';
 import { reasonOf } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
 

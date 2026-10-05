@@ -21,7 +21,7 @@ import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { sine, stereo, wavFile, type SignalFixture } from '@audiogubbins/test-fixtures';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-import { assetEntryId } from '../assets/project-assets.js';
+import { assetEntryId } from '../assets/project-entry.js';
 import { projectWorld, type ProjectWindow, type ProjectWorld } from './project-context.js';
 
 /** When every import here happens. */

@@ -2,7 +2,7 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import { regionEntryId } from '../../assets/project-assets.js';
+import { regionEntryId } from '../../assets/project-entry.js';
 import { shellCommands } from '../../commands/shell-commands.js';
 import type { ProjectWindow } from '../../testing/project-context.js';
 import { DESCRIPTORS } from '../../testing/shell-context.js';

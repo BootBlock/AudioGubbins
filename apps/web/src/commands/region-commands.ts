@@ -14,7 +14,7 @@ import {
   setRegionInvocation,
 } from '@audiogubbins/project-commands';
 
-import { regionEntryId } from '../assets/project-assets.js';
+import { regionEntryId } from '../assets/project-entry.js';
 import { RANGE_ONLY, editScope, type EditScope } from './edit-target.js';
 import { changeProject, currentBasis } from './project-edits.js';
 import { textArgument, type BodyAnswer } from './shell-command.js';

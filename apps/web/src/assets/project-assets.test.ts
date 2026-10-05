@@ -17,13 +17,8 @@ import { ProjectCommandId } from '@audiogubbins/project-commands';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
-import {
-  assetEntryId,
-  projectEntries,
-  projectEntry,
-  regionEntryId,
-  type MediaAvailability,
-} from './project-assets.js';
+import { projectEntries, projectEntry } from './project-assets.js';
+import { assetEntryId, regionEntryId, type MediaAvailability } from './project-entry.js';
 
 /** The assets whose plan was made, in the order each was asked for. */
 const planned = vi.hoisted((): AssetId[] => []);

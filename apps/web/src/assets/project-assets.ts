@@ -23,15 +23,10 @@
 import {
   anchorResolver,
   assetPlan,
-  channelCount,
   derivedSampleCount,
-  markersInRegion,
   placeMarkers,
-  placeRegion,
   placeRegions,
   planReadsAsset,
-  regionPlan,
-  streamLength,
   type AnchorResolver,
   type Asset,
   type AssetId,
@@ -40,42 +35,21 @@ import {
   type PlacedMarker,
   type Project,
   type Region,
-  type RegionId,
 } from '@audiogubbins/domain';
-import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
-import type { AssetSource, ProjectState } from '@audiogubbins/project-format';
-import { counted } from '@audiogubbins/text';
+import type { ProjectState } from '@audiogubbins/project-format';
 
-import { quoted } from '../wording.js';
-import { revisionOf, type EditorAsset } from './editor-asset.js';
 import { sameRecord, sameRecords } from './record-values.js';
-
-/** Whether the page holds the file an asset's media is kept in. */
-export type MediaAvailability =
-  | { readonly kind: 'finding' }
-  | { readonly kind: 'found'; readonly file: Blob }
-  | { readonly kind: 'unavailable'; readonly reason: string };
-
-/** An asset or region of the project as a view opens it, or why it cannot open yet. */
-export type ProjectEntry =
-  | { readonly kind: 'open'; readonly asset: EditorAsset }
-  | {
-      readonly kind: 'finding' | 'unavailable';
-      readonly id: string;
-      readonly name: string;
-      /** Why it cannot be opened, as a reader is told. */
-      readonly reason: string;
-    };
-
-/** The entries of one state of the project, by the identity a view names. */
-export type ProjectEntries = ReadonlyMap<string, ProjectEntry>;
-
-/** The assets an entry reads the media of, where each is kept, and the file the page holds of each. */
-interface Reads {
-  readonly read: readonly Asset[];
-  readonly sources: readonly (AssetSource | undefined)[];
-  readonly files: readonly MediaAvailability[];
-}
+import {
+  assetEntryId,
+  assetSentence,
+  openedEntry,
+  regionEntry,
+  regionEntryId,
+  type MediaAvailability,
+  type ProjectEntries,
+  type ProjectEntry,
+  type Reads,
+} from './project-entry.js';
 
 /** An asset, with the markers and regions it owns. */
 interface Owned {
@@ -88,16 +62,6 @@ interface Owned {
 export interface MadeAsset extends Owned, Reads {
   /** The asset's entry, then its regions', by the identity a view names. */
   readonly entries: ReadonlyMap<string, ProjectEntry>;
-}
-
-/** The identity a view names an asset of the project by. */
-export function assetEntryId(asset: AssetId): string {
-  return `asset:${asset}`;
-}
-
-/** The identity a view names a region of the project by. */
-export function regionEntryId(region: RegionId): string {
-  return `region:${region}`;
 }
 
 /** What each asset owns of `items`, in the project's order. */
@@ -127,88 +91,6 @@ function owning(project: Project): (asset: Asset) => Owned {
 /** The assets of `state` whose media `plan` reads, in the project's order. */
 function assetsRead(state: ProjectState, plan: EditPlan): readonly Asset[] {
   return [...state.project.assets.values()].filter((asset) => planReadsAsset(plan, asset.id));
-}
-
-/** The files `reads` names, or why one is not held. */
-function mediaOf(
-  reads: Reads,
-):
-  | { readonly kind: 'held'; readonly entries: readonly MediaEntry[] }
-  | { readonly kind: 'finding' | 'unavailable'; readonly reason: string } {
-  const entries: MediaEntry[] = [];
-  for (const [index, asset] of reads.read.entries()) {
-    const found = reads.files[index];
-    if (found === undefined || found.kind === 'finding') {
-      return {
-        kind: 'finding',
-        reason: `The audio of ${quoted(asset.displayName)} is being read.`,
-      };
-    }
-    if (found.kind === 'unavailable') return found;
-    entries.push({
-      asset: asset.id,
-      sampleRate: asset.sampleRate,
-      channels: channelCount(asset.channelLayout),
-      length: asset.length,
-      file: found.file,
-    });
-  }
-  return { kind: 'held', entries };
-}
-
-/**
- * What an asset of the project is, in a sentence, for the list an empty view
- * offers: its audio as `plan` makes it, so a conversion of its layout is told.
- */
-function assetSentence(asset: Asset, plan: EditPlan): string {
-  const [stream] = plan.streams;
-  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(asset.sampleRate / 1000)} kHz`;
-  return asset.edits.length === 0
-    ? `Audio of the project: ${shape}.`
-    : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
-}
-
-/** The view of `plan`, named `id`, of the asset `owner` holds, once every file `reads` names is held. */
-function openedEntry(
-  made: {
-    readonly id: string;
-    readonly name: string;
-    readonly description: string;
-    readonly owner: Extract<EditorAsset['owner'], { readonly kind: 'project' }>;
-    readonly markers: readonly PlacedMarker[];
-    readonly regions: EditorAsset['regions'];
-  },
-  reads: Reads,
-): ProjectEntry {
-  const { plan } = made.owner;
-  const files = mediaOf(reads);
-  if (files.kind !== 'held') {
-    return { kind: files.kind, id: made.id, name: made.name, reason: files.reason };
-  }
-  const [stream] = plan.streams;
-  const sampleRate = made.owner.asset.sampleRate;
-  const sources = reads.sources.map((source) => source?.media);
-  return {
-    kind: 'open',
-    asset: {
-      id: made.id,
-      name: made.name,
-      description: made.description,
-      sampleRate,
-      layout: stream.layout,
-      length: derivedSampleCount(streamLength(stream)),
-      revision: revisionOf(JSON.stringify({ plan, sources })),
-      describe: () => ({
-        kind: PcmDescriptionKind.Edited,
-        sampleRate,
-        plan,
-        media: files.entries,
-      }),
-      owner: made.owner,
-      markers: made.markers,
-      regions: made.regions,
-    },
-  };
 }
 
 /**
@@ -347,45 +229,4 @@ function entriesOf(
     );
   }
   return entries;
-}
-
-/** Why a region whose audio every later edit removed cannot be shown. */
-const GONE = 'Nothing of it is left: the edits made since it was placed removed all of its audio.';
-
-/**
- * The view of `region`: the slice of its asset it covers, with its own
- * processing, or why there is none, where the edits since removed all of it.
- */
-function regionEntry(
-  parts: {
-    readonly asset: Asset;
-    readonly region: Region;
-    readonly markers: readonly PlacedMarker[];
-    readonly resolver: AnchorResolver;
-  },
-  reads: Reads,
-): ProjectEntry {
-  const { asset, region, markers, resolver } = parts;
-  const id = regionEntryId(region.id);
-  const placed = placeRegion(resolver, region);
-  if (placed === undefined || placed.length === 0) {
-    return { kind: 'unavailable', id, name: region.displayName, reason: GONE };
-  }
-  return openedEntry(
-    {
-      id,
-      name: region.displayName,
-      description: `A region of ${quoted(asset.displayName)}, ${counted(placed.length, 'frame', 'frames')} long.`,
-      owner: {
-        kind: 'project',
-        asset,
-        region,
-        plan: regionPlan(asset, region, resolver),
-        offset: placed.start,
-      },
-      markers: markersInRegion(markers, placed),
-      regions: [],
-    },
-    reads,
-  );
 }

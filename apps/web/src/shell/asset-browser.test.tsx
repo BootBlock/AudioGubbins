@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { PageFile } from '@audiogubbins/storage-runtime';
 import { sine, wavFile } from '@audiogubbins/test-fixtures';
 
-import { regionEntryId } from '../assets/project-assets.js';
+import { regionEntryId } from '../assets/project-entry.js';
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { AssetBrowserPanel } from './asset-browser.js';

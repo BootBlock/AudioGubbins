@@ -18,7 +18,7 @@ import type { AssetId, Region } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
-import { assetEntryId, regionEntryId } from '../assets/project-assets.js';
+import { assetEntryId, regionEntryId } from '../assets/project-entry.js';
 import type {
   AssetCatalogue,
   AssetCatalogueState,

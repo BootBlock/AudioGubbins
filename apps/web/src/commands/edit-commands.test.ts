@@ -4,7 +4,7 @@ import { sampleRate, type EditOperation, type Region } from '@audiogubbins/domai
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sine } from '@audiogubbins/test-fixtures';
 
-import { regionEntryId } from '../assets/project-assets.js';
+import { regionEntryId } from '../assets/project-entry.js';
 import { projectWorld } from '../testing/project-context.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 

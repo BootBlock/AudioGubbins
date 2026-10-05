@@ -20,7 +20,7 @@ import { succeed, type DomainResult } from '@audiogubbins/domain';
 import type { ImportedAudio } from '@audiogubbins/storage';
 import { counted } from '@audiogubbins/text';
 
-import { assetEntryId } from '../assets/project-assets.js';
+import { assetEntryId } from '../assets/project-entry.js';
 import { settledEntry } from '../state/asset-catalogue.js';
 import { ONE_AT_A_TIME, type AudioImportOutcome } from '../state/audio-imports.js';
 import { quoted } from '../wording.js';

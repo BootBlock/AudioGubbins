@@ -6,7 +6,7 @@ import { MEDIA_DIRECTORY } from '@audiogubbins/storage';
 import type { PageFile } from '@audiogubbins/storage-runtime';
 import { sine, stereo, wavFile } from '@audiogubbins/test-fixtures';
 
-import { assetEntryId } from '../assets/project-assets.js';
+import { assetEntryId } from '../assets/project-entry.js';
 import { holdPlatformFiles } from '../testing/project-audio.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 

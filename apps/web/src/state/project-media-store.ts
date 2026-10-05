@@ -21,7 +21,7 @@ import type { AssetId, DomainResult } from '@audiogubbins/domain';
 import type { MediaSource } from '@audiogubbins/project-format';
 import type { MediaClient, RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
-import type { MediaAvailability } from '../assets/project-assets.js';
+import type { MediaAvailability } from '../assets/project-entry.js';
 import { absenceOf, type LinkedFilesPort } from '../io/linked-files.js';
 import { isAbandoned } from './abandoning.js';
 import { observable, type Observable } from './observable.js';
