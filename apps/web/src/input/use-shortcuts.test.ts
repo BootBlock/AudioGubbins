@@ -20,7 +20,7 @@ import { keyPress } from '@audiogubbins/input';
 import { shellCommands } from '../commands/shell-commands.js';
 import { buildLayoutStore } from '../testing/layout-store.js';
 import { DESCRIPTORS, buildShellContext } from '../testing/shell-context.js';
-import { isTextField, ownsItsKeys, useShortcuts } from './use-shortcuts.js';
+import { EDITOR_PANEL, isTextField, ownsItsKeys, useShortcuts } from './use-shortcuts.js';
 
 /**
  * The edge that turns a key event into a command.
@@ -521,6 +521,129 @@ describe('useShortcuts over the default profile', () => {
     press(document.body, { code: 'KeyM', key: 'm' });
 
     expect(ran).toEqual(['editor.add-marker']);
+  });
+});
+
+describe('a clipboard shortcut', () => {
+  /** A listener over `bindings`, answering what ran and how many chords it gave up. */
+  function listeningTo(bindings: ShortcutProfile['bindings']) {
+    const ran: string[] = [];
+    const cancelled: string[] = [];
+    const profile: ShortcutProfile = { id: 'test', displayName: 'Test', builtIn: true, bindings };
+    const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('test');
+    renderHook(() => {
+      useShortcuts({
+        tracker: createChordTracker(() => profile),
+        run: (id) => {
+          ran.push(id);
+        },
+        onPendingChange: vi.fn(),
+        onAnnounce: vi.fn(),
+        onChordCancelled: () => {
+          cancelled.push('cancelled');
+        },
+        runsInADialogue: () => false,
+        platform: keyboardPlatformFor(KeyboardConvention.Windows),
+        reader: { read: vi.fn(), asked: () => false },
+        logger,
+      });
+    });
+    return { ran, cancelled };
+  }
+
+  /** `id` bound to `presses`. */
+  const bound = (id: string, ...presses: Parameters<typeof shortcut>) => ({
+    commandId: commandId(id),
+    shortcut: shortcut(...presses),
+  });
+
+  const ctrl = (code: string, shift = false) => keyPress(code, { control: true, shift });
+
+  /** An editor panel in the page: its surface, a button in it and a text field in it. */
+  function editor() {
+    const panel = document.createElement('section');
+    panel.setAttribute(EDITOR_PANEL, '');
+    const surface = document.createElement('div');
+    surface.setAttribute('role', 'application');
+    surface.tabIndex = 0;
+    const button = document.createElement('button');
+    const input = document.createElement('input');
+    panel.append(surface, button, input);
+    document.body.append(panel);
+    return { surface, button, input };
+  }
+
+  /** Presses Ctrl, with Shift where `shift`, and the key at `code` on `target`. */
+  const ctrlOn = (target: Element, code: string, shift = false) =>
+    press(target, { code, key: code.slice(3).toLowerCase(), ctrlKey: true, shiftKey: shift });
+
+  it('runs where an editor has the keyboard, on its surface or a control in its panel', () => {
+    const { ran } = listeningTo([bound('edit.copy', ctrl('KeyC'))]);
+    const { surface, button } = editor();
+
+    const presses = [ctrlOn(surface, 'KeyC'), ctrlOn(button, 'KeyC')];
+
+    expect(ran).toEqual(['edit.copy', 'edit.copy']);
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([true, true]);
+  });
+
+  it('leaves the browser to copy the page’s text everywhere else, and runs nothing', () => {
+    // Taken on the page, Ctrl+C copied no audio, there being no editor with
+    // the keyboard, and kept from the browser the text the reader selected.
+    const { ran } = listeningTo([
+      bound('edit.copy', ctrl('KeyC')),
+      bound('edit.paste', ctrl('KeyV')),
+    ]);
+    editor();
+    const elsewhere = document.createElement('button');
+    document.body.append(elsewhere);
+
+    const presses = [
+      ctrlOn(document.body, 'KeyC'),
+      ctrlOn(document.body, 'KeyV'),
+      ctrlOn(elsewhere, 'KeyC'),
+    ];
+
+    expect(ran).toEqual([]);
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([false, false, false]);
+  });
+
+  it('follows the command to the keys it is bound to, and leaves those keys to any other', () => {
+    const { ran, cancelled } = listeningTo([
+      bound('edit.copy', ctrl('KeyY', true)),
+      bound('edit.paste', ctrl('KeyK'), ctrl('KeyP')),
+      bound('test.other', ctrl('KeyC')),
+    ]);
+    const { surface } = editor();
+
+    expect(ctrlOn(surface, 'KeyY', true).defaultPrevented).toBe(true);
+    ctrlOn(surface, 'KeyK');
+    ctrlOn(surface, 'KeyP');
+    expect(ran).toEqual(['edit.copy', 'edit.paste']);
+
+    expect(ctrlOn(document.body, 'KeyY', true).defaultPrevented).toBe(false);
+    expect(ctrlOn(document.body, 'KeyC').defaultPrevented).toBe(true);
+    expect(ran).toEqual(['edit.copy', 'edit.paste', 'test.other']);
+
+    // A chord it ends away from the editor is given up, as typing gives one up.
+    expect(ctrlOn(document.body, 'KeyK').defaultPrevented).toBe(true);
+    expect(ctrlOn(document.body, 'KeyP').defaultPrevented).toBe(false);
+    expect(ran).toEqual(['edit.copy', 'edit.paste', 'test.other']);
+    expect(cancelled).toEqual(['cancelled']);
+  });
+
+  it('leaves a text field in an editor its own clipboard, on any keys the command is bound to', () => {
+    const { ran } = listeningTo([
+      bound('edit.paste', ctrl('KeyV')),
+      bound('edit.copy', ctrl('KeyJ', true)),
+    ]);
+    const { input } = editor();
+
+    // Ctrl+Shift+J is nothing a field edits with, so only the rule keeps it.
+    const presses = [ctrlOn(input, 'KeyV'), ctrlOn(input, 'KeyJ', true)];
+
+    expect(ran).toEqual([]);
+    expect(presses.map((event) => event.defaultPrevented)).toEqual([false, false]);
   });
 });
 
