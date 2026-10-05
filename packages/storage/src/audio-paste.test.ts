@@ -10,8 +10,13 @@ import {
   type EditOperation,
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
-import { completeIdentity, type ExternalFile } from '@audiogubbins/media-store';
-import { MemoryStorageTree, memorySource, observeFile } from '@audiogubbins/media-store/testing';
+import type { ExternalFile } from '@audiogubbins/media-store';
+import {
+  MemoryStorageTree,
+  completeIdentity,
+  memorySource,
+  observeFile,
+} from '@audiogubbins/media-store/testing';
 import {
   SourceChangePolicy,
   contentIdFrom,

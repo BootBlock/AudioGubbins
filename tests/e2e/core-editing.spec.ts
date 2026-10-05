@@ -9,8 +9,8 @@ import { test } from './test.js';
  * Core non-destructive editing, driven in a real browser: a WAV file is
  * imported into a project from the File menu and read by AudioGubbins' own
  * reader at its own rate, a marker is placed on it and it is edited, and after
- * a reload the same project holds the same asset, marker and edit (the
- * packet's `test:e2e:core-editing`, REQ-STOR-025, REQ-AUDIO-220, REQ-EDIT-014).
+ * a reload the same project holds the same asset, marker and edit (the packet's
+ * `test:e2e:core-editing`, REQ-STOR-025, REQ-AUDIO-220, REQ-EDIT-014).
  *
  * Every step is taken as a person takes it, through the banner, the menus, the
  * palette and the panels, and each assertion reads what the page shows. The

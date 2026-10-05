@@ -70,6 +70,19 @@ function structureOf(window: ProjectWindow): unknown {
   };
 }
 
+/**
+ * Calls off the next import the moment it starts, before the storage worker is
+ * asked to read anything: an import of a file this small could otherwise finish
+ * before a cancel sent after it, on a loaded machine.
+ */
+function cancelOnStart(window: ProjectWindow): void {
+  const stop = window.projects.imports.subscribe(() => {
+    if (window.projects.imports.get().kind !== 'importing') return;
+    stop();
+    window.run('file.cancel-import');
+  });
+}
+
 describe('Quick Edit (REQ-EDIT-008)', () => {
   it('makes the chosen file a project named after it, imports it and opens it in the editor', async () => {
     const window = await projectWorld().window();
@@ -136,11 +149,9 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
     const window = await projectWorld().window();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
 
-    const heard = window.runAndHear('file.quick-edit');
-    await expect.poll(() => window.projects.imports.get().kind).toBe('importing');
-    window.run('file.cancel-import');
+    cancelOnStart(window);
 
-    expect(await heard).toBe(
+    expect(await window.runAndHear('file.quick-edit')).toBe(
       'The Quick Edit of "Harbour.wav" was cancelled, and nothing was kept.',
     );
     expect(await projectNames(window)).toEqual([]);

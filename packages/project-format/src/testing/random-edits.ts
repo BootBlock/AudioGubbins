@@ -20,7 +20,6 @@ import {
   shapeAfter,
   shapesOf,
   slicePlan,
-  sourceShape,
   streamLength,
   validateMarker,
   validateOperation,
@@ -37,7 +36,7 @@ import {
   type Region,
   type RegionOperation,
 } from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { expectSuccess, sourceShape } from '@audiogubbins/domain/testing';
 
 import { maybe, randomCount, randomLayout, randomName, type Random } from './random-values.js';
 

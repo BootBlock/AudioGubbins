@@ -283,7 +283,7 @@ describe('an edited description crossing a thread', () => {
       kind: PcmDescriptionKind.Edited,
       sampleRate: RATE,
       plan: assetPlan(source),
-      media: [{ ...entryOf(source, samples), file: new Blob([bytes]) }],
+      media: [{ ...entryOf(source, samples), file: new Blob([new Uint8Array(bytes)]) }],
     };
     const read = expectSuccess(pcmDescription(structuredClone(description)));
     expect(read.kind).toBe(PcmDescriptionKind.Edited);

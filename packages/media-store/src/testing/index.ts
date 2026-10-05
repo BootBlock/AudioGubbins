@@ -26,4 +26,4 @@ export {
 
 export { type CountedSharing, countedSharing } from './sharing.js';
 
-export { observeFile } from '../source-observation.js';
+export { completeIdentity, observeFile } from '../source-observation.js';

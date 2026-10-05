@@ -46,7 +46,7 @@ export function placeMarkers(
 }
 
 /** Where a region's boundaries lie on its asset's edited timeline. */
-export function regionSpan(resolver: AnchorResolver, region: Region): Span | undefined {
+function regionSpan(resolver: AnchorResolver, region: Region): Span | undefined {
   return resolver.span(region.basis, { start: region.start, end: region.end });
 }
 

@@ -17,3 +17,4 @@
 export { expectFailureCode, expectSuccess } from './unwrap.js';
 export { type Samples, applyEdit } from './edit-oracle.js';
 export { renderPlan } from './plan-render.js';
+export { sourceShape } from '../editing/edit-shape.js';

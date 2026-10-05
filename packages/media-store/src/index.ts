@@ -45,7 +45,7 @@ export {
 
 export { type RetainedCopy, keepRetainedCopy } from './retained-copies.js';
 
-export { type CompletionServices, completeIdentity, examineFile } from './source-observation.js';
+export { type CompletionServices, examineFile } from './source-observation.js';
 
 export {
   type AbsenceReason,

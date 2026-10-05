@@ -50,6 +50,19 @@ function assetsOf(window: ProjectWindow) {
   return session.getSnapshot().model.state;
 }
 
+/**
+ * Calls off the next import the moment it starts, before the storage worker is
+ * asked to read anything: an import of a file this small could otherwise finish
+ * before a cancel sent after it, on a loaded machine.
+ */
+function cancelOnStart(window: ProjectWindow): void {
+  const stop = window.projects.imports.subscribe(() => {
+    if (window.projects.imports.get().kind !== 'importing') return;
+    stop();
+    window.run('file.cancel-import');
+  });
+}
+
 describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', () => {
   it('copies the chosen file in at its own rate, records its shape and opens it in the editor in use', async () => {
     const window = await windowWithProject();
@@ -134,11 +147,11 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     const before = assetsOf(window);
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
 
-    const heard = window.runAndHear('file.import-audio');
-    await expect.poll(() => window.projects.imports.get().kind).toBe('importing');
-    window.run('file.cancel-import');
+    cancelOnStart(window);
 
-    expect(await heard).toBe('The import of "Harbour.wav" was cancelled, and nothing was kept.');
+    expect(await window.runAndHear('file.import-audio')).toBe(
+      'The import of "Harbour.wav" was cancelled, and nothing was kept.',
+    );
     expect(assetsOf(window)).toBe(before);
     expect(window.projects.imports.get().kind).toBe('idle');
   });

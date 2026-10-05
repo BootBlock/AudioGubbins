@@ -60,7 +60,7 @@ function zeros(outputs: number, inputs: number): number[][] {
 }
 
 /** The matrix that leaves `count` channels as they are. */
-export function identityMatrix(count: number): ChannelMatrix {
+function identityMatrix(count: number): ChannelMatrix {
   const rows = zeros(count, count);
   rows.forEach((row, index) => (row[index] = 1));
   return rows;

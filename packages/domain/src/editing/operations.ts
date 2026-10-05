@@ -145,14 +145,6 @@ export type ChannelEditOperation =
   | Extract<EditOperation, { readonly kind: 'convert-layout' }>
   | (Extract<EditOperation, { readonly kind: 'process' }> & { readonly edit: ChannelEdit });
 
-/** The kinds of operation that move content in time, which act on every channel. */
-export const TIME_CHANGING_KINDS: ReadonlySet<EditOperation['kind']> = new Set([
-  'delete',
-  'trim',
-  'insert',
-  'reverse',
-]);
-
 /** Whether an edit changes level, so it takes a channel scope. */
 export function isLevelEdit(edit: RangeEdit): edit is LevelEdit {
   return (

@@ -16,9 +16,7 @@
 
 export { type AudioBytes, type ReadSignal } from './audio-bytes.js';
 
-export { type ReadableContainer, type RecognisedFormat } from './recognised-format.js';
-
-export { recogniseAudio } from './recognition.js';
+export { type ReadableContainer } from './recognised-format.js';
 
 export { type AudioFormatDescriptor, type SampleEncoding } from './format-descriptor.js';
 

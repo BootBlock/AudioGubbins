@@ -15,11 +15,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   openAudio,
-  recogniseAudio,
   type AudioReader,
   type ReadableContainer,
   type SampleEncoding,
 } from './index.js';
+import { recogniseAudio } from './recognition.js';
 import {
   channelLayoutBody,
   memoryBytes,

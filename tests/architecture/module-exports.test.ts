@@ -182,6 +182,23 @@ function exportsNoFileTakes(
  * from outside the module rather than through what the module offers.
  */
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
+  "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
+    ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  "Carrying a position and a span through the operations after their basis, which the anchors' tests hold to the edit model's rules one operation at a time; the domain places markers and regions through the resolver they make.":
+    [
+      'packages/domain/src/editing/anchors.ts: carryPosition',
+      'packages/domain/src/editing/anchors.ts: carrySpan',
+    ],
+  "The invocations that withdraw an asset's last operation and a region's, the inverses a change records, which the command tests run on their own; the history applies the inverses it recorded.":
+    [
+      'packages/project-commands/src/editing/edit-commands.ts: withdrawInvocation',
+      'packages/project-commands/src/editing/region-commands.ts: withdrawRegionEditInvocation',
+    ],
+  "Reading and writing a region's loop on its own, which the document's tests round-trip apart from the region holding it; a document reads and writes a loop with its region.":
+    [
+      'packages/project-format/src/placement-reading.ts: readAnchoredLoop',
+      'packages/project-format/src/placement-writing.ts: writeAnchoredLoop',
+    ],
   'The storage tree over any synchronous root, which its tests run over a directory in memory; the storage worker builds it through `originPrivateTree`, over the origin-private file system.':
     ['packages/browser-storage/src/sync-storage-tree.ts: SyncStorageTree'],
   'How many entries of a history one slice of an opening carries, which the test of a long opening exceeds twice over so the page must apply slices in turn; the worker cuts every opening by it.':

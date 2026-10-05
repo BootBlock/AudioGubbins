@@ -186,6 +186,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['NO_GESTURE', 'toolStrength'],
   },
   '@audiogubbins/domain': {
+    "The deterministic identity generator, which the fixtures package and every package's test support make reproducible identities with; the fixtures package may take no test support, so it is offered here. The application makes its identities with `createIdGenerator`.":
+      ['createDeterministicIdGenerator'],
     'The channel layout REQ-ARCH-157 asks for and ADR-0033 extends: the ambisonic sets, their conventions and components, and the labels of a custom map, which the channel-layout operations and the export recipes of later phases read.':
       ['ambisonicChannelCount', 'labelledLayout'],
     'The domain value model ADR-0015 gives Phase 01, for the phases that edit and play a project. Phase 02 keeps projects and edits their names, assets, sources and history, and reaches none of these: processors, clips, tracks and the arithmetic of time and ranges arrive with editing and mixing.':
@@ -197,7 +199,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ParameterDescriptor',
         'ParameterTaper',
         'ProcessorDescriptor',
-        'TimelineEntity',
         'ToggleParameterDescriptor',
         'assetRangeEnd',
         'chainLatency',
@@ -246,21 +247,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readExternalIdentity'],
     'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
       ['stripAssetProvenance', 'stripExportRecords'],
-  },
-  '@audiogubbins/project-commands': {
-    'The invocation that adds an asset, which importing audio runs; the import arrives with the codec phase, which reads the audio shape an asset records, so nothing in the interface adds an asset yet.':
-      ['addAssetInvocation'],
-  },
-  '@audiogubbins/media-store': {
-    'The import pipeline: copying or linking a file into a project with its identity completed as it is hashed (REQ-STOR-025, REQ-STOR-104). An asset records the audio shape of its file, which a codec reads, so the interface imports no audio until the codec phase; the pipeline is tested through a probe port.':
-      [
-        'ImportChoice',
-        'ImportRequest',
-        'ImportServices',
-        'ImportedMedia',
-        'completeIdentity',
-        'importMedia',
-      ],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

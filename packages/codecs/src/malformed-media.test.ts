@@ -9,7 +9,8 @@ import type { DomainResult, SampleCount } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
-import { openAudio, recogniseAudio, type AudioBytes } from './index.js';
+import { openAudio, type AudioBytes } from './index.js';
+import { recogniseAudio } from './recognition.js';
 import {
   channelLayoutBody,
   memoryBytes,

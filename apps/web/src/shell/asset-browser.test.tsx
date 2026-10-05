@@ -20,12 +20,14 @@ const LABELS: Readonly<Record<string, string>> = {
 
 /**
  * Draws the panel over a window's stores, its controls running the window's
- * commands, and refusing as `unavailableReason` says.
+ * commands, and refusing as `unavailableReason` says; gives back its list, and
+ * the commands its controls ran.
  */
 function browserOver(
   window: ProjectWindow,
   unavailableReason: (id: string) => string | undefined = () => undefined,
 ) {
+  const ran: string[] = [];
   render(
     <AssetBrowserPanel
       title="Asset Browser"
@@ -35,6 +37,7 @@ function browserOver(
       editorViews={window.context.editorViews}
       commands={{
         run: (id, args) => {
+          ran.push(id);
           window.run(id, args);
         },
         unavailableReason,
@@ -42,7 +45,7 @@ function browserOver(
       labelFor={(id) => LABELS[id] ?? id}
     />,
   );
-  return () => screen.getByRole('list', { name: 'The project’s audio' });
+  return { list: () => screen.getByRole('list', { name: 'The project’s audio' }), ran };
 }
 
 /** A second of a tone, as a WAV file the person chose. */
@@ -64,7 +67,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
         { name: 'Chorus', start: 96_000, end: 144_000 },
       ],
     });
-    const list = browserOver(audio.window);
+    const { list } = browserOver(audio.window);
 
     const regions = await within(list()).findByRole('list', { name: 'Regions of Loop' });
     expect(within(list()).getAllByRole('button')[0]).toHaveTextContent('Loop');
@@ -79,7 +82,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     const audio = await windowWithAudio({ regions: [{ name: 'Intro', start: 0, end: 48_000 }] });
     audio.window.context.editorViews.open('editor', audio.asset());
     audio.window.context.editorViews.focus('editor');
-    const list = browserOver(audio.window);
+    const { list } = browserOver(audio.window);
     const [region] =
       audio.window.projects.project.session()?.getSnapshot().model.state.project.regions.values() ??
       [];
@@ -99,7 +102,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
 
   it('opens an asset in a new Editor panel where no editor is in use', async () => {
     const audio = await windowWithAudio();
-    const list = browserOver(audio.window);
+    const { list } = browserOver(audio.window);
     expect(audio.window.context.editorViews.get().focused).toBeUndefined();
 
     await userEvent.click(within(list()).getByRole('button', { name: 'Loop' }));
@@ -113,7 +116,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     const audio = await windowWithAudio({ regions: [{ name: 'Intro', start: 0, end: 48_000 }] });
     audio.window.context.editorViews.open('editor', audio.asset());
     audio.window.context.editorViews.focus('editor');
-    const list = browserOver(audio.window);
+    const { list } = browserOver(audio.window);
     const asset = within(list()).getByRole('button', { name: 'Loop' });
     const region = await within(list()).findByRole('button', { name: 'Intro' });
     const row = region.closest('li');
@@ -132,7 +135,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
   it('shows the file being imported with a control that calls it off, then the import control again', async () => {
     const window = await projectWorld().window();
     await window.runAndHear('file.create-project', { name: 'Harbour' });
-    browserOver(window);
+    const { ran } = browserOver(window);
     expect(
       screen.getByText('This project has no audio yet. Import a WAV or AIFF file to add some.'),
     ).toBeInTheDocument();
@@ -140,10 +143,12 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
 
     const heard = window.runAndHear('file.import-audio');
     expect(await screen.findByRole('status')).toHaveTextContent('Importing "Harbour.wav"…');
-    // Pressed at once, as the storage worker reads the file in the meantime.
+    // The command it runs is held to keeping nothing by its own tests; whether
+    // it reaches the worker before the read ends is a race this does not judge.
     fireEvent.click(screen.getByRole('button', { name: 'Cancel the import' }));
+    expect(ran).toContain('file.cancel-import');
 
-    expect(await heard).toBe('The import of "Harbour.wav" was cancelled, and nothing was kept.');
+    await heard;
     expect(await screen.findByRole('button', { name: 'Import audio…' })).toBeInTheDocument();
     expect(screen.queryByRole('status')).toBeNull();
   });

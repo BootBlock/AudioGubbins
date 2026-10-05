@@ -3,8 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { webDigest } from '@audiogubbins/browser-storage';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { completeIdentity, type ExternalFile } from '@audiogubbins/media-store';
-import { generatedSource, memorySource, observeFile } from '@audiogubbins/media-store/testing';
+import type { ExternalFile } from '@audiogubbins/media-store';
+import {
+  completeIdentity,
+  generatedSource,
+  memorySource,
+  observeFile,
+} from '@audiogubbins/media-store/testing';
 import type { ExternalSourceIdentity } from '@audiogubbins/project-format';
 
 import { readPortMessage } from '../protocol/port-messages.js';

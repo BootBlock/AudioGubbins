@@ -27,7 +27,7 @@ export {
   setAssetMediaInvocation,
 } from './project-invocations.js';
 
-export { applyInvocation, withdrawInvocation } from './editing/edit-commands.js';
+export { applyInvocation } from './editing/edit-commands.js';
 export {
   addMarkerInvocation,
   removeMarkerInvocation,
@@ -38,5 +38,4 @@ export {
   applyRegionEditInvocation,
   removeRegionInvocation,
   setRegionInvocation,
-  withdrawRegionEditInvocation,
 } from './editing/region-commands.js';

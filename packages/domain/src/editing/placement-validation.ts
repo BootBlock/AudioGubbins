@@ -33,7 +33,7 @@ export function namesChannels(operation: RegionOperation): boolean {
 }
 
 /** The index of the asset's last layout conversion, or −1 where it has none. */
-export function lastConversion(asset: Asset): number {
+function lastConversion(asset: Asset): number {
   return asset.edits.findLastIndex((operation) => operation.kind === 'convert-layout');
 }
 

@@ -129,7 +129,6 @@ export {
   FadeDirection,
   FadeShape,
   MAXIMUM_EDIT_GAIN,
-  TIME_CHANGING_KINDS,
   isLevelEdit,
 } from './editing/operations.js';
 
@@ -143,28 +142,15 @@ export {
   type PlanStage,
   type PlanStream,
   convertedFrameCount,
-  fadeShapeAt,
-  gainAt,
   planReadsAsset,
   streamLength,
 } from './editing/plan.js';
 
-export { type EditShape, shapeAfter, shapesOf, sourceShape } from './editing/edit-shape.js';
+export { type EditShape, shapeAfter, shapesOf } from './editing/edit-shape.js';
 
-export {
-  Affinity,
-  type AnchorResolver,
-  type Span,
-  anchorResolver,
-  carryPosition,
-  carrySpan,
-} from './editing/anchors.js';
+export { Affinity, type AnchorResolver, type Span, anchorResolver } from './editing/anchors.js';
 
-export {
-  type ChannelMatrix,
-  conversionMatrix,
-  identityMatrix,
-} from './editing/channel-matrices.js';
+export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices.js';
 
 export { assetPlan } from './editing/plan-building.js';
 export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
@@ -173,19 +159,13 @@ export { slicePlan } from './editing/plan-slicing.js';
 export { type MediaShape, validatePlan } from './editing/plan-validation.js';
 export { editPlanFrom } from './editing/plan-decoding.js';
 export { validateChain, validateOperation } from './editing/operation-validation.js';
-export {
-  lastConversion,
-  namesChannels,
-  validateMarker,
-  validateRegion,
-} from './editing/placement-validation.js';
+export { namesChannels, validateMarker, validateRegion } from './editing/placement-validation.js';
 export {
   markersInRegion,
   placeMarkers,
   placeRegion,
   placeRegions,
   regionPlan,
-  regionSpan,
 } from './editing/placement.js';
 
 export {

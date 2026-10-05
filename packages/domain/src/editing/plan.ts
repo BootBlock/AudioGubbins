@@ -124,7 +124,7 @@ export function convertedFrameCount(length: number, from: number, to: number): n
 }
 
 /** A fade shape at `t` in `[0, 1]`, by addition, multiplication and the square root. */
-export function fadeShapeAt(shape: FadeShape, t: number): number {
+function fadeShapeAt(shape: FadeShape, t: number): number {
   switch (shape) {
     case FadeShape.Linear:
       return t;
