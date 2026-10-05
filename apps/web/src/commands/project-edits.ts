@@ -59,8 +59,12 @@ export function needsProjectAsset(context: ShellContext): CommandAvailability {
   return typeof project === 'string' ? unavailable(project) : AVAILABLE;
 }
 
-/** Where position `at` of a view lies on its asset's edited timeline. */
-export function onAsset(owner: ProjectOwner, at: number): SampleCount {
+/**
+ * Where position `at` of a view lies on its asset's edited timeline: the sum
+ * of two counts already checked, a position on the view and the offset of
+ * the view on the asset, which together lie within the asset.
+ */
+export function onAsset(owner: ProjectOwner, at: SampleCount): SampleCount {
   return derivedSampleCount(owner.offset + at);
 }
 

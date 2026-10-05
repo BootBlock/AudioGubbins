@@ -63,3 +63,23 @@ export function channelNames(layout: ChannelLayout): readonly string[] {
     );
   });
 }
+
+/** A channel number as a person writes one, counted from 1. */
+const WRITTEN_NUMBER = /^\d+$/u;
+
+/** Compares channel names as a person writes them, whatever their case. */
+const NAME_COMPARER = new Intl.Collator('en-GB', { sensitivity: 'accent' });
+
+/**
+ * The index of the channel of `layout` that `written` names, by its name as
+ * {@link channelNames} gives it, in any case, or by its number counted from 1,
+ * as the editor numbers its lanes; `undefined` where it names none.
+ */
+export function channelNamed(layout: ChannelLayout, written: string | number): number | undefined {
+  const text = String(written).trim();
+  const names = channelNames(layout);
+  const index = WRITTEN_NUMBER.test(text)
+    ? Number(text) - 1
+    : names.findIndex((name) => NAME_COMPARER.compare(name, text) === 0);
+  return index >= 0 && index < names.length ? index : undefined;
+}

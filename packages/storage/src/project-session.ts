@@ -290,14 +290,15 @@ export class ProjectSession {
   /**
    * The project as it stands at side `side` of the open comparison, worked
    * out from the project as it is, so that side can be heard without moving
-   * the project to it (REQ-STOR-195). Neither state is touched.
+   * the project to it (REQ-STOR-195), until `signal` aborts. Neither state is
+   * touched.
    */
-  readonly comparedState = async (side: SideName): Promise<DomainResult<ProjectState>> =>
-    await this.exclusive(async () => {
+  readonly comparedState = async (side: SideName, signal?: AbortSignal) =>
+    await this.exclusive(async (): Promise<DomainResult<ProjectState>> => {
       const { comparison, history, state } = this.model;
       return comparison === undefined
         ? fail(NO_COMPARISON)
-        : await stateAt(history, state, comparison[side].node, this.moves);
+        : await stateAt(history, state, comparison[side].node, this.moves, signal);
     });
 
   /** Listens to the named side of the open comparison, or to the other side. */

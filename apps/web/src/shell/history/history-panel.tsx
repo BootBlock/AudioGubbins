@@ -54,6 +54,7 @@ export interface HistoryPanelProps {
   readonly rowOrders: Pick<HistoryRowOrders, 'orderOf'>;
   readonly run: RunCommand;
   readonly unavailableReason: (id: string) => string | undefined;
+  readonly labelFor: (id: string) => string;
 }
 
 const SCOPES = [
@@ -96,11 +97,10 @@ function Reviewing({
   reviewing,
   run,
   unavailableReason,
-}: {
+  labelFor,
+}: Pick<HistoryPanelProps, 'run' | 'unavailableReason' | 'labelFor'> & {
   readonly model: ProjectModel;
   readonly reviewing: HistoryReviewState;
-  readonly run: RunCommand;
-  readonly unavailableReason: (id: string) => string | undefined;
 }): ReactNode {
   const pending = reviewing.compaction;
   return (
@@ -111,7 +111,8 @@ function Reviewing({
           history={model.history}
           comparison={model.comparison}
           difference={reviewing.difference}
-          run={run}
+          commands={{ run, unavailableReason }}
+          labelFor={labelFor}
         />
       )}
       {pending !== undefined && pending.policy === undefined && (
@@ -172,6 +173,7 @@ function OpenHistory({
   rowOrders,
   run,
   unavailableReason,
+  labelFor,
 }: Omit<HistoryPanelProps, 'project' | 'review'> & {
   readonly model: ProjectModel;
   readonly reviewing: HistoryReviewState;
@@ -214,6 +216,7 @@ function OpenHistory({
         reviewing={reviewing}
         run={run}
         unavailableReason={unavailableReason}
+        labelFor={labelFor}
       />
     </section>
   );

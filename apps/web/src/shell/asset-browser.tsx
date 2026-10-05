@@ -1,8 +1,8 @@
 /**
  * The Asset Browser panel: the open project's audio, each asset with its
  * regions under it in the project's order, any of them opened in the editor in
- * use with a press, and the control that imports a file and the one that calls
- * an import off (REQ-STOR-025, REQ-EDIT-014).
+ * use with a press, and the control that imports a file or calls an import off
+ * (REQ-STOR-025, REQ-EDIT-014).
  *
  * An entry the page cannot open yet says why, as the editor view of it would.
  * The list follows the project and the catalogue, whose entries keep their
@@ -118,7 +118,12 @@ function EntryItem({
   );
 }
 
-/** The import control, or the file being imported and the control that calls it off. */
+/**
+ * The import control, or the file being imported and the control that calls it
+ * off. The two are one button, which the import turns from one into the other
+ * and back, so the focus stays on it either way, and one status, there before
+ * anything is said in it, so a screen reader hears what is.
+ */
 function ImportControls({
   projects,
   commands,
@@ -132,26 +137,13 @@ function ImportControls({
   // Followed for the import command's availability, which the open project
   // decides: the dock mounts a panel once, so nothing above redraws it.
   useSyncExternalStore(projects.project.subscribe, projects.project.get);
+  const id = importing.kind === 'importing' ? 'file.cancel-import' : 'file.import-audio';
   return (
     <div className="ag-asset-import">
-      {importing.kind === 'importing' ? (
-        <>
-          <p role="status">{`Importing ${quoted(importing.fileName)}…`}</p>
-          <CommandButton
-            id="file.cancel-import"
-            label={labelFor('file.cancel-import')}
-            commands={commands}
-            compact
-          />
-        </>
-      ) : (
-        <CommandButton
-          id="file.import-audio"
-          label={labelFor('file.import-audio')}
-          commands={commands}
-          compact
-        />
-      )}
+      <CommandButton id={id} label={labelFor(id)} commands={commands} compact />
+      <p role="status">
+        {importing.kind === 'importing' ? `Importing ${quoted(importing.fileName)}…` : ''}
+      </p>
     </div>
   );
 }

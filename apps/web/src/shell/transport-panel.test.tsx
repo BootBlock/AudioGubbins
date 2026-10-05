@@ -164,23 +164,36 @@ describe('the Transport panel before anything plays', () => {
       unavailableNow: (id) => (id === 'transport.play' ? reason : undefined),
       editorViews: views,
     });
-    expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'true');
 
     reason = undefined;
     act(() => {
       views.set(1);
     });
 
-    expect(screen.getByRole('button', { name: 'Play' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
   });
 
-  it('greys a button whose command cannot run, with the command’s own reason', () => {
-    draw(undefined, { unavailable: { 'transport.pause': 'Nothing is playing.' } });
+  it('keeps a button whose command cannot run in the tab order, saying the command’s own reason once', async () => {
+    const { run } = draw(undefined, {
+      unavailable: {
+        'transport.pause': 'Nothing is playing.',
+        'transport.stop': 'Nothing is playing.',
+      },
+    });
 
     const pause = screen.getByRole('button', { name: 'Pause' });
-    expect(pause).toBeDisabled();
-    expect(pause).toHaveAttribute('title', 'Nothing is playing.');
-    expect(screen.getByRole('button', { name: 'Stop' })).toBeEnabled();
+    expect(pause).toHaveAttribute('aria-disabled', 'true');
+    expect(pause).toHaveAccessibleDescription('Nothing is playing.');
+    expect(screen.getByRole('button', { name: 'Stop' })).toHaveAccessibleDescription(
+      'Nothing is playing.',
+    );
+    expect(screen.getAllByText('Nothing is playing.')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Play' })).not.toHaveAccessibleDescription();
+    pause.focus();
+    expect(pause).toHaveFocus();
+    await userEvent.click(pause);
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('shows the profile chosen, Custom among them', () => {

@@ -132,7 +132,7 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     expect(within(list()).getByRole('button', { name: 'Loop' })).toBe(asset);
   });
 
-  it('shows the file being imported with a control that calls it off, then the import control again', async () => {
+  it('turns the import control into the one that calls the import off and back, keeping the focus on it', async () => {
     const window = await projectWorld().window();
     await window.runAndHear('file.create-project', { name: 'Harbour' });
     const { ran } = browserOver(window);
@@ -140,17 +140,22 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
       screen.getByText('This project has no audio yet. Import a WAV or AIFF file to add some.'),
     ).toBeInTheDocument();
     window.files.mediaFiles.push(chosenWav());
+    const control = screen.getByRole('button', { name: 'Import audio…' });
+    control.focus();
 
     const heard = window.runAndHear('file.import-audio');
-    expect(await screen.findByRole('status')).toHaveTextContent('Importing "Harbour.wav"…');
+    expect(await screen.findByText('Importing "Harbour.wav"…')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'Cancel the import' })).toBe(control);
+    expect(control).toHaveFocus();
     // The command it runs is held to keeping nothing by its own tests; whether
     // it reaches the worker before the read ends is a race this does not judge.
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel the import' }));
+    fireEvent.click(control);
     expect(ran).toContain('file.cancel-import');
 
     await heard;
-    expect(await screen.findByRole('button', { name: 'Import audio…' })).toBeInTheDocument();
-    expect(screen.queryByRole('status')).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Import audio…' })).toBe(control);
+    expect(control).toHaveFocus();
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
   });
 
   it('offers the import once a project opens, following the project as its command does', async () => {
@@ -158,11 +163,14 @@ describe('the Asset Browser panel (REQ-STOR-025, REQ-EDIT-014)', () => {
     browserOver(window, () =>
       window.projects.project.session() === undefined ? 'No project is open.' : undefined,
     );
-    expect(screen.getByRole('button', { name: 'Import audio…' })).toBeDisabled();
+    const control = screen.getByRole('button', { name: 'Import audio…' });
+    expect(control).toHaveAttribute('aria-disabled', 'true');
+    expect(control).toHaveAccessibleDescription('No project is open.');
 
     await window.runAndHear('file.create-project', { name: 'Harbour' });
 
-    expect(await screen.findByRole('button', { name: 'Import audio…' })).toBeEnabled();
+    await expect.poll(() => control.getAttribute('aria-disabled')).toBe('false');
+    expect(control).not.toHaveAccessibleDescription();
   });
 
   it('says why it lists nothing where no project is open', async () => {

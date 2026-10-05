@@ -61,11 +61,13 @@ export function ReasonedButton({
   reason,
   onPress,
   tone,
+  compact,
   children,
 }: {
   readonly reason: string | undefined;
   readonly onPress: () => void;
   readonly tone?: ButtonTone;
+  readonly compact?: boolean;
   readonly children: ReactNode;
 }): ReactNode {
   const reasonId = useId();
@@ -73,6 +75,7 @@ export function ReasonedButton({
     <span className="ag-settings-reasoned">
       <NotedButton
         {...(tone === undefined ? {} : { tone })}
+        {...(compact === undefined ? {} : { compact })}
         reasonId={reason === undefined ? undefined : reasonId}
         onPress={onPress}
       >

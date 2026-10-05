@@ -12,6 +12,7 @@ import { TextField } from '@audiogubbins/design-system';
 import type { Region } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
 
+import { loopAbsence } from '../../commands/region-property-commands.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { regionOperationWords, type EditWording } from './edit-words.js';
 import type { InspectedRegion } from './inspected.js';
@@ -39,6 +40,14 @@ function KeptField({
   readonly controls: RegionControls;
 }): ReactNode {
   const [typed, setTyped] = useState(initial);
+  const [kept, setKept] = useState(initial);
+  // Started again from the project's value whenever it changes, by this
+  // field's own command, an undo or another view, while the field stays where
+  // it is, and the focus in it.
+  if (kept !== initial) {
+    setKept(initial);
+    setTyped(initial);
+  }
   const args = { view: controls.panel, region: controls.region.id, [argument]: typed };
   return (
     <div className="ag-inspector-row">
@@ -61,6 +70,35 @@ function KeptField({
   );
 }
 
+/** The crossfade typed, and the control that loops the selection with it. */
+function LoopField({ controls }: { readonly controls: RegionControls }): ReactNode {
+  const [crossfade, setCrossfade] = useState('0');
+  const args = {
+    view: controls.panel,
+    region: controls.region.id,
+    crossfade: crossfade.trim() === '' ? Number.NaN : Number(crossfade),
+  };
+  return (
+    <div className="ag-inspector-row">
+      <TextField
+        label="Crossfade in frames"
+        value={crossfade}
+        onValueChange={setCrossfade}
+        onSubmit={() => {
+          controls.commands.run('region.loop', args);
+        }}
+      />
+      <CommandButton
+        id="region.loop"
+        label={controls.labelFor('region.loop')}
+        commands={controls.commands}
+        args={args}
+        compact
+      />
+    </div>
+  );
+}
+
 /** Whether the region loops, and the controls that loop it or stop it. */
 function LoopControls({
   inspected,
@@ -71,7 +109,6 @@ function LoopControls({
   readonly controls: RegionControls;
   readonly words: EditWording;
 }): ReactNode {
-  const [crossfade, setCrossfade] = useState('0');
   const loop = inspected.placed?.loop;
   const args = { view: controls.panel, region: controls.region.id };
   return (
@@ -82,16 +119,7 @@ function LoopControls({
           : `It loops between ${words.position(loop.loopStart)} and ${words.position(loop.loopEnd)} of the region, with a crossfade of ${counted(loop.crossfadeLength, 'frame', 'frames')}.`}
       </p>
       {inspected.shownAlone ? (
-        <div className="ag-inspector-row">
-          <TextField label="Crossfade in frames" value={crossfade} onValueChange={setCrossfade} />
-          <CommandButton
-            id="region.loop"
-            label={controls.labelFor('region.loop')}
-            commands={controls.commands}
-            args={{ ...args, crossfade: crossfade.trim() === '' ? Number.NaN : Number(crossfade) }}
-            compact
-          />
-        </div>
+        <LoopField controls={controls} />
       ) : (
         <div className="ag-inspector-row">
           <p className="ag-panel-note">
@@ -106,15 +134,16 @@ function LoopControls({
           />
         </div>
       )}
-      {loop !== undefined && (
-        <CommandButton
-          id="region.clear-loop"
-          label={controls.labelFor('region.clear-loop')}
-          commands={controls.commands}
-          args={args}
-          compact
-        />
-      )}
+      {/* Kept while the region does not loop, saying so, so the focus stays
+          on it once it is pressed. */}
+      <CommandButton
+        id="region.clear-loop"
+        label={controls.labelFor('region.clear-loop')}
+        commands={controls.commands}
+        args={args}
+        refusal={loopAbsence(controls.region)}
+        compact
+      />
     </div>
   );
 }
@@ -147,8 +176,11 @@ export function RegionProperties({
           ? 'Nothing of it is left: the edits made since it was placed removed all of its audio.'
           : `From ${words.position(placed.start)}, ${counted(placed.length, 'frame', 'frames')} long.`}
       </p>
+      {/* Keyed by the region, so a draft typed for one is never shown for
+          another, and a change to its value starts the field again in
+          place. */}
       <KeptField
-        key={`name:${region.displayName}`}
+        key={`name:${region.id}`}
         label="Name"
         command="region.rename"
         argument="name"
@@ -156,14 +188,14 @@ export function RegionProperties({
         controls={controls}
       />
       <KeptField
-        key={`tags:${tags}`}
+        key={`tags:${region.id}`}
         label="Tags, separated by commas"
         command="region.set-tags"
         argument="tags"
         initial={tags}
         controls={controls}
       />
-      <LoopControls inspected={inspected} controls={controls} words={words} />
+      <LoopControls key={region.id} inspected={inspected} controls={controls} words={words} />
       <h4 className="ag-inspector-heading">Its own processing</h4>
       {region.operations.length === 0 ? (
         <p>None.</p>

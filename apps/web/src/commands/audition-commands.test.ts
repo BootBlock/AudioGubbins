@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { PcmDescriptionKind } from '@audiogubbins/audio-engine';
 import type { HistoryNodeId } from '@audiogubbins/project-format';
@@ -10,18 +10,24 @@ holdPlatformFiles();
 
 /**
  * The loop imported and open in the editor in use, made 6 dB quieter after,
- * and a comparison open of side A, before the gain, and side B, after it.
+ * and a comparison open of side A, before the gain, and side B, after it;
+ * with the plan the loop had in side A.
  */
-async function comparedLoop(): Promise<{ readonly audio: AudioWindow; readonly b: HistoryNodeId }> {
+async function comparedLoop(): Promise<{
+  readonly audio: AudioWindow;
+  readonly b: HistoryNodeId;
+  readonly planA: unknown;
+}> {
   const audio = await windowWithAudio();
   const { context } = audio.window;
   context.editorViews.open('editor', audio.asset());
   context.editorViews.focus('editor');
   const a = audio.session.getSnapshot().model.history.cursor;
+  const planA = currentPlan(audio);
   await audio.window.runAndHear('edit.gain', { decibels: -6 });
   const b = audio.session.getSnapshot().model.history.cursor;
   await audio.window.runAndHear('history.compare', { fromNode: a, node: b });
-  return { audio, b };
+  return { audio, b, planA };
 }
 
 /** The edit plan the transport was given last. */
@@ -38,19 +44,47 @@ function currentPlan(audio: AudioWindow): unknown {
 
 describe('hearing the two states of an A/B comparison (REQ-STOR-195)', () => {
   it('plays the audio in view as the side heard has it, changing neither state', async () => {
-    const { audio, b } = await comparedLoop();
+    const { audio, b, planA } = await comparedLoop();
+    const stateA = await audio.session.comparedState('a');
+    const stateB = audio.session.getSnapshot().model.state;
 
     audio.window.run('history.audition');
     await expect.poll(() => audio.window.audio.playback.opened.length).toBe(1);
     await playbackSettled(audio.window.context.audio);
 
-    const played = planPlayed(audio);
-    expect(played).toBeDefined();
-    expect(played).not.toEqual(currentPlan(audio));
-    expect(audio.window.context.playback.programme()).toBe(`compared-a:${audio.entry}`);
+    expect(planA).toBeDefined();
+    expect(planPlayed(audio)).toEqual(planA);
     const { model } = audio.session.getSnapshot();
     expect(model.history.cursor).toBe(b);
     expect(model.comparison?.listening).toBe('a');
+    expect(model.state).toEqual(stateB);
+    expect(await audio.session.comparedState('a')).toEqual(stateA);
+  });
+
+  it('plays the side asked for last, whichever the worker answers first', async () => {
+    const { audio, planA } = await comparedLoop();
+    const { session } = audio;
+    const asked = session.comparedState;
+    // Side B's state is answered only after side A's, asked for after it.
+    let answerB = (): void => undefined;
+    const answeredB = new Promise<void>((resolve) => {
+      answerB = resolve;
+    });
+    vi.spyOn(session, 'comparedState').mockImplementation(async (side, signal) => {
+      if (side === 'b') await answeredB;
+      return await asked(side, signal);
+    });
+
+    audio.window.run('history.audition', { side: 'b' });
+    audio.window.run('history.audition', { side: 'a' });
+    await expect.poll(() => audio.window.audio.playback.opened.length).toBe(1);
+    await playbackSettled(audio.window.context.audio);
+    answerB();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await playbackSettled(audio.window.context.audio);
+
+    expect(planPlayed(audio)).toEqual(planA);
+    expect(audio.window.audio.playback.latest().loads).toHaveLength(1);
   });
 
   it('goes on as the other side when the sides are switched while one plays', async () => {

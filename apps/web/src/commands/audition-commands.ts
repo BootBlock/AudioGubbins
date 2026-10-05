@@ -2,7 +2,7 @@
  * Hearing the two states of an A/B comparison (REQ-STOR-195): the asset or
  * region in the editor in use, played as it stands in the side heard, built
  * from that side's state as the editor builds the project's own entries
- * (`projectEntries`) and played by the transport at its own rate.
+ * (`projectEntry`) and played by the transport at its own rate.
  *
  * Neither state changes: the side's state is worked out in the storage worker
  * and only read here. Switching sides while one is heard goes on with the
@@ -14,66 +14,62 @@ import { AUDIO_PLAYBACK } from '@audiogubbins/capabilities';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import {
   FailureKind,
-  derivedSampleCount,
   fail,
   failure,
+  derivedSampleCount,
   succeed,
-  type AssetId,
   type DomainResult,
   type SampleCount,
 } from '@audiogubbins/domain';
 import type { SideName } from '@audiogubbins/history';
-import type { RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import { assetProgramme } from '../audio/asset-playback.js';
 import type { Programme } from '../audio/programme.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
-import { projectEntries, type MediaAvailability } from '../assets/project-assets.js';
+import { projectEntry } from '../assets/project-assets.js';
+import type { ProjectStores } from '../state/project-stores.js';
 import { modeOf, needing } from './audio-commands.js';
 import { focusedEditor, parkHeld } from './editor-target.js';
 import { sayWhenSettled, sessionOf } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** What starts the key of a programme that plays a side of a comparison. */
-const AUDITION = 'compared-';
-
-/** The programme that plays `asset` as side `side` has it, apart from the asset's own. */
+/**
+ * The programme that plays `asset` as side `side` has it, keyed apart from the
+ * asset's own and the other side's, so the transport loads it afresh. The key
+ * only tells programmes apart: which side it plays is held as such
+ * (`HistoryReviewStore.hearing`).
+ */
 function sideProgramme(asset: EditorAsset, side: SideName): Programme {
   return {
     ...assetProgramme(asset),
-    key: `${AUDITION}${side}:${asset.id}`,
+    key: `compared-${side}:${asset.id}`,
     playing: `${asset.name} is playing as side ${side.toUpperCase()} has it.`,
   };
 }
 
 /** The side of a comparison the transport plays, where it plays one. */
 export function sideAuditioned(context: ShellContext): SideName | undefined {
-  const key = context.playback.programme();
-  if (key?.startsWith(AUDITION) !== true || modeOf(context) !== TransportMode.Playing) {
-    return undefined;
-  }
-  return key.charAt(AUDITION.length) === 'b' ? 'b' : 'a';
+  if (modeOf(context) !== TransportMode.Playing) return undefined;
+  return context.projects?.review.sidePlayedBy(context.playback.programme());
 }
 
 /**
  * Plays `view`, the asset or region in the editor in use, as side `side` has
- * it, from `from`, with the files the page holds as `media` says; or why it
- * cannot be heard there.
+ * it, from `from`, with the files the page holds as `stores` says; or why it
+ * cannot be heard there. A side asked for since gives this one up, so the
+ * side played is the one asked for last.
  */
 async function auditioned(
   context: ShellContext,
-  parts: {
-    readonly session: RemoteProjectSession;
-    readonly media: (asset: AssetId) => MediaAvailability;
-  },
+  stores: ProjectStores,
   view: EditorAsset,
   side: SideName,
-  from: number,
+  from: SampleCount,
 ): Promise<DomainResult<void>> {
-  const state = await parts.session.comparedState(side);
+  const state = await stores.review.sideState(side);
   if (!state.ok) return state;
-  const entry = projectEntries(state.value, parts.media).entries.get(view.id);
+  const entry = projectEntry(state.value, stores.media.of, view.id);
   const named = `side ${side.toUpperCase()}`;
   if (entry === undefined) {
     return fail(
@@ -89,9 +85,11 @@ async function auditioned(
       ),
     );
   }
-  const at: SampleCount = derivedSampleCount(Math.min(from, entry.asset.length));
+  const at = derivedSampleCount(Math.min(from, entry.asset.length));
+  const programme = sideProgramme(entry.asset, side);
   parkHeld(context);
-  context.playback.play(sideProgramme(entry.asset, side), at);
+  stores.review.hearing(programme.key, side);
+  context.playback.play(programme, at);
   return succeed(undefined);
 }
 
@@ -102,7 +100,7 @@ async function auditioned(
 export function auditionSide(
   context: ShellContext,
   side: SideName | undefined,
-  from?: number,
+  from?: SampleCount,
 ): string | undefined {
   const target = focusedEditor(context);
   if (typeof target === 'string') return target;
@@ -121,7 +119,7 @@ export function auditionSide(
     context,
     auditioned(
       context,
-      { session, media: stores.media.of },
+      stores,
       target.asset,
       side ?? comparison.listening,
       from ?? context.cues.of(target.asset.id),
