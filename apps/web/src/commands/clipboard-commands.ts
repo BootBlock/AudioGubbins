@@ -18,7 +18,12 @@ import {
   type Command,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { copyAudio, planPaste, type CopiedAudio, type PasteRequest } from '@audiogubbins/clipboard';
+import {
+  copyAudio,
+  planPaste,
+  type ClipboardPayload,
+  type PasteRequest,
+} from '@audiogubbins/clipboard';
 import { formatPosition } from '@audiogubbins/timeline';
 
 import {
@@ -55,10 +60,8 @@ function clipboardCommand(
 }
 
 /** Whether two copies hold the same audio from the same project. */
-function sameCopy(one: CopiedAudio | undefined, other: CopiedAudio): boolean {
-  return (
-    one?.origin === other.origin && JSON.stringify(one.payload) === JSON.stringify(other.payload)
-  );
+function sameCopy(one: ClipboardPayload | undefined, other: ClipboardPayload): boolean {
+  return one?.origin === other.origin && JSON.stringify(one.plan) === JSON.stringify(other.plan);
 }
 
 /** Copies the scope to the clipboard, answering what it was called, or why it could not. */
@@ -153,7 +156,7 @@ function pasteCommand(): Command<ShellContext> {
       const planned = planPaste(
         state,
         {
-          copied: held,
+          payload: held,
           asset: owner.asset.id,
           place: pastedAt(context, found.view, owner),
           convertRate: invocation.arguments?.['convertRate'] === true,

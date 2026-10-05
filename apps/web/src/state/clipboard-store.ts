@@ -4,13 +4,13 @@
  * anywhere. It is not project state, so undo leaves it as it is.
  */
 
-import type { CopiedAudio } from '@audiogubbins/clipboard';
+import type { ClipboardPayload } from '@audiogubbins/clipboard';
 
 import { observable, type Observable } from './observable.js';
 
 /** What the clipboard holds: the audio copied last, and what it was copied from. */
 export interface ClipboardState {
-  readonly copied: CopiedAudio | undefined;
+  readonly copied: ClipboardPayload | undefined;
   /** What the copy is called, as a reader is told what a paste will bring. */
   readonly description: string | undefined;
 }
@@ -18,7 +18,7 @@ export interface ClipboardState {
 /** The page's clipboard. */
 export interface ClipboardStore extends Observable<ClipboardState> {
   /** Holds `copied` in place of whatever was held. */
-  readonly hold: (copied: CopiedAudio, description: string) => void;
+  readonly hold: (copied: ClipboardPayload, description: string) => void;
 }
 
 /** Makes an empty clipboard. */

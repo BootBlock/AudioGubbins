@@ -26,7 +26,7 @@ import {
 import { referenceState } from '@audiogubbins/project-format/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
-import { copyAudio, type CopiedAudio } from './copied-audio.js';
+import { copyAudio, type ClipboardPayload } from './clipboard-payload.js';
 import { planPaste, type PasteRequest } from './paste-planning.js';
 
 /**
@@ -82,8 +82,8 @@ function copied(plan: EditPlan, start: number, end: number, channels?: readonly 
   return expectSuccess(copyAudio(state, plan, { start: at(start), end: at(end) }, channels));
 }
 
-function request(copy: CopiedAudio, asset: Asset, place: PasteRequest['place']): PasteRequest {
-  return { copied: copy, asset: asset.id, place, convertRate: false };
+function request(copy: ClipboardPayload, asset: Asset, place: PasteRequest['place']): PasteRequest {
+  return { payload: copy, asset: asset.id, place, convertRate: false };
 }
 
 /** The frames `[start, end)` of each channel of `sound`. */
@@ -96,7 +96,7 @@ describe('copying (ADR-0053)', () => {
     const copy = copied(assetPlan(footstep), 1_000, 3_000);
 
     expect(copy.origin).toBe(state.project.id);
-    expect(renderPlan(copy.payload, sourcesOf(state))).toEqual(
+    expect(renderPlan(copy.plan, sourcesOf(state))).toEqual(
       framesOf(soundOf(footstep), 1_000, 3_000).map((frames) => Float32Array.from(frames)),
     );
     expect(copy.records).toEqual([
@@ -119,7 +119,7 @@ describe('copying (ADR-0053)', () => {
     const plan = regionPlan(footstep, loop);
     const copy = copied(plan, 100, 200);
 
-    expect(renderPlan(copy.payload, sourcesOf(state))).toEqual(
+    expect(renderPlan(copy.plan, sourcesOf(state))).toEqual(
       soundOf(footstep).map((channel) =>
         Float32Array.from(channel.subarray(100, 200), (sample) => Math.fround(sample * 0.5)),
       ),
@@ -129,8 +129,8 @@ describe('copying (ADR-0053)', () => {
   it('takes only the channels chosen, keeping their roles', () => {
     const copy = copied(assetPlan(forest), 0, 10, [1]);
 
-    expect(copy.payload.streams[0].layout.roles).toEqual(['right']);
-    expect(renderPlan(copy.payload, sourcesOf(state))).toEqual([
+    expect(copy.plan.streams[0].layout.roles).toEqual(['right']);
+    expect(renderPlan(copy.plan, sourcesOf(state))).toEqual([
       Float32Array.from(soundOf(forest)[1]?.subarray(0, 10) ?? []),
     ]);
   });
@@ -286,7 +286,7 @@ describe('pasting (ADR-0053)', () => {
   });
 
   /** A copy of `count` one-frame segments of `asset`, alternately reversed. */
-  function intricate(asset: Asset, count: number): CopiedAudio {
+  function intricate(asset: Asset, count: number): ClipboardPayload {
     const segments: PlanSegment[] = Array.from({ length: count }, (_, index) => ({
       source: { kind: 'media', asset: asset.id },
       start: at(index % 400),
@@ -296,7 +296,7 @@ describe('pasting (ADR-0053)', () => {
     }));
     return {
       origin: state.project.id,
-      payload: {
+      plan: {
         streams: [{ sampleRate: asset.sampleRate, layout: asset.channelLayout, segments }],
       },
       records: [],
@@ -304,13 +304,13 @@ describe('pasting (ADR-0053)', () => {
   }
 
   /** How long the insertion of `copy` whole is as an argument. */
-  function wholeLength(copy: CopiedAudio, convertRate: boolean): number {
+  function wholeLength(copy: ClipboardPayload, convertRate: boolean): number {
     return canonicalJson(
       writeEditOperation({
         id: unsafeBrandId<'EditOperationId'>('ffffffff-ffff-4fff-bfff-ffffffffffff'),
         kind: 'insert',
         at: at(Number.MAX_SAFE_INTEGER),
-        payload: copy.payload,
+        payload: copy.plan,
         convertRate,
       }),
     ).length;
@@ -333,7 +333,7 @@ describe('pasting (ADR-0053)', () => {
       joined.push(...operation.payload.streams[0].segments);
       position += operation.payload.streams[0].segments.length;
     }
-    expect(joined).toEqual(copy.payload.streams[0].segments);
+    expect(joined).toEqual(copy.plan.streams[0].segments);
   });
 
   it('splits only past the longest argument, which is the one the commands read by default', () => {
@@ -362,7 +362,7 @@ describe('pasting (ADR-0053)', () => {
 
     const whole = expectSuccess(planPaste(withSlower, converting, ids, wholeLength(copy, true)));
     expect(whole.operations).toEqual([
-      expect.objectContaining({ kind: 'insert', payload: copy.payload }),
+      expect.objectContaining({ kind: 'insert', payload: copy.plan }),
     ]);
     expect(
       expectFailureCode(planPaste(withSlower, converting, ids, wholeLength(copy, true) - 1)),

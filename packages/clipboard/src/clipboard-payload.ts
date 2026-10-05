@@ -1,19 +1,18 @@
 /**
- * What a copy takes (ADR-0053): a slice of the plan of the asset or region
- * shown, on the channels chosen, with the record of every asset whose media
- * the slice reads.
+ * What a copy takes (ADR-0053), the clipboard's payload: a slice of the plan
+ * of the asset or region shown, on the channels chosen, with the record of
+ * every asset whose media the slice reads.
  *
  * The slice names immutable sources only, never an operation, so what was
  * copied sounds the same whatever later happens to the asset it came from. The
  * records carry each asset as its source was imported, with no edits, since a
- * payload reads an asset's media and never its chain, and an asset is added to
- * a project unedited; they let a paste into another project bring the media
- * with it.
+ * slice reads an asset's media and never its chain, and an asset is added to a
+ * project unedited; they let a paste into another project bring the media with
+ * it.
  */
 
 import {
   slicePlan,
-  type ClipboardPayload,
   type DomainResult,
   type EditPlan,
   type EditRange,
@@ -23,12 +22,14 @@ import {
 import type { AssetRecord, ProjectState } from '@audiogubbins/project-format';
 
 /** What the clipboard holds after a copy. */
-export interface CopiedAudio {
+export interface ClipboardPayload {
   /** The project it was copied from. */
   readonly origin: ProjectId;
-  readonly payload: ClipboardPayload;
 
-  /** The asset of each media source the payload reads, unedited, with its source. */
+  /** The slice of the plan copied, which a paste inserts. */
+  readonly plan: EditPlan;
+
+  /** The asset of each media source the slice reads, unedited, with its source. */
   readonly records: readonly AssetRecord[];
 }
 
@@ -41,18 +42,18 @@ export function copyAudio(
   plan: EditPlan,
   range: EditRange,
   channels?: readonly number[],
-): DomainResult<CopiedAudio> {
-  return mapResult(slicePlan(plan, range.start, range.end, channels), (payload) => ({
+): DomainResult<ClipboardPayload> {
+  return mapResult(slicePlan(plan, range.start, range.end, channels), (slice) => ({
     origin: state.project.id,
-    payload,
-    records: recordsRead(state, payload),
+    plan: slice,
+    records: recordsRead(state, slice),
   }));
 }
 
-/** The record of every asset whose media `payload` reads, in the order first read. */
-function recordsRead(state: ProjectState, payload: ClipboardPayload): readonly AssetRecord[] {
+/** The record of every asset whose media `slice` reads, in the order first read. */
+function recordsRead(state: ProjectState, slice: EditPlan): readonly AssetRecord[] {
   const records = new Map<string, AssetRecord>();
-  for (const stream of payload.streams) {
+  for (const stream of slice.streams) {
     for (const { source } of stream.segments) {
       if (source.kind !== 'media' || records.has(source.asset)) continue;
       const asset = state.project.assets.get(source.asset);
