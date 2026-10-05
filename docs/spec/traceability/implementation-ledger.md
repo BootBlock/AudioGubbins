@@ -9,7 +9,7 @@
 | 02 — Project and Storage System | `PASS` | 01 | 26 | traceability/handoffs/phase-02.md |
 | 03 — Audio Engine Foundation | `PASS` | 01 | 15 | traceability/handoffs/phase-03.md |
 | 04 — Waveform and Timeline Foundation | `PASS` | 01, 03 | 12 | traceability/handoffs/phase-04.md |
-| 05 — Core Non-Destructive Editing | `READY` | 02, 03, 04 | 4 | — |
+| 05 — Core Non-Destructive Editing | `PASS` | 02, 03, 04 | 4 | traceability/handoffs/phase-05.md |
 | 06 — Effect Rack and Core DSP | `NOT_READY` | 03, 05 | 11 | — |
 | 07 — Recording | `NOT_READY` | 02, 03, 05, 06 | 10 | — |
 | 08 — Spectral Editing | `NOT_READY` | 03, 04, 05, 06 | 1 | — |

@@ -225,7 +225,7 @@
     "05": {
       "phase": 5,
       "name": "Core Non-Destructive Editing",
-      "status": "READY",
+      "status": "PASS",
       "hard_dependencies": [
         2,
         3,
@@ -240,8 +240,11 @@
       ],
       "open_verified_findings": [],
       "commits": [],
-      "evidence": [],
-      "handoff": null
+      "evidence": [
+        "reviews/phase-05-evidence.md",
+        "reviews/phase-05-review.md"
+      ],
+      "handoff": "traceability/handoffs/phase-05.md"
     },
     "06": {
       "phase": 6,

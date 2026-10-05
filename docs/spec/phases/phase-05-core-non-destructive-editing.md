@@ -2,7 +2,7 @@
 
 ## Status
 
-`READY` — Phases 02, 03 and 04, its hard dependencies, have reached `PASS`; see `traceability/handoffs/phase-02.md`, `traceability/handoffs/phase-03.md` and `traceability/handoffs/phase-04.md`. Its readiness review brought native-rate reading of uncompressed audio forward from Phase 09 (`ADR-0050`).
+`PASS` — completed on 2026-10-05; see `reviews/phase-05-evidence.md`, `reviews/phase-05-review.md` and `traceability/handoffs/phase-05.md`.
 
 ## Objective
 

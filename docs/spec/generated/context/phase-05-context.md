@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`READY` — Phases 02, 03 and 04, its hard dependencies, have reached `PASS`; see `traceability/handoffs/phase-02.md`, `traceability/handoffs/phase-03.md` and `traceability/handoffs/phase-04.md`. Its readiness review brought native-rate reading of uncompressed audio forward from Phase 09 (`ADR-0050`).
+`PASS` — completed on 2026-10-05; see `reviews/phase-05-evidence.md`, `reviews/phase-05-review.md` and `traceability/handoffs/phase-05.md`.
 
 ## Objective
 
@@ -2309,7 +2309,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 5,
   "name": "Core Non-Destructive Editing",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     2,
     3,
@@ -2324,7 +2324,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-05-evidence.md",
+    "reviews/phase-05-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-05.md"
 }
 ```
