@@ -9,14 +9,20 @@
  * short.
  */
 
-import { CommandCategory, unavailable, AVAILABLE, type Command } from '@audiogubbins/commands';
+import {
+  CommandCategory,
+  unavailable,
+  AVAILABLE,
+  type Command,
+  type CommandAvailability,
+} from '@audiogubbins/commands';
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 import type { ImportedAudio } from '@audiogubbins/storage';
 import { counted } from '@audiogubbins/text';
 
 import { assetEntryId } from '../assets/project-assets.js';
 import { settledEntry } from '../state/asset-catalogue.js';
-import type { AudioImportOutcome } from '../state/audio-imports.js';
+import { ONE_AT_A_TIME, type AudioImportOutcome } from '../state/audio-imports.js';
 import { quoted } from '../wording.js';
 import { showInEditor } from './editor-asset-commands.js';
 import { readyProjects, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
@@ -47,6 +53,20 @@ export async function openedSentence(
   const refused = showInEditor(context, entry, context.editorViews.get().focused);
   if (refused !== undefined) return `${name} is imported.${shortfall} ${refused}`;
   return `${name} is imported and open.${shortfall}`;
+}
+
+/**
+ * Available where `ready` is, and no file is being imported: one file is
+ * brought in at a time, so nothing that brings one in is offered while one is.
+ */
+export function whileNoImportRuns(
+  context: ShellContext,
+  ready: CommandAvailability,
+): CommandAvailability {
+  if (!ready.available) return ready;
+  return context.projects?.imports.get().kind === 'importing'
+    ? unavailable(ONE_AT_A_TIME.summary)
+    : ready;
 }
 
 /** What an import came to, in a sentence, once its asset is open where it can be. */
@@ -89,7 +109,7 @@ function importAudioCommand(): Command<ShellContext> {
     },
     {
       keywords: ['import', 'audio', 'file', 'wav', 'aiff', 'sound', 'bring in', 'add'],
-      availability: sessionAvailability,
+      availability: (context) => whileNoImportRuns(context, sessionAvailability(context)),
     },
   );
 }
