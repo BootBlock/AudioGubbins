@@ -4,10 +4,10 @@
  * a new state arrives a copy of the one before.
  *
  * A record is compared by identity first, which settles every one of a state
- * told of again, and by the text it writes where that fails. A record is a value
- * that never changes, so its text is written once for as long as it is held,
- * and a record kept from one state to compare the next with is never written
- * again.
+ * told of again, and by the text it writes where that fails. A record is a
+ * value that never changes, so its text is written once for as long as it is
+ * held, and a record kept from one state to compare the next with is never
+ * written again.
  */
 
 /** Each record's text, for as long as the record is held. */

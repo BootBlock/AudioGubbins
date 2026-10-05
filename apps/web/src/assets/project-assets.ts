@@ -13,11 +13,11 @@
  *
  * Made again from each state of the project, but an entry whose asset, markers,
  * regions, sources and files are the ones it was made from is the entry it was,
- * so a view of an asset nothing changed redraws nothing, and an asset is planned,
- * and its markers and regions placed, only where an entry of it is made again.
- * A record of the project is compared by the values it holds
- * (`record-values.ts`); the files the page holds are compared by identity, since
- * each is held once.
+ * so a view of an asset nothing changed redraws nothing, and an asset is
+ * planned, and its markers and regions placed, only where an entry of it is
+ * made again. A record of the project is compared by the values it holds
+ * (`record-values.ts`); the files the page holds are compared by identity,
+ * since each is held once.
  */
 
 import {
@@ -290,8 +290,9 @@ function madeAsset(
     sources: read.map((one) => state.sources.get(one.id)),
     files: read.map((one) => media(one.id)),
   };
-  // What every entry of the asset is made from, with a file for each asset read, so the
-  // files are as many as before where the assets read are; its regions are compared one by one.
+  // What every entry of the asset is made from, with a file for each asset
+  // read, so the files are as many as before where the assets read are; its
+  // regions are compared one by one.
   const kept =
     unchanged &&
     sameRecords(before.markers, own.markers) &&
