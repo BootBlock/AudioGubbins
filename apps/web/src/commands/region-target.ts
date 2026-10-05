@@ -16,7 +16,9 @@ import {
   type RegionId,
 } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
+import type { SelectionSet } from '@audiogubbins/timeline';
 
+import type { ProjectOwner } from '../assets/editor-asset.js';
 import { editedView } from './edit-target.js';
 import { needsProjectAsset, type ProjectTarget } from './project-edits.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
@@ -58,9 +60,7 @@ export function foundRegions(
   const ids: readonly string[] =
     named !== undefined
       ? named.split(',').map((part) => part.trim())
-      : project.owner.region !== undefined
-        ? [project.owner.region.id]
-        : selectedRegionIds(context, view);
+      : regionsInView(project.owner, context.selections.of(view.asset.id));
   const held: FoundRegion[] = [];
   for (const id of ids) {
     const region = isWellFormedId(id) ? regions.get(unsafeBrandId<'RegionId'>(id)) : undefined;
@@ -75,9 +75,13 @@ export function foundRegions(
     : [first, ...rest];
 }
 
-function selectedRegionIds(context: ShellContext, view: EditorTarget): readonly RegionId[] {
-  const objects = context.selections.of(view.asset.id).objects;
-  return objects?.kind === 'regions' ? objects.ids : [];
+/**
+ * The regions a view acts on where none is named: the one it shows, or those
+ * selected in a view of their asset. The Inspector shows the same one.
+ */
+export function regionsInView(owner: ProjectOwner, selection: SelectionSet): readonly RegionId[] {
+  if (owner.region !== undefined) return [owner.region.id];
+  return selection.objects?.kind === 'regions' ? selection.objects.ids : [];
 }
 
 /** The one region a command acts on, or why there is not exactly one. */

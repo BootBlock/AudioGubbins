@@ -42,7 +42,7 @@ const PROCESSING: TargetRequest = {
 const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
 
 /** The scope, in words, and whether it is outside the view. */
-function scopeOf(
+export function scopeOf(
   selection: SelectionSet,
   asset: EditorAsset,
   state: EditorViewState,

@@ -491,15 +491,6 @@
   font-size: var(--ag-text-small);
 }
 
-.ag-panel-pending {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  gap: var(--ag-space-small);
-}
-
 /* The capability surface. */
 
 .ag-capability-list {
@@ -1063,6 +1054,58 @@
 
 .ag-editor-asset [aria-current='true'] {
   font-weight: 600;
+}
+
+/* The Inspector: what the editor acts on, its controls in rows, its facts as a list of terms. */
+.ag-inspector-section {
+  margin-block-start: var(--ag-space-large);
+}
+
+.ag-inspector-heading {
+  margin-block: var(--ag-space-medium) var(--ag-space-small);
+  font-size: var(--ag-text-body);
+  font-weight: 600;
+}
+
+.ag-inspector-controls {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin-block: var(--ag-space-small);
+}
+
+.ag-inspector-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  align-items: end;
+}
+
+.ag-inspector-row p {
+  margin: 0;
+}
+
+.ag-inspector-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--ag-space-tiny) var(--ag-space-medium);
+  margin: 0;
+}
+
+.ag-inspector-facts > div {
+  display: contents;
+}
+
+.ag-inspector-facts dt {
+  color: var(--ag-chrome-text-secondary);
+}
+
+.ag-inspector-facts dd {
+  margin: 0;
+}
+
+.ag-inspector-edits {
+  margin: 0;
+  padding-inline-start: var(--ag-space-large);
 }
 
 /* The Picture panel: the reference picture as large as the panel allows. */

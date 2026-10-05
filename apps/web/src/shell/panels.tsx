@@ -1,20 +1,12 @@
 /**
- * The panels the Phase 01 shell can show.
- *
- * The shell arrived before the rest of the editing, so the inspector says what
- * it is for and which phase brings it, rather than pretending to be there.
- *
- * That is a deliberate distinction from the placeholder REQ-EXEC-181 forbids. A
- * placeholder pretends to be the real thing and fails silently; these state
- * what is not here yet. A user who opens AudioGubbins today should not be shown
- * a fake waveform and left to discover that nothing happens when they click it.
- *
- * The rest are real, because their subject exists now: the capability surface,
- * the diagnostic log (`diagnostics-panel.tsx`), the transport, which plays an
- * asset or the test signal and renders the test signal (`transport-panel.tsx`),
- * the editor, one view of an asset (`editor-panel.tsx`), and the reference
- * picture (`picture-panel.tsx`), and the project's audio in the Asset Browser
- * (`asset-browser.tsx`).
+ * The panels the shell can show: the capability surface, the diagnostic log
+ * (`diagnostics-panel.tsx`), the transport, which plays an asset or the test
+ * signal and renders the test signal (`transport-panel.tsx`), the editor, one
+ * view of an asset (`editor-panel.tsx`), the reference picture
+ * (`picture-panel.tsx`), the project's audio in the Asset Browser
+ * (`asset-browser.tsx`), the properties of what the editor acts on in the
+ * Inspector (`inspector/inspector-panel.tsx`), and the project system's
+ * History and Storage panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -27,7 +19,7 @@ import {
   type StorageCapabilityAbsence,
 } from '@audiogubbins/capabilities';
 import type { LogStore } from '@audiogubbins/diagnostics';
-import { PanelKinds, type OpenPanel, type PanelKind } from '@audiogubbins/workspace';
+import { PanelKinds, type OpenPanel } from '@audiogubbins/workspace';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
@@ -42,31 +34,13 @@ import { AssetBrowserPanel } from './asset-browser.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
+import { InspectorPanel } from './inspector/inspector-panel.js';
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
 import { RendererReportList } from './renderer-report-list.js';
 import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
 import { TransportPanel } from './transport-panel.js';
-
-/** A panel that describes what will live here, and when. */
-function ComingInAPhase({
-  title,
-  purpose,
-  arrival,
-}: {
-  readonly title: string;
-  readonly purpose: string;
-  readonly arrival: string;
-}): ReactNode {
-  return (
-    <section className="ag-panel ag-panel-pending">
-      <h2 className="ag-panel-title">{title}</h2>
-      <p>{purpose}</p>
-      <p className="ag-panel-note">{arrival}</p>
-    </section>
-  );
-}
 
 /** What this browser offers, and what is reduced because of it. */
 export function CapabilitiesPanel({
@@ -190,24 +164,7 @@ export function panelContextOf(
   };
 }
 
-/**
- * The panels a later phase fills, with what each is for and which phase brings
- * it. A placeholder that says so rather than pretends (REQ-EXEC-136.9).
- */
-const PENDING_PANELS: ReadonlyMap<
-  PanelKind,
-  { readonly purpose: string; readonly arrival: string }
-> = new Map([
-  [
-    PanelKinds.Inspector,
-    {
-      purpose: 'The properties of whatever you have selected, editable in place.',
-      arrival: 'Arrives with core non-destructive editing.',
-    },
-  ],
-]);
-
-/** The capability surface, the Editor, Picture and Asset Browser panels, or `undefined` for another kind. */
+/** The capability surface and the editing panels, or `undefined` for another kind. */
 function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
     case PanelKinds.Capabilities:
@@ -236,6 +193,20 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
           editorViews={context.editor.stores.editorViews}
           commands={context}
           labelFor={context.editor.labelFor}
+        />
+      );
+    case PanelKinds.Inspector:
+      return (
+        <InspectorPanel
+          title={title}
+          projects={context.projects}
+          parts={{
+            editorViews: context.editor.stores.editorViews,
+            selections: context.editor.stores.selections,
+            assets: context.editor.assets,
+            labelFor: context.editor.labelFor,
+          }}
+          commands={context}
         />
       );
     default:
@@ -283,8 +254,6 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
     default: {
       const editing = editingPanel(panel, title, context);
       if (editing !== undefined) return editing;
-      const pending = PENDING_PANELS.get(panel.kind);
-      if (pending !== undefined) return <ComingInAPhase title={title} {...pending} />;
 
       // A layout naming a panel this build does not have is caught before the
       // workspace is mounted, so reaching here means the descriptor map and
