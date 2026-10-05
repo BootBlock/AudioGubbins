@@ -156,9 +156,13 @@ function mediaOf(
   return { kind: 'held', entries };
 }
 
-/** What an asset of the project is, in a sentence, for the list an empty view offers. */
-function assetSentence(asset: Asset): string {
-  const shape = `${counted(channelCount(asset.channelLayout), 'channel', 'channels')} at ${String(asset.sampleRate / 1000)} kHz`;
+/**
+ * What an asset of the project is, in a sentence, for the list an empty view
+ * offers: its audio as `plan` makes it, so a conversion of its layout is told.
+ */
+function assetSentence(asset: Asset, plan: EditPlan): string {
+  const [stream] = plan.streams;
+  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(asset.sampleRate / 1000)} kHz`;
   return asset.edits.length === 0
     ? `Audio of the project: ${shape}.`
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
@@ -322,7 +326,7 @@ function entriesOf(
         {
           id,
           name: asset.displayName,
-          description: assetSentence(asset),
+          description: assetSentence(asset, place().plan),
           owner: { kind: 'project', asset, plan: place().plan, offset: derivedSampleCount(0) },
           markers: place().markers,
           regions: placeRegions(asset, own.regions, place().resolver),

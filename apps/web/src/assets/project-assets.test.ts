@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  StandardLayouts,
   derivedSampleCount,
   streamLength,
   unsafeBrandId,
@@ -70,6 +71,30 @@ describe('an asset of the project, as a view opens it (ADR-0051)', () => {
     expect(described.media.map((media) => [media.asset, media.length])).toEqual([
       [audio.assetId, LOOP_LENGTH],
     ]);
+  });
+
+  it('describes the audio as its edits leave it, not as its source was', async () => {
+    const audio = await windowWithAudio();
+    const before = audio.asset();
+    expect(before.description).toBe('Audio of the project: 2 channels at 48 kHz.');
+
+    expectSuccess(
+      await audio.session.run(
+        applyInvocation(
+          { id: audio.assetId },
+          {
+            id: unsafeBrandId<'EditOperationId'>('0000eeee-0000-4000-8000-0000000000e2'),
+            kind: 'convert-layout',
+            layout: StandardLayouts.mono,
+            matrix: [[0.5, 0.5]],
+          },
+        ),
+      ),
+    );
+
+    expect((await audio.changed(before)).description).toBe(
+      'Audio of the project: 1 channel at 48 kHz, with 1 edit.',
+    );
   });
 
   it('is the value it was where a change to the project left it alone', async () => {
