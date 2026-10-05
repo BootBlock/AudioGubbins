@@ -21,6 +21,7 @@ import {
 } from '@audiogubbins/commands';
 import type { ComparisonSource, SideName } from '@audiogubbins/history';
 
+import { auditionSide, sideAuditioned } from './audition-commands.js';
 import { idArgument, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -123,7 +124,13 @@ function switchSideCommand(): Command<ShellContext> {
       if (typeof named === 'string') return named;
       sayWhenSettled(context, session.switchSide(named.side), () => {
         const listening = session.getSnapshot().model.comparison?.listening;
-        return listening === undefined ? undefined : `Side ${listening.toUpperCase()} is heard.`;
+        if (listening === undefined) return undefined;
+        // A side being played goes on as the other from where the listener is.
+        if (sideAuditioned(context) !== undefined) {
+          const refused = auditionSide(context, listening, context.playback.audiblePosition());
+          if (refused !== undefined) return `Side ${listening.toUpperCase()} is heard. ${refused}`;
+        }
+        return `Side ${listening.toUpperCase()} is heard.`;
       });
       return undefined;
     },

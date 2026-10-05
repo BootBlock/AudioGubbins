@@ -149,6 +149,7 @@ export type ProjectOperations = {
     DomainResult<ComparisonOutcome>
   >;
   'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>;
+  'projects.comparedState': Of<{ readonly side: SideName }, DomainResult<ProjectState>>;
   'projects.switchSide': Written<{ readonly side: SideName | undefined }>;
   'projects.closeComparison': Written;
   'projects.promote': Written<{ readonly side: SideName }>;

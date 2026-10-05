@@ -53,6 +53,7 @@ export function sessionHandlers(
       }),
     'projects.compare': ({ handle, a, b }) => session(handle).compare(a, b),
     'projects.comparedDifference': ({ handle }) => session(handle).comparedDifference(),
+    'projects.comparedState': ({ handle, side }) => session(handle).comparedState(side),
     'projects.switchSide': ({ handle, side }) => session(handle).switchSide(side),
     'projects.closeComparison': ({ handle }) => session(handle).closeComparison(),
     'projects.promote': ({ handle, side }) => session(handle).promote(side),

@@ -41,6 +41,7 @@ import {
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
+import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
 import { channelCommands } from './channel-commands.js';
@@ -777,6 +778,7 @@ describe('finding the shell commands in the palette', () => {
       ...backupFolderCommands(),
       ...historyCommands(),
       ...comparisonCommands(),
+      ...auditionCommands(),
       ...compactionCommands(),
       ...ownershipCommands(),
       ...storageCommands(),

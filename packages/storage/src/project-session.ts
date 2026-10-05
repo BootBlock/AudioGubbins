@@ -60,7 +60,7 @@ import {
 
 import { reportRetention, retentionDue } from './automatic-retention.js';
 import { choiceOf } from './comparison-record.js';
-import { arriveBy, type MoveServices } from './history-moves.js';
+import { arriveBy, stateAt, type MoveServices } from './history-moves.js';
 import type { JournalEvent } from './journal-events.js';
 import {
   compactedModel,
@@ -285,6 +285,19 @@ export class ProjectSession {
       return comparison === undefined
         ? fail(NO_COMPARISON)
         : await comparedStates(this.model, comparison, this.moves);
+    });
+
+  /**
+   * The project as it stands at side `side` of the open comparison, worked
+   * out from the project as it is, so that side can be heard without moving
+   * the project to it (REQ-STOR-195). Neither state is touched.
+   */
+  readonly comparedState = async (side: SideName): Promise<DomainResult<ProjectState>> =>
+    await this.exclusive(async () => {
+      const { comparison, history, state } = this.model;
+      return comparison === undefined
+        ? fail(NO_COMPARISON)
+        : await stateAt(history, state, comparison[side].node, this.moves);
     });
 
   /** Listens to the named side of the open comparison, or to the other side. */

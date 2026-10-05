@@ -6,8 +6,8 @@
  * with the other left in the history, so nothing is lost either way. What
  * differs is said entity by entity, worked out in the storage worker as the
  * comparison is opened and again for one kept from before, as after a reload.
- * Hearing a side needs the audio engine, which a later phase brings; the side
- * chosen is the one it will play.
+ * Playing plays the audio in the editor in use as the side heard has it, and
+ * switching while it plays goes on with the other side from the same place.
  */
 
 import type { ReactNode } from 'react';
@@ -57,6 +57,9 @@ function ComparisonControls({
           {`Hear ${side.toUpperCase()}`}
         </Button>
       ))}
+      <Button compact onClick={() => run('history.audition')}>
+        Play the side heard
+      </Button>
       {SIDES.map((side) => (
         <Button
           key={`keep-${side}`}

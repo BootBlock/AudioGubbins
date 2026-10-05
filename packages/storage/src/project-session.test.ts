@@ -184,6 +184,9 @@ describe('a project session', () => {
     expect(expectFailureCode(await (await started()).session.comparedDifference())).toBe(
       'comparison.none-open',
     );
+    expect(expectFailureCode(await (await started()).session.comparedState('a'))).toBe(
+      'comparison.none-open',
+    );
     expectSuccess(await session.close());
 
     const reopened = await openToWrite(test, tree, header.id);

@@ -112,6 +112,10 @@ describe('a project open to write in the storage worker, as the page holds it', 
     const compared = expectSuccess(await session.compare(...sides));
     expect(compared.compared.difference.project).not.toEqual([]);
     expect(expectSuccess(await session.comparedDifference())).toEqual(compared.compared);
+    // Each side's state crosses whole, and the project stays at B.
+    expect(expectSuccess(await session.comparedState('a')).project.displayName).toBe('Loop A');
+    expect(expectSuccess(await session.comparedState('b')).project.displayName).toBe('Loop B');
+    expect(session.getSnapshot().model.state.project.displayName).toBe('Loop B');
     expect(session.getSnapshot().model.comparison).toMatchObject({
       a: { node: a },
       b: { node: b },
