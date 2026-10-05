@@ -17,6 +17,7 @@ import {
   CommandCategory,
   unchanged,
   type Command,
+  type CommandId,
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import {
@@ -222,3 +223,14 @@ export function clipboardCommands(): readonly Command<ShellContext>[] {
     ]),
   ];
 }
+
+/**
+ * Every clipboard command, which a shortcut runs only where the keyboard is in
+ * an editor: everywhere else the platform's own clipboard keys copy and paste
+ * the page's text, so the browser is left to act on them (`use-shortcuts.ts`).
+ * Named by command rather than by key, so a command bound to other keys takes
+ * the rule with it.
+ */
+export const CLIPBOARD_COMMANDS: ReadonlySet<CommandId> = new Set(
+  clipboardCommands().map((command) => command.id),
+);

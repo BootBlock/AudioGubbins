@@ -375,6 +375,9 @@ function editorBindings(
     bind('editor.select-next-region', of(alone(']', true))),
     bind('editor.select-previous-region', of(alone('[', true))),
     bind('edit.delete', of(named('Delete'))),
+    // The platform's own clipboard keys, which are the editor's only where it
+    // has the keyboard: the browser copies and pastes the page's text with
+    // them everywhere else (`runsHere` in `use-shortcuts.ts`).
     bind('edit.cut', of(primaryOn('x'))),
     bind('edit.copy', of(primaryOn('c'))),
     bind('edit.paste', of(primaryOn('v'))),

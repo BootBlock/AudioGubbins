@@ -9,6 +9,8 @@
  * sample). It is the view's one focusable region, an application to assistive
  * technology, whose state the toolbar and the readouts beside it say. A right
  * click or a long press on it opens the editor's context actions (REQ-UX-067).
+ * The panel marks itself as an editor's, where the clipboard keys copy and
+ * paste audio rather than the page's text.
  */
 
 import {
@@ -34,6 +36,7 @@ import { visibleRange } from '@audiogubbins/timeline';
 import type { PeakStatus } from '@audiogubbins/waveform';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { EDITOR_PANEL } from '../input/use-shortcuts.js';
 import { EditorSurface } from '../editor/editor-surface.js';
 import { editorPaletteOf, editorTypeOf } from '../editor/theme-palette.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
@@ -241,7 +244,7 @@ function EditorView({
   const readings = useId();
   const selection = parts.stores.selections.of(asset.id);
   return (
-    <section className="ag-panel ag-editor">
+    <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       <p className="ag-editor-asset-name">{asset.name}</p>
       {asset.owner.kind === 'session' && <p className="ag-panel-note">{asset.owner.reason}</p>}
@@ -309,7 +312,7 @@ export function EditorPanel({
     );
   }
   return (
-    <section className="ag-panel ag-editor">
+    <section className="ag-panel ag-editor" {...{ [EDITOR_PANEL]: '' }}>
       <h2 className="ag-panel-title">{title}</h2>
       {unopened !== undefined && (
         <p className="ag-panel-note" role="status">
