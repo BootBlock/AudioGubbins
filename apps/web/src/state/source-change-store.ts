@@ -183,7 +183,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     const settled = await this.settle(
       session,
       { asset, name: change.name, media },
-      (identity) => this.linkedFiles.ask(identity),
+      (identity, signal) => this.linkedFiles.ask(identity, signal),
       this.project.scope(),
     );
     switch (settled.kind) {
@@ -262,7 +262,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
       const settled = await this.settle(
         session,
         { asset, name, media },
-        (identity) => this.linkedFiles.look(identity),
+        (identity, lookSignal) => this.linkedFiles.look(identity, lookSignal),
         signal,
       );
       if (settled.kind === 'applied') applied.push({ asset, name, kind: settled.resolution });
@@ -295,7 +295,7 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
     reach: LinkedFilesPort['look'],
     signal: AbortSignal,
   ): Promise<{ readonly observation: SourceObservation; readonly found?: FoundFile }> {
-    const access = await reach(identity);
+    const access = await reach(identity, signal);
     if (access.kind !== 'available') {
       return { observation: { kind: 'absent', reason: absenceOf(access) } };
     }

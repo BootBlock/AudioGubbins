@@ -27,9 +27,12 @@ class HeldLinkedFiles extends ScriptedLinkedFiles {
     this.#letThrough();
   }
 
-  override async look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
+  override async look(
+    identity: ExternalSourceIdentity,
+    signal?: AbortSignal,
+  ): Promise<LinkedFileAccess> {
     await this.#held;
-    return await super.look(identity);
+    return await super.look(identity, signal);
   }
 }
 

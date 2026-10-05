@@ -10,8 +10,10 @@
  * recorded (REQ-STOR-053): one that changed or went stays unavailable until the
  * person answers the question about it, and the answer changes the project,
  * which is looked at again here. A project open only to read has its linked
- * files looked at by no one, so they are not read. Everything asked for is
- * given up when the project is let go.
+ * files looked at by no one, so they are not read. Files are asked for a few
+ * at a time, in the order the project names them, so a project of many assets
+ * does not ask for every file at once. Everything asked for is given up when
+ * the project is let go, and what was still to be asked is never asked.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
@@ -42,6 +44,20 @@ const CHANGED: MediaAvailability = {
     'The file it is linked to is no longer the one the project recorded. Answer the question about it first.',
 };
 
+/**
+ * How many files are asked for at once: enough that one slow file holds up
+ * few others, and few enough that a project of many assets does not ask the
+ * storage worker and the browser for every file together (`CLAUDE.md` G4).
+ */
+const FILES_ASKED_AT_ONCE = 4;
+
+/** A file to ask for: what it is held as, the project it is for, and how it is asked. */
+interface FileAsk {
+  readonly key: string;
+  readonly scope: AbortSignal;
+  readonly ask: () => Promise<DomainResult<Blob> | MediaAvailability>;
+}
+
 /** Why a linked file could not be read, by why its handle gave none. */
 const ABSENT: Readonly<Record<ReturnType<typeof absenceOf>, string>> = {
   'not-found': 'The file it is linked to could not be found.',
@@ -63,6 +79,10 @@ export class ProjectMediaStore implements Observable<ProjectMediaState> {
 
   /** The project the files held are of, which they are let go with. */
   private heldFor: AbortSignal | undefined;
+
+  /** The files still to be asked for, in order, and how many are being asked for now. */
+  private readonly toAsk: FileAsk[] = [];
+  private asking = 0;
   private readonly state = observable<ProjectMediaState>(new Map());
 
   readonly get = this.state.get;
@@ -124,41 +144,57 @@ export class ProjectMediaStore implements Observable<ProjectMediaState> {
     if (!this.sources.hasLooked(session)) return FINDING;
     if (this.sources.get().changes.some((change) => change.asset === asset)) return CHANGED;
     return this.asked(`linked:${asset}:${JSON.stringify(media.identity)}`, scope, () =>
-      this.linkedFile(media),
+      this.linkedFile(media, scope),
     );
   }
 
-  /** The file behind `key`, asked for once by `ask`, said when it settles. */
-  private asked(
-    key: string,
-    scope: AbortSignal,
-    ask: () => Promise<DomainResult<Blob> | MediaAvailability>,
-  ): MediaAvailability {
+  /** The file behind `key`, asked for once by `ask` in its turn, said when it settles. */
+  private asked(key: string, scope: AbortSignal, ask: FileAsk['ask']): MediaAvailability {
     const held = this.held.get(key);
     if (held !== undefined) return held;
     this.held.set(key, FINDING);
-    ask().then(
-      (answer) => {
-        if (this.heldFor !== scope) return;
-        this.held.set(key, availabilityOf(answer));
-        this.follow();
-      },
-      (error: unknown) => {
-        if (isAbandoned(error) || this.heldFor !== scope) return;
-        const reason = error instanceof Error ? error.message : 'No reason was given.';
-        this.logger.error('The file of an asset could not be read.', { reason });
-        this.held.set(key, { kind: 'unavailable', reason: 'Its file could not be read.' });
-        this.follow();
-      },
-    );
+    this.toAsk.push({ key, scope, ask });
+    this.askNext();
     return FINDING;
+  }
+
+  /** Asks for the files waiting, up to the number asked for at once. */
+  private askNext(): void {
+    while (this.asking < FILES_ASKED_AT_ONCE) {
+      const next = this.toAsk.shift();
+      if (next === undefined) return;
+      // Waiting for a project since let go, it is never asked for.
+      if (next.scope.aborted) continue;
+      this.asking += 1;
+      void this.answer(next).finally(() => {
+        this.asking -= 1;
+        this.askNext();
+      });
+    }
+  }
+
+  /** Asks for one file, and holds and says what it came to. */
+  private async answer({ key, scope, ask }: FileAsk): Promise<void> {
+    let availability: MediaAvailability;
+    try {
+      availability = availabilityOf(await ask());
+    } catch (error) {
+      if (isAbandoned(error) || this.heldFor !== scope) return;
+      const reason = error instanceof Error ? error.message : 'No reason was given.';
+      this.logger.error('The file of an asset could not be read.', { reason });
+      availability = { kind: 'unavailable', reason: 'Its file could not be read.' };
+    }
+    if (this.heldFor !== scope) return;
+    this.held.set(key, availability);
+    this.follow();
   }
 
   /** The linked file `media` names, as its kept handle finds it without asking. */
   private async linkedFile(
     media: Extract<MediaSource, { readonly kind: 'external' }>,
+    signal: AbortSignal,
   ): Promise<MediaAvailability> {
-    const access = await this.linkedFiles.look(media.identity);
+    const access = await this.linkedFiles.look(media.identity, signal);
     if (access.kind !== 'available') {
       return { kind: 'unavailable', reason: ABSENT[absenceOf(access)] };
     }
