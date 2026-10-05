@@ -10,7 +10,8 @@ import { useState, type ReactNode } from 'react';
 import { OptionSelect, TextField } from '@audiogubbins/design-system';
 import { FadeShape } from '@audiogubbins/domain';
 
-import { CommandButton, type PanelCommands } from '../command-button.js';
+import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
+import { SharedReasonNotes } from '../settings/reasoned-button.js';
 import { FADE_SHAPE_NAMES } from './edit-words.js';
 
 const SHAPE_OPTIONS = [...FADE_SHAPE_NAMES].map(([value, label]) => ({ value, label }));
@@ -61,30 +62,38 @@ function GainControl({ panel, commands, labelFor }: ControlParts): ReactNode {
   );
 }
 
+/** The fades, whose reasons are said once above them. */
+const FADES: readonly string[] = ['edit.fade-in', 'edit.fade-out'];
+
 /** A fade shape, and the controls that fade in and out with it. */
 function FadeControl({ panel, commands, labelFor }: ControlParts): ReactNode {
   const [shape, setShape] = useState<FadeShape>(FadeShape.Linear);
+  const reasons = useCommandReasons(commands, FADES);
   return (
-    <div className="ag-inspector-row">
-      <OptionSelect
-        label="Fade shape"
-        value={shape}
-        options={SHAPE_OPTIONS}
-        onValueChange={(value) => {
-          if (isFadeShape(value)) setShape(value);
-        }}
-      />
-      {['edit.fade-in', 'edit.fade-out'].map((id) => (
-        <CommandButton
-          key={id}
-          id={id}
-          label={labelFor(id)}
-          commands={commands}
-          args={{ view: panel, shape }}
-          compact
+    <>
+      <SharedReasonNotes reasons={reasons} />
+      <div className="ag-inspector-row">
+        <OptionSelect
+          label="Fade shape"
+          value={shape}
+          options={SHAPE_OPTIONS}
+          onValueChange={(value) => {
+            if (isFadeShape(value)) setShape(value);
+          }}
         />
-      ))}
-    </div>
+        {FADES.map((id) => (
+          <CommandButton
+            key={id}
+            id={id}
+            label={labelFor(id)}
+            commands={commands}
+            args={{ view: panel, shape }}
+            compact
+            shared={reasons}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

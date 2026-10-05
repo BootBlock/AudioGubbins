@@ -4,7 +4,7 @@
  */
 
 import type { Command } from '@audiogubbins/commands';
-import { derivedSampleCount } from '@audiogubbins/domain';
+import { derivedSampleCount, type Region } from '@audiogubbins/domain';
 import { setRegionInvocation } from '@audiogubbins/project-commands';
 
 import { quoted } from '../wording.js';
@@ -70,6 +70,11 @@ function loopCommand(): Command<ShellContext> {
   );
 }
 
+/** Why a loop cannot be cleared from `region`, or `undefined` where it loops. */
+export function loopAbsence(region: Region): string | undefined {
+  return region.loop === undefined ? `${region.displayName} does not loop.` : undefined;
+}
+
 function clearLoopCommand(): Command<ShellContext> {
   return regionCommand(
     'region.clear-loop',
@@ -77,8 +82,9 @@ function clearLoopCommand(): Command<ShellContext> {
     (context, invocation) => {
       const found = oneRegion(context, invocation);
       if (typeof found === 'string') return found;
-      const { loop: _loop, ...unlooped } = found.region;
-      if (_loop === undefined) return `${found.region.displayName} does not loop.`;
+      const absent = loopAbsence(found.region);
+      if (absent !== undefined) return absent;
+      const { loop: _cleared, ...unlooped } = found.region;
       changeProject(context, found.project.session, {
         description: `Stop ${found.region.displayName} looping`,
         invocations: [setRegionInvocation(unlooped)],

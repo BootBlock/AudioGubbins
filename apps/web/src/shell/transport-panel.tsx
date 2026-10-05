@@ -31,9 +31,10 @@ import {
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
-import { CommandButton, type PanelCommands } from './command-button.js';
+import { CommandButton, useCommandReasons, type PanelCommands } from './command-button.js';
 import { PerformanceChoice } from './performance-choice.js';
 import { ProcessingModes } from './processing-modes.js';
+import { SharedReasonNotes } from './settings/reasoned-button.js';
 import { useDisplayFrame } from './use-display-frame.js';
 
 /** What the panel reads, and how it runs a command. */
@@ -69,6 +70,14 @@ function positionOf(frame: number | undefined, rate: number | undefined): string
     : formatPosition(frame, read.value, { kind: TimeFormatKind.Clock });
 }
 
+/** The commands of the transport's buttons, whose reasons are said once above them. */
+const TRANSPORT_COMMANDS: readonly string[] = [
+  'transport.play',
+  'transport.play-test-signal',
+  'transport.pause',
+  'transport.stop',
+];
+
 /** Play, Pause and Stop, and where playback is. */
 function TransportControls({
   view,
@@ -82,33 +91,39 @@ function TransportControls({
   const mode = view.playback?.transport.mode;
   const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
   const rate = view.playback?.device?.sampleRate;
+  const reasons = useCommandReasons(commands, TRANSPORT_COMMANDS);
   return (
-    <div className="ag-transport-controls" role="group" aria-label="Transport">
-      <CommandButton
-        id="transport.play"
-        label="Play"
-        tone={ButtonTone.Primary}
-        commands={commands}
-      />
-      <CommandButton
-        id="transport.play-test-signal"
-        label="Play the test signal"
-        commands={commands}
-      />
-      <CommandButton id="transport.pause" label="Pause" commands={commands} />
-      <CommandButton id="transport.stop" label="Stop" commands={commands} />
-      <span className="ag-transport-position">
-        <span className="ag-panel-note" aria-hidden="true">
-          Position{' '}
-        </span>
-        {/* A timer, whose changes a screen reader does not read out as they
+    <>
+      <SharedReasonNotes reasons={reasons} />
+      <div className="ag-transport-controls" role="group" aria-label="Transport">
+        <CommandButton
+          id="transport.play"
+          label="Play"
+          tone={ButtonTone.Primary}
+          commands={commands}
+          shared={reasons}
+        />
+        <CommandButton
+          id="transport.play-test-signal"
+          label="Play the test signal"
+          commands={commands}
+          shared={reasons}
+        />
+        <CommandButton id="transport.pause" label="Pause" commands={commands} shared={reasons} />
+        <CommandButton id="transport.stop" label="Stop" commands={commands} shared={reasons} />
+        <span className="ag-transport-position">
+          <span className="ag-panel-note" aria-hidden="true">
+            Position{' '}
+          </span>
+          {/* A timer, whose changes a screen reader does not read out as they
             come, as a status would be every frame; it is read when reached. */}
-        <span role="timer" aria-label="Position">
-          {positionOf(frame, rate)}
+          <span role="timer" aria-label="Position">
+            {positionOf(frame, rate)}
+          </span>
         </span>
-      </span>
-      {view.starting && <span className="ag-panel-note">Starting…</span>}
-    </div>
+        {view.starting && <span className="ag-panel-note">Starting…</span>}
+      </div>
+    </>
   );
 }
 

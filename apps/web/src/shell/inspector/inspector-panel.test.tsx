@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -178,12 +178,14 @@ describe('the Inspector panel (WU-05.D)', () => {
     await user.clear(name);
     await user.type(name, 'Opening{Enter}');
     expect(await screen.findByRole('heading', { name: 'Region: Opening' })).toBeInTheDocument();
+    // The same field, still where the person was typing.
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBe(name);
+    expect(name).toHaveFocus();
     const tags = screen.getByRole('textbox', { name: 'Tags, separated by commas' });
     await user.type(tags, 'gravel, footstep{Enter}');
     await expect.poll(() => regionOf(audio).tags).toEqual(['footstep', 'gravel']);
-    expect(screen.getByRole('textbox', { name: 'Tags, separated by commas' })).toHaveValue(
-      'footstep, gravel',
-    );
+    expect(tags).toHaveValue('footstep, gravel');
+    expect(tags).toHaveFocus();
 
     await audio.window.runAndHear('edit.undo');
     await audio.window.runAndHear('edit.undo');
@@ -201,8 +203,7 @@ describe('the Inspector panel (WU-05.D)', () => {
 
     const crossfade = screen.getByRole('textbox', { name: 'Crossfade in frames' });
     await user.clear(crossfade);
-    await user.type(crossfade, '480');
-    await user.click(screen.getByRole('button', { name: 'Loop the selection of the region' }));
+    await user.type(crossfade, '480{Enter}');
 
     expect(
       await screen.findByText(
@@ -214,8 +215,43 @@ describe('the Inspector panel (WU-05.D)', () => {
       end: 36_000,
       crossfadeLength: 480,
     });
-    await user.click(screen.getByRole('button', { name: 'Stop the region looping' }));
+    const stop = screen.getByRole('button', { name: 'Stop the region looping' });
+    await user.click(stop);
     expect(await screen.findByText('It does not loop.')).toBeInTheDocument();
+    // Kept, saying why it cannot be pressed now, so the focus stays on it.
+    expect(stop).toHaveFocus();
+    expect(stop).toHaveAttribute('aria-disabled', 'true');
+    expect(stop).toHaveAccessibleDescription('Intro does not loop.');
+  });
+
+  it('never shows a name typed for one region as another’s of the same name', async () => {
+    const audio = await windowWithAudio({
+      regions: [
+        { name: 'Intro', start: 0, end: 48_000 },
+        { name: 'Intro', start: 96_000, end: 144_000 },
+      ],
+    });
+    audio.window.context.editorViews.open('editor', audio.asset());
+    audio.window.context.editorViews.focus('editor');
+    const [first, second] = audio.session.getSnapshot().model.state.project.regions.values();
+    if (first === undefined || second === undefined) throw new Error('No regions were added.');
+    const select = (id: typeof first.id): void => {
+      audio.window.context.selections.change(audio.entry, () => ({
+        objects: { kind: 'regions', ids: [id] },
+        recency: ['objects'],
+      }));
+    };
+    select(first.id);
+    inspectorOver(audio.window);
+    const user = userEvent.setup();
+
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), ' draft');
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Intro draft');
+    act(() => {
+      select(second.id);
+    });
+
+    expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Intro');
   });
 
   it('says audio of the session keeps no edits', async () => {
