@@ -375,9 +375,9 @@ function editorBindings(
     bind('editor.select-next-region', of(alone(']', true))),
     bind('editor.select-previous-region', of(alone('[', true))),
     bind('edit.delete', of(named('Delete'))),
-    bind('edit.cut', of(withPrimary('x'))),
-    bind('edit.copy', of(withPrimary('c'))),
-    bind('edit.paste', of(withPrimary('v'))),
+    bind('edit.cut', of(primaryOn('x'))),
+    bind('edit.copy', of(primaryOn('c'))),
+    bind('edit.paste', of(primaryOn('v'))),
     bind('editor.select-all', of(primaryOn('a'))),
     // D, for deselect, as image and audio editors have it; the bookmark the
     // browser makes with it is handed to the page first.

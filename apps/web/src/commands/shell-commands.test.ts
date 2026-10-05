@@ -580,6 +580,18 @@ describe('the default shortcut profile', () => {
     expect(on(RUSSIAN, 'view.command-palette')).toEqual(['KeyK', 'KeyP']);
   });
 
+  it('puts cut, copy and paste on the keys that type x, c and v on the layout', () => {
+    const on = (id: string) =>
+      defaultShortcutProfile(KeyboardConvention.Windows, DVORAK)
+        .bindings.find((binding) => binding.commandId === id)
+        ?.shortcut.presses.map((press) => [press.key, press.control]);
+
+    // Dvorak types X at B, C at I and V at the full stop's key.
+    expect(on('edit.cut')).toEqual([['KeyB', true]]);
+    expect(on('edit.copy')).toEqual([['KeyI', true]]);
+    expect(on('edit.paste')).toEqual([['Period', true]]);
+  });
+
   it('puts no default on a key that types a dead key, which no press can complete', () => {
     // Brightness sat on `=`, which a German or a Swiss layout types only with
     // Shift: the key a US layout types it on is the acute accent there, so the
@@ -625,7 +637,7 @@ describe('the default shortcut profile', () => {
     // layout: Dvorak moves every one of them, AZERTY moves the comma, the Z of
     // undo and redo and the editor's A, German moves the Z alone, and the two
     // settled readings of Dvorak place them all.
-    expect(forTheLayer).toEqual(['apple, Dvorak: 13', 'apple, AZERTY: 4', 'apple, German: 2']);
+    expect(forTheLayer).toEqual(['apple, Dvorak: 16', 'apple, AZERTY: 4', 'apple, German: 2']);
   });
 
   it('leaves out a default whose key is not known yet, rather than put it on another', () => {
