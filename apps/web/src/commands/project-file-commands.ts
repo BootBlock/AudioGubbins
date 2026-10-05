@@ -22,6 +22,7 @@ import {
   StandardLayouts,
   mapResult,
   sampleRate,
+  succeed,
   type DomainResult,
   type ProjectSettings,
 } from '@audiogubbins/domain';
@@ -54,19 +55,27 @@ export function settingsFrom(invocation: CommandInvocation): DomainResult<Projec
   }));
 }
 
+/** Opens the project just made as `made`, closing the dialogue once it is open. */
+export async function openedMade(
+  context: ShellContext,
+  stores: ProjectStores,
+  made: ProjectHeader,
+): Promise<DomainResult<ProjectHeader>> {
+  const opened = await stores.project.open(made.id);
+  if (!opened.ok) return opened;
+  context.interaction.setProjectsSection(undefined);
+  return succeed(made);
+}
+
 /** Makes a project and opens it, closing the dialogue once it is open. */
-export async function madeAndOpened(
+async function madeAndOpened(
   context: ShellContext,
   stores: ProjectStores,
   name: string,
   settings: ProjectSettings,
 ): Promise<DomainResult<ProjectHeader>> {
   const made = await stores.library.create({ name, settings });
-  if (!made.ok) return made;
-  const opened = await stores.project.open(made.value.id);
-  if (!opened.ok) return opened;
-  context.interaction.setProjectsSection(undefined);
-  return made;
+  return made.ok ? await openedMade(context, stores, made.value) : made;
 }
 
 function projectsCommand(): Command<ShellContext> {
