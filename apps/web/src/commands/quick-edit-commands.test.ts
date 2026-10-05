@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import { TreeFailure, TreeFailureKind, type ByteSink } from '@audiogubbins/project-format';
@@ -270,11 +270,16 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
 
   it('says nothing and makes nothing when the person dismisses the chooser', async () => {
     const window = await projectWorld().window();
+    const { library, media } = window.services.client;
+    const asked = [vi.spyOn(library, 'create'), vi.spyOn(media, 'importFile')];
 
     expect(window.run('file.quick-edit').kind).toBe('applied');
     // A task runs once every promise the dismissal settled has run its callbacks.
     await new Promise((settled) => setTimeout(settled, 0));
 
+    expect(window.said).toEqual([]);
+    expect(window.projects.imports.get().kind).toBe('idle');
+    for (const call of asked) expect(call).not.toHaveBeenCalled();
     expect(await projectNames(window)).toEqual([]);
   });
 });
