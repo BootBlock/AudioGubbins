@@ -3,8 +3,9 @@
  * thing the application's stores ask of project storage, over the page's end
  * of the port (ADR-0022).
  *
- * Each facade's long operations take a signal, which abandons the call and
- * reaches the worker's work, and a refusal of the storage tree rejects with
+ * Each facade's long operations take a signal, which reaches the worker's work
+ * and settles the call once the worker has stopped, or with its answer where
+ * it had finished first, and a refusal of the storage tree rejects with
  * the same `TreeFailure` it was in the worker. The page serves the worker's
  * calls on the ports its facades lend (`page-ports.ts`). The records the
  * worker's loggers make are admitted into the page's diagnostics, under their

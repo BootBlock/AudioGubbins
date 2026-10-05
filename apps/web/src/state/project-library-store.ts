@@ -68,6 +68,8 @@ export class ProjectLibraryStore implements Observable<LibraryState> {
     let entries: readonly CatalogueEntry[];
     try {
       entries = await this.library.list(signal);
+      // Answered as it was replaced, the list is left to the newer reading.
+      signal.throwIfAborted();
     } catch (error) {
       if (signal.aborted && isAbandoned(error)) return succeed(undefined);
       // The storage refusing to be listed, as a full or unreachable one does,

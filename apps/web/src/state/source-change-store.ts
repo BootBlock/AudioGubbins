@@ -300,6 +300,8 @@ export class SourceChangeStore implements Observable<SourceChangeState> {
       return { observation: { kind: 'absent', reason: absenceOf(access) } };
     }
     const observed = await this.sources.examine(identity, access.file, signal);
+    // Answered as the look was given up, nothing found is taken on its word.
+    signal.throwIfAborted();
     return observed.ok
       ? {
           observation: { kind: 'present', file: observed.value },

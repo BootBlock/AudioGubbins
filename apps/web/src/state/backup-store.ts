@@ -225,6 +225,8 @@ export class BackupStore implements Observable<BackupState> {
     let listed: Awaited<ReturnType<BackupsClient['list']>>;
     try {
       listed = await this.backups.list(id, signal);
+      // Answered as it was given up, it is left to whatever gave it up.
+      signal.throwIfAborted();
     } catch (error) {
       if (signal.aborted && isAbandoned(error)) return;
       throw error;

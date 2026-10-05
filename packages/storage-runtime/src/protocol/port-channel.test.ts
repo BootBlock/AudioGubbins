@@ -216,6 +216,76 @@ describe('abandoning a call', () => {
     });
   });
 
+  it('settles only once the other side has given the call up', async () => {
+    const served = deferred<AbortSignal>();
+    const stopped = deferred<undefined>();
+    const { page } = joined({
+      'call.wait': async (_nothing, { signal }) => {
+        served.resolve(signal);
+        await stopped.promise;
+        signal.throwIfAborted();
+        return 'not abandoned';
+      },
+    });
+    const controller = new AbortController();
+    const reason = new Error('Stop.');
+    let settled = false;
+
+    const call = page.call('call.wait', undefined, { signal: controller.signal });
+    void call.catch(() => undefined).finally(() => (settled = true));
+    const signal = await served.promise;
+    controller.abort(reason);
+    await vi.waitFor(() => {
+      expect(signal.aborted).toBe(true);
+    });
+    await nextTask();
+    expect(settled).toBe(false);
+
+    stopped.resolve(undefined);
+    await expect(call).rejects.toBe(reason);
+  });
+
+  it('resolves to the answer where the other side carried the call out before it heard the cancel', async () => {
+    const served = deferred<AbortSignal>();
+    const { page } = joined({
+      'call.wait': async (_nothing, { signal }) => {
+        served.resolve(signal);
+        await new Promise((resolve) => {
+          signal.addEventListener('abort', resolve);
+        });
+        return 'carried out';
+      },
+    });
+    const controller = new AbortController();
+
+    const call = page.call('call.wait', undefined, { signal: controller.signal });
+    await served.promise;
+    controller.abort(new Error('Too late.'));
+
+    await expect(call).resolves.toBe('carried out');
+  });
+
+  it("rejects with the signal's reason where a call given up failed all the same", async () => {
+    const served = deferred<AbortSignal>();
+    const { page } = joined({
+      'call.wait': async (_nothing, { signal }) => {
+        served.resolve(signal);
+        await new Promise((resolve) => {
+          signal.addEventListener('abort', resolve);
+        });
+        throw new Error('The handler broke as it stopped.');
+      },
+    });
+    const controller = new AbortController();
+    const reason = new Error('Stop.');
+
+    const call = page.call('call.wait', undefined, { signal: controller.signal });
+    await served.promise;
+    controller.abort(reason);
+
+    await expect(call).rejects.toBe(reason);
+  });
+
   it('rejects as abandoned where the other side answers that it was cancelled', async () => {
     const { pair, page } = joined();
 

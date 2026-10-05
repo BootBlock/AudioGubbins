@@ -156,6 +156,23 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(window.projects.imports.get().kind).toBe('idle');
   });
 
+  it('reports an import as made where the cancel reaches the worker only after it added the asset', async () => {
+    const window = await windowWithProject();
+    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    const session = window.projects.project.session();
+    if (session === undefined) throw new Error('No project is open to change.');
+    // The page hears the asset added before the worker's answer arrives, so a
+    // cancel sent now reaches a worker that has carried the import out.
+    const stop = session.subscribe(() => {
+      if (session.getSnapshot().model.state.project.assets.size === 0) return;
+      stop();
+      expect(window.run('file.cancel-import').kind).toBe('applied');
+    });
+
+    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(assetsOf(window).project.assets.size).toBe(1);
+  });
+
   it('says nothing and changes nothing when the person dismisses the chooser', async () => {
     const window = await windowWithProject();
     const before = assetsOf(window);

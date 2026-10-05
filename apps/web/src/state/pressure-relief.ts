@@ -38,9 +38,12 @@ export function relieveWhenFull(
     }
     if (answered || session === undefined) return;
     answered = true;
+    const scope = project.scope();
     usage
-      .relievePressure(project.scope())
+      .relievePressure(scope)
       .then(async (relief) => {
+        // Answered as the project was let go, there is no session to retry.
+        scope.throwIfAborted();
         if (!relief.ok) {
           logger.warning('Caches could not be given up to make room.', {
             code: relief.failures[0].code,
