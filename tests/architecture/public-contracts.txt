@@ -52,16 +52,6 @@ Published paths
   const BUILT_IN_NODES: NodeImplementations
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
-  interface CancellationSignal
-  readonly CancellationSignal.aborted: boolean
-  readonly CancellationSignal.reason: unknown
-  CancellationSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
-  CancellationSignal.removeEventListener: (type: "abort", listener: () => void) => void
-  interface CancellationSource
-  readonly CancellationSource.signal: CancellationSignal
-  CancellationSource.cancel: (reason?: unknown) => void
-  class Cancelled extends Error
-  new Cancelled(message?: string): Cancelled
   interface CanonicalDsp
   readonly CanonicalDsp.implementation: DspImplementation
   CanonicalDsp.sineOfTurns: (turns: number) => number
@@ -336,10 +326,8 @@ Published paths
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
-  function cancellationReason(signal: CancellationSignal): Error
   function contextFrameFor(clock: MediaClock, anchor: ClockAnchor, timelineFrame: SampleCount): number
   function conversionTableBudget(shape: { readonly channels: number; readonly availableMemoryBytes: number | undefined; }, plan: ChunkPlan): number | undefined
-  function createCancellationSource(): CancellationSource
   function createExecutor(plan: ExecutionPlan, implementations: NodeImplementations, context: KernelContext): DomainResult<GraphExecutor>
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
@@ -362,7 +350,6 @@ Published paths
   function signalRecipe(value: unknown): DomainResult<SignalRecipe>
   function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
-  function throwIfCancelled(signal: CancellationSignal | undefined): void
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
   function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
@@ -994,7 +981,7 @@ Published paths
 @audiogubbins/codecs
   interface AudioBytes
   readonly AudioBytes.size: number
-  AudioBytes.read: (offset: number, length: number, signal?: ReadSignal) => Promise<Uint8Array>
+  AudioBytes.read: (offset: number, length: number, signal?: CancellationSignal) => Promise<Uint8Array>
   interface AudioFormatDescriptor
   readonly AudioFormatDescriptor.container: ReadableContainer
   readonly AudioFormatDescriptor.sampleRate: SampleRate
@@ -1008,15 +995,10 @@ Published paths
   readonly AudioFormatDescriptor.blockAlign: number
   interface AudioReader
   readonly AudioReader.format: AudioFormatDescriptor
-  AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: ReadSignal) => Promise<DomainResult<number>>
-  interface ReadSignal
-  readonly ReadSignal.aborted: boolean
-  readonly ReadSignal.reason: unknown
-  ReadSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
-  ReadSignal.removeEventListener: (type: "abort", listener: () => void) => void
+  AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
   type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
-  function openAudio(bytes: AudioBytes, signal?: ReadSignal | undefined): Promise<DomainResult<AudioReader>>
+  function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
 
 @audiogubbins/codecs/testing
   interface AiffOptions
@@ -1041,7 +1023,7 @@ Published paths
   readonly MemoryBytes.requests: readonly ReadRequest[]
   readonly MemoryBytes.bytesRequested: number
   readonly MemoryBytes.size: number
-  MemoryBytes.read: (offset: number, length: number, signal?: import("packages/codecs/src/audio-bytes").ReadSignal) => Promise<Uint8Array>
+  MemoryBytes.read: (offset: number, length: number, signal?: import("packages/domain/src/cancellation").CancellationSignal) => Promise<Uint8Array>
   interface MemoryBytesOptions
   readonly MemoryBytesOptions.answer?: (request: ReadRequest, honest: Uint8Array) => Uint8Array
   interface ReadRequest
@@ -1625,6 +1607,16 @@ Published paths
   readonly Bus.output?: RoutingTarget
   readonly Bus.effectChainId?: EffectChainId
   type BusId = string & { readonly [BrandTag]: "BusId"; }
+  interface CancellationSignal
+  readonly CancellationSignal.aborted: boolean
+  readonly CancellationSignal.reason: unknown
+  CancellationSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
+  CancellationSignal.removeEventListener: (type: "abort", listener: () => void) => void
+  interface CancellationSource
+  readonly CancellationSource.signal: CancellationSignal
+  CancellationSource.cancel: (reason?: unknown) => void
+  class Cancelled extends Error
+  new Cancelled(message?: string): Cancelled
   type ChannelEdit = { readonly kind: "channel-gains"; readonly gains: readonly number[]; } | { readonly kind: "copy-channel"; readonly from: number; readonly to: number; } | { readonly kind: "swap-channels"; readonly first: number; readonly second: number; }
   type ChannelEditOperation = ({ readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } & { readonly edit: ChannelEdit; }) | { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; }
   interface ChannelLayout
@@ -1846,6 +1838,7 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function cancellationReason(signal: CancellationSignal): Error
   function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
@@ -1861,6 +1854,7 @@ Published paths
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
   function convertedFrameCount(length: number, from: number, to: number): number
   function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
+  function createCancellationSource(): CancellationSource
   function createDeterministicIdGenerator(seed: number): IdGenerator
   function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
   function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project
@@ -1909,6 +1903,7 @@ Published paths
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
+  function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
   function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>): DomainResult<Asset>

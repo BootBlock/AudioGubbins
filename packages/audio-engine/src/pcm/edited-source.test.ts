@@ -45,6 +45,26 @@ function memoryFile(bytes: Uint8Array): MediaFile & { readonly asked: () => numb
   };
 }
 
+/** A file whose reads wait until `let` is called, then read `file`. */
+function heldFile(file: MediaFile): MediaFile & { readonly let: () => void } {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return {
+    size: file.size,
+    slice: (start, end) => ({
+      arrayBuffer: async () => {
+        await gate;
+        return await file.slice(start, end).arrayBuffer();
+      },
+    }),
+    let: () => {
+      release();
+    },
+  };
+}
+
 /** Deterministic samples, exactly representable at 32 bits. */
 function samplesOf(length: number, channels: number, seed: number): Float32Array[] {
   return Array.from({ length: channels }, (_, channel) =>
@@ -258,6 +278,57 @@ describe('an edited source', () => {
         controller.signal,
       ),
     ).rejects.toThrow('Stopped.');
+  });
+
+  it('reads on after a read cancelled while its file was opening', async () => {
+    const entry = entryOf(source, samples);
+    const held = heldFile(entry.file);
+    const made = expectSuccess(
+      editedSource(
+        assetPlan(source),
+        [{ ...entry, file: held }],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+      ),
+    );
+    const controller = new AbortController();
+    const block = allocateBlock(StandardLayouts.stereo, RATE, 10);
+
+    const cancelled = made.read(derivedSampleCount(0), block, controller.signal);
+    controller.abort(new Error('Stopped.'));
+    held.let();
+
+    await expect(cancelled).rejects.toThrow('Stopped.');
+    await expect(made.read(derivedSampleCount(0), block)).resolves.toBe(10);
+    expect(block.channels[0]?.[3]).toBe(samples[0]?.[3]);
+  });
+
+  it('opens its file again after an opening that failed', async () => {
+    const entry = entryOf(source, samples);
+    let failing = true;
+    const flaky: MediaFile = {
+      size: entry.file.size,
+      slice: (start, end) => ({
+        arrayBuffer: () =>
+          failing
+            ? Promise.reject(new Error('The file could not be reached.'))
+            : entry.file.slice(start, end).arrayBuffer(),
+      }),
+    };
+    const made = expectSuccess(
+      editedSource(
+        assetPlan(source),
+        [{ ...entry, file: flaky }],
+        StandardLayouts.stereo,
+        REFERENCE_DSP,
+      ),
+    );
+    const block = allocateBlock(StandardLayouts.stereo, RATE, 10);
+
+    await expect(made.read(derivedSampleCount(0), block)).rejects.toThrow();
+    failing = false;
+
+    await expect(made.read(derivedSampleCount(0), block)).resolves.toBe(10);
   });
 
   it('refuses a plan that reads a file it was not given', () => {

@@ -76,7 +76,10 @@ export class StorageUsageStore implements Observable<StorageUsageState> {
    */
   readonly measure = (): Promise<DomainResult<StorageUsage>> =>
     this.working('measuring', async () => {
-      const measured = await this.usage.measure(this.measurements.next());
+      const signal = this.measurements.next();
+      const measured = await this.usage.measure(signal);
+      // Answered as it was replaced, the figures are left to the newer one.
+      signal.throwIfAborted();
       if (measured.ok) this.state.update((current) => ({ ...current, usage: measured.value }));
       return measured;
     });
@@ -87,7 +90,9 @@ export class StorageUsageStore implements Observable<StorageUsageState> {
    */
   readonly plan = (selection: CleanupSelection): Promise<DomainResult<CleanupPlan>> =>
     this.working('planning', async () => {
-      const planned = await this.usage.planCleanup(selection, this.plans.next());
+      const signal = this.plans.next();
+      const planned = await this.usage.planCleanup(selection, signal);
+      signal.throwIfAborted();
       if (planned.ok) {
         this.state.update(({ outcomes: _earlier, ...rest }) => ({ ...rest, plan: planned.value }));
       }

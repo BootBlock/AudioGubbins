@@ -8,10 +8,9 @@
  * a test run the same job.
  */
 
-import type { SampleCount, SampleRate } from '@audiogubbins/domain';
+import type { CancellationSignal, SampleCount, SampleRate } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 
-import type { CancellationSignal } from '../cancellation.js';
 import { ResamplingQuality } from '../dsp/canonical-dsp.js';
 import type { MeterTarget } from '../nodes/node-implementation.js';
 import type { AudioFrameBlock } from '../pcm/frame-block.js';

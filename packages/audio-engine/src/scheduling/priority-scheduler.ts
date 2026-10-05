@@ -14,13 +14,16 @@
  * order every time.
  */
 
-import { fail, failure, FailureKind, succeed, type DomainResult } from '@audiogubbins/domain';
-
 import {
+  FailureKind,
   cancellationReason,
   createCancellationSource,
+  fail,
+  failure,
+  succeed,
   type CancellationSignal,
-} from '../cancellation.js';
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 /** Whether a job is interactive work or background work. */
 export const JobPriority = {

@@ -16,20 +16,17 @@
 
 import {
   FailureKind,
+  cancellationReason,
   fail,
   failure,
   succeed,
+  type CancellationSignal,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import {
-  cancellationReason,
-  frameBlock,
-  type CancellationSignal,
-  type RenderSink,
-} from '@audiogubbins/audio-engine';
+import { frameBlock, type RenderSink } from '@audiogubbins/audio-engine';
 
 import {
   FromRenderWorkerKind,

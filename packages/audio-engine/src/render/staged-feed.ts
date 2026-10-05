@@ -12,11 +12,11 @@ import {
   addSamples,
   flatMapResult,
   sampleCount,
+  type CancellationSignal,
   type ChannelLayout,
   type SampleCount,
 } from '@audiogubbins/domain';
 
-import type { CancellationSignal } from '../cancellation.js';
 import type { InputFeed } from '../nodes/node-implementation.js';
 import { allocateBlock, blockView, type AudioFrameBlock } from '../pcm/frame-block.js';
 import type { PcmSource } from '../pcm/pcm-source.js';

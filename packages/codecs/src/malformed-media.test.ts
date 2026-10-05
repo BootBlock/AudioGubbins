@@ -5,7 +5,7 @@
  * ever be answered, never thrown.
  */
 
-import type { DomainResult, SampleCount } from '@audiogubbins/domain';
+import { Cancelled, type DomainResult, type SampleCount } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -645,12 +645,13 @@ describe('cancelling', () => {
     expect(reads).toBe(2);
   });
 
-  it('rejects with a cancellation error where the signal’s reason is not one', async () => {
+  it('rejects with the shared cancellation error where the signal’s reason is not one', async () => {
     const controller = new AbortController();
     controller.abort('no reason given');
-    await expect(openAudio(memoryBytes(wav16()), controller.signal)).rejects.toMatchObject({
-      name: 'Cancelled',
-    });
+    // The one the engine's feeder recognises as a cancellation, not a fault.
+    await expect(openAudio(memoryBytes(wav16()), controller.signal)).rejects.toBeInstanceOf(
+      Cancelled,
+    );
   });
 });
 

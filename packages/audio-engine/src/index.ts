@@ -16,15 +16,6 @@
  */
 
 export {
-  type CancellationSignal,
-  type CancellationSource,
-  Cancelled,
-  cancellationReason,
-  createCancellationSource,
-  throwIfCancelled,
-} from './cancellation.js';
-
-export {
   type AudioFrameBlock,
   allocateBlock,
   blockView,

@@ -34,17 +34,30 @@ export class ScriptedLinkedFiles implements LinkedFilesPort {
     return kept;
   }
 
-  look(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
-    return Promise.resolve(this.access(identity));
+  look(identity: ExternalSourceIdentity, signal?: AbortSignal): Promise<LinkedFileAccess> {
+    return this.answered(signal, () => this.access(identity));
   }
 
-  ask(identity: ExternalSourceIdentity): Promise<LinkedFileAccess> {
-    const kept = this.keptFor(identity);
-    if (kept?.leave === 'asks' && kept.activated) {
-      this.asked += 1;
-      kept.leave = kept.answer;
-    }
-    return Promise.resolve(this.access(identity));
+  ask(identity: ExternalSourceIdentity, signal?: AbortSignal): Promise<LinkedFileAccess> {
+    return this.answered(signal, () => {
+      const kept = this.keptFor(identity);
+      if (kept?.leave === 'asks' && kept.activated) {
+        this.asked += 1;
+        kept.leave = kept.answer;
+      }
+      return this.access(identity);
+    });
+  }
+
+  /** What `find` finds, unless the work that wants it was given up first. */
+  private answered(
+    signal: AbortSignal | undefined,
+    find: () => LinkedFileAccess,
+  ): Promise<LinkedFileAccess> {
+    return new Promise((resolve) => {
+      signal?.throwIfAborted();
+      resolve(find());
+    });
   }
 
   private keptFor(identity: ExternalSourceIdentity): ScriptedLinkedFile | undefined {

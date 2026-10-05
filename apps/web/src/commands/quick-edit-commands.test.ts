@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
+import { TreeFailure, TreeFailureKind, type ByteSink } from '@audiogubbins/project-format';
+import { MEDIA_DIRECTORY } from '@audiogubbins/storage';
 import type { PageFile } from '@audiogubbins/storage-runtime';
 import { sine, stereo, wavFile } from '@audiogubbins/test-fixtures';
 
@@ -25,6 +28,44 @@ function chosen(bytes: Uint8Array<ArrayBuffer>, name = 'Harbour.wav'): PageFile 
     mediaType: 'audio/wav',
     lastModified: 11,
   };
+}
+
+/** A storage that refuses every write into one project's folder, once told which. */
+class RefusingOneProject extends MemoryStorageTree {
+  refused: string | undefined;
+
+  override async writeFile(path: string, bytes: Uint8Array): Promise<void> {
+    this.refuseInside(path);
+    await super.writeFile(path, bytes);
+  }
+
+  override async createFile(path: string): Promise<ByteSink> {
+    this.refuseInside(path);
+    return await super.createFile(path);
+  }
+
+  private refuseInside(path: string): void {
+    if (this.refused !== undefined && path.startsWith(`projects/${this.refused}/`)) {
+      throw new TreeFailure(TreeFailureKind.Quota, 'The storage is full.');
+    }
+  }
+}
+
+/** A storage whose media cannot be written, failing as a fault rather than a refusal. */
+class BrokenMedia extends MemoryStorageTree {
+  override async writeFile(path: string, bytes: Uint8Array): Promise<void> {
+    this.breakInside(path);
+    await super.writeFile(path, bytes);
+  }
+
+  override async createFile(path: string): Promise<ByteSink> {
+    this.breakInside(path);
+    return await super.createFile(path);
+  }
+
+  private breakInside(path: string): void {
+    if (path.startsWith(`${MEDIA_DIRECTORY}/`)) throw new Error('The media went wrong.');
+  }
 }
 
 /** The names of every project the window's storage keeps, deleted ones among them. */
@@ -145,6 +186,65 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
     expect(window.projects.quickEdit.get()).toBeUndefined();
   });
 
+  it('keeps nothing where the project open before cannot be let go, which stays open', async () => {
+    const tree = new RefusingOneProject();
+    const window = await projectWorld(tree).window();
+    await window.runAndHear('file.create-project', { name: 'Earlier' });
+    const open = window.projects.project.get();
+    tree.refused = open.kind === 'open' ? open.snapshot.project : undefined;
+    window.run('file.rename-project', { name: 'Earlier, renamed' });
+    await expect
+      .poll(() => window.projects.project.session()?.getSnapshot().save.kind)
+      .toBe('not-saved');
+    window.files.mediaFiles.push(chosen(HARBOUR_WAV, 'drums.wav'));
+
+    const said = await window.runAndHear('file.quick-edit');
+
+    expect(said).not.toMatch(/imported/u);
+    expect(await projectNames(window)).toEqual(['Earlier']);
+    expect(window.projects.project.session()?.getSnapshot().model.state.project.displayName).toBe(
+      'Earlier, renamed',
+    );
+    expect(window.projects.quickEdit.get()).toBeUndefined();
+  });
+
+  it('keeps nothing of a Quick Edit whose import fails rather than answers', async () => {
+    const window = await projectWorld(new BrokenMedia()).window();
+    await window.runAndHear('file.create-project', { name: 'Earlier' });
+    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+
+    const said = await window.runAndHear('file.quick-edit');
+
+    expect(said).toMatch(/went wrong/u);
+    expect(await projectNames(window)).toEqual(['Earlier']);
+    await expect
+      .poll(() => window.projects.project.session()?.getSnapshot().model.state.project.displayName)
+      .toBe('Earlier');
+  });
+
+  it('opens again the project open before where the project made cannot be removed', async () => {
+    const tree = new RefusingOneProject();
+    const window = await projectWorld(tree).window();
+    await window.runAndHear('file.create-project', { name: 'Earlier' });
+    const stop = window.projects.project.subscribe(() => {
+      const open = window.projects.project.get();
+      if (open.kind !== 'open' || open.snapshot.model.state.project.displayName !== 'notes') return;
+      stop();
+      tree.refused = open.snapshot.project;
+    });
+    window.files.mediaFiles.push(
+      chosen(new TextEncoder().encode('Not a sound at all.'), 'notes.wav'),
+    );
+
+    const said = await window.runAndHear('file.quick-edit');
+
+    expect(said).toMatch(/storage is full/u);
+    expect(await projectNames(window)).toEqual(['Earlier', 'notes']);
+    await expect
+      .poll(() => window.projects.project.session()?.getSnapshot().model.state.project.displayName)
+      .toBe('Earlier');
+  });
+
   it('keeps nothing of a Quick Edit the person cancels', async () => {
     const window = await projectWorld().window();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV));
@@ -170,11 +270,16 @@ describe('Quick Edit (REQ-EDIT-008)', () => {
 
   it('says nothing and makes nothing when the person dismisses the chooser', async () => {
     const window = await projectWorld().window();
+    const { library, media } = window.services.client;
+    const asked = [vi.spyOn(library, 'create'), vi.spyOn(media, 'importFile')];
 
     expect(window.run('file.quick-edit').kind).toBe('applied');
     // A task runs once every promise the dismissal settled has run its callbacks.
     await new Promise((settled) => setTimeout(settled, 0));
 
+    expect(window.said).toEqual([]);
+    expect(window.projects.imports.get().kind).toBe('idle');
+    for (const call of asked) expect(call).not.toHaveBeenCalled();
     expect(await projectNames(window)).toEqual([]);
   });
 });

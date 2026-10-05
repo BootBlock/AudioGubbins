@@ -10,7 +10,13 @@
  * not consulted, so a file cut short is walked to its true end.
  */
 
-import { fail, succeed, type ChannelLayout, type DomainResult } from '@audiogubbins/domain';
+import {
+  fail,
+  succeed,
+  type CancellationSignal,
+  type ChannelLayout,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import {
   AIFC_COMM_BYTES,
@@ -19,7 +25,6 @@ import {
   readCommon,
   type CommonFacts,
 } from './aiff-common.js';
-import type { ReadSignal } from './audio-bytes.js';
 import { viewOf, type HeaderSource } from './byte-reading.js';
 import { coreAudioLayout, type CoreAudioLayout } from './channel-layouts.js';
 import { ChunkWalk, readHeaderChunk, type ChunkSpan } from './chunk-walk.js';
@@ -61,7 +66,7 @@ async function walkUntil(
   walk: ChunkWalk,
   found: FoundChunks,
   done: () => boolean,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<undefined>> {
   while (!done()) {
     const next = await walk.next(signal);
@@ -78,7 +83,7 @@ async function readChannelLayout(
   source: HeaderSource,
   span: ChunkSpan,
   channelCount: number,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<CoreAudioLayout | undefined>> {
   const described = Math.min(Math.max(channelCount, 0), MAXIMUM_DESCRIBED_CHANNELS);
   const limit = CHANNEL_LAYOUT_BYTES + described * CHANNEL_DESCRIPTION_BYTES;
@@ -100,7 +105,7 @@ async function readChannelLayout(
 async function soundData(
   source: HeaderSource,
   sound: ChunkSpan,
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<{ readonly dataOffset: number; readonly presentBytes: number }>> {
   if (sound.size < SOUND_HEADER_BYTES) {
     return fail(malformed('The SSND chunk is shorter than the 8 bytes that precede its samples.'));
@@ -126,7 +131,7 @@ async function describeSound(
   walk: ChunkWalk,
   found: FoundChunks,
   stated: { readonly container: 'aiff' | 'aifc'; readonly common: CommonFacts },
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<AudioFormatDescriptor>> {
   const { container, common } = stated;
   const walked = await walkUntil(walk, found, () => false, signal);
@@ -168,7 +173,7 @@ async function describeSound(
 export async function recogniseAiff(
   source: HeaderSource,
   container: 'aiff' | 'aifc',
-  signal: ReadSignal | undefined,
+  signal: CancellationSignal | undefined,
 ): Promise<DomainResult<FormatStage>> {
   const walk = new ChunkWalk(source, FIRST_CHUNK, { littleEndian: false });
   const found: FoundChunks = {};

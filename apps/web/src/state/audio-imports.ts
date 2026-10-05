@@ -10,7 +10,9 @@
  * The storage worker reads the file and refuses it, naming what it is, before
  * anything is stored, and adds the asset as one change undo reverses. One file
  * is brought in at a time, and the person can call it off, which keeps
- * nothing; letting the project go calls it off too.
+ * nothing; letting the project go calls it off too. A cancel that reaches the
+ * worker once it has added the asset is too late, and the import is reported
+ * as made, since it was.
  */
 
 import type { Clock } from '@audiogubbins/diagnostics';
@@ -132,8 +134,9 @@ export class AudioImports implements Observable<AudioImportState> {
       );
       return imported.ok ? succeed({ kind: 'imported', imported: imported.value }) : imported;
     } catch (error) {
-      // Called off by the person, the worker kept nothing. Given up with the
-      // project, the rejection stands, as every abandoned call's does.
+      // Called off by the person, the worker stopped before it kept anything.
+      // Given up with the project, the rejection stands, as every abandoned
+      // call's does.
       if (isAbandoned(error) && controller.signal.reason === CANCELLED) {
         return succeed({ kind: 'cancelled', fileName: file.fileName });
       }

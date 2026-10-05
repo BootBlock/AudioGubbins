@@ -9,10 +9,11 @@
  * Mode runs. The shell holds the Quick Edit while its project is open
  * (`QuickEditStore`).
  *
- * A Quick Edit is the file made into a project, or nothing: where its file is
- * refused or its import is called off, the project made for it is removed for
- * good and the project open before is opened again, so a failed Quick Edit
- * leaves no empty project behind it.
+ * A Quick Edit is the file made into a project, or nothing: where the project
+ * made for it cannot be opened, or its file is refused, or its import is
+ * called off or fails, that project is removed for good and the project open
+ * before is opened again where nothing else took its place, so a failed Quick
+ * Edit leaves no empty project behind it.
  */
 
 import {
@@ -23,28 +24,39 @@ import {
 } from '@audiogubbins/commands';
 import {
   FailureKind,
+  combine,
   fail,
   failure,
+  mapResult,
   succeed,
+  type DomainFailureResult,
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
 import { nameFromFile } from '@audiogubbins/project-format';
+import type { ImportedAudio, ProjectHeader } from '@audiogubbins/storage';
+import type { PageFile } from '@audiogubbins/storage-runtime';
 
 import { ONE_AT_A_TIME } from '../state/audio-imports.js';
 import type { ProjectStores } from '../state/project-stores.js';
 import { quoted } from '../wording.js';
 import { openedSentence } from './audio-import-commands.js';
 import { projectsAvailability, readyProjects, sayWhenSettled } from './project-access.js';
-import { madeAndOpened, settingsFrom } from './project-file-commands.js';
+import { openedMade, settingsFrom } from './project-file-commands.js';
 import { shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** The project open here before a Quick Edit, and how, to open again if it fails. */
-interface Before {
+/** A project open here, and how. */
+interface OpenHere {
   readonly project: ProjectId;
   readonly access: 'write' | 'read';
 }
+
+/** What making the chosen file into the project made for it came to. */
+type Attempt =
+  | { readonly kind: 'kept'; readonly imported: ImportedAudio }
+  | { readonly kind: 'cancelled' }
+  | { readonly kind: 'failed'; readonly failed: DomainFailureResult };
 
 const NOT_WRITABLE = failure(
   'quick-edit.not-writable',
@@ -53,7 +65,7 @@ const NOT_WRITABLE = failure(
 );
 
 /** The project open here now, and how, or `undefined` where none is. */
-function openBefore(stores: ProjectStores): Before | undefined {
+function openHere(stores: ProjectStores): OpenHere | undefined {
   const open = stores.project.get();
   if (open.kind !== 'open') return undefined;
   return {
@@ -62,27 +74,61 @@ function openBefore(stores: ProjectStores): Before | undefined {
   };
 }
 
+/** Removes `project`, which is not open, for good. */
+async function removedForGood(
+  stores: ProjectStores,
+  project: ProjectId,
+): Promise<DomainResult<void>> {
+  const removed = await stores.library.remove(project);
+  if (!removed.ok) return removed;
+  const { deleted } = removed.value;
+  return deleted === undefined ? succeed(undefined) : await stores.library.purge(project, deleted);
+}
+
 /**
- * Removes the project `made` for good, and opens `before` again where there
- * was one. A removal that fails leaves the project in the bin, which says so.
+ * Removes the project `made` for good, closing it first where it is open
+ * here, and opens `before` again where nothing is open in its place. A
+ * removal that fails leaves the project in the bin, which says so, and the
+ * project before is opened all the same.
  */
 async function withdrawn(
   stores: ProjectStores,
   made: ProjectId,
-  before: Before | undefined,
+  before: OpenHere | undefined,
 ): Promise<DomainResult<void>> {
-  const closed = await stores.project.close();
-  if (!closed.ok) return closed;
-  const removed = await stores.library.remove(made);
-  if (!removed.ok) return removed;
-  const { deleted } = removed.value;
-  if (deleted !== undefined) {
-    const purged = await stores.library.purge(made, deleted);
-    if (!purged.ok) return purged;
+  if (openHere(stores)?.project === made) {
+    const closed = await stores.project.close();
+    // Still open, the project can be neither removed nor replaced.
+    if (!closed.ok) return closed;
   }
-  if (before === undefined) return succeed(undefined);
+  const removed = await removedForGood(stores, made);
+  if (before === undefined || stores.project.get().kind !== 'none') return removed;
   const reopened = await stores.project.open(before.project, { access: before.access });
-  return reopened.ok ? succeed(undefined) : reopened;
+  return mapResult(combine<unknown>([removed, reopened]), () => undefined);
+}
+
+/** Opens the project `made` and imports `file` into it, holding the Quick Edit where it is. */
+async function attempted(
+  context: ShellContext,
+  stores: ProjectStores,
+  made: ProjectHeader,
+  file: PageFile,
+): Promise<Attempt> {
+  const opened = await openedMade(context, stores, made);
+  if (!opened.ok) return { kind: 'failed', failed: opened };
+  const session = stores.project.session();
+  if (session === undefined) return { kind: 'failed', failed: fail(NOT_WRITABLE) };
+  const outcome = await stores.imports.importChosen(
+    session,
+    file,
+    context.ids.next<'AssetId'>(),
+    context.clock,
+  );
+  if (!outcome.ok) return { kind: 'failed', failed: outcome };
+  if (outcome.value.kind === 'cancelled') return { kind: 'cancelled' };
+  const { imported } = outcome.value;
+  stores.quickEdit.hold({ project: made.id, asset: imported.asset.id, fileName: file.fileName });
+  return { kind: 'kept', imported };
 }
 
 /** Makes the chosen file a project and opens it; or nothing, where it cannot be. */
@@ -97,34 +143,26 @@ async function quickEdited(
   if (!name.ok) return name;
   const settings = settingsFrom(invocation);
   if (!settings.ok) return settings;
-  const before = openBefore(stores);
-  const made = await madeAndOpened(context, stores, name.value, settings.value);
+  const before = openHere(stores);
+  const made = await stores.library.create({ name: name.value, settings: settings.value });
   if (!made.ok) return made;
-  const session = stores.project.session();
-  const outcome =
-    session === undefined
-      ? fail(NOT_WRITABLE)
-      : await stores.imports.importChosen(
-          session,
-          file,
-          context.ids.next<'AssetId'>(),
-          context.clock,
-        );
-  if (outcome.ok && outcome.value.kind === 'imported') {
-    const { imported } = outcome.value;
-    stores.quickEdit.hold({
-      project: made.value.id,
-      asset: imported.asset.id,
-      fileName: file.fileName,
-    });
-    const opened = await openedSentence(context, imported);
+  let attempt: Attempt | undefined;
+  try {
+    attempt = await attempted(context, stores, made.value, file);
+  } finally {
+    // An attempt that threw leaves no project behind it either.
+    if (attempt === undefined) await withdrawn(stores, made.value.id, before);
+  }
+  if (attempt.kind === 'kept') {
+    const opened = await openedSentence(context, attempt.imported);
     return succeed(`${opened} It is kept in a project of its own, ${quoted(made.value.name)}.`);
   }
   const undone = await withdrawn(stores, made.value.id, before);
+  if (attempt.kind === 'failed') {
+    return undone.ok ? attempt.failed : fail(...attempt.failed.failures, ...undone.failures);
+  }
   if (!undone.ok) return undone;
-  return outcome.ok
-    ? succeed(`The Quick Edit of ${quoted(file.fileName)} was cancelled, and nothing was kept.`)
-    : outcome;
+  return succeed(`The Quick Edit of ${quoted(file.fileName)} was cancelled, and nothing was kept.`);
 }
 
 function quickEditCommand(): Command<ShellContext> {

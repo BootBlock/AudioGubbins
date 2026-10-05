@@ -15,13 +15,13 @@ import {
   fail,
   failure,
   succeed,
+  throwIfCancelled,
   type ChannelLayout,
   type DomainFailure,
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import { throwIfCancelled } from '../cancellation.js';
 import type { CanonicalDsp, CanonicalOscillator } from '../dsp/canonical-dsp.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
 import {

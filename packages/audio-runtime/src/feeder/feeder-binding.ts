@@ -15,20 +15,18 @@
  */
 
 import {
+  Cancelled,
   FailureKind,
+  createCancellationSource,
   fail,
   failure,
   succeed,
+  type CancellationSource,
   type DomainResult,
   type SampleCount,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import {
-  Cancelled,
-  createCancellationSource,
-  type CancellationSource,
-  type PcmSource,
-} from '@audiogubbins/audio-engine';
+import type { PcmSource } from '@audiogubbins/audio-engine';
 
 import {
   PostedDestination,

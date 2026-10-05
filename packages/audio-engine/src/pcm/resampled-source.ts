@@ -18,12 +18,13 @@ import {
   convertedFrameCount,
   mapResult,
   sampleCount,
+  throwIfCancelled,
+  type CancellationSignal,
   type DomainResult,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import { throwIfCancelled, type CancellationSignal } from '../cancellation.js';
 import type {
   CanonicalDsp,
   CanonicalResampler,

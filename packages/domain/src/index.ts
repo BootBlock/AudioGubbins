@@ -31,6 +31,15 @@ export {
 } from './result.js';
 
 export {
+  type CancellationSignal,
+  type CancellationSource,
+  Cancelled,
+  cancellationReason,
+  createCancellationSource,
+  throwIfCancelled,
+} from './cancellation.js';
+
+export {
   type AssetId,
   type Branded,
   type BusId,

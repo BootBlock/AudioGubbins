@@ -17,10 +17,11 @@
  */
 
 import {
-  failure,
   FailureKind,
   fail,
+  failure,
   succeed,
+  throwIfCancelled,
   type DomainFailure,
   type DomainResult,
   type SampleCount,
@@ -32,7 +33,6 @@ import {
   type NodeId,
 } from '@audiogubbins/audio-graph';
 
-import { throwIfCancelled } from '../cancellation.js';
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
 import { createExecutor, type GraphExecutor } from '../execution/graph-executor.js';
 import type { NodeImplementations } from '../nodes/node-implementation.js';

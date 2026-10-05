@@ -19,13 +19,13 @@ import {
   sampleCount,
   sampleRate,
   succeed,
+  type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
   type SampleCount,
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import type { ReadSignal } from './audio-bytes.js';
 import { malformed, unsupportedSampleRate } from './codec-failures.js';
 import type { ReadableContainer, ReadableFormat, RecognisedFormat } from './recognised-format.js';
 
@@ -92,7 +92,7 @@ export type FormatStage =
       readonly readable: true;
       readonly format: ReadableFormat;
       readonly describe: (
-        signal: ReadSignal | undefined,
+        signal: CancellationSignal | undefined,
       ) => Promise<DomainResult<AudioFormatDescriptor>>;
     };
 

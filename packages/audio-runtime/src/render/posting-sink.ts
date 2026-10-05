@@ -9,7 +9,9 @@
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { AudioFrameBlock, CancellationSignal, RenderSink } from '@audiogubbins/audio-engine';
+import type { AudioFrameBlock, RenderSink } from '@audiogubbins/audio-engine';
+
+import type { CancellationSignal } from '@audiogubbins/domain';
 
 import { FromRenderWorkerKind, type FromRenderWorker } from '../protocol/render-messages.js';
 import type { ChunkWindow } from './chunk-window.js';

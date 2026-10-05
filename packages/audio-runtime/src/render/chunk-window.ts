@@ -11,7 +11,7 @@
  * last: one would leave either side idle while the other works.
  */
 
-import { cancellationReason, type CancellationSignal } from '@audiogubbins/audio-engine';
+import { cancellationReason, type CancellationSignal } from '@audiogubbins/domain';
 
 /** The most chunks sent and not yet taken. */
 const CHUNKS_IN_FLIGHT = 2;

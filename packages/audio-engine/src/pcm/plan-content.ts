@@ -6,7 +6,10 @@
  *
  * A file opens on the first read that needs it, and is refused there if it no
  * longer has the rate, channels or length its asset recorded, since that is a
- * different file and its frames would land in the wrong place.
+ * different file and its frames would land in the wrong place. It opens for
+ * the reader's life rather than that one read's, so a read cancelled while the
+ * file opens leaves it opening for the next; an opening that failed is tried
+ * again by the next read, since what failed may have passed.
  */
 
 import { openAudio, type AudioReader } from '@audiogubbins/codecs';
@@ -14,11 +17,14 @@ import {
   FailureKind,
   applyStages,
   channelCount,
+  createCancellationSource,
   failure,
   placeOf,
   sampleCount,
   sliceSegment,
+  throwIfCancelled,
   type AssetId,
+  type CancellationSignal,
   type DomainFailure,
   type PlanSource,
   type PlanStream,
@@ -26,7 +32,6 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import { throwIfCancelled, type CancellationSignal } from '../cancellation.js';
 import { mediaBytes, type MediaFile } from './media-file.js';
 import type { PcmSource } from './pcm-source.js';
 
@@ -69,6 +74,7 @@ export interface ContentReader {
 export class FileContent implements ContentReader {
   readonly channels: number;
   readonly #entry: MediaEntry;
+  readonly #lifetime = createCancellationSource();
   #reader: Promise<AudioReader> | undefined;
 
   constructor(entry: MediaEntry) {
@@ -82,7 +88,8 @@ export class FileContent implements ContentReader {
     into: readonly Float32Array[],
     signal?: CancellationSignal,
   ): Promise<void> {
-    const reader = await (this.#reader ??= this.#open(signal));
+    const reader = await this.#opened();
+    throwIfCancelled(signal);
     const position = sampleCount(start);
     if (!position.ok) throw new MediaReadFailure(position.failures[0]);
     const read = await reader.read(position.value, frames, into, signal);
@@ -98,7 +105,18 @@ export class FileContent implements ContentReader {
     }
   }
 
-  async #open(signal?: CancellationSignal): Promise<AudioReader> {
+  /** The file opened, or opening, for the reader's life (see the module comment). */
+  #opened(): Promise<AudioReader> {
+    if (this.#reader !== undefined) return this.#reader;
+    const opening = this.#open(this.#lifetime.signal);
+    this.#reader = opening;
+    opening.then(undefined, () => {
+      if (this.#reader === opening) this.#reader = undefined;
+    });
+    return opening;
+  }
+
+  async #open(signal: CancellationSignal): Promise<AudioReader> {
     const opened = await openAudio(mediaBytes(this.#entry.file), signal);
     if (!opened.ok) throw new MediaReadFailure(opened.failures[0]);
     const { format } = opened.value;
@@ -119,6 +137,7 @@ export class FileContent implements ContentReader {
   }
 
   release(): void {
+    this.#lifetime.cancel();
     this.#reader = undefined;
   }
 }

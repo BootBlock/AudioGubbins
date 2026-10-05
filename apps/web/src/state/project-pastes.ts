@@ -28,8 +28,8 @@ export class ProjectPastes {
   ) {
     this.media = media;
     this.project = project;
-    this.locate = async (_asset, identity) => {
-      const access = await linkedFiles.look(identity);
+    this.locate = async (_asset, identity, signal) => {
+      const access = await linkedFiles.look(identity, signal);
       return access.kind === 'available'
         ? { kind: 'found', file: access.file }
         : { kind: 'absent', reason: absenceOf(access) };

@@ -2,11 +2,14 @@
  * One side of the port between the page and the storage worker: calling the
  * other side's operations, serving its own, and the events either sends.
  *
- * Each call is numbered, answered once, and abandoned where its signal aborts:
- * the other side is told, and aborts the signal it gave the handler, so a long
- * path stops where it next looks. An answer arriving for a call already
- * abandoned finds nothing waiting for it, and a cancel arriving for a call
- * already answered finds nothing to abort.
+ * Each call is numbered and answered once. A call's signal asks the other side
+ * to give it up: the other side is told, and aborts the signal it gave the
+ * handler, so a long path stops where it next looks. The call still waits for
+ * its answer, since only the other side knows whether it stopped in time: it
+ * rejects with the signal's reason where the call was given up or failed, and
+ * resolves to the answer where it was carried out first, since a change the
+ * other side made must not be reported as one it did not. A cancel arriving
+ * for a call already answered finds nothing to abort.
  *
  * A refusal of the storage tree crosses as its kind and becomes the same
  * {@link TreeFailure} on the calling side; anything else a handler throws
@@ -50,9 +53,6 @@ interface PendingCall {
   readonly settle: (outcome: CallOutcome) => void;
   readonly reject: (reason: Error) => void;
 }
-
-/** What a call waits with once its signal aborts, before it throws the reason. */
-const ABANDONED = Symbol('abandoned');
 
 function servesOperation<TTable extends OperationTable>(
   handlers: Handlers<TTable>,
@@ -140,8 +140,10 @@ export class PortChannel<TOther extends PortSide, TOwn extends PortSide> {
   }
 
   /**
-   * Calls an operation and resolves to its answer. Rejects with the signal's
-   * reason where it aborts first, and tells the other side to abandon it.
+   * Calls an operation and resolves to its answer. Where its signal aborts
+   * first, tells the other side to give the call up, and rejects with the
+   * signal's reason once it has, or resolves to the answer where the other
+   * side had carried the call out already (see the module comment).
    */
   async call<TName extends keyof TOther['operations'] & string>(
     operation: TName,
@@ -154,15 +156,13 @@ export class PortChannel<TOther extends PortSide, TOwn extends PortSide> {
 
     const id = this.#nextId;
     this.#nextId += 1;
-    const outcome = await new Promise<CallOutcome | typeof ABANDONED>((resolve, reject) => {
+    const outcome = await new Promise<CallOutcome>((resolve, reject) => {
       // Sent before anything waits for it, so a call the browser cannot clone
       // rejects and leaves nothing waiting; no answer can arrive before this
       // task ends.
       this.#post({ type: 'call', id, operation, argument }, transfer);
       const onAbort = (): void => {
-        if (!this.#calls.delete(id)) return;
         this.#post({ type: 'cancel', target: id }, []);
-        resolve(ABANDONED);
       };
       signal?.addEventListener('abort', onAbort, { once: true });
       this.#calls.set(id, {
@@ -176,10 +176,10 @@ export class PortChannel<TOther extends PortSide, TOwn extends PortSide> {
         },
       });
     });
-    if (outcome !== ABANDONED) return answerOf(operation, outcome);
-    // Only an abort abandons a call, so this throws the signal's reason.
-    signal?.throwIfAborted();
-    throw new Error('A call was abandoned without its signal aborting.');
+    // A call given up that failed all the same was not carried out either,
+    // and the caller gave up waiting for why.
+    if (outcome.kind !== 'value') signal?.throwIfAborted();
+    return answerOf(operation, outcome);
   }
 
   /** Serves the other side's calls, once, with a handler for each operation. */
@@ -255,7 +255,7 @@ export class PortChannel<TOther extends PortSide, TOwn extends PortSide> {
 
   #settle(id: number, outcome: CallOutcome): void {
     const pending = this.#calls.get(id);
-    // An answer to a call already abandoned finds nothing waiting for it.
+    // An answer to no call waiting, such as a second answer to one, is dropped.
     if (pending === undefined) return;
     this.#calls.delete(id);
     pending.settle(outcome);

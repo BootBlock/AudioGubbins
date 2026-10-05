@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { channelCount } from '@audiogubbins/domain';
 import { SourceHandling } from '@audiogubbins/media-store';
@@ -156,9 +156,27 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
     expect(window.projects.imports.get().kind).toBe('idle');
   });
 
+  it('reports an import as made where the cancel reaches the worker only after it added the asset', async () => {
+    const window = await windowWithProject();
+    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+    const session = window.projects.project.session();
+    if (session === undefined) throw new Error('No project is open to change.');
+    // The page hears the asset added before the worker's answer arrives, so a
+    // cancel sent now reaches a worker that has carried the import out.
+    const stop = session.subscribe(() => {
+      if (session.getSnapshot().model.state.project.assets.size === 0) return;
+      stop();
+      expect(window.run('file.cancel-import').kind).toBe('applied');
+    });
+
+    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+    expect(assetsOf(window).project.assets.size).toBe(1);
+  });
+
   it('says nothing and changes nothing when the person dismisses the chooser', async () => {
     const window = await windowWithProject();
     const before = assetsOf(window);
+    const asked = vi.spyOn(window.services.client.media, 'importFile');
 
     const said = window.said.length;
 
@@ -168,18 +186,25 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
 
     expect(window.said.length).toBe(said);
     expect(assetsOf(window)).toBe(before);
+    expect(window.projects.imports.get().kind).toBe('idle');
+    expect(asked).not.toHaveBeenCalled();
   });
 
   it('refuses a second import while one runs', async () => {
     const window = await windowWithProject();
     window.files.mediaFiles.push(chosen(HARBOUR_WAV), chosen(HARBOUR_WAV, 'Again.wav'));
+    // Asked the moment the first import starts, which a poll could miss.
+    const second = new Promise<string>((resolve) => {
+      const stop = window.projects.imports.subscribe(() => {
+        if (window.projects.imports.get().kind !== 'importing') return;
+        stop();
+        resolve(window.runAndHear('file.import-audio'));
+      });
+    });
 
     window.run('file.import-audio');
-    await expect.poll(() => window.projects.imports.get().kind).toBe('importing');
 
-    expect(await window.runAndHear('file.import-audio')).toBe(
-      'A file is being imported already. Wait for it, or cancel it.',
-    );
+    expect(await second).toBe('A file is being imported already. Wait for it, or cancel it.');
     await expect.poll(() => window.said).toContain('"Harbour" is imported and open.');
     expect(assetsOf(window).project.assets.size).toBe(1);
   });
