@@ -2,10 +2,11 @@
  * Bringing an audio file into the open project, and calling it off
  * (REQ-STOR-025, REQ-AUDIO-220, ADR-0052).
  *
- * A file brought in opens in the editor last in use, once the page holds its
- * file, so the person sees what they imported where they were working. A file
- * the header says is longer than it is was read to its last whole frame, and
- * the person is told by how much it fell short.
+ * A file brought in opens in the editor last in use, or a new one where none
+ * is, once the page holds its file, so the person sees what they imported
+ * where they were working. A file the header says is longer than it is was
+ * read to its last whole frame, and the person is told by how much it fell
+ * short.
  */
 
 import { CommandCategory, unavailable, AVAILABLE, type Command } from '@audiogubbins/commands';
@@ -16,6 +17,7 @@ import { assetEntryId } from '../assets/project-assets.js';
 import { settledEntry } from '../state/asset-catalogue.js';
 import type { AudioImportOutcome } from '../state/audio-imports.js';
 import { counted, quoted } from '../wording.js';
+import { showInEditor } from './editor-asset-commands.js';
 import { readyProjects, sayWhenSettled, sessionAvailability, sessionOf } from './project-access.js';
 import { shellCommand } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -28,20 +30,18 @@ function shortfallSentence({ shortfall }: ImportedAudio): string {
 }
 
 /**
- * Opens the asset `imported` made in the editor last in use, once the page
- * holds its file, and answers what is said of it.
+ * Opens the asset `imported` made in the editor last in use, or a new one,
+ * once the page holds its file, and answers what is said of it.
  */
 async function openedSentence(context: ShellContext, imported: ImportedAudio): Promise<string> {
   const name = quoted(imported.asset.displayName);
   const shortfall = shortfallSentence(imported);
   const scope = context.projects?.project.scope();
-  const panel = context.editorViews.get().focused;
-  if (scope === undefined || panel === undefined) {
-    return `${name} is imported.${shortfall} Open it from an Editor panel.`;
-  }
+  if (scope === undefined) return `${name} is imported.${shortfall}`;
   const entry = await settledEntry(context.assets, assetEntryId(imported.asset.id), scope);
   if ('reason' in entry) return `${name} is imported, but cannot be shown yet. ${entry.reason}`;
-  context.editorViews.open(panel, entry);
+  const refused = showInEditor(context, entry, context.editorViews.get().focused);
+  if (refused !== undefined) return `${name} is imported.${shortfall} ${refused}`;
   return `${name} is imported and open.${shortfall}`;
 }
 

@@ -11,7 +11,7 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { Button, ButtonTone } from '@audiogubbins/design-system';
+import { ButtonTone } from '@audiogubbins/design-system';
 import type { CapabilityRegistry } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
@@ -31,6 +31,7 @@ import {
   LevelMeters,
   PlaybackProblems,
 } from './engine-readouts.js';
+import { CommandButton, type PanelCommands } from './command-button.js';
 import { PerformanceChoice } from './performance-choice.js';
 import { ProcessingModes } from './processing-modes.js';
 import { useDisplayFrame } from './use-display-frame.js';
@@ -60,35 +61,6 @@ export interface TransportPanelProps {
   readonly editorViews: Observable<unknown>;
 }
 
-type Commands = Pick<TransportPanelProps, 'run' | 'unavailableReason'>;
-
-/** A button that runs a command, disabled with the command's own reason. */
-function CommandButton({
-  id,
-  label,
-  commands,
-  tone,
-}: {
-  readonly id: string;
-  readonly label: string;
-  readonly commands: Commands;
-  readonly tone?: ButtonTone;
-}): ReactNode {
-  const reason = commands.unavailableReason(id);
-  return (
-    <Button
-      {...(tone === undefined ? {} : { tone })}
-      disabled={reason !== undefined}
-      title={reason}
-      onClick={() => {
-        commands.run(id);
-      }}
-    >
-      {label}
-    </Button>
-  );
-}
-
 /** A transport position as the editor writes a clock, or the start where nothing plays. */
 function positionOf(frame: number | undefined, rate: number | undefined): string {
   const read = rate === undefined ? undefined : sampleRate(rate);
@@ -105,7 +77,7 @@ function TransportControls({
 }: {
   readonly view: AudioView;
   readonly playhead: () => number | undefined;
-  readonly commands: Commands;
+  readonly commands: PanelCommands;
 }): ReactNode {
   const mode = view.playback?.transport.mode;
   const frame = useDisplayFrame(playhead, mode === TransportMode.Playing);
@@ -181,7 +153,7 @@ function OfflineRender({
 }: {
   readonly view: AudioView;
   readonly framesRendered: () => number;
-  readonly commands: Commands;
+  readonly commands: PanelCommands;
 }): ReactNode {
   const { render } = view;
   const rendered = useDisplayFrame(framesRendered, render.stage === RenderStage.Running);

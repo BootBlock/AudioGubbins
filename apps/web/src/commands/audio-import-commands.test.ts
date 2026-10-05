@@ -21,7 +21,11 @@ const HARBOUR_WAV = wavFile(
 );
 
 /** A file the person chose, of `bytes`, kept under `handleKey` where one is given. */
-function chosen(bytes: Uint8Array, name = 'Harbour.wav', handleKey?: string): PageFile {
+function chosen(
+  bytes: Uint8Array<ArrayBuffer>,
+  name = 'Harbour.wav',
+  handleKey?: string,
+): PageFile {
   return {
     bytes: { kind: 'file', file: new File([bytes], name) },
     fileName: name,
@@ -69,6 +73,20 @@ describe('importing audio into the open project (REQ-STOR-025, REQ-AUDIO-220)', 
       declaredFrames: 22_050,
     });
     expect(window.context.editorViews.entry('editor')?.asset).toBe(assetEntryId(asset.id));
+  });
+
+  it('opens the file in a new Editor panel where no editor is in use', async () => {
+    const window = await projectWorld().window();
+    await window.runAndHear('file.create-project', { name: 'Harbour' });
+    expect(window.context.editorViews.get().focused).toBeUndefined();
+    window.files.mediaFiles.push(chosen(HARBOUR_WAV));
+
+    expect(await window.runAndHear('file.import-audio')).toBe('"Harbour" is imported and open.');
+
+    const [asset] = assetsOf(window).project.assets.values();
+    const panel = window.context.editorViews.get().focused;
+    if (asset === undefined || panel === undefined) throw new Error('Nothing was opened.');
+    expect(window.context.editorViews.entry(panel)?.asset).toBe(assetEntryId(asset.id));
   });
 
   it('links the file where the person chose to link files, keeping no copy of it', async () => {

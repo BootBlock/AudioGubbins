@@ -1,9 +1,8 @@
 /**
  * The panels the Phase 01 shell can show.
  *
- * The shell arrived before the rest of the editing, so the asset browser and
- * the inspector say what they are for and which phase brings them, rather than
- * pretending to be there.
+ * The shell arrived before the rest of the editing, so the inspector says what
+ * it is for and which phase brings it, rather than pretending to be there.
  *
  * That is a deliberate distinction from the placeholder REQ-EXEC-181 forbids. A
  * placeholder pretends to be the real thing and fails silently; these state
@@ -14,7 +13,8 @@
  * the diagnostic log (`diagnostics-panel.tsx`), the transport, which plays an
  * asset or the test signal and renders the test signal (`transport-panel.tsx`),
  * the editor, one view of an asset (`editor-panel.tsx`), and the reference
- * picture (`picture-panel.tsx`).
+ * picture (`picture-panel.tsx`), and the project's audio in the Asset Browser
+ * (`asset-browser.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -38,6 +38,7 @@ import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
+import { AssetBrowserPanel } from './asset-browser.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
@@ -198,13 +199,6 @@ const PENDING_PANELS: ReadonlyMap<
   { readonly purpose: string; readonly arrival: string }
 > = new Map([
   [
-    PanelKinds.AssetBrowser,
-    {
-      purpose: 'The audio in the open project, ready to open, rename and organise.',
-      arrival: 'Importing audio arrives with the import, export and codec system.',
-    },
-  ],
-  [
     PanelKinds.Inspector,
     {
       purpose: 'The properties of whatever you have selected, editable in place.',
@@ -213,7 +207,7 @@ const PENDING_PANELS: ReadonlyMap<
   ],
 ]);
 
-/** The capability surface, the Editor and the Picture panel, or `undefined` for another kind. */
+/** The capability surface, the Editor, Picture and Asset Browser panels, or `undefined` for another kind. */
 function editingPanel(panel: OpenPanel, title: string, context: PanelContext): ReactNode {
   switch (panel.kind) {
     case PanelKinds.Capabilities:
@@ -232,6 +226,18 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
       return <EditorPanel panel={panel.id} title={title} parts={context.editor} />;
     case PanelKinds.Picture:
       return <PicturePanel title={title} parts={context.editor} />;
+    case PanelKinds.AssetBrowser:
+      return (
+        <AssetBrowserPanel
+          title={title}
+          projects={context.projects}
+          projectsUnavailable={context.projectsUnavailable}
+          catalogue={context.editor.assets}
+          editorViews={context.editor.stores.editorViews}
+          commands={context}
+          labelFor={context.editor.labelFor}
+        />
+      );
     default:
       return undefined;
   }

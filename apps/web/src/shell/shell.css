@@ -1043,6 +1043,28 @@
   margin-block: var(--ag-space-tiny) 0;
 }
 
+/* The Asset Browser: the import control above the project's audio, each asset's regions under it. */
+.ag-asset-import {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  align-items: center;
+  margin-block-end: var(--ag-space-medium);
+}
+
+.ag-asset-import p {
+  margin: 0;
+}
+
+.ag-asset-regions {
+  margin-block-start: var(--ag-space-small);
+  padding-inline-start: var(--ag-space-large);
+}
+
+.ag-editor-asset [aria-current='true'] {
+  font-weight: 600;
+}
+
 /* The Picture panel: the reference picture as large as the panel allows. */
 .ag-picture-frame {
   display: flex;

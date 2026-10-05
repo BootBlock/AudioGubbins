@@ -292,7 +292,6 @@ describe('regions (REQ-EDIT-014)', () => {
     audio.window.run('editor.select-time', { start: 0, end: 4800 });
     await ran(audio, 'edit.silence');
     audio.window.run('editor.open-asset', { asset: audio.entry });
-    audio.window.context.editorViews.open('editor', audio.asset());
 
     await ran(audio, 'edit.split', { at: 96_000 });
 
