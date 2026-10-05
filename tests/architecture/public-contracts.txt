@@ -3509,7 +3509,7 @@ Published paths
   readonly ProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly ProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
-  readonly ProjectSession.comparedState: (side: SideName) => Promise<DomainResult<ProjectState>>
+  readonly ProjectSession.comparedState: (side: SideName, signal?: AbortSignal) => Promise<DomainResult<ProjectState>>
   readonly ProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3754,7 +3754,7 @@ Published paths
   readonly RemoteProjectSession.recordExport: (draft: ExportDraft) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly RemoteProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
-  readonly RemoteProjectSession.comparedState: (side: SideName) => Promise<DomainResult<ProjectState>>
+  readonly RemoteProjectSession.comparedState: (side: SideName, signal?: AbortSignal) => Promise<DomainResult<ProjectState>>
   readonly RemoteProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>

@@ -120,9 +120,15 @@ export class RemoteProjectSession {
   readonly comparedDifference = (): Promise<DomainResult<ComparedStates>> =>
     this.#channel.call('projects.comparedDifference', { handle: this.handle });
 
-  /** The project as it stands at side `side` of the open comparison, worked out in the worker. */
-  readonly comparedState = (side: SideName): Promise<DomainResult<ProjectState>> =>
-    this.#channel.call('projects.comparedState', { handle: this.handle, side });
+  /**
+   * The project as it stands at side `side` of the open comparison, worked out
+   * in the worker, which stops once `signal` aborts.
+   */
+  readonly comparedState = (
+    side: SideName,
+    signal?: AbortSignal,
+  ): Promise<DomainResult<ProjectState>> =>
+    this.#channel.call('projects.comparedState', { handle: this.handle, side }, { signal });
 
   readonly switchSide = (side?: SideName): Promise<DomainResult<WriteOutcome>> =>
     this.#channel.call('projects.switchSide', { handle: this.handle, side });

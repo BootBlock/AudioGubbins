@@ -229,7 +229,7 @@ export class PlaybackControl {
   }
 
   /** The timeline frame the listener hears, at the context's rate, or `undefined` with no session. */
-  audiblePosition(): number | undefined {
+  audiblePosition(): SampleCount | undefined {
     const heard = this.#opened?.session?.audiblePosition();
     return heard?.ok === true ? heard.value : undefined;
   }
@@ -239,7 +239,7 @@ export class PlaybackControl {
    * plays, and the frame it stands at otherwise, which a seek while paused or
    * stopped moves at once. `undefined` with no session.
    */
-  playheadPosition(): number | undefined {
+  playheadPosition(): SampleCount | undefined {
     const session = this.#opened?.session;
     if (session === undefined) return undefined;
     const read =
