@@ -168,6 +168,24 @@ describe('the Inspector panel (WU-05.D)', () => {
     ).toBeInTheDocument();
   });
 
+  it('names the channels each edit changed by the layout it was made on', async () => {
+    const audio = await loopInView();
+    await regionInView(audio);
+    await audio.window.runAndHear('edit.swap-channels');
+    // Made on the asset from the region's view, between the region's two swaps.
+    await audio.window.runAndHear('edit.convert-layout', { layout: 'surround5_1' });
+    await audio.window.runAndHear('edit.swap-channels', {
+      first: 'Centre',
+      second: 'Surround left',
+    });
+    inspectorOver(audio.window);
+
+    const swaps = within(editsUnder('Its own processing'))
+      .getAllByRole('listitem')
+      .map((item) => item.textContent.replace(/, from .*$/u, ''));
+    expect(swaps).toEqual(['Swapped Left and Right', 'Swapped Centre and Surround left']);
+  });
+
   it('renames and tags the region through its commands, and follows an undo', async () => {
     const audio = await loopInView();
     await regionInView(audio);
