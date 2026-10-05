@@ -113,7 +113,9 @@ function deleteCommand(): Command<ShellContext> {
       const { owner } = scope.project;
       changeProject(context, scope.project.session, {
         description: 'Delete',
-        invocations: [chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range })],
+        invocations: [
+          chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range }),
+        ],
         said: onWholeAsset(owner, `Deleted ${what(scope)}.`),
       });
       return undefined;
@@ -135,7 +137,9 @@ function trimCommand(): Command<ShellContext> {
       if (scope.target.kind === 'region') return setRegionBounds(context, scope);
       changeProject(context, scope.project.session, {
         description: 'Trim',
-        invocations: [chainInvocation(context, scope.target, { kind: 'trim', range: scope.target.range })],
+        invocations: [
+          chainInvocation(context, scope.target, { kind: 'trim', range: scope.target.range }),
+        ],
         said: `Trimmed ${scope.view.asset.name} to ${lengthOf(scope)}.`,
       });
       return undefined;
@@ -156,7 +160,9 @@ function reverseCommand(): Command<ShellContext> {
       const { owner } = scope.project;
       changeProject(context, scope.project.session, {
         description: 'Reverse',
-        invocations: [chainInvocation(context, scope.target, { kind: 'reverse', range: scope.target.range })],
+        invocations: [
+          chainInvocation(context, scope.target, { kind: 'reverse', range: scope.target.range }),
+        ],
         said: onWholeAsset(owner, `Reversed ${what(scope)}.`),
       });
       return undefined;

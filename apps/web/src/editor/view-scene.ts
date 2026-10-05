@@ -153,6 +153,8 @@ export function sceneOf(
 export interface SnapExclusions {
   /** The marker being dragged, which is not a target for itself. */
   readonly marker?: string;
+  /** The region whose end is being dragged, whose own boundaries are not targets for it. */
+  readonly region?: string;
   /** Whether a selection edge is being dragged, so the edges are not targets. */
   readonly selectionEdges?: boolean;
 }
@@ -174,7 +176,7 @@ export function snapTargetsFor(
   );
   return snapTargetsOf({
     markers: asset.markers.filter((marker) => marker.id !== exclusions.marker),
-    regions: asset.regions,
+    regions: asset.regions.filter((region) => region.id !== exclusions.region),
     playhead: sources.playhead,
     selection: exclusions.selectionEdges === true ? undefined : sources.selection.time,
     grid: gridPositions(ruler),

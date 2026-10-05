@@ -70,7 +70,7 @@ describe('processing made on an edit target', () => {
   it.each([
     ['an asset', assetTarget],
     ['a region', regionTarget],
-  ])("keeps no channel scope on a channel edit of %s, which names its own", (_, target) => {
+  ])('keeps no channel scope on a channel edit of %s, which names its own', (_, target) => {
     const id = ids.next<'EditOperationId'>();
     const { next } = appliedOf(
       bus.execute(

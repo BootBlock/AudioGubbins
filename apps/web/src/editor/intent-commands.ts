@@ -3,9 +3,11 @@
  * or the palette runs (REQ-EDIT-065), named with the view the pointer was in.
  * The razor splits where it is clicked, and the region tool makes a region of
  * the range it was dragged over by selecting it and making a region of the
- * selection, as a person with a keyboard does.
+ * selection, as a person with a keyboard does. A region's end dragged in the
+ * strip moves to where it was let go.
  */
 
+import { RegionBoundary } from '@audiogubbins/domain';
 import type { ToolIntent } from '@audiogubbins/editor-view';
 
 /** A command to run, and what it is given. */
@@ -35,6 +37,13 @@ export function commandsOf(intent: ToolIntent, view: string): readonly IntentCom
       return [{ id: 'editor.set-playhead', args: { view, position: intent.position } }];
     case 'move-marker':
       return [{ id: 'editor.move-marker', args: { view, marker: intent.id, to: intent.to } }];
+    case 'move-region-boundary':
+      return [
+        {
+          id: intent.boundary === RegionBoundary.Start ? 'region.move-start' : 'region.move-end',
+          args: { view, region: intent.id, to: intent.to },
+        },
+      ];
     case 'add-marker':
       return [{ id: 'editor.add-marker', args: { view, at: intent.at } }];
     case 'scroll':

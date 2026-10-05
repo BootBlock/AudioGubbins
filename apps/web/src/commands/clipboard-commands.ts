@@ -113,7 +113,9 @@ function cutCommand(): Command<ShellContext> {
       const { owner, session } = scope.project;
       changeProject(context, session, {
         description: 'Cut',
-        invocations: [chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range })],
+        invocations: [
+          chainInvocation(context, scope.target, { kind: 'delete', range: scope.target.range }),
+        ],
         said: onWholeAsset(owner, `Cut ${done.description}.`),
       });
       return undefined;

@@ -161,7 +161,8 @@ function drawPreview(
       break;
     }
     case 'razor':
-    case 'marker': {
+    case 'marker':
+    case 'region-boundary': {
       const guide = pool.rectangles(style.palette.snap);
       across(guide, style, lane, preview.position);
       out.push(guide.batch());

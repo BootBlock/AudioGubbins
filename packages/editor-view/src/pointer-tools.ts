@@ -2,18 +2,19 @@
  * What a press, a drag and a release do with each tool (REQ-EDIT-065).
  *
  * The explicit tools and the contextual behaviour (a held space bar for the
- * hand, a drag on a selection's edge to move it, a drag on a marker to move it,
- * shift to extend) resolve here to the same intents, which the application
+ * hand, a drag on a selection's edge to move it, a drag on a marker or on a
+ * region's end in the strip to move it, shift to extend) resolve here to the same intents, which the application
  * carries out through the same commands a key press or the palette runs, so a
  * selection made with the time-selection tool and one made by a shortcut are
  * the same thing. This is a value in, value out: the view keeps the interaction
  * between events, and nothing here reads the pointer or the page.
  *
  * A press becomes a drag once the pointer has moved past a few pixels, more for
- * a finger than for a mouse, so a tap is never read as a tiny drag.
+ * a finger than for a mouse, so a tap is never read as a tiny drag. A tap on a
+ * region's end is a tap on the strip.
  */
 
-import type { MarkerId, SampleCount } from '@audiogubbins/domain';
+import type { MarkerId, RegionBoundary, RegionId, SampleCount } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 import type { BoundaryRange } from '@audiogubbins/timeline';
 
@@ -55,6 +56,12 @@ export type ToolIntent =
   | { readonly kind: 'select-marker'; readonly id: MarkerId; readonly add: boolean }
   | { readonly kind: 'set-playhead'; readonly position: SampleCount }
   | { readonly kind: 'move-marker'; readonly id: MarkerId; readonly to: SampleCount }
+  | {
+      readonly kind: 'move-region-boundary';
+      readonly id: RegionId;
+      readonly boundary: RegionBoundary;
+      readonly to: SampleCount;
+    }
   | { readonly kind: 'add-marker'; readonly at: SampleCount }
   | { readonly kind: 'scroll'; readonly dx: number }
   | { readonly kind: 'zoom-to-range'; readonly range: BoundaryRange }
@@ -70,6 +77,12 @@ export type ToolPreview =
       readonly channels: readonly number[] | undefined;
     }
   | { readonly kind: 'marker'; readonly id: MarkerId; readonly position: SampleCount }
+  | {
+      readonly kind: 'region-boundary';
+      readonly id: RegionId;
+      readonly boundary: RegionBoundary;
+      readonly position: SampleCount;
+    }
   | { readonly kind: 'zoom-range'; readonly range: BoundaryRange }
   | { readonly kind: 'razor'; readonly position: SampleCount };
 
@@ -161,6 +174,14 @@ function dragPreview(
   if (hit.kind === 'marker' && (tool === ToolId.Select || tool === ToolId.Marker)) {
     return { kind: 'marker', id: hit.id, position: input.boundary };
   }
+  if (hit.kind === 'region-edge' && (tool === ToolId.Select || tool === ToolId.Region)) {
+    return {
+      kind: 'region-boundary',
+      id: hit.id,
+      boundary: hit.boundary,
+      position: input.boundary,
+    };
+  }
   if (hit.kind === 'ruler') return undefined;
   switch (tool) {
     case ToolId.Select:
@@ -216,8 +237,11 @@ export function move(interaction: Interaction, input: ToolInput): ToolStep {
   return { interaction: next, preview: dragPreview(next, input), intents: [] };
 }
 
+const STRIP: HitTarget = { kind: 'strip' };
+
 function clicked(state: Extract<Interaction, { kind: 'pressed' }>): readonly ToolIntent[] {
-  const { hit, tool, start } = state;
+  const { tool, start } = state;
+  const hit = state.hit.kind === 'region-edge' ? STRIP : state.hit;
   if (hit.kind === 'ruler') return [{ kind: 'set-playhead', position: start.boundary }];
   if (hit.kind === 'marker' && tool !== ToolId.Hand && tool !== ToolId.Zoom) {
     return [{ kind: 'select-marker', id: hit.id, add: start.shift }];
@@ -271,6 +295,14 @@ export function release(interaction: Interaction, input: ToolInput): ToolStep {
       break;
     case 'marker':
       intents.push({ kind: 'move-marker', id: preview.id, to: preview.position });
+      break;
+    case 'region-boundary':
+      intents.push({
+        kind: 'move-region-boundary',
+        id: preview.id,
+        boundary: preview.boundary,
+        to: preview.position,
+      });
       break;
     case 'zoom-range':
       if (preview.range.end > preview.range.start)

@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import type { MarkerId } from '@audiogubbins/domain';
+import { RegionBoundary, unsafeBrandId, type MarkerId } from '@audiogubbins/domain';
 import { PointerKind } from '@audiogubbins/input';
 
 import type { HitTarget } from './hit-testing.js';
@@ -117,6 +117,38 @@ describe('the selection tools', () => {
     ]);
     expect(gesture(context(ToolId.Select, on), input(10), input(40))).toEqual([
       { kind: 'move-marker', id: 'm1', to: 400 },
+    ]);
+  });
+
+  it('move the end of a region dragged in the strip, showing it where the drag is', () => {
+    const id = unsafeBrandId<'RegionId'>('r1');
+    const start: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.Start };
+    const pressed = press(context(ToolId.Select, start), input(10));
+    expect(move(pressed.interaction, input(25)).preview).toEqual({
+      kind: 'region-boundary',
+      id,
+      boundary: RegionBoundary.Start,
+      position: 250,
+    });
+    expect(gesture(context(ToolId.Select, start), input(10), input(25))).toEqual([
+      { kind: 'move-region-boundary', id, boundary: RegionBoundary.Start, to: 250 },
+    ]);
+    const end: HitTarget = { kind: 'region-edge', id, boundary: RegionBoundary.End };
+    expect(gesture(context(ToolId.Region, end), input(40), input(30))).toEqual([
+      { kind: 'move-region-boundary', id, boundary: RegionBoundary.End, to: 300 },
+    ]);
+  });
+
+  it('read a click on the end of a region as a click on the strip, which moves nothing', () => {
+    const end: HitTarget = {
+      kind: 'region-edge',
+      id: unsafeBrandId('r1'),
+      boundary: RegionBoundary.End,
+    };
+    expect(gesture(context(ToolId.Select, end), input(10))).toEqual([]);
+    expect(gesture(context(ToolId.Region, end), input(10), input(11))).toEqual([]);
+    expect(gesture(context(ToolId.Marker, end), input(10))).toEqual([
+      { kind: 'add-marker', at: 100 },
     ]);
   });
 

@@ -217,7 +217,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'isTrackAudible',
         'processorsInSignalOrder',
         'projectLength',
-        'regionEnd',
         'secondsToSamples',
         'tracksInOrder',
         'validateParameterValue',

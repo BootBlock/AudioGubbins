@@ -2859,7 +2859,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
   const REVIEWED_FUNCTIONS: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     // Tables: a list of independent definitions, each whole in itself.
     'apps/web/src/editor/intent-commands.ts: commandsOf': [
-      50,
+      57,
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [

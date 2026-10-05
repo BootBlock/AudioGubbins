@@ -1,10 +1,17 @@
 /**
  * Drawing the ruler and the strip above the lanes: the ruler's ticks and
  * labels, the playhead's handle and the target a drag snapped to; the strip's
- * region spans and marker flags, each with its name.
+ * region spans and marker flags, each with its name, and each drawn where a
+ * drag is moving it.
  */
 
-import type { PlacedMarker, MarkerId, PlacedRegion } from '@audiogubbins/domain';
+import {
+  RegionBoundary,
+  regionEnd,
+  type MarkerId,
+  type PlacedMarker,
+  type PlacedRegion,
+} from '@audiogubbins/domain';
 import type { RenderBatch, TextLabel } from '@audiogubbins/renderer';
 import {
   pixelOf,
@@ -118,7 +125,23 @@ function spacedLabels(labels: readonly TextLabel[]): TextLabel[] {
   return kept;
 }
 
-/** Draws the strip: region spans with their names, and marker flags with theirs. */
+/** Where `region` is drawn: where it lies, or with the end being dragged where the drag is. */
+function shownSpan(
+  region: PlacedRegion,
+  preview: ToolPreview | undefined,
+): { readonly start: number; readonly end: number } {
+  const start = region.start;
+  const end = regionEnd(region);
+  if (preview?.kind !== 'region-boundary' || preview.id !== region.id) return { start, end };
+  return preview.boundary === RegionBoundary.Start
+    ? { start: preview.position, end }
+    : { start, end: preview.position };
+}
+
+/**
+ * Draws the strip: region spans with their names, the end of one being dragged
+ * where the drag is, and marker flags with their names.
+ */
 export function drawStrip(
   pool: BuilderPool,
   layout: ViewLayout,
@@ -135,8 +158,9 @@ export function drawStrip(
   const chosen = pool.rectangles(style.palette.selectedMarker);
   const labels: TextLabel[] = [];
   for (const region of content.regions) {
-    const from = Math.max(0, pixelOf(style.viewport, region.start));
-    const to = Math.min(strip.width, pixelOf(style.viewport, region.start + region.length));
+    const span = shownSpan(region, preview);
+    const from = Math.max(0, pixelOf(style.viewport, span.start));
+    const to = Math.min(strip.width, pixelOf(style.viewport, span.end));
     if (to <= from) continue;
     spans.add(from, strip.y, to - from, strip.height);
     labels.push(label(style, region.displayName, from + 4, middle, 'middle', style.palette.text));

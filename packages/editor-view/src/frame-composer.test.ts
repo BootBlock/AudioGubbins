@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { RegionBoundary } from '@audiogubbins/domain';
 import type { RenderBatch, RenderFrame } from '@audiogubbins/renderer';
 import {
   EMPTY_SELECTION,
@@ -18,7 +19,7 @@ import {
 import { WaveformPeakPyramid, peakGeometry } from '@audiogubbins/waveform';
 
 import { FrameComposer, SPECTROGRAM_SHELL_NOTE } from './frame-composer.js';
-import { PALETTE, at, marker, scene } from './testing/scene.js';
+import { PALETTE, at, marker, region, scene } from './testing/scene.js';
 import { DisplayMode } from './view-state.js';
 
 /** The batches of the frame's lane layers, lane by lane. */
@@ -157,6 +158,31 @@ describe('composing a frame', () => {
     // Every mark is still drawn in the strip, the second without its name.
     const strip = crowded.layers.find((layer) => layer.clip?.y === 24 && layer.clip.height === 18);
     expect(rectanglesOf(strip?.batches ?? [], PALETTE.marker)).toBe(3);
+  });
+
+  it('draws the end of a region being dragged where the drag is, in the strip and across the lanes', () => {
+    const dragged = region('r', 10_000, 20_000);
+    const composed = new FrameComposer().compose(
+      scene({
+        content: { length: at(100_000), channelNames: ['L', 'R'], markers: [], regions: [dragged] },
+        preview: {
+          kind: 'region-boundary',
+          id: dragged.id,
+          boundary: RegionBoundary.End,
+          position: at(50_000),
+        },
+      }),
+    );
+
+    // A hundred frames a pixel: the span runs from 100 to where the end is dragged, at 500.
+    const strip = composed.layers.find((layer) => layer.clip?.y === 24 && layer.clip.height === 18);
+    const span = strip?.batches.find(
+      (batch) => batch.kind === 'rectangles' && batch.colour === PALETTE.region,
+    );
+    expect(span?.kind === 'rectangles' ? [span.values[0], span.values[2]] : []).toEqual([100, 400]);
+    expect(laneBatches(composed, 2).map((batches) => rectanglesOf(batches, PALETTE.snap))).toEqual([
+      1, 1,
+    ]);
   });
 
   it('composes the same frame from the same state, so a lost device is recovered by composing it again', () => {

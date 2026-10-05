@@ -38,6 +38,9 @@ export function processTargetInvocation(
         { id, basis: target.basis, range, ...channels, edit },
       );
     case 'asset':
-      return applyInvocation({ id: target.asset }, { id, kind: 'process', range, ...channels, edit });
+      return applyInvocation(
+        { id: target.asset },
+        { id, kind: 'process', range, ...channels, edit },
+      );
   }
 }

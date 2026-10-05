@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { sampleCount, unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { layoutView, newViewState, type EditorViewState } from '@audiogubbins/editor-view';
 import { PointerKind, type PointerSample } from '@audiogubbins/input';
 import { EMPTY_SELECTION, boundaryAt, samplesWithin } from '@audiogubbins/timeline';
 
+import type { EditorAsset } from '../assets/editor-asset.js';
 import { testAssets } from '../assets/test-assets.js';
 import type { IntentCommand } from './intent-commands.js';
 import { ToolPointer, type ToolPointerHost } from './tool-pointer.js';
@@ -38,6 +40,7 @@ interface Asked {
 function pointerOver(
   state: EditorViewState,
   answer: (position: number) => Promise<number | undefined>,
+  asset: EditorAsset = TONES,
 ) {
   const asked: Asked[] = [];
   const ran: IntentCommand[] = [];
@@ -47,7 +50,7 @@ function pointerOver(
     snapshot: () => ({
       sources: {
         state,
-        asset: TONES,
+        asset,
         content: { markers: [], regions: [] },
         selection: EMPTY_SELECTION,
         playhead: undefined,
@@ -242,5 +245,92 @@ describe('a search the press no longer needs', () => {
       false,
       false,
     ]);
+  });
+});
+
+describe('dragging the end of a region in the strip (REQ-EDIT-014)', () => {
+  it('moves that end to where it is let go, not back to where it was', async () => {
+    // The end's own place is a region boundary within the snapping tolerance
+    // of a short drag: offered as a target, it would take the drag back.
+    const state = viewOf();
+    const { viewport } = state;
+    const start = boundaryAt(viewport, 100, TONES.length);
+    const end = boundaryAt(viewport, 300, TONES.length);
+    const region = {
+      id: unsafeBrandId<'RegionId'>('region-1'),
+      displayName: 'Region 1',
+      start,
+      length: expectSuccess(sampleCount(end - start)),
+      tags: [],
+    };
+    const asset: EditorAsset = { ...TONES, regions: [region] };
+    const { tool, ran } = pointerOver(state, () => Promise.resolve(undefined), asset);
+    const strip = layoutView(state, 1000, 200, 2, false).strip.y + 2;
+    const inStrip = (x: number): PointerSample => ({ ...at(x), y: strip });
+
+    tool.down(inStrip(300), NONE);
+    tool.moved(inStrip(306), NONE);
+    tool.up(inStrip(306), NONE);
+
+    await vi.waitFor(() => {
+      expect(ran).toHaveLength(1);
+    });
+    expect(ran[0]).toEqual({
+      id: 'region.move-end',
+      args: { view: 'editor', region: 'region-1', to: boundaryAt(viewport, 306, TONES.length) },
+    });
+  });
+
+  it.each([
+    ['markers', 'editor.move-marker'],
+    ['regions', 'region.move-end'],
+  ] as const)('grabs no %s while they are hidden', async (overlay, moved) => {
+    const shown = viewOf();
+    const state = viewOf((view) => ({ ...view, overlays: { ...view.overlays, [overlay]: false } }));
+    const { viewport } = shown;
+    const start = boundaryAt(viewport, 100, TONES.length);
+    const end = boundaryAt(viewport, 300, TONES.length);
+    const asset: EditorAsset = {
+      ...TONES,
+      // One or the other, as a marker in reach is grabbed before a region's edge.
+      markers:
+        overlay === 'markers'
+          ? [{ id: unsafeBrandId<'MarkerId'>('marker-1'), displayName: 'Hit', position: end }]
+          : [],
+      regions:
+        overlay === 'regions'
+          ? [
+              {
+                id: unsafeBrandId<'RegionId'>('region-1'),
+                displayName: 'Region 1',
+                start,
+                length: expectSuccess(sampleCount(end - start)),
+                tags: [],
+              },
+            ]
+          : [],
+    };
+    const layout = layoutView(shown, 1000, 200, 2, false);
+    const inStrip = (x: number): PointerSample => ({ ...at(x), y: layout.strip.y + 2 });
+    const run = (view: EditorViewState) => {
+      const pointer = pointerOver(view, () => Promise.resolve(undefined), asset);
+      pointer.tool.down(inStrip(300), NONE);
+      pointer.tool.moved(inStrip(340), NONE);
+      pointer.tool.up(inStrip(340), NONE);
+      // A click on the ruler after it, so the drag's commands have run when it has.
+      pointer.tool.down({ ...at(500), y: layout.ruler.y + 2 }, NONE);
+      pointer.tool.up({ ...at(500), y: layout.ruler.y + 2 }, NONE);
+      return pointer.ran;
+    };
+
+    const whenShown = run(shown);
+    const whenHidden = run(state);
+    await vi.waitFor(() => {
+      expect(whenShown.at(-1)?.id).toBe('editor.set-playhead');
+      expect(whenHidden.at(-1)?.id).toBe('editor.set-playhead');
+    });
+    // Shown, the same drag moves what it grabbed, so hiding it is what stops it.
+    expect(whenShown.map((command) => command.id)).toContain(moved);
+    expect(whenHidden.map((command) => command.id)).not.toContain(moved);
   });
 });

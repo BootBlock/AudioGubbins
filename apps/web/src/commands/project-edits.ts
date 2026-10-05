@@ -100,10 +100,13 @@ export function chainInvocation(
   target: EditTarget,
   operation: DistributiveOmit<EditOperation, 'id'>,
 ): CommandInvocation {
-  return applyInvocation({ id: target.asset }, {
-    ...operation,
-    id: context.ids.next<'EditOperationId'>(),
-  });
+  return applyInvocation(
+    { id: target.asset },
+    {
+      ...operation,
+      id: context.ids.next<'EditOperationId'>(),
+    },
+  );
 }
 
 /** `Omit` over each member of a union, so each keeps its own fields. */

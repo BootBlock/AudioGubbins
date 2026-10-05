@@ -40,6 +40,7 @@ import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
 import { markerCommands } from './marker-commands.js';
+import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
 import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
@@ -188,6 +189,7 @@ export function shellCommands(
     ...editCommands(),
     ...channelCommands(),
     ...regionCommands(),
+    ...regionBoundaryCommands(),
     ...regionPropertyCommands(),
     ...splitCommands(),
     ...playheadCommands(),

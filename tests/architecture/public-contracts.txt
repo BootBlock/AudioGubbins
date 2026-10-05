@@ -138,9 +138,6 @@ Published paths
   interface MediaFile
   readonly MediaFile.size: number
   MediaFile.slice: (start: number, end: number) => { arrayBuffer(): Promise<ArrayBuffer>; }
-  class MediaReadFailure extends Error
-  new MediaReadFailure(problem: DomainFailure): MediaReadFailure
-  readonly MediaReadFailure.failure: DomainFailure
   interface MeterReading
   readonly MeterReading.frames: number
   readonly MeterReading.peak: readonly number[]
@@ -347,12 +344,10 @@ Published paths
   function createPriorityScheduler(options: PrioritySchedulerOptions): DomainResult<PriorityScheduler>
   function describedBuffers(descriptions: readonly PcmDescription[]): readonly ArrayBuffer[]
   function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
-  function editedSource(plan: EditPlan, media: readonly MediaEntry[], layout: ChannelLayout, dsp: CanonicalDsp): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
   function isLatencyHint(value: unknown): boolean
-  function isMediaFile(value: unknown): boolean
   function memorySource(block: AudioFrameBlock): DomainResult<PcmSource>
   function nextTransportState(state: TransportState, event: TransportEvent, clock: MediaClock): DomainResult<TransportState>
   function offsetSource(source: PcmSource, offset: SampleCount): DomainResult<PcmSource>
@@ -805,6 +800,7 @@ Published paths
   function listedFolder(files: readonly Pick<ChosenFile, "file" | "handle" | "relativePath">[]): DirectoryReader
   function openFileSink(file: WritableFile): Promise<ByteSink>
   function openFileSinkIn(directory: WritableDirectory, name: string): Promise<ByteSink>
+  function originPrivateFile(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): (path: string) => Promise<File | undefined>
   function originPrivateTree(readRoot: (() => Promise<FileSystemDirectoryHandle>) | undefined): StorageTree
   function pickDirectory(openDirectory: Picker, mode: "read" | "readwrite"): Promise<Picked<FileSystemDirectoryHandle>>
   function pickFiles(openFiles: Picker, keeper: FileHandleKeeper | undefined, options: { readonly multiple: boolean; readonly types?: readonly PickerFileType[]; }): Promise<Picked<readonly ChosenFile[]>>
@@ -980,7 +976,20 @@ Published paths
   function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
 
 @audiogubbins/clipboard
-  (no module)
+  interface CopiedAudio
+  readonly CopiedAudio.origin: ProjectId
+  readonly CopiedAudio.payload: EditPlan
+  readonly CopiedAudio.records: readonly AssetRecord[]
+  interface PasteRequest
+  readonly PasteRequest.copied: CopiedAudio
+  readonly PasteRequest.asset: AssetId
+  readonly PasteRequest.place: { readonly kind: "at"; readonly at: SampleCount; } | { readonly kind: "replace"; readonly range: EditRange; }
+  readonly PasteRequest.convertRate: boolean
+  interface PlannedPaste
+  readonly PlannedPaste.records: readonly AssetRecord[]
+  readonly PlannedPaste.operations: readonly [EditOperation, ...EditOperation[]]
+  function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<CopiedAudio>
+  function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator): DomainResult<PlannedPaste>
 
 @audiogubbins/codecs
   interface AudioBytes
@@ -1006,10 +1015,8 @@ Published paths
   ReadSignal.addEventListener: (type: "abort", listener: () => void, options?: { once?: boolean; }) => void
   ReadSignal.removeEventListener: (type: "abort", listener: () => void) => void
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
-  type RecognisedFormat = CompressedAifcFormat | CompressedWaveFormat | ForeignFormat | ReadableFormat | UnknownFormat
   type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
   function openAudio(bytes: AudioBytes, signal?: ReadSignal | undefined): Promise<DomainResult<AudioReader>>
-  function recogniseAudio(bytes: AudioBytes, signal?: ReadSignal | undefined): Promise<DomainResult<RecognisedFormat>>
 
 @audiogubbins/codecs/testing
   interface AiffOptions
@@ -1674,7 +1681,7 @@ Published paths
   readonly EditShape.sampleRate: SampleRate
   readonly EditShape.layout: ChannelLayout
   readonly EditShape.length: number
-  type EditTarget = { readonly kind: "asset"; readonly asset: AssetId; } | { readonly kind: "region"; readonly asset: AssetId; readonly region: RegionId; }
+  type EditTarget = { readonly kind: "asset"; readonly asset: AssetId; readonly range: EditRange; readonly channels?: readonly number[]; } | { readonly kind: "region"; readonly asset: AssetId; readonly region: RegionId; readonly basis: number; readonly range: EditRange; readonly channels?: readonly number[]; }
   interface EffectChain
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.processors: readonly ProcessorInstance[]
@@ -1811,7 +1818,6 @@ Published paths
   readonly Span.start: number
   readonly Span.end: number
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
-  const TIME_CHANGING_KINDS: ReadonlySet<"convert-layout" | "delete" | "insert" | "process" | "reverse" | "trim">
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
   readonly ToggleParameterDescriptor.id: ParameterId
@@ -1841,8 +1847,6 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
-  function carryPosition(operation: EditOperation, shape: EditShape, position: number, affinity: Affinity): number
-  function carrySpan(operation: EditOperation, shape: EditShape, span: Span): Span
   function chainLatency(chain: EffectChain, descriptors: ReadonlyMap<string, ProcessorDescriptor>): DomainResult<ProcessorLatency>
   function channelCount(layout: ChannelLayout): number
   function channelIndexOf(layout: ChannelLayout, role: ChannelRole): number | undefined
@@ -1865,12 +1869,9 @@ Published paths
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
   function editPlanFrom(value: unknown): DomainResult<EditPlan>
-  function fadeShapeAt(shape: FadeShape, t: number): number
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
-  function gainAt(curve: GainCurve, frame: number): number
-  function identityMatrix(count: number): ChannelMatrix
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
@@ -1880,7 +1881,6 @@ Published paths
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
   function isWellFormedId(candidate: string): boolean
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
-  function lastConversion(asset: Asset): number
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
@@ -1894,7 +1894,6 @@ Published paths
   function projectLength(project: Project): number
   function regionEnd(region: PlacedRegion): number
   function regionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): EditPlan
-  function regionSpan(resolver: AnchorResolver, region: Region): Span | undefined
   function routeToBus(busId: BusId): RoutingTarget
   function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
   function sampleCount(value: number): DomainResult<SampleCount>
@@ -1905,7 +1904,6 @@ Published paths
   function shapesOf(asset: Asset): readonly EditShape[]
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
-  function sourceShape(asset: Asset): EditShape
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
@@ -1925,6 +1923,7 @@ Published paths
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
   function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>): Samples
+  function sourceShape(asset: Asset): EditShape
 
 @audiogubbins/editor-view
   const AMPLITUDES: readonly number[]
@@ -1984,8 +1983,9 @@ Published paths
   readonly HitScene.layout: ViewLayout
   readonly HitScene.viewport: ViewportState
   readonly HitScene.markers: readonly PlacedMarker[]
+  readonly HitScene.regions: readonly PlacedRegion[]
   readonly HitScene.selection: BoundaryRange | undefined
-  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
+  type HitTarget = { readonly kind: "lane"; readonly lane: Lane; } | { readonly kind: "marker"; readonly id: MarkerId; } | { readonly kind: "nothing"; } | { readonly kind: "picture"; } | { readonly kind: "region-edge"; readonly id: RegionId; readonly boundary: RegionBoundary; } | { readonly kind: "ruler"; } | { readonly kind: "selection-edge"; readonly edge: "end" | "start"; } | { readonly kind: "strip"; }
   const IDLE: Interaction
   type Interaction = { readonly kind: "idle"; } | { readonly kind: "pressed"; readonly tool: ToolId; readonly hit: HitTarget; readonly start: ToolInput; readonly context: ToolContext; readonly dragging: boolean; readonly lastX: number; }
   interface KnownAudio
@@ -2024,8 +2024,8 @@ Published paths
   readonly ToolContext.hit: HitTarget
   readonly ToolContext.selection: BoundaryRange | undefined
   readonly ToolContext.visibleChannels: readonly number[]
-  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; }
-  type ToolId = "hand" | "marker" | "razor" | "select" | "time-select" | "zoom"
+  const ToolId: { readonly Select: "select"; readonly TimeSelect: "time-select"; readonly Hand: "hand"; readonly Zoom: "zoom"; readonly Razor: "razor"; readonly Marker: "marker"; readonly Region: "region"; }
+  type ToolId = "hand" | "marker" | "razor" | "region" | "select" | "time-select" | "zoom"
   interface ToolInput
   readonly ToolInput.x: number
   readonly ToolInput.y: number
@@ -2034,8 +2034,8 @@ Published paths
   readonly ToolInput.channel: number | undefined
   readonly ToolInput.shift: boolean
   readonly ToolInput.alt: boolean
-  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
-  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
+  type ToolIntent = { readonly kind: "add-marker"; readonly at: SampleCount; } | { readonly kind: "make-region"; readonly range: BoundaryRange; } | { readonly kind: "move-marker"; readonly id: MarkerId; readonly to: SampleCount; } | { readonly kind: "move-region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly to: SampleCount; } | { readonly kind: "scroll"; readonly dx: number; } | { readonly kind: "select-marker"; readonly id: MarkerId; readonly add: boolean; } | { readonly kind: "select-time"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "set-playhead"; readonly position: SampleCount; } | { readonly kind: "split-at"; readonly position: SampleCount; } | { readonly kind: "zoom-step"; readonly x: number; readonly direction: "in" | "out"; } | { readonly kind: "zoom-to-range"; readonly range: BoundaryRange; }
+  type ToolPreview = { readonly kind: "marker"; readonly id: MarkerId; readonly position: SampleCount; } | { readonly kind: "razor"; readonly position: SampleCount; } | { readonly kind: "region-boundary"; readonly id: RegionId; readonly boundary: RegionBoundary; readonly position: SampleCount; } | { readonly kind: "time-range"; readonly range: BoundaryRange; readonly channels: readonly number[] | undefined; } | { readonly kind: "zoom-range"; readonly range: BoundaryRange; }
   interface ToolStep
   readonly ToolStep.interaction: Interaction
   readonly ToolStep.preview: ToolPreview | undefined
@@ -2389,6 +2389,7 @@ Published paths
   readonly ImportRequest.choice: ImportChoice
   readonly ImportRequest.projectId: ProjectId
   readonly ImportRequest.importedAt: number
+  readonly ImportRequest.audio?: SourceAudioShape
   interface ImportServices
   readonly ImportServices.store: MediaObjectStore
   readonly ImportServices.digest: Digest
@@ -2415,6 +2416,7 @@ Published paths
   MediaObjectStore.isHeld: (contentId: ContentId) => boolean
   MediaObjectStore.find: (contentId: ContentId) => Promise<DomainResult<StoredObject | undefined>>
   MediaObjectStore.open: (contentId: ContentId) => Promise<DomainResult<ByteSource>>
+  MediaObjectStore.locate: (contentId: ContentId) => Promise<DomainResult<string>>
   MediaObjectStore.verify: (contentId: ContentId, options?: HashingOptions) => Promise<DomainResult<StoredObject>>
   MediaObjectStore.list: (signal?: AbortSignal) => AsyncGenerator<StoredObject, void, undefined>
   MediaObjectStore.recoverIncomplete: () => Promise<DomainResult<RecoveryReport>>
@@ -2473,11 +2475,11 @@ Published paths
   type UnavailableReason = "no-retained-copy"
   function classifySource(recorded: ExternalSourceIdentity, observation: SourceObservation, candidate?: ExternalSourceIdentity | undefined): SourceClassification
   function collect(store: MediaObjectStore, plan: CollectionPlan, confirmation: PurgeConfirmation, freshRoots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionReport>>
-  function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
   function contentReferencedBy(state: ProjectState): Generator<ContentId, void, undefined>
   function examineFile(recorded: ExternalSourceIdentity, file: ExternalFile, services: CompletionServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
   function importMedia(request: ImportRequest, services: ImportServices, options?: PutOptions): Promise<DomainResult<ImportedMedia>>
   function keepRetainedCopy(file: ExternalFile, identity: ExternalSourceIdentity, services: { readonly store: MediaObjectStore; readonly digest: Digest; }, options?: PutOptions): Promise<DomainResult<RetainedCopy>>
+  function objectMissing(contentId: ContentId): DomainFailure
   function planCollection(store: MediaObjectStore, roots: ContentRoots, signal?: AbortSignal | undefined): Promise<DomainResult<CollectionPlan>>
   function resolutionsFor(classification: SourceClassification, media: ExternalMedia): ResolutionPlan
 
@@ -2520,6 +2522,7 @@ Published paths
   class SimulatedCrash extends Error
   new SimulatedCrash(): SimulatedCrash
   type TornWrite = "full-length" | "short"
+  function completeIdentity(identity: ExternalSourceIdentity, source: ByteSource, services: CompletionServices, options?: HashingOptions): Promise<DomainResult<ExternalSourceIdentity>>
   function countedSharing(): CountedSharing
   function countingTokens(): () => string
   function generatedBytes(offset: number, length: number, seed: number): Uint8Array<ArrayBuffer>
@@ -2546,8 +2549,8 @@ Published paths
   function addRegionInvocation(region: Region): CommandInvocation
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
-  function applyRegionEditInvocation(region: Pick<Region, "id">, operation: RegionOperation): CommandInvocation
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
+  function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit): CommandInvocation
   function projectCommands(): readonly ProjectCommand[]
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
@@ -2555,8 +2558,6 @@ Published paths
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
   function setMarkerInvocation(marker: Marker): CommandInvocation
   function setRegionInvocation(region: Region): CommandInvocation
-  function withdrawInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
-  function withdrawRegionEditInvocation(region: Pick<Region, "id">, operation: Pick<RegionOperation, "id">): CommandInvocation
 
 @audiogubbins/project-format
   interface AffectedEntities
@@ -2937,6 +2938,7 @@ Published paths
   function listConverter<TValue>(maximum: number, item: Converter<TValue>): Converter<readonly TValue[]>
   function listOf(reading: Reading, value: JsonValue, parent: string, key: number | string, maximum: number): JsonArray | undefined
   function memberOf(object: JsonObject, key: string): JsonValue | undefined
+  function nameFromFile(subject: NamedSubject, fileName: string): DomainResult<string>
   function numberConverter(minimum: number, maximum: number): Converter<number>
   function objectOf(reading: Reading, value: JsonValue, parent: string, key: number | string, members: ReadonlySet<string>): JsonObject | undefined
   function oneOfConverter<TValue extends string>(values: readonly TValue[]): Converter<TValue>
@@ -2948,14 +2950,12 @@ Published paths
   function presentMembers(members: Readonly<Record<string, JsonValue | undefined>>): JsonObject
   function prettyCanonicalJson(value: JsonValue): string
   function projectTree(content: ProjectTreeContent): readonly ProjectTreeFile[]
-  const readAnchoredLoop: Converter<AnchoredLoop>
   const readAssetRecord: Converter<AssetRecord>
   const readBackupPolicy: Converter<BackupPolicy>
   function readBundleManifest(bytes: Uint8Array<ArrayBufferLike>): DomainResult<BundleManifest>
   const readComparisonChoice: Converter<ComparisonChoiceRecord>
   function readCompatibleHeader(value: JsonValue, expectedFormat: string, schema: "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"): DomainResult<FormatHeader>
   const readEditOperation: Converter<EditOperation>
-  const readEditPlan: Converter<EditPlan>
   const readExportRecord: Converter<ExportRecord>
   const readExternalIdentity: Converter<ExternalSourceIdentity>
   const readHistoryLabel: Converter<HistoryLabel>
@@ -2984,13 +2984,11 @@ Published paths
   function stripHistory(parts: HistoryProvenanceParts, level: ProvenanceLevel, services: HistoryStrippingServices): Promise<DomainResult<HistoryProvenanceParts>>
   function textConverter(rule: TextRule): Converter<string>
   function withStateFingerprints(record: HistoryRecord<InvocationRecord>, renamed: ReadonlyMap<StateFingerprint, StateFingerprint>): HistoryRecord<InvocationRecord>
-  function writeAnchoredLoop(loop: AnchoredLoop): JsonObject
   function writeAssetRecord(record: AssetRecord): JsonObject
   function writeBackupPolicy(policy: BackupPolicy): JsonObject
   function writeBundleManifest(entries: readonly ManifestEntry[]): DomainResult<Uint8Array<ArrayBuffer>>
   function writeComparisonChoice(choice: ComparisonChoiceRecord): JsonObject
   function writeEditOperation(operation: EditOperation): JsonObject
-  function writeEditPlan(plan: EditPlan): JsonObject
   function writeExportRecord(record: ExportRecord): JsonObject
   function writeExternalIdentity(identity: ExternalSourceIdentity): JsonObject
   function writeHistoryNodeRecord(node: HistoryNodeRecord): JsonObject
@@ -3147,6 +3145,16 @@ Published paths
   interface AnotherProject
   readonly AnotherProject.name: string | undefined
   type AssetConsolidation = { readonly asset: AssetId; readonly kind: "consolidated"; readonly contentId: ContentId; } | { readonly asset: AssetId; readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly asset: AssetId; readonly kind: "passed-over"; readonly reason: PassedOverReason; }
+  interface AudioImport
+  readonly AudioImport.file: ExternalFile
+  readonly AudioImport.choice: ImportChoice
+  readonly AudioImport.assetId: AssetId
+  readonly AudioImport.importedAt: number
+  interface AudioPaste
+  readonly AudioPaste.description: string
+  readonly AudioPaste.records: readonly AssetRecord[]
+  readonly AudioPaste.asset: AssetId
+  readonly AudioPaste.operations: readonly [EditOperation, ...EditOperation[]]
   interface BackupGeneration
   readonly BackupGeneration.number: number
   readonly BackupGeneration.at: number
@@ -3383,6 +3391,10 @@ Published paths
   readonly ImportServices.coordinator?: LeaseCoordinator
   readonly ImportServices.owner: LeaseOwner
   readonly ImportServices.yieldToHost: YieldToHost
+  interface ImportedAudio
+  readonly ImportedAudio.outcome: ChangeOutcome
+  readonly ImportedAudio.asset: Asset
+  readonly ImportedAudio.shortfall: number
   interface ImportedProject
   readonly ImportedProject.header: ProjectHeader
   readonly ImportedProject.asCopy: boolean
@@ -3497,6 +3509,7 @@ Published paths
   readonly ProjectSession.setBackupPolicy: (policy: BackupPolicy) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly ProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
+  readonly ProjectSession.comparedState: (side: SideName) => Promise<DomainResult<ProjectState>>
   readonly ProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly ProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3647,6 +3660,7 @@ Published paths
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
+  function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function importUnpacked(reader: DirectoryReader, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
   function isStorageFull(cause: DomainFailure): boolean
@@ -3655,6 +3669,7 @@ Published paths
   function openProject(request: OpeningRequest, services: OpeningServices): Promise<DomainResult<OpenedProject>>
   function openStorageRoot(tree: StorageTree, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<StorageRootOpening>>
   function packUnpacked(reader: DirectoryReader, sink: ByteSink, services: BundleServices, signal?: AbortSignal | undefined): Promise<DomainResult<ZipWritten>>
+  function pasteAudio(session: ProjectSession, paste: AudioPaste, services: AudioPasteServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function planBackupPruning(generations: readonly BackupGeneration[], retention: BackupRetention, now: number): BackupPruning
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
@@ -3669,6 +3684,11 @@ Published paths
   function wipeStorage(tree: StorageTree, digest: Digest, confirmation: WipeConfirmation, signal?: AbortSignal | undefined): Promise<DomainResult<void>>
 
 @audiogubbins/storage-runtime
+  interface AudioFileImport
+  readonly AudioFileImport.file: PageFile
+  readonly AudioFileImport.choice: ImportChoice
+  readonly AudioFileImport.assetId: AssetId
+  readonly AudioFileImport.importedAt: number
   interface BackupsClient
   BackupsClient.tick: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
   BackupsClient.backUpNow: (session: RemoteProjectSession, folder?: ExternalBackupTarget, signal?: AbortSignal) => Promise<DomainResult<BackupTick>>
@@ -3697,6 +3717,10 @@ Published paths
   LibraryClient.restore: (project: ProjectId) => Promise<DomainResult<ProjectHeader>>
   LibraryClient.purge: (project: ProjectId, confirmation: PurgeProjectConfirmation) => Promise<DomainResult<void>>
   LibraryClient.fork: (request: ForkRequest, signal?: AbortSignal) => Promise<DomainResult<ProjectHeader>>
+  interface MediaClient
+  MediaClient.importFile: (session: RemoteProjectSession, request: AudioFileImport, signal?: AbortSignal) => Promise<DomainResult<ImportedAudio>>
+  MediaClient.file: (contentId: ContentId, signal?: AbortSignal) => Promise<DomainResult<Blob>>
+  MediaClient.paste: (session: RemoteProjectSession, paste: AudioPaste, locate: PageLocate, signal?: AbortSignal) => Promise<DomainResult<ChangeOutcome>>
   interface OwnershipClient
   OwnershipClient.ownerOf: (project: ProjectId) => Promise<LeaseOwner | undefined>
   OwnershipClient.watch: (project: ProjectId, listener: (event: OwnershipEvent) => void) => Promise<() => Promise<void>>
@@ -3720,6 +3744,7 @@ Published paths
   readonly RemoteProjectSession.#channel: ClientChannel
   readonly RemoteProjectSession.#stopHearing: () => void
   readonly RemoteProjectSession.run: (invocation: CommandInvocation) => Promise<DomainResult<ChangeOutcome>>
+  readonly RemoteProjectSession.runGroup: (description: string, invocations: readonly [CommandInvocation, ...CommandInvocation[]]) => Promise<DomainResult<ChangeOutcome>>
   readonly RemoteProjectSession.undo: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.redo: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.goTo: (node: HistoryNodeId) => Promise<DomainResult<WriteOutcome>>
@@ -3729,6 +3754,7 @@ Published paths
   readonly RemoteProjectSession.recordExport: (draft: ExportDraft) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.compare: (a: ComparisonSource, b: ComparisonSource) => Promise<DomainResult<ComparisonOutcome>>
   readonly RemoteProjectSession.comparedDifference: () => Promise<DomainResult<ComparedStates>>
+  readonly RemoteProjectSession.comparedState: (side: SideName) => Promise<DomainResult<ProjectState>>
   readonly RemoteProjectSession.switchSide: (side?: SideName) => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.closeComparison: () => Promise<DomainResult<WriteOutcome>>
   readonly RemoteProjectSession.promote: (side: SideName) => Promise<DomainResult<WriteOutcome>>
@@ -3766,6 +3792,7 @@ Published paths
   readonly StorageClient.backups: BackupsClient
   readonly StorageClient.root: RootClient
   readonly StorageClient.sources: SourcesClient
+  readonly StorageClient.media: MediaClient
   readonly StorageClient.caches: CacheClient
   readonly StorageClient.usage: UsageClient
   readonly StorageClient.ownership: OwnershipClient
@@ -3787,6 +3814,7 @@ Published paths
   interface HostServices extends OpeningServices, CleanupRunServices
   readonly HostServices.repository: ProjectRepository
   readonly HostServices.invocationProvenance: InvocationProvenance
+  readonly HostServices.fileAt: (path: string) => Promise<Blob | undefined>
   readonly HostServices.tree: StorageTree
   readonly HostServices.digest: Digest
   readonly HostServices.bus: import("packages/commands/src/registry").CommandBus<ProjectState>
@@ -3909,6 +3937,7 @@ Published paths
   function stereo(left: SignalFixture, right: SignalFixture, name?: string): SignalFixture
   function surround5_1(options?: SignalOptions): SignalFixture
   function transient(atFrame?: number, options?: SignalOptions): SignalFixture
+  function wavFile(fixture: SignalFixture): Uint8Array<ArrayBuffer>
 
 @audiogubbins/text
   interface IdentifierRule
@@ -4666,23 +4695,6 @@ packages/codecs/src/format-descriptor.ts
   readonly IntegerSampleEncoding.byteOrder: ByteOrder
   readonly IntegerSampleEncoding.signed: boolean
 
-packages/codecs/src/recognised-format.ts
-  interface CompressedAifcFormat
-  readonly CompressedAifcFormat.kind: "compressed-aifc"
-  readonly CompressedAifcFormat.compressionType: string
-  interface CompressedWaveFormat
-  readonly CompressedWaveFormat.kind: "compressed-wav"
-  readonly CompressedWaveFormat.container: RiffContainer
-  readonly CompressedWaveFormat.formatTag: number
-  readonly CompressedWaveFormat.subFormat?: string
-  interface ForeignFormat
-  readonly ForeignFormat.kind: "flac" | "mp3" | "mp4" | "ogg"
-  interface ReadableFormat
-  readonly ReadableFormat.kind: ReadableContainer
-  type RiffContainer = "bw64" | "rf64" | "wav"
-  interface UnknownFormat
-  readonly UnknownFormat.kind: "unknown"
-
 packages/design-system/src/primitives/button.tsx
   type IconOnlyRequiresLabel = { readonly iconOnly: true; readonly label: string; } | { readonly iconOnly?: false; }
 
@@ -4871,6 +4883,9 @@ packages/storage-runtime/src/protocol/backup-operations.ts
   readonly RestoredInPlace.slices: number
   type Tick = Operation<{ readonly handle: ProjectHandle; readonly folder?: PagePort; }, DomainResult<BackupTick>>
 
+packages/storage-runtime/src/protocol/media-operations.ts
+  type MediaOperations = { 'media.import': Operation<{ readonly handle: ProjectHandle; readonly file: CrossingFile; readonly choice: ImportChoice; readonly assetId: AssetId; readonly importedAt: number; }, DomainResult<ImportedAudio>>; 'media.file': Operation<ContentId, DomainResult<Blob>>; 'media.paste': Operation<{ readonly handle: ProjectHandle; readonly paste: AudioPaste; readonly locate: PagePort; }, DomainResult<ChangeOutcome>>; }
+
 packages/storage-runtime/src/protocol/operations.ts
   type Answered<TValue> = TValue | Transferring<TValue>
   type Handlers<TTable extends Readonly<Record<string, Operation<unknown, unknown>>>> = { readonly [TName in keyof TTable]: (argument: TTable[TName]["argument"], context: ServeContext) => Promise<Answered<TTable[TName]["answer"]>>; }
@@ -4953,7 +4968,7 @@ packages/storage-runtime/src/protocol/project-operations.ts
   readonly ProjectOpening.report: ProjectRecoveryReport
   readonly ProjectOpening.first: FirstUpdate
   readonly ProjectOpening.slices: number
-  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
+  type ProjectOperations = { 'projects.open': Of<{ readonly project: ProjectId; readonly access: "read" | "write"; readonly steal?: boolean; }, DomainResult<ProjectOpening>>; 'projects.abandon': Of<unknown, undefined>; 'projects.close': Of<unknown, DomainResult<void>>; 'projects.closeView': Of<unknown, undefined>; 'projects.run': Of<{ readonly invocation: CommandInvocation; }, DomainResult<ChangeOutcome>>; 'projects.runGroup': Of<{ readonly description: string; readonly invocations: readonly [CommandInvocation, ...CommandInvocation[]]; }, DomainResult<ChangeOutcome>>; 'projects.undo': Written; 'projects.redo': Written; 'projects.goTo': Written<{ readonly node: HistoryNodeId; }>; 'projects.nameBranch': Written<{ readonly node: HistoryNodeId; readonly name: string | undefined; }>; 'projects.createSnapshot': Written<{ readonly request: SnapshotRequest; }>; 'projects.deleteSnapshot': Written<{ readonly snapshot: SnapshotId; }>; 'projects.recordExport': Written<{ readonly draft: ExportDraft; }>; 'projects.compare': Of<{ readonly a: ComparisonSource; readonly b: ComparisonSource; }, DomainResult<ComparisonOutcome>>; 'projects.comparedDifference': Of<unknown, DomainResult<ComparedStates>>; 'projects.comparedState': Of<{ readonly side: SideName; }, DomainResult<ProjectState>>; 'projects.switchSide': Written<{ readonly side: SideName | undefined; }>; 'projects.closeComparison': Written; 'projects.promote': Written<{ readonly side: SideName; }>; 'projects.planCompaction': Of<{ readonly request: CompactionRequest; }, DomainResult<CompactionPlan>>; 'projects.compactHistory': Written<{ readonly plan: CompactionPlan; readonly confirmation: CompactionConfirmation; }>; 'projects.setRetentionPolicy': Written<{ readonly policy: RetentionPolicy; readonly confirmation: CompactionConfirmation | undefined; }>; 'projects.setBackupPolicy': Written<{ readonly policy: BackupPolicy; }>; 'projects.checkpoint': Written; 'projects.retry': Of<unknown, SaveStatus>; 'projects.answerTransfer': Of<{ readonly request: TransferRequest; readonly answer: TransferAnswer; }, DomainResult<void>>; 'projects.requestTransfer': Of<unknown, DomainResult<TransferOutcome>>; }
   type ProjectStream = `project:${string}`
   interface ProjectUpdate
   readonly ProjectUpdate.save: SaveStatus
@@ -4970,13 +4985,29 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
   type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>
   type TransferOperations = { 'transfers.exportBundle': BundleExport<{ readonly held?: ProjectHandle; }>; 'transfers.exportBackup': BundleExport<{ readonly generation: number; }>; 'transfers.exportUnpacked': Operation<{ readonly project: ProjectId; readonly folder: PagePort; readonly options: CopyOptions & DirectoryClaim; readonly held?: ProjectHandle; }, DomainResult<ExportAttempt<readonly AssetId[]>>>; 'transfers.importBundle': Operation<{ readonly bundle: CrossingBytes; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.importUnpacked': Operation<{ readonly folder: CrossingFolder; readonly identity: ImportIdentity; }, DomainResult<ImportedProject>>; 'transfers.consolidate': Operation<{ readonly handle: ProjectHandle; readonly locate: PagePort; }, DomainResult<readonly AssetConsolidation[]>>; }
+
+packages/storage/src/audio-import.ts
+  interface AudioImportServices extends ImportServices
+  readonly AudioImportServices.invocation: (asset: Asset, source: AssetSource) => CommandInvocation
+  readonly AudioImportServices.store: import("packages/media-store/src/object-store").MediaObjectStore
+  readonly AudioImportServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly AudioImportServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
+
+packages/storage/src/audio-paste.ts
+  interface AudioPasteServices extends Pick<ConsolidationServices, "digest" | "locate" | "store" | "yieldToHost">
+  readonly AudioPasteServices.addAsset: (asset: Asset, source: AssetRecord["source"]) => CommandInvocation
+  readonly AudioPasteServices.applyEdit: (asset: Pick<Asset, "id">, operation: EditOperation) => CommandInvocation
+  readonly AudioPasteServices.digest: import("packages/project-format/src/byte-ports").Digest
+  readonly AudioPasteServices.store: import("packages/media-store/src/object-store").MediaObjectStore
+  readonly AudioPasteServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
+  readonly AudioPasteServices.locate: (asset: AssetId, identity: import("packages/project-format/src/project-state").ExternalSourceIdentity, signal?: AbortSignal) => Promise<import("packages/storage/src/consolidation").LocatedFile>
 
 packages/storage/src/backup-generations.ts
   interface KeptStates
