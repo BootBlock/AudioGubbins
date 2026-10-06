@@ -17,7 +17,11 @@ import {
 } from '@audiogubbins/processors';
 import { TEST_RATE } from '@audiogubbins/processors/testing';
 
-import { FromDetectionWorkerKind, type FromDetectionWorker } from './detection-messages.js';
+import {
+  FromDetectionWorkerKind,
+  ToDetectionWorkerKind,
+  type FromDetectionWorker,
+} from './detection-messages.js';
 import type { DetectionResult } from './detection-result.js';
 import { DetectionWorkerCore } from './detection-worker-core.js';
 import {
@@ -358,6 +362,21 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
       job: 'unknown',
       reason: 'This build has no assistant "declipping" to analyse the audio with.',
     });
+  });
+
+  it('takes the port to the preview worker, and refuses anything else in its place', () => {
+    const { core, posted } = rig();
+    const { port1, port2 } = new MessageChannel();
+    core.receive({ kind: ToDetectionWorkerKind.Previews, port: port1 });
+    core.receive({ kind: ToDetectionWorkerKind.Previews, port: {} });
+    expect(posted).toEqual([
+      {
+        kind: FromDetectionWorkerKind.Refused,
+        reason: "The message's port is not the end of a message channel.",
+      },
+    ]);
+    port1.close();
+    port2.close();
   });
 
   it('refuses a message it cannot read, naming the field', () => {

@@ -118,10 +118,10 @@ function channelsOf(value: unknown): DomainResult<readonly Float32Array[]> {
   return succeed(value);
 }
 
-/** One asset an edited sound reads, as it crossed the thread. */
-function mediaEntryOf(value: unknown): MediaEntry | undefined {
+/** One asset an edited sound reads, as it crossed a thread, or `undefined` where it is not one. */
+export function mediaEntryFrom(value: unknown): MediaEntry | undefined {
   if (!isFields(value)) return undefined;
-  const { asset, file } = value;
+  const { asset, identity, file } = value;
   const rate =
     typeof value['sampleRate'] === 'number' ? sampleRate(value['sampleRate']) : undefined;
   const length = typeof value['length'] === 'number' ? sampleCount(value['length']) : undefined;
@@ -129,6 +129,7 @@ function mediaEntryOf(value: unknown): MediaEntry | undefined {
   if (
     typeof asset !== 'string' ||
     !isWellFormedId(asset) ||
+    typeof identity !== 'string' ||
     rate?.ok !== true ||
     length?.ok !== true ||
     typeof channels !== 'number' ||
@@ -141,6 +142,7 @@ function mediaEntryOf(value: unknown): MediaEntry | undefined {
   }
   return {
     asset: unsafeBrandId<'AssetId'>(asset),
+    identity,
     sampleRate: rate.value,
     channels,
     length: length.value,
@@ -155,7 +157,7 @@ function editedOf(value: Fields, rate: SampleRate): DomainResult<PcmDescription>
   if (plan.value.streams[0].sampleRate !== rate)
     return fail(unreadable('plan', 'a plan at the description’s rate'));
   const listed = value['media'];
-  const media = Array.isArray(listed) ? listed.map(mediaEntryOf) : [undefined];
+  const media = Array.isArray(listed) ? listed.map(mediaEntryFrom) : [undefined];
   return media.every((entry) => entry !== undefined)
     ? succeed({ kind: PcmDescriptionKind.Edited, sampleRate: rate, plan: plan.value, media })
     : fail(unreadable('media', 'a list of the files an edited sound reads'));

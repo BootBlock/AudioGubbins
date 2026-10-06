@@ -22,6 +22,10 @@ import { libraryClient, type LibraryClient } from './library-client.js';
 import { mediaClient, type MediaClient } from './media-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
 import { PagePorts, lendingCall } from './page-ports.js';
+import {
+  processingLibraryClient,
+  type ProcessingLibraryClient,
+} from './processing-library-client.js';
 import { handleCounter, projectsClient, type ProjectsClient } from './projects-client.js';
 import { rootClient, type RootClient } from './root-client.js';
 import { sourcesClient, type SourcesClient } from './sources-client.js';
@@ -31,6 +35,9 @@ import { usageClient, type UsageClient } from './usage-client.js';
 /** What the page asks of project storage, by area. */
 export interface StorageClient {
   readonly library: LibraryClient;
+
+  /** The person's library of saved chains and presets. */
+  readonly processingLibrary: ProcessingLibraryClient;
   readonly projects: ProjectsClient;
   readonly transfers: TransfersClient;
   readonly backups: BackupsClient;
@@ -71,6 +78,7 @@ export function storageClientOver(
   });
   return {
     library: libraryClient(channel),
+    processingLibrary: processingLibraryClient(channel),
     projects: projectsClient(channel, nextHandle),
     transfers: transfersClient(lending),
     backups: backupsClient(channel, lending, nextHandle),

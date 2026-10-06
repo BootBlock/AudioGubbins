@@ -16,26 +16,35 @@
  * its last whole chunk left it, never half primed. A preview may instead start
  * part way through, the run begun at least the chain's lead-in before the frame
  * asked for, on the chain's frame grid, which is what playback does after a
- * seek, and says it is a preview (ADR-0061). Either way the run is told the
- * frame it starts at, so a processor that plays back a whole pass plays it from
- * there.
+ * seek either way, and says it is a preview (ADR-0061): the lead-in is run
+ * through and not given, so the first frame heard is what a render from the
+ * start gives there. Either way the run is told the frame it starts at, so a
+ * processor that plays back a whole pass plays it from there.
+ *
+ * A numeric parameter changed while it plays reaches the run it has, which
+ * smooths it in, and the chain it keeps, so a run made again after a seek
+ * starts with the new value (`running-parameters.ts`).
  */
 
 import {
   FailureKind,
   failure,
+  succeed,
   throwIfCancelled,
   type CancellationSignal,
   type ChannelLayout,
+  type DomainResult,
   type EffectChain,
   type QualitySettings,
   type SampleRate,
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
-import type { ChainProcessing, ChainRun, StreamReader } from './chain-processing.js';
+import type { CachedStreams } from './cached-streams.js';
+import type { ChainProcessing, ChainRun, PartWayStart, StreamReader } from './chain-processing.js';
 import type { ContentReader } from './plan-content.js';
 import { MediaReadFailure } from './plan-content.js';
+import type { ParameterChange, RunningParameters } from './running-parameters.js';
 
 /** How a processed stream may be started: from its own start only, or part way for a preview. */
 export const ProcessedStart = { Canonical: 'canonical', Preview: 'preview' } as const;
@@ -47,11 +56,19 @@ export type ProcessedStart = (typeof ProcessedStart)[keyof typeof ProcessedStart
  * How a reader of edited sound runs the chains its plans name: the rack's
  * processing, the quality it runs them at, and whether it may start a stream
  * part way through. Every reader states it, so none can skip a rack.
+ *
+ * A reader given a cache of renders reads from a render every stream it would
+ * otherwise run from the stream's start, and every stream a preview cannot
+ * run as it is heard (`cached-streams.ts`); one given running parameters
+ * takes a parameter changed while it plays into the chains it runs
+ * (`running-parameters.ts`).
  */
 export interface PlanProcessing {
   readonly processing: ChainProcessing;
   readonly quality: QualitySettings;
   readonly start: ProcessedStart;
+  readonly cached?: CachedStreams;
+  readonly parameters?: RunningParameters;
 }
 
 /** What a processed stream is run with. */
@@ -84,12 +101,14 @@ export class ProcessedContent implements ContentReader {
   readonly channels: number;
   /** As many frames as the stream's segments hold: a chain keeps a stream's length. */
   readonly length: number;
-  readonly #chain: EffectChain;
+  #chain: EffectChain;
   readonly #input: StreamInput;
   readonly #settings: ProcessedSettings;
   readonly #inputScratch: Float32Array[];
   readonly #outputScratch: Float32Array[];
   #running: Running | undefined;
+  /** Where a preview of the chain may start, asked once for each chain it runs. */
+  #partWay: PartWayStart | undefined;
 
   constructor(
     chain: EffectChain,
@@ -113,7 +132,7 @@ export class ProcessedContent implements ContentReader {
     signal?: CancellationSignal,
   ): Promise<void> {
     let running = this.#running;
-    if (running === undefined || start < running.produced) {
+    if (running === undefined || start < running.produced || this.#runStart(start) > running.raw) {
       running = await this.#begin(start, signal);
     }
     await this.#advance(running, start - running.produced, undefined, signal);
@@ -168,19 +187,46 @@ export class ProcessedContent implements ContentReader {
   /**
    * The frame a run that gives frame `start` next begins at: the stream's
    * first, or for a preview the grid point at or before `start` less the
-   * chain's lead-in.
+   * chain's lead-in. A preview reading forwards past that point starts again
+   * there too, as a seek ahead does, rather than running the chain over all
+   * it skips.
    */
   #runStart(start: number): number {
     if (this.#settings.start === ProcessedStart.Canonical) return 0;
-    const partWay = this.#settings.processing.partWayStart({
+    const { leadIn, frameGrid } = this.#partWayStart();
+    return Math.floor(Math.max(0, start - leadIn) / frameGrid) * frameGrid;
+  }
+
+  #partWayStart(): PartWayStart {
+    if (this.#partWay !== undefined) return this.#partWay;
+    const listening = this.#settings.processing.listening({
       chain: this.#chain,
       input: this.#input.layout,
       sampleRate: this.#input.sampleRate,
       quality: this.#settings.quality,
     });
-    if (!partWay.ok) throw new MediaReadFailure(partWay.failures[0]);
-    const { leadIn, frameGrid } = partWay.value;
-    return Math.floor(Math.max(0, start - leadIn) / frameGrid) * frameGrid;
+    if (!listening.ok) throw new MediaReadFailure(listening.failures[0]);
+    this.#partWay = listening.value.partWay;
+    return this.#partWay;
+  }
+
+  /**
+   * Takes `chain`, the chain with `change` made, into what runs: the run it
+   * has, smoothed by the processor's kernel from the next frame, and the run
+   * it makes after a seek.
+   */
+  setParameter(chain: EffectChain, change: ParameterChange): DomainResult<void> {
+    const running = this.#running;
+    const taken =
+      running === undefined
+        ? succeed(undefined)
+        : running.run.setParameter(change.processor, change.parameter, change.value);
+    if (taken.ok) {
+      // A value may move the lead-in, as a longer look-ahead does.
+      this.#chain = chain;
+      this.#partWay = undefined;
+    }
+    return taken;
   }
 
   /** Gives the next `count` frames of output into `into`, or runs them off where it is absent. */

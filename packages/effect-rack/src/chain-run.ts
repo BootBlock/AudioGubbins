@@ -17,6 +17,13 @@
  * covers the whole stream; the run is then built for the frame its request
  * starts at, which reaches every processor's node, so one that plays back
  * its measurement plays it from there however the run was started.
+ *
+ * A chain that runs a processor measuring its whole input, or one that
+ * cannot keep to the audio thread's schedule, is heard from a render rather
+ * than run as it plays (ADR-0061): the rack says so, naming them, and the
+ * engine reads its render. A parameter changed while a chain runs reaches
+ * its processor's kernel, which smooths it in, where the processor can take
+ * it running.
  */
 
 import {
@@ -29,6 +36,8 @@ import {
   type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
+  type ParameterId,
+  type ProcessorDescriptor,
   type ProcessorId,
 } from '@audiogubbins/domain';
 import { compileGraph, type NodeId } from '@audiogubbins/audio-graph';
@@ -43,13 +52,12 @@ import {
   type ChainRun,
   type GraphExecutor,
   type NodeImplementations,
-  type PartWayRequest,
-  type PartWayStart,
   type StreamReader,
 } from '@audiogubbins/audio-engine';
 import type { Measurement, ProcessorType } from '@audiogubbins/processors';
 
 import { chainGraph, type ChainGraph } from './chain-graph.js';
+import { descriptorsOf, listening, unheardLive } from './chain-listening.js';
 
 /** Where a block in flight is read from and written to, rebound for each call. */
 class Endpoints {
@@ -181,9 +189,12 @@ class RunningChain implements ChainRun {
   readonly latency: number;
   readonly layout: ChannelLayout;
   readonly #running: Running;
+  /** The descriptor of each processor the chain runs, by instance. */
+  readonly #descriptors: ReadonlyMap<ProcessorId, ProcessorDescriptor>;
 
-  constructor(running: Running) {
+  constructor(running: Running, descriptors: ReadonlyMap<ProcessorId, ProcessorDescriptor>) {
     this.#running = running;
+    this.#descriptors = descriptors;
     this.latency = running.latency;
     this.layout = running.built.layout;
   }
@@ -192,12 +203,24 @@ class RunningChain implements ChainRun {
     processBlocks(this.#running, input, output, frames);
   }
 
-  setParameter(processor: ProcessorId, key: string, value: number): DomainResult<void> {
+  setParameter(processor: ProcessorId, parameter: ParameterId, value: number): DomainResult<void> {
     const node = this.#running.built.processors.get(processor);
-    return node === undefined
+    const descriptor = this.#descriptors.get(processor);
+    if (node === undefined || descriptor === undefined) {
+      return refused(
+        'processor-not-running',
+        'That processor is bypassed or not in the chain, so it has nothing running to change.',
+      );
+    }
+    const unheard = unheardLive(descriptor);
+    if (unheard !== undefined) return refused('parameter-not-live', unheard);
+    const key = descriptor.parameters.find(
+      (one) => one.id === parameter && one.kind === 'numeric',
+    )?.key;
+    return key === undefined
       ? refused(
-          'processor-not-running',
-          'That processor is bypassed or not in the chain, so it has nothing running to change.',
+          'parameter-not-numeric',
+          `${descriptor.label} has no numeric parameter of that name.`,
         )
       : this.#running.executor.setParameter(node, key, value);
   }
@@ -211,12 +234,12 @@ class RunningChain implements ChainRun {
 export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing {
   const implementations = implementationsOf(types);
   return {
-    partWayStart: (request) => {
+    listening: (request) => {
       const built = chainGraph(request.chain, types, request.input, request.quality, {
         start: 0,
         measured: new Map(),
       });
-      return built.ok ? succeed(partWayStart(request, types, built.value)) : built;
+      return built.ok ? succeed(listening(request, types, built.value)) : built;
     },
     prepare: async (request, read, signal) => {
       const invalid = startRefusal(request);
@@ -247,41 +270,9 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
       if (!built.ok) return built;
       const running = run(built.value, built.value.output, implementations, request);
       if (!running.ok) return running;
-      return succeed(new RunningChain(running.value));
+      return succeed(new RunningChain(running.value, descriptorsOf(request, types)));
     },
   };
-}
-
-function greatestCommonDivisor(left: number, right: number): number {
-  let [a, b] = [left, right];
-  while (b !== 0) [a, b] = [b, a % b];
-  return a;
-}
-
-/**
- * The longest lead-in of the processors the chain runs, and the least common
- * multiple of their frame grids.
- */
-function partWayStart(
-  request: PartWayRequest,
-  types: ReadonlyMap<string, ProcessorType>,
-  built: ChainGraph,
-): PartWayStart {
-  let leadIn = 0;
-  let frameGrid = 1;
-  for (const processor of processorsOf(request.chain.slots)) {
-    const descriptor = types.get(processor.typeKey)?.descriptor;
-    if (descriptor === undefined || !built.processors.has(processor.id)) continue;
-    const settings = {
-      values: processor.values,
-      sampleRate: request.sampleRate,
-      quality: request.quality,
-    };
-    leadIn = Math.max(leadIn, descriptor.leadIn(settings));
-    const grid = descriptor.frameGrid(settings);
-    frameGrid = (frameGrid / greatestCommonDivisor(frameGrid, grid)) * grid;
-  }
-  return { leadIn, frameGrid };
 }
 
 /** Frames read from the stream at a time during a measuring pass. */

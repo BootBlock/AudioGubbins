@@ -7,11 +7,12 @@
  * named by the page; the worker keeps the source for as long as the job is
  * open, and answers requests for its samples, its detail buckets and its zero
  * crossings between the chunks it summarises, one at a time, dropping one the
- * page cancels.
+ * page cancels. The page gives it a port to the preview worker once, which a
+ * racked sound's peaks are read from a render through (ADR-0061).
  */
 
 import type { QualityMode } from '@audiogubbins/domain';
-import type { PcmDescription } from '@audiogubbins/audio-engine';
+import type { MessagePortLike, PcmDescription } from '@audiogubbins/audio-engine';
 
 import type { PeakChannel, PeakRun } from './peak-pyramid.js';
 
@@ -31,6 +32,8 @@ export const ToPeakWorkerKind = {
   Cancel: 'cancel',
   /** Close a job and release its source. */
   Close: 'close',
+  /** Read processed streams from the preview worker's renders, through the port given. */
+  Previews: 'previews',
 } as const;
 
 export type ToPeakWorker =
@@ -80,7 +83,12 @@ export type ToPeakWorker =
       readonly job: string;
       readonly request: number;
     }
-  | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string };
+  | { readonly kind: typeof ToPeakWorkerKind.Close; readonly job: string }
+  | {
+      readonly kind: typeof ToPeakWorkerKind.Previews;
+      /** The worker's end of its channel to the preview worker, transferred. */
+      readonly port: MessagePortLike;
+    };
 
 /** What the worker tells the page. */
 export const FromPeakWorkerKind = {

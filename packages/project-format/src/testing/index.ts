@@ -22,6 +22,8 @@ export { type CountedTurns, countedTurns, immediateTurns } from './host-turns.js
 
 export { randomChain, randomState } from './random-states.js';
 
+export { CHAIN_SHAPES_CATALOGUE, everyChainShape, fullySetProcessor } from './chain-shapes.js';
+
 export {
   randomMarker,
   randomOperation,

@@ -6,11 +6,12 @@
  * refused with the field that was wrong rather than acted on. A job is one
  * detection, named by the page; a target is what it analyses, an asset or a
  * region, of which the worker runs one detection at a time: a request for a
- * target cancels the one before it.
+ * target cancels the one before it. The page gives it a port to the preview
+ * worker once, which a racked sound is read from a render through (ADR-0061).
  */
 
 import type { EditRange, QualityMode } from '@audiogubbins/domain';
-import type { PcmDescription } from '@audiogubbins/audio-engine';
+import type { MessagePortLike, PcmDescription } from '@audiogubbins/audio-engine';
 
 import type { DetectionResult } from './detection-result.js';
 
@@ -20,6 +21,8 @@ export const ToDetectionWorkerKind = {
   Detect: 'detect',
   /** Stop a detection, queued or running, and answer nothing more for it. */
   Cancel: 'cancel',
+  /** Read processed streams from the preview worker's renders, through the port given. */
+  Previews: 'previews',
 } as const;
 
 /** Audio described for the worker, with the channels it is read in. */
@@ -52,7 +55,13 @@ export interface DetectRequest {
 }
 
 export type ToDetectionWorker =
-  DetectRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string };
+  | DetectRequest
+  | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string }
+  | {
+      readonly kind: typeof ToDetectionWorkerKind.Previews;
+      /** The worker's end of its channel to the preview worker, transferred. */
+      readonly port: MessagePortLike;
+    };
 
 /** What the worker tells the page. */
 export const FromDetectionWorkerKind = {

@@ -18,6 +18,7 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
 import { TransportMode } from '@audiogubbins/audio-engine';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { PeakHost, type PeakCacheStore, type PeakEvent } from '@audiogubbins/waveform';
 import { PanelKinds, activePanelOf, panelsIn } from '@audiogubbins/workspace';
 
@@ -72,10 +73,10 @@ function followWorkspace(workspace: WorkspaceStore, editorViews: EditorViewStore
   workspace.subscribe(follow);
 }
 
-/** The one peak host, its peaks kept in `cache`. */
-function peakHost(cache: PeakCacheStore, logger: Logger): PeakHost {
+/** The one peak host, its peaks kept in `cache`, its racked sounds read from `previews`. */
+function peakHost(cache: PeakCacheStore, logger: Logger, previews: PreviewHost): PeakHost {
   return new PeakHost({
-    createWorker: browserPeakWorker,
+    createWorker: () => browserPeakWorker(previews),
     cache,
     report: (event) => {
       const fields = { reason: event.reason };
@@ -149,7 +150,7 @@ function referencePicture(
 /**
  * Builds the editor part, its assets following the open project of `projects`
  * where this browser keeps projects, and its peaks drawn at the chosen render
- * quality of `audioSettings`.
+ * quality of `audioSettings`, a racked sound's from the renders of `previews`.
  */
 export function startEditor(
   capabilities: CapabilityRegistry,
@@ -161,6 +162,7 @@ export function startEditor(
     readonly projects: ProjectStores | undefined;
     readonly peakCache: PeakCacheStore;
   },
+  previews: PreviewHost,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
   const stopFollowing =
@@ -178,7 +180,7 @@ export function startEditor(
   };
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
-  const peaks = peakHost(projects.peakCache, logger);
+  const peaks = peakHost(projects.peakCache, logger, previews);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();

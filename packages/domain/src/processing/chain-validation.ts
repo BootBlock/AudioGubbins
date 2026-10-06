@@ -111,8 +111,10 @@ export function validateChainShape(chain: EffectChain): DomainResult<EffectChain
  * Every processor among `slots`, bypassed or not, checked against the
  * catalogue: a bypassed slot is still in the project, and is heard as soon as
  * it is switched on, so a type or version this build lacks is refused now.
+ * The check a chain or preset kept apart from any layout is read by, as one
+ * in the person's library is.
  */
-function checkInstances(
+export function checkProcessors(
   slots: readonly ChainSlot[],
   catalogue: ProcessorCatalogue,
 ): DomainResult<void> {
@@ -176,7 +178,7 @@ function slotLayout(
     output = descriptor.outputLayout(input, slot.values);
   } else {
     if (!applied) {
-      const checked = checkInstances([slot], catalogue);
+      const checked = checkProcessors([slot], catalogue);
       return checked.ok ? succeed(input) : checked;
     }
     output = groupLayout(slot.branches, catalogue, input, sampleRate);

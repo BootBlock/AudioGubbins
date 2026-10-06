@@ -324,7 +324,7 @@ describe('the feeder', () => {
     expect(
       said.map((message) => (message.kind === FromFeederKind.Fault ? message.message : '')),
     ).toEqual([
-      "A message to the feeder could not be read: The message's kind is not one of sources, bind, start, stop, unbind, release.",
+      "A message to the feeder could not be read: The message's kind is not one of sources, bind, start, stop, unbind, release, previews, parameters.",
       'A message to the feeder could not be received, so what it feeds is in doubt.',
       'A message from the audio processor could not be received by the feeder, so how much audio it holds is in doubt.',
       'The feeder was bound to request 9, whose sources it does not have.',

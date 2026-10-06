@@ -5,9 +5,10 @@
  * stream contract, the canonical DSP port and its two implementations, the
  * node types and the executor that runs a plan, the offline renderer, the
  * media clock and the transport, performance profiles, processing-mode
- * selection, the priority scheduler, resource-aware chunking and the render
- * strategy that composes the last three. Each is its own module with one rule
- * to keep, and none is a manager of the others.
+ * selection, the priority scheduler, resource-aware chunking, the render
+ * strategy that composes the last three, and the cached preview producer with
+ * the channel its readers in other workers reach it over. Each is its own
+ * module with one rule to keep, and none is a manager of the others.
  *
  * The package depends on the domain and the graph alone, and is compiled
  * without the browser's type definitions, so the same code runs in an
@@ -47,6 +48,37 @@ export {
   pcmDescription,
 } from './pcm/pcm-description.js';
 export { type PlanProcessing, ProcessedStart } from './pcm/processed-content.js';
+export {
+  type CachedStream,
+  type CachedStreamRequest,
+  type CachedStreams,
+} from './pcm/cached-streams.js';
+export {
+  type ParameterChange,
+  type ParameterTarget,
+  RunningParameters,
+} from './pcm/running-parameters.js';
+export { runningChanges } from './pcm/running-changes.js';
+
+// The cached preview producer (ADR-0061), and the channel a reader in another
+// worker reads its renders over.
+export {
+  CachePurpose,
+  PreviewProducer,
+  type PreviewProducerOptions,
+  type RenderReport,
+} from './preview/preview-producer.js';
+export { RenderPhase } from './preview/rendered-stream.js';
+export { PreviewClient } from './preview/preview-client.js';
+export { PreviewService } from './preview/preview-service.js';
+export {
+  type MessagePortLike,
+  type PortMessage,
+  type PreviewPort,
+  isMessagePortLike,
+  previewPort,
+} from './preview/preview-port.js';
+export { type FromPreview, type ToPreview } from './preview/preview-messages.js';
 export { resampledSource } from './pcm/resampled-source.js';
 export { type MediaEntry } from './pcm/plan-content.js';
 export { type MediaFile } from './pcm/media-file.js';
@@ -145,8 +177,9 @@ export { DelayLine } from './pcm/delay-line.js';
 export {
   type ChainProcessing,
   type ChainRequest,
+  type ChainListening,
   type ChainRun,
-  type PartWayRequest,
+  type ListeningRequest,
   type PartWayStart,
   type StreamReader,
 } from './pcm/chain-processing.js';

@@ -114,6 +114,7 @@ function entryOf(
   );
   return {
     asset: asset.id,
+    identity: `memory:${asset.id}`,
     sampleRate: asset.sampleRate,
     channels: samples.length,
     length: asset.length,

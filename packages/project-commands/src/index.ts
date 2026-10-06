@@ -46,6 +46,7 @@ export {
   removeChainInvocation,
   setChainInvocation,
 } from './processing/chain-commands.js';
+export { setProcessorInvocation } from './processing/processor-commands.js';
 export {
   type RackTarget,
   setEditChainInvocation,

@@ -1,162 +1,150 @@
 /**
- * The person's library of saved chains and presets as a document (ADR-0060).
+ * An entry of the person's library of saved chains and presets as a document
+ * (ADR-0060), and the rule for the name it is saved under.
  *
- * Every chain and preset in it is written and read by the project format's
- * own chain writer and reader (`chain-writing.ts`, `chain-reading.ts`), so a
- * chain has one persisted form wherever it is kept. The document is versioned
- * like every other the application writes, and before 1.0 a version this
- * build does not know is refused with the reason, with no migration
- * (REQ-STOR-052).
+ * A saved chain and a preset are written and read by the project format's own
+ * chain writer and reader (`chain-writing.ts`, `chain-reading.ts`), so a chain
+ * has one persisted form wherever it is kept. Each entry is a document of its
+ * own, versioned like every other the application writes, so an entry another
+ * build wrote is refused alone, with the reason, and the rest of the library
+ * still reads; before 1.0 a version this build does not know is refused with
+ * no migration (REQ-STOR-052). The entry's identifier is where it is kept, not
+ * a member of the document.
  */
 
 import {
-  flatMapResult,
-  savedName,
+  FailureKind,
+  LONGEST_SAVED_NAME,
+  fail,
+  failure,
+  succeed,
   type DomainResult,
-  type ProcessingLibrary,
-  type SavedChain,
-  type SavedPreset,
+  type LibraryContent,
+  type LibraryEntry,
+  type LibraryEntryId,
 } from '@audiogubbins/domain';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
+import { asName as asGivenName } from '@audiogubbins/text';
 
-import {
-  canonicalJsonWithin,
-  type CanonicalJson,
-  type JsonLimits,
-  type JsonObject,
-  type JsonValue,
-} from './canonical-json.js';
+import type { JsonObject, JsonValue } from './canonical-json.js';
 import { writeEffectChain, writeProcessor } from './chain-writing.js';
-import { readEffectChain, readSlotAlone } from './chain-reading.js';
+import { WRITTEN_CHAIN_DEPTH, readEffectChain, readSlotAlone } from './chain-reading.js';
 import { readCompatibleHeader } from './compatibility.js';
 import {
-  listConverter,
-  objectOf,
+  anyObjectOf,
+  checkMembers,
   pathOf,
   required,
   startReading,
   type Converter,
 } from './document-reading.js';
-import { parseJson } from './json-parsing.js';
-import { asName, LONGEST_PROJECT_DOCUMENT, MAXIMUM_NESTED_ITEMS } from './value-reading.js';
+import { integerConverter, oneOfConverter } from './scalar-reading.js';
+import { LONGEST_NAME, asName } from './value-reading.js';
 
-export const LIBRARY_DOCUMENT_FORMAT = 'audiogubbins.library';
+/** The format name an entry of the library carries. */
+const LIBRARY_ENTRY_FORMAT = 'audiogubbins.library-entry';
 
-const LIBRARY_LIMITS: JsonLimits = { maximumLength: LONGEST_PROJECT_DOCUMENT, maximumDepth: 48 };
+/** How many levels of arrays and objects an entry takes: its own, and its chain's. */
+export const LIBRARY_ENTRY_DEPTH = 1 + WRITTEN_CHAIN_DEPTH;
 
-const DOCUMENT_MEMBERS: ReadonlySet<string> = new Set([
-  'format',
-  'schemaVersion',
-  'chains',
-  'presets',
-]);
-const CHAIN_ENTRY_MEMBERS: ReadonlySet<string> = new Set(['name', 'chain']);
-const PRESET_ENTRY_MEMBERS: ReadonlySet<string> = new Set(['name', 'processor']);
+const HEADER_MEMBERS = ['format', 'schemaVersion', 'kind', 'name', 'savedAt'] as const;
+const CHAIN_MEMBERS: ReadonlySet<string> = new Set([...HEADER_MEMBERS, 'chain']);
+const PRESET_MEMBERS: ReadonlySet<string> = new Set([...HEADER_MEMBERS, 'processor']);
 
-/** Writes the library, each list in its order. */
-export function writeLibraryDocument(library: ProcessingLibrary): JsonObject {
-  return {
-    format: LIBRARY_DOCUMENT_FORMAT,
-    schemaVersion: SCHEMA_VERSIONS.processingLibrary,
-    chains: library.chains.map((entry) => ({
-      name: entry.name,
-      chain: writeEffectChain(entry.chain),
-    })),
-    presets: library.presets.map((entry) => ({
-      name: entry.name,
-      processor: writeProcessor(entry.processor),
-    })),
-  };
+const asKind = oneOfConverter(['chain', 'preset'] as const);
+const asSavedAt = integerConverter(0, Number.MAX_SAFE_INTEGER);
+
+function nameRefused(code: 'blank' | 'too-long'): DomainResult<never> {
+  return fail(
+    code === 'blank'
+      ? failure('library.name-blank', FailureKind.Rejected, 'A saved chain or preset needs a name.')
+      : failure(
+          'library.name-too-long',
+          FailureKind.Rejected,
+          `A saved chain or preset's name is at most ${String(LONGEST_SAVED_NAME)} characters.`,
+        ),
+  );
 }
 
-/** Reads a saved entry's name by the rule the library gives it. */
+/**
+ * `value` as the name of a saved chain or preset, without the space around
+ * it, or why it cannot be one: something a reader sees, by the rule every
+ * name a reader is shown is held to, within {@link LONGEST_SAVED_NAME}
+ * characters and the document's bound in code units.
+ */
+export function savedEntryName(value: unknown): DomainResult<string> {
+  const name = asGivenName(value, LONGEST_SAVED_NAME);
+  if (typeof name !== 'string') return nameRefused(name.kind);
+  return name.length > LONGEST_NAME ? nameRefused('too-long') : succeed(name);
+}
+
+/** Reads an entry's name, kept as {@link savedEntryName} gives it. */
 const asSavedName: Converter<string> = (reading, value, parent, key) => {
-  const name = asName(reading, value, parent, key);
-  if (name === undefined) return undefined;
-  const checked = savedName(name);
-  if (checked.ok && checked.value === name) return name;
-  reading.refuse(
-    'library.name-invalid',
-    'A saved name is trimmed, not empty and of bounded length.',
+  const text = asName(reading, value, parent, key);
+  if (text === undefined) return undefined;
+  const checked = savedEntryName(text);
+  if (checked.ok && checked.value === text) return text;
+  reading.refuseAll(
+    checked.ok
+      ? [
+          failure(
+            'library.name-untrimmed',
+            FailureKind.Rejected,
+            'A saved name is kept without the space around it.',
+          ),
+        ]
+      : checked.failures,
     pathOf(parent, key),
   );
   return undefined;
 };
 
-const readSavedChain: Converter<SavedChain> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, CHAIN_ENTRY_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-  const name = required(reading, object, at, 'name', asSavedName);
-  const chain = required(reading, object, at, 'chain', readEffectChain);
-  return name === undefined || chain === undefined ? undefined : { name, chain };
-};
+/** Writes an entry as {@link readLibraryEntry} reads it, its content in the chain's one form. */
+export function writeLibraryEntry(entry: LibraryEntry): JsonObject {
+  const header = {
+    format: LIBRARY_ENTRY_FORMAT,
+    schemaVersion: SCHEMA_VERSIONS.processingLibrary,
+    kind: entry.content.kind,
+    name: entry.name,
+    savedAt: entry.savedAt,
+  };
+  return entry.content.kind === 'chain'
+    ? { ...header, chain: writeEffectChain(entry.content.chain) }
+    : { ...header, processor: writeProcessor(entry.content.processor) };
+}
 
-const readSavedPreset: Converter<SavedPreset> = (reading, value, parent, key) => {
-  const object = objectOf(reading, value, parent, key, PRESET_ENTRY_MEMBERS);
-  if (object === undefined) return undefined;
-  const at = pathOf(parent, key);
-  const name = required(reading, object, at, 'name', asSavedName);
-  const slot = required(reading, object, at, 'processor', readSlotAlone);
-  if (slot !== undefined && slot.kind !== 'processor') {
-    reading.refuse(
-      'library.preset-not-processor',
-      'A preset holds one processor.',
-      pathOf(at, 'processor'),
-    );
-    return undefined;
-  }
-  return name === undefined || slot === undefined ? undefined : { name, processor: slot };
-};
-
-/** Reads a library document, refusing a schema version this build does not know. */
-export function readLibraryDocument(value: JsonValue): DomainResult<ProcessingLibrary> {
-  const header = readCompatibleHeader(value, LIBRARY_DOCUMENT_FORMAT, 'processingLibrary');
+/**
+ * Reads the entry kept as `id`, refusing a schema version this build does
+ * not know, and anything else that is not an entry, with the reason. Whether
+ * this build has the processor types and versions it names is the
+ * catalogue's question (`checkProcessors`), asked by whatever lists it.
+ */
+export function readLibraryEntry(id: LibraryEntryId, value: JsonValue): DomainResult<LibraryEntry> {
+  const header = readCompatibleHeader(value, LIBRARY_ENTRY_FORMAT, 'processingLibrary');
   if (!header.ok) return header;
   const reading = startReading();
-  const object = objectOf(reading, value, '', '', DOCUMENT_MEMBERS);
-  if (object === undefined) return reading.outcome<ProcessingLibrary>(undefined);
-  const chains = required(
-    reading,
-    object,
-    '',
-    'chains',
-    listConverter(MAXIMUM_NESTED_ITEMS, readSavedChain),
-  );
-  const presets = required(
-    reading,
-    object,
-    '',
-    'presets',
-    listConverter(MAXIMUM_NESTED_ITEMS, readSavedPreset),
-  );
-  for (const [list, name] of [
-    [chains, 'chains'],
-    [presets, 'presets'],
-  ] as const) {
-    const names = new Set<string>();
-    for (const [index, entry] of (list ?? []).entries()) {
-      if (names.has(entry.name)) {
-        reading.refuse(
-          'library.name-repeated',
-          'Two saved entries of one kind share a name.',
-          pathOf(name, index),
-        );
-      }
-      names.add(entry.name);
+  const object = anyObjectOf(reading, value, '', '');
+  if (object === undefined) return reading.outcome<LibraryEntry>(undefined);
+  const kind = required(reading, object, '', 'kind', asKind);
+  if (kind === undefined) return reading.outcome<LibraryEntry>(undefined);
+  checkMembers(reading, object, '', kind === 'chain' ? CHAIN_MEMBERS : PRESET_MEMBERS);
+  const name = required(reading, object, '', 'name', asSavedName);
+  const savedAt = required(reading, object, '', 'savedAt', asSavedAt);
+  let content: LibraryContent | undefined;
+  if (kind === 'chain') {
+    const chain = required(reading, object, '', 'chain', readEffectChain);
+    content = chain === undefined ? undefined : { kind, chain };
+  } else {
+    const slot = required(reading, object, '', 'processor', readSlotAlone);
+    if (slot?.kind === 'group') {
+      reading.refuse('library.preset-not-processor', 'A preset holds one processor.', 'processor');
+    } else if (slot !== undefined) {
+      content = { kind, processor: slot };
     }
   }
   return reading.outcome(
-    chains === undefined || presets === undefined ? undefined : { chains, presets },
+    name === undefined || savedAt === undefined || content === undefined
+      ? undefined
+      : { id, name, savedAt, content },
   );
-}
-
-/** The library as the text it is kept as. */
-export function libraryDocumentText(library: ProcessingLibrary): DomainResult<CanonicalJson> {
-  return canonicalJsonWithin(writeLibraryDocument(library), LIBRARY_LIMITS);
-}
-
-/** The library a kept text holds. */
-export function parseLibraryDocument(text: string): DomainResult<ProcessingLibrary> {
-  return flatMapResult(parseJson(text, LIBRARY_LIMITS), readLibraryDocument);
 }

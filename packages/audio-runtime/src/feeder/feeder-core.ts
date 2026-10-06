@@ -15,11 +15,22 @@
  * behaviour runs in a Node test with both ends played by the test. It never
  * throws out of a handler: a message it cannot act on is reported as a fault,
  * which ends playback with the reason, since what it would feed is in doubt.
+ *
+ * Given a port to the preview worker, it reads from there the renders of the
+ * chains an edited sound cannot run as it plays (ADR-0061), and a parameter
+ * changed while a request plays goes to that request's sources, whose answer
+ * it sends back.
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { ChainProcessing, PcmSource } from '@audiogubbins/audio-engine';
-import { sampleCount } from '@audiogubbins/domain';
+import {
+  PreviewClient,
+  previewPort,
+  type ChainProcessing,
+  type PcmSource,
+  type ToPreview,
+} from '@audiogubbins/audio-engine';
+import { sampleCount, type DomainFailure } from '@audiogubbins/domain';
 
 import type { PostToProcessor } from '../feed/feed-pump.js';
 import {
@@ -72,6 +83,8 @@ export class FeederCore {
   readonly #host: FeederHost;
   readonly #requests = new Map<number, RequestSources>();
   #bound: Bound | undefined;
+  /** The preview worker's renders, once the feeder has its port. */
+  #previews: PreviewClient | undefined;
 
   constructor(host: FeederHost) {
     this.#host = host;
@@ -132,12 +145,38 @@ export class FeederCore {
       case ToFeederKind.Release:
         this.#release(message.request);
         return;
+      case ToFeederKind.Previews:
+        this.#previews = new PreviewClient(previewPort<ToPreview>(message.port));
+        return;
+      case ToFeederKind.Parameters:
+        this.#parameters(message);
+        return;
     }
+  }
+
+  #parameters(message: Message<typeof ToFeederKind.Parameters>): void {
+    const request = this.#requests.get(message.request);
+    const refusals: DomainFailure[] = [];
+    if (request === undefined) {
+      this.#fault(
+        `The feeder was given parameters for request ${String(message.request)}, whose sources it does not have.`,
+      );
+      return;
+    }
+    for (const change of message.changes) {
+      const taken = request.parameters.apply(change);
+      if (!taken.ok) refusals.push(...taken.failures);
+    }
+    this.#host.post({
+      kind: FromFeederKind.ParametersTaken,
+      change: message.change,
+      refusals: refusals.map(({ code, summary }) => ({ code, summary })),
+    });
   }
 
   #sources(message: Message<typeof ToFeederKind.Sources>): void {
     this.#release(message.request);
-    const made = sourcesFor(message, this.#host.chooseDsp, this.#host.processing);
+    const made = sourcesFor(message, this.#host.chooseDsp, this.#host.processing, this.#previews);
     if (!made.ok) {
       // The code and summary alone: a failure's details and cause may hold what
       // a structured clone cannot carry, and the main thread shows the summary.

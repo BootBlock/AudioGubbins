@@ -7,10 +7,14 @@ import {
   failure,
   namedQualityMode,
   sampleCount,
+  sampleRate,
+  unsafeBrandId,
+  type EffectChain,
   type QualityMode,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { PerformanceProfile, TransportMode } from '@audiogubbins/audio-engine';
+import { rackedPlan } from '@audiogubbins/audio-engine/testing';
 import { PlaybackPhase } from '@audiogubbins/audio-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
@@ -20,6 +24,7 @@ import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_CONTEXT_RATE, FakePlayback, playbackSettled } from '../testing/audio-fakes.js';
 import { PlaybackControl } from './playback-control.js';
+import type { Programme } from './programme.js';
 import { TEST_SIGNAL_PROGRAMME } from './test-signal.js';
 
 /** A control over fake parts, and what it reports. */
@@ -402,5 +407,100 @@ describe('changing the preview quality', () => {
     await settled();
 
     expect(loadedLevels(parts)).toEqual([QualityLevel.Draft]);
+  });
+});
+
+describe('following a programme the project changed while it plays', () => {
+  const PROCESSOR = unsafeBrandId<'ProcessorId'>('00000000-9a1e');
+  const LEVEL = unsafeBrandId<'ParameterId'>('9a1e0001-0001');
+  const RATE = expectSuccess(sampleRate(48_000));
+
+  /** The asset racked with a gain at `decibels`, bypassed where `bypassed`, as a programme. */
+  function racked(decibels: number, bypassed = false): Programme {
+    const chain: EffectChain = {
+      id: unsafeBrandId<'EffectChainId'>('00000000-c4a1'),
+      slots: [
+        {
+          kind: 'processor',
+          id: PROCESSOR,
+          typeKey: 'gain',
+          enabled: !bypassed,
+          soloed: false,
+          mix: 1,
+          version: { implementation: 1, parameters: 1 },
+          values: new Map([[LEVEL, decibels]]),
+        },
+      ],
+    };
+    return {
+      ...TEST_SIGNAL_PROGRAMME,
+      key: 'asset:racked',
+      content: `gain ${String(decibels)}${bypassed ? ' bypassed' : ''}`,
+      plan: rackedPlan(chain, 48_000, RATE),
+    };
+  }
+
+  it('gives a changed level to the running chains, loading nothing again', async () => {
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+
+    control.follow(racked(-3));
+    await Promise.resolve();
+
+    expect(parts.latest().changes).toEqual([
+      [{ processor: PROCESSOR, parameter: LEVEL, value: -3 }],
+    ]);
+    expect(parts.latest().loads).toHaveLength(1);
+    // The next Play of the changed programme plays what is loaded.
+    control.pause();
+    control.play(racked(-3));
+    await settled();
+    expect(parts.latest().loads).toHaveLength(1);
+  });
+
+  it('loads it again where it plays, and says so, where a chain is heard from a render made before', async () => {
+    const { control, parts, settled, announce } = rig();
+    control.play(racked(-6));
+    await settled();
+    const session = parts.latest();
+    session.contextFrame = 9_600;
+    session.changeResult = fail(
+      failure('playback.parameter-rendered', FailureKind.Rejected, 'Made with the value before.'),
+    );
+
+    control.follow(racked(-3));
+    // The refusal arrives after a turn, and the load it starts after that.
+    await Promise.resolve();
+    await settled();
+
+    expect(session.loads).toHaveLength(2);
+    expect(session.seeks).toEqual([9_600]);
+    expect(announce).toHaveBeenCalledWith('The change is heard once its preview is made again.');
+  });
+
+  it('loads anything else again where it plays, and a paused programme at the next Play', async () => {
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+
+    control.follow(racked(-6, true));
+    await settled();
+    expect(parts.latest().changes).toEqual([]);
+    expect(parts.latest().loads).toHaveLength(2);
+
+    control.pause();
+    control.follow(racked(-3, true));
+    await Promise.resolve();
+    expect(parts.latest().loads).toHaveLength(2);
+    parts.latest().changeResult = fail(
+      failure('playback.parameter-rendered', FailureKind.Rejected, 'Made with the value before.'),
+    );
+    control.follow(racked(0, true));
+    await Promise.resolve();
+    await Promise.resolve();
+    control.play(racked(0, true));
+    await settled();
+    expect(parts.latest().loads).toHaveLength(3);
   });
 });

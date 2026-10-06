@@ -34,11 +34,14 @@ import {
   type QualityMode,
 } from '@audiogubbins/domain';
 import {
+  PreviewClient,
   ProcessedStart,
   describedSource,
+  previewPort,
   type CanonicalDsp,
   type ChainProcessing,
   type PcmSource,
+  type ToPreview,
 } from '@audiogubbins/audio-engine';
 import type { Assistant, ProcessorType } from '@audiogubbins/processors';
 
@@ -98,6 +101,8 @@ export class DetectionWorkerCore {
   readonly #host: DetectionWorkerHost;
   readonly #queue: Job[] = [];
   #running: Job | undefined;
+  /** The preview worker's renders, once the page has given the port to them. */
+  #previews: PreviewClient | undefined;
 
   constructor(host: DetectionWorkerHost) {
     this.#host = host;
@@ -111,6 +116,10 @@ export class DetectionWorkerCore {
       return;
     }
     const message = read.value;
+    if (message.kind === ToDetectionWorkerKind.Previews) {
+      this.#previews = new PreviewClient(previewPort<ToPreview>(message.port));
+      return;
+    }
     if (message.kind === ToDetectionWorkerKind.Cancel) {
       this.#cancel((job) => job.request.job === message.job);
       return;
@@ -259,6 +268,7 @@ export class DetectionWorkerCore {
       processing: this.#host.processing,
       quality: finalRenderSettings(quality),
       start: ProcessedStart.Canonical,
+      ...(this.#previews === undefined ? {} : { cached: this.#previews }),
     });
   }
 

@@ -13,7 +13,7 @@ import {
   type DomainResult,
   type QualityMode,
 } from '@audiogubbins/domain';
-import { pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import { isMessagePortLike, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
 
 import {
   FromPeakWorkerKind,
@@ -176,7 +176,19 @@ function qualityAt(fields: Fields, field: string): QualityMode {
   return mode.value;
 }
 
+/** The port to the preview worker, the one message that names no job. */
+function previewsFrom(fields: Fields): ToPeakWorker {
+  const port = fields['port'];
+  if (!isMessagePortLike(port)) throw new Malformed('port', 'the end of a message channel');
+  return { kind: ToPeakWorkerKind.Previews, port };
+}
+
 function readToWorker(fields: Fields): ToPeakWorker {
+  return fields['kind'] === ToPeakWorkerKind.Previews ? previewsFrom(fields) : readJob(fields);
+}
+
+/** A message about one job. */
+function readJob(fields: Fields): ToPeakWorker {
   const job = textAt(fields, 'job');
   switch (fields['kind']) {
     case ToPeakWorkerKind.Open:

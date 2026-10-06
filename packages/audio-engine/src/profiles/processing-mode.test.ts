@@ -104,6 +104,40 @@ describe('a host that cannot run every mode', () => {
   });
 });
 
+describe('processing that cannot run live', () => {
+  const CANNOT = 'Loudness normalisation measures the whole of its input before it plays anything.';
+
+  it('is heard from a cached preview whatever it costs, and says why', () => {
+    for (const measuredCostRatio of [undefined, 0.1]) {
+      const choice = select({
+        purpose: ProcessingPurpose.Monitor,
+        settings: BALANCED,
+        cannotRunLive: CANNOT,
+        ...(measuredCostRatio === undefined ? {} : { measuredCostRatio }),
+      });
+      expect(choice).toEqual({
+        mode: ProcessingMode.CachedPreview,
+        reason: `Playing from a cached preview. ${CANNOT}`,
+        overridden: false,
+      });
+    }
+  });
+
+  it('refuses an override to play it live, keeping the cached preview, and says why', () => {
+    const choice = select({
+      purpose: ProcessingPurpose.Preview,
+      settings: BALANCED,
+      cannotRunLive: CANNOT,
+      override: ProcessingMode.RealTime,
+    });
+    expect(choice.mode).toBe(ProcessingMode.CachedPreview);
+    expect(choice.overridden).toBe(false);
+    expect(choice.reason).toBe(
+      `This processing cannot run live, so that choice was not applied. Playing from a cached preview. ${CANNOT}`,
+    );
+  });
+});
+
 describe('a final render and the processor', () => {
   it('moves into the background where the processor is the limiting resource', () => {
     const choice = select({

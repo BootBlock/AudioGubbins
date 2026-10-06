@@ -178,13 +178,12 @@ export { readEditPlan } from './plan-reading.js';
 export { writeEditPlan } from './plan-writing.js';
 export { readEffectChain, readSlotAlone } from './chain-reading.js';
 export {
-  LIBRARY_DOCUMENT_FORMAT,
-  libraryDocumentText,
-  parseLibraryDocument,
-  readLibraryDocument,
-  writeLibraryDocument,
+  LIBRARY_ENTRY_DEPTH,
+  readLibraryEntry,
+  savedEntryName,
+  writeLibraryEntry,
 } from './library-json.js';
-export { writeEffectChain, writeSlot } from './chain-writing.js';
+export { writeEffectChain, writeProcessor, writeSlot } from './chain-writing.js';
 export { LONGEST_NAME, isMediaType, isWholeQuantity } from './value-reading.js';
 
 export { asProjectName, givenName, nameFromFile, writtenName } from './given-names.js';

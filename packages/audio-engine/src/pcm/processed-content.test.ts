@@ -30,7 +30,7 @@ const STARTS: number[] = [];
  * from where it starts: started off the grid, it holds other frames.
  */
 const HOLDING: ChainProcessing = {
-  partWayStart: () => succeed({ leadIn: LEAD_IN, frameGrid: GRID }),
+  listening: () => succeed({ kind: 'live', partWay: { leadIn: LEAD_IN, frameGrid: GRID } }),
   prepare: (request) => {
     STARTS.push(request.start);
     let counted = 0;
@@ -97,7 +97,7 @@ const LONG = Float32Array.from({ length: 3 * DELAY }, (_, frame) => frame);
 
 /** A chain whose output is its input {@link DELAY} frames late, which its reader runs off and cuts. */
 const DELAYING: ChainProcessing = {
-  partWayStart: () => succeed({ leadIn: 0, frameGrid: 1 }),
+  listening: () => succeed({ kind: 'live', partWay: { leadIn: 0, frameGrid: 1 } }),
   prepare: () => {
     const line = new Float32Array(DELAY);
     let at = 0;

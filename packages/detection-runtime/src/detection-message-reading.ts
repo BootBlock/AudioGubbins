@@ -27,7 +27,7 @@ import {
   type Treatment,
   type TreatmentStep,
 } from '@audiogubbins/domain';
-import { pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import { isMessagePortLike, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
 
 import {
   FromDetectionWorkerKind,
@@ -249,6 +249,11 @@ function learningOf(value: unknown): DescribedAudio {
 
 function readToWorker(fields: Fields): ToDetectionWorker {
   const kind = oneOf(fields, 'kind', ToDetectionWorkerKind);
+  if (kind === ToDetectionWorkerKind.Previews) {
+    const port = fields['port'];
+    if (!isMessagePortLike(port)) throw new Malformed('port', 'the end of a message channel');
+    return { kind, port };
+  }
   const job = textAt(fields, 'job');
   if (kind === ToDetectionWorkerKind.Cancel) return { kind, job };
   return {

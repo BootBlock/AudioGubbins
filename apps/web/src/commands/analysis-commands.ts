@@ -30,10 +30,8 @@ import {
 } from '@audiogubbins/domain';
 import {
   addChainInvocation,
-  processTargetInvocation,
   removeChainInvocation,
   setRackInvocation,
-  type RackTarget,
 } from '@audiogubbins/project-commands';
 import type { AssistantReport } from '@audiogubbins/detection-runtime';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -46,6 +44,7 @@ import {
   type DetectionScope,
 } from '../analysis/detection-control.js';
 import { stepName } from '../analysis/detection-words.js';
+import { rackTargetOf, rangeRackInvocations } from './chain-placement.js';
 import { RANGE_OR_WHOLE, editedView } from './edit-target.js';
 import {
   editorTarget,
@@ -208,21 +207,13 @@ function learnedStates(report: AssistantReport): readonly (ProcessorState | unde
   return states;
 }
 
-/** What a target's rack command names: the asset, or the region the view shows. */
-function rackTarget(project: ProjectTarget): RackTarget {
-  const { owner } = project;
-  return owner.region === undefined
-    ? { kind: 'asset', asset: owner.asset }
-    : { kind: 'region', region: owner.region, asset: owner.asset };
-}
-
 /** The invocations that give the whole target `chain` as its rack, after any rack it has. */
 function rackInvocations(
   context: ShellContext,
   project: ProjectTarget,
   chain: EffectChain,
 ): readonly CommandInvocation[] | string {
-  const target = rackTarget(project);
+  const target = rackTargetOf(project.owner);
   const existing = target.kind === 'asset' ? target.asset.rack : target.region.rack;
   if (existing === undefined) {
     return [addChainInvocation(chain), setRackInvocation(target, chain.id)];
@@ -263,13 +254,7 @@ function rangeInvocations(
           basis: currentBasis(owner),
           range,
         };
-  return [
-    addChainInvocation(chain),
-    processTargetInvocation(target, context.ids.next<'EditOperationId'>(), {
-      kind: 'rack',
-      chain: chain.id,
-    }),
-  ];
+  return rangeRackInvocations(context, target, chain);
 }
 
 function applyCommand(): Command<ShellContext> {

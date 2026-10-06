@@ -33,6 +33,7 @@ import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import {
   TransportMode,
+  type ParameterChange,
   type PerformanceProfile,
   type PerformanceSettings,
 } from '@audiogubbins/audio-engine';
@@ -47,7 +48,8 @@ import type { DeviceReport } from '../context/device-report.js';
 import type { CompiledDspModule, DspDelivery } from '../dsp/dsp-delivery.js';
 import { ToProcessorKind } from '../protocol/processor-messages.js';
 import type { Schedule } from '../schedule.js';
-import { GraphLoader, summaries, type PlaybackThreads } from './graph-loader.js';
+import { GraphLoader, summaries } from './graph-loader.js';
+import type { PlaybackThreads } from './playback-threads.js';
 import type { LoadedProcessor } from './loaded-processor.js';
 import type { PlaybackRequest } from './playback-preparation.js';
 import { PlaybackState, type PlaybackListener } from './playback-state.js';
@@ -245,6 +247,26 @@ export class PlaybackSession {
     if (loaded === undefined || this.status.phase !== PlaybackPhase.Ready) return this.#notReady();
     loaded.link.send({ kind: ToProcessorKind.SetParameter, node, name, value });
     return succeed(undefined);
+  }
+
+  /**
+   * Gives numeric parameters changed while the loaded request plays to the
+   * chains of its sources, which smooth them in without playback starting
+   * again (REQ-AUDIO-019), or says why they could not all be taken running,
+   * as where a chain is heard from a render made with the old values: the
+   * request must then be loaded again to be heard with them.
+   */
+  async changeParameters(changes: readonly ParameterChange[]): Promise<DomainResult<void>> {
+    this.#assertLive();
+    const sources = this.#graph.sources;
+    if (sources === undefined) {
+      return playbackFailure(
+        'playback.parameter-not-heard',
+        FailureKind.Rejected,
+        'Nothing with a chain is loaded, so there is nothing running to change.',
+      );
+    }
+    return await sources.changeParameters(changes);
   }
 
   /**

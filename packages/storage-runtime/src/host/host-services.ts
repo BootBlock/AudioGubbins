@@ -27,6 +27,7 @@ import {
   CacheStore,
   MEDIA_DIRECTORY,
   ModelPackStore,
+  ProcessingLibraryStore,
   ProjectRepository,
   mediaSharingOf,
   type CleanupRunServices,
@@ -82,6 +83,9 @@ export interface HostServices extends OpeningServices, CleanupRunServices {
 
   /** The file at a path of the tree (see {@link HostParts.fileAt}). */
   readonly fileAt: HostParts['fileAt'];
+
+  /** The person's library of saved chains and presets. */
+  readonly processingLibrary: ProcessingLibraryStore;
 }
 
 /**
@@ -138,6 +142,14 @@ export function hostServices(parts: HostParts): HostServices {
     }),
     yieldToHost: parts.yieldToHost,
     fileAt: parts.fileAt,
+    processingLibrary: new ProcessingLibraryStore({
+      tree,
+      digest,
+      clock,
+      ids,
+      catalogue: PROCESSOR_CATALOGUE,
+      ...coordinated,
+    }),
     ...coordinated,
   };
 }

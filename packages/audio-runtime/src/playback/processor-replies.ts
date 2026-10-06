@@ -135,7 +135,8 @@ export class ProcessorReplies {
         return;
       case FromFeederKind.SourcesMade:
       case FromFeederKind.SourcesRefused:
-        // A request's sources, which the loader waits on itself.
+      case FromFeederKind.ParametersTaken:
+        // A request's sources and a change to them, which the loader waits on itself.
         return;
     }
   };

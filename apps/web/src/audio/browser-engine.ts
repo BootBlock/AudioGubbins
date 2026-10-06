@@ -11,19 +11,25 @@
  * workers load it (ADR-0030). The DSP module is compiled here once, on the
  * main thread, and the session and the render host are each given the result,
  * which they post to the feeder worker and each render worker compiled and to
- * the worklet as bytes.
+ * the worklet as bytes. Each feeder is connected to the preview worker, whose
+ * renders it plays the chains it cannot run as they play from (ADR-0061).
  */
 
 import { mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { AudioRuntimeCapabilities } from '@audiogubbins/capabilities';
 import type { Logger } from '@audiogubbins/diagnostics';
-import { createPriorityScheduler, type PerformanceSettings } from '@audiogubbins/audio-engine';
+import {
+  CachePurpose,
+  createPriorityScheduler,
+  type PerformanceSettings,
+} from '@audiogubbins/audio-engine';
 import {
   PlaybackSession,
   compileDspModule,
   createRenderHost,
   type ContextLifecycle,
   type PlaybackThreads,
+  type PreviewHost,
 } from '@audiogubbins/audio-runtime';
 import engineProcessorUrl from '@audiogubbins/audio-runtime/threads/engine-processor.ts?worker&url';
 import feederWorkerUrl from '@audiogubbins/audio-runtime/threads/feeder-worker.ts?worker&url';
@@ -32,7 +38,7 @@ import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import { browserSchedule } from './browser-schedule.js';
-import type { PlaybackSessionPort } from './playback-control.js';
+import type { PlaybackSessionPort } from './playback-parts.js';
 import type { RenderParts } from './render-control.js';
 
 /**
@@ -44,13 +50,16 @@ import type { RenderParts } from './render-control.js';
 const RENDER_CONCURRENCY = 2;
 
 /**
- * The feeder worker, a module worker as the render worker is, and the
- * channel it feeds the worklet on.
+ * The feeder worker, a module worker as the render worker is, the channel it
+ * feeds the worklet on, and its connection to the preview worker.
  */
-const PLAYBACK_THREADS: PlaybackThreads = {
-  createFeeder: () => new Worker(feederWorkerUrl, { type: 'module' }),
-  createChannel: () => new MessageChannel(),
-};
+function playbackThreads(previews: PreviewHost): PlaybackThreads {
+  return {
+    createFeeder: () => new Worker(feederWorkerUrl, { type: 'module' }),
+    createChannel: () => new MessageChannel(),
+    connectPreviews: () => previews.connect(CachePurpose.Playback),
+  };
+}
 
 /** What a session is made with, beside what the engine brings. */
 export interface SessionOptions {
@@ -68,8 +77,10 @@ export interface BrowserEngine {
 /** The engine, with the DSP module compiled from the bytes the bundle carries. */
 export async function browserEngine(
   capabilities: AudioRuntimeCapabilities,
+  previews: PreviewHost,
 ): Promise<BrowserEngine> {
   const dspModule = await compileDspModule(DSP_MODULE_BYTES, capabilities);
+  const threads = playbackThreads(previews);
   return {
     openSession: ({ lifecycle, profile, logger }) =>
       new PlaybackSession({
@@ -79,7 +90,7 @@ export async function browserEngine(
         profile: profile.profile,
         settings: profile.settings,
         workletModuleUrl: engineProcessorUrl,
-        threads: PLAYBACK_THREADS,
+        threads,
         schedule: browserSchedule,
         logger,
       }),

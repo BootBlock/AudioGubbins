@@ -5,15 +5,29 @@
  *
  * The bundler builds the worker's module on its own, as it does the engine's
  * threads, and the host makes the worker when the first detection is asked
- * for, so a page that analyses nothing starts no worker.
+ * for, so a page that analyses nothing starts no worker. It is connected to
+ * the preview worker as it starts, so a racked sound is analysed from its
+ * render (ADR-0061).
  */
 
-import type { DetectionWorkerPort } from '@audiogubbins/detection-runtime';
+import { CachePurpose } from '@audiogubbins/audio-engine';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
+import {
+  ToDetectionWorkerKind,
+  type DetectionWorkerPort,
+  type ToDetectionWorker,
+} from '@audiogubbins/detection-runtime';
 import detectionWorkerUrl from '@audiogubbins/detection-runtime/threads/detection-worker.ts?worker&url';
 
-/** A new detection worker, and the port the host talks to it through. */
-export function browserDetectionWorker(): DetectionWorkerPort {
+/** A new detection worker connected to `previews`, and the port the host talks to it through. */
+export function browserDetectionWorker(previews: PreviewHost): DetectionWorkerPort {
   const worker = new Worker(detectionWorkerUrl, { type: 'module' });
+  const connection = previews.connect(CachePurpose.Analysis);
+  const connect: ToDetectionWorker = {
+    kind: ToDetectionWorkerKind.Previews,
+    port: connection.port,
+  };
+  worker.postMessage(connect, [connection.port]);
   return {
     post: (message, transfer) => {
       worker.postMessage(message, [...transfer]);
@@ -34,6 +48,7 @@ export function browserDetectionWorker(): DetectionWorkerPort {
     },
     terminate: () => {
       worker.terminate();
+      connection.disconnect();
     },
   };
 }

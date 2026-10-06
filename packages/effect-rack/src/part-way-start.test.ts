@@ -92,7 +92,7 @@ async function runFrom(
   }
   const { latency } = run;
   run.release();
-  const { leadIn, frameGrid } = expectSuccess(processing.partWayStart(request(of, from)));
+  const { leadIn, frameGrid } = expectSuccess(processing.listening(request(of, from))).partWay;
   return { out, leadIn, frameGrid, latency };
 }
 

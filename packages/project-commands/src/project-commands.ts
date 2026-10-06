@@ -20,6 +20,7 @@ import { editCommands } from './editing/edit-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
 import { chainCommands } from './processing/chain-commands.js';
+import { processorCommands } from './processing/processor-commands.js';
 import { rackCommands } from './processing/rack-commands.js';
 import type { ProjectCommand } from './project-command.js';
 import { projectNameCommands } from './project-name-commands.js';
@@ -38,6 +39,7 @@ export function projectCommands(catalogue: ProcessorCatalogue): readonly Project
     ...markerCommands(),
     ...regionCommands(),
     ...chainCommands(catalogue),
+    ...processorCommands(catalogue),
     ...rackCommands(),
   ];
 }

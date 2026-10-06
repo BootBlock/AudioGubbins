@@ -56,6 +56,7 @@ export const ProjectCommandId = {
   RemoveChain: commandId('project.remove-chain'),
   SetRack: commandId('project.set-rack'),
   SetEditChain: commandId('project.set-edit-chain'),
+  SetProcessor: commandId('project.set-processor'),
 } as const;
 
 /** What a command declares where none of its arguments holds provenance. */

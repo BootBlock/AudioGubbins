@@ -13,6 +13,7 @@ export { type PortEndpoint } from './protocol/port-channel.js';
 
 export { type StorageClient, connectStorage } from './client/storage-client.js';
 export { type LibraryClient } from './client/library-client.js';
+export { type ProcessingLibraryClient } from './client/processing-library-client.js';
 export { type ProjectsClient, type RemoteOpenedProject } from './client/projects-client.js';
 export { RemoteProjectSession, RemoteReadOnlyProject } from './client/remote-project.js';
 export { type ExportDraft } from './protocol/project-operations.js';

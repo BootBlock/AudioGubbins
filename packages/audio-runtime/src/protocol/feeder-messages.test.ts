@@ -68,6 +68,7 @@ const EDITED = {
   media: [
     {
       asset: TAKE.id,
+      identity: 'content:take',
       sampleRate: RATE,
       channels: 2,
       length: TAKE.length,
@@ -160,6 +161,19 @@ function everyToFeeder(): readonly ToFeeder[] {
     { kind: ToFeederKind.Stop },
     { kind: ToFeederKind.Unbind },
     { kind: ToFeederKind.Release, request: 2 },
+    { kind: ToFeederKind.Previews, port: FakeMessagePort.pair().port1 },
+    {
+      kind: ToFeederKind.Parameters,
+      request: 2,
+      change: 3,
+      changes: [
+        {
+          processor: unsafeBrandId<'ProcessorId'>('00000000-0e01'),
+          parameter: unsafeBrandId<'ParameterId'>('9a1e0001-0001'),
+          value: -3.5,
+        },
+      ],
+    },
   ];
 }
 
@@ -180,6 +194,12 @@ const EVERY_FROM_FEEDER: readonly FromFeeder[] = [
   { kind: FromFeederKind.Primed, run: 4 },
   { kind: FromFeederKind.FeedFailed, run: 4, node: IN, reason: 'The disk went away.' },
   { kind: FromFeederKind.Fault, message: 'A message could not be read.' },
+  { kind: FromFeederKind.ParametersTaken, change: 3, refusals: [] },
+  {
+    kind: FromFeederKind.ParametersTaken,
+    change: 4,
+    refusals: [{ code: 'playback.parameter-rendered', summary: 'Made with the value before.' }],
+  },
 ];
 
 /**

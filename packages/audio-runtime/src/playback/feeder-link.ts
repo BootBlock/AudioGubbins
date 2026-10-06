@@ -7,13 +7,17 @@
  * that could not be received at all (`messageerror`), and an error the
  * worker's script threw are each heard as a fault, since what the feeder feeds
  * is then in doubt and a listener waiting on it would wait for ever. The link
- * owns the worker, and terminating it is part of letting it go.
+ * owns the worker, and terminating it is part of letting it go; so is the
+ * worker's connection to the preview worker, given to the feeder as it starts,
+ * which lets the preview worker give up the renders it held.
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
 
+import type { PreviewConnection } from '../preview/preview-host.js';
 import {
   FromFeederKind,
+  ToFeederKind,
   readFromFeeder,
   type FromFeeder,
   type ToFeeder,
@@ -53,14 +57,20 @@ export class FeederLink {
   readonly #worker: FeederWorkerPort;
   readonly #logger: Logger;
   readonly #listeners = new Set<FeederListener>();
+  readonly #previews: PreviewConnection | undefined;
   #disposed = false;
 
-  constructor(worker: FeederWorkerPort, logger: Logger) {
+  /** Listens to `worker`, and gives it `previews`, its connection to the preview worker, where given. */
+  constructor(worker: FeederWorkerPort, logger: Logger, previews?: PreviewConnection) {
     this.#worker = worker;
     this.#logger = logger;
+    this.#previews = previews;
     worker.addEventListener('message', this.#received);
     worker.addEventListener('messageerror', this.#undeliverable);
     worker.addEventListener('error', this.#threw);
+    if (previews !== undefined) {
+      worker.postMessage({ kind: ToFeederKind.Previews, port: previews.port }, [previews.port]);
+    }
   }
 
   /** Sends a message, transferring the memory and ports named rather than copying them. */
@@ -89,6 +99,7 @@ export class FeederLink {
     this.#worker.removeEventListener('error', this.#threw);
     this.#listeners.clear();
     this.#worker.terminate();
+    this.#previews?.disconnect();
   }
 
   readonly #received = (event: MessageEvent): void => {

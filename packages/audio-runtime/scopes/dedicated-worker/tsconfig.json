@@ -15,6 +15,7 @@
   },
   "files": [
     "../../src/threads/feeder-worker.ts",
+    "../../src/threads/preview-worker.ts",
     "../../src/threads/render-worker.ts"
   ],
   "references": [

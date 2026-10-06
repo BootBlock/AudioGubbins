@@ -20,6 +20,7 @@ import { libraryHandlers } from './library-area.js';
 import { mediaHandlers } from './media-area.js';
 import { OpenProjects } from './open-projects.js';
 import { ownershipHandlers } from './ownership-area.js';
+import { processingLibraryHandlers } from './processing-library-area.js';
 import { projectHandlers } from './project-area.js';
 import { rootHandlers } from './root-area.js';
 import { sourceHandlers } from './source-area.js';
@@ -41,6 +42,7 @@ export function serveStorage(
   const projects = new OpenProjects(channel);
   channel.serve({
     ...libraryHandlers(services),
+    ...processingLibraryHandlers(services),
     ...projectHandlers(services, projects),
     ...transferHandlers(services, projects, channel),
     ...backupHandlers(services, projects, channel),

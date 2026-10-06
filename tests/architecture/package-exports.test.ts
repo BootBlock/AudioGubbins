@@ -216,25 +216,18 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The effect rack's domain (ADR-0060, ADR-0061): chain edits, quality modes, the library and the processed stream's parts, which Phase 06's processors, rack commands and rack views take as they are built.":
       [
         'ChainSettings',
-        'EMPTY_LIBRARY',
-        'FoundSlot',
-        'LONGEST_SAVED_NAME',
         'MAXIMUM_CHAIN_SLOTS',
         'MAXIMUM_GROUP_BRANCHES',
         'MAXIMUM_STRETCH_RATIO',
         'chainOutputLayout',
         'checkStateVersion',
         'effectChainFrom',
-        'findSlot',
         'isModelIdentity',
         'parameterOf',
         'segmentsLayout',
         'segmentsLength',
         'withRack',
-        'withSaved',
         'withSlotMoved',
-        'withSlotReplaced',
-        'withoutSaved',
         'withoutSlot',
       ],
   },
@@ -347,16 +340,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['readExternalIdentity'],
     'Stripping provenance at a level, which the unpacked tree and the bundle apply inside the package when the state alone is exported (REQ-STOR-166). Offered for an export of a state that writes no tree, such as the audio exports of the codec phase.':
       ['stripAssetProvenance', 'stripExportRecords'],
-    "The person's library document and the chain's one persisted form outside a project (ADR-0060), which the storage of the library and the clipboard take as Phase 06 builds them.":
-      [
-        'LIBRARY_DOCUMENT_FORMAT',
-        'libraryDocumentText',
-        'parseLibraryDocument',
-        'readEditPlan',
-        'readLibraryDocument',
-        'readSlotAlone',
-        'writeLibraryDocument',
-      ],
+    "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
+      ['readEditPlan'],
   },
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':

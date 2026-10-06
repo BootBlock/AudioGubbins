@@ -46,7 +46,7 @@ export { type PeakEvent, type PeakStatus } from './peak-job.js';
 
 export { type PeakSubject } from './peak-subject.js';
 
-export { type FrameRange } from './peak-messages.js';
+export { type FrameRange, ToPeakWorkerKind, type ToPeakWorker } from './peak-messages.js';
 
 export {
   type PeakCacheStore,

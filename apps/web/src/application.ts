@@ -41,12 +41,16 @@ import {
   type LayoutMapPairs,
 } from '@audiogubbins/capabilities';
 import { createDiagnosticCentre, createLogStore, type Logger } from '@audiogubbins/diagnostics';
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import type { KeyboardConvention } from '@audiogubbins/commands';
+import type { AssetCatalogue } from './state/asset-catalogue.js';
 import { createDockMemory, panelsIn } from '@audiogubbins/workspace';
 
 import { startAnalysis } from './analysis/analysis-part.js';
 import { browserEngineLoader, browserPlayback, browserRendering } from './audio/browser-audio.js';
 import { PlaybackControl } from './audio/playback-control.js';
+import { followPlayingAsset } from './audio/playing-asset.js';
+import { browserPreviews } from './audio/preview-threads.js';
 import { RenderControl } from './audio/render-control.js';
 import { shellCommands } from './commands/shell-commands.js';
 import type { ShellContext } from './commands/shell-context.js';
@@ -125,7 +129,11 @@ function startKeyboardLayout(
  * the render host are made by the first command that needs each, from the
  * person's gesture, so a page that is only looked at starts no audio and loads
  * none of the engine's threads, and one whose browser cannot play never makes
- * a context at all: the command that would is unavailable there.
+ * a context at all: the command that would is unavailable there. The preview
+ * worker that makes cached previews (ADR-0061) is shared with the peak and
+ * detection workers, started only when the first of them is, and reports here
+ * how far its renders have come; playback follows the asset it plays as the
+ * project changes it.
  */
 function startAudio(
   capabilities: CapabilityRegistry,
@@ -137,11 +145,16 @@ function startAudio(
     ShellContext,
     'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
   >;
+  readonly previews: PreviewHost;
+  /** Has playback follow the asset it plays in `assets`, until the part is disposed. */
+  readonly followAssets: (assets: AssetCatalogue) => void;
   readonly dispose: () => void;
 } {
-  const runtime = audioRuntimeCapabilities(capabilities);
-  const engine = browserEngineLoader(runtime);
   const audio = createAudioViewStore();
+  const previews = browserPreviews(logger, audio);
+  let stopFollowing = (): void => undefined;
+  const runtime = audioRuntimeCapabilities(capabilities);
+  const engine = browserEngineLoader(runtime, previews.host);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
@@ -168,9 +181,15 @@ function startAudio(
   });
   return {
     parts: { audio, audioSettings, renderStrategy, playback, rendering },
+    previews: previews.host,
+    followAssets: (assets) => {
+      stopFollowing = followPlayingAsset(assets, playback);
+    },
     dispose: () => {
+      stopFollowing();
       playback.dispose();
       rendering.dispose();
+      previews.dispose();
     },
   };
 }
@@ -278,7 +297,7 @@ export function createApplication() {
   });
 
   const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
-  const analysisPart = startAnalysis(interaction);
+  const analysisPart = startAnalysis(interaction, audioPart.previews);
   const editorPart = startEditor(
     capabilities,
     storage,
@@ -286,7 +305,9 @@ export function createApplication() {
     workspace,
     audioPart.parts.audioSettings,
     projectSystem,
+    audioPart.previews,
   );
+  audioPart.followAssets(editorPart.parts.assets);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),

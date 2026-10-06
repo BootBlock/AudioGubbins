@@ -40,9 +40,10 @@ import type { ContextLifecycle } from '../context/context-lifecycle.js';
 import { DspDeliveryKind, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import type { FromFeeder } from '../protocol/feeder-messages.js';
 import type { Schedule } from '../schedule.js';
-import { FeederLink, type FeederWorkerPort } from './feeder-link.js';
+import { FeederLink } from './feeder-link.js';
 import { gpuUseOf } from './gpu-use.js';
-import { LoadedProcessor, type ChannelEnds, type LoadOutcome } from './loaded-processor.js';
+import { LoadedProcessor, type LoadOutcome } from './loaded-processor.js';
+import type { PlaybackThreads } from './playback-threads.js';
 import {
   preparePlayback,
   type PlaybackRequest,
@@ -76,14 +77,6 @@ const FEEDER_UNANSWERED_PROBLEM =
 const NO_WEBASSEMBLY =
   'This page cannot compile WebAssembly. Processing runs on the reference path, which gives ' +
   'the same result more slowly.';
-
-/** The threads playback starts beside the page's, which a test plays itself. */
-export interface PlaybackThreads {
-  /** Starts the feeder worker, the module `threads/feeder-worker.ts`. */
-  readonly createFeeder: () => FeederWorkerPort;
-  /** Makes a channel between the feeder and the processor: a `MessageChannel`. */
-  readonly createChannel: () => ChannelEnds;
-}
 
 /** What graphs are loaded with. */
 export interface GraphLoaderOptions {
@@ -190,6 +183,11 @@ export class GraphLoader {
     return this.#answered(loaded, await loaded.outcome, sourced.value);
   }
 
+  /** The sources of the request loaded or loading, in the feeder, where it has any to feed. */
+  get sources(): RequestSources | undefined {
+    return this.#sources;
+  }
+
   /** Lets go of the graph, its node and its binding to the feeder, ending a load still waiting. */
   unload(): void {
     this.#generation += 1;
@@ -252,7 +250,7 @@ export class GraphLoader {
   #feederLink(): FeederLink {
     if (this.#feeder !== undefined) return this.#feeder;
     const { threads, logger } = this.#options;
-    const feeder = new FeederLink(threads.createFeeder(), logger);
+    const feeder = new FeederLink(threads.createFeeder(), logger, threads.connectPreviews?.());
     feeder.subscribe((reply: FromFeeder) => {
       this.#replies?.applyFeeder(reply);
     });

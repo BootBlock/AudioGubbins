@@ -38,6 +38,12 @@ import type { PcmSource } from './pcm-source.js';
 /** An asset a plan reads, as recorded in the project, and the file behind it. */
 export interface MediaEntry {
   readonly asset: AssetId;
+  /**
+   * What the file's content is known by, as the project records where it is
+   * kept: two entries of one identity hold the same audio, which is how a
+   * cached render of a sound is found again (`cached-stream-key.ts`).
+   */
+  readonly identity: string;
   readonly sampleRate: SampleRate;
   readonly channels: number;
   readonly length: SampleCount;

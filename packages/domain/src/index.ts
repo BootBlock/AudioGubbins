@@ -272,6 +272,7 @@ export {
   MAXIMUM_GROUP_DEPTH,
   type ProcessorCatalogue,
   chainOutputLayout,
+  checkProcessors,
   validateChainShape,
 } from './processing/chain-validation.js';
 
@@ -292,14 +293,12 @@ export { effectChainFrom } from './processing/chain-decoding.js';
 export { treatmentChain, treatmentValues } from './processing/treatment-chain.js';
 
 export {
-  EMPTY_LIBRARY,
   LONGEST_SAVED_NAME,
-  type ProcessingLibrary,
-  type SavedChain,
-  type SavedPreset,
-  savedName,
-  withSaved,
-  withoutSaved,
+  type LibraryContent,
+  type LibraryEntry,
+  type LibraryEntryId,
+  type LibraryEntryKind,
+  withPreset,
 } from './processing/processing-library.js';
 
 export { type ProcessorLatency } from './processing/processor-latency.js';

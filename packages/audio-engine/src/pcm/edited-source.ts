@@ -9,12 +9,19 @@
  * stages by the domain's own arithmetic (`applyStages`), so the feeder, the
  * render worker and the peak worker hear and draw one sound, bit for bit. No
  * file is held whole, and no rate changes except where a stream says so. The
- * reader of each kind of content is in `plan-content.ts`.
+ * reader of each kind of content is in `plan-content.ts`, and the readers a
+ * source makes of its plan in `plan-readers.ts`.
  *
  * Those readers keep state between reads, a processed stream's run among
  * them, and are reached only through the source made here, so its reads take
  * turns (`read-turns.ts`): two readers of one source, as the peak worker's
  * build and a view's request are, each hear what a reader alone would.
+ *
+ * A processed stream is read from its render where the reading has a cache
+ * of renders and the stream is one it would otherwise run from its start, or
+ * one a preview cannot run as it is heard (`cached-streams.ts`); the cached
+ * preview producer reads the stream it renders through this module too, with
+ * no cache, from the stream's start (`processedStreamSource`).
  */
 
 import {
@@ -28,186 +35,19 @@ import {
   succeed,
   validatePlan,
   type AssetId,
-  type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
   type EditPlan,
   type MediaShape,
-  type PlanSource,
-  type PlanStream,
   type SampleRate,
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
-import { resamplingQualityOf } from '../dsp/resampling-grade.js';
 import { assertReadableInto, framesAvailable, type PcmSource } from './pcm-source.js';
-import {
-  ConvertedContent,
-  FileContent,
-  MediaReadFailure,
-  StreamContent,
-  type ContentReader,
-  type MediaEntry,
-  type ReadableContent,
-} from './plan-content.js';
-import { ProcessedContent, type PlanProcessing } from './processed-content.js';
+import type { MediaEntry, ReadableContent } from './plan-content.js';
+import { PlanReaders } from './plan-readers.js';
+import type { PlanProcessing } from './processed-content.js';
 import { ReadTurns } from './read-turns.js';
-import { resampledSource } from './resampled-source.js';
-import { StretchedContent } from './stretched-content.js';
-
-/** What a stream of the plan makes, at its own rate and in its own layout. */
-interface StreamOutput extends ReadableContent {
-  readonly length: number;
-}
-
-/** A stream of the plan as a source at its own rate and layout. */
-function streamSource(content: StreamOutput, stream: PlanStream): PcmSource {
-  const length = sampleCount(content.length);
-  return {
-    layout: stream.layout,
-    sampleRate: stream.sampleRate,
-    length: length.ok ? length.value : undefined,
-    read: async (start, into, signal) => {
-      assertReadableInto({ layout: stream.layout, sampleRate: stream.sampleRate }, into);
-      const count = framesAvailable(length.ok ? length.value : undefined, start, into.frames);
-      await content.read(start, count, into.channels, signal);
-      return count;
-    },
-    release: () => undefined,
-  };
-}
-
-/**
- * The readers one edited source makes, each made once on the first read that
- * needs it and released with the source: a stream's content, an asset's file
- * and a converted stream, by where the plan names them.
- */
-class PlanReaders {
-  readonly #plan: EditPlan;
-  readonly #entries: ReadonlyMap<AssetId, MediaEntry>;
-  readonly #dsp: CanonicalDsp;
-  readonly #processing: PlanProcessing;
-  readonly #streams = new Map<number, StreamContent>();
-  readonly #outputs = new Map<number, StreamOutput>();
-  readonly #files = new Map<AssetId, FileContent>();
-  readonly #converted = new Map<number, ConvertedContent>();
-  readonly #made: ContentReader[] = [];
-
-  constructor(
-    plan: EditPlan,
-    media: readonly MediaEntry[],
-    dsp: CanonicalDsp,
-    processing: PlanProcessing,
-  ) {
-    this.#plan = plan;
-    this.#entries = new Map(media.map((entry) => [entry.asset, entry]));
-    this.#dsp = dsp;
-    this.#processing = processing;
-  }
-
-  /** The content of the plan's stream at `place`. */
-  stream(place: number): StreamContent {
-    const known = this.#streams.get(place);
-    if (known !== undefined) return known;
-    const stream = this.#streamAt(place);
-    const content = new StreamContent(stream, (source) => this.#reader(source, stream.sampleRate));
-    this.#streams.set(place, content);
-    return content;
-  }
-
-  release(): void {
-    for (const reader of this.#made) reader.release();
-  }
-
-  #streamAt(place: number): PlanStream {
-    const stream = this.#plan.streams[place];
-    if (stream === undefined) throw new Error('A validated plan names only streams it has.');
-    return stream;
-  }
-
-  #reader(source: PlanSource, rate: SampleRate): ReadableContent {
-    if (source.kind === 'media') return this.#file(source.asset);
-    return this.#streamAt(source.stream).sampleRate === rate
-      ? this.#output(source.stream)
-      : this.#convert(source.stream, rate);
-  }
-
-  /**
-   * What the stream at `place` makes at its own rate: its segments, or what
-   * its processing makes of them (`processed-content.ts`).
-   */
-  #output(place: number): StreamOutput {
-    const known = this.#outputs.get(place);
-    if (known !== undefined) return known;
-    const stream = this.#streamAt(place);
-    const content = this.stream(place);
-    const { processing } = stream;
-    let output: StreamOutput;
-    if (processing === undefined) {
-      output = content;
-    } else if (processing.kind === 'chain') {
-      const input = {
-        layout: processing.input,
-        sampleRate: stream.sampleRate,
-        length: content.length,
-        read: (
-          start: number,
-          frames: number,
-          into: readonly Float32Array[],
-          signal?: CancellationSignal,
-        ) => content.read(start, frames, into, signal),
-      };
-      const processed = new ProcessedContent(processing.chain, input, stream.layout, {
-        ...this.#processing,
-        dsp: this.#dsp,
-      });
-      this.#made.push(processed);
-      output = processed;
-    } else {
-      output = this.#stretched(content, stream, processing.length);
-    }
-    this.#outputs.set(place, output);
-    return output;
-  }
-
-  #file(asset: AssetId): FileContent {
-    const known = this.#files.get(asset);
-    if (known !== undefined) return known;
-    const entry = this.#entries.get(asset);
-    if (entry === undefined) throw new Error('A validated plan reads only the files it was given.');
-    const file = new FileContent(entry);
-    this.#files.set(asset, file);
-    this.#made.push(file);
-    return file;
-  }
-
-  /** The stream's segments made `length` frames long (`stretched-content.ts`). */
-  #stretched(content: StreamContent, stream: PlanStream, length: number): StreamOutput {
-    const stretched = new StretchedContent(content, stream, length, {
-      quality: this.#processing.quality,
-      dsp: this.#dsp,
-      start: this.#processing.start,
-    });
-    this.#made.push(stretched);
-    return stretched;
-  }
-
-  #convert(place: number, rate: SampleRate): ConvertedContent {
-    const known = this.#converted.get(place);
-    if (known !== undefined) return known;
-    const resampled = resampledSource(
-      this.#dsp,
-      streamSource(this.#output(place), this.#streamAt(place)),
-      rate,
-      resamplingQualityOf(this.#processing.quality.resampling),
-    );
-    if (!resampled.ok) throw new MediaReadFailure(resampled.failures[0]);
-    const reader = new ConvertedContent(resampled.value);
-    this.#converted.set(place, reader);
-    this.#made.push(reader);
-    return reader;
-  }
-}
 
 /** What a plan may read of each file, as its asset recorded it. */
 function mediaShapes(media: readonly MediaEntry[]): DomainResult<ReadonlyMap<AssetId, MediaShape>> {
@@ -224,9 +64,54 @@ function mediaShapes(media: readonly MediaEntry[]): DomainResult<ReadonlyMap<Ass
   return succeed(shapes);
 }
 
+/** `plan` checked against the files `media` names, or why it cannot be read from them. */
+function checkedPlan(plan: EditPlan, media: readonly MediaEntry[]): DomainResult<EditPlan> {
+  const shapes = mediaShapes(media);
+  return shapes.ok ? validatePlan(plan, shapes.value) : shapes;
+}
+
+/**
+ * `content` as a source of `length` frames in `layout` at `rate`, its reads
+ * taken in turn, since every reader a plan makes keeps state between reads
+ * (`read-turns.ts`), and `readers` released with it.
+ */
+function turnTaking(
+  content: ReadableContent,
+  shape: {
+    readonly layout: ChannelLayout;
+    readonly sampleRate: SampleRate;
+    readonly length: number;
+  },
+  readers: PlanReaders,
+  release: () => void,
+): DomainResult<PcmSource> {
+  const length = sampleCount(shape.length);
+  if (!length.ok) return length;
+  const turns = new ReadTurns();
+  const { layout, sampleRate } = shape;
+  return succeed({
+    layout,
+    sampleRate,
+    length: length.value,
+    read: (start, into, signal) =>
+      turns.take(async () => {
+        assertReadableInto({ layout, sampleRate }, into);
+        const count = framesAvailable(length.value, start, into.frames);
+        await content.read(start, count, into.channels, signal);
+        return count;
+      }, signal),
+    release: () => {
+      release();
+      readers.release();
+    },
+  });
+}
+
 /**
  * The plan's sound as a source read in `layout`, which must have its first
- * stream's channels, from the files `media` names, converting with `dsp`.
+ * stream's channels, from the files `media` names, converting with `dsp`. A
+ * parameter changed while it plays reaches its chains through the reading's
+ * running parameters, where it has them.
  */
 export function editedSource(
   plan: EditPlan,
@@ -235,9 +120,7 @@ export function editedSource(
   dsp: CanonicalDsp,
   processing: PlanProcessing,
 ): DomainResult<PcmSource> {
-  const shapes = mediaShapes(media);
-  if (!shapes.ok) return shapes;
-  const valid = validatePlan(plan, shapes.value);
+  const valid = checkedPlan(plan, media);
   if (!valid.ok) return valid;
   const [first] = plan.streams;
   if (channelCount(layout) !== channelCount(first.layout)) {
@@ -249,25 +132,45 @@ export function editedSource(
       ),
     );
   }
-  const length = sampleCount(streamLength(first));
-  if (!length.ok) return length;
   const readers = new PlanReaders(plan, media, dsp, processing);
-  const sound = readers.stream(0);
-  // Every reader the plan makes keeps state between reads (`read-turns.ts`).
-  const turns = new ReadTurns();
-  return succeed({
-    layout,
-    sampleRate: first.sampleRate,
-    length: length.value,
-    read: (start, into, signal) =>
-      turns.take(async () => {
-        assertReadableInto({ layout, sampleRate: first.sampleRate }, into);
-        const count = framesAvailable(length.value, start, into.frames);
-        await sound.read(start, count, into.channels, signal);
-        return count;
-      }, signal),
-    release: () => {
-      readers.release();
-    },
-  });
+  const stopHearing = processing.parameters?.add(readers) ?? (() => undefined);
+  return turnTaking(
+    readers.stream(0),
+    { layout, sampleRate: first.sampleRate, length: streamLength(first) },
+    readers,
+    stopHearing,
+  );
+}
+
+/**
+ * What the plan's stream at `place` makes, its processing run over it, as a
+ * source in the stream's own layout and rate: what the cached preview
+ * producer renders (`preview-producer.ts`).
+ */
+export function processedStreamSource(
+  plan: EditPlan,
+  media: readonly MediaEntry[],
+  place: number,
+  dsp: CanonicalDsp,
+  processing: PlanProcessing,
+): DomainResult<PcmSource> {
+  const valid = checkedPlan(plan, media);
+  if (!valid.ok) return valid;
+  const stream = plan.streams[place];
+  if (stream === undefined) {
+    return fail(
+      failure(
+        'pcm.stream-absent',
+        FailureKind.Rejected,
+        `The plan has no stream at place ${String(place)}.`,
+      ),
+    );
+  }
+  const readers = new PlanReaders(plan, media, dsp, processing);
+  return turnTaking(
+    readers.output(place),
+    { layout: stream.layout, sampleRate: stream.sampleRate, length: streamLength(stream) },
+    readers,
+    () => undefined,
+  );
 }

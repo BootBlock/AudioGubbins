@@ -8,6 +8,7 @@ import {
 } from '@audiogubbins/commands';
 import {
   createDeterministicIdGenerator,
+  processorsOf,
   type Asset,
   type EditOperationId,
   type IdGenerator,
@@ -65,6 +66,7 @@ import {
   removeChainInvocation,
   setChainInvocation,
 } from './processing/chain-commands.js';
+import { setProcessorInvocation } from './processing/processor-commands.js';
 import {
   setEditChainInvocation,
   setRackInvocation,
@@ -92,7 +94,7 @@ function randomInvocation(
   state: ProjectState,
 ): CommandInvocation {
   const assets = [...state.project.assets.values()];
-  const choice = random.below(26);
+  const choice = random.below(27);
   if (choice === 0)
     return { commandId: ProjectCommandId.Rename, arguments: { name: randomName(random) } };
   if (choice === 1)
@@ -151,9 +153,9 @@ function randomInvocation(
 
 /**
  * A random invocation of a chain or rack command: a new chain, a chain
- * changed or removed (refused while something names it), a rack given to or
- * taken from `asset` or one of its regions, or one of its rack edits pointed
- * at another chain.
+ * changed or removed (refused while something names it), a processor of one
+ * set, a rack given to or taken from `asset` or one of its regions, or one of
+ * its rack edits pointed at another chain.
  */
 function randomProcessingInvocation(
   random: Random,
@@ -180,6 +182,18 @@ function randomProcessingInvocation(
       break;
     case 24:
       return setRackInvocation(target, random.chance(0.3) ? undefined : chain?.id);
+    case 26: {
+      const processors = chains.flatMap((one) => [...processorsOf(one.slots)]);
+      if (processors.length > 0) {
+        const processor = random.pick(processors);
+        return setProcessorInvocation({
+          ...processor,
+          enabled: random.chance(0.5),
+          mix: random.below(5) / 4,
+        });
+      }
+      break;
+    }
     case 25: {
       const racks: readonly { readonly id: EditOperationId }[] =
         region === undefined

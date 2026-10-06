@@ -59,6 +59,7 @@ const EDITED = {
   media: [
     {
       asset: TAKE.id,
+      identity: 'content:take',
       sampleRate: RATE,
       channels: 2,
       length: TAKE.length,
@@ -105,6 +106,16 @@ describe('the messages to the peak worker', () => {
     for (const message of messages) {
       expect(expectSuccess(readToPeakWorker(structuredClone(message)))).toEqual(message);
     }
+  });
+
+  it('reads the port to the preview worker, and refuses anything else in its place', () => {
+    const { port1, port2 } = new MessageChannel();
+    expect(
+      expectSuccess(readToPeakWorker({ kind: ToPeakWorkerKind.Previews, port: port1 })),
+    ).toEqual({ kind: ToPeakWorkerKind.Previews, port: port1 });
+    expect(fieldOf(readToPeakWorker({ kind: ToPeakWorkerKind.Previews, port: {} }))).toBe('port');
+    port1.close();
+    port2.close();
   });
 
   it('refuses a malformed one, naming the field', () => {

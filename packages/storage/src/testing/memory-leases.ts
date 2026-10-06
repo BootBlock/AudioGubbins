@@ -3,9 +3,10 @@
  * Web Locks and a broadcast channel are shared by the tabs of one browser
  * profile: one holder per project, a steal that makes the holder's lease lost,
  * requests for a project answered by its holder, watchers told of each change
- * of writer and each checkpoint, and the storage-wide lock, shared or
- * exclusive. Made to refuse, it refuses every lock as a platform that denies
- * the page its lock manager does.
+ * of writer and each checkpoint, the storage-wide lock, shared or exclusive,
+ * and the library's lock, held by one window at a time in the order asked. Made
+ * to refuse, it refuses every lock as a platform that denies the page its lock
+ * manager does.
  */
 
 import type { ProjectId } from '@audiogubbins/domain';
@@ -45,6 +46,8 @@ export class MemoryLeaseCoordinator implements LeaseCoordinator {
   private shared = 0;
   private exclusive = false;
   private readonly sharing: (() => void)[] = [];
+  private libraryHeld = false;
+  private readonly libraryQueue: (() => void)[] = [];
 
   constructor(options: { readonly refuses?: boolean } = {}) {
     this.refuses = options.refuses ?? false;
@@ -174,6 +177,44 @@ export class MemoryLeaseCoordinator implements LeaseCoordinator {
         { once: true },
       );
     });
+  }
+
+  lockLibrary(options: { readonly signal?: AbortSignal }): Promise<StorageLocking> {
+    if (this.refuses) return Promise.resolve({ kind: 'unavailable' });
+    options.signal?.throwIfAborted();
+    if (!this.libraryHeld) return Promise.resolve(this.heldLibrary());
+    return new Promise((resolve, reject) => {
+      const grant = (): void => {
+        resolve(this.heldLibrary());
+      };
+      this.libraryQueue.push(grant);
+      options.signal?.addEventListener(
+        'abort',
+        () => {
+          const index = this.libraryQueue.indexOf(grant);
+          if (index < 0) return;
+          this.libraryQueue.splice(index, 1);
+          reject(abortReason(options.signal));
+        },
+        { once: true },
+      );
+    });
+  }
+
+  private heldLibrary(): StorageLocking {
+    this.libraryHeld = true;
+    let released = false;
+    return {
+      kind: 'held',
+      release: () => {
+        if (released) return Promise.resolve();
+        released = true;
+        const next = this.libraryQueue.shift();
+        if (next === undefined) this.libraryHeld = false;
+        else next();
+        return Promise.resolve();
+      },
+    };
   }
 
   private heldShared(): StorageLocking {

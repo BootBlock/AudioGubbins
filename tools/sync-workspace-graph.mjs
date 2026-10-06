@@ -325,6 +325,7 @@ const PACKAGES = [
       'engine-processor.ts': 'audio-worklet',
       'feeder-worker.ts': 'dedicated-worker',
       'render-worker.ts': 'dedicated-worker',
+      'preview-worker.ts': 'dedicated-worker',
     },
     deps: [
       '@audiogubbins/domain',

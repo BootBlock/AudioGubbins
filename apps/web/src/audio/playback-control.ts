@@ -11,6 +11,12 @@
  * life, so a change of profile, or a programme at another rate, closes it and
  * makes another, going on from where playback was if it was playing. A change
  * of preview quality keeps the context and loads the programme again at it.
+ *
+ * A programme whose sound the project changed while it plays is followed
+ * (REQ-AUDIO-019): numeric parameters changed by a command reach the running
+ * chains, smoothed, without playback starting again; a change a running chain
+ * cannot take, a chain heard from a cached render among them, loads the
+ * programme again where it plays, which makes the render again, and says so.
  */
 
 import {
@@ -23,56 +29,13 @@ import {
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import { TransportMode } from '@audiogubbins/audio-engine';
-import {
-  PLAYBACK_SUPERSEDED,
-  PlaybackPhase,
-  type MeterLevels,
-  type PlaybackSession,
-} from '@audiogubbins/audio-runtime';
+import { PLAYBACK_SUPERSEDED, PlaybackPhase, type MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 import { reasonsOf, type Reasons } from '../state/reasons.js';
-import type { Programme } from './programme.js';
-
-/** The part of a playback session the control drives. */
-export type PlaybackSessionPort = Pick<
-  PlaybackSession,
-  | 'status'
-  | 'subscribe'
-  | 'load'
-  | 'play'
-  | 'pause'
-  | 'park'
-  | 'stop'
-  | 'seek'
-  | 'position'
-  | 'audiblePosition'
-  | 'meters'
-  | 'dispose'
->;
-
-/** What playing with one profile is made of: a context's life, and a session over it. */
-export interface PlaybackParts {
-  /**
-   * Starts the context. Called from the person's gesture, before anything is
-   * awaited, so a browser that starts audio only inside one starts it; the
-   * session's own Play says why where it did not.
-   */
-  readonly startContext: () => void;
-  /**
-   * The rate the context runs at, which a programme's request is made at
-   * (REQ-ARCH-085), or why the browser would not make the context.
-   */
-  readonly contextRate: () => DomainResult<number>;
-  /** The session, once the DSP module it runs has been loaded and compiled. */
-  readonly session: Promise<PlaybackSessionPort>;
-  /** Closes the context, for good. */
-  readonly close: () => Promise<void>;
-}
-
-/** Makes the parts for a profile, the context at `rate`, or the device's where it is `undefined`. */
-export type OpenPlayback = (profile: ChosenProfile, rate: number | undefined) => PlaybackParts;
+import type { OpenPlayback, PlaybackParts, PlaybackSessionPort } from './playback-parts.js';
+import { followingOf, type Programme } from './programme.js';
 
 /** One profile's parts at one rate, and what was made with them. */
 interface Opened {
@@ -88,6 +51,12 @@ interface Opened {
   loaded: Programme | undefined;
   /** The preview quality `loaded` was loaded at. */
   quality: QualityMode | undefined;
+  /**
+   * Whether the session holds an older sound of `loaded` than `loaded` is,
+   * one a change it could not take running left behind, which the next Play
+   * loads.
+   */
+  stale: boolean;
 }
 
 /** Why Pause or Stop finds nothing to act on; their availability says so first. */
@@ -173,14 +142,9 @@ export class PlaybackControl {
   }
 
   #moveTo(current: Opened, session: PlaybackSessionPort, to: SampleCount): void {
-    void session.seek(to).then(
-      (moved) => {
-        if (!moved.ok && this.#opened === current) this.#refused(reasonsOf(moved.failures));
-      },
-      (error: unknown) => {
-        this.#logger.error('The transport could not be moved.', { reason: messageOf(error) });
-      },
-    );
+    void session.seek(to).then((moved) => {
+      if (!moved.ok && this.#opened === current) this.#refused(reasonsOf(moved.failures));
+    }, this.#recorded('The transport could not be moved.'));
   }
 
   /** The key of the programme the transport holds, or `undefined` where it holds none. */
@@ -252,11 +216,45 @@ export class PlaybackControl {
    */
   usePreviewQuality(): void {
     const current = this.#opened;
-    if (current === undefined) return;
-    const { session, loaded: programme } = current;
-    if (session === undefined || programme === undefined || current.quality === this.#quality()) {
-      return;
-    }
+    const session = current?.session;
+    const programme = current?.loaded;
+    if (current === undefined || session === undefined || programme === undefined) return;
+    if (current.quality !== this.#quality()) this.#reload(current, session, programme);
+  }
+
+  /**
+   * Follows the sound of the programme the transport holds, which the
+   * project changed: `programme` is the same programme as it now stands.
+   * Numeric parameters changed while it plays reach its running chains; any
+   * other change, or one a chain cannot take running, loads it again, going
+   * on from where it plays if it is playing and otherwise at the next Play.
+   */
+  follow(programme: Programme): void {
+    const current = this.#opened;
+    const session = current?.session;
+    const loaded = current?.loaded;
+    if (current === undefined || session === undefined || loaded?.key !== programme.key) return;
+    const following = followingOf(loaded, programme);
+    if (following.kind === 'reload') this.#reload(current, session, programme);
+    if (following.kind !== 'running') return;
+    // Followed now, so a change that follows this one is worked out from it.
+    current.loaded = programme;
+    void session.changeParameters(following.changes).then((taken) => {
+      if (taken.ok || this.#opened !== current || current.loaded !== programme) return;
+      this.#reload(current, session, programme);
+      if (taken.failures.some((one) => one.code === 'playback.parameter-rendered')) {
+        this.#announce('The change is heard once its preview is made again.');
+      }
+    }, this.#recorded('A change could not be given to playback.'));
+  }
+
+  /**
+   * Loads `programme` again, as it now stands, going on from where it plays
+   * if it is playing, and otherwise at the next Play from where it stands.
+   */
+  #reload(current: Opened, session: PlaybackSessionPort, programme: Programme): void {
+    current.loaded = programme;
+    current.stale = true;
     const mode = session.status.transport.mode;
     const position = session.position();
     const from = position.ok ? position.value : undefined;
@@ -307,6 +305,7 @@ export class PlaybackControl {
       stopListening: undefined,
       loaded: undefined,
       quality: undefined,
+      stale: false,
     };
     this.#opened = opened;
     return opened;
@@ -320,10 +319,15 @@ export class PlaybackControl {
     current.session?.dispose();
     // Nothing waits on the close, so a fault in it is recorded here, where
     // the diagnostic log shows it, rather than left to reach no one.
-    void current.parts.close().catch((error: unknown) => {
-      this.#logger.error('The audio context could not be closed.', { reason: messageOf(error) });
-    });
+    void current.parts.close().catch(this.#recorded('The audio context could not be closed.'));
     this.#view.showPlayback(undefined);
+  }
+
+  /** What records a fault in work nothing awaits, saying what could not be done. */
+  #recorded(what: string): (error: unknown) => void {
+    return (error) => {
+      this.#logger.error(what, { reason: messageOf(error) });
+    };
   }
 
   #start(current: Opened, programme: Programme, from: SampleCount | undefined): void {
@@ -387,7 +391,11 @@ export class PlaybackControl {
   ): Promise<DomainResult<void>> {
     const { phase } = session.status;
     const quality = this.#quality();
-    const holds = current.loaded?.key === programme.key && current.quality === quality;
+    const holds =
+      !current.stale &&
+      current.loaded?.key === programme.key &&
+      current.loaded.content === programme.content &&
+      current.quality === quality;
     // Lost with its context, the graph is loaded again by the session's Play.
     if (holds && (phase === PlaybackPhase.Ready || phase === PlaybackPhase.Unloaded)) {
       return Promise.resolve(succeed(undefined));
@@ -398,6 +406,7 @@ export class PlaybackControl {
     if (!request.ok) return Promise.resolve(request);
     current.loaded = programme;
     current.quality = quality;
+    current.stale = false;
     return session.load(request.value);
   }
 

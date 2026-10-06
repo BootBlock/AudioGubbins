@@ -44,6 +44,8 @@ import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { libraryApplyCommands } from './library-apply-commands.js';
+import { libraryCommands } from './library-commands.js';
 import { channelCommands } from './channel-commands.js';
 import { clipboardCommands } from './clipboard-commands.js';
 import { editCommands } from './edit-commands.js';
@@ -787,6 +789,8 @@ describe('finding the shell commands in the palette', () => {
       ...projectTransferCommands(),
       ...audioImportCommands(),
       ...quickEditCommands(),
+      ...libraryCommands(),
+      ...libraryApplyCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),

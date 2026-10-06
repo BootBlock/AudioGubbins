@@ -185,6 +185,39 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     so every reader of a processed stream is covered. A read that fails or is
     cancelled part way leaves no half-caught-up run, half-added stretch frame
     or stale resampler position.
+23. **The library** is per person: one storage directory per entry
+    (`library/<id>/`, a rewritten pair of checked records), each the entry
+    document (`audiogubbins.library-entry`, `processingLibrary` schema 1) in
+    the chain's one form; an entry this build cannot use is listed with the
+    reason; names are unique per kind as a reader hears them; every change
+    holds the `lockLibrary` lock. `project.set-processor` changes one
+    processor's settings (a preset). Applying a saved chain copies it per
+    target, or shares one where asked, in one history step, and replaces a
+    target's rack. Usage and cleanup leave the library out (REQ-STOR-200 and
+    106 name no category for it).
+24. **The preview worker** (`audio-engine/src/preview/`,
+    `audio-runtime/src/preview/`) holds the cached preview producer; the
+    feeder, the peak worker and the detection worker each read renders
+    through their own channel to it. ADR-0061 says the render worker makes
+    the cached render: to amend, since the render worker is a pool thread
+    per job and the cache outlives jobs and serves three workers.
+25. **The cache key and bound.** The key is a canonical text of the render
+    version, the quality settings, the stream with each later stream it
+    reads written in place, the chain without identifiers (values, state,
+    versions, model identity), and each file by `MediaEntry.identity`, rate,
+    channels and length. Renders are kept in memory, 512 MiB, least recently
+    used first, two made at once; a held render is never evicted; a render
+    that cannot fit is declined before it takes memory and the reader runs
+    the chain itself. The storage cache client cannot serve it (no ranged
+    read, no append, no per-key eviction or recency). A read past a render's
+    progress waits; it never answers silence.
+26. **Listening.** `ChainProcessing.listening()` answers "live" or
+    "rendered, because ..." (a whole-pass or non-real-time processor), with
+    the lead-in and frame grid: one rule shared with running changes. Peaks
+    and detection read every processed stream from a render. A parameter
+    change is a project command; playback follows the catalogue
+    (`runningChanges` reach `ChainRun.setParameter`); a rendered chain
+    refuses it and playback reloads where it plays, remaking the render.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -407,15 +440,23 @@ Open points from `model-packs`:
   `notices:check` (paths exist, licences on the allow-list).
 - Serving the built packs from the application's origin in development and
   in a build is not wired.
-- Every preview start runs every whole pass again, inference included; the
-  cached preview producer (Next, item 4) must make the measurements once
-  and start runs from them.
+- Closed (decisions 24–26): a whole pass runs once per preview render, and
+  waveforms of racked audio read a render.
 - Nothing in production builds an `AvailabilityContext` yet; it must pass
   `nobleTextSha256`.
-- Building a waveform of racked audio is slow: the peak worker reads out of
-  order, and each backward read restarts the chain and its whole passes
-  (quadratic on long racked assets); the cached preview producer or an
-  in-order build for processed sources fixes it.
+- The domain allows groups nested 8 deep, but a chain command's argument
+  limit refuses more than 2 and the project document's limit refuses the
+  domain's 8 (`json.too-deep`). Decided: every bound derives from
+  `WRITTEN_CHAIN_DEPTH`; the domain's limit stays.
+- `chain-commands.ts`: `addChain` carries out removal and `removeChain`
+  adding; the names are swapped.
+- Other tabs are not told when the library changes; the library view must
+  re-read on focus or listen on a broadcast channel.
+- Preview renders are in memory, not on disk; the preview worker uses the
+  reference DSP; a running change is heard after the feeder's read-ahead;
+  nothing measures live cost, so a too-costly live chain never moves to a
+  render. No interface yet makes a whole-pass rack, so the cached mode has
+  no browser test.
 - The range-or-whole choice of a recommendation is made in two files
   (`detection-control.ts`, `analysis-commands.ts`); it should have one
   authority.

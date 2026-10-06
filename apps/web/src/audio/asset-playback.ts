@@ -80,6 +80,8 @@ export function assetProgramme(asset: EditorAsset): Programme {
     key: asset.id,
     rate: asset.sampleRate,
     playing: `${asset.name} is playing.`,
+    content: asset.content,
+    ...(asset.owner.kind === 'project' ? { plan: asset.owner.plan } : {}),
     // The context's rate is not checked here: a context the browser made at
     // another rate is refused by the session, which says so, rather than the
     // asset being played at the wrong speed.

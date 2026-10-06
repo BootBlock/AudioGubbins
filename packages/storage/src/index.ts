@@ -216,6 +216,8 @@ export {
 } from './consolidation.js';
 
 export { type MeasuredPack, ModelPackStore } from './model-pack-store.js';
+export { type ListedEntry } from './library-entry-files.js';
+export { type LibraryServices, ProcessingLibraryStore } from './processing-library-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';

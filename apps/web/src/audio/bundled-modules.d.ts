@@ -27,6 +27,12 @@ declare module '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url'
   export default url;
 }
 
+/** Where the bundler put the preview worker, built on its own. */
+declare module '@audiogubbins/audio-runtime/threads/preview-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}
+
 /** Where the bundler put the storage worker, built on its own. */
 declare module '@audiogubbins/storage-runtime/threads/storage-worker.ts?worker&url' {
   const url: string;

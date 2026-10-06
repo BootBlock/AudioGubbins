@@ -235,6 +235,7 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
       <EngineState status={view.playback} />
       <OfflineRender view={view} framesRendered={props.framesRendered} commands={props} />
       <ProcessingModes
+        audio={props.audio}
         settings={props.audioSettings}
         strategy={props.renderStrategy}
         run={props.run}

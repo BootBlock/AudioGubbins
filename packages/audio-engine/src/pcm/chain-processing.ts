@@ -13,8 +13,10 @@
  * A run may start part way through the stream, as a preview does, and every
  * request says where: a processor that plays back what its pass made of the
  * whole stream (a machine-learning processor) must start playing at that
- * frame, which only the run can tell it. Where a preview may start is the
- * chain's to say before the run is made, so the frame is chosen first.
+ * frame, which only the run can tell it. Where a preview may start, and
+ * whether the chain can run as it is heard at all, is the chain's to say
+ * before the run is made, so playback chooses between running it and hearing
+ * a render of it first (ADR-0061).
  */
 
 import type {
@@ -22,6 +24,7 @@ import type {
   ChannelLayout,
   DomainResult,
   EffectChain,
+  ParameterId,
   ProcessorId,
   QualitySettings,
   SampleRate,
@@ -53,13 +56,13 @@ export interface ChainRequest {
   /**
    * The frame of the stream the run's first {@link ChainRun.process} call is
    * given, from 0 to {@link length}: 0 for a run from the stream's start, and
-   * a frame {@link ChainProcessing.partWayStart} allows for a preview.
+   * a frame {@link ChainProcessing.listening} allows for a preview.
    */
   readonly start: number;
 }
 
-/** What a chain's part-way starts depend on: the chain, and the stream as it runs it. */
-export type PartWayRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
+/** What how a chain is heard depends on: the chain, and the stream as it runs it. */
+export type ListeningRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
 
 /** How a run of a chain may start part way through a stream, for a preview. */
 export interface PartWayStart {
@@ -74,6 +77,22 @@ export interface PartWayStart {
   readonly frameGrid: number;
 }
 
+/**
+ * How playback hears a chain: run as it plays, started part way after its
+ * lead-in, or from a render of the whole stream made ahead, where a processor
+ * it runs measures its whole input first or cannot keep to the audio thread's
+ * schedule (ADR-0061). Either way the chain may be started part way, which a
+ * reader that has no render to read falls back to.
+ */
+export type ChainListening =
+  | { readonly kind: 'live'; readonly partWay: PartWayStart }
+  | {
+      readonly kind: 'rendered';
+      readonly partWay: PartWayStart;
+      /** Why it cannot run as it is heard, naming the processors, worded for the person. */
+      readonly reason: string;
+    };
+
 /** A chain running over a stream from its request's start. */
 export interface ChainRun {
   /** Frames its output lags its input, which its reader trims. */
@@ -84,16 +103,20 @@ export interface ChainRun {
   /** Processes the next `frames` frames, at most the request's block, from `input` into `output`. */
   process(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void;
 
-  /** Changes a running numeric parameter of one processor, smoothed, or says why not. */
-  setParameter(processor: ProcessorId, key: string, value: number): DomainResult<void>;
+  /**
+   * Changes a running numeric parameter of one processor, smoothed by its
+   * kernel from the next frame it is given, or says why its kernel cannot
+   * take the change running.
+   */
+  setParameter(processor: ProcessorId, parameter: ParameterId, value: number): DomainResult<void>;
 
   release(): void;
 }
 
 /** What runs chains: the effect rack's realisation of a chain as the engine's graph. */
 export interface ChainProcessing {
-  /** How a run of the chain may start part way through, or why the chain cannot run. */
-  partWayStart(request: PartWayRequest): DomainResult<PartWayStart>;
+  /** How playback hears the chain and may start it part way, or why the chain cannot run. */
+  listening(request: ListeningRequest): DomainResult<ChainListening>;
 
   /**
    * The run of a chain over the stream `read` reads, after any pass over it

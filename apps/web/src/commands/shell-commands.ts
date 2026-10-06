@@ -24,6 +24,8 @@ import { compactionCommands } from './compaction-commands.js';
 import { auditionCommands } from './audition-commands.js';
 import { comparisonCommands } from './comparison-commands.js';
 import { historyCommands } from './history-commands.js';
+import { libraryApplyCommands } from './library-apply-commands.js';
+import { libraryCommands } from './library-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
@@ -196,6 +198,8 @@ export function shellCommands(
     ...regionPropertyCommands(),
     ...splitCommands(),
     ...analysisCommands(),
+    ...libraryCommands(),
+    ...libraryApplyCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

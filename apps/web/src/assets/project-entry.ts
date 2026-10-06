@@ -89,6 +89,9 @@ function mediaOf(
     if (found.kind === 'unavailable') return found;
     entries.push({
       asset: asset.id,
+      // Where the project keeps the bytes, which names their content: a
+      // stored object by its content's digest, a linked file by the file.
+      identity: JSON.stringify(reads.sources[index]?.media ?? asset.storageKey),
       sampleRate: asset.sampleRate,
       channels: channelCount(asset.channelLayout),
       length: asset.length,

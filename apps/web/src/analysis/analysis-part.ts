@@ -8,16 +8,20 @@
  * so a page that analyses nothing starts none.
  */
 
+import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { DetectionHost } from '@audiogubbins/detection-runtime';
 
 import type { InteractionStore } from '../state/interaction-store.js';
 import { DetectionControl } from './detection-control.js';
 import { browserDetectionWorker } from './detection-threads.js';
 
-/** Builds the analysis part, saying what each detection found through `interaction`. */
-export function startAnalysis(interaction: InteractionStore) {
+/**
+ * Builds the analysis part, saying what each detection found through
+ * `interaction`, its racked sounds read from the renders of `previews`.
+ */
+export function startAnalysis(interaction: InteractionStore, previews: PreviewHost) {
   const detection = new DetectionControl({
-    host: new DetectionHost({ createWorker: browserDetectionWorker }),
+    host: new DetectionHost({ createWorker: () => browserDetectionWorker(previews) }),
     announce: (text) => {
       interaction.announce(text);
     },

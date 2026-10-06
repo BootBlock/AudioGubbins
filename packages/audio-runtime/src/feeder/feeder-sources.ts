@@ -9,12 +9,21 @@
  * path, with the reason, where it does not (ADR-0031). The DSP is watched, so
  * the feeder says truthfully whether any source runs on it. An edited sound
  * runs its chains at the preview quality the message states, and a chain
- * starts part way after a seek, as a preview may (ADR-0061).
+ * starts part way after a seek, as a preview may (ADR-0061); a chain it
+ * cannot run as it plays is read from its render, where the feeder has the
+ * preview worker's renders to read, and a parameter changed while it plays
+ * reaches its chains through the request's running parameters.
  */
 
 import { flatMapResult, mapResult, type DomainResult } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { ProcessedStart, type ChainProcessing, type PcmSource } from '@audiogubbins/audio-engine';
+import {
+  ProcessedStart,
+  RunningParameters,
+  type CachedStreams,
+  type ChainProcessing,
+  type PcmSource,
+} from '@audiogubbins/audio-engine';
 
 import type { DspChooser, ScopeDsp } from '../dsp/dsp-instance.js';
 import { watchDspUse } from '../dsp/dsp-use.js';
@@ -30,6 +39,8 @@ export interface RequestSources {
   readonly dsp: ScopeDsp;
   /** Whether a source called the DSP, as a tone does and recorded audio does not. */
   readonly dspInUse: boolean;
+  /** The chains its edited sounds run as they play, which a running change reaches. */
+  readonly parameters: RunningParameters;
 }
 
 /** The sources a message describes, each in its graph input's layout, or every reason one cannot be. */
@@ -37,20 +48,25 @@ export function sourcesFor(
   message: SourcesMessage,
   chooseDsp: DspChooser,
   processing: ChainProcessing,
+  cached: CachedStreams | undefined,
 ): DomainResult<RequestSources> {
   const dsp = chooseDsp(message.dsp);
   const watched = watchDspUse(dsp.dsp);
+  const parameters = new RunningParameters();
   return flatMapResult(renderEndpoints(message.graph), ({ inputs }) =>
     mapResult(
       makeSources(message.sources, inputs, watched.dsp, {
         processing,
         quality: message.quality.settings,
         start: ProcessedStart.Preview,
+        parameters,
+        ...(cached === undefined ? {} : { cached }),
       }),
       (sources) => ({
         sources,
         dsp,
         dspInUse: watched.used(),
+        parameters,
       }),
     ),
   );

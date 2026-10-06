@@ -97,7 +97,14 @@ function racked(): PcmSource {
         sampleRate: TEST_RATE,
         plan: PLAN,
         media: [
-          { asset: ASSET.id, sampleRate: TEST_RATE, channels: 1, length: ASSET.length, file: FILE },
+          {
+            asset: ASSET.id,
+            identity: 'memory:scratchy',
+            sampleRate: TEST_RATE,
+            channels: 1,
+            length: ASSET.length,
+            file: FILE,
+          },
         ],
       },
       StandardLayouts.mono,

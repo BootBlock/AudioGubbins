@@ -11,7 +11,7 @@
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import type { PcmSource } from '@audiogubbins/audio-engine';
+import type { ChainProcessing, PcmSource } from '@audiogubbins/audio-engine';
 
 import { scopeDsp } from '../dsp/dsp-instance.js';
 import { FeederCore } from '../feeder/feeder-core.js';
@@ -26,6 +26,8 @@ export interface FakeFeederOptions {
   readonly schedule: Schedule;
   /** Puts a test's reads in front of each source the feeder makes. */
   readonly readThrough?: (node: NodeId, source: PcmSource) => PcmSource;
+  /** How the feeder runs an edited sound's chains; it runs none, by default. */
+  readonly processing?: ChainProcessing;
 }
 
 /** A feeder worker running the feeder's core, driven by a test. */
@@ -82,7 +84,7 @@ export class FakeFeederWorker implements FeederWorkerPort {
       },
       schedule,
       chooseDsp: scopeDsp,
-      processing: NO_CHAIN_PROCESSING,
+      processing: options.processing ?? NO_CHAIN_PROCESSING,
       ...(options.readThrough === undefined ? {} : { readThrough: options.readThrough }),
     });
   }

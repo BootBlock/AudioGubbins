@@ -17,6 +17,7 @@ export {
   type DetectionWatch,
   type DetectionWorkerPort,
 } from './detection-host.js';
+export { ToDetectionWorkerKind, type ToDetectionWorker } from './detection-messages.js';
 export {
   type AssistantReport,
   type DetectionResult,

@@ -7,6 +7,7 @@ import {
   decodeUtf8,
   encodeUtf8,
   hexOf,
+  LIBRARY_ENTRY_DEPTH,
   objectOf,
   required,
   textConverter,
@@ -134,17 +135,21 @@ describe('writing a record its reader cannot read back', () => {
   const nested = (depth: number): JsonValue =>
     Array.from({ length: depth - 1 }).reduce<JsonValue>((inner) => [inner], []);
 
-  it('writes a body nested as deep as the reader reads, and reads it back', async () => {
+  // The deepest body is a library entry's pair record: its generation and the
+  // entry, whose chain nests groups as deep as the domain lets them.
+  const DEEPEST_BODY = 1 + LIBRARY_ENTRY_DEPTH;
+
+  it('writes a body nested as deep as a library entry, and reads it back', async () => {
     const records = new CheckedRecords(new MemoryStorageTree(), nodeDigest);
-    expectSuccess(await records.write('deep.json', RecordKind.Lease, nested(31)));
+    expectSuccess(await records.write('deep.json', RecordKind.Lease, nested(DEEPEST_BODY)));
     const read = await records.read('deep.json', RecordKind.Lease, anyValue);
-    expect(read).toEqual({ kind: 'valid', value: nested(31) });
+    expect(read).toEqual({ kind: 'valid', value: nested(DEEPEST_BODY) });
   });
 
   it('refuses one level deeper, and writes nothing', async () => {
     const tree = new MemoryStorageTree();
     const records = new CheckedRecords(tree, nodeDigest);
-    const written = await records.write('deep.json', RecordKind.Lease, nested(32));
+    const written = await records.write('deep.json', RecordKind.Lease, nested(DEEPEST_BODY + 1));
     expect(await tree.readFile('deep.json')).toBeUndefined();
     expect(expectFailureCode(written)).toBe('storage.record-too-large');
   });

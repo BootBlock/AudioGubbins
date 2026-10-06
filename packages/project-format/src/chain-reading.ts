@@ -50,6 +50,16 @@ import {
 } from './scalar-reading.js';
 import { MAXIMUM_NESTED_ITEMS, NAME_RULE, asKey } from './value-reading.js';
 
+/**
+ * How many levels of arrays and objects a written chain takes, its own object
+ * the first: its list of slots and a slot in it; a group's branches, a branch
+ * and its list and a slot in that, for each group as deep as groups nest; and
+ * a processor's version and model, or its values and one value, inside the
+ * deepest slot. A document holding a chain is read within its own depth at
+ * the chain plus this, or a chain the domain accepts could not be kept.
+ */
+export const WRITTEN_CHAIN_DEPTH = 3 + 4 * MAXIMUM_GROUP_DEPTH + 2;
+
 const CHAIN_MEMBERS: ReadonlySet<string> = new Set(['id', 'slots']);
 const PROCESSOR_MEMBERS: ReadonlySet<string> = new Set([
   'kind',

@@ -234,12 +234,12 @@ function contestedRender() {
 }
 
 describe('the Transport panel’s processing modes', () => {
-  it('shows playback as real-time processing, and says why no cached preview is used', () => {
+  it('shows playback as real-time processing, and says why it does not move to a cached preview', () => {
     draw();
 
     expect(reading('Playback')).toMatch(/^Real-time processing/);
     expect(reading('Playback')).toContain(
-      'a cached preview is not available: nothing in AudioGubbins renders a preview ahead of playback yet',
+      'a cached preview is not available: nothing measures what live processing costs yet',
     );
   });
 

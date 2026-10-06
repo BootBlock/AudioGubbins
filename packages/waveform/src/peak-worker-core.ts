@@ -11,17 +11,24 @@
  * for the page to keep, drops its own copy, and keeps the source for the
  * requests that still come. One pyramid is built at a time: the job focused
  * last goes first, which bounds the work in flight to one chunk (G4).
+ *
+ * Given a port to the preview worker, it reads a racked sound's processed
+ * streams from their renders (ADR-0061), so a chunk read out of order never
+ * starts a chain again from the stream's start.
  */
 
 import {
+  PreviewClient,
   blockView,
   describedSource,
   allocateBlock,
+  previewPort,
   ProcessedStart,
   type AudioFrameBlock,
   type CanonicalDsp,
   type ChainProcessing,
   type PcmSource,
+  type ToPreview,
 } from '@audiogubbins/audio-engine';
 import {
   discreteLayout,
@@ -94,6 +101,8 @@ export class PeakWorkerCore {
   #pumping = false;
   readonly #requests: PeakRequests;
   readonly #batches: RunBatches;
+  /** The preview worker's renders, once the page has given the port to them. */
+  #previews: PreviewClient | undefined;
 
   constructor(host: PeakWorkerHost) {
     this.#host = host;
@@ -138,6 +147,9 @@ export class PeakWorkerCore {
       case ToPeakWorkerKind.Close:
         this.#close(message.job);
         break;
+      case ToPeakWorkerKind.Previews:
+        this.#previews = new PreviewClient(previewPort<ToPreview>(message.port));
+        break;
     }
   }
 
@@ -169,6 +181,7 @@ export class PeakWorkerCore {
           processing: this.#host.processing,
           quality: finalRenderSettings(message.quality),
           start: ProcessedStart.Canonical,
+          ...(this.#previews === undefined ? {} : { cached: this.#previews }),
         })
       : layout;
     if (!source.ok) {
