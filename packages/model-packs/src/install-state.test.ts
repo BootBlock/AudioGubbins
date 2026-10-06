@@ -10,6 +10,7 @@ const DAMAGE = failure('model-pack.file-hash-mismatch', FailureKind.IntegrityVio
 /** One state of each kind, part way where a kind has progress. */
 const STATES: Readonly<Record<InstallState['kind'], InstallState>> = {
   available: { kind: 'available' },
+  queued: { kind: 'queued', received: 40, total: 100 },
   downloading: { kind: 'downloading', received: 40, total: 100 },
   paused: { kind: 'paused', received: 40, total: 100 },
   verifying: { kind: 'verifying', total: 100 },
@@ -20,6 +21,7 @@ const STATES: Readonly<Record<InstallState['kind'], InstallState>> = {
 
 /** One event of each kind, whose numbers each state that takes it accepts. */
 const EVENTS: Readonly<Record<InstallEvent['kind'], InstallEvent>> = {
+  queue: { kind: 'queue', received: 40, total: 100 },
   start: { kind: 'start', received: 10, total: 100 },
   progress: { kind: 'progress', received: 60 },
   pause: { kind: 'pause' },
@@ -40,17 +42,24 @@ const EVENTS: Readonly<Record<InstallEvent['kind'], InstallEvent>> = {
  * or lost anywhere changes this table.
  */
 const ALLOWED: ReadonlyMap<string, InstallState> = new Map([
+  ['available queue', { kind: 'queued', received: 40, total: 100 }],
   ['available start', { kind: 'downloading', received: 10, total: 100 }],
+  ['queued start', { kind: 'downloading', received: 10, total: 100 }],
+  ['queued pause', { kind: 'paused', received: 40, total: 100 }],
+  ['queued fail', { kind: 'failed', reason: REASON, resumable: true, received: 40 }],
+  ['queued cancel', { kind: 'removing' }],
   ['downloading progress', { kind: 'downloading', received: 60, total: 100 }],
   ['downloading pause', { kind: 'paused', received: 40, total: 100 }],
   ['downloading fail', { kind: 'failed', reason: REASON, resumable: true, received: 40 }],
   ['downloading cancel', { kind: 'removing' }],
+  ['paused queue', { kind: 'queued', received: 40, total: 100 }],
   ['paused resume', { kind: 'downloading', received: 45, total: 100 }],
   ['paused cancel', { kind: 'removing' }],
   ['verifying verified', { kind: 'installed' }],
   ['verifying fail', { kind: 'failed', reason: REASON, resumable: false, received: 0 }],
   ['installed damaged', { kind: 'failed', reason: DAMAGE, resumable: false, received: 0 }],
   ['installed remove', { kind: 'removing' }],
+  ['failed queue', { kind: 'queued', received: 40, total: 100 }],
   ['failed retry', { kind: 'downloading', received: 40, total: 100 }],
   ['failed cancel', { kind: 'removing' }],
   ['failed remove', { kind: 'removing' }],
@@ -64,7 +73,7 @@ const PAIRS = Object.values(STATES).flatMap((state) =>
 
 describe('the install state machine (REQ-ARCH-153)', () => {
   it('covers every state and every event', () => {
-    expect(PAIRS).toHaveLength(7 * 12);
+    expect(PAIRS).toHaveLength(8 * 13);
   });
 
   it.each(PAIRS)('%s', (pair, state, event) => {
@@ -138,5 +147,22 @@ describe('the install state machine (REQ-ARCH-153)', () => {
       ok: true,
       value: { kind: 'downloading', received: 0, total: 100 },
     });
+    expect(nextInstallState(unresumable, { kind: 'queue', received: 40, total: 100 }).ok).toBe(
+      false,
+    );
+    expect(nextInstallState(unresumable, { kind: 'queue', received: 0, total: 100 })).toEqual({
+      ok: true,
+      value: { kind: 'queued', received: 0, total: 100 },
+    });
+  });
+
+  it('queues only within the whole download, of one byte or more', () => {
+    for (const [received, total] of [
+      [0, 0],
+      [101, 100],
+      [-1, 100],
+    ] as const) {
+      expect(nextInstallState(STATES.available, { kind: 'queue', received, total }).ok).toBe(false);
+    }
   });
 });

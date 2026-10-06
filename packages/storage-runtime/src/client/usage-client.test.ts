@@ -67,6 +67,7 @@ function setAsideRecordsOf(project: ProjectId): CleanupPlan {
       },
     ],
     confirmationBytes: 0,
+    installedPacks: [],
   };
 }
 

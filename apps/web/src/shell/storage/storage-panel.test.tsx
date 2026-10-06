@@ -25,6 +25,7 @@ const USAGE: StorageUsage = {
   unreferencedMedia: 512,
   caches: new Map([[CacheCategory.Waveform, 10_240]]),
   backups: 8_192,
+  packs: { installed: 40 * 2 ** 20, partial: 3 * 2 ** 20 },
   unreadable: [],
 };
 
@@ -40,6 +41,7 @@ const PLAN: CleanupPlan = {
     },
   ],
   confirmationBytes: 512,
+  installedPacks: [],
 };
 
 /** A project the library lists, which a cleanup's steps name. */
@@ -83,6 +85,50 @@ const HISTORY_PLAN: CleanupPlan = {
     },
   ],
   confirmationBytes: 12_288,
+  installedPacks: [],
+};
+
+const SPARE = { id: 'spare-pack', version: '1.0.0' };
+const NEEDED = { id: 'needed-pack', version: '2.1.0' };
+
+/**
+ * A plan of a download left unfinished, which is safe, listing a pack the
+ * person may choose and one a project needs.
+ */
+const PACK_PLAN: CleanupPlan = {
+  steps: [
+    {
+      kind: 'pack-downloads',
+      bytes: 2 ** 20,
+      loses: 'download-progress',
+      packs: [{ ref: { id: 'stale-pack', version: '1.0.0' }, name: 'Stale pack', bytes: 2 ** 20 }],
+    },
+  ],
+  confirmationBytes: 0,
+  installedPacks: [
+    { ref: NEEDED, name: 'Needed pack', bytes: 30 * 2 ** 20, kept: 'needed' },
+    { ref: SPARE, name: 'Spare pack', bytes: 10 * 2 ** 20 },
+  ],
+};
+
+/** A plan removing the spare pack, which the person chose, besides media. */
+const CHOSEN_PACK_PLAN: CleanupPlan = {
+  steps: [
+    {
+      kind: 'model-packs',
+      bytes: 10 * 2 ** 20,
+      loses: 'model-packs',
+      packs: [{ ref: SPARE, name: 'Spare pack', bytes: 10 * 2 ** 20 }],
+    },
+    {
+      kind: 'unreferenced-media',
+      bytes: 512,
+      loses: 'unreferenced-media',
+      collection: { unreachable: [], reclaimableBytes: 512 },
+    },
+  ],
+  confirmationBytes: 10 * 2 ** 20 + 512,
+  installedPacks: [{ ref: SPARE, name: 'Spare pack', bytes: 10 * 2 ** 20 }],
 };
 
 /** Draws the panel over the usage given, and what it runs. */
@@ -133,6 +179,66 @@ describe('the Storage panel', () => {
     expect(parts).toContainEqual(['Audio kept for undo', '2 MB']);
     expect(parts).toContainEqual(['Audio kept only by other branches', '4 kB']);
     expect(parts).toContainEqual(['Audio kept only by backups and recent changes', '256 bytes']);
+    expect(parts).toContainEqual(['Model packs', '40 MB']);
+    expect(parts).toContainEqual(['Model pack downloads not finished', '3 MB']);
+  });
+
+  it('lists every installed pack off, keeps one a project needs and says why, and plans again with a pack chosen', async () => {
+    const { run } = panelOver({ usage: USAGE, plan: PACK_PLAN });
+
+    const plan = screen.getByRole('group', { name: 'The planned cleanup' });
+    expect(
+      within(plan).getByRole('list', { name: 'What Model pack downloads not finished takes' }),
+    ).toHaveTextContent('Stale pack 1.0.0, 1 MB');
+    const packs = within(plan).getByRole('group', { name: 'Installed model packs' });
+    const needed = within(packs).getByRole('switch', { name: /^Needed pack 2\.1\.0/ });
+    expect(needed).toBeDisabled();
+    expect(needed).toHaveAttribute('aria-checked', 'false');
+    expect(
+      within(packs).getByText('A project needs this version, so a cleanup never removes it.'),
+    ).toBeVisible();
+    const spare = within(packs).getByRole('switch', { name: 'Spare pack 1.0.0: 10 MB' });
+    expect(spare).toHaveAttribute('aria-checked', 'false');
+    await userEvent.click(within(plan).getByRole('button', { name: 'Clear 1 MB' }));
+    expect(run).toHaveBeenLastCalledWith('storage.clean-up');
+
+    await userEvent.click(spare);
+    expect(within(plan).queryByRole('button', { name: /^Clear/ })).toBeNull();
+    await userEvent.click(
+      within(plan).getByRole('button', { name: 'Plan again with the packs you chose' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('storage.plan-cleanup', {
+      choices: 'pack-downloads,model-pack:spare-pack@1.0.0',
+    });
+  });
+
+  it('tells what goes for good from packs downloaded again, and leaves a chosen pack out again', async () => {
+    const { run } = panelOver({ usage: USAGE, plan: CHOSEN_PACK_PLAN });
+
+    const plan = screen.getByRole('group', { name: 'The planned cleanup' });
+    expect(
+      within(plan).getByText(
+        'This frees 10 MB: 512 bytes cannot be made again and goes for good, and 10 MB is model packs you would have to download again.',
+      ),
+    ).toBeVisible();
+    await userEvent.click(
+      within(plan).getByRole('button', { name: 'Remove 10 MB, 512 bytes of it for good' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('storage.clean-up', { bytes: 10 * 2 ** 20 + 512 });
+
+    await userEvent.click(
+      within(plan).getByRole('switch', { name: /^Model packs you chose to remove/ }),
+    );
+    expect(
+      within(within(plan).getByRole('group', { name: 'Installed model packs' })).getByRole(
+        'switch',
+        { name: /^Spare pack/ },
+      ),
+    ).toHaveAttribute('aria-checked', 'false');
+    await userEvent.click(
+      within(plan).getByRole('button', { name: 'Plan again without what is left out' }),
+    );
+    expect(run).toHaveBeenLastCalledWith('storage.plan-cleanup', { choices: 'unreferenced-media' });
   });
 
   it('says what each step of a cleanup takes, item by item', () => {
@@ -205,6 +311,7 @@ describe('the Storage panel', () => {
       plan: {
         steps: cache === undefined ? [] : [cache],
         confirmationBytes: 0,
+        installedPacks: [],
         mediaRefused: { kind: 'no-coordination' },
       },
     });

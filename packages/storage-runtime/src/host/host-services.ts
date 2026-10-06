@@ -13,7 +13,7 @@
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
-import type { IdGenerator } from '@audiogubbins/domain';
+import { FailureKind, fail, failure, type IdGenerator } from '@audiogubbins/domain';
 import { MediaObjectStore } from '@audiogubbins/media-store';
 import { commandProvenance, projectCommands } from '@audiogubbins/project-commands';
 import type {
@@ -26,12 +26,14 @@ import type {
 import {
   CacheStore,
   MEDIA_DIRECTORY,
+  ModelPackStore,
   ProjectRepository,
   mediaSharingOf,
   type CleanupRunServices,
   type LeaseCoordinator,
   type LeaseOwner,
   type OpeningServices,
+  type PackPins,
 } from '@audiogubbins/storage';
 
 import { TurnTakingTree } from './host-turns.js';
@@ -82,6 +84,22 @@ export interface HostServices extends OpeningServices, CleanupRunServices {
   readonly fileAt: HostParts['fileAt'];
 }
 
+/**
+ * Which pack versions the projects need is not read from them yet, so a
+ * cleanup keeps every installed pack and says why, rather than offer one a
+ * project may need.
+ */
+const PINS_NOT_READ: PackPins = () =>
+  Promise.resolve(
+    fail(
+      failure(
+        'storage.pack-pins-unread',
+        FailureKind.Unrecoverable,
+        'Which model packs the projects need is not read yet.',
+      ),
+    ),
+  );
+
 /** The services made from their parts (see the module comment). */
 export function hostServices(parts: HostParts): HostServices {
   const { digest, clock, ids, owner, coordinator, nextToken, logs } = parts;
@@ -107,6 +125,8 @@ export function hostServices(parts: HostParts): HostServices {
       sharing: mediaSharingOf(coordinator),
     }),
     caches: new CacheStore(tree, digest),
+    packs: new ModelPackStore(tree, digest, coordinator),
+    packPins: PINS_NOT_READ,
     repository: new ProjectRepository({
       tree,
       digest,

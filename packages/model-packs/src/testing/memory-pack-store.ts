@@ -186,4 +186,9 @@ export class MemoryPackStore implements PackStore {
     this.versions.delete(packKey(ref));
     return Promise.resolve(succeed(undefined));
   }
+
+  /** Runs the transfer, since nothing in memory cleans up beside it. */
+  async transferring<TValue>(work: () => Promise<TValue>): Promise<TValue> {
+    return await work();
+  }
 }

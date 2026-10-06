@@ -1,8 +1,35 @@
+import { QualityLevel } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
 import { generatedSource } from '@audiogubbins/media-store/testing';
+import type { ModelPackStore } from '@audiogubbins/storage';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { describe, expect, it } from 'vitest';
 
 import { olderStorage, projectWorld, type ProjectWindow } from '../testing/project-context.js';
+
+/** A model pack's manifest, of two small files whose hashes nothing here checks. */
+const PACK: Parameters<ModelPackStore['stage']>[0] = {
+  id: 'sample-pack',
+  name: 'Sample pack',
+  purpose: 'Removes noise from a test signal.',
+  version: '1.0.0',
+  downloadBytes: 8,
+  installedBytes: 8,
+  files: [
+    { path: 'encoder.onnx', bytes: 5, sha256: '0'.repeat(64) },
+    { path: 'models/decoder.onnx', bytes: 3, sha256: '0'.repeat(64) },
+  ],
+  licence: { code: 'MIT', weights: 'Apache-2.0' },
+  runtime: {
+    name: 'onnxruntime-web',
+    minimum: '1.30.0',
+    below: '2.0.0',
+    capabilities: ['webassembly-simd'],
+  },
+  tiers: [QualityLevel.Standard],
+  serves: { processors: ['sample-denoise'], detectors: [] },
+};
+const PACK_REF = { id: PACK.id, version: PACK.version };
 
 /** Waits until the window's usage store has stopped working. */
 async function measured(window: ProjectWindow): Promise<void> {
@@ -133,7 +160,11 @@ describe('measuring the storage and cleaning it up', () => {
     const heard = window.nextSaid();
     window.run('storage.plan-cleanup', { choices: '' });
     expect(await heard).toBe('There is nothing of that to clean up.');
-    expect(window.projects.usage.get().plan).toEqual({ steps: [], confirmationBytes: 0 });
+    expect(window.projects.usage.get().plan).toEqual({
+      steps: [],
+      confirmationBytes: 0,
+      installedPacks: [],
+    });
   });
 
   it('carries out a cleanup reaching past the caches only with the bytes the person was shown', async () => {
@@ -191,10 +222,36 @@ describe('measuring the storage and cleaning it up', () => {
     expect(session.getSnapshot().model.history.nodes.size).toBe(2);
   });
 
+  it('counts an installed model pack, and keeps it when chosen while the packs projects need are not read', async () => {
+    const window = await projectWorld().window();
+    const { packs } = window.storage;
+    expectSuccess(await packs.stage(PACK));
+    for (const [index, file] of PACK.files.entries()) {
+      const sink = expectSuccess(await packs.append(PACK_REF, index));
+      await sink.write(new Uint8Array(file.bytes));
+      await sink.close();
+    }
+    expectSuccess(await packs.seal(PACK_REF));
+
+    window.run('storage.measure');
+    await measured(window);
+    expect(window.projects.usage.get().usage?.packs.installed).toBeGreaterThan(8);
+
+    const heard = window.nextSaid();
+    window.run('storage.plan-cleanup', { choices: 'pack-downloads,model-pack:sample-pack@1.0.0' });
+    expect(await heard).toBe('There is nothing of that to clean up.');
+    expect(window.projects.usage.get().plan?.installedPacks).toMatchObject([
+      { ref: PACK_REF, name: 'Sample pack', kept: 'needs-unknown' },
+    ]);
+  });
+
   it('refuses a cleanup the arguments do not name, and one with no plan', async () => {
     const window = await projectWorld().window();
 
     expect(window.run('storage.plan-cleanup', { choices: 'everything-at-once' }).kind).toBe(
+      'refused',
+    );
+    expect(window.run('storage.plan-cleanup', { choices: 'model-pack:no-version' }).kind).toBe(
       'refused',
     );
     expect(window.run('storage.clean-up').kind).toBe('refused');

@@ -314,8 +314,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['retainedMedia'],
     'Converting a bundle to an unpacked tree and back without bringing the project in (REQ-STOR-103). The interface converts by importing and exporting, which keeps both directions without loss: a conversion of its own asks for a file and a folder in one gesture, and a browser opens the second chooser only in answer to a gesture of its own.':
       ['packUnpacked', 'unpackBundle'],
-    "The model packs a person installs, kept in the storage tree through the model packs' store port (ADR-0062), which the application gives the installer as Phase 06's pack manager is built.":
-      ['ModelPackStore'],
   },
   '@audiogubbins/model-packs': {
     "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":

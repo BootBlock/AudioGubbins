@@ -8,6 +8,9 @@
  * of the lifecycle is in one table and tested without any I/O.
  *
  * - `available`: nothing of the version is kept.
+ * - `queued`: a download, resume or retry is asked for and waits for another
+ *   pack's download to end, since one pack downloads at a time
+ *   (`download-slot.ts`); `received` of `total` bytes are kept from before.
  * - `downloading`: its files are arriving; `received` of `total` bytes are
  *   kept.
  * - `paused`: arrival has stopped and what was received is kept for a resume.
@@ -34,6 +37,7 @@ import {
 /** The states of an installation (see the module comment). */
 export type InstallState =
   | { readonly kind: 'available' }
+  | { readonly kind: 'queued'; readonly received: number; readonly total: number }
   | { readonly kind: 'downloading'; readonly received: number; readonly total: number }
   | { readonly kind: 'paused'; readonly received: number; readonly total: number }
   | { readonly kind: 'verifying'; readonly total: number }
@@ -51,10 +55,12 @@ export type InstallState =
 /**
  * What happens to an installation.
  *
- * - `start`: a download begins, finding `received` of `total` bytes kept from
- *   before.
+ * - `queue`: a download, resume or retry waits its turn, finding `received`
+ *   of `total` bytes kept: none where a failure was not resumable.
+ * - `start`: a download begins, at once or when its turn comes, finding
+ *   `received` of `total` bytes kept from before.
  * - `progress`: `received` bytes are now kept.
- * - `pause`: arrival stops, keeping what came.
+ * - `pause`: arrival stops, or a wait for a turn ends, keeping what came.
  * - `resume`: arrival starts again, finding `received` bytes kept.
  * - `downloaded`: every byte has arrived; checking begins.
  * - `verified`: every file matched its hash.
@@ -63,12 +69,13 @@ export type InstallState =
  * - `retry`: a failed installation starts again, of `total` bytes, finding
  *   `received` kept: none where its failure was not resumable.
  * - `damaged`: an installed version's files were found not to match.
- * - `cancel`: a download, paused or not, or a failure, is given up, and what
- *   was kept is to be deleted.
+ * - `cancel`: a download, queued, paused or neither, or a failure, is given
+ *   up, and what was kept is to be deleted.
  * - `remove`: an installed or failed version is to be deleted.
  * - `removed`: the deletion is done.
  */
 export type InstallEvent =
+  | { readonly kind: 'queue'; readonly received: number; readonly total: number }
   | { readonly kind: 'start'; readonly received: number; readonly total: number }
   | { readonly kind: 'progress'; readonly received: number }
   | { readonly kind: 'pause' }
@@ -108,16 +115,18 @@ export function nextInstallState(
   event: InstallEvent,
 ): DomainResult<InstallState> {
   switch (event.kind) {
+    case 'queue':
+      if (state.kind !== 'available' && state.kind !== 'paused' && state.kind !== 'failed') {
+        return refused(state, event, 'only a download not yet running waits its turn.');
+      }
+      return state.kind === 'failed' && !state.resumable && event.received !== 0
+        ? refused(state, event, 'a failure that cannot be resumed from starts from nothing.')
+        : arriving(state, event, 'queued', event.received, event.total);
+
     case 'start':
-      if (state.kind !== 'available') {
-        return refused(state, event, 'only a pack not yet kept starts a download.');
-      }
-      if (!Number.isSafeInteger(event.total) || event.total < 1) {
-        return refused(state, event, 'a download transfers one byte at least.');
-      }
-      return isProgress(event.received, event.total)
-        ? succeed({ kind: 'downloading', received: event.received, total: event.total })
-        : refused(state, event, 'what is kept lies between nothing and the whole download.');
+      return state.kind === 'available' || state.kind === 'queued'
+        ? arriving(state, event, 'downloading', event.received, event.total)
+        : refused(state, event, 'only a pack not yet kept, or one queued, starts a download.');
 
     case 'progress':
       if (state.kind !== 'downloading') {
@@ -128,15 +137,14 @@ export function nextInstallState(
         : refused(state, event, 'what is kept only grows, and never past the whole download.');
 
     case 'pause':
-      return state.kind === 'downloading'
+      return state.kind === 'downloading' || state.kind === 'queued'
         ? succeed({ kind: 'paused', received: state.received, total: state.total })
-        : refused(state, event, 'only a download pauses.');
+        : refused(state, event, 'only a download, or one waiting its turn, pauses.');
 
     case 'resume':
-      if (state.kind !== 'paused') return refused(state, event, 'only a paused download resumes.');
-      return isProgress(event.received, state.total)
-        ? succeed({ kind: 'downloading', received: event.received, total: state.total })
-        : refused(state, event, 'what is kept lies between nothing and the whole download.');
+      return state.kind === 'paused'
+        ? arriving(state, event, 'downloading', event.received, state.total)
+        : refused(state, event, 'only a paused download resumes.');
 
     case 'downloaded':
       if (state.kind !== 'downloading') {
@@ -152,34 +160,13 @@ export function nextInstallState(
         : refused(state, event, 'only a pack being checked is found whole.');
 
     case 'fail':
-      switch (state.kind) {
-        case 'downloading':
-          return succeed({
-            kind: 'failed',
-            reason: event.reason,
-            resumable: event.resumable,
-            received: event.resumable ? state.received : 0,
-          });
-        // A check that fails keeps nothing it checked, and a removal that
-        // fails has kept part of the files, so neither can be resumed from.
-        case 'verifying':
-        case 'removing':
-          return succeed(unresumable(event.reason));
-        default:
-          return refused(state, event, 'only a download, a check or a removal fails.');
-      }
+      return failedFrom(state, event);
 
     case 'retry':
       if (state.kind !== 'failed') return refused(state, event, 'only a failure is retried.');
-      if (!Number.isSafeInteger(event.total) || event.total < 1) {
-        return refused(state, event, 'a download transfers one byte at least.');
-      }
-      if (!state.resumable && event.received !== 0) {
-        return refused(state, event, 'a failure that cannot be resumed from starts from nothing.');
-      }
-      return isProgress(event.received, event.total)
-        ? succeed({ kind: 'downloading', received: event.received, total: event.total })
-        : refused(state, event, 'what is kept lies between nothing and the whole download.');
+      return !state.resumable && event.received !== 0
+        ? refused(state, event, 'a failure that cannot be resumed from starts from nothing.')
+        : arriving(state, event, 'downloading', event.received, event.total);
 
     case 'damaged':
       return state.kind === 'installed'
@@ -187,9 +174,12 @@ export function nextInstallState(
         : refused(state, event, 'only an installed pack is found damaged.');
 
     case 'cancel':
-      return state.kind === 'downloading' || state.kind === 'paused' || state.kind === 'failed'
+      return state.kind === 'downloading' ||
+        state.kind === 'queued' ||
+        state.kind === 'paused' ||
+        state.kind === 'failed'
         ? succeed({ kind: 'removing' })
-        : refused(state, event, 'only a download or a failure is cancelled.');
+        : refused(state, event, 'only a download, queued or not, or a failure is cancelled.');
 
     case 'remove':
       return state.kind === 'installed' || state.kind === 'failed'
@@ -200,6 +190,51 @@ export function nextInstallState(
       return state.kind === 'removing'
         ? succeed(AVAILABLE)
         : refused(state, event, 'only a pack being removed is removed.');
+  }
+}
+
+/**
+ * A download of `total` bytes, one at least, waiting its turn or arriving with
+ * `received` of them kept, or why those numbers cannot be.
+ */
+function arriving(
+  state: InstallState,
+  event: InstallEvent,
+  kind: 'queued' | 'downloading',
+  received: number,
+  total: number,
+): DomainResult<InstallState> {
+  if (!Number.isSafeInteger(total) || total < 1) {
+    return refused(state, event, 'a download transfers one byte at least.');
+  }
+  return isProgress(received, total)
+    ? succeed({ kind, received, total })
+    : refused(state, event, 'what is kept lies between nothing and the whole download.');
+}
+
+/** The state a failure for `event`'s reason leaves, or why `state` cannot fail. */
+function failedFrom(
+  state: InstallState,
+  event: Extract<InstallEvent, { kind: 'fail' }>,
+): DomainResult<InstallState> {
+  switch (state.kind) {
+    // A queued download fails where what is kept cannot be read as its turn
+    // comes, keeping, where resumable, what it had.
+    case 'queued':
+    case 'downloading':
+      return succeed({
+        kind: 'failed',
+        reason: event.reason,
+        resumable: event.resumable,
+        received: event.resumable ? state.received : 0,
+      });
+    // A check that fails keeps nothing it checked, and a removal that fails
+    // has kept part of the files, so neither can be resumed from.
+    case 'verifying':
+    case 'removing':
+      return succeed(unresumable(event.reason));
+    default:
+      return refused(state, event, 'only a download, queued or not, a check or a removal fails.');
   }
 }
 

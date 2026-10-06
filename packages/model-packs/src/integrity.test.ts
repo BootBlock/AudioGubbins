@@ -32,6 +32,7 @@ function keeping(...sources: readonly (ByteSource | undefined)[]): PackStore {
     append: unused,
     seal: unused,
     remove: unused,
+    transferring: unused,
     open: (_ref, index) => Promise.resolve({ ok: true, value: sources[index] }),
   };
 }

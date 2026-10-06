@@ -1,7 +1,8 @@
 /**
- * The Storage panel: what the stored projects take, part by part, and the
- * cleanup that frees it, the deleted projects waiting to be purged among it
- * (REQ-STOR-200, REQ-STOR-102, REQ-STOR-106, REQ-STOR-027).
+ * The Storage panel: what the stored projects and model packs take, part by
+ * part, and the cleanup that frees it, the deleted projects waiting to be
+ * purged among it (REQ-STOR-200, REQ-STOR-102, REQ-STOR-106, REQ-STOR-027,
+ * REQ-AUDIO-139).
  *
  * The storage is measured when the panel is first shown and whenever the person
  * asks, and again after a cleanup. Nothing is removed without a plan the person
@@ -23,7 +24,7 @@ import { describeBytes } from '../../wording.js';
 import { DeletedProjects } from '../projects/deleted-projects.js';
 import type { RunCommand } from '../settings/section.js';
 import { CleanupPlanView } from './cleanup-plan.js';
-import { choiceOf, partsOf } from './storage-words.js';
+import { choicesOf, partsOf } from './storage-words.js';
 
 /** What the panel reads and runs. */
 export interface StoragePanelProps {
@@ -98,7 +99,7 @@ export function StoragePanel({
         // Made afresh for each plan, so what was left out of the last is not
         // carried into a plan that no longer has it.
         <CleanupPlanView
-          key={state.plan.steps.map(choiceOf).join(',')}
+          key={state.plan.steps.flatMap(choicesOf).join(',')}
           plan={state.plan}
           nameOf={(project) => headers.find((header) => header.id === project)?.name}
           run={run}

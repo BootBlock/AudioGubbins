@@ -5,6 +5,7 @@
  * unpacked trees, backups and cleanup.
  */
 
+import { succeed } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MediaObjectStore } from '@audiogubbins/media-store';
 import { countingTokens, generatedSource, memorySource } from '@audiogubbins/media-store/testing';
@@ -18,10 +19,13 @@ import type {
 
 import { CacheStore } from '../cache-store.js';
 import type { CleanupRunServices } from '../cleanup-running.js';
+import { ModelPackStore } from '../model-pack-store.js';
+import type { PackPins } from '../pack-cleanup.js';
 import { mediaSharingOf } from '../storage-sharing.js';
 import type { DirectoryFile, DirectoryWriter } from '../project-directory.js';
 import type { ExportServices } from '../project-transfer.js';
 import type { ImportServices } from '../tree-import.js';
+import type { UsageServices } from '../usage-measurement.js';
 import type { Harness } from './storage-harness.js';
 import { TEST_INVOCATION_PROVENANCE } from './test-commands.js';
 
@@ -103,10 +107,15 @@ export interface TestStorage {
   readonly tree: StorageTree;
   readonly store: MediaObjectStore;
   readonly caches: CacheStore;
+  readonly packs: ModelPackStore;
   readonly exporting: ExportServices;
+  readonly measuring: UsageServices;
   readonly importing: ImportServices;
   readonly cleaning: CleanupRunServices;
 }
+
+/** Pins no pack version: no project of a test needs one unless it says so. */
+const NO_PINS: PackPins = () => Promise.resolve(succeed([]));
 
 /**
  * The storage of one window of a test over a tree, whose long work asks
@@ -126,13 +135,16 @@ export function storageOf(
     sharing: mediaSharingOf(test.coordinator),
   });
   const caches = new CacheStore(tree, digest);
+  const packs = new ModelPackStore(tree, digest, test.coordinator);
   const services = test.services(tree, yieldToHost === undefined ? {} : { yieldToHost });
   return {
     tree,
     store,
     caches,
+    packs,
     exporting: { ...services, store, caches, invocationProvenance: TEST_INVOCATION_PROVENANCE },
-    cleaning: { ...services, store, caches },
+    measuring: { ...services, store, caches, packs },
+    cleaning: { ...services, store, caches, packs, packPins: NO_PINS },
     importing: {
       tree,
       digest,

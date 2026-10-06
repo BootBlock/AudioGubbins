@@ -1,6 +1,7 @@
 /**
  * What the installer knows of each pack version: its manifest, its state, the
- * operation running on it and the transfer in flight (REQ-ARCH-153).
+ * operation running on it and the transfer in flight or the wait for a turn
+ * (REQ-ARCH-153).
  *
  * A version's state changes only by an event the install state machine takes,
  * and only one operation runs on a version at a time: an operation claims the
@@ -33,10 +34,10 @@ export interface Installation {
   readonly state: InstallState;
 }
 
-/** How a transfer in flight was told to stop. */
+/** How a transfer in flight, or a wait for a turn, was told to stop. */
 export type Stop = 'pause' | 'cancel';
 
-/** The transfer in flight on a version. */
+/** The transfer in flight on a version, or its wait for a turn to download. */
 export interface Transfer {
   readonly controller: AbortController;
   stop: Stop | undefined;

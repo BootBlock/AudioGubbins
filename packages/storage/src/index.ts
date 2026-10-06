@@ -20,8 +20,8 @@
  * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; the media store's
  * sharing of the storage-wide lock, which keeps a purge from media another
  * window has stored and not yet referred to; and the model packs a person
- * installs, kept beside the projects through the model packs' store port
- * (ADR-0062).
+ * installs, kept beside the projects through the model packs' store port,
+ * counted by usage and offered by a cleanup (ADR-0062).
  *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
@@ -162,17 +162,28 @@ export {
   type ExternalCopy,
 } from './backup-scheduler.js';
 
-export { type StorageUsage, type UsageServices, measureUsage } from './usage-measurement.js';
+export {
+  type PackUsage,
+  type StorageUsage,
+  type UsageServices,
+  measureUsage,
+} from './usage-measurement.js';
 export {
   type CleanupChoice,
   type CleanupPlan,
   type CleanupSelection,
-  type CleanupServices,
   type CleanupStep,
   type CleanupRefusal,
+  type MediaRefusal,
   type RecoverabilityLoss,
-  planCleanup,
-} from './cleanup-planning.js';
+} from './cleanup-plan.js';
+export { type CleanupServices, planCleanup } from './cleanup-planning.js';
+export {
+  type InstalledPack,
+  type PackKept,
+  type PackPins,
+  type PlannedPack,
+} from './pack-cleanup.js';
 export {
   type CleanupConfirmation,
   type CleanupRunOptions,
@@ -204,7 +215,7 @@ export {
   consolidate,
 } from './consolidation.js';
 
-export { ModelPackStore } from './model-pack-store.js';
+export { type MeasuredPack, ModelPackStore } from './model-pack-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';

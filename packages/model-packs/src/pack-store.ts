@@ -11,6 +11,11 @@
  * version, and only a sealed version is installed. Files are named by their
  * place in the manifest, so no path of a pack's reaches the tree.
  *
+ * A partial download is safe to remove, since nothing unverified is used, so a
+ * storage cleanup offers it; the installer runs each transfer through
+ * `transferring`, which keeps that cleanup from removing a version while its
+ * files are being written.
+ *
  * Every method answers the storage's refusals as results; a sink's write
  * rejects with the tree's `TreeFailure` where the storage refuses it.
  */
@@ -59,4 +64,11 @@ export interface PackStore {
 
   /** Deletes everything kept of a version, its seal first. Absent is not a failure. */
   remove(ref: PackRef): Promise<DomainResult<void>>;
+
+  /**
+   * Runs `work`, a transfer that stages, appends to and seals versions, keeping
+   * any cleanup of partial downloads from removing them until it ends, and
+   * answers what it answers. Waits out a cleanup already running.
+   */
+  transferring<TValue>(work: () => Promise<TValue>, signal?: AbortSignal): Promise<TValue>;
 }

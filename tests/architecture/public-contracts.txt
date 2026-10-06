@@ -3036,8 +3036,8 @@ Published paths
   readonly ImportedPackSource.files: ReadonlyMap<string, ByteSource>
   ImportedPackSource.catalogue: () => Promise<DomainResult<readonly ModelPackManifest[]>>
   ImportedPackSource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
-  type InstallEvent = { readonly kind: "cancel"; } | { readonly kind: "damaged"; readonly reason: DomainFailure; } | { readonly kind: "downloaded"; } | { readonly kind: "fail"; readonly reason: DomainFailure; readonly resumable: boolean; } | { readonly kind: "pause"; } | { readonly kind: "progress"; readonly received: number; } | { readonly kind: "remove"; } | { readonly kind: "removed"; } | { readonly kind: "resume"; readonly received: number; } | { readonly kind: "retry"; readonly received: number; readonly total: number; } | { readonly kind: "start"; readonly received: number; readonly total: number; } | { readonly kind: "verified"; }
-  type InstallState = { readonly kind: "available"; } | { readonly kind: "downloading"; readonly received: number; readonly total: number; } | { readonly kind: "failed"; readonly reason: DomainFailure; readonly resumable: boolean; readonly received: number; } | { readonly kind: "installed"; } | { readonly kind: "paused"; readonly received: number; readonly total: number; } | { readonly kind: "removing"; } | { readonly kind: "verifying"; readonly total: number; }
+  type InstallEvent = { readonly kind: "cancel"; } | { readonly kind: "damaged"; readonly reason: DomainFailure; } | { readonly kind: "downloaded"; } | { readonly kind: "fail"; readonly reason: DomainFailure; readonly resumable: boolean; } | { readonly kind: "pause"; } | { readonly kind: "progress"; readonly received: number; } | { readonly kind: "queue"; readonly received: number; readonly total: number; } | { readonly kind: "remove"; } | { readonly kind: "removed"; } | { readonly kind: "resume"; readonly received: number; } | { readonly kind: "retry"; readonly received: number; readonly total: number; } | { readonly kind: "start"; readonly received: number; readonly total: number; } | { readonly kind: "verified"; }
+  type InstallState = { readonly kind: "available"; } | { readonly kind: "downloading"; readonly received: number; readonly total: number; } | { readonly kind: "failed"; readonly reason: DomainFailure; readonly resumable: boolean; readonly received: number; } | { readonly kind: "installed"; } | { readonly kind: "paused"; readonly received: number; readonly total: number; } | { readonly kind: "queued"; readonly received: number; readonly total: number; } | { readonly kind: "removing"; } | { readonly kind: "verifying"; readonly total: number; }
   interface Installation
   readonly Installation.ref: PackRef
   readonly Installation.manifest: ModelPackManifest | undefined
@@ -3083,6 +3083,7 @@ Published paths
   new PackInstaller(services: InstallerServices): PackInstaller
   readonly PackInstaller.services: InstallerServices
   readonly PackInstaller.versions: Installations
+  readonly PackInstaller.transfers: PackTransfers
   PackInstaller.restore: () => Promise<DomainResult<void>>
   PackInstaller.installations: () => readonly Installation[]
   PackInstaller.stateOf: (ref: PackRef) => InstallState
@@ -3094,10 +3095,6 @@ Published paths
   PackInstaller.remove: (ref: PackRef, retention: Retention) => Promise<DomainResult<InstallState>>
   PackInstaller.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer>>>
   PackInstaller.stop: (ref: PackRef, how: Stop) => DomainResult<void>
-  PackInstaller.transfer: (entry: Entry, manifest: ModelPackManifest, source: PackSource, signal: AbortSignal | undefined) => Promise<DomainResult<InstallState>>
-  PackInstaller.settled: (entry: Entry, manifest: ModelPackManifest, stop: Stop | undefined, arrival: Arrival) => Promise<DomainResult<InstallState>>
-  PackInstaller.rejected: (entry: Entry, reason: DomainFailure) => Promise<DomainResult<InstallState>>
-  PackInstaller.deleted: (entry: Entry) => Promise<DomainResult<InstallState>>
   interface PackLicence
   readonly PackLicence.code: string
   readonly PackLicence.weights: string
@@ -3140,6 +3137,7 @@ Published paths
   PackStore.open: (ref: PackRef, index: number) => Promise<DomainResult<ByteSource | undefined>>
   PackStore.seal: (ref: PackRef) => Promise<DomainResult<void>>
   PackStore.remove: (ref: PackRef) => Promise<DomainResult<void>>
+  PackStore.transferring: <TValue>(work: () => Promise<TValue>, signal?: AbortSignal) => Promise<TValue>
   type ReceiveChunk = (chunk: Uint8Array<ArrayBuffer>) => Promise<DomainResult<void>>
   interface Retention
   readonly Retention.pinned: readonly PackRef[]
@@ -4049,14 +4047,15 @@ Published paths
   readonly CatalogueServices.owner: LeaseOwner
   readonly CatalogueServices.yieldToHost: YieldToHost
   type ChangeOutcome = { readonly kind: "applied"; readonly saved: WriteOutcome; } | { readonly kind: "unchanged"; readonly code: string; readonly reason: string; }
-  type CleanupChoice = { readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; } | { readonly kind: "expired-history"; } | { readonly kind: "set-aside-records"; } | { readonly kind: "unfinished-projects"; } | { readonly kind: "unreferenced-media"; }
+  type CleanupChoice = { readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; } | { readonly kind: "expired-history"; } | { readonly kind: "model-packs"; readonly packs: readonly PackRef[]; } | { readonly kind: "pack-downloads"; } | { readonly kind: "set-aside-records"; } | { readonly kind: "unfinished-projects"; } | { readonly kind: "unreferenced-media"; }
   interface CleanupConfirmation
   readonly CleanupConfirmation.bytes: number
   interface CleanupPlan
   readonly CleanupPlan.steps: readonly CleanupStep[]
   readonly CleanupPlan.confirmationBytes: number
-  readonly CleanupPlan.mediaRefused?: CleanupRefusal
-  type CleanupRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
+  readonly CleanupPlan.installedPacks: readonly InstalledPack[]
+  readonly CleanupPlan.mediaRefused?: MediaRefusal
+  type CleanupRefusal = MediaRefusal | { readonly kind: "needs-unknown"; }
   interface CleanupRunOptions
   readonly CleanupRunOptions.held?: ProjectSession
   readonly CleanupRunOptions.signal?: AbortSignal
@@ -4066,6 +4065,8 @@ Published paths
   readonly CleanupRunServices.digest: import("packages/project-format/src/byte-ports").Digest
   readonly CleanupRunServices.store: import("packages/media-store/src/object-store").MediaObjectStore
   readonly CleanupRunServices.caches: import("packages/storage/src/cache-store").CacheStore
+  readonly CleanupRunServices.packs: import("packages/storage/src/model-pack-store").ModelPackStore
+  readonly CleanupRunServices.packPins: import("packages/storage/src/pack-cleanup").PackPins
   readonly CleanupRunServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly CleanupRunServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupRunServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
@@ -4079,11 +4080,13 @@ Published paths
   readonly CleanupServices.digest: Digest
   readonly CleanupServices.store: MediaObjectStore
   readonly CleanupServices.caches: CacheStore
+  readonly CleanupServices.packs: ModelPackStore
+  readonly CleanupServices.packPins: PackPins
   readonly CleanupServices.coordinator?: LeaseCoordinator
   readonly CleanupServices.bus: import("packages/commands/src/registry").CommandBus<import("packages/project-format/src/project-state").ProjectState>
   readonly CleanupServices.logger: import("packages/diagnostics/src/logger").Logger
   readonly CleanupServices.yieldToHost: import("packages/project-format/src/work-turns").YieldToHost
-  type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; readonly at: number; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "set-aside-records"; readonly records: ReadonlyMap<ProjectId, readonly string[]>; } | { readonly kind: "unfinished-projects"; readonly projects: ReadonlyMap<ProjectId, LeftOver>; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
+  type CleanupStep = { readonly bytes: number; readonly loses: RecoverabilityLoss; } & ({ readonly kind: "cache"; readonly category: CacheCategory; } | { readonly kind: "expired-backups"; readonly generations: ReadonlyMap<ProjectId, readonly number[]>; readonly at: number; } | { readonly kind: "expired-history"; readonly compactions: ReadonlyMap<ProjectId, CompactionPlan>; } | { readonly kind: "model-packs"; readonly packs: readonly PlannedPack[]; } | { readonly kind: "pack-downloads"; readonly packs: readonly PlannedPack[]; } | { readonly kind: "set-aside-records"; readonly records: ReadonlyMap<ProjectId, readonly string[]>; } | { readonly kind: "unfinished-projects"; readonly projects: ReadonlyMap<ProjectId, LeftOver>; } | { readonly kind: "unreferenced-media"; readonly collection: CollectionPlan; })
   class CommandJournal
   new CommandJournal(records: CheckedRecords, project: ProjectId): CommandJournal
   readonly CommandJournal.records: CheckedRecords
@@ -4196,6 +4199,11 @@ Published paths
   interface ImportedProject
   readonly ImportedProject.header: ProjectHeader
   readonly ImportedProject.asCopy: boolean
+  interface InstalledPack
+  readonly InstalledPack.ref: PackRef
+  readonly InstalledPack.name: string
+  readonly InstalledPack.bytes: number
+  readonly InstalledPack.kept?: PackKept
   interface JournalBreak
   readonly JournalBreak.at: JournalPosition
   readonly JournalBreak.reason: BreakReason
@@ -4217,25 +4225,32 @@ Published paths
   readonly LeaseOwner.label: string
   type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
   const MEDIA_DIRECTORY: "media"
+  type MeasuredPack = { readonly ref: PackRef; readonly bytes: number; } & ({ readonly kind: "installed"; readonly name: string; } | { readonly kind: "partial"; readonly name?: string; })
+  type MediaRefusal = { readonly kind: "no-coordination"; } | { readonly kind: "storing"; } | { readonly kind: "unreadable"; readonly roots: readonly UnreadableRoot[]; }
   class ModelPackStore
-  new ModelPackStore(tree: StorageTree, digest: Digest): ModelPackStore
+  new ModelPackStore(tree: StorageTree, digest: Digest, coordinator?: LeaseCoordinator | undefined): ModelPackStore
   readonly ModelPackStore.records: CheckedRecords
+  readonly ModelPackStore.coordinator: LeaseCoordinator | undefined
   ModelPackStore.kept: () => Promise<DomainResult<readonly KeptPack[]>>
+  ModelPackStore.measured: (signal?: AbortSignal) => Promise<DomainResult<readonly MeasuredPack[]>>
   ModelPackStore.stage: (manifest: ModelPackManifest) => Promise<DomainResult<void>>
   ModelPackStore.stagedBytes: (ref: PackRef, index: number) => Promise<DomainResult<number>>
   ModelPackStore.append: (ref: PackRef, index: number) => Promise<DomainResult<ByteSink>>
   ModelPackStore.open: (ref: PackRef, index: number) => Promise<DomainResult<ByteSource | undefined>>
   ModelPackStore.seal: (ref: PackRef) => Promise<DomainResult<void>>
   ModelPackStore.remove: (ref: PackRef) => Promise<DomainResult<void>>
+  ModelPackStore.transferring: <TValue>(work: () => Promise<TValue>, signal?: AbortSignal) => Promise<TValue>
   ModelPackStore.tree: StorageTree
+  ModelPackStore.versions: () => Promise<readonly PackRef[]>
   ModelPackStore.directoryOf: (ref: PackRef) => string
   ModelPackStore.filesOf: (ref: PackRef, index: number) => string
   ModelPackStore.runPath: (ref: PackRef, index: number, offset: number) => string
+  ModelPackStore.runsOf: (ref: PackRef, index: number) => Promise<Runs>
   ModelPackStore.manifestOf: (ref: PackRef) => Promise<CheckedReading<ModelPackManifest>>
   ModelPackStore.isStaged: (ref: PackRef) => Promise<boolean>
   ModelPackStore.digestOf: (manifest: ModelPackManifest) => Promise<string>
-  ModelPackStore.runsOf: (ref: PackRef, index: number) => Promise<Runs>
   ModelPackStore.keptVersion: (ref: PackRef) => Promise<KeptPack>
+  ModelPackStore.versionOf: (ref: PackRef) => Promise<FoundVersion>
   interface NewProject
   readonly NewProject.name: string
   readonly NewProject.settings: ProjectSettings
@@ -4257,7 +4272,16 @@ Published paths
   readonly OpeningServices.cadence?: SessionCadence
   readonly OpeningServices.yieldToHost: YieldToHost
   type OwnershipEvent = { readonly kind: "acquired"; readonly owner?: LeaseOwner; } | { readonly kind: "checkpointed"; } | { readonly kind: "released"; }
+  type PackKept = "needed" | "needs-unknown"
+  type PackPins = (signal?: AbortSignal) => Promise<DomainResult<readonly PackRef[]>>
+  interface PackUsage
+  readonly PackUsage.installed: number
+  readonly PackUsage.partial: number
   type PassedOverReason = "changed" | AbsenceReason
+  interface PlannedPack
+  readonly PlannedPack.ref: PackRef
+  readonly PlannedPack.name?: string
+  readonly PlannedPack.bytes: number
   interface PressureRelief
   readonly PressureRelief.freed: ReadonlyMap<CacheCategory, number>
   readonly PressureRelief.total: number
@@ -4387,7 +4411,7 @@ Published paths
   readonly ReadOnlyServices.logger: Logger
   readonly ReadOnlyServices.reload: (signal: AbortSignal) => Promise<DomainResult<ProjectModel>>
   type RecordFault = { readonly kind: "checksum-mismatch"; } | { readonly kind: "damaged"; readonly cause: DomainFailure; } | { readonly kind: "foreign"; readonly found: string; } | { readonly kind: "incompatible"; readonly found: number; readonly current: number; } | { readonly kind: "malformed"; readonly failures: readonly DomainFailure[]; }
-  type RecoverabilityLoss = "backup-generations" | "history" | "nothing" | "set-aside-changes" | "unfinished-projects" | "unreferenced-media"
+  type RecoverabilityLoss = "backup-generations" | "download-progress" | "history" | "model-packs" | "nothing" | "set-aside-changes" | "unfinished-projects" | "unreferenced-media"
   interface RestoreServices extends OpeningServices
   readonly RestoreServices.clock: Clock
   readonly RestoreServices.tree: import("packages/project-format/src/storage-tree").StorageTree
@@ -4422,10 +4446,11 @@ Published paths
   SnapshotStore.remove: (fingerprint: StateFingerprint) => Promise<void>
   SnapshotStore.path: (fingerprint: StateFingerprint) => string
   interface StepOutcome
-  readonly StepOutcome.step: "cache" | "expired-backups" | "expired-history" | "set-aside-records" | "unfinished-projects" | "unreferenced-media"
+  readonly StepOutcome.step: "cache" | "expired-backups" | "expired-history" | "model-packs" | "pack-downloads" | "set-aside-records" | "unfinished-projects" | "unreferenced-media"
   readonly StepOutcome.freed: number
   readonly StepOutcome.busy: readonly ProjectId[]
   readonly StepOutcome.unapplied?: readonly ProjectId[]
+  readonly StepOutcome.needed?: readonly import("packages/model-packs/src/manifest").PackRef[]
   readonly StepOutcome.refused?: CleanupRefusal
   type StorageLockMode = "exclusive" | "shared"
   type StorageLocking = { readonly kind: "busy"; } | { readonly kind: "held"; readonly release: () => Promise<void>; } | { readonly kind: "unavailable"; }
@@ -4441,6 +4466,7 @@ Published paths
   readonly StorageUsage.unreferencedMedia: number
   readonly StorageUsage.caches: ReadonlyMap<CacheCategory, number>
   readonly StorageUsage.backups: number
+  readonly StorageUsage.packs: PackUsage
   readonly StorageUsage.unreadable: readonly UnreadableRoot[]
   type StoredSchema = "projectDocument" | "projectStorage"
   type TransferAnswer = "declined" | "granted"
@@ -4466,6 +4492,7 @@ Published paths
   readonly UsageServices.digest: Digest
   readonly UsageServices.store: MediaObjectStore
   readonly UsageServices.caches: CacheStore
+  readonly UsageServices.packs: ModelPackStore
   readonly UsageServices.yieldToHost: YieldToHost
   type VersionChange = "adopt" | "relink"
   type WipeConfirmation = { readonly kind: "incompatible"; readonly schema: StoredSchema; readonly found: number; } | { readonly kind: "unreadable"; }
@@ -4644,6 +4671,8 @@ Published paths
   readonly HostServices.yieldToHost: YieldToHost
   readonly HostServices.store: MediaObjectStore
   readonly HostServices.caches: CacheStore
+  readonly HostServices.packs: ModelPackStore
+  readonly HostServices.packPins: PackPins
   interface MemoryStorageOptions
   readonly MemoryStorageOptions.tree?: StorageTree
   readonly MemoryStorageOptions.yieldToHost?: YieldToHost
@@ -5710,6 +5739,18 @@ packages/ml-runtime/src/worker-inference.ts
   Connection.#fail: (summary: string) => void
   type Pending = { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly settle: (result: DomainResult<InferenceSession>) => void; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly session: number; readonly settle: (result: DomainResult<ReadonlyMap<string, Tensor>>) => void; }
 
+packages/model-packs/src/download-slot.ts
+  class DownloadSlot
+  new DownloadSlot(): DownloadSlot
+  DownloadSlot.held: boolean
+  readonly DownloadSlot.waiting: Waiter[]
+  DownloadSlot.tryTake: () => ReleaseTurn | undefined
+  DownloadSlot.take: (signal: AbortSignal) => Promise<ReleaseTurn | undefined>
+  DownloadSlot.releaser: () => ReleaseTurn
+  type ReleaseTurn = () => void
+  interface Waiter
+  readonly Waiter.grant: (release: ReleaseTurn) => void
+
 packages/model-packs/src/installations.ts
   interface Entry
   readonly Entry.ref: PackRef
@@ -5737,6 +5778,23 @@ packages/model-packs/src/installations.ts
 
 packages/model-packs/src/pack-download.ts
   type Arrival = { readonly kind: "arrived"; } | { readonly kind: "failed"; readonly result: DomainFailureResult; } | { readonly kind: "stopped"; }
+
+packages/model-packs/src/pack-transfers.ts
+  class PackTransfers
+  new PackTransfers(services: TransferServices, versions: Installations): PackTransfers
+  readonly PackTransfers.services: TransferServices
+  readonly PackTransfers.versions: Installations
+  readonly PackTransfers.slot: DownloadSlot
+  PackTransfers.inTurn: (entry: Entry, manifest: ModelPackManifest, source: PackSource, signal: AbortSignal | undefined, begin: (received: number) => InstallEvent) => Promise<DomainResult<InstallState>>
+  PackTransfers.leftQueue: (entry: Entry, stop: Stop | undefined) => Promise<DomainResult<InstallState>>
+  PackTransfers.stoppable: <TValue>(entry: Entry, signal: AbortSignal | undefined, work: (stopping: AbortSignal) => Promise<TValue>) => Promise<{ readonly value: TValue; readonly stop: Stop | undefined; }>
+  PackTransfers.transfer: (entry: Entry, manifest: ModelPackManifest, source: PackSource, signal: AbortSignal | undefined) => Promise<DomainResult<InstallState>>
+  PackTransfers.settled: (entry: Entry, manifest: ModelPackManifest, stop: Stop | undefined, arrival: Arrival) => Promise<DomainResult<InstallState>>
+  PackTransfers.rejected: (entry: Entry, reason: DomainFailure) => Promise<DomainResult<InstallState>>
+  PackTransfers.deleted: (entry: Entry) => Promise<DomainResult<InstallState>>
+  interface TransferServices
+  readonly TransferServices.store: PackStore
+  readonly TransferServices.sha256: Sha256
 
 packages/processors/src/framework/processor-type.ts
   type MeasuringRun = { readonly parameters: ParameterReader; readonly state?: ProcessorState; readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly input: ChannelLayout; readonly blockFrames: number; readonly dsp: CanonicalDsp; readonly output: ChannelLayout; readonly sideChain?: ChannelLayout; }
@@ -6068,6 +6126,9 @@ packages/storage/src/lease-records.ts
   readonly LeaseRecord.holder: string
 
 packages/storage/src/model-pack-store.ts
+  type FoundVersion = { readonly kind: "damaged"; readonly ref: PackRef; readonly reason: DomainFailure; } | { readonly kind: "sealed"; readonly manifest: ModelPackManifest; } | { readonly kind: "staged"; readonly manifest: ModelPackManifest; }
+
+packages/storage/src/pack-runs.ts
   interface Run
   readonly Run.offset: number
   readonly Run.path: string

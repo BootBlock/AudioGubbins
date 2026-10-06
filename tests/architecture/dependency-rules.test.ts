@@ -3110,8 +3110,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
     ],
     'packages/model-packs/src/install-state.ts: nextInstallState': [
-      83,
-      "The install state machine's whole table, one arm for each event, each the states that take it and where they go; the switch is exhaustive over the events, so an event cannot be left without its rule, and split by event the table would be read in twelve places to see what a state can take.",
+      67,
+      "The install state machine's whole table, one arm for each event, each the states that take it and where they go; the switch is exhaustive over the events, so an event cannot be left without its rule. The checks of a download's numbers (`arriving`) and the states a failure leaves (`failedFrom`) are functions of their own, shared by the arms that need them; split by event, the table would be read in thirteen places to see what a state can take.",
     ],
     'packages/diagnostics/src/bundle.ts: assembleBundle': [
       60,

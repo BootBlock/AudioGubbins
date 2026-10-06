@@ -12,8 +12,12 @@
  * SHA-256 and the store has sealed it; a check that fails keeps nothing of the
  * version. A file read for use is checked again as it is read.
  *
- * One file is transferred at a time, and one operation runs on a version at a
- * time; pause and cancel stop the transfer in flight. A version a project
+ * One pack downloads at a time across the installer, which the application
+ * makes once (`download-slot.ts`, `pack-transfers.ts`): a download, resume or
+ * retry asked for while another pack downloads is `queued`, keeping what it
+ * had, and starts when that one ends, however it ends. One file is transferred
+ * at a time, and one operation runs on a version at a time; pause and cancel
+ * stop the transfer in flight or the wait for a turn. A version a project
  * needs, as the caller's pins say, is kept through an update and refused
  * removal until the person removes it knowingly.
  */
@@ -23,24 +27,17 @@ import {
   fail,
   failure,
   succeed,
-  type DomainFailure,
   type DomainFailureResult,
   type DomainResult,
 } from '@audiogubbins/domain';
 
 import type { InstallState } from './install-state.js';
-import {
-  Installations,
-  type Entry,
-  type Installation,
-  type Stop,
-  type Transfer,
-} from './installations.js';
-import { readKept, verifyKept, type Sha256 } from './integrity.js';
+import { Installations, type Installation, type Stop } from './installations.js';
+import { readKept, type Sha256 } from './integrity.js';
 import { packKey, refOf, sameRef, type ModelPackManifest, type PackRef } from './manifest.js';
-import { receiveMissing, stagedTotal, type Arrival } from './pack-download.js';
 import type { PackSource } from './pack-source.js';
 import type { PackStore } from './pack-store.js';
+import { PackTransfers } from './pack-transfers.js';
 
 /** What the installer works with. */
 export interface InstallerServices {
@@ -75,10 +72,12 @@ function unknownManifest(ref: PackRef): DomainFailureResult {
 export class PackInstaller {
   private readonly services: InstallerServices;
   private readonly versions: Installations;
+  private readonly transfers: PackTransfers;
 
   constructor(services: InstallerServices) {
     this.services = services;
     this.versions = new Installations(services.changed);
+    this.transfers = new PackTransfers(services, this.versions);
   }
 
   /**
@@ -106,8 +105,9 @@ export class PackInstaller {
   /**
    * Downloads `manifest`'s version from `source`, keeps it and checks it, and
    * answers the state it ended in: installed, paused, failed or, cancelled,
-   * available. Aborting `signal` pauses it. Refused where the version is not
-   * available or another operation runs on it.
+   * available. Waits, queued, while another pack downloads. Aborting `signal`
+   * pauses it. Refused where the version is not available or another operation
+   * runs on it.
    */
   async download(
     manifest: ModelPackManifest,
@@ -123,14 +123,11 @@ export class PackInstaller {
     if (!claimed.ok) return claimed;
     return await this.versions.run(entry, async () => {
       entry.manifest = manifest;
-      const staged = await stagedTotal(this.services.store, manifest);
-      if (!staged.ok) return staged;
-      this.versions.apply(entry, {
+      return await this.transfers.inTurn(entry, manifest, source, signal, (received) => ({
         kind: 'start',
-        received: staged.value,
+        received,
         total: manifest.downloadBytes,
-      });
-      return await this.transfer(entry, manifest, source, signal);
+      }));
     });
   }
 
@@ -146,10 +143,10 @@ export class PackInstaller {
     return await this.versions.run(entry, async () => {
       const { manifest } = entry;
       if (manifest === undefined) return unknownManifest(ref);
-      const staged = await stagedTotal(this.services.store, manifest);
-      if (!staged.ok) return staged;
-      this.versions.apply(entry, { kind: 'resume', received: staged.value });
-      return await this.transfer(entry, manifest, source, signal);
+      return await this.transfers.inTurn(entry, manifest, source, signal, (received) => ({
+        kind: 'resume',
+        received,
+      }));
     });
   }
 
@@ -176,26 +173,23 @@ export class PackInstaller {
         const cleared = await this.services.store.remove(ref);
         if (!cleared.ok) return cleared;
       }
-      const staged = await stagedTotal(this.services.store, manifest);
-      if (!staged.ok) return staged;
-      this.versions.apply(entry, {
+      return await this.transfers.inTurn(entry, manifest, source, signal, (received) => ({
         kind: 'retry',
-        received: staged.value,
+        received,
         total: manifest.downloadBytes,
-      });
-      return await this.transfer(entry, manifest, source, signal);
+      }));
     });
   }
 
-  /** Pauses a version's transfer in flight, keeping what it received. */
+  /** Pauses a version's transfer in flight, or its wait for a turn, keeping what it has. */
   pause(ref: PackRef): DomainResult<void> {
     return this.stop(ref, 'pause');
   }
 
   /**
-   * Gives up a version being downloaded, paused or failed, and deletes what is
-   * kept of it. A transfer in flight stops, and its download answers the
-   * version's state once the deletion is done.
+   * Gives up a version being downloaded, queued, paused or failed, and deletes
+   * what is kept of it. A transfer in flight, or a wait for a turn, stops, and
+   * its download answers the version's state once the deletion is done.
    */
   async cancel(ref: PackRef): Promise<DomainResult<InstallState>> {
     const entry = this.versions.get(ref);
@@ -208,7 +202,7 @@ export class PackInstaller {
     if (!claimed.ok) return claimed;
     return await this.versions.run(target, async () => {
       this.versions.apply(target, { kind: 'cancel' });
-      return await this.deleted(target);
+      return await this.transfers.deleted(target);
     });
   }
 
@@ -232,7 +226,7 @@ export class PackInstaller {
     if (!claimed.ok) return claimed;
     return await this.versions.run(entry, async () => {
       this.versions.apply(entry, { kind: 'remove' });
-      return await this.deleted(entry);
+      return await this.transfers.deleted(entry);
     });
   }
 
@@ -276,7 +270,7 @@ export class PackInstaller {
     return read;
   }
 
-  /** Stops a transfer in flight, as a pause or a cancel. */
+  /** Stops a transfer in flight, or a wait for a turn, as a pause or a cancel. */
   private stop(ref: PackRef, how: Stop): DomainResult<void> {
     const entry = this.versions.get(ref);
     const transfer = entry?.transfer;
@@ -294,102 +288,6 @@ export class PackInstaller {
     if (transfer.stop !== 'cancel') transfer.stop = how;
     transfer.controller.abort();
     return succeed(undefined);
-  }
-
-  /**
-   * Transfers what is missing of every file, then checks and seals the version,
-   * answering the state it ends in.
-   */
-  private async transfer(
-    entry: Entry,
-    manifest: ModelPackManifest,
-    source: PackSource,
-    signal: AbortSignal | undefined,
-  ): Promise<DomainResult<InstallState>> {
-    const transfer: Transfer = { controller: new AbortController(), stop: undefined };
-    const onAbort = (): void => {
-      transfer.stop ??= 'pause';
-      transfer.controller.abort();
-    };
-    entry.transfer = transfer;
-    signal?.addEventListener('abort', onAbort, { once: true });
-    if (signal?.aborted === true) onAbort();
-    let arrival: Arrival;
-    try {
-      arrival = await receiveMissing(
-        this.services.store,
-        manifest,
-        source,
-        entry.state.kind === 'downloading' ? entry.state.received : 0,
-        (received) => {
-          this.versions.apply(entry, { kind: 'progress', received });
-        },
-        transfer.controller.signal,
-      );
-    } finally {
-      signal?.removeEventListener('abort', onAbort);
-      entry.transfer = undefined;
-    }
-    return await this.settled(entry, manifest, transfer.stop, arrival);
-  }
-
-  /**
-   * Ends a transfer as it was stopped or as it ended: cancelled, deleting what
-   * is kept; paused; failed, resumable unless the source's file was another; or
-   * arrived whole, to be checked and sealed.
-   */
-  private async settled(
-    entry: Entry,
-    manifest: ModelPackManifest,
-    stop: Stop | undefined,
-    arrival: Arrival,
-  ): Promise<DomainResult<InstallState>> {
-    if (stop === 'cancel') {
-      this.versions.apply(entry, { kind: 'cancel' });
-      return await this.deleted(entry);
-    }
-    if (arrival.kind === 'stopped' || (arrival.kind === 'failed' && stop === 'pause')) {
-      this.versions.apply(entry, { kind: 'pause' });
-      return succeed(entry.state);
-    }
-    if (arrival.kind === 'failed') {
-      const reason = arrival.result.failures[0];
-      this.versions.apply(entry, {
-        kind: 'fail',
-        reason,
-        resumable: reason.kind !== FailureKind.IntegrityViolation,
-      });
-      return succeed(entry.state);
-    }
-    this.versions.apply(entry, { kind: 'downloaded' });
-    const { store, sha256 } = this.services;
-    const checked = await verifyKept(store, manifest, sha256);
-    if (!checked.ok) return await this.rejected(entry, checked.failures[0]);
-    const sealed = await store.seal(refOf(manifest));
-    if (!sealed.ok) return await this.rejected(entry, sealed.failures[0]);
-    this.versions.apply(entry, { kind: 'verified' });
-    return succeed(entry.state);
-  }
-
-  /** Fails a version being checked for `reason`, keeping nothing of it. */
-  private async rejected(entry: Entry, reason: DomainFailure): Promise<DomainResult<InstallState>> {
-    this.versions.apply(entry, { kind: 'fail', reason, resumable: false });
-    // Where the deletion is refused too, the files stay unsealed and unused,
-    // and a retry or a cancel deletes them first.
-    await this.services.store.remove(entry.ref);
-    return succeed(entry.state);
-  }
-
-  /** Deletes what is kept of a version being removed, and answers the state it ends in. */
-  private async deleted(entry: Entry): Promise<DomainResult<InstallState>> {
-    const removed = await this.services.store.remove(entry.ref);
-    this.versions.apply(
-      entry,
-      removed.ok
-        ? { kind: 'removed' }
-        : { kind: 'fail', reason: removed.failures[0], resumable: false },
-    );
-    return succeed(entry.state);
   }
 }
 

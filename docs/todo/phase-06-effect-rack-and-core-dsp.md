@@ -395,8 +395,27 @@ Open points from `model-packs`:
 - Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
   only) implements the `Sha256` port; `LOCAL_INFERENCE` and
   `localInferenceCapabilities` are exported from `packages/capabilities`.
-- Storage usage and the cleanup plan do not yet count `packs/`.
-- Downloads are one file at a time per pack, with no bound across packs.
+- Closed: storage usage counts installed packs and partial downloads
+  apart (manifests and seal records only, never a model file); cleanup
+  offers partial downloads as safe, lists installed packs, and removes one
+  only when the person names it, never a pinned one, saying why. One pack
+  download at a time per installer (`DownloadSlot`), waiting in an explicit
+  `queued` install state that can be paused or cancelled;
+  `PackStore.transferring` shares the storage-wide lock while a transfer
+  writes. The worker composes `ModelPackStore`.
+- Which packs projects need is not worked out yet: the worker's `packPins`
+  refuses, so every pack is kept ("cannot be told"). Decided: a project
+  needs every pack version a processor instance names in its current
+  state, its history, its snapshots or its backups, since an undo or a
+  restore brings the instance back. To build, in storage, from each
+  instance's `ModelIdentity`.
+- A live installer is not told when a cleanup removes a pack (an installed
+  one is found missing on its next read and downloaded again on retry);
+  pack removal should go through the installer once its home is decided.
+- The download bound is per installer, not across tabs; an import from a
+  file waits in the same slot; storage-pressure relief does not yet take
+  partial downloads; `PackStore.transferring` is not in the store contract
+  tests.
 - The dereverberation allocation tests failed once under the whole
   suite's load and passed on the next run; watch for a repeat.
 

@@ -238,6 +238,159 @@ describe('installing a pack', () => {
   });
 });
 
+describe('one pack downloading at a time', () => {
+  const OTHER = testPack({ id: 'other-pack' });
+  const OTHER_REF = refOf(OTHER.manifest);
+
+  /**
+   * An installer whose every state is logged, in order, as `<pack>:<state>`,
+   * so the order of several packs' lives can be read; `lifeOf` is one pack's,
+   * a repeated state once.
+   */
+  function loggedInstaller(store = new MemoryPackStore()) {
+    const log: string[] = [];
+    const states = new Map<string, InstallState[]>();
+    const installer = new PackInstaller({
+      store,
+      sha256: nobleSha256,
+      changed: (ref, state) => {
+        log.push(`${ref.id}:${state.kind}`);
+        states.set(ref.id, [...(states.get(ref.id) ?? []), state]);
+      },
+    });
+    const lifeOf = (id: string): readonly string[] =>
+      kinds(states.get(id) ?? []).map((kind) => `${id}:${kind}`);
+    /** Where a pack first entered a state in the log. */
+    const at = (line: string): number => {
+      const index = log.indexOf(line);
+      if (index < 0) throw new Error(`${line} was never entered.`);
+      return index;
+    };
+    return { installer, store, log, states, lifeOf, at };
+  }
+
+  it('queues a second pack while the first downloads, and starts it when the first ends', async () => {
+    const { installer, lifeOf, at } = loggedInstaller();
+    const second = new MemorySource([OTHER]);
+    const first = installer.download(PACK.manifest, new MemorySource([PACK]));
+    const queued = installer.download(OTHER.manifest, second);
+
+    expect(valueOf(await first)).toEqual({ kind: 'installed' });
+    expect(valueOf(await queued)).toEqual({ kind: 'installed' });
+    expect(lifeOf('other-pack')).toEqual([
+      'other-pack:queued',
+      'other-pack:downloading',
+      'other-pack:verifying',
+      'other-pack:installed',
+    ]);
+    expect(at('other-pack:queued')).toBeLessThan(at('sample-pack:verifying'));
+    expect(at('other-pack:downloading')).toBeGreaterThan(at('sample-pack:installed'));
+    expect(second.reads[0]).toEqual({ path: 'encoder.onnx', offset: 0 });
+  });
+
+  it('reports what a queued resume has kept while it waits', async () => {
+    const { installer, store, states } = loggedInstaller();
+    await installer.download(
+      OTHER.manifest,
+      new MemorySource([OTHER], { afterChunk: () => void installer.pause(OTHER_REF) }),
+    );
+    expect(installer.stateOf(OTHER_REF)).toEqual({ kind: 'paused', received: 3, total: 17 });
+
+    const first = installer.download(PACK.manifest, new MemorySource([PACK]));
+    const resuming = new MemorySource([OTHER]);
+    const resumed = installer.resume(OTHER_REF, resuming);
+    await first;
+    expect(valueOf(await resumed)).toEqual({ kind: 'installed' });
+    expect(states.get('other-pack')).toContainEqual({ kind: 'queued', received: 3, total: 17 });
+    expect(resuming.reads[0]).toEqual({ path: 'encoder.onnx', offset: 3 });
+    expect(await keptFiles(store, OTHER)).toEqual(bytesOf(OTHER));
+  });
+
+  it('cancels a queued download, keeping nothing of it and never reading it', async () => {
+    const { installer, store, lifeOf } = loggedInstaller();
+    const second = new MemorySource([OTHER]);
+    const first = installer.download(
+      PACK.manifest,
+      new MemorySource([PACK], {
+        afterChunk: (_path, served) => {
+          if (served === 3) void installer.cancel(OTHER_REF);
+        },
+      }),
+    );
+    const queued = installer.download(OTHER.manifest, second);
+
+    expect(valueOf(await queued)).toEqual({ kind: 'available' });
+    expect(valueOf(await first)).toEqual({ kind: 'installed' });
+    expect(lifeOf('other-pack')).toEqual([
+      'other-pack:queued',
+      'other-pack:removing',
+      'other-pack:available',
+    ]);
+    expect(second.reads).toEqual([]);
+    expect(valueOf(await store.kept())).toEqual([{ kind: 'sealed', manifest: PACK.manifest }]);
+    expect(installer.installations().map((one) => one.ref)).toEqual([REF]);
+  });
+
+  it('pauses a queued download, which leaves the queue and resumes later', async () => {
+    const { installer } = loggedInstaller();
+    const first = installer.download(
+      PACK.manifest,
+      new MemorySource([PACK], {
+        afterChunk: (path, served) => {
+          if (path === 'encoder.onnx' && served === 3) valueOf(installer.pause(OTHER_REF));
+        },
+      }),
+    );
+    const queued = installer.download(OTHER.manifest, new MemorySource([OTHER]));
+    expect(valueOf(await queued)).toEqual({ kind: 'paused', received: 0, total: 17 });
+    await first;
+    expect(valueOf(await installer.resume(OTHER_REF, new MemorySource([OTHER])))).toEqual({
+      kind: 'installed',
+    });
+  });
+
+  it('starts the next download when the first fails', async () => {
+    const { installer, at } = loggedInstaller();
+    const first = installer.download(
+      PACK.manifest,
+      new MemorySource([PACK], { breakAt: { path: 'encoder.onnx', afterBytes: 3 } }),
+    );
+    const queued = installer.download(OTHER.manifest, new MemorySource([OTHER]));
+
+    expect(valueOf(await first)).toMatchObject({ kind: 'failed', resumable: true });
+    expect(valueOf(await queued)).toEqual({ kind: 'installed' });
+    expect(at('other-pack:queued')).toBeLessThan(at('sample-pack:failed'));
+    expect(at('other-pack:downloading')).toBeGreaterThan(at('sample-pack:failed'));
+  });
+
+  it('starts the next download when the first is cancelled, and keeps the bound after', async () => {
+    const { installer, lifeOf, at } = loggedInstaller();
+    const THIRD = testPack({ id: 'third-pack' });
+    const first = installer.download(
+      PACK.manifest,
+      new MemorySource([PACK], {
+        afterChunk: (_path, served) => {
+          if (served === 3) void installer.cancel(REF);
+        },
+      }),
+    );
+    const second = installer.download(OTHER.manifest, new MemorySource([OTHER]));
+    const third = installer.download(THIRD.manifest, new MemorySource([THIRD]));
+
+    expect(valueOf(await first)).toEqual({ kind: 'available' });
+    expect(valueOf(await second)).toEqual({ kind: 'installed' });
+    expect(valueOf(await third)).toEqual({ kind: 'installed' });
+    expect(lifeOf('sample-pack')).toEqual([
+      'sample-pack:downloading',
+      'sample-pack:removing',
+      'sample-pack:available',
+    ]);
+    expect(at('third-pack:queued')).toBeLessThan(at('sample-pack:removing'));
+    expect(at('other-pack:downloading')).toBeGreaterThan(at('sample-pack:available'));
+    expect(at('third-pack:downloading')).toBeGreaterThan(at('other-pack:installed'));
+  });
+});
+
 describe('importing a pack a person has', () => {
   it('installs by the same path, checking every hash', async () => {
     const { installer, store } = installerOver();

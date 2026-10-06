@@ -20,6 +20,14 @@
  *
  * The tree writes nothing atomically, so a torn manifest or seal reads as a
  * damaged version, which can only be removed, never as a pack.
+ *
+ * Usage and a cleanup see each version as installed or partial, by its seal,
+ * and count its bytes by its files' sizes, reading none of a model's bytes
+ * (`measured`). A partial version is never used, so a cleanup may remove it,
+ * but one being written looks the same until it is sealed: so a transfer
+ * shares the storage-wide lock while it writes, as every writer of what looks
+ * left over does, and the cleanup removes partial versions with the lock held
+ * alone (`storage-sharing.ts`).
  */
 
 import {
@@ -55,16 +63,17 @@ import {
 } from '@audiogubbins/project-format';
 
 import { CheckedRecords, RecordKind, type CheckedReading } from './checked-records.js';
+import { joined, runName, runsIn, type Runs } from './pack-runs.js';
 import { refusalsReported } from './storage-failures.js';
 import { PACKS_DIRECTORY } from './storage-layout.js';
+import { whileWriting } from './storage-sharing.js';
+import { bytesUnder } from './tree-bytes.js';
+import type { LeaseCoordinator } from './write-lease.js';
 
 const MANIFEST_FILE = 'manifest.json';
 const SEAL_FILE = 'seal.json';
 const FILES_DIRECTORY = 'files';
 
-/** A run's name: the offset it starts at, in twelve digits, so names sort by offset. */
-const RUN_NAME = /^[0-9]{12}$/u;
-const RUN_DIGITS = 12;
 const INDEX_DIGITS = 3;
 
 /** What a seal says: the SHA-256 of the canonical manifest it seals. */
@@ -86,19 +95,23 @@ const readSeal: Converter<PackSeal> = (reading, value, parent, key) => {
   return manifest === undefined ? undefined : { manifest };
 };
 
-/** One run of a file, and where it starts. */
-interface Run {
-  readonly offset: number;
-  readonly path: string;
-  readonly source: ByteSource;
-}
+/**
+ * A version the store keeps, as usage and a cleanup see it: `installed` where
+ * it is sealed over its own manifest, and `partial` for every other version,
+ * arriving, paused, being checked or left unreadable, none of which is ever
+ * used. `bytes` are those of its files and records, by their sizes.
+ */
+export type MeasuredPack = { readonly ref: PackRef; readonly bytes: number } & (
+  | { readonly kind: 'installed'; readonly name: string }
+  /** `name` is its manifest's, where its manifest can be read. */
+  | { readonly kind: 'partial'; readonly name?: string }
+);
 
-/** The runs of a file that follow each other from its start, and those past a gap. */
-interface Runs {
-  readonly whole: readonly Run[];
-  readonly length: number;
-  readonly stranded: readonly string[];
-}
+/** What is kept of one version, as found, before its received bytes are counted. */
+type FoundVersion =
+  | { readonly kind: 'sealed'; readonly manifest: ModelPackManifest }
+  | { readonly kind: 'staged'; readonly manifest: ModelPackManifest }
+  | Extract<KeptPack, { kind: 'damaged' }>;
 
 function damaged(ref: PackRef, summary: string, cause?: DomainFailure): DomainFailure {
   return failure('storage.pack-damaged', FailureKind.IntegrityViolation, summary, {
@@ -135,48 +148,45 @@ function notStaged(ref: PackRef): DomainResult<never> {
   );
 }
 
-/** The bytes of runs read in order, as one source. */
-function joined(runs: readonly Run[], length: number): ByteSource {
-  return {
-    size: length,
-    read: async (offset, wanted, signal) => {
-      const end = Math.min(offset + wanted, length);
-      const bytes = new Uint8Array(Math.max(0, end - offset));
-      let filled = 0;
-      for (const run of runs) {
-        const runEnd = run.offset + run.source.size;
-        if (runEnd <= offset + filled || run.offset >= end) continue;
-        const from = offset + filled - run.offset;
-        const take = Math.min(runEnd, end) - (offset + filled);
-        const part = await run.source.read(from, take, signal);
-        bytes.set(part, filled);
-        filled += part.length;
-        // A run that came back short changed under the reader, which reads
-        // on no further, so the caller sees a short read.
-        if (part.length !== take) return bytes.slice(0, filled);
-      }
-      return bytes;
-    },
-  };
-}
-
 /** The packs a storage keeps (see the module comment). */
 export class ModelPackStore implements PackStore {
   private readonly records: CheckedRecords;
+  private readonly coordinator: LeaseCoordinator | undefined;
 
-  constructor(tree: StorageTree, digest: Digest) {
+  /** The packs kept in `tree`, whose transfers share `coordinator`'s storage-wide lock. */
+  constructor(tree: StorageTree, digest: Digest, coordinator?: LeaseCoordinator) {
     this.records = new CheckedRecords(tree, digest);
+    this.coordinator = coordinator;
   }
 
   async kept(): Promise<DomainResult<readonly KeptPack[]>> {
     return await refusalsReported(async () => {
       const kept: KeptPack[] = [];
-      for (const pack of await this.tree.list(PACKS_DIRECTORY)) {
-        for (const version of await this.tree.list(`${PACKS_DIRECTORY}/${pack.name}`)) {
-          kept.push(await this.keptVersion({ id: pack.name, version: version.name }));
-        }
-      }
+      for (const ref of await this.versions()) kept.push(await this.keptVersion(ref));
       return succeed(kept);
+    });
+  }
+
+  /** Every version kept, installed or partial, with its bytes, in the order of `kept`. */
+  async measured(signal?: AbortSignal): Promise<DomainResult<readonly MeasuredPack[]>> {
+    return await refusalsReported(async () => {
+      const measured: MeasuredPack[] = [];
+      for (const ref of await this.versions()) {
+        signal?.throwIfAborted();
+        const found = await this.versionOf(ref);
+        const bytes = await bytesUnder(this.tree, this.directoryOf(ref), signal);
+        measured.push(
+          found.kind === 'sealed'
+            ? { ref, kind: 'installed', name: found.manifest.name, bytes }
+            : {
+                ref,
+                kind: 'partial',
+                ...(found.kind === 'damaged' ? {} : { name: found.manifest.name }),
+                bytes,
+              },
+        );
+      }
+      return succeed(measured);
     });
   }
 
@@ -254,8 +264,23 @@ export class ModelPackStore implements PackStore {
     });
   }
 
+  async transferring<TValue>(work: () => Promise<TValue>, signal?: AbortSignal): Promise<TValue> {
+    return await whileWriting(this.coordinator, work, signal);
+  }
+
   private get tree(): StorageTree {
     return this.records.tree;
+  }
+
+  /** Every version the tree holds a directory for, in name order. */
+  private async versions(): Promise<readonly PackRef[]> {
+    const refs: PackRef[] = [];
+    for (const pack of await this.tree.list(PACKS_DIRECTORY)) {
+      for (const version of await this.tree.list(`${PACKS_DIRECTORY}/${pack.name}`)) {
+        refs.push({ id: pack.name, version: version.name });
+      }
+    }
+    return refs;
   }
 
   private directoryOf(ref: PackRef): string {
@@ -272,7 +297,11 @@ export class ModelPackStore implements PackStore {
   }
 
   private runPath(ref: PackRef, index: number, offset: number): string {
-    return `${this.filesOf(ref, index)}/${String(offset).padStart(RUN_DIGITS, '0')}`;
+    return `${this.filesOf(ref, index)}/${runName(offset)}`;
+  }
+
+  private async runsOf(ref: PackRef, index: number): Promise<Runs> {
+    return await runsIn(this.tree, this.filesOf(ref, index));
   }
 
   private async manifestOf(ref: PackRef): Promise<CheckedReading<ModelPackManifest>> {
@@ -296,30 +325,19 @@ export class ModelPackStore implements PackStore {
     return hexOf(await this.records.digest(encodeUtf8(canonicalJson(manifestJson(manifest)))));
   }
 
-  /** The runs of a file, in order of offset. */
-  private async runsOf(ref: PackRef, index: number): Promise<Runs> {
-    const directory = this.filesOf(ref, index);
-    const whole: Run[] = [];
-    const stranded: string[] = [];
-    let length = 0;
-    for (const entry of await this.tree.list(directory)) {
-      const path = `${directory}/${entry.name}`;
-      const source =
-        entry.kind === 'file' && RUN_NAME.test(entry.name)
-          ? await this.tree.openFile(path)
-          : undefined;
-      if (source === undefined || Number(entry.name) !== length || stranded.length > 0) {
-        stranded.push(path);
-        continue;
-      }
-      whole.push({ offset: length, path, source });
-      length += source.size;
-    }
-    return { whole, length, stranded };
-  }
-
   /** What is kept of one version, as the store finds it. */
   private async keptVersion(ref: PackRef): Promise<KeptPack> {
+    const found = await this.versionOf(ref);
+    if (found.kind !== 'staged') return found;
+    let received = 0;
+    for (const [index, file] of found.manifest.files.entries()) {
+      received += Math.min((await this.runsOf(ref, index)).length, file.bytes);
+    }
+    return { ...found, received };
+  }
+
+  /** Whether one version is sealed, staged or damaged, reading only its records. */
+  private async versionOf(ref: PackRef): Promise<FoundVersion> {
     const manifest = await this.manifestOf(ref);
     if (manifest.kind !== 'valid') {
       return { kind: 'damaged', ref, reason: faultOf(ref, 'manifest', manifest) };
@@ -333,11 +351,7 @@ export class ModelPackStore implements PackStore {
     }
     const directory = this.directoryOf(ref);
     if ((await this.tree.readFile(`${directory}/${SEAL_FILE}`)) === undefined) {
-      let received = 0;
-      for (const [index, file] of manifest.value.files.entries()) {
-        received += Math.min((await this.runsOf(ref, index)).length, file.bytes);
-      }
-      return { kind: 'staged', manifest: manifest.value, received };
+      return { kind: 'staged', manifest: manifest.value };
     }
     const seal = await this.records.read(
       `${directory}/${SEAL_FILE}`,
