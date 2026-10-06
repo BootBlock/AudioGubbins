@@ -28,6 +28,18 @@ import generated from './vitest.projects.json' with { type: 'json' };
 /** The files of the allocation tests, which run apart from the rest (see the `allocation` project). */
 const ALLOCATION_TESTS = '**/*allocation.test.ts';
 
+/** The machine-learning processors' pinned golden renders (see the `ml-golden` project). */
+const ML_GOLDEN_TESTS = '**/*.ml-golden.test.ts';
+
+/**
+ * Whether the command names the `ml-golden` project. Its tests read model
+ * packs from a cache outside the repository (REQ-REPO-191) and run the real
+ * inference runtime, so it is defined only where it is asked for by name
+ * (`pnpm test:ml-golden`), and `pnpm test`, which runs every project defined,
+ * never runs it.
+ */
+const ML_GOLDEN_NAMED = process.argv.some((argument) => argument.includes('ml-golden'));
+
 /**
  * The generated projects that run in a group of their own, after the rest. A
  * processor's tests run every kernel over every layout, block size and
@@ -63,7 +75,7 @@ export default defineConfig({
         test: {
           ...project,
           environment: environmentOf(project.environment),
-          exclude: [...configDefaults.exclude, ALLOCATION_TESTS],
+          exclude: [...configDefaults.exclude, ALLOCATION_TESTS, ML_GOLDEN_TESTS],
           ...(LATER_PROJECTS.has(project.name) ? { sequence: { groupOrder: 1 } } : {}),
         },
       })),
@@ -83,6 +95,23 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
+
+      ...(ML_GOLDEN_NAMED
+        ? [
+            {
+              // Each golden renders seconds of audio through a model on one
+              // thread, so the files run one at a time, as a pinned render
+              // does.
+              test: {
+                name: 'ml-golden',
+                root: '.',
+                environment: 'node' as const,
+                include: [`packages/*/src/${ML_GOLDEN_TESTS}`],
+                fileParallelism: false,
+              },
+            },
+          ]
+        : []),
 
       {
         test: {

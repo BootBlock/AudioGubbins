@@ -522,6 +522,7 @@ Published paths
   function regionEnd(peaks: Int32Array<ArrayBufferLike>, index: number, count: number, bins: number): number
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
+  function resamplingQualityOf(grade: ResamplingGrade): ResamplingQuality
   function selectNodePaths(plan: ExecutionPlan, implementations: NodeImplementations, available: Readonly<Record<"gpu", boolean>>, purpose: ProcessingPurpose): readonly NodePath[]
   function selectProcessingMode(request: ProcessingModeRequest): DomainResult<ProcessingModeChoice>
   function settingsFor(profile: PresetProfile): DomainResult<PerformanceSettings>
@@ -2997,6 +2998,7 @@ Published paths
   readonly FakeModel.inputs: readonly TensorInfo[]
   readonly FakeModel.outputs: readonly TensorInfo[]
   FakeModel.run: (inputs: ReadonlyMap<string, Tensor>) => ReadonlyMap<string, Tensor>
+  function realInference(cpuWebAssembly: Uint8Array<ArrayBuffer>, cpuSha256: string): InferencePort
 
 @audiogubbins/model-packs
   type AutomaticDownload = "never" | "required"
@@ -3183,6 +3185,16 @@ Published paths
   const HUM_DETECTOR: AudioDetector
   type Measurement = Float32Array<ArrayBufferLike> | readonly number[]
   type Measurer = WholePass<Measurement>
+  interface ModelFile
+  readonly ModelFile.bytes: ModelBytes
+  readonly ModelFile.sha256: string
+  interface ModelLibrary
+  ModelLibrary.file: (pack: string, version: string, path: string, signal?: CancellationSignal) => Promise<DomainResult<ModelFile>>
+  interface ModelServices
+  readonly ModelServices.inference: InferencePort
+  readonly ModelServices.models: ModelLibrary
+  const ModelUnavailability: { readonly RequiredUnavailable: "required-unavailable"; readonly Incompatible: "incompatible"; readonly DeviceUnavailable: "device-unavailable"; }
+  type ModelUnavailability = "device-unavailable" | "incompatible" | "required-unavailable"
   const NOISE_FLOOR_DETECTOR: AudioDetector
   interface NoiseProfileSettings
   readonly NoiseProfileSettings.values: ParameterValues
@@ -3229,6 +3241,8 @@ Published paths
   WholePass.add: (input: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<void>
   WholePass.result: (signal?: CancellationSignal) => Promise<DomainResult<TResult>>
   WholePass.release: () => void
+  function deepFilterNet3(services: ModelServices): ProcessorType
+  function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path: string; }, reason?: DomainFailure | undefined): DomainFailureResult
   function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string

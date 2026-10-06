@@ -28,7 +28,8 @@
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/audio-graph": "workspace:*",
-    "@audiogubbins/audio-engine": "workspace:*"
+    "@audiogubbins/audio-engine": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*"
   },
   "devDependencies": {
     "@audiogubbins/test-fixtures": "workspace:*",

@@ -269,7 +269,9 @@ const PACKAGES = [
   {
     // The processor types: each one object that states its descriptor and
     // makes its kernel on the engine (ADR-0061). No browser, so a processor
-    // runs on the feeder, the render worker and the worklet alike.
+    // runs on the feeder, the render worker and the worklet alike. A
+    // machine-learning processor runs its model through the inference port
+    // (ADR-0062), the entry of ml-runtime alone, never its adapter or worker.
     dir: 'packages/processors',
     name: '@audiogubbins/processors',
     description:
@@ -277,7 +279,12 @@ const PACKAGES = [
     dom: false,
     jsx: false,
     portable: true,
-    deps: ['@audiogubbins/domain', '@audiogubbins/audio-graph', '@audiogubbins/audio-engine'],
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-graph',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/ml-runtime',
+    ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: {},
     externalDev: {},

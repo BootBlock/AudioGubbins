@@ -1,0 +1,14 @@
+DeepFilterNet 3, a model pack for AudioGubbins
+
+enc.onnx, erb_dec.onnx and df_dec.onnx are the ONNX graphs of DeepFilterNet 3,
+unchanged, taken from models/DeepFilterNet3_onnx.tar.gz of
+https://github.com/Rikorose/DeepFilterNet at commit
+d375b2d8309e0935d165700c91da9de862a99c31.
+
+DeepFilterNet is Copyright (c) 2021 Hendrik Schröter. Its repository, whose
+models folder these graphs come from, is licensed under either of the MIT
+License (LICENSE-MIT) or the Apache License, Version 2.0 (LICENSE-APACHE), at
+your option, as its LICENSE file and README state.
+
+The pack was assembled by the AudioGubbins pack build,
+tools/model-packs/build-packs.mjs (Apache-2.0).

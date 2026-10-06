@@ -51,13 +51,17 @@
     "verify:commit": "pnpm run lint && pnpm run typecheck:full && pnpm run test && pnpm run record:check && pnpm run test:dependencies",
     "verify:integration": "pnpm run verify:commit && pnpm run build && pnpm run test:e2e",
     "version:check": "node tools/sync-version.mjs --check",
-    "version:sync": "node tools/sync-version.mjs"
+    "version:sync": "node tools/sync-version.mjs",
+    "packs:build": "node tools/model-packs/build-packs.mjs",
+    "packs:check": "node tools/model-packs/build-packs.mjs --check",
+    "test:ml-golden": "vitest run --project ml-golden"
   },
   "devDependencies": {
     "@audiogubbins/audio-engine": "workspace:*",
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/input": "workspace:*",
+    "@audiogubbins/model-packs": "workspace:*",
     "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",
     "@playwright/test": "1.63.0",

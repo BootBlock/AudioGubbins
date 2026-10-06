@@ -242,6 +242,15 @@ export default tseslint.config(
     rules: { 'no-restricted-syntax': 'off' },
   },
 
+  // The build tooling's one network exception (ADR-0062, REQ-REPO-191): the
+  // model-pack build's download of the pinned sources a pack definition names,
+  // which sends nothing but the request for each. It runs on a developer's
+  // machine and is never shipped; no other tool may.
+  {
+    files: ['tools/model-packs/source-download.mjs'],
+    rules: { 'no-restricted-globals': 'off' },
+  },
+
   // Browser-facing packages and the application shell.
   {
     files: [

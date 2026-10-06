@@ -5,6 +5,14 @@
  */
 
 export { PROCESSOR_CATALOGUE, PROCESSOR_TYPES, PROCESSOR_TYPES_BY_KEY } from './catalogue.js';
+export { deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
+export {
+  type ModelFile,
+  type ModelLibrary,
+  ModelUnavailability,
+  modelUnavailable,
+} from './ml/model-library.js';
+export { type ModelServices } from './ml/model-sessions.js';
 export {
   type ParameterReader,
   type ProcessorDefinition,

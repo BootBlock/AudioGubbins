@@ -1,0 +1,19 @@
+Spleeter, two stems, a model pack for AudioGubbins
+
+model.onnx holds the weights of Spleeter's two-stem model (vocals and
+accompaniment), from 2stems.tar.gz of the Spleeter v1.4.0 release,
+https://github.com/deezer/spleeter/releases/tag/v1.4.0.
+
+Spleeter is Copyright (c) 2019-present, Deezer SA, and licensed under the MIT
+License (LICENSE). Its authors state that its source code and pre-trained
+models are distributed under the MIT License (Hennequin et al., "Spleeter: a
+fast and efficient music source separation tool with pre-trained models",
+Journal of Open Source Software 5(50), 2154, 2020, page 3).
+
+AudioGubbins converted it to ONNX (opset 17) with
+tools/model-packs/export/spleeter.py (Apache-2.0). The conversion changed the
+weights' format and laid out both stems' networks in one graph; it changed no
+weight.
+
+The pack was assembled by the AudioGubbins pack build,
+tools/model-packs/build-packs.mjs (Apache-2.0).

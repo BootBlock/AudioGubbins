@@ -1,0 +1,112 @@
+/**
+ * A machine-learning processor's kernel: it plays back what its whole pass
+ * made, the model's output over the whole stream, frame for frame from the
+ * stream's first frame (ADR-0062, decision 19 of the phase).
+ *
+ * The pass has already aligned the output with the input, so the kernel
+ * delays nothing, needs no lead-in and counts no frames but its position.
+ * Past the end of what was made it writes silence: the rack cuts a chain's
+ * tail at the stream's end, so nothing heard lies there. Unmeasured, it
+ * passes its input on through `finiteSample`, so the rack's pass over the
+ * stream can be made through it. A list of numbers is another processor's
+ * kind of measurement, and samples whose count is not a whole number of
+ * frames over its channels are not a pass's output: a node holding either
+ * was built wrongly, which no pass over the stream again would mend.
+ *
+ * Its parameters shaped the inference, so a change to one is heard once the
+ * pass is made again, never from a kernel that is playing.
+ */
+
+import {
+  FailureKind,
+  fail,
+  failure,
+  succeed,
+  type DomainFailureResult,
+  type DomainResult,
+} from '@audiogubbins/domain';
+import type { AudioFrameBlock, NodeKernel } from '@audiogubbins/audio-engine';
+
+import type { ProcessorRun } from '../framework/processor-type.js';
+import { finiteSample } from '../framework/sample-safety.js';
+
+function refused(code: string, summary: string): DomainFailureResult {
+  return fail(failure(code, FailureKind.Unrecoverable, summary));
+}
+
+/** Plays back a planar measurement, or passes its input on where it has none. */
+class PlaybackKernel implements NodeKernel {
+  readonly #label: string;
+  readonly #samples: Float32Array | undefined;
+  /** The frames a channel of `#samples` holds. */
+  readonly #frames: number;
+  #position = 0;
+
+  constructor(label: string, samples: Float32Array | undefined, channels: number) {
+    this.#label = label;
+    this.#samples = samples;
+    this.#frames = samples === undefined ? 0 : samples.length / channels;
+  }
+
+  process(
+    inputs: readonly AudioFrameBlock[],
+    outputs: readonly AudioFrameBlock[],
+    frames: number,
+  ): void {
+    const output = outputs[0];
+    if (output === undefined) throw new Error(`A ${this.#label} was given no output.`);
+    const samples = this.#samples;
+    if (samples === undefined) {
+      const input = inputs[0];
+      for (const [channel, into] of output.channels.entries()) {
+        const from = input?.channels[channel];
+        for (let frame = 0; frame < frames; frame += 1) {
+          into[frame] = finiteSample(from?.[frame] ?? 0);
+        }
+      }
+      return;
+    }
+    const start = this.#position;
+    const available = Math.max(0, Math.min(frames, this.#frames - start));
+    for (const [channel, into] of output.channels.entries()) {
+      const base = channel * this.#frames + start;
+      into.set(samples.subarray(base, base + available));
+      into.fill(0, available, frames);
+    }
+    this.#position = start + frames;
+  }
+
+  setParameter(name: string): DomainResult<void> {
+    return fail(
+      failure(
+        'processor.parameter-needs-pass',
+        FailureKind.Rejected,
+        `A ${this.#label}'s "${name}" shaped its inference, so a change to it is heard once its pass is made again.`,
+        { details: { name } },
+      ),
+    );
+  }
+
+  release(): void {
+    // It holds nothing but the measurement, which its node keeps.
+  }
+}
+
+/** The kernel that plays back `run`'s measurement, for the processor `label` names. */
+export function playbackKernel(run: ProcessorRun, label: string): DomainResult<NodeKernel> {
+  const { measured } = run;
+  const channels = run.output.roles.length;
+  if (measured !== undefined && !(measured instanceof Float32Array)) {
+    return refused(
+      'processor.measurement-kind',
+      `A ${label} plays back the samples its pass made, but its node holds a list of numbers.`,
+    );
+  }
+  if (measured !== undefined && measured.length % channels !== 0) {
+    return refused(
+      'processor.measurement-shape',
+      `A ${label}'s node holds ${String(measured.length)} samples, which are not a whole number of frames over its ${String(channels)} channels.`,
+    );
+  }
+  return succeed(new PlaybackKernel(label, measured, channels));
+}

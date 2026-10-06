@@ -295,6 +295,12 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
       'packages/processors/src/spectral/dereverb.ts: MAXIMUM_TAPS',
       'packages/processors/src/spectral/dereverb.ts: dereverbFrameSize',
     ],
+  "The descriptors of the machine-learning types, which the catalogue's test holds to category order apart from the types it makes; the catalogue lists them by key.":
+    ['packages/processors/src/catalogue.ts: MODEL_PROCESSOR_DESCRIPTORS'],
+  "DeepFilterNet 3's definition, which its tests run over stand-in graphs on the fake runtime; the processor's type is made from it by `deepFilterNet3`.":
+    ['packages/processors/src/ml/deepfilternet/deepfilternet.ts: DEEPFILTERNET_3'],
+  "The most samples a model pass's output may hold, which its test feeds a stream one frame past; the pass refuses such a stream itself.":
+    ['packages/processors/src/ml/model-pass.ts: MOST_OUTPUT_SAMPLES'],
   'The max-rE weights of each order, which their test holds to the closed form and to the published second-order value; the decoder takes them when it makes its matrix.':
     ['packages/processors/src/space/ambisonic-decode.ts: maxReWeights'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':

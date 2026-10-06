@@ -295,6 +295,33 @@ pitch processors" with `verify:commit` green:
 Then, committed separately with `verify:commit` green: the detectors and
 assistants (decision 16), and `packages/ml-runtime` (decision 17).
 
+Fifth session, 2026-10-06, committed as "Let a whole pass wait, fail and
+carry audio" (`fe99c73`, decisions 19 and 20) and then the ML processor
+framework, DeepFilterNet 3 and the pack build tool, each with
+`verify:commit` green:
+
+- `packages/processors/src/ml/`: the `ModelLibrary` port (bytes with the
+  SHA-256 taken while reading), `openModel` (one pinned session per graph
+  per pass, released on every path), the model pass (fixed chunks, the
+  canonical resampler in and out, version 1), the playback kernel, and a
+  bound of 2^26 output samples (`processor.model-output-too-long`).
+- DeepFilterNet 3 (`ml/deepfilternet/`): libDF's STFT (960 through a
+  Bluestein DFT on the canonical FFT), features, three graphs (opset 12,
+  stateless), ERB gains, deep filter, post-filter and attenuation limit;
+  chunks of 1,000 frames each heard after a 400-frame warm-up, normalisation
+  restarted per run, cut at the chunk edge; graph optimisation `extended`
+  (every level gave the same bits). Against a numpy port on Python
+  onnxruntime: 1.2e-7; against DeepFilterNet's own whole-stream output:
+  55 dB, the difference being the chunk joins. Pinned golden
+  `81fdbd5f…` (`pnpm test:ml-golden`, not in `verify:commit`).
+- `tools/model-packs/`: pack definitions (sources pinned by commit and
+  hash, every made file's hash), the export scripts with a hash-pinned
+  Python environment (CPU torch 2.9.1), and `build-packs.mjs`
+  (`pnpm packs:build`, `pnpm packs:check`), writing outside the repository.
+  All three exports reproduced the research hashes byte for byte. Each pack
+  carries its licence texts and a NOTICE. The tool's download is the build
+  tooling's one network exception.
+
 Open points from `ml-runtime`:
 
 - Closed (decision 20): the adapter reads the runtime's WebAssembly through
@@ -316,6 +343,18 @@ Open points from `ml-runtime`:
 
 Open points from `model-packs`:
 
+- The thread entries do not yet build ML types: they need an
+  `InferencePort` (a `WorkerInference` client with a `RuntimeSetup`), a
+  `ModelLibrary` on the installed packs, and the ML factories in the map
+  they give `chainProcessing`.
+- The resampler's version (`CANONICAL_RESAMPLER_VERSION = 1`) is stated in
+  processors; it belongs to the engine.
+- A parameter change of an ML processor while playing is refused: it needs
+  a new pass.
+- The repository's NOTICE does not yet credit the ported code
+  (DeepFilterNet's libDF, MIT OR Apache-2.0).
+- Serving the built packs from the application's origin in development and
+  in a build is not wired.
 - Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
   only) implements the `Sha256` port; `LOCAL_INFERENCE` and
   `localInferenceCapabilities` are exported from `packages/capabilities`.

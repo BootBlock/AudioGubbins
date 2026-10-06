@@ -26,6 +26,9 @@
       "path": "../../packages/audio-engine"
     },
     {
+      "path": "../../packages/ml-runtime"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

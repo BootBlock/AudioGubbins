@@ -1,0 +1,87 @@
+{
+  "id": "deepfilternet-3",
+  "version": "1.0.0",
+  "name": "DeepFilterNet 3",
+  "purpose": "Removes broadband noise and enhances speech at 48 kHz.",
+  "licence": {
+    "code": "MIT OR Apache-2.0",
+    "weights": "MIT OR Apache-2.0",
+    "evidence": [
+      {
+        "url": "https://github.com/Rikorose/DeepFilterNet/blob/d375b2d8309e0935d165700c91da9de862a99c31/LICENSE",
+        "says": "Licensed under either of Apache License, Version 2.0 or MIT license at your option."
+      },
+      {
+        "url": "https://github.com/Rikorose/DeepFilterNet/blob/d375b2d8309e0935d165700c91da9de862a99c31/README.md#license",
+        "says": "All code in this repository is dual-licensed under either MIT License or Apache License, Version 2.0, at your option. The ONNX graphs are files of the same repository, under models/."
+      }
+    ]
+  },
+  "runtime": {
+    "name": "onnxruntime-web",
+    "minimum": "1.30.0",
+    "below": "1.31.0",
+    "capabilities": ["webassembly-simd"]
+  },
+  "tiers": ["standard", "high"],
+  "serves": { "processors": ["deepfilternet-3"], "detectors": [] },
+  "sources": [
+    {
+      "id": "onnx-archive",
+      "url": "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/d375b2d8309e0935d165700c91da9de862a99c31/models/DeepFilterNet3_onnx.tar.gz",
+      "bytes": 7983136,
+      "sha256": "c94d91f70911001c946e0fabb4aa9adc37045f45a03b56008cb0c8244cb63616",
+      "archive": "tar.gz"
+    },
+    {
+      "id": "licence-mit",
+      "url": "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/d375b2d8309e0935d165700c91da9de862a99c31/LICENSE-MIT",
+      "bytes": 1083,
+      "sha256": "24e6bb09c928af8d8e56268082f87413247ce36b39dd5d33add2f9893968065e"
+    },
+    {
+      "id": "licence-apache",
+      "url": "https://raw.githubusercontent.com/Rikorose/DeepFilterNet/d375b2d8309e0935d165700c91da9de862a99c31/LICENSE-APACHE",
+      "bytes": 10837,
+      "sha256": "1eaee808c5fb6b4e895ba30425285a5cdc5dd25bba2cd230f264c2200c331aec"
+    }
+  ],
+  "files": [
+    {
+      "path": "enc.onnx",
+      "bytes": 1954042,
+      "sha256": "7c5399d3da8a50ebef1c1a0ae421b33376aa5e45d0e92df16da7e83c9c131916",
+      "make": { "extract": { "source": "onnx-archive", "member": "tmp/export/enc.onnx" } }
+    },
+    {
+      "path": "erb_dec.onnx",
+      "bytes": 3292397,
+      "sha256": "ab669a1d10afe20911728b33053a452071042317a90581092b325da7b2f9d895",
+      "make": { "extract": { "source": "onnx-archive", "member": "tmp/export/erb_dec.onnx" } }
+    },
+    {
+      "path": "df_dec.onnx",
+      "bytes": 3340803,
+      "sha256": "23114ce3b0f6464b763ee62f7bb8aab6b2a129a21eabd5bcfe59413db05f278a",
+      "make": { "extract": { "source": "onnx-archive", "member": "tmp/export/df_dec.onnx" } }
+    },
+    {
+      "path": "LICENSE-MIT",
+      "bytes": 1083,
+      "sha256": "24e6bb09c928af8d8e56268082f87413247ce36b39dd5d33add2f9893968065e",
+      "make": { "copy": "licence-mit" }
+    },
+    {
+      "path": "LICENSE-APACHE",
+      "bytes": 10837,
+      "sha256": "1eaee808c5fb6b4e895ba30425285a5cdc5dd25bba2cd230f264c2200c331aec",
+      "make": { "copy": "licence-apache" }
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 665,
+      "sha256": "a73fdaff2c00de7bf8fc1a872f47e31c9047866d56e8d38ba2a40fee380caebc",
+      "make": { "notice": "deepfilternet-3.txt" }
+    }
+  ]
+}

@@ -65,6 +65,7 @@ export {
   ResamplingQuality,
   SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
+export { resamplingQualityOf } from './dsp/resampling-grade.js';
 export {
   type CanonicalDetectorFeatures,
   type CanonicalLoudnessMeter,

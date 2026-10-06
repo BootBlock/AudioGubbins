@@ -224,6 +224,20 @@ module.exports = {
       to: { path: '^packages/(?!(ml-runtime|domain)/)' },
     },
     {
+      name: 'processors-reach-inference-through-its-port',
+      severity: 'error',
+      comment:
+        'A machine-learning processor runs its model through the inference port (ADR-0062): the ' +
+        "entry of ml-runtime, and in its tests that package's test support. Its adapter, worker " +
+        "and protocol are the application's to start, so a processor runs on any thread and in " +
+        'tests with a fake runtime.',
+      from: { path: '^packages/processors/' },
+      to: {
+        path: '^packages/ml-runtime/',
+        pathNot: '^packages/ml-runtime/src/(index|testing/index)\\.ts$',
+      },
+    },
+    {
       name: 'onnx-runtime-stays-behind-its-adapter',
       severity: 'error',
       comment:

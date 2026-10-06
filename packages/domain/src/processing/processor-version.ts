@@ -22,7 +22,14 @@ export interface ModelIdentity {
   readonly pack: string;
   /** The pack's version, as its manifest states it. */
   readonly version: string;
-  /** The SHA-256 of the model file, in lower-case hexadecimal. */
+  /**
+   * The SHA-256, in lower-case hexadecimal, of the listing of the files the
+   * processor runs, as `sha256sum` writes one: for each file a line of its
+   * hash in lower-case hexadecimal, two spaces, its path within the pack and
+   * a line feed, sorted by path. A pack of one file and a pack of three are
+   * named by the one rule, and a change to any file a processor runs changes
+   * the name.
+   */
   readonly modelHash: string;
   /** The SHA-256 of the inference runtime's WebAssembly, in lower-case hexadecimal. */
   readonly runtimeHash: string;
@@ -64,6 +71,24 @@ export function isModelIdentity(identity: ModelIdentity): boolean {
   );
 }
 
+/** A model as a reader names it: its pack, its version and its hash. */
+function modelName(model: ModelIdentity): string {
+  return `${model.pack} ${model.version} (${model.modelHash})`;
+}
+
+/**
+ * Whether two instances name one model: the same pack, version and hash of
+ * the files it runs, or no model at all. The runtime is compared apart, so a
+ * refusal says which of the two changed.
+ */
+function sameModel(found: ModelIdentity | undefined, implemented: ModelIdentity | undefined) {
+  return (
+    found?.pack === implemented?.pack &&
+    found?.version === implemented?.version &&
+    found?.modelHash === implemented?.modelHash
+  );
+}
+
 /**
  * The instance's version where it is the one this build implements, or why
  * not, naming the processor so the person knows which to replace.
@@ -77,6 +102,10 @@ export function checkStateVersion(
   if (found.implementation !== implemented.implementation) differs.push('implementation');
   if (found.parameters !== implemented.parameters) differs.push('parameter schema');
   if (found.resampler !== implemented.resampler) differs.push('resampler');
+  if (!sameModel(found.model, implemented.model)) differs.push('model');
+  if (found.model?.runtimeHash !== implemented.model?.runtimeHash) {
+    differs.push('inference runtime');
+  }
   if (differs.length === 0) return succeed(found);
   return fail(
     failure(
@@ -90,6 +119,15 @@ export function checkStateVersion(
           implementedImplementation: implemented.implementation,
           foundParameters: found.parameters,
           implementedParameters: implemented.parameters,
+          ...(found.model === undefined
+            ? {}
+            : { foundModel: modelName(found.model), foundRuntime: found.model.runtimeHash }),
+          ...(implemented.model === undefined
+            ? {}
+            : {
+                implementedModel: modelName(implemented.model),
+                implementedRuntime: implemented.model.runtimeHash,
+              }),
         },
       },
     ),

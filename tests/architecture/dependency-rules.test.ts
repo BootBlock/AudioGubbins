@@ -244,6 +244,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/domain',
     '@audiogubbins/audio-graph',
     '@audiogubbins/audio-engine',
+    '@audiogubbins/ml-runtime',
   ],
   '@audiogubbins/effect-rack': [
     '@audiogubbins/domain',
@@ -568,8 +569,11 @@ describe('the import matcher sees every form an import can take', () => {
 const PAGE_AND_BUILD = [
   'apps/web/index.html',
   ...sourcesMatching('apps/*/*.{ts,mjs,js}'),
-  ...sourcesMatching('tools/*.{mjs,js,ts}').map((path) => forwardSlashes(path)),
+  ...sourcesMatching('tools/**/*.{mjs,js,ts}').map((path) => forwardSlashes(path)),
 ];
+
+/** The model-pack build's download, the build tooling's one network exception. */
+const PACK_BUILD_DOWNLOAD = 'tools/model-packs/source-download.mjs';
 
 describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
   /**
@@ -682,7 +686,7 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
       return NETWORK_APIS.some((pattern) => pattern.test(code));
     });
 
-    expect(offenders).toEqual([]);
+    expect(offenders).toEqual([PACK_BUILD_DOWNLOAD]);
   });
 
   it('loads nothing into the page from another origin', () => {

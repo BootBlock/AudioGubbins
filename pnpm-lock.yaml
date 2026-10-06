@@ -178,6 +178,9 @@ importers:
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:packages/input
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:packages/model-packs
       '@axe-core/playwright':
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
@@ -700,6 +703,9 @@ importers:
       '@audiogubbins/domain':
         specifier: workspace:*
         version: link:../domain
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
     devDependencies:
       '@audiogubbins/test-fixtures':
         specifier: workspace:*

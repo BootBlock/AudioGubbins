@@ -4,6 +4,10 @@
  * every chain against. A type is listed here once, and nothing else lists
  * processors, so the catalogue the project is checked by and the node types a
  * render runs cannot differ.
+ *
+ * A machine-learning type runs its model through services the thread that
+ * runs it is given (ADR-0062), so it is made there, from its module's
+ * function; its descriptor is a constant, listed here in the catalogue.
  */
 
 import type { ProcessorDescriptor } from '@audiogubbins/domain';
@@ -31,6 +35,7 @@ import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
 import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
 import { DELAY } from './space/delay.js';
 import { REVERB } from './space/reverb.js';
+import { DEEPFILTERNET_3_DESCRIPTOR } from './ml/deepfilternet/deepfilternet.js';
 
 /**
  * Every processor type, by category in the order the domain lists categories,
@@ -66,6 +71,16 @@ export const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType> = new Ma
   PROCESSOR_TYPES.map((type) => [type.descriptor.typeKey, type]),
 );
 
-/** The descriptors of every processor type, by type key. */
-export const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor> =
-  catalogueOf(PROCESSOR_TYPES);
+/**
+ * The descriptors of the machine-learning processor types, by category in the
+ * domain's order, whose types the threads make with their services.
+ */
+export const MODEL_PROCESSOR_DESCRIPTORS: readonly ProcessorDescriptor[] = [
+  DEEPFILTERNET_3_DESCRIPTOR,
+];
+
+/** The descriptors of every processor type, those that run a model among them, by type key. */
+export const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor> = new Map([
+  ...catalogueOf(PROCESSOR_TYPES),
+  ...MODEL_PROCESSOR_DESCRIPTORS.map((descriptor) => [descriptor.typeKey, descriptor] as const),
+]);

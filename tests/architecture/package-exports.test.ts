@@ -251,6 +251,15 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/processors': {
+    "The machine-learning processors and the model library they read their packs through (ADR-0062), which the threads that run racks make DeepFilterNet 3 with, over the application's library on the installed packs, as Phase 06's pack manager and those threads are wired.":
+      [
+        'ModelFile',
+        'ModelLibrary',
+        'ModelServices',
+        'ModelUnavailability',
+        'deepFilterNet3',
+        'modelUnavailable',
+      ],
     "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
     "The learner of a noise reduction's profile (ADR-0061), which the application runs over a stretch a person marks as noise alone and stores as the instance's state, as Phase 06's rack views are built.":
@@ -274,26 +283,13 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/ml-runtime': {
-    "The inference port and its client over the inference workers (ADR-0062), which Phase 06's machine-learning processors run models through and the application starts the workers for, as each is built.":
+    "The inference port's client over the inference workers and the setup the runtime is started with (ADR-0062), which the application starts the workers with as Phase 06's machine-learning processors are wired into its threads.":
       [
-        'GraphOptimisation',
         'InferenceCapabilities',
-        'InferenceExecution',
-        'InferenceMode',
-        'InferenceOptions',
-        'InferencePort',
-        'InferenceSession',
         'InferenceWorkerPort',
-        'ModelBytes',
-        'PreviewAccelerator',
-        'PreviewAcceleratorKind',
         'RuntimeBuild',
         'RuntimeSetup',
-        'Tensor',
-        'TensorDimension',
-        'TensorInfo',
         'WorkerInference',
-        'tensor',
       ],
   },
   '@audiogubbins/effect-rack': {

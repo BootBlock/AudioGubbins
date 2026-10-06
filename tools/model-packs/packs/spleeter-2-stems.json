@@ -1,0 +1,78 @@
+{
+  "id": "spleeter-2-stems",
+  "version": "1.0.0",
+  "name": "Spleeter, two stems",
+  "purpose": "Separates a music mix into vocals and accompaniment at 44.1 kHz.",
+  "licence": {
+    "code": "MIT",
+    "weights": "MIT",
+    "evidence": [
+      {
+        "url": "https://github.com/deezer/spleeter/blob/556ef2121492d72398a988af1b38b55176f5973a/LICENSE",
+        "says": "MIT License, Copyright (c) 2019-present, Deezer SA, at the v1.4.0 release's commit."
+      },
+      {
+        "url": "https://doi.org/10.21105/joss.02154",
+        "says": "Spleeter source code and pre-trained models are available on github and distributed under a MIT license (Hennequin et al., JOSS 5(50) 2154, 2020, page 3)."
+      }
+    ]
+  },
+  "runtime": {
+    "name": "onnxruntime-web",
+    "minimum": "1.30.0",
+    "below": "1.31.0",
+    "capabilities": ["webassembly-simd"]
+  },
+  "tiers": ["draft", "standard", "high", "maximum"],
+  "serves": { "processors": ["spleeter-2-stems"], "detectors": [] },
+  "sources": [
+    {
+      "id": "checkpoint-archive",
+      "url": "https://github.com/deezer/spleeter/releases/download/v1.4.0/2stems.tar.gz",
+      "bytes": 73109797,
+      "sha256": "f3a90b39dd2874269e8b05a48a86745df897b848c61f3958efc80a39152bd692",
+      "archive": "tar.gz"
+    },
+    {
+      "id": "licence",
+      "url": "https://raw.githubusercontent.com/deezer/spleeter/556ef2121492d72398a988af1b38b55176f5973a/LICENSE",
+      "bytes": 1075,
+      "sha256": "b15e40c921ec6fe997e0d88ddab9c26fb915bebbbb9496530d3f98f317d4325a"
+    }
+  ],
+  "files": [
+    {
+      "path": "model.onnx",
+      "bytes": 78641977,
+      "sha256": "abdcd3b1074399e55b48f88bab2ba01c17d9a31049abf9a1cc062ca94914507d",
+      "make": {
+        "export": {
+          "script": "spleeter.py",
+          "inputs": [
+            {
+              "path": "model.index",
+              "extract": { "source": "checkpoint-archive", "member": "model.index" }
+            },
+            {
+              "path": "model.data-00000-of-00001",
+              "extract": { "source": "checkpoint-archive", "member": "model.data-00000-of-00001" }
+            }
+          ],
+          "arguments": ["--stems", "2", "--checkpoint", "{inputs}/model", "--output", "{output}"]
+        }
+      }
+    },
+    {
+      "path": "LICENSE",
+      "bytes": 1075,
+      "sha256": "b15e40c921ec6fe997e0d88ddab9c26fb915bebbbb9496530d3f98f317d4325a",
+      "make": { "copy": "licence" }
+    },
+    {
+      "path": "NOTICE",
+      "bytes": 928,
+      "sha256": "3ab8594468c6f6df6e4a6114caef396757fd0de98890a39243c356fe8938a9f6",
+      "make": { "notice": "spleeter-2-stems.txt" }
+    }
+  ]
+}
