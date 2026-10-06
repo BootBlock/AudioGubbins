@@ -10,17 +10,9 @@
  * of libDF (`libDF/src/lib.rs`, `libDF/src/tract.rs`) at the same commit.
  */
 
-import { sampleRate, type SampleRate } from '@audiogubbins/domain';
 import { GraphOptimisation, InferenceMode } from '@audiogubbins/ml-runtime';
 
-import { PINNED_RUNTIME_SHA256, type ModelDefinition } from '../model-definition.js';
-
-/** 48 kHz, the only rate the model was trained at. */
-function modelRate(): SampleRate {
-  const rate = sampleRate(48_000);
-  if (!rate.ok) throw new Error('48 000 is a sample rate.');
-  return rate.value;
-}
+import { PINNED_RUNTIME_SHA256, modelRate, type ModelDefinition } from '../model-definition.js';
 
 /** The graphs, by their paths within the pack. */
 export const DeepFilterNetGraph = {
@@ -31,8 +23,10 @@ export const DeepFilterNetGraph = {
 
 /**
  * The model this build runs: version 1.0.0 of the pack `deepfilternet-3`,
- * whose files are `tools/model-packs/packs/deepfilternet-3.json`'s (a test
- * holds them to it), named by the hash of their listing.
+ * named by the listing of every file of
+ * `tools/model-packs/packs/deepfilternet-3.json`, its licences and notice
+ * with its three graphs, which are the files it runs (a test holds both to
+ * the definition).
  *
  * Every session is pinned at the graph optimisation level `extended`, whose
  * output was found bit for bit that of `disabled`, `basic` and `all` on the
@@ -42,7 +36,7 @@ export const DEEPFILTERNET_3_MODEL: ModelDefinition = {
   identity: {
     pack: 'deepfilternet-3',
     version: '1.0.0',
-    modelHash: 'ce0e480b2972cb92a5f22de3c01795baa29a377c680a2932bb6b9c69f1372ee8',
+    modelHash: 'd0a7c3a0f253497abe0fe00206cf04e183174761742297c7a5f3cb6aa3f0e4ce',
     runtimeHash: PINNED_RUNTIME_SHA256,
   },
   files: [
@@ -59,7 +53,8 @@ export const DEEPFILTERNET_3_MODEL: ModelDefinition = {
       sha256: 'ab669a1d10afe20911728b33053a452071042317a90581092b325da7b2f9d895',
     },
   ],
-  sampleRate: modelRate(),
+  // The only rate the model was trained at.
+  sampleRate: modelRate(48_000),
   inference: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Extended },
 };
 

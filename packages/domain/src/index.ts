@@ -234,12 +234,15 @@ export {
 } from './processing/processor-descriptor.js';
 
 export {
+  type ListedFile,
   type ModelIdentity,
   type ProcessorState,
   type ProcessorStateVersion,
+  type TextSha256,
   MAXIMUM_STATE_VALUES,
   checkStateVersion,
   isModelIdentity,
+  modelHashOf,
 } from './processing/processor-version.js';
 
 export {

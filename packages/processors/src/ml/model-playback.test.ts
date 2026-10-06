@@ -31,6 +31,22 @@ describe("a machine-learning processor's kernel", () => {
     }
   });
 
+  it('plays from the frame its run starts at, and silence before the stream begins', () => {
+    const frames = 1_000;
+    const measured = planar(frames);
+    const input = [new Float32Array(600), new Float32Array(600)];
+    // A preview started at frame 300 hears what a run from frame 0 hears there.
+    expect(runProcessor(TYPE, { layout: STEREO, measured, start: 300 }, input, [128])).toEqual([
+      measured.subarray(300, 900),
+      measured.subarray(frames + 300, frames + 900),
+    ]);
+    // A path 40 frames late reaches the kernel before the stream's first frame.
+    const late = { layout: STEREO, measured, inputArrival: 40 };
+    const [left] = runProcessor(TYPE, late, input, [17]);
+    expect(left?.subarray(0, 40).every((sample) => sample === 0)).toBe(true);
+    expect(left?.subarray(40)).toEqual(measured.subarray(0, 560));
+  });
+
   it('writes silence past the end of what its pass made', () => {
     const measured = planar(100);
     const input = [new Float32Array(300).fill(1), new Float32Array(300).fill(1)];

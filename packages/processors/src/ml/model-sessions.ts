@@ -10,12 +10,15 @@
  */
 
 import {
+  FailureKind,
+  fail,
+  failure,
   succeed,
   throwIfCancelled,
   type CancellationSignal,
   type DomainResult,
 } from '@audiogubbins/domain';
-import type { InferencePort, InferenceSession } from '@audiogubbins/ml-runtime';
+import type { InferencePort, InferenceSession, Tensor } from '@audiogubbins/ml-runtime';
 
 import { fileRefusal, runtimeRefusal, type ModelDefinition } from './model-definition.js';
 import type { ModelLibrary } from './model-library.js';
@@ -28,9 +31,12 @@ export interface ModelServices {
 
 /** A model's sessions, by the path of the file each runs. */
 export class ModelSessions {
+  readonly #pack: string;
   readonly #sessions: ReadonlyMap<string, InferenceSession>;
 
-  constructor(sessions: ReadonlyMap<string, InferenceSession>) {
+  /** The sessions of the pack `pack`, by path. */
+  constructor(pack: string, sessions: ReadonlyMap<string, InferenceSession>) {
+    this.#pack = pack;
     this.#sessions = sessions;
   }
 
@@ -41,6 +47,31 @@ export class ModelSessions {
     // missing here is a fault in the processor that asked.
     if (session === undefined) throw new Error(`The model has no session for ${path}.`);
     return session;
+  }
+
+  /**
+   * Output `name` of a run of the file `path`'s graph, `outputs`, holding
+   * `count` values, the shape the file declares, or why the run's answer
+   * cannot be used: the file broke its own declaration, so the pass is
+   * refused rather than read past or short of what was given.
+   */
+  output(
+    outputs: ReadonlyMap<string, Tensor>,
+    path: string,
+    name: string,
+    count: number,
+  ): DomainResult<Tensor> {
+    const found = outputs.get(name);
+    if (found?.data.length === count) return succeed(found);
+    const pack = this.#pack;
+    return fail(
+      failure(
+        'processor.model-output-invalid',
+        FailureKind.Unrecoverable,
+        `The graph ${path} of ${pack} gave no output ${name} of ${String(count)} values, the shape its file declares, so the stream is not processed.`,
+        { details: { pack, graph: path, output: name } },
+      ),
+    );
   }
 
   release(): void {
@@ -79,7 +110,7 @@ export async function openModel(
       if (!runtime.ok) return runtime;
     }
     kept = true;
-    return succeed(new ModelSessions(opened));
+    return succeed(new ModelSessions(pack, opened));
   } finally {
     // Refused, cancelled or failed part way, nothing opened may outlive the
     // pass that opened it.

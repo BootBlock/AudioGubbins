@@ -33,7 +33,7 @@ import {
   ERB_BANDS,
   ERB_WIDTHS,
 } from './deepfilternet-model.js';
-import type { Spectrum } from './libdf-stft.js';
+import type { Spectrum } from '../spectrum.js';
 
 /** How the enhanced spectrum is finished. */
 export interface Finishing {

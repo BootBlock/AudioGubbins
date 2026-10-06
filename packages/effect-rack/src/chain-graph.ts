@@ -78,10 +78,12 @@ export interface MeasureTap {
 }
 
 /**
- * The measurements made so far, written into the nodes of the processors they
+ * What a graph is built for: the frame of the stream its run starts at, the
+ * measurements made so far, written into the nodes of the processors they
  * were made for, and the processor a measuring graph taps, if it is one.
  */
-export interface Measuring {
+export interface ChainGraphRun {
+  readonly start: number;
   readonly measured: ReadonlyMap<ProcessorId, Measurement>;
   readonly at?: ProcessorId;
 }
@@ -123,16 +125,16 @@ class GraphBuilder {
   measure: MeasureTap | undefined;
   readonly #types: ReadonlyMap<string, ProcessorType>;
   readonly #quality: QualitySettings;
-  readonly #measuring: Measuring;
+  readonly #run: ChainGraphRun;
 
   constructor(
     types: ReadonlyMap<string, ProcessorType>,
     quality: QualitySettings,
-    measuring: Measuring,
+    run: ChainGraphRun,
   ) {
     this.#types = types;
     this.#quality = quality;
-    this.#measuring = measuring;
+    this.#run = run;
   }
 
   node(node: ProcessingNodeDescriptor): void {
@@ -197,7 +199,8 @@ class GraphBuilder {
       slot,
       type.descriptor,
       this.#quality,
-      this.#measuring.measured.get(slot.id),
+      this.#run.start,
+      this.#run.measured.get(slot.id),
     );
     this.node({
       kind: 'processing',
@@ -208,7 +211,7 @@ class GraphBuilder {
       settings,
     });
     this.wire(from.port, { node: id, port: ProcessorPort.Input });
-    if (this.#measuring.at === slot.id) {
+    if (this.#run.at === slot.id) {
       const sink = idOf('measure-tap');
       this.node({
         kind: 'processing',
@@ -264,8 +267,8 @@ class GraphBuilder {
 
 /**
  * The graph that runs `chain` on audio of `input`, its processors given the
- * quality settings `quality` and the measurements `measuring` holds, or why
- * it cannot run: a processor this build does not have, or a layout one of
+ * quality settings `quality`, and the start and measurements `run` holds, or
+ * why it cannot run: a processor this build does not have, or a layout one of
  * them does not take.
  */
 export function chainGraph(
@@ -273,9 +276,9 @@ export function chainGraph(
   types: ReadonlyMap<string, ProcessorType>,
   input: ChannelLayout,
   quality: QualitySettings,
-  measuring: Measuring,
+  run: ChainGraphRun,
 ): DomainResult<ChainGraph> {
-  const builder = new GraphBuilder(types, quality, measuring);
+  const builder = new GraphBuilder(types, quality, run);
   const inputId = idOf('chain-input');
   const outputId = idOf('chain-output');
   builder.node({

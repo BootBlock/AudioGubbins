@@ -56,6 +56,7 @@ function prepare(slots: readonly ChainSlot[], read = readInput, dsp = REFERENCE_
       quality: MAXIMUM_QUALITY.settings,
       blockFrames: 512,
       dsp,
+      start: 0,
     },
     read,
   );

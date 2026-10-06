@@ -31,7 +31,7 @@ export { manifestJson } from './manifest-writing.js';
 
 export { type InstallEvent, type InstallState, nextInstallState } from './install-state.js';
 export { type Sha256, type Sha256Run } from './integrity.js';
-export { nobleSha256 } from './adapter/noble-sha256.js';
+export { nobleSha256, nobleTextSha256 } from './adapter/noble-sha256.js';
 
 export { type FileRange, type PackSource, type ReceiveChunk } from './pack-source.js';
 export {

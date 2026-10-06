@@ -9,12 +9,16 @@ import { FailureKind, MAXIMUM_QUALITY, fail, failure } from '@audiogubbins/domai
 import type { ChainProcessing } from '../pcm/chain-processing.js';
 import { ProcessedStart, type PlanProcessing } from '../pcm/processed-content.js';
 
+const NO_CHAIN = failure(
+  'test.no-chain-processing',
+  FailureKind.Rejected,
+  'This test runs no chain.',
+);
+
 /** A rack's processing that runs no chain. */
 export const NO_CHAIN_PROCESSING: ChainProcessing = {
-  prepare: () =>
-    Promise.resolve(
-      fail(failure('test.no-chain-processing', FailureKind.Rejected, 'This test runs no chain.')),
-    ),
+  partWayStart: () => fail(NO_CHAIN),
+  prepare: () => Promise.resolve(fail(NO_CHAIN)),
 };
 
 /** A canonical reading at Maximum quality that runs no chain. */

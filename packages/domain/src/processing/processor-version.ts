@@ -23,16 +23,46 @@ export interface ModelIdentity {
   /** The pack's version, as its manifest states it. */
   readonly version: string;
   /**
-   * The SHA-256, in lower-case hexadecimal, of the listing of the files the
-   * processor runs, as `sha256sum` writes one: for each file a line of its
-   * hash in lower-case hexadecimal, two spaces, its path within the pack and
-   * a line feed, sorted by path. A pack of one file and a pack of three are
-   * named by the one rule, and a change to any file a processor runs changes
-   * the name.
+   * The SHA-256, in lower-case hexadecimal, of the listing of every file of
+   * the pack's version, as {@link modelHashOf} takes it. A version is one
+   * unit, its licences and notice with its models, so it is named by one
+   * rule that anything holding its manifest can compute, and a change to
+   * any of its files changes the name.
    */
   readonly modelHash: string;
   /** The SHA-256 of the inference runtime's WebAssembly, in lower-case hexadecimal. */
   readonly runtimeHash: string;
+}
+
+/** A file of a model pack as its manifest lists it: its path within the pack and its SHA-256. */
+export interface ListedFile {
+  readonly path: string;
+  /** In lower-case hexadecimal. */
+  readonly sha256: string;
+}
+
+/** The SHA-256 of a text's UTF-8 bytes, in lower-case hexadecimal. */
+export type TextSha256 = (text: string) => string;
+
+/** Two files in the code-unit order of their paths, which a pack's ASCII paths make byte order. */
+function byPath(one: ListedFile, other: ListedFile): number {
+  return one.path < other.path ? -1 : one.path > other.path ? 1 : 0;
+}
+
+/**
+ * The model hash of a pack's version whose manifest lists `files`: the
+ * SHA-256 of their listing as `sha256sum` writes one, for each file a line
+ * of its hash, two spaces, its path and a line feed, sorted by path. The
+ * digest is the caller's, `sha256`, because the domain depends on nothing
+ * and reaches no platform global, and a hash is the platform's to give.
+ */
+export function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string {
+  return sha256(
+    files
+      .toSorted(byPath)
+      .map((file) => `${file.sha256}  ${file.path}\n`)
+      .join(''),
+  );
 }
 
 /** The versions an instance was made with. */

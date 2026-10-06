@@ -1,6 +1,10 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
-import { FailureKind, failure, type ModelIdentity } from '@audiogubbins/domain';
+import { FailureKind, failure, modelHashOf, type ModelIdentity } from '@audiogubbins/domain';
+
+import { nobleTextSha256 } from './adapter/noble-sha256.js';
 
 import {
   availabilityOf,
@@ -12,7 +16,7 @@ import {
 } from './availability.js';
 import type { InstallState } from './install-state.js';
 import type { ModelPackManifest } from './manifest.js';
-import { ANY_SHA256, sampleManifest } from './testing/sample-packs.js';
+import { sampleManifest } from './testing/sample-packs.js';
 
 const FULL: LocalInferenceSupport = {
   status: 'full',
@@ -59,6 +63,7 @@ function context(
     catalogue,
     runtime: RUNTIME,
     device,
+    sha256: nobleTextSha256,
   };
 }
 
@@ -200,7 +205,7 @@ describe('which condition holds for a processor or detector a project names (REQ
     const model: ModelIdentity = {
       pack: 'sample-pack',
       version: '1.0.0',
-      modelHash: ANY_SHA256,
+      modelHash: modelHashOf(V1.files, nobleTextSha256),
       runtimeHash: 'a'.repeat(64),
     };
     const pinned: PackNeed = { ...REQUIRED, model };
@@ -235,6 +240,43 @@ describe('which condition holds for a processor or detector a project names (REQ
     expect(summary(availabilityOf(anotherPack, context([[V1, INSTALLED]])))[1]).toBe(
       'model-pack.none-serves',
     );
+  });
+
+  it('names a version by the listing of every file it holds, its notice as much as its model', () => {
+    const files = [
+      { path: 'model.onnx', bytes: 5, sha256: 'a'.repeat(64) },
+      { path: 'LICENSE', bytes: 3, sha256: 'b'.repeat(64) },
+      { path: 'NOTICE', bytes: 2, sha256: 'c'.repeat(64) },
+    ];
+    const made = sampleManifest({ files });
+    // Listed the way `sha256sum` writes it, sorted by path, and hashed here
+    // apart from the code under test.
+    const listing = `${'b'.repeat(64)}  LICENSE\n${'c'.repeat(64)}  NOTICE\n${'a'.repeat(64)}  model.onnx\n`;
+    const need: PackNeed = {
+      ...REQUIRED,
+      model: {
+        pack: made.id,
+        version: made.version,
+        modelHash: createHash('sha256').update(listing).digest('hex'),
+        runtimeHash: 'a'.repeat(64),
+      },
+    };
+    expect(summary(availabilityOf(need, context([[made, INSTALLED]])))).toEqual([
+      'available',
+      '1.0.0',
+    ]);
+    // The same version with another notice is another unit, though every
+    // file the model runs is the same.
+    const renoticed = sampleManifest({
+      files: files.map((file) =>
+        file.path === 'NOTICE' ? { ...file, sha256: 'd'.repeat(64) } : file,
+      ),
+    });
+    expect(summary(availabilityOf(need, context([[renoticed, INSTALLED]])))).toEqual([
+      'required-unavailable',
+      'model-pack.model-differs',
+      undefined,
+    ]);
   });
 
   it('tells a processor from a detector of the same type key', () => {

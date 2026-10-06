@@ -13,8 +13,9 @@ import { dirname, join } from 'node:path';
 
 import { fail, failure, FailureKind, succeed, type CancellationSignal } from '@audiogubbins/domain';
 import type { InferenceOptions, InferencePort, ModelBytes } from '@audiogubbins/ml-runtime';
-import { FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
+import { FAKE_RUNTIME, FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
 
+import type { ModelDefinition } from '../ml/model-definition.js';
 import { ModelUnavailability, modelUnavailable, type ModelLibrary } from '../ml/model-library.js';
 
 /** The SHA-256 of `bytes`, in lower-case hexadecimal. */
@@ -107,4 +108,47 @@ export class FakeModels implements InferencePort {
     if (runtime === undefined) throw new Error('The test gave no model for these bytes.');
     return runtime.open(model, options, signal);
   }
+}
+
+/**
+ * The bytes of the stand-in for a model's file at `path`: a file the fake
+ * runtime never reads, named by its hash, which differs from path to path.
+ */
+function standInBytes(path: string): Uint8Array<ArrayBuffer> {
+  return new TextEncoder().encode(`stand-in ${path}`);
+}
+
+/** `definition` over a stand-in for each of its files, on the fake runtime. */
+export function standInModel(definition: ModelDefinition): ModelDefinition {
+  return {
+    ...definition,
+    identity: { ...definition.identity, runtimeHash: FAKE_RUNTIME.webAssemblySha256 },
+    files: definition.files.map(({ path }) => ({ path, sha256: sha256Of(standInBytes(path)) })),
+  };
+}
+
+/** The services a stand-in's sessions run on: its files, and the models they run as. */
+export interface StandInServices {
+  readonly inference: FakeModels;
+  readonly models: MemoryModelLibrary;
+}
+
+/**
+ * The services that serve `definition`'s stand-in files ({@link standInModel})
+ * and run each as the model written in TypeScript that `graphs` names for its
+ * path.
+ */
+export function standInServices(
+  definition: ModelDefinition,
+  graphs: ReadonlyMap<string, FakeModel>,
+): StandInServices {
+  const { pack, version } = definition.identity;
+  return {
+    inference: new FakeModels(
+      new Map([...graphs].map(([path, model]) => [sha256Of(standInBytes(path)), model])),
+    ),
+    models: new MemoryModelLibrary(
+      definition.files.map(({ path }) => ({ pack, version, path, bytes: standInBytes(path) })),
+    ),
+  };
 }

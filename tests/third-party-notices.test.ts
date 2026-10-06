@@ -1,17 +1,21 @@
-import { readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { lockedPackagesOf, readLockfileDocuments } from '../tools/read-pnpm-lockfile.mjs';
 import {
   ALLOWED_LICENCES,
   LICENCE_TEXTS,
+  PORTED_CODE,
   type CargoMetadata,
   decideLicence,
   linkedCratesOf,
   noticeOf,
+  portedNoticesOf,
   renderNotices,
   type PackageSource,
 } from '../tools/sync-third-party-notices.mjs';
+import { inRepository } from './repository.js';
 
 /**
  * The generator of `THIRD-PARTY-NOTICES.md`, asked what ships and what each
@@ -330,5 +334,103 @@ describe('the notices file', () => {
     const notices = allowed();
 
     expect(renderNotices(notices.toReversed())).toBe(renderNotices(notices));
+  });
+});
+
+describe('the notices of ported code', () => {
+  /** A port as the list writes one, which every case changes one field of. */
+  const PORT = {
+    project: 'Example',
+    url: 'https://example.com/example',
+    commit: '0123456789abcdef0123456789abcdef01234567',
+    licence: 'MIT',
+    copyright: ['Copyright (c) 2020 Example Authors'],
+    ported: 'Its transform.',
+    into: ['packages/core/src/transform.ts'],
+  };
+
+  /** The paths the fixture's repository holds. */
+  const exists = (path: string) => path === 'packages/core/src/transform.ts';
+
+  it('gives a port its notice, with the standard text of the licence it is taken under', () => {
+    expect(portedNoticesOf({ ported: [PORT] }, exists, standardText)).toEqual({
+      notices: [{ ...PORT, texts: ['The MIT text.'] }],
+    });
+  });
+
+  it('refuses a port whose path is gone or climbs out of the repository, by name', () => {
+    expect(
+      portedNoticesOf(
+        { ported: [{ ...PORT, into: ['packages/core/src/gone.ts', '../outside.ts'] }] },
+        exists,
+        standardText,
+      ),
+    ).toEqual({
+      refused: [
+        'ported code from Example names packages/core/src/gone.ts, which does not exist',
+        'ported code from Example names ../outside.ts, which is not a path in the repository',
+      ],
+    });
+  });
+
+  it('refuses a port whose licence is off the allow-list, as a shipped package is refused', () => {
+    expect(
+      portedNoticesOf({ ported: [{ ...PORT, licence: 'GPL-3.0-only' }] }, exists, standardText),
+    ).toEqual({
+      refused: ['ported code from Example is licensed GPL-3.0-only: GPL-3.0-only is not allowed'],
+    });
+  });
+
+  it('refuses a port that names no full commit, a moving branch, or no copyright lines', () => {
+    expect(
+      portedNoticesOf(
+        { ported: [{ ...PORT, commit: 'main', copyright: ['Example Authors'] }, PORT, PORT] },
+        exists,
+        standardText,
+      ),
+    ).toEqual({
+      refused: [
+        'ported code from Example names no full commit hash',
+        'ported code from Example lists its copyright as anything but lines stating one',
+        'ported code from Example is listed twice',
+        'ported code from Example is listed twice',
+      ],
+    });
+  });
+
+  it('writes the ports after the packages, sharing a licence text with a package that ships it', () => {
+    const decided = portedNoticesOf({ ported: [PORT] }, exists, () => MIT_FILE);
+    const [notice] = 'notices' in decided ? decided.notices : [];
+    if (notice === undefined) throw new Error('The port was refused.');
+    const rendered = renderNotices(
+      [
+        {
+          name: 'shipped',
+          version: '1.0.0',
+          licence: 'MIT',
+          copyright: [],
+          texts: [notice.texts[0] ?? ''],
+          standard: false,
+        },
+      ],
+      [notice],
+    );
+
+    expect(rendered).toContain(
+      '| [Example](https://example.com/example) | `0123456789abcdef0123456789abcdef01234567` | MIT | Copyright (c) 2020 Example Authors | Its transform. | `packages/core/src/transform.ts` | [1](#text-1) |',
+    );
+    expect(rendered).toContain('Shipped by shipped 1.0.0, the code ported from Example.');
+    expect(rendered.match(/Permission is hereby granted/gu)).toHaveLength(1);
+  });
+
+  it('gives every port the committed list names its notice: each path exists and each licence is allowed', () => {
+    const list: unknown = JSON.parse(readFileSync(PORTED_CODE, 'utf8'));
+    const decided = portedNoticesOf(
+      list,
+      (path) => existsSync(inRepository(path)),
+      (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+    );
+
+    expect('refused' in decided ? decided.refused : []).toEqual([]);
   });
 });

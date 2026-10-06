@@ -9,6 +9,12 @@
  * canonical DSP. Preparing may read the whole stream first, since a processor
  * that measures its whole input (a loudness normalisation) needs a pass over
  * it before it can write anything.
+ *
+ * A run may start part way through the stream, as a preview does, and every
+ * request says where: a processor that plays back what its pass made of the
+ * whole stream (a machine-learning processor) must start playing at that
+ * frame, which only the run can tell it. Where a preview may start is the
+ * chain's to say before the run is made, so the frame is chosen first.
  */
 
 import type {
@@ -43,19 +49,21 @@ export interface ChainRequest {
   /** The most frames one call of {@link ChainRun.process} is given. */
   readonly blockFrames: number;
   readonly dsp: CanonicalDsp;
-}
-
-/** A chain running over a stream from its first frame. */
-export interface ChainRun {
-  /** Frames its output lags its input, which its reader trims. */
-  readonly latency: number;
-  /** The layout it writes. */
-  readonly layout: ChannelLayout;
 
   /**
-   * Frames it needs to settle when started part way through, for a preview:
-   * the longest lead-in of any processor it runs.
+   * The frame of the stream the run's first {@link ChainRun.process} call is
+   * given, from 0 to {@link length}: 0 for a run from the stream's start, and
+   * a frame {@link ChainProcessing.partWayStart} allows for a preview.
    */
+  readonly start: number;
+}
+
+/** What a chain's part-way starts depend on: the chain, and the stream as it runs it. */
+export type PartWayRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
+
+/** How a run of a chain may start part way through a stream, for a preview. */
+export interface PartWayStart {
+  /** Frames it needs to settle: the longest lead-in of any processor it runs. */
   readonly leadIn: number;
 
   /**
@@ -64,6 +72,14 @@ export interface ChainRun {
    * the least common multiple of their frame grids.
    */
   readonly frameGrid: number;
+}
+
+/** A chain running over a stream from its request's start. */
+export interface ChainRun {
+  /** Frames its output lags its input, which its reader trims. */
+  readonly latency: number;
+  /** The layout it writes. */
+  readonly layout: ChannelLayout;
 
   /** Processes the next `frames` frames, at most the request's block, from `input` into `output`. */
   process(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void;
@@ -76,6 +92,9 @@ export interface ChainRun {
 
 /** What runs chains: the effect rack's realisation of a chain as the engine's graph. */
 export interface ChainProcessing {
+  /** How a run of the chain may start part way through, or why the chain cannot run. */
+  partWayStart(request: PartWayRequest): DomainResult<PartWayStart>;
+
   /**
    * The run of a chain over the stream `read` reads, after any pass over it
    * that a processor measuring its whole input needs, or why it cannot run.

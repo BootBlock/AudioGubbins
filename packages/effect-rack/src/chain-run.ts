@@ -12,6 +12,11 @@
  * processor unmeasured would pass its input on, and that would pass for
  * success. A chain whose latency cannot be known is refused, since its output
  * could not be put back where its input was (REQ-ARCH-144).
+ *
+ * A pass always hears the stream from its first frame, so every measurement
+ * covers the whole stream; the run is then built for the frame its request
+ * starts at, which reaches every processor's node, so one that plays back
+ * its measurement plays it from there however the run was started.
  */
 
 import {
@@ -38,6 +43,8 @@ import {
   type ChainRun,
   type GraphExecutor,
   type NodeImplementations,
+  type PartWayRequest,
+  type PartWayStart,
   type StreamReader,
 } from '@audiogubbins/audio-engine';
 import type { Measurement, ProcessorType } from '@audiogubbins/processors';
@@ -146,6 +153,16 @@ function run(
   return succeed({ executor: executor.value, endpoints, latency: latency.frames, built });
 }
 
+/** Why a run cannot start at its request's start, or nothing where it can. */
+function startRefusal(request: ChainRequest): DomainResult<never> | undefined {
+  const { start, length } = request;
+  if (Number.isSafeInteger(start) && start >= 0 && start <= length) return undefined;
+  return refused(
+    'start-invalid',
+    `A run starts at a whole frame of its stream, from 0 to ${String(length)}, not at ${String(start)}.`,
+  );
+}
+
 /** The chain's applied processors that measure their whole input, in signal order. */
 function measuredProcessors(
   built: ChainGraph,
@@ -163,16 +180,12 @@ function measuredProcessors(
 class RunningChain implements ChainRun {
   readonly latency: number;
   readonly layout: ChannelLayout;
-  readonly leadIn: number;
-  readonly frameGrid: number;
   readonly #running: Running;
 
-  constructor(running: Running, start: PartWayStart) {
+  constructor(running: Running) {
     this.#running = running;
     this.latency = running.latency;
     this.layout = running.built.layout;
-    this.leadIn = start.leadIn;
-    this.frameGrid = start.frameGrid;
   }
 
   process(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void {
@@ -198,9 +211,21 @@ class RunningChain implements ChainRun {
 export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing {
   const implementations = implementationsOf(types);
   return {
+    partWayStart: (request) => {
+      const built = chainGraph(request.chain, types, request.input, request.quality, {
+        start: 0,
+        measured: new Map(),
+      });
+      return built.ok ? succeed(partWayStart(request, types, built.value)) : built;
+    },
     prepare: async (request, read, signal) => {
+      const invalid = startRefusal(request);
+      if (invalid !== undefined) return invalid;
       const measured = new Map<ProcessorId, Measurement>();
-      const first = chainGraph(request.chain, types, request.input, request.quality, { measured });
+      const first = chainGraph(request.chain, types, request.input, request.quality, {
+        start: request.start,
+        measured,
+      });
       if (!first.ok) return first;
       for (const processor of measuredProcessors(first.value, request, types)) {
         const made = await measure(
@@ -215,19 +240,16 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
         if (!made.ok) return made;
         measured.set(processor.id, made.value);
       }
-      const built = chainGraph(request.chain, types, request.input, request.quality, { measured });
+      const built = chainGraph(request.chain, types, request.input, request.quality, {
+        start: request.start,
+        measured,
+      });
       if (!built.ok) return built;
       const running = run(built.value, built.value.output, implementations, request);
       if (!running.ok) return running;
-      return succeed(new RunningChain(running.value, partWayStart(request, types, built.value)));
+      return succeed(new RunningChain(running.value));
     },
   };
-}
-
-/** How a run of the chain may start part way through a stream. */
-interface PartWayStart {
-  readonly leadIn: number;
-  readonly frameGrid: number;
 }
 
 function greatestCommonDivisor(left: number, right: number): number {
@@ -241,7 +263,7 @@ function greatestCommonDivisor(left: number, right: number): number {
  * multiple of their frame grids.
  */
 function partWayStart(
-  request: ChainRequest,
+  request: PartWayRequest,
   types: ReadonlyMap<string, ProcessorType>,
   built: ChainGraph,
 ): PartWayStart {
@@ -283,7 +305,10 @@ async function measure(
   processor: ProcessorId,
   signal: CancellationSignal | undefined,
 ): Promise<DomainResult<Measurement>> {
+  // A pass reads the stream from its first frame, whatever frame the run it
+  // is made for starts at.
   const built = chainGraph(request.chain, types, request.input, request.quality, {
+    start: 0,
     measured,
     at: processor,
   });

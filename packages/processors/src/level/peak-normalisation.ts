@@ -29,7 +29,11 @@ import {
 } from '@audiogubbins/domain';
 import { decibelsToGain, type NodeKernel } from '@audiogubbins/audio-engine';
 
-import { processorType, type ProcessorRun } from '../framework/processor-type.js';
+import {
+  processorType,
+  type MeasuringRun,
+  type ProcessorRun,
+} from '../framework/processor-type.js';
 import type { Measurer } from '../framework/whole-pass.js';
 import { levelKernel } from './level-gain.js';
 import {
@@ -39,7 +43,6 @@ import {
   linkedPeak,
   measuredValues,
   meterOf,
-  type MeasuringRun,
 } from './normalisation-measurement.js';
 
 const target: NumericParameterDescriptor = {

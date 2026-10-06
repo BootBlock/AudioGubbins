@@ -2,12 +2,13 @@
  * A processor instance as a node of the processing graph, and back.
  *
  * The rack realises a chain as a graph (ADR-0060, REQ-ARCH-140), and a graph
- * node carries only settings of plain values, so an instance's parameters,
- * the quality settings its type reads and its non-parameter state are written
- * into the node's settings here, and read back here when the node's kernel is
- * made. One module does both, so the rack and the kernel cannot disagree
- * about what a node holds. A parameter is named by its key, so a node read in
- * a diagnostic says which setting is wrong in the person's words.
+ * node carries only settings of plain values, so an instance's parameters, the
+ * quality settings its type reads, its non-parameter state and the frame of the
+ * stream the run starts at are written into the node's settings here, and read
+ * back here when the node's kernel is made. One module does both, so the rack
+ * and the kernel cannot disagree about what a node holds. A parameter is named
+ * by its key, so a node read in a diagnostic says which setting is wrong in the
+ * person's words.
  */
 
 import {
@@ -24,21 +25,27 @@ import type { SettingValue } from '@audiogubbins/audio-graph';
 
 import type { Measurement } from './whole-pass.js';
 
-/** The settings a parameter, a quality setting, the state and a measurement are written under. */
+/**
+ * The settings a parameter, a quality setting, the state, the start and a
+ * measurement are written under.
+ */
 const PARAMETER = 'parameter.';
 const QUALITY = 'quality.';
 const STATE_VALUES = 'state.values';
 const STATE_KIND = 'state.kind';
+const START = 'start';
 const MEASURED = 'measured';
 
 /**
- * The settings of the node that runs `processor` at `quality`, with what a
- * whole pass over its input measured, where it needs one and it was made.
+ * The settings of the node that runs `processor` at `quality` in a run that
+ * starts at frame `start` of its stream, with what a whole pass over its
+ * input measured, where it needs one and it was made.
  */
 export function processorNodeSettings(
   processor: ProcessorInstance,
   descriptor: ProcessorDescriptor,
   quality: QualitySettings,
+  start: number,
   measured?: Measurement,
 ): Readonly<Record<string, SettingValue>> {
   const settings: Record<string, SettingValue> = {};
@@ -51,6 +58,7 @@ export function processorNodeSettings(
     settings[STATE_KIND] = processor.state.kind;
     settings[STATE_VALUES] = processor.state.values;
   }
+  settings[START] = start;
   if (measured !== undefined) settings[MEASURED] = measured;
   return settings;
 }
@@ -60,6 +68,11 @@ export interface ProcessorNodeReading {
   readonly values: ParameterValues;
   readonly quality: QualitySettings;
   readonly state?: ProcessorState;
+  /**
+   * The frame of the stream the run the node is part of starts at: the frame
+   * the chain's input is given first, before any latency on the way to it.
+   */
+  readonly start: number;
   /** What a whole pass over the node's input measured, where one was made. */
   readonly measured?: Measurement;
 }
@@ -71,8 +84,22 @@ function settingNames(descriptor: ProcessorDescriptor): ReadonlySet<string> {
     ...descriptor.qualitySettings.map((key) => `${QUALITY}${key}`),
     STATE_KIND,
     STATE_VALUES,
+    START,
     ...(descriptor.wholePass ? [MEASURED] : []),
   ]);
+}
+
+/** The frame a node's run starts at, or nothing, its problem noted, where it states none. */
+function startOf(
+  settings: Readonly<Record<string, SettingValue>>,
+  problems: string[],
+): number | undefined {
+  // Every run states where it starts, so a node that does not was built by
+  // something that would hide a part-way start behind a run from frame 0.
+  const start = settings[START];
+  if (typeof start === 'number' && Number.isSafeInteger(start) && start >= 0) return start;
+  problems.push('it does not say at which frame of its stream its run starts');
+  return undefined;
 }
 
 function isParameterValue(value: SettingValue | undefined): value is ParameterValue {
@@ -121,16 +148,18 @@ export function readProcessorNode(
   } else if (kind !== undefined || stateValues !== undefined) {
     problems.push('its state needs both a kind and its values');
   }
+  const start = startOf(settings, problems);
   const measured = settings[MEASURED];
   if (measured !== undefined && typeof measured !== 'object') {
     problems.push('its measurement is neither a list of numbers nor samples');
   }
-  return problems.length > 0
+  return problems.length > 0 || start === undefined
     ? { problems }
     : {
         reading: {
           values,
           quality: checked,
+          start,
           ...(state === undefined ? {} : { state }),
           ...(typeof measured === 'object' ? { measured } : {}),
         },

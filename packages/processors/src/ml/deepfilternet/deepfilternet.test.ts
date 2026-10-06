@@ -3,29 +3,25 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, type ChannelLayout } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
-import { FAKE_RUNTIME, type FakeModel } from '@audiogubbins/ml-runtime/testing';
+import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import { processorProperties } from '../../testing/processor-properties.js';
-import { FakeModels, MemoryModelLibrary, sha256Of } from '../../testing/model-services.js';
+import {
+  FakeModels,
+  MemoryModelLibrary,
+  standInModel,
+  standInServices,
+} from '../../testing/model-services.js';
+import { toneMixture } from '../../testing/model-signals.js';
+import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
 import { modelProcessorType } from '../model-processor.js';
 import type { ModelDefinition } from '../model-definition.js';
 import { DEEPFILTERNET_3, deepFilterNet3 } from './deepfilternet.js';
 import { DEEPFILTERNET_3_MODEL, DeepFilterNetGraph } from './deepfilternet-model.js';
 
-/** Stand-ins for the three graphs' files, each named by its own hash. */
-const FILES = {
-  [DeepFilterNetGraph.Encoder]: new Uint8Array([1]),
-  [DeepFilterNetGraph.ErbDecoder]: new Uint8Array([2]),
-  [DeepFilterNetGraph.DeepFilterDecoder]: new Uint8Array([3]),
-};
-
-/** DeepFilterNet 3's definition over the stand-in files, on the fake runtime. */
-const STAND_IN: ModelDefinition = {
-  ...DEEPFILTERNET_3_MODEL,
-  identity: { ...DEEPFILTERNET_3_MODEL.identity, runtimeHash: FAKE_RUNTIME.webAssemblySha256 },
-  files: Object.entries(FILES).map(([path, bytes]) => ({ path, sha256: sha256Of(bytes) })),
-};
+/** DeepFilterNet 3's definition over stand-ins for its graphs' files, on the fake runtime. */
+const STAND_IN: ModelDefinition = standInModel(DEEPFILTERNET_3_MODEL);
 
 function frames(dims: readonly number[]): number {
   return dims[2] ?? 0;
@@ -96,34 +92,13 @@ function decoders(gain: number, tap: number): readonly [FakeModel, FakeModel] {
 
 function servicesWith(gain: number, tap: number) {
   const [erb, deep] = decoders(gain, tap);
-  return {
-    inference: new FakeModels(
-      new Map([
-        [sha256Of(FILES[DeepFilterNetGraph.Encoder]), ENCODER],
-        [sha256Of(FILES[DeepFilterNetGraph.ErbDecoder]), erb],
-        [sha256Of(FILES[DeepFilterNetGraph.DeepFilterDecoder]), deep],
-      ]),
-    ),
-    models: new MemoryModelLibrary(
-      Object.entries(FILES).map(([path, bytes]) => ({
-        pack: STAND_IN.identity.pack,
-        version: STAND_IN.identity.version,
-        path,
-        bytes,
-      })),
-    ),
-  };
-}
-
-/** `length` frames of each of `channels` channels, each a different mixture of tones. */
-function programme(length: number, channels: number): Float32Array[] {
-  return Array.from({ length: channels }, (_, channel) =>
-    Float32Array.from(
-      { length },
-      (_, frame) =>
-        0.4 * sineOfTurns((frame * (3 + channel)) / 997) +
-        0.2 * sineOfTurns((frame * (41 + 7 * channel)) / 1_009),
-    ),
+  return standInServices(
+    STAND_IN,
+    new Map([
+      [DeepFilterNetGraph.Encoder, ENCODER],
+      [DeepFilterNetGraph.ErbDecoder, erb],
+      [DeepFilterNetGraph.DeepFilterDecoder, deep],
+    ]),
   );
 }
 
@@ -143,18 +118,6 @@ async function enhanced(
   return planarChannels(measured, layout.roles.length);
 }
 
-function largestDifference(left: readonly Float32Array[], right: readonly Float32Array[]): number {
-  let largest = 0;
-  for (const [channel, samples] of left.entries()) {
-    const other = right[channel] ?? new Float32Array(0);
-    expect(samples.length).toBe(other.length);
-    for (const [index, sample] of samples.entries()) {
-      largest = Math.max(largest, Math.abs(sample - (other[index] ?? 0)));
-    }
-  }
-  return largest;
-}
-
 function scaled(input: readonly Float32Array[], gain: number): Float32Array[] {
   return input.map((channel) => channel.map((sample) => sample * gain));
 }
@@ -167,13 +130,13 @@ describe('DeepFilterNet 3, around stand-in graphs', { timeout: 30_000 }, () => {
   const length = 25_000 * 48 + 317;
 
   it('gives back each channel aligned and as long as it came, where the graphs change nothing', async () => {
-    const input = programme(length, 2);
+    const input = toneMixture(length, 2);
     const output = await enhanced(input, StandardLayouts.stereo, { gain: 1, tap: 1 });
     expect(largestDifference(output, input)).toBeLessThan(2e-7);
   });
 
   it('gives the same bits however the stream is read in chunks', async () => {
-    const input = programme(length, 1);
+    const input = toneMixture(length, 1);
     const once = await enhanced(input, StandardLayouts.mono, { gain: 0.5, tap: 0.25 });
     const piecemeal = await enhanced(
       input,
@@ -204,7 +167,7 @@ describe('DeepFilterNet 3, around stand-in graphs', { timeout: 30_000 }, () => {
   });
 
   it('mixes the input back at the attenuation limit, as libDF does', async () => {
-    const input = programme(length, 1);
+    const input = toneMixture(length, 1);
     const limited = await enhanced(
       input,
       StandardLayouts.mono,
@@ -230,7 +193,7 @@ describe('DeepFilterNet 3, around stand-in graphs', { timeout: 30_000 }, () => {
   it('deepens the attenuation by the post-filter where it is on, by its β', async () => {
     // Every bin's gain is a half, so Valin's post-filter scales it by
     // (1 + β) / (1 + β / sin²(π/4)), the same for every bin.
-    const input = programme(length, 1);
+    const input = toneMixture(length, 1);
     const beta = 0.05;
     const filtered = await enhanced(
       input,

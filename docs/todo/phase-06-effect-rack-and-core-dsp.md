@@ -82,7 +82,8 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
 10. **Processor node encoding.** A processor runs as node type
     `processor.<typeKey>` with ports `input`, optional `side-chain`, and
     `output`; settings `parameter.<key>`, `quality.<setting>`, `state.kind`,
-    `state.values`, and `measured` for a whole-pass processor
+    `state.values`, `measured` for a whole-pass processor, and `start`, the
+    run's first stream frame, required on every node
     (`packages/processors/src/framework/processor-node.ts`).
 11. **Whole-pass processors.** The rack measures each in signal order, one
     pass over the stream each, at a second sink tapped at its input; the
@@ -90,9 +91,10 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     kernel passes its input through.
 12. **The engine's port.** `ChainProcessing.prepare(request, read)` in
     `packages/audio-engine/src/pcm/chain-processing.ts` answers a `ChainRun`
-    (latency, layout, leadIn, process, setParameter, release); the effect
-    rack implements it (`chainProcessing(types)`). A chain of unknown latency
-    is refused.
+    (latency, layout, process, setParameter, release) for a run from
+    `ChainRequest.start`; `partWayStart(request)` answers the lead-in and
+    frame grid before it; the effect rack implements both
+    (`chainProcessing(types)`). A chain of unknown latency is refused.
 13. **App caches.** An app entry is rebuilt when a chain its plans name
     changes (`chainsNamed`), its rate is its plan's first stream's, and its
     peak revision is the plan's canonical JSON, so parameter values count.
@@ -101,8 +103,11 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     reduction, dereverberation and pitch shift their hop, de-click its
     detector block; 1 elsewhere, since a count that only decides when a sum
     is remade or a design taken changes nothing beyond rounding). A
-    `ChainRun` answers the least common multiple over what it runs, and a
-    preview starts at the grid point at or before its frame less the lead-in.
+    `partWayStart` answers the least common multiple over what a chain runs,
+    and a preview starts at the grid point at or before its frame less the
+    lead-in. A kernel learns its own stream frame as the run's start less
+    its input's arrival (`PlanStep.inputArrival`), so a pass played back
+    behind a late processor stays in time.
 15. **State and measurement.** A processor's `state?: StateRequirement`
     is checked by `chainOutputLayout` at the stream's rate, by the check its
     kernel reads the state with. A `Measurer` is released on every path of a
@@ -151,7 +156,10 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     type is made with its
     inference port and a `ModelLibrary`; its descriptor is a constant. A
     model's identity hashes the listing of the files it runs, and the
-    instance's version check compares it. Every quality runs pinned for now.
+    instance's version check compares it: `modelHashOf` (the domain, the
+    hash given) over every file of the pack version, so availability checks
+    it from a manifest (`AvailabilityContext.sha256`). Every quality runs
+    pinned for now.
 20. **Hashing.** The browser's streaming SHA-256 is `@noble/hashes`, as an
     adapter of model-packs' `Sha256` port (not the DSP module: hashing is
     not DSP). The runtime's WebAssembly is fetched from the application's
@@ -321,6 +329,28 @@ framework, DeepFilterNet 3 and the pack build tool, each with
   All three exports reproduced the research hashes byte for byte. Each pack
   carries its licence texts and a NOTICE. The tool's download is the build
   tooling's one network exception.
+- The start frame reaches every kernel (decisions 10, 12, 14), which also
+  fixed a pass played back behind a late processor; the identity covers
+  every file of a pack (decision 19).
+- MossFormer2 SE 48K (`ml/mossformer2/`): the Kaldi fbank with deltas, the
+  mask on the 1,920-point STFT, ClearerVoice's 4 s window and 3 s stride
+  with 0.5 s edges dropped, fixed for every length; graph optimisation
+  `basic`; no dither (the original's dither of 1.0 is random per run).
+  Against ClearerVoice's own decode on Python onnxruntime: 85 dB, the
+  difference being the runtime. Golden `1c5ee7d0…`; about 0.7 times real
+  time per channel on one thread.
+- Spleeter 2 and 4 stems (`ml/spleeter/`): STFT 4096/1024, ratio masks,
+  zero above bin 1024 (`mask_extension: zeros`), one frame of leading
+  silence as Spleeter 1.5.4 and later pad, its own butted 512-frame
+  segments, a `stem` choice; mono fed to both channels and averaged.
+  Against Spleeter's TensorFlow graph: 4.2e-7 (2 stems), 1.4e-5 (4 stems).
+  Goldens `08287bb3…` and `2dcfafa8…`.
+- One mechanism each across the packs: `ChunkSchedule` (`chunk`, `before`,
+  `after`, `firstChunk`) holds every model's runs, `scheduled-input.ts`
+  gathers the sample-based ones, `real-dft.ts` and `spectrum.ts` are in
+  `ml/`, `modelDescriptor()` states what every ML descriptor shares, and
+  the goldens share `testing/pack-cache.ts` and `golden-render.ts`. All four
+  goldens were unchanged by it.
 
 Open points from `ml-runtime`:
 
@@ -351,10 +381,17 @@ Open points from `model-packs`:
   processors; it belongs to the engine.
 - A parameter change of an ML processor while playing is refused: it needs
   a new pass.
-- The repository's NOTICE does not yet credit the ported code
-  (DeepFilterNet's libDF, MIT OR Apache-2.0).
+- Closed: ported source is credited from `tools/ported-code-notices.json`
+  (DeepFilterNet, ClearerVoice-Studio, torchaudio, Kaldi, PyTorch,
+  Spleeter), rendered into `THIRD-PARTY-NOTICES.md` and checked by
+  `notices:check` (paths exist, licences on the allow-list).
 - Serving the built packs from the application's origin in development and
   in a build is not wired.
+- Every preview start runs every whole pass again, inference included; the
+  cached preview producer (Next, item 4) must make the measurements once
+  and start runs from them.
+- Nothing in production builds an `AvailabilityContext` yet; it must pass
+  `nobleTextSha256`.
 - Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
   only) implements the `Sha256` port; `LOCAL_INFERENCE` and
   `localInferenceCapabilities` are exported from `packages/capabilities`.
@@ -365,6 +402,13 @@ Open points from `model-packs`:
 
 Next, in order: the three packs, the application's detection worker and
 the rest of "Remaining" in the session handover.
+
+Known limits of the ML packs: Spleeter's butted segments leave a
+measurable seam at each join (RMS difference 0.016 near joins against
+0.0095 elsewhere on a 0.13 signal), as Spleeter's own pipeline does;
+DeepFilterNet 3's chunk joins restart its recurrent state (55 dB against a
+whole-stream run); each channel runs the model in turn, so stereo costs
+twice mono.
 
 Known limits the agents stated: de-click repairs a click whose context
 holds another from corrupted context; de-pop lowers music below its

@@ -18,4 +18,6 @@ export {
   runProcessor,
 } from './processor-run.js';
 export { type PassCounts, type PassScript, scriptedWholePass } from './scripted-whole-pass.js';
+export { delayingProcessor } from './delaying-processor.js';
+export { recurrentType } from './recurrent-model.js';
 export { learnedProfile } from './spectral-measures.js';

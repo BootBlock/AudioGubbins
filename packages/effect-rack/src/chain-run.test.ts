@@ -44,6 +44,7 @@ async function runChain(slots: readonly ChainSlot[]): Promise<Float32Array[]> {
         quality: MAXIMUM_QUALITY.settings,
         blockFrames: 512,
         dsp: REFERENCE_DSP,
+        start: 0,
       },
       async (start, frames, into) => {
         into[0]?.set(input[0]?.subarray(start, start + frames) ?? []);
@@ -120,6 +121,7 @@ describe('a chain run over a stream (ADR-0060)', () => {
         quality: MAXIMUM_QUALITY.settings,
         blockFrames: 512,
         dsp: REFERENCE_DSP,
+        start: 0,
       },
       () => Promise.resolve(),
     );

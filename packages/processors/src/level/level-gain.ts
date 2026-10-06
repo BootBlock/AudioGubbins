@@ -135,6 +135,8 @@ export function levelKernel(run: ProcessorRun, made: LevelGain): DomainResult<No
       settings: { [GAIN]: made.law(values) },
       inputs: [{ port: 'in', layout: run.input, slot: 0, delay: ZERO_SAMPLES }],
       outputs: [{ port: 'out', layout: run.output, slot: 1 }],
+      // The inner node hears the kernel's own input, so nothing comes before it.
+      inputArrival: { kind: 'known', frames: ZERO_SAMPLES },
     },
     {
       sampleRate: run.sampleRate,

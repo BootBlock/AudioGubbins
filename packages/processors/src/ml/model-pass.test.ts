@@ -6,6 +6,7 @@ import {
   createCancellationSource,
   fail,
   failure,
+  modelHashOf,
   sampleRate,
   succeed,
   type CancellationSignal,
@@ -27,7 +28,9 @@ import { modelPassOf, passOver, planarChannels } from '../testing/model-runs.js'
 import {
   RECURRENT_MODEL,
   RECURRENT_MODEL_BYTES,
+  RECURRENT_MODEL_HASH,
   RECURRENT_MODEL_PATH,
+  RECURRENT_MODEL_SHA256,
   RECURRENT_PACK,
   RECURRENT_VERSION,
   recurrence,
@@ -86,6 +89,16 @@ function scheduled(channel: Float32Array): Float32Array {
 function codesOf<T>(result: DomainResult<T>): readonly string[] {
   return result.ok ? [] : result.failures.map((one) => one.code);
 }
+
+describe("the test model's names", () => {
+  it("are its file's hash and its pack's listing digest, which the chains' tests take as constants", () => {
+    expect(sha256Of(RECURRENT_MODEL_BYTES)).toBe(RECURRENT_MODEL_SHA256);
+    const files = [{ path: RECURRENT_MODEL_PATH, sha256: sha256Of(RECURRENT_MODEL_BYTES) }];
+    expect(modelHashOf(files, (text) => sha256Of(new TextEncoder().encode(text)))).toBe(
+      RECURRENT_MODEL_HASH,
+    );
+  });
+});
 
 describe('a model pass', () => {
   it('joins its runs by the schedule, the same however the stream is read in chunks', async () => {

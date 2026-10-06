@@ -9,17 +9,71 @@
  * needs the services, injected once.
  */
 
-import type { ProcessorDescriptor } from '@audiogubbins/domain';
+import {
+  DeterminismClass,
+  ZERO_SAMPLES,
+  succeed,
+  type ParameterDescriptor,
+  type ProcessorCategory,
+  type ProcessorDescriptor,
+} from '@audiogubbins/domain';
 
 import { processorType, type ProcessorType } from '../framework/processor-type.js';
-import type { ModelDefinition } from './model-definition.js';
+import { CANONICAL_RESAMPLER_VERSION, type ModelDefinition } from './model-definition.js';
 import { ModelPass, type ModelStreamOf } from './model-pass.js';
 import { playbackKernel } from './model-playback.js';
 import type { ModelServices } from './model-sessions.js';
 
+/** What one machine-learning type's descriptor says that another's need not. */
+export interface ModelDescription {
+  readonly typeKey: string;
+  readonly label: string;
+  readonly category: ProcessorCategory;
+  /** The implementation's and the parameters' versions, which rise apart. */
+  readonly implementation: number;
+  readonly parameterVersion: number;
+  readonly model: ModelDefinition;
+  readonly parameters: readonly ParameterDescriptor[];
+  /** The output's layout from the input's, or why the model cannot hear it: the input's where not given. */
+  readonly outputLayout?: ProcessorDescriptor['outputLayout'];
+}
+
+/**
+ * The descriptor of the machine-learning type `description` describes, whatever
+ * every such type states alike: a whole pass that is its inference, never
+ * real-time, pinned on every quality level since no processor chooses a
+ * preview's accelerator yet, the resampling grade the one quality setting it
+ * reads, the canonical resampler's and the model's identities in its version,
+ * and a kernel that plays the pass back aligned to the input, so its latency is
+ * known zero, its lead-in 0 and its frame grid 1.
+ */
+export function modelDescriptor(description: ModelDescription): ProcessorDescriptor {
+  const { typeKey, label, category, model, parameters } = description;
+  return {
+    typeKey,
+    label,
+    category,
+    version: {
+      implementation: description.implementation,
+      parameters: description.parameterVersion,
+      resampler: CANONICAL_RESAMPLER_VERSION,
+      model: model.identity,
+    },
+    parameters,
+    qualitySettings: ['resampling'],
+    determinism: DeterminismClass.Pinned,
+    wholePass: true,
+    realTime: false,
+    outputLayout: description.outputLayout ?? ((input) => succeed(input)),
+    latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
+    leadIn: () => 0,
+    frameGrid: () => 1,
+  };
+}
+
 /** What a machine-learning processor is defined by. */
 export interface ModelProcessor {
-  /** Whole-pass, not real-time, pinned, with the model's identity as its version's. */
+  /** Its {@link modelDescriptor}. */
   readonly descriptor: ProcessorDescriptor;
   readonly model: ModelDefinition;
   readonly stream: ModelStreamOf;

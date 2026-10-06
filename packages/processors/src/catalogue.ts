@@ -36,6 +36,11 @@ import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
 import { DELAY } from './space/delay.js';
 import { REVERB } from './space/reverb.js';
 import { DEEPFILTERNET_3_DESCRIPTOR } from './ml/deepfilternet/deepfilternet.js';
+import { MOSSFORMER2_SE_48K_DESCRIPTOR } from './ml/mossformer2/mossformer2.js';
+import {
+  SPLEETER_2_STEMS_DESCRIPTOR,
+  SPLEETER_4_STEMS_DESCRIPTOR,
+} from './ml/spleeter/spleeter.js';
 
 /**
  * Every processor type, by category in the order the domain lists categories,
@@ -77,6 +82,9 @@ export const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType> = new Ma
  */
 export const MODEL_PROCESSOR_DESCRIPTORS: readonly ProcessorDescriptor[] = [
   DEEPFILTERNET_3_DESCRIPTOR,
+  MOSSFORMER2_SE_48K_DESCRIPTOR,
+  SPLEETER_2_STEMS_DESCRIPTOR,
+  SPLEETER_4_STEMS_DESCRIPTOR,
 ];
 
 /** The descriptors of every processor type, those that run a model among them, by type key. */

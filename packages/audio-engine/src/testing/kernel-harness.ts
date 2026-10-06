@@ -88,7 +88,7 @@ export function nodeOf(
   };
 }
 
-/** The step a plan makes of a node, with slots in port order and no input delay. */
+/** The step a plan makes of a node, with slots in port order and no input delay or latency. */
 export function stepOf(node: ProcessingNodeDescriptor): PlanStep {
   return {
     node: node.id,
@@ -105,6 +105,7 @@ export function stepOf(node: ProcessingNodeDescriptor): PlanStep {
       layout: one.layout,
       slot: node.inputs.length + slot,
     })),
+    inputArrival: { kind: 'known', frames: ZERO_SAMPLES },
   };
 }
 

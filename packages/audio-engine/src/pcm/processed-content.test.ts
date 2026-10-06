@@ -21,20 +21,23 @@ const LEAD_IN = 100;
 /** Each frame its own index, so every frame of output names the input frame it came from. */
 const source = Float32Array.from({ length: LENGTH }, (_, frame) => frame);
 
+/** The start of every run {@link HOLDING} was asked to prepare, in order. */
+const STARTS: number[] = [];
+
 /**
  * A chain that holds the first frame of each block of {@link GRID} frames,
  * counted from its own first frame, as a spectral processor frames its input
  * from where it starts: started off the grid, it holds other frames.
  */
 const HOLDING: ChainProcessing = {
-  prepare: () => {
+  partWayStart: () => succeed({ leadIn: LEAD_IN, frameGrid: GRID }),
+  prepare: (request) => {
+    STARTS.push(request.start);
     let counted = 0;
     let held = 0;
     const run: ChainRun = {
       latency: 0,
       layout: StandardLayouts.mono,
-      leadIn: LEAD_IN,
-      frameGrid: GRID,
       process: (input, output, frames) => {
         for (let frame = 0; frame < frames; frame += 1, counted += 1) {
           if (counted % GRID === 0) held = input[0]?.[frame] ?? 0;
@@ -71,6 +74,7 @@ function content(start: ProcessedStart) {
 
 describe('a processed stream started part way through for a preview', () => {
   it('starts on the chain’s frame grid, at least its lead-in early, so it frames the audio as the render does', async () => {
+    STARTS.length = 0;
     const whole = [new Float32Array(LENGTH)];
     await content(ProcessedStart.Canonical).processed.read(0, LENGTH, whole);
     const { processed, reads } = content(ProcessedStart.Preview);
@@ -79,5 +83,8 @@ describe('a processed stream started part way through for a preview', () => {
     // 1,000 less the lead-in is 900, and the grid frame at or before it is 896.
     expect(reads[0]).toBe(896);
     expect(late[0]).toEqual(whole[0]?.subarray(1_000, 1_500));
+    // Each run is told where it starts, so one that plays back a whole pass
+    // can play it from there.
+    expect(STARTS).toEqual([0, 896]);
   });
 });

@@ -13,7 +13,8 @@
  * still the canonical answer. A preview may instead start part way through,
  * the run begun at least the chain's lead-in before the frame asked for, on
  * the chain's frame grid, which is what playback does after a seek, and says
- * it is a preview (ADR-0061).
+ * it is a preview (ADR-0061). Either way the run is told the frame it starts
+ * at, so a processor that plays back a whole pass plays it from there.
  */
 
 import {
@@ -118,6 +119,7 @@ export class ProcessedContent implements ContentReader {
   /** A run made afresh, primed to give frame `start` next, or as near before it as a preview may. */
   async #begin(start: number, signal: CancellationSignal | undefined): Promise<Running> {
     this.release();
+    const from = this.#runStart(start);
     const prepared = await this.#settings.processing.prepare(
       {
         chain: this.#chain,
@@ -127,6 +129,7 @@ export class ProcessedContent implements ContentReader {
         quality: this.#settings.quality,
         blockFrames: CHUNK,
         dsp: this.#settings.dsp,
+        start: from,
       },
       this.#input.read,
       signal,
@@ -143,15 +146,29 @@ export class ProcessedContent implements ContentReader {
         ),
       );
     }
-    const from =
-      this.#settings.start === ProcessedStart.Preview
-        ? Math.floor(Math.max(0, start - run.leadIn) / run.frameGrid) * run.frameGrid
-        : 0;
     const running: Running = { run, raw: from, produced: from };
     this.#running = running;
     await this.#consume(running, run.latency, undefined, 0, signal);
     running.produced = from;
     return running;
+  }
+
+  /**
+   * The frame a run that gives frame `start` next begins at: the stream's
+   * first, or for a preview the grid point at or before `start` less the
+   * chain's lead-in.
+   */
+  #runStart(start: number): number {
+    if (this.#settings.start === ProcessedStart.Canonical) return 0;
+    const partWay = this.#settings.processing.partWayStart({
+      chain: this.#chain,
+      input: this.#input.layout,
+      sampleRate: this.#input.sampleRate,
+      quality: this.#settings.quality,
+    });
+    if (!partWay.ok) throw new MediaReadFailure(partWay.failures[0]);
+    const { leadIn, frameGrid } = partWay.value;
+    return Math.floor(Math.max(0, start - leadIn) / frameGrid) * frameGrid;
   }
 
   /** Gives the next `count` frames of output into `into`, or runs them off where it is absent. */

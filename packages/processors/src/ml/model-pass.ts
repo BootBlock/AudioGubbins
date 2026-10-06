@@ -36,7 +36,7 @@ import {
 } from '@audiogubbins/domain';
 import { resamplingQualityOf } from '@audiogubbins/audio-engine';
 
-import type { ProcessorRun } from '../framework/processor-type.js';
+import type { MeasuringRun } from '../framework/processor-type.js';
 import { finiteSample } from '../framework/sample-safety.js';
 import type { Measurement, Measurer } from '../framework/whole-pass.js';
 import type { ModelDefinition } from './model-definition.js';
@@ -54,9 +54,6 @@ import { RateStage } from './rate-stage.js';
  * that writes its output to storage as it is made, which lifts the bound.
  */
 export const MOST_OUTPUT_SAMPLES = 2 ** 26;
-
-/** What a measurer was made for: its run, less the measurement it is making. */
-export type MeasuringRun = Omit<ProcessorRun, 'measured'>;
 
 /** Receives a model stream's output at the model's rate, one array per channel. */
 export type ModelOutput = (output: readonly Float32Array[], frames: number) => Promise<void>;

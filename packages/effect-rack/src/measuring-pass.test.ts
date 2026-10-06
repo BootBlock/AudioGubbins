@@ -68,6 +68,7 @@ function prepare(
       quality: MAXIMUM_QUALITY.settings,
       blockFrames: 512,
       dsp: REFERENCE_DSP,
+      start: 0,
     },
     read,
     signal,

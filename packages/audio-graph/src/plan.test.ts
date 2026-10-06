@@ -62,6 +62,17 @@ describe('an execution plan', () => {
     expect(planned.sampleRate).toBe(RATE);
   });
 
+  it('says how late each step hears the sources, its inputs aligned to the latest', () => {
+    // A kernel that plays back what a pass made of a stream tells by this
+    // which frame of it its input carries.
+    expect(plan(WET_DRY).steps.map((step) => step.inputArrival)).toEqual([
+      { kind: 'known', frames: 0 },
+      { kind: 'known', frames: 0 },
+      { kind: 'known', frames: 64 },
+      { kind: 'known', frames: 64 },
+    ]);
+  });
+
   it('runs a long serial chain in two slots, reusing each once its reader has run', () => {
     const planned = plan(chain(40));
     expect(planned.slots).toEqual([{ channels: 2 }, { channels: 2 }]);

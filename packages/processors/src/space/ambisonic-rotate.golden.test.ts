@@ -5,7 +5,8 @@ import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { runProcessor } from '../testing/processor-run.js';
 import { AMBISONIC_ROTATION } from './ambisonic-rotate.js';
 import { SphereRotation } from './sphere-rotation.js';
-import { burst, encoded, largestDifference, setLayout } from '../testing/space-measures.js';
+import { largestDifference } from '../testing/sample-difference.js';
+import { burst, encoded, setLayout } from '../testing/space-measures.js';
 
 /** A third-order AmbiX field from a source at 30° left and 20° up, turned by all three angles. */
 const SOURCE = { azimuth: 30, elevation: 20, order: 'third' } as const;

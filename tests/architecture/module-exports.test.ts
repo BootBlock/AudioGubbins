@@ -299,6 +299,15 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ['packages/processors/src/catalogue.ts: MODEL_PROCESSOR_DESCRIPTORS'],
   "DeepFilterNet 3's definition, which its tests run over stand-in graphs on the fake runtime; the processor's type is made from it by `deepFilterNet3`.":
     ['packages/processors/src/ml/deepfilternet/deepfilternet.ts: DEEPFILTERNET_3'],
+  "MossFormer2 SE 48K's definition, which its tests run over a stand-in graph on the fake runtime; the processor's type is made from it by `mossFormer2Se48k`.":
+    ['packages/processors/src/ml/mossformer2/mossformer2.ts: MOSSFORMER2_SE_48K'],
+  "MossFormer2 SE 48K's segments, which its golden render holds its signal to reach past the first join of; the stream gathers its segments by them itself.":
+    ['packages/processors/src/ml/mossformer2/mossformer2-stream.ts: MOSSFORMER2_SCHEDULE'],
+  "Spleeter's two-stem and four-stem definitions, which their tests run over stand-in graphs on the fake runtime; the processors' types are made from them by `spleeter2Stems` and `spleeter4Stems`.":
+    [
+      'packages/processors/src/ml/spleeter/spleeter.ts: SPLEETER_2_STEMS',
+      'packages/processors/src/ml/spleeter/spleeter.ts: SPLEETER_4_STEMS',
+    ],
   "The most samples a model pass's output may hold, which its test feeds a stream one frame past; the pass refuses such a stream itself.":
     ['packages/processors/src/ml/model-pass.ts: MOST_OUTPUT_SAMPLES'],
   'The max-rE weights of each order, which their test holds to the closed form and to the published second-order value; the decoder takes them when it makes its matrix.':

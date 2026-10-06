@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   checkStateVersion,
+  modelHashOf,
   type ModelIdentity,
   type ProcessorStateVersion,
 } from './processor-version.js';
@@ -65,5 +66,22 @@ describe('checkStateVersion, for an instance that names a model', () => {
       foundModel: `deepfilternet-3 0.9.0 (${'a'.repeat(64)})`,
       implementedModel: `deepfilternet-3 1.0.0 (${'a'.repeat(64)})`,
     });
+  });
+});
+
+describe('modelHashOf, the one rule a pack version is named by', () => {
+  it('digests the sha256sum listing of every file, sorted by path, whatever order they come in', () => {
+    // A digest that answers its text shows the listing it was handed.
+    const listed = modelHashOf(
+      [
+        { path: 'model.onnx', sha256: 'c'.repeat(64) },
+        { path: 'NOTICE', sha256: 'b'.repeat(64) },
+        { path: 'LICENSE', sha256: 'a'.repeat(64) },
+      ],
+      (text) => text,
+    );
+    expect(listed).toBe(
+      `${'a'.repeat(64)}  LICENSE\n${'b'.repeat(64)}  NOTICE\n${'c'.repeat(64)}  model.onnx\n`,
+    );
   });
 });

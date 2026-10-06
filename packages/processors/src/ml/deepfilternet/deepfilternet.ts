@@ -24,11 +24,8 @@
  */
 
 import {
-  DeterminismClass,
   ParameterTaper,
   ProcessorCategory,
-  ZERO_SAMPLES,
-  succeed,
   unsafeBrandId,
   type NumericParameterDescriptor,
   type ProcessorDescriptor,
@@ -37,8 +34,7 @@ import {
 import { decibelsToGain } from '@audiogubbins/audio-engine';
 
 import type { ParameterReader, ProcessorType } from '../../framework/processor-type.js';
-import { CANONICAL_RESAMPLER_VERSION } from '../model-definition.js';
-import { modelProcessorType, type ModelProcessor } from '../model-processor.js';
+import { modelDescriptor, modelProcessorType, type ModelProcessor } from '../model-processor.js';
 import type { ModelServices } from '../model-sessions.js';
 import { DEEPFILTERNET_3_MODEL } from './deepfilternet-model.js';
 import { DeepFilterNetStream } from './deepfilternet-stream.js';
@@ -93,26 +89,15 @@ function finishingOf(parameters: ParameterReader): Finishing {
 }
 
 /** DeepFilterNet 3's descriptor, the one the catalogue lists. */
-export const DEEPFILTERNET_3_DESCRIPTOR: ProcessorDescriptor = {
+export const DEEPFILTERNET_3_DESCRIPTOR: ProcessorDescriptor = modelDescriptor({
   typeKey: 'deepfilternet-3',
   label: 'DeepFilterNet 3',
   category: ProcessorCategory.Restoration,
-  version: {
-    implementation: 1,
-    parameters: 1,
-    resampler: CANONICAL_RESAMPLER_VERSION,
-    model: DEEPFILTERNET_3_MODEL.identity,
-  },
+  implementation: 1,
+  parameterVersion: 1,
+  model: DEEPFILTERNET_3_MODEL,
   parameters: [attenuationLimit, postFilter, postFilterBeta],
-  qualitySettings: ['resampling'],
-  determinism: DeterminismClass.Pinned,
-  wholePass: true,
-  realTime: false,
-  outputLayout: (input) => succeed(input),
-  latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
-  leadIn: () => 0,
-  frameGrid: () => 1,
-};
+});
 
 /** DeepFilterNet 3's definition: its descriptor, model and stream. */
 export const DEEPFILTERNET_3: ModelProcessor = {

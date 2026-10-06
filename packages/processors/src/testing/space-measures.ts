@@ -2,8 +2,7 @@
  * What the space processors' tests share: the ambisonic layouts they run
  * over, a source encoded by the encoder, a direction turned by the rotation's
  * stated convention written out with the platform's trigonometry, so it is
- * checked against something the kernels do not compute it with, and the
- * largest difference between two renders.
+ * checked against something the kernels do not compute it with.
  */
 
 import {
@@ -96,19 +95,4 @@ export function turned(
     azimuth: Math.atan2(y, x) / RADIANS,
     elevation: Math.asin(Math.max(-1, Math.min(1, z))) / RADIANS,
   };
-}
-
-/** The largest difference between two renders of the same layout. */
-export function largestDifference(
-  left: readonly Float32Array[],
-  right: readonly Float32Array[],
-): number {
-  let most = 0;
-  for (const [channel, samples] of left.entries()) {
-    const other = right[channel] ?? new Float32Array(0);
-    for (const [frame, sample] of samples.entries()) {
-      most = Math.max(most, Math.abs(sample - (other[frame] ?? Number.NaN)));
-    }
-  }
-  return Number.isNaN(most) ? Infinity : most;
 }

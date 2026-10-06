@@ -83,7 +83,22 @@ export interface ProcessorRun {
    */
   readonly measured?: Measurement;
   readonly dsp: CanonicalDsp;
+  /**
+   * The frame of the stream its input carries in the first frame its first
+   * `process` call is given: the frame the run starts at, part way through
+   * for a preview, less the latency of the path that reaches the node, so
+   * negative while what comes before it is still filling. A kernel that
+   * plays back what a pass made of the whole stream starts there; one that
+   * only hears its input has no use for it.
+   */
+  readonly start: number;
 }
+
+/**
+ * What a measurer is made from: a kernel's run less the measurement it is
+ * making and the start, since a pass hears the stream from its first frame.
+ */
+export type MeasuringRun = Omit<ProcessorRun, 'measured' | 'start'>;
 
 /** What a processor type is defined by. */
 export interface ProcessorDefinition {
@@ -99,7 +114,7 @@ export interface ProcessorDefinition {
   kernel(run: ProcessorRun): DomainResult<NodeKernel>;
 
   /** How a processor whose descriptor asks for a whole pass measures it. */
-  readonly measure?: (run: Omit<ProcessorRun, 'measured'>) => Measurer;
+  readonly measure?: (run: MeasuringRun) => Measurer;
 }
 
 /** A processor type: the node implementation the engine runs, and the descriptor it states. */
@@ -260,6 +275,19 @@ export function processorType(definition: ProcessorDefinition): ProcessorType {
       const read = readNode(definition, shape);
       if (read.node === undefined) return kernelRefusal(shape, read.problems);
       const { reading, input, output, sideChain } = read.node;
+      const arrival = step.inputArrival;
+      if (arrival.kind !== 'known') {
+        // Only a run whose latency is known reaches a kernel through the rack,
+        // so this is a graph built elsewhere that no stream position fits.
+        return fail(
+          failure(
+            'processor.start-unknown',
+            FailureKind.Rejected,
+            `A ${descriptor.label} node cannot tell which frame of its stream it hears, since the latency before it is not known.`,
+            { details: { node: shape.id } },
+          ),
+        );
+      }
       return definition.kernel({
         parameters: parameterReader(descriptor, reading.values),
         input: input.layout,
@@ -271,6 +299,7 @@ export function processorType(definition: ProcessorDefinition): ProcessorType {
         ...(reading.state === undefined ? {} : { state: reading.state }),
         ...(reading.measured === undefined ? {} : { measured: reading.measured }),
         dsp: context.dsp,
+        start: reading.start - arrival.frames,
       });
     },
     ...(definition.measure === undefined

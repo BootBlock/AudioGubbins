@@ -146,6 +146,8 @@ export {
   type ChainProcessing,
   type ChainRequest,
   type ChainRun,
+  type PartWayRequest,
+  type PartWayStart,
   type StreamReader,
 } from './pcm/chain-processing.js';
 

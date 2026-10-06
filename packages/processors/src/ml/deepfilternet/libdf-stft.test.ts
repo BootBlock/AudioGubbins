@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 
-import { HOP } from './deepfilternet-model.js';
-import { LibDfStft, StftTransform, emptySpectrum } from './libdf-stft.js';
+import { emptySpectrum } from '../spectrum.js';
+import { BINS, HOP } from './deepfilternet-model.js';
+import { LibDfStft, StftTransform } from './libdf-stft.js';
 
 describe("libDF's analysis and synthesis", () => {
   it("give a signal back one hop late, the Vorbis window's squares summing to one", () => {
@@ -14,7 +15,7 @@ describe("libDF's analysis and synthesis", () => {
       Math.fround(((n * 37) % 101) / 101 - 0.5),
     );
     const output = new Float64Array(hops * HOP);
-    const spectrum = emptySpectrum();
+    const spectrum = emptySpectrum(BINS);
     for (let hop = 0; hop < hops; hop += 1) {
       stft.analyse(input.subarray(hop * HOP, (hop + 1) * HOP), spectrum);
       stft.synthesise(spectrum, output.subarray(hop * HOP, (hop + 1) * HOP));
@@ -37,7 +38,7 @@ describe("libDF's analysis and synthesis", () => {
     }
     const transform = new StftTransform(REFERENCE_DSP);
     const stft = new LibDfStft(transform);
-    const spectrum = emptySpectrum();
+    const spectrum = emptySpectrum(BINS);
     const tone = (from: number) =>
       Float64Array.from({ length: HOP }, (_, n) => Math.sin((2 * Math.PI * 10 * (from + n)) / 960));
     stft.analyse(tone(0), spectrum);

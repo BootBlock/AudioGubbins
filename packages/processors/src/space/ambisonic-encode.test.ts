@@ -12,14 +12,8 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { AMBISONIC_ENCODER } from './ambisonic-encode.js';
-import {
-  NORMALISATIONS,
-  ORDERS,
-  burst,
-  encoded,
-  largestDifference,
-  setLayout,
-} from '../testing/space-measures.js';
+import { largestDifference } from '../testing/sample-difference.js';
+import { NORMALISATIONS, ORDERS, burst, encoded, setLayout } from '../testing/space-measures.js';
 
 processorProperties(AMBISONIC_ENCODER, {
   layouts: [StandardLayouts.mono],

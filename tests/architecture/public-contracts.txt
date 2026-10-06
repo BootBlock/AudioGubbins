@@ -118,6 +118,7 @@ Published paths
   CanonicalStft.pullPolar: (magnitudes: Float64Array, phases: Float64Array) => boolean
   CanonicalStft.release: () => void
   interface ChainProcessing
+  ChainProcessing.partWayStart: (request: PartWayRequest) => DomainResult<PartWayStart>
   ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
   interface ChainRequest
   readonly ChainRequest.chain: EffectChain
@@ -127,11 +128,10 @@ Published paths
   readonly ChainRequest.quality: QualitySettings
   readonly ChainRequest.blockFrames: number
   readonly ChainRequest.dsp: CanonicalDsp
+  readonly ChainRequest.start: number
   interface ChainRun
   readonly ChainRun.latency: number
   readonly ChainRun.layout: ChannelLayout
-  readonly ChainRun.leadIn: number
-  readonly ChainRun.frameGrid: number
   ChainRun.process: (input: readonly Float32Array[], output: readonly Float32Array[], frames: number) => void
   ChainRun.setParameter: (processor: ProcessorId, key: string, value: number) => DomainResult<void>
   ChainRun.release: () => void
@@ -289,6 +289,10 @@ Published paths
   ParameterRamp.value: number
   ParameterRamp.set: (target: number) => void
   ParameterRamp.fill: (into: Float64Array, frames: number) => void
+  type PartWayRequest = { readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly chain: EffectChain; readonly input: ChannelLayout; }
+  interface PartWayStart
+  readonly PartWayStart.leadIn: number
+  readonly PartWayStart.frameGrid: number
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
   type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Edited; readonly sampleRate: SampleRate; readonly plan: EditPlan; readonly media: readonly MediaEntry[]; } | { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
@@ -619,6 +623,7 @@ Published paths
   readonly NodeLatency.node: NodeId
   readonly NodeLatency.processing: ProcessorLatency
   readonly NodeLatency.compensation: readonly SampleCount[]
+  readonly NodeLatency.inputArrival: PathLatency
   readonly NodeLatency.arrival: PathLatency
   const NodeRole: { readonly Source: "source"; readonly Processor: "processor"; readonly Analysis: "analysis"; readonly Sink: "sink"; }
   type NodeRole = "analysis" | "processor" | "sink" | "source"
@@ -644,6 +649,7 @@ Published paths
   readonly PlanStep.settings: Readonly<Record<string, SettingValue>>
   readonly PlanStep.inputs: readonly PlanInput[]
   readonly PlanStep.outputs: readonly PlanOutput[]
+  readonly PlanStep.inputArrival: PathLatency
   interface PortDescriptor
   readonly PortDescriptor.name: string
   readonly PortDescriptor.layout: ChannelLayout
@@ -1938,6 +1944,9 @@ Published paths
   type InferencePath = "accelerated" | "pinned"
   const LONGEST_SAVED_NAME: 120
   type LevelEdit = { readonly kind: "fade"; readonly direction: FadeDirection; readonly shape: FadeShape; } | { readonly kind: "gain"; readonly gain: number; } | { readonly kind: "invert"; } | { readonly kind: "silence"; }
+  interface ListedFile
+  readonly ListedFile.path: string
+  readonly ListedFile.sha256: string
   interface LoopDefinition
   readonly LoopDefinition.loopStart: SampleCount
   readonly LoopDefinition.loopEnd: SampleCount
@@ -2150,6 +2159,7 @@ Published paths
   type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
   const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
   type SummingLaw = "equal-power" | "mean" | "sum"
+  type TextSha256 = (text: string) => string
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
   readonly ToggleParameterDescriptor.id: ParameterId
@@ -2234,6 +2244,7 @@ Published paths
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
+  function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
   function parameterOf(descriptor: Pick<ProcessorDescriptor, "parameters">, key: string): ParameterDescriptor | undefined
   function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
@@ -2472,7 +2483,7 @@ Published paths
   readonly ChainGraph.processors: ReadonlyMap<ProcessorId, NodeId>
   readonly ChainGraph.mixes: ReadonlyMap<ProcessorGroupId | ProcessorId, { readonly wet: NodeId; readonly dry: NodeId; }>
   readonly ChainGraph.measure?: MeasureTap
-  function chainGraph(chain: Pick<EffectChain, "slots">, types: ReadonlyMap<string, ProcessorType>, input: ChannelLayout, quality: QualitySettings, measuring: Measuring): DomainResult<ChainGraph>
+  function chainGraph(chain: Pick<EffectChain, "slots">, types: ReadonlyMap<string, ProcessorType>, input: ChannelLayout, quality: QualitySettings, run: ChainGraphRun): DomainResult<ChainGraph>
   function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing
 
 @audiogubbins/history
@@ -3007,6 +3018,7 @@ Published paths
   readonly AvailabilityContext.catalogue: readonly ModelPackManifest[]
   readonly AvailabilityContext.runtime: Pick<RuntimeIdentity, "name" | "version">
   readonly AvailabilityContext.device: LocalInferenceSupport
+  readonly AvailabilityContext.sha256: TextSha256
   interface FileRange
   readonly FileRange.pack: ModelPackManifest
   readonly FileRange.file: PackFile
@@ -3144,6 +3156,7 @@ Published paths
   function manifestJson(manifest: ModelPackManifest): JsonObject
   function nextInstallState(state: InstallState, event: InstallEvent): DomainResult<InstallState>
   const nobleSha256: Sha256
+  const nobleTextSha256: TextSha256
   function packKey(ref: PackRef): string
   function packsToFetch(needs: readonly PackNeed[], context: AvailabilityContext, policy: AutomaticDownload): readonly ModelPackManifest[]
   function readModelPackManifest(text: string): DomainResult<ModelPackManifest>
@@ -3212,7 +3225,7 @@ Published paths
   readonly ProcessorDefinition.descriptor: ProcessorDescriptor
   readonly ProcessorDefinition.sideChain?: (input: ChannelLayout, sideChain: ChannelLayout) => boolean
   ProcessorDefinition.kernel: (run: ProcessorRun) => DomainResult<NodeKernel>
-  readonly ProcessorDefinition.measure?: (run: Omit<ProcessorRun, "measured">) => Measurer
+  readonly ProcessorDefinition.measure?: (run: MeasuringRun) => Measurer
   const ProcessorPort: { readonly Input: "input"; readonly SideChain: "side-chain"; readonly Output: "output"; }
   interface ProcessorRun
   readonly ProcessorRun.parameters: ParameterReader
@@ -3225,6 +3238,7 @@ Published paths
   readonly ProcessorRun.state?: ProcessorState
   readonly ProcessorRun.measured?: Measurement
   readonly ProcessorRun.dsp: CanonicalDsp
+  readonly ProcessorRun.start: number
   interface ProcessorType extends NodeImplementation
   readonly ProcessorType.descriptor: ProcessorDescriptor
   ProcessorType.measurer?: (settings: Readonly<Record<string, SettingValue>>, input: ChannelLayout, context: { readonly sampleRate: SampleRate; readonly blockFrames: number; readonly dsp: CanonicalDsp; }) => DomainResult<Measurer>
@@ -3243,10 +3257,13 @@ Published paths
   WholePass.release: () => void
   function deepFilterNet3(services: ModelServices): ProcessorType
   function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path: string; }, reason?: DomainFailure | undefined): DomainFailureResult
+  function mossFormer2Se48k(services: ModelServices): ProcessorType
   function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
-  function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
+  function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, start: number, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
   function recommendation(assistant: Assistant, findings: readonly DetectorFinding[]): Recommendation
+  function spleeter2Stems(services: ModelServices): ProcessorType
+  function spleeter4Stems(services: ModelServices): ProcessorType
 
 @audiogubbins/processors/testing
   interface Change
@@ -3274,16 +3291,20 @@ Published paths
   readonly RunSettings.sampleRate?: SampleRate
   readonly RunSettings.quality?: QualitySettings
   readonly RunSettings.measured?: Measurement
+  readonly RunSettings.start?: number
+  readonly RunSettings.inputArrival?: number
   readonly RunSettings.state?: ProcessorState
   readonly RunSettings.dsp?: CanonicalDsp
   const TEST_BLOCK_FRAMES: 4096
   const TEST_RATE: SampleRate
+  function delayingProcessor(frames: number): ProcessorType
   function learnedProfile(layout: ChannelLayout, stretch: readonly Float32Array<ArrayBufferLike>[], values?: Readonly<Record<string, ParameterValue>>, rate?: number): ProcessorState
   function processorKernel(type: ProcessorType, settings: RunSettings): { readonly kernel: NodeKernel; readonly output: ChannelLayout; }
   function processorKernelOf(type: ProcessorType, settings: RunSettings): DomainResult<NodeKernel>
   function processorProperties(type: ProcessorType, cases: PropertyCases): void
   function processorStep(type: ProcessorType, settings: RunSettings): PlanStep
   function processorValues(type: ProcessorType, byKey?: Readonly<Record<string, ParameterValue>>): ParameterValues
+  function recurrentType(sampleRate: SampleRate): ProcessorType
   function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[], change?: Change | undefined): Float32Array<ArrayBufferLike>[]
   function scriptedWholePass(script: PassScript, counts: PassCounts): ProcessorType
 
@@ -5598,14 +5619,15 @@ packages/editor-view/src/waveform-drawing.ts
   readonly WaveformStyle.palette: EditorPalette
 
 packages/effect-rack/src/chain-graph.ts
+  interface ChainGraphRun
+  readonly ChainGraphRun.start: number
+  readonly ChainGraphRun.measured: ReadonlyMap<ProcessorId, Measurement>
+  readonly ChainGraphRun.at?: ProcessorId
   interface MeasureTap
   readonly MeasureTap.sink: NodeId
   readonly MeasureTap.layout: ChannelLayout
   readonly MeasureTap.type: string
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
-  interface Measuring
-  readonly Measuring.measured: ReadonlyMap<ProcessorId, Measurement>
-  readonly Measuring.at?: ProcessorId
 
 packages/media-store/src/exclusion-gate.ts
   class ExclusionGate
@@ -5715,6 +5737,9 @@ packages/model-packs/src/installations.ts
 
 packages/model-packs/src/pack-download.ts
   type Arrival = { readonly kind: "arrived"; } | { readonly kind: "failed"; readonly result: DomainFailureResult; } | { readonly kind: "stopped"; }
+
+packages/processors/src/framework/processor-type.ts
+  type MeasuringRun = { readonly parameters: ParameterReader; readonly state?: ProcessorState; readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly input: ChannelLayout; readonly blockFrames: number; readonly dsp: CanonicalDsp; readonly output: ChannelLayout; readonly sideChain?: ChannelLayout; }
 
 packages/processors/src/spectral/frame-analysis.ts
   class FrameAnalysis

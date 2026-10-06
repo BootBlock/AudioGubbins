@@ -15,7 +15,14 @@
  * person's choice, allows it (`packsToFetch`).
  */
 
-import { FailureKind, failure, type DomainFailure, type ModelIdentity } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  failure,
+  modelHashOf,
+  type DomainFailure,
+  type ModelIdentity,
+  type TextSha256,
+} from '@audiogubbins/domain';
 import type { RuntimeIdentity } from '@audiogubbins/ml-runtime';
 
 import type { InstallState } from './install-state.js';
@@ -62,6 +69,8 @@ export interface AvailabilityContext {
   /** The runtime this build carries. */
   readonly runtime: Pick<RuntimeIdentity, 'name' | 'version'>;
   readonly device: LocalInferenceSupport;
+  /** The SHA-256 a pack's model hash is taken with, the platform's. */
+  readonly sha256: TextSha256;
 }
 
 /** Which of REQ-AUDIO-139's conditions holds for a need (see the module comment). */
@@ -139,9 +148,16 @@ function byVersionDescending(one: ModelPackManifest, other: ModelPackManifest): 
   return compareVersions(other.version, one.version) ?? 0;
 }
 
-/** Whether a kept file is the model an instance names, by its hash. */
-function holdsModel(manifest: ModelPackManifest, model: ModelIdentity | undefined): boolean {
-  return model === undefined || manifest.files.some((file) => file.sha256 === model.modelHash);
+/**
+ * Whether a kept version is the model an instance names: its manifest's
+ * listing of every file it holds hashes to the instance's model hash.
+ */
+function holdsModel(
+  manifest: ModelPackManifest,
+  model: ModelIdentity | undefined,
+  sha256: TextSha256,
+): boolean {
+  return model === undefined || modelHashOf(manifest.files, sha256) === model.modelHash;
 }
 
 function unavailable(
@@ -269,7 +285,7 @@ function installedAvailability(
   context: AvailabilityContext,
 ): PackAvailability {
   const usable = found.installed.find(
-    (manifest) => runsOn(manifest, context) && holdsModel(manifest, need.model),
+    (manifest) => runsOn(manifest, context) && holdsModel(manifest, need.model, context.sha256),
   );
   if (usable !== undefined) {
     const update = found.offered.find(

@@ -99,6 +99,8 @@ export function matrixKernel(
       settings: weights,
       inputs: [{ port: 'in', layout: from, slot: 0, delay: ZERO_SAMPLES }],
       outputs: [{ port: 'out', layout: to, slot: 1 }],
+      // The inner node hears the kernel's own input, so nothing comes before it.
+      inputArrival: { kind: 'known', frames: ZERO_SAMPLES },
     },
     {
       sampleRate: run.sampleRate,

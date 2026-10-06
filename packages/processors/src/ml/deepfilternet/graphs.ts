@@ -19,14 +19,7 @@
  * alone, which the chunk schedule's join relies on.
  */
 
-import {
-  FailureKind,
-  fail,
-  failure,
-  succeed,
-  type CancellationSignal,
-  type DomainResult,
-} from '@audiogubbins/domain';
+import { succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
 import { tensor, type Tensor } from '@audiogubbins/ml-runtime';
 
 import type { ModelSessions } from '../model-sessions.js';
@@ -46,29 +39,50 @@ export interface GraphOutputs {
   readonly taps: Float32Array;
 }
 
-/** The encoder's outputs the decoders take, by name. */
-const ERB_DECODER_INPUTS = ['emb', 'e3', 'e2', 'e1', 'e0'] as const;
+/**
+ * The encoder's outputs the ERB decoder takes beside the embedding, by name,
+ * with the values each holds per frame: [1, 64, ·, 8 to 32].
+ */
+const ERB_DECODER_INPUTS = [
+  ['e3', 64 * 8],
+  ['e2', 64 * 8],
+  ['e1', 64 * 16],
+  ['e0', 64 * 32],
+] as const;
 
-function outputRefused(graph: string, name: string): DomainResult<never> {
-  return fail(
-    failure(
-      'processor.model-output-invalid',
-      FailureKind.Unrecoverable,
-      `DeepFilterNet 3's graph ${graph} gave no output ${name} of the shape its file declares.`,
-      { details: { graph, output: name } },
-    ),
-  );
+/** The encoder's outputs, checked, as the two decoders take them. */
+interface DecoderInputs {
+  /** The ERB decoder's inputs, by name. */
+  readonly erbInputs: ReadonlyMap<string, Tensor>;
+  /** The deep filter decoder's two inputs. */
+  readonly embedding: Tensor;
+  readonly pathway: Tensor;
 }
 
-/** `outputs`' tensor `name`, holding `count` values, or why the graph's answer cannot be used. */
-function outputOf(
-  outputs: ReadonlyMap<string, Tensor>,
-  graph: string,
-  name: string,
-  count: number,
-): DomainResult<Tensor> {
-  const found = outputs.get(name);
-  return found?.data.length === count ? succeed(found) : outputRefused(graph, name);
+/**
+ * The decoders' inputs from the encoder's outputs, `encoded`, for a run of
+ * `frames` frames, each held to the shape the encoder's file declares.
+ */
+function decoderInputs(
+  sessions: ModelSessions,
+  encoded: ReadonlyMap<string, Tensor>,
+  frames: number,
+): DomainResult<DecoderInputs> {
+  const encoder = DeepFilterNetGraph.Encoder;
+  const embedding = sessions.output(encoded, encoder, 'emb', frames * 512);
+  if (!embedding.ok) return embedding;
+  const pathway = sessions.output(encoded, encoder, 'c0', frames * 64 * 96);
+  if (!pathway.ok) return pathway;
+  // The port takes an input's buffer, and the embedding is the other
+  // decoder's input too, so this decoder is given a copy of it.
+  const { data, dims } = embedding.value;
+  const erbInputs = new Map<string, Tensor>([['emb', { data: data.slice(), dims }]]);
+  for (const [name, values] of ERB_DECODER_INPUTS) {
+    const found = sessions.output(encoded, encoder, name, frames * values);
+    if (!found.ok) return found;
+    erbInputs.set(name, found.value);
+  }
+  return succeed({ erbInputs, embedding: embedding.value, pathway: pathway.value });
 }
 
 /** The graphs' gains and taps for a run of `frames` frames, or why the runtime gave none. */
@@ -90,31 +104,27 @@ export async function runGraphs(
     signal,
   );
   if (!encoded.ok) return encoded;
-  const embedding = outputOf(encoded.value, DeepFilterNetGraph.Encoder, 'emb', frames * 512);
-  if (!embedding.ok) return embedding;
-  const pathway = outputOf(encoded.value, DeepFilterNetGraph.Encoder, 'c0', frames * 64 * 96);
-  if (!pathway.ok) return pathway;
-  const erbInputs = new Map<string, Tensor>();
-  for (const name of ERB_DECODER_INPUTS) {
-    const found = encoded.value.get(name);
-    if (found === undefined) return outputRefused(DeepFilterNetGraph.Encoder, name);
-    // The port takes an input's buffer, and the embedding is the other
-    // decoder's input too, so this decoder is given a copy of it.
-    erbInputs.set(name, name === 'emb' ? { data: found.data.slice(), dims: found.dims } : found);
-  }
+  const decoding = decoderInputs(sessions, encoded.value, frames);
+  if (!decoding.ok) return decoding;
+  const { erbInputs, embedding, pathway } = decoding.value;
   const masked = await sessions.of(DeepFilterNetGraph.ErbDecoder).run(erbInputs, signal);
   if (!masked.ok) return masked;
-  const gains = outputOf(masked.value, DeepFilterNetGraph.ErbDecoder, 'm', frames * ERB_BANDS);
+  const gains = sessions.output(
+    masked.value,
+    DeepFilterNetGraph.ErbDecoder,
+    'm',
+    frames * ERB_BANDS,
+  );
   if (!gains.ok) return gains;
   const filtered = await sessions.of(DeepFilterNetGraph.DeepFilterDecoder).run(
     new Map([
-      ['emb', embedding.value],
-      ['c0', pathway.value],
+      ['emb', embedding],
+      ['c0', pathway],
     ]),
     signal,
   );
   if (!filtered.ok) return filtered;
-  const taps = outputOf(
+  const taps = sessions.output(
     filtered.value,
     DeepFilterNetGraph.DeepFilterDecoder,
     'coefs',

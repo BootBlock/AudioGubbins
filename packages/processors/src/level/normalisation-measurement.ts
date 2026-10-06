@@ -22,7 +22,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 
-import type { ProcessorRun } from '../framework/processor-type.js';
+import type { MeasuringRun, ProcessorRun } from '../framework/processor-type.js';
 import { finiteSample } from '../framework/sample-safety.js';
 import type { Measurement, Measurer } from '../framework/whole-pass.js';
 
@@ -33,9 +33,6 @@ const HEADER = 2;
 const READING_WIDTH = 4;
 export const SAMPLE_PEAK = 0;
 export const TRUE_PEAK = 2;
-
-/** What a measurer was made for: its run, less the measurement it is making. */
-export type MeasuringRun = Omit<ProcessorRun, 'measured'>;
 
 /** The measurement `values` make for `run`, behind its header. */
 function measurementOf(run: MeasuringRun, values: readonly number[]): readonly number[] {

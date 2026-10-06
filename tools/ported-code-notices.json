@@ -1,0 +1,86 @@
+{
+  "ported": [
+    {
+      "project": "DeepFilterNet",
+      "url": "https://github.com/Rikorose/DeepFilterNet",
+      "commit": "d375b2d8309e0935d165700c91da9de862a99c31",
+      "licence": "MIT OR Apache-2.0",
+      "copyright": ["Copyright (c) 2021 Hendrik Schröter"],
+      "ported": "The processing around DeepFilterNet 3's graphs, from libDF (libDF/src/lib.rs) and its Python pipeline (DeepFilterNet/df/enhance.py): the STFT and its Vorbis window, the ERB and spectral features and their running normalisation, the ERB gains, the deep filter, the post-filter and the attenuation limit.",
+      "into": ["packages/processors/src/ml/deepfilternet"]
+    },
+    {
+      "project": "ClearerVoice-Studio",
+      "url": "https://github.com/modelscope/ClearerVoice-Studio",
+      "commit": "6b3774dc79c46ae8bed2a4fa5f706f0ac8c75c61",
+      "licence": "Apache-2.0",
+      "copyright": [],
+      "ported": "MossFormer2 SE 48K's 48 kHz decode (decode_one_audio_mossformer2_se_48k of clearvoice/utils/decode.py, and stft, istft and compute_fbank of clearvoice/utils/misc.py): the segments, the features and the masked spectrum around the graph. The repository states no copyright; its files name Shengkui Zhao and Zexu Pan as their authors.",
+      "into": ["packages/processors/src/ml/mossformer2"]
+    },
+    {
+      "project": "torchaudio",
+      "url": "https://github.com/pytorch/audio",
+      "commit": "a224ab24a7f4797f6707051257265e223e12576f",
+      "licence": "BSD-2-Clause",
+      "copyright": ["Copyright (c) 2017 Facebook Inc. (Soumith Chintala)"],
+      "ported": "The Kaldi-compatible filter bank (torchaudio.compliance.kaldi.fbank) and the deltas (torchaudio.functional.compute_deltas) that MossFormer2 SE 48K's features are taken with.",
+      "into": [
+        "packages/processors/src/ml/mossformer2/features.ts",
+        "packages/processors/src/ml/mossformer2/kaldi-fbank.ts"
+      ]
+    },
+    {
+      "project": "Kaldi",
+      "url": "https://github.com/kaldi-asr/kaldi",
+      "commit": "e02e35f0254bb033fab73d1df99fc34123e31d56",
+      "licence": "Apache-2.0",
+      "copyright": [
+        "Copyright 2009-2012 Microsoft Corporation",
+        "Copyright 2009-2012 Karel Vesely; 2016 Johns Hopkins University (author: Daniel Povey)",
+        "Copyright 2009-2011 Phonexia s.r.o.; Karel Vesely; Microsoft Corporation",
+        "Copyright 2009-2011 Karel Vesely; Petr Motlicek; Microsoft Corporation; 2013-2016 Johns Hopkins University (author: Daniel Povey); 2014 IMSL, PKU-HKUST (author: Wei Shi)"
+      ],
+      "ported": "The log mel filter bank of compute-fbank-feats (src/featbin/compute-fbank-feats.cc, src/feat/feature-fbank.cc, src/feat/mel-computations.cc and src/feat/feature-window.cc), which torchaudio's filter bank reproduces and the port follows.",
+      "into": ["packages/processors/src/ml/mossformer2/kaldi-fbank.ts"]
+    },
+    {
+      "project": "PyTorch",
+      "url": "https://github.com/pytorch/pytorch",
+      "commit": "d38164a545b4a4e4e0cf73ce67173f70574890b6",
+      "licence": "BSD-3-Clause",
+      "copyright": [
+        "Copyright (c) 2016- Facebook, Inc (Adam Paszke)",
+        "Copyright (c) 2014- Facebook, Inc (Soumith Chintala)",
+        "Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)",
+        "Copyright (c) 2012-2014 Deepmind Technologies (Koray Kavukcuoglu)",
+        "Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)",
+        "Copyright (c) 2011-2013 NYU (Clement Farabet)",
+        "Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon Bottou, Iain Melvin, Jason Weston)",
+        "Copyright (c) 2006 Idiap Research Institute (Samy Bengio)",
+        "Copyright (c) 2001-2004 Idiap Research Institute (Ronan Collobert, Samy Bengio, Johnny Mariethoz)",
+        "Copyright (c) 2016-present, Facebook Inc. All rights reserved.",
+        "Copyright (c) 2016 Facebook Inc.",
+        "Copyright (c) 2015 Google Inc.",
+        "Copyright (c) 2015 Yangqing Jia",
+        "Copyright 2019-2020 Kakao Brain",
+        "Copyright (c) 2022 Cruise LLC.",
+        "Copyright (c) 2024 Tri Dao.",
+        "Copyright (c) 2021, 2023-2024 Arm Limited and/or its affiliates",
+        "Copyright(c) 2013, 2014, 2015, the respective contributors",
+        "Copyright(c) 2015, 2016 the respective contributors"
+      ],
+      "ported": "The short-time Fourier transform and its inverse (torch.stft and torch.istft, without centring or normalisation, one-sided) that ClearerVoice-Studio's decode masks MossFormer2 SE 48K's spectrum through.",
+      "into": ["packages/processors/src/ml/mossformer2/masked-stft.ts"]
+    },
+    {
+      "project": "Spleeter",
+      "url": "https://github.com/deezer/spleeter",
+      "commit": "c8854001ac8acad34a9bc2bd15f28475541828b1",
+      "licence": "MIT",
+      "copyright": ["Copyright (c) 2019-present, Deezer SA."],
+      "ported": "The processing around Spleeter's networks (spleeter/model/__init__.py and pad_and_partition of spleeter/utils/tensor.py): the STFT, the ratio masks and their extension above the bins the networks hear, the inverse STFT, the segments and the frame of silence before the stream.",
+      "into": ["packages/processors/src/ml/spleeter"]
+    }
+  ]
+}

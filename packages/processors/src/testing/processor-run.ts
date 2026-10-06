@@ -8,6 +8,7 @@
 import {
   MAXIMUM_QUALITY,
   ZERO_SAMPLES,
+  derivedSampleCount,
   instantiateProcessor,
   sampleRate,
   unsafeBrandId,
@@ -44,6 +45,10 @@ export interface RunSettings {
   readonly sampleRate?: SampleRate;
   readonly quality?: QualitySettings;
   readonly measured?: Measurement;
+  /** The frame of the stream the run starts at; a run from the first frame where not given. */
+  readonly start?: number;
+  /** How late the path to the node is, in frames; on time where not given. */
+  readonly inputArrival?: number;
   /** The instance's non-parameter state, such as a learned noise profile. */
   readonly state?: ProcessorState;
   readonly dsp?: CanonicalDsp;
@@ -88,10 +93,12 @@ export function processorStep(type: ProcessorType, settings: RunSettings): PlanS
       { ...made, values, ...(state === undefined ? {} : { state }) },
       descriptor,
       settings.quality ?? MAXIMUM_QUALITY.settings,
+      settings.start ?? 0,
       settings.measured,
     ),
     inputs: [{ port: ProcessorPort.Input, layout: settings.layout, slot: 0, delay: ZERO_SAMPLES }],
     outputs: [{ port: ProcessorPort.Output, layout: output, slot: 1 }],
+    inputArrival: { kind: 'known', frames: derivedSampleCount(settings.inputArrival ?? 0) },
   };
 }
 

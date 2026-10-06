@@ -48,6 +48,12 @@ export interface NodeLatency {
   /** Frames of delay to apply to each input port, in port order, to align it with the latest. */
   readonly compensation: readonly SampleCount[];
 
+  /**
+   * How late the node's inputs are against the graph's sources once aligned:
+   * the latest of them, and none for a node that takes no input.
+   */
+  readonly inputArrival: PathLatency;
+
   /** How late the node's output is against the graph's sources. */
   readonly arrival: PathLatency;
 }
@@ -149,6 +155,7 @@ function analyseNode(
     node: node.descriptor.id,
     processing,
     compensation: inputs.map((input) => delayToMeet(framesOf(incoming), input)),
+    inputArrival: incoming,
     arrival: arrivalAfter(incoming, processing, node.descriptor.id, diagnostics),
   };
 }

@@ -6,36 +6,49 @@
  * the chunks of a schedule over each channel on its own, so where the runs are
  * cut and joined shows in its output, and a test can work out by hand what any
  * stream must give.
+ *
+ * It reaches no Node module, so the packages that run chains can take it: its
+ * file's hashes are constants, which this package's tests hold to its bytes.
  */
 
 import {
-  DeterminismClass,
   ProcessorCategory,
-  ZERO_SAMPLES,
   succeed,
   type CancellationSignal,
   type DomainResult,
-  type ProcessorDescriptor,
   type SampleRate,
 } from '@audiogubbins/domain';
 import { GraphOptimisation, InferenceMode, tensor } from '@audiogubbins/ml-runtime';
-import { FAKE_RUNTIME, type FakeModel } from '@audiogubbins/ml-runtime/testing';
+import { FAKE_RUNTIME, FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
 
-import { scheduledRun, type ChunkSchedule } from '../ml/chunk-schedule.js';
-import { CANONICAL_RESAMPLER_VERSION, type ModelDefinition } from '../ml/model-definition.js';
+import type { ChunkSchedule, ScheduledRun } from '../ml/chunk-schedule.js';
+import type { ModelDefinition } from '../ml/model-definition.js';
 import type { ModelOutput, ModelStream } from '../ml/model-pass.js';
-import type { ModelProcessor } from '../ml/model-processor.js';
+import type { ProcessorType } from '../framework/processor-type.js';
+import { ModelUnavailability, modelUnavailable, type ModelLibrary } from '../ml/model-library.js';
+import { modelDescriptor, modelProcessorType, type ModelProcessor } from '../ml/model-processor.js';
 import type { ModelSessions } from '../ml/model-sessions.js';
-import { sha256Of } from './model-services.js';
+import { ScheduledInput } from '../ml/scheduled-input.js';
 
 /** The model's file: bytes the fake runtime never reads, named by their hash. */
 export const RECURRENT_MODEL_BYTES = new Uint8Array([0x6d, 0x6f, 0x64, 0x65, 0x6c]);
+export const RECURRENT_MODEL_SHA256 =
+  '9372c470eeadd5ecd9c3c74c2b3cb633f8e2f2fad799250a0f70d652b6b825e4';
 export const RECURRENT_MODEL_PATH = 'model.onnx';
+
+/** `modelHashOf` the pack's listing: the model's file is all it holds. */
+export const RECURRENT_MODEL_HASH =
+  '44df626123bf14c3103a3c35be9cf5c4d7dcf161f6816b53f5dcf69e421f9986';
 export const RECURRENT_PACK = 'test-recurrence';
 export const RECURRENT_VERSION = '1.0.0';
 
 /** The schedule the stream runs the model in, in frames at the model's rate. */
-const RECURRENT_SCHEDULE: ChunkSchedule = { chunk: 256, warmUp: 64 };
+const RECURRENT_SCHEDULE: ChunkSchedule = {
+  chunk: 256,
+  before: 64,
+  after: 0,
+  firstChunk: 256,
+};
 
 /** The recurrence the model computes over one run, in single precision as a graph would. */
 export function recurrence(input: Float32Array): Float32Array<ArrayBuffer> {
@@ -64,15 +77,14 @@ export function recurrentDefinition(
   sampleRate: SampleRate,
   runtimeHash = FAKE_RUNTIME.webAssemblySha256,
 ): ModelDefinition {
-  const sha256 = sha256Of(RECURRENT_MODEL_BYTES);
   return {
     identity: {
       pack: RECURRENT_PACK,
       version: RECURRENT_VERSION,
-      modelHash: sha256Of(new TextEncoder().encode(`${sha256}  ${RECURRENT_MODEL_PATH}\n`)),
+      modelHash: RECURRENT_MODEL_HASH,
       runtimeHash,
     },
-    files: [{ path: RECURRENT_MODEL_PATH, sha256 }],
+    files: [{ path: RECURRENT_MODEL_PATH, sha256: RECURRENT_MODEL_SHA256 }],
     sampleRate,
     inference: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Extended },
   };
@@ -82,101 +94,87 @@ export function recurrentDefinition(
 class RecurrentStream implements ModelStream {
   readonly #sessions: ModelSessions;
   readonly #emit: ModelOutput;
-  /** Each channel's frames from `#base` on. */
-  #held: Float32Array[];
-  #base = 0;
-  #frames = 0;
-  #run = 0;
+  readonly #input: ScheduledInput;
 
   constructor(sessions: ModelSessions, channels: number, emit: ModelOutput) {
     this.#sessions = sessions;
     this.#emit = emit;
-    this.#held = Array.from({ length: channels }, () => new Float32Array(0));
+    this.#input = new ScheduledInput(RECURRENT_SCHEDULE, channels);
   }
 
   async hear(input: readonly Float32Array[], frames: number, signal?: CancellationSignal) {
-    this.#held = this.#held.map((held, channel) => {
-      const grown = new Float32Array(held.length + frames);
-      grown.set(held);
-      grown.set(input[channel]?.subarray(0, frames) ?? [], held.length);
-      return grown;
-    });
-    this.#frames += frames;
-    for (;;) {
-      const run = scheduledRun(RECURRENT_SCHEDULE, this.#run);
-      if (this.#frames < run.first + run.length) return succeed(undefined);
-      const ran = await this.#runNext(signal);
-      if (!ran.ok) return ran;
-    }
+    return await this.#input.hear(input, frames, (run, channels) =>
+      this.#run(run, channels, signal),
+    );
   }
 
   async end(signal?: CancellationSignal) {
-    while (scheduledRun(RECURRENT_SCHEDULE, this.#run).kept < this.#frames) {
-      const ran = await this.#runNext(signal);
-      if (!ran.ok) return ran;
-    }
-    return succeed(undefined);
+    return await this.#input.end((run, channels) => this.#run(run, channels, signal));
   }
 
   release(): void {
-    this.#held = [];
+    // The scheduled input's arrays go with the stream; nothing else is held.
   }
 
-  async #runNext(signal: CancellationSignal | undefined): Promise<DomainResult<void>> {
-    const run = scheduledRun(RECURRENT_SCHEDULE, this.#run);
-    const keep = Math.min(RECURRENT_SCHEDULE.chunk, this.#frames - run.kept);
+  async #run(
+    run: ScheduledRun,
+    channels: readonly Float32Array[],
+    signal: CancellationSignal | undefined,
+  ): Promise<DomainResult<void>> {
+    const { from, count } = this.#input.part(run);
     const kept: Float32Array[] = [];
-    for (const held of this.#held) {
-      const x = new Float32Array(run.length);
-      x.set(held.subarray(run.first - this.#base, run.first - this.#base + run.length));
-      const input = tensor(x, [1, run.length]);
+    for (const samples of channels) {
+      const input = tensor(samples.slice(), [1, run.length]);
       if (!input.ok) return input;
       const ran = await this.#sessions
         .of(RECURRENT_MODEL_PATH)
         .run(new Map([['x', input.value]]), signal);
       if (!ran.ok) return ran;
-      kept.push(
-        ran.value.get('y')?.data.slice(run.offset, run.offset + keep) ?? new Float32Array(keep),
-      );
+      kept.push(ran.value.get('y')?.data.slice(from, from + count) ?? new Float32Array(count));
     }
-    this.#run += 1;
-    const forget = scheduledRun(RECURRENT_SCHEDULE, this.#run).first - this.#base;
-    this.#held = this.#held.map((held) => held.slice(Math.max(0, forget)));
-    this.#base += Math.max(0, forget);
-    await this.#emit(kept, keep);
+    await this.#emit(kept, count);
     return succeed(undefined);
   }
-}
-
-/** The processor's descriptor for the model `definition` names. */
-function descriptorOf(definition: ModelDefinition): ProcessorDescriptor {
-  return {
-    typeKey: 'test-recurrence',
-    label: 'Test recurrence',
-    category: ProcessorCategory.Restoration,
-    version: {
-      implementation: 1,
-      parameters: 1,
-      resampler: CANONICAL_RESAMPLER_VERSION,
-      model: definition.identity,
-    },
-    parameters: [],
-    qualitySettings: ['resampling'],
-    determinism: DeterminismClass.Pinned,
-    wholePass: true,
-    realTime: false,
-    outputLayout: (input) => succeed(input),
-    latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
-    leadIn: () => 0,
-    frameGrid: () => 1,
-  };
 }
 
 /** The test processor over the model `definition` names. */
 export function recurrentProcessor(definition: ModelDefinition): ModelProcessor {
   return {
-    descriptor: descriptorOf(definition),
+    descriptor: modelDescriptor({
+      typeKey: 'test-recurrence',
+      label: 'Test recurrence',
+      category: ProcessorCategory.Restoration,
+      implementation: 1,
+      parameterVersion: 1,
+      model: definition,
+      parameters: [],
+    }),
     model: definition,
     stream: (sessions, run, emit) => new RecurrentStream(sessions, run.input.roles.length, emit),
   };
+}
+
+/** A library that holds the model's one file, and no other. */
+const RECURRENT_LIBRARY: ModelLibrary = {
+  file: (pack, version, path) =>
+    Promise.resolve(
+      pack === RECURRENT_PACK && version === RECURRENT_VERSION && path === RECURRENT_MODEL_PATH
+        ? succeed({ bytes: RECURRENT_MODEL_BYTES.slice(), sha256: RECURRENT_MODEL_SHA256 })
+        : modelUnavailable(
+            ModelUnavailability.RequiredUnavailable,
+            `No installed pack holds ${path} of ${pack} ${version}.`,
+            { pack, version, path },
+          ),
+    ),
+};
+
+/**
+ * The test processor's type at `sampleRate`, its model's file read from
+ * memory and run by the fake runtime, for a test that runs it in a chain.
+ */
+export function recurrentType(sampleRate: SampleRate): ProcessorType {
+  return modelProcessorType(recurrentProcessor(recurrentDefinition(sampleRate)), {
+    inference: new FakeInference(RECURRENT_MODEL),
+    models: RECURRENT_LIBRARY,
+  });
 }

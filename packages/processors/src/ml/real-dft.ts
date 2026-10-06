@@ -1,7 +1,8 @@
 /**
  * The discrete Fourier transform of real signals of an even length that need
- * not be a power of two, such as DeepFilterNet's 960 samples, on the
- * canonical FFT, which takes powers of two alone (ADR-0032, ADR-0061).
+ * not be a power of two, such as DeepFilterNet 3's frame of 960 samples and
+ * MossFormer2's of 1 920, on the canonical FFT, which takes powers of two
+ * alone (ADR-0032, ADR-0061).
  *
  * Bluestein's algorithm writes a transform of length `N` as a convolution
  * with a chirp, `e^(−iπn²/N)`, which is taken by FFTs of the power of two `M`

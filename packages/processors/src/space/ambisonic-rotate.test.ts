@@ -19,13 +19,13 @@ import {
 import { MAXIMUM_QUALITY } from '@audiogubbins/domain';
 
 import { AMBISONIC_ROTATION } from './ambisonic-rotate.js';
+import { largestDifference } from '../testing/sample-difference.js';
 import {
   AMBISONIC_LAYOUTS,
   NORMALISATIONS,
   ORDERS,
   burst,
   encoded,
-  largestDifference,
   setLayout,
   turned,
 } from '../testing/space-measures.js';

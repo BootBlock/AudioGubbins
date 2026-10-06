@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
  * Writes `THIRD-PARTY-NOTICES.md`: the licence and attribution of every
- * third-party package the application ships, from the committed lockfiles.
+ * third-party package the application ships, from the committed lockfiles,
+ * and of the source code ported into it from other projects, from the
+ * committed list of ported code.
  *
  * A package ships when the published application runs with it: the closure of
  * the production dependencies of `apps/web` in `pnpm-lock.yaml`, through every
@@ -21,13 +23,21 @@
  * name, before anything is written, so a dependency cannot land without the
  * notice it needs or with a licence that has not been decided on.
  *
+ * Code rewritten here from another project's source ships under that
+ * project's licence too, though no lockfile names it, so each port is listed
+ * by hand in `tools/ported-code-notices.json`, reviewed as any change is: the
+ * project, the commit ported from, its licence and copyright, what was ported
+ * and where it lives. A port is held to the same allow-list, and refused
+ * where a repository path it names no longer exists, so a notice cannot
+ * outlive or lose the code it is for.
+ *
  * Usage:
  *   node tools/sync-third-party-notices.mjs           write the notices
  *   node tools/sync-third-party-notices.mjs --check   exit non-zero if stale
  */
 
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,6 +47,9 @@ import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const NOTICES = join(REPO_ROOT, 'THIRD-PARTY-NOTICES.md');
+
+/** The committed, reviewed list of the source code ported from other projects. */
+export const PORTED_CODE = join(REPO_ROOT, 'tools', 'ported-code-notices.json');
 
 /**
  * The standard text of each allowed licence, as `<SPDX identifier>.txt`, from
@@ -196,9 +209,9 @@ const LICENCE_FILE = /^(?:licen[cs]e|copying|notice)(?:[-._][\w.-]*)?$/iu;
 
 /**
  * A line that begins as a copyright statement does: `Copyright` and a name or
- * a year, a copyright sign, or `(c)` and a year.
+ * a year, `Copyright(c)`, a copyright sign, or `(c)` and a year.
  */
-const COPYRIGHT_LINE = /^(?:copyright\s|©|\(c\)\s*\d)/iu;
+const COPYRIGHT_LINE = /^(?:copyright(?:\s|\(c\))|©|\(c\)\s*\d)/iu;
 
 /**
  * A line that begins with the word but is the prose of a licence wrapped onto
@@ -281,21 +294,135 @@ export function noticeOf(source, standardText) {
       version: source.version,
       licence: source.licence,
       copyright: [...new Set(lines.filter(isCopyright))],
-      // The copyright line of a standard text is a template, which states
-      // nothing, so it is left out.
-      texts:
-        shipped.length > 0
-          ? shipped
-          : decision.licences.map((licence) =>
-              normalised(standardText(licence.replace(/ WITH .*$/u, '')))
-                .split('\n')
-                .filter((line) => !isCopyright(line.trim()))
-                .join('\n')
-                .replaceAll(/\n{3,}/gu, '\n\n'),
-            ),
+      texts: shipped.length > 0 ? shipped : standardTexts(decision.licences, standardText),
       standard: shipped.length === 0,
     },
   };
+}
+
+/**
+ * The standard text of each of `licences`, an exception's name aside. The
+ * copyright line of a standard text is a template, which states nothing, so
+ * it is left out.
+ *
+ * @param {readonly string[]} licences
+ * @param {(licence: string) => string} standardText the SPDX text of an
+ *   allowed licence
+ * @returns {string[]}
+ */
+function standardTexts(licences, standardText) {
+  return licences.map((licence) =>
+    normalised(standardText(licence.replace(/ WITH .*$/u, '')))
+      .split('\n')
+      .filter((line) => !isCopyright(line.trim()))
+      .join('\n')
+      .replaceAll(/\n{3,}/gu, '\n\n'),
+  );
+}
+
+/**
+ * What the notices say of code ported from one project.
+ *
+ * @typedef {object} PortedNotice
+ * @property {string} project
+ * @property {string} url the project's repository
+ * @property {string} commit the commit the code was ported from
+ * @property {string} licence the project's SPDX licence expression
+ * @property {readonly string[]} copyright each line of the project's
+ *   copyright, as its source states it
+ * @property {string} ported what was ported, from which of its files
+ * @property {readonly string[]} into the repository paths it was ported into
+ * @property {readonly string[]} texts the standard texts of the licences it
+ *   is taken under
+ */
+
+/** A full commit hash, so a port names one tree and never a moving branch. */
+const COMMIT = /^[0-9a-f]{40}$/u;
+
+/**
+ * A repository path as the list writes one: relative, with forward slashes,
+ * and never climbing out of the repository.
+ */
+const REPOSITORY_PATH = /^(?!\/)(?![a-z]:)(?!.*(?:^|\/)\.\.(?:\/|$))[^\\]+$/iu;
+
+/**
+ * Whether `value` is a string with text in it.
+ *
+ * @param {unknown} value
+ * @returns {value is string}
+ */
+function isText(value) {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
+/**
+ * The notices of the ported code `list` names, read from
+ * `tools/ported-code-notices.json`, or every reason one of its entries is
+ * refused: a field missing or malformed, a licence off the allow-list, a
+ * project listed twice, or a repository path that does not exist.
+ *
+ * @param {unknown} list the list's parsed JSON
+ * @param {(path: string) => boolean} exists whether a repository path exists
+ * @param {(licence: string) => string} standardText the SPDX text of an
+ *   allowed licence
+ * @returns {{ readonly notices: readonly PortedNotice[] }
+ *   | { readonly refused: readonly string[] }}
+ */
+export function portedNoticesOf(list, exists, standardText) {
+  const entries =
+    typeof list === 'object' && list !== null && 'ported' in list ? list.ported : undefined;
+  if (!Array.isArray(entries)) return { refused: ['the list holds no `ported` array'] };
+  /** @type {string[]} */
+  const refused = [];
+  /** @type {PortedNotice[]} */
+  const notices = [];
+  const projects = new Set();
+  for (const [index, entry] of entries.entries()) {
+    /** @type {Record<string, unknown>} */
+    const fields = typeof entry === 'object' && entry !== null ? entry : {};
+    const { project, url, commit, licence, copyright, ported, into } = fields;
+    const named = isText(project) ? project : `entry ${String(index + 1)}`;
+    const reasons = [];
+    if (!isText(project)) reasons.push('names no project');
+    else if (projects.has(project)) reasons.push('is listed twice');
+    projects.add(project);
+    if (!isText(url) || !url.startsWith('https://')) reasons.push('names no https repository');
+    if (typeof commit !== 'string' || !COMMIT.test(commit)) {
+      reasons.push('names no full commit hash');
+    }
+    const decision = isText(licence) ? decideLicence(licence) : undefined;
+    if (decision === undefined) reasons.push('declares no SPDX licence expression');
+    else if (!decision.allowed) reasons.push(`is licensed ${String(licence)}: ${decision.reason}`);
+    const lines = Array.isArray(copyright) ? copyright : undefined;
+    if (lines === undefined || !lines.every((line) => isText(line) && isCopyright(line))) {
+      reasons.push('lists its copyright as anything but lines stating one');
+    }
+    if (!isText(ported)) reasons.push('says nothing of what was ported');
+    const paths = Array.isArray(into) ? into : [];
+    if (paths.length === 0) reasons.push('names no path it was ported into');
+    for (const path of paths) {
+      if (typeof path !== 'string' || !REPOSITORY_PATH.test(path)) {
+        reasons.push(`names ${String(path)}, which is not a path in the repository`);
+      } else if (!exists(path)) {
+        reasons.push(`names ${path}, which does not exist`);
+      }
+    }
+    if (reasons.length > 0) {
+      refused.push(...reasons.map((reason) => `ported code from ${named} ${reason}`));
+      continue;
+    }
+    notices.push({
+      project: String(project),
+      url: String(url),
+      commit: String(commit),
+      licence: String(licence),
+      copyright: (lines ?? []).map(String),
+      ported: String(ported),
+      into: paths.map(String),
+      texts: decision?.allowed === true ? standardTexts(decision.licences, standardText) : [],
+    });
+  }
+  return refused.length > 0 ? { refused } : { notices };
 }
 
 /**
@@ -342,28 +469,37 @@ function fenceFor(text) {
 }
 
 /**
- * The notices file, from every shipped package's notice. Each distinct
- * licence text is written once, after the table, with the packages that ship
- * it; texts that differ only in spacing are one.
+ * The notices file, from every shipped package's notice and every port's.
+ * Each distinct licence text is written once, after the tables, with the
+ * packages and ports that ship it; texts that differ only in spacing are one.
  *
  * @param {readonly Notice[]} notices
+ * @param {readonly PortedNotice[]} ported
  * @returns {string}
  */
-export function renderNotices(notices) {
+export function renderNotices(notices, ported = []) {
   const sorted = notices.toSorted(
     (one, other) => compare(one.name, other.name) || compare(one.version, other.version),
   );
   /** @type {Map<string, { readonly number: number, readonly text: string, readonly users: Set<string> }>} */
   const texts = new Map();
-  const rows = sorted.map((notice) => {
-    const named = `${notice.name} ${notice.version}`;
-    const links = notice.texts.map((text) => {
+  /**
+   * The links to `user`'s texts, each numbered by where it first appears.
+   *
+   * @param {readonly string[]} given
+   * @param {string} user
+   * @returns {string[]}
+   */
+  const linksOf = (given, user) =>
+    given.map((text) => {
       const key = text.replaceAll(/\s+/gu, ' ');
       const known = texts.get(key) ?? { number: texts.size + 1, text, users: new Set() };
       texts.set(key, known);
-      known.users.add(named);
+      known.users.add(user);
       return `[${String(known.number)}](#text-${String(known.number)})`;
     });
+  const rows = sorted.map((notice) => {
+    const links = linksOf(notice.texts, `${notice.name} ${notice.version}`);
     return [
       cell(notice.name),
       cell(notice.version),
@@ -372,6 +508,19 @@ export function renderNotices(notices) {
       `${links.join(', ')}${notice.standard ? ' (standard text: the package ships none)' : ''}`,
     ].join(' | ');
   });
+  const ports = ported
+    .toSorted((one, other) => compare(one.project, other.project))
+    .map((port) =>
+      [
+        `[${cell(port.project)}](${port.url})`,
+        `\`${port.commit}\``,
+        cell(port.licence),
+        port.copyright.length === 0 ? '—' : port.copyright.map(cell).join('<br>'),
+        cell(port.ported),
+        port.into.map((path) => `\`${cell(path)}\``).join('<br>'),
+        linksOf(port.texts, `the code ported from ${port.project}`).join(', '),
+      ].join(' | '),
+    );
   const sections = [...texts.values()].map(({ number, text, users }) => {
     const fence = fenceFor(text);
     return [
@@ -388,8 +537,9 @@ export function renderNotices(notices) {
   return [
     '# Third-party notices',
     '',
-    '<!-- Generated by tools/sync-third-party-notices.mjs from pnpm-lock.yaml and',
-    'Cargo.lock. Do not edit: run `pnpm notices:update` and commit the result. -->',
+    '<!-- Generated by tools/sync-third-party-notices.mjs from pnpm-lock.yaml,',
+    'Cargo.lock and tools/ported-code-notices.json. Do not edit: run',
+    '`pnpm notices:update` and commit the result. -->',
     '',
     'AudioGubbins ships the third-party packages below inside the application. Each',
     'is listed with its version, the SPDX licence expression it declares, the',
@@ -405,6 +555,17 @@ export function renderNotices(notices) {
     '| Package | Version | Licence | Copyright | Licence text |',
     '| --- | --- | --- | --- | --- |',
     ...rows.map((row) => `| ${row} |`),
+    '',
+    '## Ported source code',
+    '',
+    'AudioGubbins also ships source code rewritten in TypeScript from the projects',
+    'below, each under its own licence. Each is listed with the commit it was ported',
+    'from, its licence, the copyright its source states, what was ported and where',
+    'in this repository it lives, and the standard text of its licence.',
+    '',
+    '| Project | Commit | Licence | Copyright | Ported | Into | Licence text |',
+    '| --- | --- | --- | --- | --- | --- | --- |',
+    ...ports.map((row) => `| ${row} |`),
     '',
     '## Licence texts',
     '',
@@ -590,7 +751,22 @@ function main(argv) {
     return 1;
   }
   const notices = decided.flatMap((one) => ('notice' in one ? [one.notice] : []));
-  const desired = renderNotices(notices);
+  const ported = portedNoticesOf(
+    JSON.parse(readFileSync(PORTED_CODE, 'utf8')),
+    (path) => existsSync(join(REPO_ROOT, path)),
+    (licence) => readFileSync(join(LICENCE_TEXTS, `${licence}.txt`), 'utf8'),
+  );
+  if ('refused' in ported) {
+    console.error(
+      `tools/ported-code-notices.json cannot give ${String(ported.refused.length)} notice(s):\n` +
+        ported.refused.map((reason) => `  - ${reason}`).join('\n') +
+        '\n\nEach port names its project, an https repository, the full commit it was\n' +
+        'ported from, a licence the allow-list permits, the copyright lines its source\n' +
+        'states, what was ported, and the repository paths it lives in.',
+    );
+    return 1;
+  }
+  const desired = renderNotices(notices, ported.notices);
   const traces = localTracesIn(desired);
   if (traces.length > 0) {
     console.error(`The notices would name this machine: ${[...new Set(traces)].join(', ')}`);
@@ -605,18 +781,23 @@ function main(argv) {
     if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
   }
   if (current === desired) {
-    console.log(`THIRD-PARTY-NOTICES.md is current: ${String(notices.length)} shipped packages.`);
+    console.log(
+      `THIRD-PARTY-NOTICES.md is current: ${String(notices.length)} shipped packages, ${String(ported.notices.length)} ports.`,
+    );
     return 0;
   }
   if (checkOnly) {
     console.error(
-      'THIRD-PARTY-NOTICES.md is stale: the shipped packages, or what they say of\n' +
-        'their licences, have changed. Run `pnpm notices:update` and commit the result.',
+      'THIRD-PARTY-NOTICES.md is stale: the shipped packages, the ported code, or\n' +
+        'what they say of their licences, have changed. Run `pnpm notices:update` and\n' +
+        'commit the result.',
     );
     return 1;
   }
   writeFileSync(NOTICES, desired, 'utf8');
-  console.log(`Wrote THIRD-PARTY-NOTICES.md: ${String(notices.length)} shipped packages.`);
+  console.log(
+    `Wrote THIRD-PARTY-NOTICES.md: ${String(notices.length)} shipped packages, ${String(ported.notices.length)} ports.`,
+  );
   return 0;
 }
 

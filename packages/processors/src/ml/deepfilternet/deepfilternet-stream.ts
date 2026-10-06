@@ -31,8 +31,10 @@ import { succeed, type CancellationSignal, type DomainResult } from '@audiogubbi
 
 import { scheduledRun, type ChunkSchedule } from '../chunk-schedule.js';
 import type { ModelSessions } from '../model-sessions.js';
+import { emptySpectrum, type Spectrum } from '../spectrum.js';
 import type { ModelOutput, ModelStream } from '../model-pass.js';
 import {
+  BINS,
   DEEP_FILTER_ORDER,
   DEEP_FILTER_BINS,
   ERB_BANDS,
@@ -43,11 +45,16 @@ import {
 import { enhanceFrame, type Finishing } from './enhancement.js';
 import { FeatureRun } from './features.js';
 import { runGraphs } from './graphs.js';
-import { LibDfStft, StftTransform, emptySpectrum, type Spectrum } from './libdf-stft.js';
+import { LibDfStft, StftTransform } from './libdf-stft.js';
 import type { CanonicalDsp } from '@audiogubbins/audio-engine';
 
-/** The runs the graphs are run in, in frames. */
-const DEEPFILTERNET_SCHEDULE: ChunkSchedule = { chunk: 1_000, warmUp: 400 };
+/** The runs the graphs are run in, in frames: a warm-up before each chunk alone. */
+const DEEPFILTERNET_SCHEDULE: ChunkSchedule = {
+  chunk: 1_000,
+  before: 400,
+  after: 0,
+  firstChunk: 1_000,
+};
 
 /** The spectra of one channel from frame `base` on, their arrays reused as frames are let go. */
 class SpectrumStore {
@@ -57,7 +64,7 @@ class SpectrumStore {
 
   /** The spectrum of a new frame, after the last, to be written. */
   next(): Spectrum {
-    const spectrum = this.#spare.pop() ?? emptySpectrum();
+    const spectrum = this.#spare.pop() ?? emptySpectrum(BINS);
     this.#held.push(spectrum);
     return spectrum;
   }
@@ -93,7 +100,7 @@ export class DeepFilterNetStream implements ModelStream {
   readonly #transform: StftTransform;
   readonly #channels: readonly ChannelState[];
   readonly #features = new FeatureRun();
-  readonly #enhanced = emptySpectrum();
+  readonly #enhanced = emptySpectrum(BINS);
   readonly #hopOut = new Float64Array(HOP);
   /** Each channel's output of one run, at most a chunk of hops. */
   readonly #output: readonly Float32Array[];
@@ -123,7 +130,7 @@ export class DeepFilterNetStream implements ModelStream {
     this.#channels = Array.from({ length: channels }, () => new ChannelState(this.#transform));
     this.#output = Array.from(
       { length: channels },
-      () => new Float32Array(DEEPFILTERNET_SCHEDULE.chunk * HOP),
+      () => new Float32Array(DEEPFILTERNET_SCHEDULE.firstChunk * HOP),
     );
   }
 
@@ -186,7 +193,7 @@ export class DeepFilterNetStream implements ModelStream {
   /** Runs the graphs over the next run, enhancing and synthesising the frames it keeps. */
   async #runNext(signal: CancellationSignal | undefined): Promise<DomainResult<void>> {
     const run = scheduledRun(DEEPFILTERNET_SCHEDULE, this.#run);
-    const end = Math.min(run.kept + DEEPFILTERNET_SCHEDULE.chunk, this.#frames);
+    const end = Math.min(run.kept + run.keeps, this.#frames);
     for (const [index, channel] of this.#channels.entries()) {
       const spectrumAt = (frame: number): Spectrum | undefined =>
         frame < this.#frames ? channel.spectra.at(frame) : undefined;

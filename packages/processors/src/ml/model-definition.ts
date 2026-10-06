@@ -1,7 +1,8 @@
 /**
  * What a machine-learning processor runs, as this build states it: the model
- * by its pack and the hashes of the files it runs, the runtime build by the
- * hash of its WebAssembly, and how each session is pinned (ADR-0062).
+ * by its pack's version and the hashes of the files it runs, the runtime
+ * build by the hash of its WebAssembly, and how each session is pinned
+ * (ADR-0062).
  *
  * The identity is the one an instance persists (REQ-AUDIO-145) and its
  * version check compares, so a project made with another model or runtime is
@@ -14,6 +15,7 @@ import {
   FailureKind,
   fail,
   failure,
+  sampleRate,
   succeed,
   type DomainResult,
   type ModelIdentity,
@@ -39,6 +41,17 @@ export const PINNED_RUNTIME_SHA256 =
  */
 export const CANONICAL_RESAMPLER_VERSION = 1;
 
+/**
+ * The rate of `hertz`, the one a model was trained at: a constant of the
+ * processor that names it, so a refusal is a fault there, never something a
+ * stream brings about.
+ */
+export function modelRate(hertz: number): SampleRate {
+  const rate = sampleRate(hertz);
+  if (!rate.ok) throw new Error(`${String(hertz)} Hz is not a sample rate.`);
+  return rate.value;
+}
+
 /** A file a model runs, by its path within its pack and its SHA-256. */
 export interface ModelDefinitionFile {
   readonly path: string;
@@ -48,12 +61,16 @@ export interface ModelDefinitionFile {
 /** A model as this build runs it. */
 export interface ModelDefinition {
   /**
-   * The identity an instance persists: `modelHash` is the hash of the
-   * listing of {@link files} (`processor-version.ts`), and a test holds the
-   * two to agreeing.
+   * The identity an instance persists: `modelHash` is `modelHashOf` the
+   * listing of every file of the pack's version, its licences and notice
+   * too, so it names the version as model packs do; a test holds it to the
+   * pack's definition.
    */
   readonly identity: ModelIdentity;
-  /** The files the processor runs, each the pack's file of that path. */
+  /**
+   * The files the processor runs, each the pack's file of that path, which
+   * the pass holds each file it reads to by its own hash.
+   */
   readonly files: readonly ModelDefinitionFile[];
   /** The rate the model hears and speaks at. */
   readonly sampleRate: SampleRate;

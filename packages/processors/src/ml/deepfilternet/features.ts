@@ -30,7 +30,7 @@ import {
   NORMALISATION_ALPHA,
   SPECTRUM_NORMALISATION_START,
 } from './deepfilternet-model.js';
-import type { Spectrum } from './libdf-stft.js';
+import type { Spectrum } from '../spectrum.js';
 
 /** The weight of each frame's new value in a running mean. */
 const NEW_WEIGHT = 1 - NORMALISATION_ALPHA;

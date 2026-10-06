@@ -251,7 +251,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/processors': {
-    "The machine-learning processors and the model library they read their packs through (ADR-0062), which the threads that run racks make DeepFilterNet 3 with, over the application's library on the installed packs, as Phase 06's pack manager and those threads are wired.":
+    "The machine-learning processors and the model library they read their packs through (ADR-0062), which the threads that run racks make DeepFilterNet 3, MossFormer2 SE 48K and Spleeter's two-stem and four-stem types with, over the application's library on the installed packs, as Phase 06's pack manager and those threads are wired.":
       [
         'ModelFile',
         'ModelLibrary',
@@ -259,6 +259,9 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ModelUnavailability',
         'deepFilterNet3',
         'modelUnavailable',
+        'mossFormer2Se48k',
+        'spleeter2Stems',
+        'spleeter4Stems',
       ],
     "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
@@ -315,7 +318,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['ModelPackStore'],
   },
   '@audiogubbins/model-packs': {
-    "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
+    "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
       [
         'AutomaticDownload',
         'AvailabilityContext',
@@ -345,6 +348,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'availabilityOf',
         'nextInstallState',
         'nobleSha256',
+        'nobleTextSha256',
         'packsToFetch',
         'readModelPackManifest',
         'readPackCatalogue',
@@ -417,7 +421,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'timelineFrameAt',
       ],
     "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
-      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'ln', 'log2'],
+      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'log2'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

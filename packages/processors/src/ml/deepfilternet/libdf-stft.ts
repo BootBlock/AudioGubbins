@@ -16,18 +16,8 @@
 import { sineOfTurns, type CanonicalDsp } from '@audiogubbins/audio-engine';
 
 import { BINS, FRAME, HOP } from './deepfilternet-model.js';
-import { RealDft } from './real-dft.js';
-
-/** A spectrum of {@link BINS} bins, as real and imaginary parts. */
-export interface Spectrum {
-  readonly real: Float64Array;
-  readonly imaginary: Float64Array;
-}
-
-/** A spectrum of zeros, to be written. */
-export function emptySpectrum(): Spectrum {
-  return { real: new Float64Array(BINS), imaginary: new Float64Array(BINS) };
-}
+import { RealDft } from '../real-dft.js';
+import type { Spectrum } from '../spectrum.js';
 
 /** The Vorbis window of {@link FRAME} samples. */
 function vorbisWindow(): Float64Array {
