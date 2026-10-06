@@ -1851,6 +1851,16 @@ Published paths
   readonly Clip.fadeOutLength: SampleCount
   readonly Clip.muted: boolean
   type ClipId = string & { readonly [BrandTag]: "ClipId"; }
+  interface DetectorFinding
+  readonly DetectorFinding.kind: FindingKind
+  readonly DetectorFinding.range: EditRange
+  readonly DetectorFinding.channels: readonly number[]
+  readonly DetectorFinding.measure: FindingMeasure
+  readonly DetectorFinding.treatment: Treatment
+  interface DetectorIdentity
+  readonly DetectorIdentity.key: string
+  readonly DetectorIdentity.label: string
+  readonly DetectorIdentity.version: number
   const DeterminismClass: { readonly Canonical: "canonical"; readonly Pinned: "pinned"; }
   type DeterminismClass = "canonical" | "pinned"
   interface DomainFailure
@@ -1898,6 +1908,11 @@ Published paths
   type FadeShape = "equal-power" | "linear" | "s-curve" | "square"
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
+  const FindingKind: { readonly Click: "click"; readonly Hum: "hum"; readonly Noise: "noise"; readonly Clipping: "clipping"; readonly DcOffset: "dc-offset"; readonly Transient: "transient"; }
+  type FindingKind = "click" | "clipping" | "dc-offset" | "hum" | "noise" | "transient"
+  interface FindingMeasure
+  readonly FindingMeasure.value: number
+  readonly FindingMeasure.unit: MeasureUnit
   interface FoundSlot
   readonly FoundSlot.slot: ChainSlot
   readonly FoundSlot.place: SlotPlace
@@ -1929,6 +1944,8 @@ Published paths
   readonly Marker.position: SampleCount
   readonly Marker.paletteKey?: string
   type MarkerId = string & { readonly [BrandTag]: "MarkerId"; }
+  const MeasureUnit: { readonly Dbfs: "dbfs"; readonly Decibels: "decibels"; readonly Hertz: "hertz"; readonly Linear: "linear"; }
+  type MeasureUnit = "dbfs" | "decibels" | "hertz" | "linear"
   type MediaShape = { readonly length: import("packages/domain/src/index").SampleCount; readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly channelLayout: import("packages/domain/src/index").ChannelLayout; }
   interface ModelIdentity
   readonly ModelIdentity.pack: string
@@ -2068,6 +2085,11 @@ Published paths
   readonly RackEdit.kind: "rack"
   readonly RackEdit.chain: EffectChainId
   type RangeEdit = ChannelEdit | LevelEdit | RackEdit
+  interface Recommendation
+  readonly Recommendation.assistant: string
+  readonly Recommendation.detectors: readonly DetectorIdentity[]
+  readonly Recommendation.findings: readonly DetectorFinding[]
+  readonly Recommendation.steps: readonly TreatmentStep[]
   interface Region
   readonly Region.id: RegionId
   readonly Region.assetId: AssetId
@@ -2131,6 +2153,11 @@ Published paths
   readonly Track.effectChainId?: EffectChainId
   readonly Track.paletteKey?: string
   type TrackId = string & { readonly [BrandTag]: "TrackId"; }
+  type Treatment = { readonly kind: "none"; readonly reason: string; } | { readonly kind: "steps"; readonly steps: readonly TreatmentStep[]; }
+  interface TreatmentStep
+  readonly TreatmentStep.typeKey: string
+  readonly TreatmentStep.values: Readonly<Record<string, ParameterValue>>
+  readonly TreatmentStep.learnFrom?: EditRange
   const ZERO_SAMPLES: SampleCount
   function addSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function ambisonicChannelCount(order: number): number
@@ -2889,6 +2916,29 @@ Published paths
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
 @audiogubbins/processors
+  interface Assistant
+  readonly Assistant.key: string
+  readonly Assistant.label: string
+  readonly Assistant.detectors: readonly AudioDetector[]
+  Assistant.recommend: (findings: readonly DetectorFinding[]) => readonly TreatmentStep[]
+  interface AudioDetector
+  readonly AudioDetector.identity: DetectorIdentity
+  readonly AudioDetector.finds: readonly FindingKind[]
+  AudioDetector.open: (settings: DetectionSettings) => DomainResult<Detection>
+  const CLASSIFICATION_ASSISTANT: Assistant
+  const CLICK_DETECTOR: AudioDetector
+  const CLIPPING_DETECTOR: AudioDetector
+  const DC_OFFSET_DETECTOR: AudioDetector
+  interface Detection
+  Detection.add: (input: readonly Float32Array[], frames: number) => void
+  Detection.findings: () => readonly DetectorFinding[]
+  Detection.release: () => void
+  interface DetectionSettings
+  readonly DetectionSettings.input: ChannelLayout
+  readonly DetectionSettings.sampleRate: SampleRate
+  readonly DetectionSettings.dsp: CanonicalDsp
+  const HUM_DETECTOR: AudioDetector
+  const NOISE_FLOOR_DETECTOR: AudioDetector
   interface NoiseProfileSettings
   readonly NoiseProfileSettings.values: ParameterValues
   readonly NoiseProfileSettings.input: ChannelLayout
@@ -2927,9 +2977,13 @@ Published paths
   readonly ProcessorType.role: NodeRole
   ProcessorType.check: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor) => readonly GraphDiagnostic[]
   ProcessorType.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
+  const REPAIR_ASSISTANT: Assistant
+  const RESTORATION_ASSISTANT: Assistant
+  const TRANSIENT_DETECTOR: AudioDetector
   function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: readonly number[] | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
+  function recommendation(assistant: Assistant, findings: readonly DetectorFinding[]): Recommendation
 
 @audiogubbins/processors/testing
   interface Change

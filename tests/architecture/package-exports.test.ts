@@ -255,6 +255,23 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
     "The learner of a noise reduction's profile (ADR-0061), which the application runs over a stretch a person marks as noise alone and stores as the instance's state, as Phase 06's rack views are built.":
       ['NoiseProfileSettings', 'noiseProfileLearner'],
+    "The detectors and the assistants on them (ADR-0061, ADR-0062), which the application's detection worker runs over a target and whose recommendations the assistants' views show, as Phase 06's views are built.":
+      [
+        'Assistant',
+        'AudioDetector',
+        'CLASSIFICATION_ASSISTANT',
+        'CLICK_DETECTOR',
+        'CLIPPING_DETECTOR',
+        'DC_OFFSET_DETECTOR',
+        'Detection',
+        'DetectionSettings',
+        'HUM_DETECTOR',
+        'NOISE_FLOOR_DETECTOR',
+        'REPAIR_ASSISTANT',
+        'RESTORATION_ASSISTANT',
+        'TRANSIENT_DETECTOR',
+        'recommendation',
+      ],
   },
   '@audiogubbins/effect-rack': {
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":

@@ -25,7 +25,11 @@ function declaredLatency(values: Readonly<Record<string, number>>, oversampling:
   return latency.frames;
 }
 
-describe('the limiter, against what it states', () => {
+// The true-peak checks oversample seconds of programme eight times: about
+// 2 s each alone and more than twice that under the whole suite's load, so
+// they are given a budget of their own rather than Vitest's five-second
+// default.
+describe('the limiter, against what it states', { timeout: 30_000 }, () => {
   it('renders a fixed programme to the bits recorded for it', () => {
     const input = [
       Float32Array.from(noisySine(440).channels[0] ?? new Float32Array(0), (sample) => 3 * sample),

@@ -292,6 +292,16 @@ export {
 } from './processing/processing-library.js';
 
 export { type ProcessorLatency } from './processing/processor-latency.js';
+export {
+  type DetectorFinding,
+  type DetectorIdentity,
+  FindingKind,
+  type FindingMeasure,
+  MeasureUnit,
+  type Recommendation,
+  type Treatment,
+  type TreatmentStep,
+} from './processing/audio-detection.js';
 
 export {
   type Project,

@@ -104,6 +104,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     is checked by `chainOutputLayout` at the stream's rate, by the check its
     kernel reads the state with. A `Measurer` is released on every path of a
     measuring pass, finished, refused or failed.
+16. **Detectors and assistants.** The domain holds the data
+    (`processing/audio-detection.ts`): a finding is a kind, an `EditRange`,
+    its channels, a measure and a treatment; a treatment names processor
+    types and values by key (and, for state, the range it is learned
+    from), never instances, so nothing holds an identifier until a person
+    applies it. `packages/processors/src/detection/` holds `AudioDetector`
+    (open, add, findings, release, as a `Measurer`), the six canonical
+    detectors on `crates/analysis`'s features and the three assistants
+    (classification, restoration, repair), which recommend steps in one
+    order and apply nothing. Running a detection over a stream is the
+    application's, in a worker.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -248,3 +259,13 @@ frequency during a pop; a QR sign-flip mutation in `autoregressive.ts`
 survived (numerical only); pitch shift's Draft quality (overlap 2) may
 ripple up to 3 dB. Pitch shift's frame grid has no sample-level test: a
 part-way start gives each partial another constant phase by design.
+
+Limits of `crates/analysis`'s extractors the detectors work around (each a
+change to a Rust detector, its reference and the ABI): `hum.rs` leaves out
+only 5 bins around a peak, so a loud hum's own side lobes set its floor and
+its margin stops near 40 to 50 dB; `clipping.rs` applies its minimum run
+within a block, so the detector runs it at 1 and joins runs across block
+edges itself; `noise_floor.rs` reports level only, so a steady tone is told
+from noise by a −30 dBFS ceiling rather than by spectral flatness;
+`transients.rs` sums linear magnitudes, so a loud steady bass dominates its
+flux.
