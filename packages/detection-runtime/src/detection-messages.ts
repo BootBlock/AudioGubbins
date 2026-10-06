@@ -22,6 +22,12 @@ export const ToDetectionWorkerKind = {
   Cancel: 'cancel',
 } as const;
 
+/** Audio described for the worker, with the channels it is read in. */
+export interface DescribedAudio {
+  readonly channels: number;
+  readonly description: PcmDescription;
+}
+
 /** A detection the page asks for. */
 export interface DetectRequest {
   readonly kind: typeof ToDetectionWorkerKind.Detect;
@@ -31,6 +37,12 @@ export interface DetectRequest {
   readonly channels: number;
   /** The audio, described as the render and the peaks describe it. */
   readonly description: PcmDescription;
+  /**
+   * The audio a recommended step learns its state from, and its channels,
+   * where that is not {@link description}: the audio its processor will
+   * receive (`detection-run.ts`).
+   */
+  readonly learning?: DescribedAudio;
   /** The quality an edited sound's chains run at: the final render's (ADR-0061). */
   readonly quality: QualityMode;
   /** The frames of the source to read. */

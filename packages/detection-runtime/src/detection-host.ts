@@ -48,6 +48,16 @@ export interface DetectionSubject {
   readonly channels: number;
   /** Its audio, described when a detection starts; arrays in memory are transferred. */
   readonly describe: () => PcmDescription;
+  /**
+   * The audio a recommended step learns its state from, where that is not the
+   * audio analysed (`detection-run.ts`), with what it is made from, as
+   * {@link identity} says for the audio analysed.
+   */
+  readonly learning?: {
+    readonly identity: string;
+    readonly channels: number;
+    readonly describe: () => PcmDescription;
+  };
   /** The quality an edited sound's chains run at: the final render's. */
   readonly quality: QualityMode;
   /** The frames of the target to read. */
@@ -94,6 +104,7 @@ const KEPT_RESULTS = 64;
 function keyOf(subject: DetectionSubject): string {
   return [
     subject.identity,
+    subject.learning?.identity ?? '',
     JSON.stringify(finalRenderSettings(subject.quality)),
     String(subject.channels),
     String(subject.range.start),
@@ -143,6 +154,10 @@ export class DetectionHost {
         stopWatching: () => watch.signal?.removeEventListener('abort', stop),
       });
       const description = subject.describe();
+      const learning =
+        subject.learning === undefined
+          ? undefined
+          : { channels: subject.learning.channels, description: subject.learning.describe() };
       this.#workerPort().post(
         {
           kind: ToDetectionWorkerKind.Detect,
@@ -150,11 +165,14 @@ export class DetectionHost {
           target: subject.target,
           channels: subject.channels,
           description,
+          ...(learning === undefined ? {} : { learning }),
           quality: subject.quality,
           range: subject.range,
           assistants: subject.assistants,
         },
-        describedBuffers([description]),
+        describedBuffers(
+          learning === undefined ? [description] : [description, learning.description],
+        ),
       );
     });
   }

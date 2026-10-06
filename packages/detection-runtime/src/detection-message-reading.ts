@@ -33,6 +33,7 @@ import {
   FromDetectionWorkerKind,
   ToDetectionWorkerKind,
   type FromDetectionWorker,
+  type DescribedAudio,
   type ToDetectionWorker,
 } from './detection-messages.js';
 import type { AssistantReport, DetectionResult, LearnedState } from './detection-result.js';
@@ -238,6 +239,14 @@ function resultOf(value: unknown, field: string): DetectionResult {
   return { frames: countAt(result, 'frames'), reports: listAt(result, 'reports', reportOf) };
 }
 
+function learningOf(value: unknown): DescribedAudio {
+  const learning = fieldsOf(value, 'learning');
+  return {
+    channels: countAt(learning, 'channels'),
+    description: descriptionAt(learning, 'description'),
+  };
+}
+
 function readToWorker(fields: Fields): ToDetectionWorker {
   const kind = oneOf(fields, 'kind', ToDetectionWorkerKind);
   const job = textAt(fields, 'job');
@@ -248,6 +257,7 @@ function readToWorker(fields: Fields): ToDetectionWorker {
     target: textAt(fields, 'target'),
     channels: countAt(fields, 'channels'),
     description: descriptionAt(fields, 'description'),
+    ...(fields['learning'] === undefined ? {} : { learning: learningOf(fields['learning']) }),
     quality: qualityAt(fields, 'quality'),
     range: rangeOf(fields['range'], 'range'),
     assistants: listAt(fields, 'assistants', textOf),

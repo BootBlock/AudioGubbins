@@ -13,7 +13,7 @@ import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/time
 import { mapResult, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
-import { assetPlan, withRack, type PlanContext } from './plan-building.js';
+import { assetPlan, unrackedAssetPlan, withRack, type PlanContext } from './plan-building.js';
 import type { EditPlan } from './plan.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
@@ -125,11 +125,33 @@ export function regionPlan(
 ): DomainResult<EditPlan> {
   const whole = assetPlan(asset, context, region.operations);
   if (!whole.ok) return whole;
-  const [stream, ...others] = whole.value.streams;
-  const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
-  const segments = sliceSegments(stream.segments, span.start, span.end);
   return mapResult(
-    withRack({ streams: [{ ...stream, segments }, ...others] }, region.rack, context),
+    withRack(regionSlice(whole.value, resolver, region), region.rack, context),
     pruneStreams,
   );
+}
+
+/**
+ * What a region sounds like before its asset's rack and its own: its asset's
+ * audio through the region's own processing, and the region's span of that.
+ * What a rack edit over a range of the region reads, since a rack edit is
+ * folded in among its asset's chain, before either rack (ADR-0060's order).
+ */
+export function unrackedRegionPlan(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver = anchorResolver(asset),
+): DomainResult<EditPlan> {
+  return mapResult(unrackedAssetPlan(asset, context, region.operations), (whole) =>
+    pruneStreams(regionSlice(whole, resolver, region)),
+  );
+}
+
+/** `plan`'s first stream cut to the region's span of its asset. */
+function regionSlice(plan: EditPlan, resolver: AnchorResolver, region: Region): EditPlan {
+  const [stream, ...others] = plan.streams;
+  const span = regionSpan(resolver, region) ?? { start: 0, end: 0 };
+  const segments = sliceSegments(stream.segments, span.start, span.end);
+  return { streams: [{ ...stream, segments }, ...others] };
 }

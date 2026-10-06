@@ -4,11 +4,16 @@ import {
   StandardLayouts,
   derivedSampleCount,
   processorsOf,
+  treatmentChain,
   type EditOperation,
   type EffectChain,
 } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
+import type { LearnedState } from '@audiogubbins/detection-runtime';
 import { FAULTY_LENGTH, faultySignal } from '@audiogubbins/detection-runtime/testing';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { TEST_RATE } from '@audiogubbins/processors/testing';
+import { addChainInvocation, setRackInvocation } from '@audiogubbins/project-commands';
 import type { SignalFixture } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
@@ -122,6 +127,53 @@ describe('applying what the assistants recommend', { timeout: 60_000 }, () => {
 
     expect(chainsOf(audio)).toEqual([]);
     expect(editsOf(audio)).toEqual([]);
+  });
+
+  it('learns a range’s noise profile from the audio a rack edit over it reads, before the asset’s rack', async () => {
+    const audio = await openScratchy();
+    const range = { start: 24_000, end: 120_000 };
+    /** The noise reduction the Restoration assistant recommends for the range, and what it learned. */
+    const noiseStep = async () => {
+      audio.window.run('editor.select-time', range);
+      await analyse(audio);
+      const detection = audio.window.context.detection.of(audio.entry);
+      const report =
+        detection?.kind === 'done'
+          ? detection.result.reports.find((one) => one.recommendation.assistant === 'restoration')
+          : undefined;
+      const index = report?.recommendation.steps.findIndex(
+        (step) => step.typeKey === 'noise-reduction',
+      );
+      const learned: LearnedState | undefined =
+        index === undefined ? undefined : report?.learned[index];
+      return {
+        learnFrom: index === undefined ? undefined : report?.recommendation.steps[index]?.learnFrom,
+        state: learned?.kind === 'learned' ? learned.state : undefined,
+      };
+    };
+    const unracked = await noiseStep();
+    expect(unracked.state?.kind).toBe('noise-profile');
+
+    // A rack 12 dB down, which the findings hear and a rack edit over the
+    // range does not, since it acts before the rack.
+    const quieter = expectSuccess(
+      treatmentChain(
+        [{ typeKey: 'gain', values: { gain: -12 } }],
+        [undefined],
+        PROCESSOR_CATALOGUE,
+        audio.window.context.ids,
+      ),
+    );
+    const asset = stateOf(audio).state.project.assets.get(audio.assetId);
+    if (asset === undefined) throw new Error('The asset is in the project.');
+    const changed = audio.changed(audio.asset());
+    expectSuccess(await audio.session.run(addChainInvocation(quieter)));
+    expectSuccess(await audio.session.run(setRackInvocation({ kind: 'asset', asset }, quieter.id)));
+    await changed;
+    const racked = await noiseStep();
+
+    expect(racked.learnFrom).toEqual(unracked.learnFrom);
+    expect(racked.state).toEqual(unracked.state);
   });
 
   it('makes a region’s range its own processing, in the asset’s frames', async () => {

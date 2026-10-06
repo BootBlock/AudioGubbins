@@ -30,7 +30,10 @@ function maskOf(gain: (bin: number) => number): Float32Array {
   return Float32Array.from({ length: frames * BINS }, (_, at) => gain(at % BINS));
 }
 
-describe("MossFormer2 SE 48K's masked spectrum", () => {
+// The masked round trip runs the 1,920-point STFT over the whole signal on the
+// reference DSP: about a second alone, and past the default budget under the
+// whole suite's load.
+describe("MossFormer2 SE 48K's masked spectrum", { timeout: 30_000 }, () => {
   it('takes each frame’s spectrum through the symmetric Hamming window, by its definition', () => {
     const segment = signal();
     const stft = new MaskedStft(REFERENCE_DSP, SAMPLES);

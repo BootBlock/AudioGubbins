@@ -88,3 +88,70 @@ describe('a processed stream started part way through for a preview', () => {
     expect(STARTS).toEqual([0, 896]);
   });
 });
+
+/** Frames a delaying chain's output lags its input: more than one chunk the stream runs off at a time. */
+const DELAY = 10_000;
+
+/** Frames of a stream longer than the delay, each its own index. */
+const LONG = Float32Array.from({ length: 3 * DELAY }, (_, frame) => frame);
+
+/** A chain whose output is its input {@link DELAY} frames late, which its reader runs off and cuts. */
+const DELAYING: ChainProcessing = {
+  partWayStart: () => succeed({ leadIn: 0, frameGrid: 1 }),
+  prepare: () => {
+    const line = new Float32Array(DELAY);
+    let at = 0;
+    const run: ChainRun = {
+      latency: DELAY,
+      layout: StandardLayouts.mono,
+      process: (input, output, frames) => {
+        for (let frame = 0; frame < frames; frame += 1, at = (at + 1) % DELAY) {
+          const into = output[0];
+          if (into !== undefined) into[frame] = line[at] ?? 0;
+          line[at] = input[0]?.[frame] ?? 0;
+        }
+      },
+      setParameter: () => succeed(undefined),
+      release: () => undefined,
+    };
+    return Promise.resolve(succeed(run));
+  },
+};
+
+describe('a processed stream whose read fails while its run is primed', () => {
+  it('primes a new run for the next read rather than counting the frames it ran off as given', async () => {
+    let failAt: number | undefined = 4_096;
+    const processed = new ProcessedContent(
+      { id: unsafeBrandId<'EffectChainId'>('00000000-de1a'), slots: [] },
+      {
+        layout: StandardLayouts.mono,
+        sampleRate: RATE,
+        length: LONG.length,
+        read: (at, frames, into) => {
+          if (at === failAt) {
+            failAt = undefined;
+            return Promise.reject(new Error('The file went away.'));
+          }
+          into[0]?.set(LONG.subarray(at, at + frames));
+          return Promise.resolve();
+        },
+      },
+      StandardLayouts.mono,
+      {
+        processing: DELAYING,
+        quality: MAXIMUM_QUALITY.settings,
+        start: ProcessedStart.Canonical,
+        dsp: REFERENCE_DSP,
+      },
+    );
+    const first = [new Float32Array(500)];
+    await expect(processed.read(3_000, 500, first)).rejects.toThrow('The file went away.');
+
+    // At or past the frames the failed read ran off, a chunk, so only a run
+    // that knows it was never primed starts again.
+    const after = [new Float32Array(500)];
+    await processed.read(4_500, 500, after);
+
+    expect(after[0]).toEqual(LONG.subarray(4_500, 5_000));
+  });
+});

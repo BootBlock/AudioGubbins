@@ -3,18 +3,22 @@
  *
  * A processed stream is rendered from its own start, so what any reader hears
  * of it is one answer: the run is made from the stream's first frame, the
- * chain's latency is run off and cut, and each frame read is the chain's
- * output for that frame of input. Past the stream's end the chain is fed
- * silence until its latency is flushed, and what it would add after that, a
- * reverb's tail, is not heard: the stream keeps its length.
+ * chain's latency is run off and cut, and each frame read is the chain's output
+ * for that frame of input. Past the stream's end the chain is fed silence until
+ * its latency is flushed, and what it would add after that, a reverb's tail, is
+ * not heard: the stream keeps its length.
  *
- * Reads are made in order, as every reader of a plan makes them. A read
- * behind the last one starts the run again from the stream's start, so it is
- * still the canonical answer. A preview may instead start part way through,
- * the run begun at least the chain's lead-in before the frame asked for, on
- * the chain's frame grid, which is what playback does after a seek, and says
- * it is a preview (ADR-0061). Either way the run is told the frame it starts
- * at, so a processor that plays back a whole pass plays it from there.
+ * Reads are made one at a time, in order, as every reader of a plan makes them,
+ * and the edited source that reaches this gives them turns (`read-turns.ts`),
+ * since two readers of one source share this run. A read behind the last one
+ * starts the run again from the stream's start, so it is still the canonical
+ * answer, and a read that fails or is cancelled part way leaves the run where
+ * its last whole chunk left it, never half primed. A preview may instead start
+ * part way through, the run begun at least the chain's lead-in before the frame
+ * asked for, on the chain's frame grid, which is what playback does after a
+ * seek, and says it is a preview (ADR-0061). Either way the run is told the
+ * frame it starts at, so a processor that plays back a whole pass plays it from
+ * there.
  */
 
 import {
@@ -147,9 +151,17 @@ export class ProcessedContent implements ContentReader {
       );
     }
     const running: Running = { run, raw: from, produced: from };
-    this.#running = running;
-    await this.#consume(running, run.latency, undefined, 0, signal);
+    // Held only once its latency is run off: a run cancelled while it primes
+    // would otherwise count the frames it ran off as frames it gave.
+    let primed = false;
+    try {
+      await this.#consume(running, run.latency, undefined, 0, signal);
+      primed = true;
+    } finally {
+      if (!primed) run.release();
+    }
     running.produced = from;
+    this.#running = running;
     return running;
   }
 

@@ -152,3 +152,33 @@ describe('StretchedContent', () => {
     expect(rms(middle)).toBeCloseTo(0.5 / Math.SQRT2, 1);
   });
 });
+
+describe('a stretched stream whose read failed part way', () => {
+  it('starts afresh for the read after it, rather than adding to a frame half added', async () => {
+    const whole = await readAll(stretched(20_000, 30_000).content, 30_000, 1_000);
+    const source = tone(20_000, 1_000);
+    let reads = 0;
+    const content = new StretchedContent(
+      {
+        length: source.input.length,
+        read: (start, count, into) => {
+          reads += 1;
+          if (reads === 3) return Promise.reject(new Error('The file went away.'));
+          return source.input.read(start, count, into);
+        },
+      },
+      STREAM,
+      30_000,
+      { quality: MAXIMUM_QUALITY.settings, dsp: REFERENCE_DSP, start: ProcessedStart.Canonical },
+    );
+    const out = [new Float32Array(1_000), new Float32Array(1_000)];
+    const failed = [new Float32Array(10_000), new Float32Array(10_000)];
+    await expect(content.read(0, 10_000, failed)).rejects.toThrow('The file went away.');
+
+    // Further on than the failed read reached, so only a stream that knows
+    // it was interrupted starts again.
+    await content.read(20_000, 1_000, out);
+
+    expect(out).toEqual(whole.map((channel) => channel.subarray(20_000, 21_000)));
+  });
+});

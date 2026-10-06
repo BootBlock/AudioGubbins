@@ -10,10 +10,13 @@
  * window of input the next frame needs and the overlap-add of the output not
  * yet given, and hands each frame to the vocoder.
  *
- * Reads are made in order, as with a processed stream (`processed-content.ts`):
- * a read behind the last starts again from the stream's start, unless a preview
- * may start part way, in which case it starts a few frames before the frame
- * asked for with its phases taken afresh, and says it is a preview.
+ * Reads are made one at a time, in order, as with a processed stream
+ * (`processed-content.ts`): a read behind the last starts again from the
+ * stream's start, unless a preview may start part way, in which case it starts
+ * a few frames before the frame asked for with its phases taken afresh, and
+ * says it is a preview. A frame half added when a read fails or is cancelled
+ * leaves the windows and the overlap-add between two frames, so the read after
+ * it starts afresh too.
  */
 
 import {
@@ -99,6 +102,8 @@ export class StretchedContent implements ContentReader {
   #inputEnd = 0;
   /** The analysis position of the previous frame, or `undefined` before the first. */
   #previousCentre: number | undefined;
+  /** Whether a read failed part way, leaving a frame half added. */
+  #interrupted = false;
 
   constructor(
     input: StretchInput,
@@ -128,7 +133,22 @@ export class StretchedContent implements ContentReader {
       return;
     }
     let vocoder = this.#vocoder;
-    if (vocoder === undefined || start < this.#position) vocoder = this.#begin(start);
+    if (vocoder === undefined || this.#interrupted || start < this.#position) {
+      vocoder = this.#begin(start);
+    }
+    this.#interrupted = true;
+    await this.#give(vocoder, start, frames, into, signal);
+    this.#interrupted = false;
+  }
+
+  /** Gives the output from `start`, which is at or after the next frame a reader is given. */
+  async #give(
+    vocoder: PhaseVocoder,
+    start: number,
+    frames: number,
+    into: readonly Float32Array[],
+    signal: CancellationSignal | undefined,
+  ): Promise<void> {
     let done = 0;
     while (done < frames) {
       throwIfCancelled(signal);

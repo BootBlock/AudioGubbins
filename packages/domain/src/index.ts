@@ -164,7 +164,12 @@ export { Affinity, type AnchorResolver, type Span, anchorResolver } from './edit
 
 export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices.js';
 
-export { type PlanContext, assetPlan, withRack } from './editing/plan-building.js';
+export {
+  type PlanContext,
+  assetPlan,
+  unrackedAssetPlan,
+  withRack,
+} from './editing/plan-building.js';
 export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
 export { sliceSegment } from './editing/segment-list.js';
 export { slicePlan } from './editing/plan-slicing.js';
@@ -183,6 +188,7 @@ export {
   placeRegion,
   placeRegions,
   regionPlan,
+  unrackedRegionPlan,
 } from './editing/placement.js';
 
 export {

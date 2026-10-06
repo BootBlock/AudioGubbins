@@ -114,6 +114,8 @@ export function pictureSoundAsset(file: File, sound: DecodedSound): EditorAsset 
       sampleRate: rate.value,
       channels: sound.channels.map((channel) => channel.slice()),
     }),
+    // A picture's sound has no rack.
+    unracked: undefined,
     owner: {
       kind: 'session',
       reason:

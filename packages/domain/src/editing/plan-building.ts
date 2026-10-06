@@ -284,6 +284,19 @@ export function withRack(
 }
 
 /**
+ * The plan of an asset before its rack: its chain, with a region's
+ * `processing` folded in among it where given. What a rack edit over a range
+ * of it reads, since a rack edit acts before the rack (ADR-0060's order).
+ */
+export function unrackedAssetPlan(
+  asset: Asset,
+  context: PlanContext,
+  processing: readonly RegionOperation[] = [],
+): DomainResult<EditPlan> {
+  return mapResult(editedPlan(asset, processing, context), pruneStreams);
+}
+
+/**
  * The plan of an asset as it stands: its chain, with a region's `processing`
  * folded in among it where given, then its rack, with no stream nothing reads.
  */

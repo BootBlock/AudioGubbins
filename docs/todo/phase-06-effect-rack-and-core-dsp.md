@@ -175,7 +175,16 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     treatment chain (`treatmentChain`) in one history step through existing
     commands: a rack edit over the analysed range, or the target's rack for
     the whole target (an existing rack kept, the treatment after a copy of
-    it). A processor type learns its state through `learner`.
+    it). A processor type learns its state through `learner`. Findings are
+    made from the audio heard; a learned state from the audio its processor
+    receives: a range recommendation's from the target before its racks
+    (`unrackedAssetPlan`, `unrackedRegionPlan`, the request's second
+    description), a whole-target one's from the audio heard.
+22. **Concurrent reads.** A source that keeps state between reads takes its
+    reads in turn (`pcm/read-turns.ts`); the edited and resampled sources do,
+    so every reader of a processed stream is covered. A read that fails or is
+    cancelled part way leaves no half-caught-up run, half-added stretch frame
+    or stale resampler position.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -403,6 +412,13 @@ Open points from `model-packs`:
   and start runs from them.
 - Nothing in production builds an `AvailabilityContext` yet; it must pass
   `nobleTextSha256`.
+- Building a waveform of racked audio is slow: the peak worker reads out of
+  order, and each backward read restarts the chain and its whole passes
+  (quadratic on long racked assets); the cached preview producer or an
+  in-order build for processed sources fixes it.
+- The range-or-whole choice of a recommendation is made in two files
+  (`detection-control.ts`, `analysis-commands.ts`); it should have one
+  authority.
 - Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
   only) implements the `Sha256` port; `LOCAL_INFERENCE` and
   `localInferenceCapabilities` are exported from `packages/capabilities`.

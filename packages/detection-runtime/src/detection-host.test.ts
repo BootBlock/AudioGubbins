@@ -65,7 +65,7 @@ describe('the detection host', { timeout: 30_000 }, () => {
     expect(detections()).toBe(1);
   });
 
-  it('reads again when what the audio is made of, its quality, range or assistants change', async () => {
+  it('reads again when what the audio is made of, what its steps learn from, its quality, range or assistants change', async () => {
     const { host, detections } = rig();
     await host.detect(subject('plan A'));
     const edited = await host.detect(subject('plan A, edited'));
@@ -76,9 +76,15 @@ describe('the detection host', { timeout: 30_000 }, () => {
       }),
     );
     await host.detect(subject('plan A', { assistants: ['restoration'] }));
+    // The same audio heard, its steps learning from audio before a rack.
+    await host.detect(
+      subject('plan A', {
+        learning: { identity: 'plan A, unracked', channels: 1, describe: faultyDescription },
+      }),
+    );
 
     expect(edited).toMatchObject({ kind: 'done', kept: false });
-    expect(detections()).toBe(5);
+    expect(detections()).toBe(6);
   });
 
   it('reports progress in frames as the worker reads', async () => {

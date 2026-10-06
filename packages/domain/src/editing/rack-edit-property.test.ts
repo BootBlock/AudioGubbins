@@ -19,9 +19,9 @@ import { anchorResolver } from './anchors.js';
 import { shapesOf } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
 import type { EditOperation } from './operations.js';
-import { regionPlan } from './placement.js';
+import { regionPlan, unrackedRegionPlan } from './placement.js';
 import { validateRegion } from './placement-validation.js';
-import { assetPlan, type PlanContext } from './plan-building.js';
+import { assetPlan, unrackedAssetPlan, type PlanContext } from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
 import { validatePlan } from './plan-validation.js';
 
@@ -243,6 +243,15 @@ describe('the edit plan with racks, stretches and conversions, against the same 
         sameBits(renderPlan(racked, new Map([[asset.id, source.samples]]), WORLD), expected),
         `run ${String(run)}`,
       ).toBe(true);
+      // What a rack edit over a range of it reads: the edits, not the rack.
+      const unracked = expectSuccess(unrackedAssetPlan({ ...asset, rack }, CONTEXT));
+      expect(
+        sameBits(
+          renderPlan(unracked, new Map([[asset.id, source.samples]]), WORLD),
+          sounds.at(-1) ?? [],
+        ),
+        `run ${String(run)}, unracked`,
+      ).toBe(true);
     }
   });
 
@@ -292,6 +301,18 @@ describe('the edit plan with racks, stretches and conversions, against the same 
       expect(
         sameBits(renderPlan(plan, new Map([[asset.id, source.samples]]), WORLD), expected),
         `run ${String(run)}`,
+      ).toBe(true);
+      // What a rack edit over a range of the region reads: its processing,
+      // neither rack.
+      const unracked = expectSuccess(
+        unrackedRegionPlan(withRack, region, CONTEXT, anchorResolver(withRack)),
+      );
+      expect(
+        sameBits(
+          renderPlan(unracked, new Map([[asset.id, source.samples]]), WORLD),
+          placed.map((channel) => channel.slice(span.start, span.end)),
+        ),
+        `run ${String(run)}, unracked`,
       ).toBe(true);
     }
   });

@@ -1660,6 +1660,7 @@ Published paths
   readonly DetectionSubject.identity: string
   readonly DetectionSubject.channels: number
   readonly DetectionSubject.describe: () => PcmDescription
+  readonly DetectionSubject.learning?: { readonly identity: string; readonly channels: number; readonly describe: () => PcmDescription; }
   readonly DetectionSubject.quality: QualityMode
   readonly DetectionSubject.range: EditRange
   readonly DetectionSubject.assistants: readonly string[]
@@ -2346,6 +2347,8 @@ Published paths
   function tracksInOrder(project: Project): readonly Track[]
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
   function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
+  function unrackedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
+  function unrackedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
   function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<Asset>
   function validateChainShape(chain: EffectChain): DomainResult<EffectChain>
@@ -5666,17 +5669,26 @@ packages/detection-runtime/src/detection-host.ts
   readonly Waiting.stopWatching: () => void
 
 packages/detection-runtime/src/detection-messages.ts
+  interface DescribedAudio
+  readonly DescribedAudio.channels: number
+  readonly DescribedAudio.description: PcmDescription
   interface DetectRequest
   readonly DetectRequest.kind: "detect"
   readonly DetectRequest.job: string
   readonly DetectRequest.target: string
   readonly DetectRequest.channels: number
   readonly DetectRequest.description: PcmDescription
+  readonly DetectRequest.learning?: DescribedAudio
   readonly DetectRequest.quality: QualityMode
   readonly DetectRequest.range: EditRange
   readonly DetectRequest.assistants: readonly string[]
   type FromDetectionWorker = { readonly kind: typeof FromDetectionWorkerKind.Cancelled; readonly job: string; } | { readonly kind: typeof FromDetectionWorkerKind.Done; readonly job: string; readonly result: DetectionResult; } | { readonly kind: typeof FromDetectionWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromDetectionWorkerKind.Progress; readonly job: string; readonly framesRead: number; readonly framesTotal: number; } | { readonly kind: typeof FromDetectionWorkerKind.Refused; readonly reason: string; }
   type ToDetectionWorker = DetectRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string; }
+
+packages/detection-runtime/src/detection-run.ts
+  interface DetectionAudio
+  readonly DetectionAudio.heard: PcmSource
+  readonly DetectionAudio.learning: PcmSource
 
 packages/detection-runtime/src/detection-worker-core.ts
   class DetectionWorkerCore
@@ -5689,8 +5701,10 @@ packages/detection-runtime/src/detection-worker-core.ts
   DetectionWorkerCore.#cancel: (matches: (job: Job) => boolean) => void
   DetectionWorkerCore.#pump: () => Promise<void>
   DetectionWorkerCore.#run: (job: Job) => Promise<void>
+  DetectionWorkerCore.#postStopped: (job: Job, error: unknown) => void
   DetectionWorkerCore.#post: (job: string, answer: DomainResult<DetectionResult>) => void
-  DetectionWorkerCore.#sourceOf: (request: DetectRequest) => DomainResult<PcmSource>
+  DetectionWorkerCore.#audioOf: (request: DetectRequest) => DomainResult<DetectionAudio>
+  DetectionWorkerCore.#sourceOf: (audio: DescribedAudio, quality: QualityMode) => DomainResult<PcmSource>
   DetectionWorkerCore.#assistantsOf: (request: DetectRequest) => DomainResult<readonly Assistant[]>
   interface DetectionWorkerHost
   readonly DetectionWorkerHost.post: (message: FromDetectionWorker) => void

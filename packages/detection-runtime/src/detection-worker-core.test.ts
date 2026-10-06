@@ -26,6 +26,7 @@ import {
   HUM_HERTZ,
   QUIET,
   faultyDescription,
+  faultySignal,
 } from './testing/faulty-signal.js';
 
 /** A turn of the event loop, as the worker's yield between chunks takes. */
@@ -196,6 +197,25 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
       TEST_RATE,
       1,
     ]);
+  });
+
+  it('refuses audio to learn from that is not on the frames of the audio analysed', async () => {
+    const { core, answer } = rig();
+    const answered = answer('one');
+    const shorter = faultySignal().subarray(0, FAULTY_LENGTH - 1);
+    core.receive({
+      ...detect('one', { assistants: ['restoration'] }),
+      learning: {
+        channels: 1,
+        description: { kind: PcmDescriptionKind.Pcm, sampleRate: TEST_RATE, channels: [shorter] },
+      },
+    });
+
+    expect(await answered).toEqual({
+      kind: FromDetectionWorkerKind.Failed,
+      job: 'one',
+      reason: 'The audio a treatment would learn from is not on the frames of the audio analysed.',
+    });
   });
 
   it('states every range on the source’s frames when it reads a range part way in', async () => {

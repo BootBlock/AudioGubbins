@@ -7,7 +7,9 @@
  * page's side played by the test. It reads a target's audio through the
  * engine's own described source, with the chains its plan names run by the
  * rack at the final render's quality from the stream's start, as the render
- * and the peaks read it: never a second reader (ADR-0061).
+ * and the peaks read it: never a second reader (ADR-0061). The audio a
+ * recommended step learns from is read the same way, from the request's own
+ * description of it where it differs from the audio analysed.
  *
  * One detection runs at a time, the rest queued in the order asked, which
  * bounds the work in flight to one source (G4). A target has one detection
@@ -23,11 +25,13 @@ import {
   createCancellationSource,
   fail,
   failure,
+  mapResult,
   succeed,
   discreteLayout,
   finalRenderSettings,
   type CancellationSource,
   type DomainResult,
+  type QualityMode,
 } from '@audiogubbins/domain';
 import {
   ProcessedStart,
@@ -44,9 +48,10 @@ import {
   ToDetectionWorkerKind,
   type DetectRequest,
   type FromDetectionWorker,
+  type DescribedAudio,
 } from './detection-messages.js';
 import type { DetectionResult } from './detection-result.js';
-import { runDetection } from './detection-run.js';
+import { runDetection, type DetectionAudio } from './detection-run.js';
 
 /** What the worker's scope gives the core. */
 export interface DetectionWorkerHost {
@@ -170,13 +175,13 @@ export class DetectionWorkerCore {
       this.#post(name, assistants);
       return;
     }
-    const source = this.#sourceOf(request);
-    if (!source.ok) {
-      this.#post(name, source);
+    const audio = this.#audioOf(request);
+    if (!audio.ok) {
+      this.#post(name, audio);
       return;
     }
     try {
-      const result = await runDetection(source.value, request.range, assistants.value, {
+      const result = await runDetection(audio.value, request.range, assistants.value, {
         dsp: this.#host.dsp,
         types: this.#host.types,
         signal,
@@ -192,23 +197,35 @@ export class DetectionWorkerCore {
       });
       this.#post(name, result);
     } catch (error) {
-      if (signal.aborted && error === signal.reason) {
-        this.#host.post(
-          job.failedWith === undefined
-            ? { kind: FromDetectionWorkerKind.Cancelled, job: name }
-            : { kind: FromDetectionWorkerKind.Failed, job: name, reason: job.failedWith },
-        );
-        return;
-      }
-      if (!isReadFault(error)) throw error;
-      this.#host.post({
-        kind: FromDetectionWorkerKind.Failed,
-        job: name,
-        reason: `The audio could not be read: ${error.message}`,
-      });
+      this.#postStopped(job, error);
     } finally {
-      source.value.release();
+      audio.value.heard.release();
+      if (audio.value.learning !== audio.value.heard) audio.value.learning.release();
     }
+  }
+
+  /**
+   * Says how a detection that threw ended: cancelled, or failed as it was
+   * stopped or because its audio could not be read. Anything else is a fault
+   * in the code, raised as itself.
+   */
+  #postStopped(job: Job, error: unknown): void {
+    const name = job.request.job;
+    const { signal } = job.cancellation;
+    if (signal.aborted && error === signal.reason) {
+      this.#host.post(
+        job.failedWith === undefined
+          ? { kind: FromDetectionWorkerKind.Cancelled, job: name }
+          : { kind: FromDetectionWorkerKind.Failed, job: name, reason: job.failedWith },
+      );
+      return;
+    }
+    if (!isReadFault(error)) throw error;
+    this.#host.post({
+      kind: FromDetectionWorkerKind.Failed,
+      job: name,
+      reason: `The audio could not be read: ${error.message}`,
+    });
   }
 
   /** Posts a detection's answer, or why there is none. */
@@ -220,13 +237,27 @@ export class DetectionWorkerCore {
     );
   }
 
-  /** The source a request describes, read as the render reads it, or why it cannot be. */
-  #sourceOf(request: DetectRequest): DomainResult<PcmSource> {
-    const layout = discreteLayout(request.channels);
+  /**
+   * The audio a request reads, heard and learned from, one source where they
+   * are the same, or why it cannot be read. The caller releases it.
+   */
+  #audioOf(request: DetectRequest): DomainResult<DetectionAudio> {
+    const heard = this.#sourceOf(request, request.quality);
+    if (!heard.ok || request.learning === undefined) {
+      return mapResult(heard, (source) => ({ heard: source, learning: source }));
+    }
+    const learning = this.#sourceOf(request.learning, request.quality);
+    if (!learning.ok) heard.value.release();
+    return mapResult(learning, (source) => ({ heard: heard.value, learning: source }));
+  }
+
+  /** The source of described audio, read as the render reads it, or why it cannot be. */
+  #sourceOf(audio: DescribedAudio, quality: QualityMode): DomainResult<PcmSource> {
+    const layout = discreteLayout(audio.channels);
     if (!layout.ok) return layout;
-    return describedSource(request.description, layout.value, this.#host.dsp, {
+    return describedSource(audio.description, layout.value, this.#host.dsp, {
       processing: this.#host.processing,
-      quality: finalRenderSettings(request.quality),
+      quality: finalRenderSettings(quality),
       start: ProcessedStart.Canonical,
     });
   }

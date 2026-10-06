@@ -120,6 +120,11 @@ export class DetectionControl implements Observable<Detections> {
     };
     const total = scope.range.end - scope.range.start;
     this.#put({ ...asked, kind: 'running', framesRead: 0, framesTotal: total });
+    // A recommendation over a range is applied as a rack edit, which reads
+    // the asset before its racks, so its steps learn from that; one over the
+    // whole asset follows its rack, so they learn from the audio heard
+    // (`analysis-commands.ts`).
+    const learning = scope.whole ? undefined : asset.unracked;
     const current = (): boolean => this.#running.get(asset.id) === cancellation;
     void this.#host
       .detect(
@@ -130,6 +135,15 @@ export class DetectionControl implements Observable<Detections> {
           identity: asset.content,
           channels: asset.layout.roles.length,
           describe: asset.describe,
+          ...(learning === undefined
+            ? {}
+            : {
+                learning: {
+                  identity: learning.content,
+                  channels: learning.layout.roles.length,
+                  describe: learning.describe,
+                },
+              }),
           quality,
           range: scope.range,
           assistants,

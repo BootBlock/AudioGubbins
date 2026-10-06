@@ -14,6 +14,7 @@ import {
   placeRegion,
   regionPlan,
   streamLength,
+  unrackedRegionPlan,
   type AnchorResolver,
   type Asset,
   type AssetId,
@@ -23,7 +24,11 @@ import {
   type Region,
   type RegionId,
 } from '@audiogubbins/domain';
-import { PcmDescriptionKind, type MediaEntry } from '@audiogubbins/audio-engine';
+import {
+  PcmDescriptionKind,
+  type MediaEntry,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
 import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
@@ -105,13 +110,18 @@ export function assetSentence(asset: Asset, plan: EditPlan): string {
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;
 }
 
-/** The view of `plan`, named `id`, of the asset `owner` holds, once every file `reads` names is held. */
+/**
+ * The view of `plan`, named `id`, of the asset `owner` holds, once every file
+ * `reads` names is held, with `unracked`, its plan before its racks, where it
+ * has any.
+ */
 export function openedEntry(
   made: {
     readonly id: string;
     readonly name: string;
     readonly description: string;
     readonly owner: Extract<EditorAsset['owner'], { readonly kind: 'project' }>;
+    readonly unracked: EditPlan | undefined;
     readonly markers: readonly PlacedMarker[];
     readonly regions: EditorAsset['regions'];
   },
@@ -129,7 +139,16 @@ export function openedEntry(
   const sources = reads.sources.map((source) => source?.media);
   // Written as the project writes a plan, so every value in it counts, the
   // parameter values of its chains among them.
-  const content = `${canonicalJson(writeEditPlan(plan))}${JSON.stringify(sources)}`;
+  const contentOf = (written: EditPlan): string =>
+    `${canonicalJson(writeEditPlan(written))}${JSON.stringify(sources)}`;
+  const describing = (described: EditPlan) => (): PcmDescription => ({
+    kind: PcmDescriptionKind.Edited,
+    sampleRate,
+    plan: described,
+    media: files.entries,
+  });
+  const content = contentOf(plan);
+  const { unracked } = made;
   return {
     kind: 'open',
     asset: {
@@ -141,12 +160,15 @@ export function openedEntry(
       length: derivedSampleCount(streamLength(stream)),
       content,
       revision: revisionOf(content),
-      describe: () => ({
-        kind: PcmDescriptionKind.Edited,
-        sampleRate,
-        plan,
-        media: files.entries,
-      }),
+      describe: describing(plan),
+      unracked:
+        unracked === undefined
+          ? undefined
+          : {
+              content: contentOf(unracked),
+              layout: unracked.streams[0].layout,
+              describe: describing(unracked),
+            },
       owner: made.owner,
       markers: made.markers,
       regions: made.regions,
@@ -181,6 +203,20 @@ export function regionEntry(
   if (!plan.ok) {
     return { kind: 'unavailable', id, name: region.displayName, reason: plan.failures[0].summary };
   }
+  // Its own processing is folded in among its asset's chain, before either
+  // rack, so it has audio before its racks where either rack is named.
+  const unracked =
+    asset.rack === undefined && region.rack === undefined
+      ? undefined
+      : unrackedRegionPlan(asset, region, context, resolver);
+  if (unracked?.ok === false) {
+    return {
+      kind: 'unavailable',
+      id,
+      name: region.displayName,
+      reason: unracked.failures[0].summary,
+    };
+  }
   return openedEntry(
     {
       id,
@@ -193,6 +229,7 @@ export function regionEntry(
         plan: plan.value,
         offset: placed.start,
       },
+      unracked: unracked?.value,
       markers: markersInRegion(markers, placed),
       regions: [],
     },

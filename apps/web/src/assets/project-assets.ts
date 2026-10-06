@@ -24,6 +24,7 @@ import {
   anchorResolver,
   assetPlan,
   derivedSampleCount,
+  unrackedAssetPlan,
   placeMarkers,
   placeRegions,
   planReadsAsset,
@@ -149,6 +150,8 @@ export function projectEntry(
 interface Placed {
   readonly resolver: AnchorResolver;
   readonly plan: DomainResult<EditPlan>;
+  /** Its plan before its rack, where it has one, which a rack edit over a range of it reads. */
+  readonly unracked: DomainResult<EditPlan> | undefined;
   readonly markers: readonly PlacedMarker[];
 }
 
@@ -162,7 +165,12 @@ function placing(own: Owned, context: PlanContext): () => Placed {
     const markers = placeMarkers(own.asset, own.markers, resolver).toSorted(
       (one, other) => one.position - other.position,
     );
-    placed = { resolver, plan: assetPlan(own.asset, context), markers };
+    placed = {
+      resolver,
+      plan: assetPlan(own.asset, context),
+      unracked: own.asset.rack === undefined ? undefined : unrackedAssetPlan(own.asset, context),
+      markers,
+    };
     return placed;
   };
 }
@@ -239,9 +247,17 @@ function madeAsset(
 function assetEntry(own: Owned, reads: Reads, place: () => Placed): ProjectEntry {
   const { asset } = own;
   const id = assetEntryId(asset.id);
-  const { plan, markers, resolver } = place();
+  const { plan, unracked, markers, resolver } = place();
   if (!plan.ok) {
     return { kind: 'unavailable', id, name: asset.displayName, reason: plan.failures[0].summary };
+  }
+  if (unracked?.ok === false) {
+    return {
+      kind: 'unavailable',
+      id,
+      name: asset.displayName,
+      reason: unracked.failures[0].summary,
+    };
   }
   return openedEntry(
     {
@@ -249,6 +265,7 @@ function assetEntry(own: Owned, reads: Reads, place: () => Placed): ProjectEntry
       name: asset.displayName,
       description: assetSentence(asset, plan.value),
       owner: { kind: 'project', asset, plan: plan.value, offset: derivedSampleCount(0) },
+      unracked: unracked?.value,
       markers,
       regions: placeRegions(asset, own.regions, resolver),
     },

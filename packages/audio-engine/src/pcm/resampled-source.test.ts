@@ -151,3 +151,56 @@ describe.each([
     },
   );
 });
+
+describe('a resampled source whose read failed part way', () => {
+  it('seeks for the read after it, which writes what a conversion from the start writes', async () => {
+    const { from, to, quality } = CONVERSIONS[0];
+    const fresh = expectSuccess(
+      resampledSource(REFERENCE_DSP, countingSource(rate(from), 60_000).source, rate(to), quality),
+    );
+    const expected = await readRange(fresh, 0, 10_000, 10_000);
+    const { source } = countingSource(rate(from), 60_000);
+    let failed = false;
+    const failingOnce: PcmSource = {
+      ...source,
+      read: (start, into, signal) => {
+        if (start > 0 && !failed) {
+          failed = true;
+          return Promise.reject(new Error('The file went away.'));
+        }
+        return source.read(start, into, signal);
+      },
+    };
+    const converted = expectSuccess(resampledSource(REFERENCE_DSP, failingOnce, rate(to), quality));
+
+    await expect(readRange(converted, 0, 10_000, 10_000)).rejects.toThrow('The file went away.');
+
+    // The same read again: the resampler has already given some of it.
+    expect(await readRange(converted, 0, 10_000, 10_000)).toEqual(expected);
+  });
+});
+
+describe('a resampled source read by two readers at once', () => {
+  it('gives each read what it would read alone', async () => {
+    const { from, to, quality } = CONVERSIONS[0];
+    const convertedOf = (): PcmSource =>
+      expectSuccess(
+        resampledSource(
+          REFERENCE_DSP,
+          countingSource(rate(from), 60_000).source,
+          rate(to),
+          quality,
+        ),
+      );
+    const alone = await readRange(convertedOf(), 0, 30_000, 30_000);
+    const shared = convertedOf();
+
+    const [early, late] = await Promise.all([
+      readRange(shared, 0, 10_000, 10_000),
+      readRange(shared, 20_000, 10_000, 10_000),
+    ]);
+
+    expect(early).toEqual(alone.map((channel) => channel.subarray(0, 10_000)));
+    expect(late).toEqual(alone.map((channel) => channel.subarray(20_000, 30_000)));
+  });
+});

@@ -6,10 +6,20 @@
  * learns from the stretch its treatment names, read again for that step alone
  * (ADR-0061, ADR-0062). Nothing here changes the audio or the project.
  *
- * A detector shared by two assistants, as the noise floor is, runs once.
- * Every detection and learner is released on every path, answered, refused,
- * failed or cancelled, and a cancellation is read between chunks and by every
- * pass it reaches. Progress is reported in frames read.
+ * Findings are made from the audio the person hears, the target after its
+ * racks. A learned state is learned from the audio its processor will receive,
+ * which is another source where the two differ: a recommendation over a range
+ * is applied as a rack edit, which acts before the target's racks (ADR-0060's
+ * order), so its state is learned from the target before them; one over the
+ * whole target follows a copy of its rack, so its state is learned from the
+ * audio heard. The caller, which knows how it will apply the recommendation,
+ * gives the source; it has the heard source's frames and rate, and the layout
+ * its processor reads.
+ *
+ * A detector shared by two assistants, as the noise floor is, runs once. Every
+ * detection and learner is released on every path, answered, refused, failed or
+ * cancelled, and a cancellation is read between chunks and by every pass it
+ * reaches. Progress is reported in frames read.
  */
 
 import {
@@ -81,8 +91,8 @@ function moved(range: EditRange, offset: number): EditRange {
 }
 
 /**
- * `finding` with its range and its treatment's stretches moved `offset`
- * frames on, from the range read to the source it was read from.
+ * `finding` with its range and its treatment's stretches moved `offset` frames
+ * on, from the range read to the source it was read from.
  */
 function onSource(finding: DetectorFinding, offset: number): DetectorFinding {
   const { treatment } = finding;
@@ -202,20 +212,35 @@ async function reportsOf(
   return reports;
 }
 
+/** The audio a detection reads: what it finds faults in, and what its steps learn from. */
+export interface DetectionAudio {
+  /** The audio the person hears, which the findings are made from. */
+  readonly heard: PcmSource;
+  /** The audio each recommended step's processor will receive, which it learns its state from. */
+  readonly learning: PcmSource;
+}
+
 /**
- * What `assistants` find in and recommend for `range` of `source`, or why
- * they cannot: a range the source does not hold, or a detector that cannot
- * hear audio of its shape and rate. A cancellation is thrown, as the signal's
- * reason.
+ * What `assistants` find in and recommend for `range` of the audio heard, or
+ * why they cannot: a range the audio does not hold, audio to learn from that is
+ * not on the frames heard, or a detector that cannot hear audio of its shape
+ * and rate. A cancellation is thrown, as the signal's reason.
  */
 export async function runDetection(
-  source: PcmSource,
+  audio: DetectionAudio,
   range: EditRange,
   assistants: readonly Assistant[],
   tools: DetectionTools,
 ): Promise<DomainResult<DetectionResult>> {
+  const { heard: source, learning } = audio;
   if (range.end <= range.start) {
     return refused('detection.range-empty', 'The range to analyse holds no audio.');
+  }
+  if (learning.sampleRate !== source.sampleRate || learning.length !== source.length) {
+    return refused(
+      'detection.learning-mismatched',
+      'The audio a treatment would learn from is not on the frames of the audio analysed.',
+    );
   }
   if (source.length !== undefined && range.end > source.length) {
     return refused(
@@ -236,7 +261,7 @@ export async function runDetection(
     }
     const heard = await findingsOver(source, range, detections, tools);
     if (!heard.ok) return heard;
-    const reports = await reportsOf(source, assistants, heard.value.findings, tools);
+    const reports = await reportsOf(learning, assistants, heard.value.findings, tools);
     return succeed({ frames: heard.value.frames, reports });
   } finally {
     for (const detection of detections) detection.release();

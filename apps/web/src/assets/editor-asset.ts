@@ -46,6 +46,19 @@ export type AssetOwner =
 /** The owner of an asset of the open project. */
 export type ProjectOwner = Extract<AssetOwner, { readonly kind: 'project' }>;
 
+/**
+ * An asset's audio before its racks: what a rack edit over a range of it
+ * reads, since a rack edit acts before the racks (ADR-0060's order).
+ */
+export interface UnrackedAudio {
+  /** What it is made from, written out whole, as the audio heard's `content` is. */
+  readonly content: string;
+  /** Its layout, which a rack of the asset may change in the audio heard. */
+  readonly layout: ChannelLayout;
+  /** It, described as the audio heard is described. */
+  readonly describe: () => PcmDescription;
+}
+
 /** An asset an editor view can open. */
 export interface EditorAsset {
   /** What the asset is, stable across sessions: views name it, and its peaks are kept under it. */
@@ -73,6 +86,11 @@ export interface EditorAsset {
    * transferred there, so each call gives arrays the caller may lose.
    */
   readonly describe: () => PcmDescription;
+  /**
+   * Its audio before its racks, or `undefined` where it has none, so the
+   * audio heard is what a rack edit over a range of it reads.
+   */
+  readonly unracked: UnrackedAudio | undefined;
   readonly owner: AssetOwner;
   /** Its markers and regions, at its own frames, in position order. */
   readonly markers: readonly PlacedMarker[];

@@ -10,6 +10,11 @@
  * render worker and the peak worker hear and draw one sound, bit for bit. No
  * file is held whole, and no rate changes except where a stream says so. The
  * reader of each kind of content is in `plan-content.ts`.
+ *
+ * Those readers keep state between reads, a processed stream's run among
+ * them, and are reached only through the source made here, so its reads take
+ * turns (`read-turns.ts`): two readers of one source, as the peak worker's
+ * build and a view's request are, each hear what a reader alone would.
  */
 
 import {
@@ -46,6 +51,7 @@ import {
   type ReadableContent,
 } from './plan-content.js';
 import { ProcessedContent, type PlanProcessing } from './processed-content.js';
+import { ReadTurns } from './read-turns.js';
 import { resampledSource } from './resampled-source.js';
 import { StretchedContent } from './stretched-content.js';
 
@@ -247,16 +253,19 @@ export function editedSource(
   if (!length.ok) return length;
   const readers = new PlanReaders(plan, media, dsp, processing);
   const sound = readers.stream(0);
+  // Every reader the plan makes keeps state between reads (`read-turns.ts`).
+  const turns = new ReadTurns();
   return succeed({
     layout,
     sampleRate: first.sampleRate,
     length: length.value,
-    read: async (start, into, signal) => {
-      assertReadableInto({ layout, sampleRate: first.sampleRate }, into);
-      const count = framesAvailable(length.value, start, into.frames);
-      await sound.read(start, count, into.channels, signal);
-      return count;
-    },
+    read: (start, into, signal) =>
+      turns.take(async () => {
+        assertReadableInto({ layout, sampleRate: first.sampleRate }, into);
+        const count = framesAvailable(length.value, start, into.frames);
+        await sound.read(start, count, into.channels, signal);
+        return count;
+      }, signal),
     release: () => {
       readers.release();
     },
