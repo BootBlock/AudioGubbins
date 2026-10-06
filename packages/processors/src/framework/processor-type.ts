@@ -24,6 +24,7 @@ import {
   type ChannelLayout,
   type DomainResult,
   type ParameterValue,
+  type ParameterValues,
   type ProcessorDescriptor,
   type ProcessorSettings,
   type ProcessorState,
@@ -100,6 +101,28 @@ export interface ProcessorRun {
  */
 export type MeasuringRun = Omit<ProcessorRun, 'measured' | 'start'>;
 
+/**
+ * What learns the state a processor reads, such as a noise reduction's
+ * profile, from a stretch of audio a person or an assistant names: given the
+ * stretch in chunks of any size, it answers the state an instance holds.
+ */
+export interface StateLearner {
+  /** Learns from the first `frames` frames of `input`, one array per channel. */
+  add(input: readonly Float32Array[], frames: number): void;
+  /** The state learned from everything given. */
+  result(): ProcessorState;
+  /** Frees what it learns with, whether or not it answered. */
+  release(): void;
+}
+
+/** What a learner is made for: the instance's values and the audio it will hear. */
+export interface LearningSettings {
+  readonly values: ParameterValues;
+  readonly input: ChannelLayout;
+  readonly sampleRate: SampleRate;
+  readonly dsp: CanonicalDsp;
+}
+
 /** What a processor type is defined by. */
 export interface ProcessorDefinition {
   readonly descriptor: ProcessorDescriptor;
@@ -115,6 +138,12 @@ export interface ProcessorDefinition {
 
   /** How a processor whose descriptor asks for a whole pass measures it. */
   readonly measure?: (run: MeasuringRun) => Measurer;
+
+  /**
+   * How a processor whose descriptor states the state it reads learns that
+   * state, or why it cannot learn one for `settings`.
+   */
+  readonly learn?: (settings: LearningSettings) => DomainResult<StateLearner>;
 }
 
 /** A processor type: the node implementation the engine runs, and the descriptor it states. */
@@ -130,6 +159,8 @@ export interface ProcessorType extends NodeImplementation {
       readonly dsp: CanonicalDsp;
     },
   ): DomainResult<Measurer>;
+  /** What learns the state an instance reads, for a type that reads one. */
+  readonly learner?: (settings: LearningSettings) => DomainResult<StateLearner>;
 }
 
 function parameterReader(
@@ -305,6 +336,7 @@ export function processorType(definition: ProcessorDefinition): ProcessorType {
     ...(definition.measure === undefined
       ? {}
       : { measurer: measurerOf(definition, definition.measure) }),
+    ...(definition.learn === undefined ? {} : { learner: definition.learn }),
   };
 }
 

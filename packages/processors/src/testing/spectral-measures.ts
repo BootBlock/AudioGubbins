@@ -9,6 +9,7 @@
 import {
   sampleRate,
   type ChannelLayout,
+  type DomainResult,
   type ParameterValue,
   type ProcessorState,
 } from '@audiogubbins/domain';
@@ -16,8 +17,19 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import { NOISE_REDUCTION, noiseProfileLearner } from '../spectral/noise-reduction.js';
+import type { LearningSettings, StateLearner } from '../framework/processor-type.js';
+import { NOISE_REDUCTION } from '../spectral/noise-reduction.js';
 import { TEST_RATE, processorValues } from './processor-run.js';
+
+/**
+ * The learner of a noise reduction's profile, as its type offers it to
+ * whatever learns a processor's state, the detection worker among them.
+ */
+export function noiseLearner(settings: LearningSettings): DomainResult<StateLearner> {
+  const learner = NOISE_REDUCTION.learner;
+  if (learner === undefined) throw new Error('The noise reduction offers no learner.');
+  return learner(settings);
+}
 
 /** The profile a noise reduction of `values` learns from `stretch`, all of it in one call. */
 export function learnedProfile(
@@ -27,7 +39,7 @@ export function learnedProfile(
   rate: number = TEST_RATE,
 ): ProcessorState {
   const learner = expectSuccess(
-    noiseProfileLearner({
+    noiseLearner({
       values: processorValues(NOISE_REDUCTION, values),
       input: layout,
       sampleRate: expectSuccess(sampleRate(rate)),

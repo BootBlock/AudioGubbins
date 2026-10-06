@@ -224,7 +224,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MAXIMUM_STRETCH_RATIO',
         'chainOutputLayout',
         'checkStateVersion',
-        'copyChain',
         'effectChainFrom',
         'findSlot',
         'isModelIdentity',
@@ -240,15 +239,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/project-commands': {
-    "The rack commands' invocations (ADR-0060), which Phase 06's rack views and the library's apply command run as they are built.":
-      [
-        'RackTarget',
-        'addChainInvocation',
-        'removeChainInvocation',
-        'setChainInvocation',
-        'setEditChainInvocation',
-        'setRackInvocation',
-      ],
+    "The rack commands' invocations (ADR-0060) that change a chain in place and point a range at another chain, which Phase 06's rack views and the library's apply command run as they are built.":
+      ['setChainInvocation', 'setEditChainInvocation'],
   },
   '@audiogubbins/processors': {
     "The machine-learning processors and the model library they read their packs through (ADR-0062), which the threads that run racks make DeepFilterNet 3, MossFormer2 SE 48K and Spleeter's two-stem and four-stem types with, over the application's library on the installed packs, as Phase 06's pack manager and those threads are wired.":
@@ -265,24 +257,14 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
-    "The learner of a noise reduction's profile (ADR-0061), which the application runs over a stretch a person marks as noise alone and stores as the instance's state, as Phase 06's rack views are built.":
-      ['NoiseProfileSettings', 'noiseProfileLearner'],
-    "The detectors and the assistants on them (ADR-0061, ADR-0062), which the application's detection worker runs over a target and whose recommendations the assistants' views show, as Phase 06's views are built.":
+    "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
       [
-        'Assistant',
-        'AudioDetector',
-        'CLASSIFICATION_ASSISTANT',
         'CLICK_DETECTOR',
         'CLIPPING_DETECTOR',
         'DC_OFFSET_DETECTOR',
-        'Detection',
-        'DetectionSettings',
         'HUM_DETECTOR',
         'NOISE_FLOOR_DETECTOR',
-        'REPAIR_ASSISTANT',
-        'RESTORATION_ASSISTANT',
         'TRANSIENT_DETECTOR',
-        'recommendation',
       ],
   },
   '@audiogubbins/ml-runtime': {

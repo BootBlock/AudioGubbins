@@ -808,7 +808,9 @@ describe('finding the shell commands in the palette', () => {
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')
-      .concat('picture.mark-frame'),
+      // Applying a recommendation changes the project, which settles after it
+      // returns; it is run twice, its change awaited, in its own tests.
+      .concat('picture.mark-frame', 'analysis.apply'),
   );
 
   /** What a command is given, as an invocation carries it. */
@@ -928,6 +930,8 @@ describe('finding the shell commands in the palette', () => {
    * that did not happen unseen.
    */
   const SCENARIOS: Readonly<Record<string, Scenario | readonly Scenario[]>> = {
+    'analysis.detect': inEditor(),
+    'analysis.cancel': inEditor({ before: (run) => run('analysis.detect') }),
     'view.theme-dark': { before: (run) => run('view.theme-light') },
     'view.set-brightness': {
       // Inside the range, so the second run meets the value itself rather
@@ -1197,6 +1201,7 @@ describe('finding the shell commands in the palette', () => {
         assets: context.assets.get().assets.map((asset) => asset.revision),
         cues: [...context.cues.get()],
         picture: context.picture.get(),
+        detections: [...context.detection.get()].map(([target, one]) => [target, one.kind]),
       },
       (_key, value: unknown) => (value instanceof Set ? [...value] : value),
     );

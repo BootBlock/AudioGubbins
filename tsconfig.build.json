@@ -87,6 +87,15 @@
       "path": "./packages/waveform/scopes/dedicated-worker"
     },
     {
+      "path": "./packages/detection-runtime"
+    },
+    {
+      "path": "./packages/detection-runtime/scopes/any"
+    },
+    {
+      "path": "./packages/detection-runtime/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/renderer"
     },
     {

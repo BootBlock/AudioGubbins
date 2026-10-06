@@ -155,6 +155,13 @@ export default defineConfig<SuiteOptions>({
       testMatch: /core-editing\.spec\.ts/,
     },
     {
+      // The assistants: a recording analysed by the detection worker, what it
+      // found shown in the Analysis panel, a recommendation applied and undone.
+      name: 'chromium-analysis',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /analysis\.spec\.ts/,
+    },
+    {
       // The editor's renderer losing its WebGL 2 context, where WebGPU gives
       // no adapter, as it does in the headless shell.
       name: 'chromium-renderer',

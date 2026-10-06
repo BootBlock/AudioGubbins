@@ -38,3 +38,9 @@ declare module '@audiogubbins/waveform/threads/peak-worker.ts?worker&url' {
   const url: string;
   export default url;
 }
+
+/** Where the bundler put the detection worker, built on its own. */
+declare module '@audiogubbins/detection-runtime/threads/detection-worker.ts?worker&url' {
+  const url: string;
+  export default url;
+}

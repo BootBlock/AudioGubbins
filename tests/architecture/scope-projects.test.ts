@@ -31,6 +31,7 @@ const PORTABLE = [
   'packages/processors',
   'packages/effect-rack',
   'packages/ml-runtime',
+  'packages/detection-runtime',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */
@@ -53,6 +54,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
     'packages/ml-runtime/src/threads/inference-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
+    'packages/detection-runtime/src/threads/detection-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },

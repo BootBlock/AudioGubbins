@@ -12,6 +12,9 @@ Published paths
   @audiogubbins/commands
   @audiogubbins/design-system
   @audiogubbins/design-system/styles/*.css
+  @audiogubbins/detection-runtime
+  @audiogubbins/detection-runtime/testing
+  @audiogubbins/detection-runtime/threads/*
   @audiogubbins/diagnostics
   @audiogubbins/domain
   @audiogubbins/domain/testing
@@ -1629,6 +1632,68 @@ Published paths
   function useRowWindow(viewport: RefObject<HTMLElement | null>, count: number, props: RowWindowOptions): RowWindow
   function useTheme(): Theme
 
+@audiogubbins/detection-runtime
+  interface AssistantReport
+  readonly AssistantReport.label: string
+  readonly AssistantReport.recommendation: Recommendation
+  readonly AssistantReport.learned: readonly LearnedState[]
+  class DetectionHost
+  new DetectionHost(options: { readonly createWorker: () => DetectionWorkerPort; }): DetectionHost
+  readonly DetectionHost.#createWorker: () => DetectionWorkerPort
+  readonly DetectionHost.#kept: Map<string, DetectionResult>
+  readonly DetectionHost.#waiting: Map<string, Waiting>
+  DetectionHost.#worker: DetectionWorkerPort | undefined
+  DetectionHost.#jobs: number
+  DetectionHost.detect: (subject: DetectionSubject, watch?: DetectionWatch) => Promise<DetectionOutcome>
+  DetectionHost.dispose: () => void
+  DetectionHost.#workerPort: () => DetectionWorkerPort
+  DetectionHost.#receive: (value: unknown) => void
+  DetectionHost.#keep: (key: string, result: DetectionResult) => void
+  DetectionHost.#settle: (job: string, outcome: DetectionOutcome) => void
+  DetectionHost.#failAll: (worker: DetectionWorkerPort, reason: string) => void
+  type DetectionOutcome = { readonly kind: "cancelled"; } | { readonly kind: "done"; readonly result: DetectionResult; readonly kept: boolean; } | { readonly kind: "failed"; readonly reason: string; }
+  interface DetectionResult
+  readonly DetectionResult.frames: number
+  readonly DetectionResult.reports: readonly AssistantReport[]
+  interface DetectionSubject
+  readonly DetectionSubject.target: string
+  readonly DetectionSubject.identity: string
+  readonly DetectionSubject.channels: number
+  readonly DetectionSubject.describe: () => PcmDescription
+  readonly DetectionSubject.quality: QualityMode
+  readonly DetectionSubject.range: EditRange
+  readonly DetectionSubject.assistants: readonly string[]
+  interface DetectionWatch
+  readonly DetectionWatch.signal?: CancellationSignal
+  readonly DetectionWatch.onProgress?: (framesRead: number, framesTotal: number) => void
+  interface DetectionWorkerPort
+  DetectionWorkerPort.post: (message: ToDetectionWorker, transfer: readonly ArrayBuffer[]) => void
+  DetectionWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  DetectionWorkerPort.terminate: () => void
+  type LearnedState = { readonly kind: "learned"; readonly state: ProcessorState; } | { readonly kind: "none"; } | { readonly kind: "refused"; readonly reason: string; }
+
+@audiogubbins/detection-runtime/testing
+  const CLICKS: readonly [30000, 150000]
+  const FAULTY_LENGTH: number
+  const HUM_HERTZ: 60.2
+  class LocalDetectionWorker
+  new LocalDetectionWorker(): LocalDetectionWorker
+  readonly LocalDetectionWorker.sent: ToDetectionWorker[]
+  readonly LocalDetectionWorker.posted: string[]
+  LocalDetectionWorker.terminated: boolean
+  LocalDetectionWorker.#onMessage: ((value: unknown) => void) | undefined
+  LocalDetectionWorker.#onFault: ((reason: string) => void) | undefined
+  readonly LocalDetectionWorker.#core: DetectionWorkerCore
+  LocalDetectionWorker.post: (message: ToDetectionWorker, transfer: readonly ArrayBuffer[]) => void
+  LocalDetectionWorker.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  LocalDetectionWorker.answered: (kind: string) => number
+  LocalDetectionWorker.fault: (reason: string) => void
+  LocalDetectionWorker.terminate: () => void
+  const QUIET: { readonly start: number; readonly end: number; }
+  function faultyDescription(): PcmDescription
+  function faultySignal(): Float32Array<ArrayBufferLike>
+  function turn(): Promise<void>
+
 @audiogubbins/diagnostics
   interface BundleContentDescription
   readonly BundleContentDescription.key: BundleContentKey
@@ -2279,6 +2344,8 @@ Published paths
   function summingFactor(law: SummingLaw, count: number): number
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
+  function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
+  function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
   function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<Asset>
   function validateChainShape(chain: EffectChain): DomainResult<EffectChain>
@@ -3194,6 +3261,11 @@ Published paths
   readonly DetectionSettings.sampleRate: SampleRate
   readonly DetectionSettings.dsp: CanonicalDsp
   const HUM_DETECTOR: AudioDetector
+  interface LearningSettings
+  readonly LearningSettings.values: ParameterValues
+  readonly LearningSettings.input: ChannelLayout
+  readonly LearningSettings.sampleRate: SampleRate
+  readonly LearningSettings.dsp: CanonicalDsp
   type Measurement = Float32Array<ArrayBufferLike> | readonly number[]
   type Measurer = WholePass<Measurement>
   interface ModelFile
@@ -3207,11 +3279,6 @@ Published paths
   const ModelUnavailability: { readonly RequiredUnavailable: "required-unavailable"; readonly Incompatible: "incompatible"; readonly DeviceUnavailable: "device-unavailable"; }
   type ModelUnavailability = "device-unavailable" | "incompatible" | "required-unavailable"
   const NOISE_FLOOR_DETECTOR: AudioDetector
-  interface NoiseProfileSettings
-  readonly NoiseProfileSettings.values: ParameterValues
-  readonly NoiseProfileSettings.input: ChannelLayout
-  readonly NoiseProfileSettings.sampleRate: SampleRate
-  readonly NoiseProfileSettings.dsp: CanonicalDsp
   const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor>
   const PROCESSOR_TYPES: readonly ProcessorType[]
   const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType>
@@ -3224,6 +3291,7 @@ Published paths
   readonly ProcessorDefinition.sideChain?: (input: ChannelLayout, sideChain: ChannelLayout) => boolean
   ProcessorDefinition.kernel: (run: ProcessorRun) => DomainResult<NodeKernel>
   readonly ProcessorDefinition.measure?: (run: MeasuringRun) => Measurer
+  readonly ProcessorDefinition.learn?: (settings: LearningSettings) => DomainResult<StateLearner>
   const ProcessorPort: { readonly Input: "input"; readonly SideChain: "side-chain"; readonly Output: "output"; }
   interface ProcessorRun
   readonly ProcessorRun.parameters: ParameterReader
@@ -3240,6 +3308,7 @@ Published paths
   interface ProcessorType extends NodeImplementation
   readonly ProcessorType.descriptor: ProcessorDescriptor
   ProcessorType.measurer?: (settings: Readonly<Record<string, SettingValue>>, input: ChannelLayout, context: { readonly sampleRate: SampleRate; readonly blockFrames: number; readonly dsp: CanonicalDsp; }) => DomainResult<Measurer>
+  readonly ProcessorType.learner?: (settings: LearningSettings) => DomainResult<StateLearner>
   readonly ProcessorType.accelerators?: readonly "gpu"[]
   ProcessorType.createKernel: (step: import("packages/audio-graph/src/plan").PlanStep, context: import("packages/audio-engine/src/index").KernelContext) => DomainResult<NodeKernel>
   readonly ProcessorType.type: string
@@ -3248,6 +3317,10 @@ Published paths
   ProcessorType.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
   const REPAIR_ASSISTANT: Assistant
   const RESTORATION_ASSISTANT: Assistant
+  interface StateLearner
+  StateLearner.add: (input: readonly Float32Array[], frames: number) => void
+  StateLearner.result: () => ProcessorState
+  StateLearner.release: () => void
   const TRANSIENT_DETECTOR: AudioDetector
   interface WholePass<TResult>
   WholePass.add: (input: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<void>
@@ -3256,7 +3329,6 @@ Published paths
   function deepFilterNet3(services: ModelServices): ProcessorType
   function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path: string; }, reason?: DomainFailure | undefined): DomainFailureResult
   function mossFormer2Se48k(services: ModelServices): ProcessorType
-  function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, start: number, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
   function recommendation(assistant: Assistant, findings: readonly DetectorFinding[]): Recommendation
@@ -3295,8 +3367,12 @@ Published paths
   readonly RunSettings.dsp?: CanonicalDsp
   const TEST_BLOCK_FRAMES: 4096
   const TEST_RATE: SampleRate
+  function clipped(signal: Float32Array<ArrayBufferLike>, ceiling: number): Float32Array<ArrayBufferLike>
   function delayingProcessor(frames: number): ProcessorType
+  function hiss(length: number, level: number, seed?: number): Float32Array<ArrayBufferLike>
   function learnedProfile(layout: ChannelLayout, stretch: readonly Float32Array<ArrayBufferLike>[], values?: Readonly<Record<string, ParameterValue>>, rate?: number): ProcessorState
+  function mixed(...signals: readonly Float32Array<ArrayBufferLike>[]): Float32Array<ArrayBufferLike>
+  function partials(length: number, seed?: number): Float32Array<ArrayBufferLike>
   function processorKernel(type: ProcessorType, settings: RunSettings): { readonly kernel: NodeKernel; readonly output: ChannelLayout; }
   function processorKernelOf(type: ProcessorType, settings: RunSettings): DomainResult<NodeKernel>
   function processorProperties(type: ProcessorType, cases: PropertyCases): void
@@ -3305,6 +3381,8 @@ Published paths
   function recurrentType(sampleRate: SampleRate): ProcessorType
   function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[], change?: Change | undefined): Float32Array<ArrayBufferLike>[]
   function scriptedWholePass(script: PassScript, counts: PassCounts): ProcessorType
+  function tone(length: number, hertz: number, level: number, phase?: number): Float32Array<ArrayBufferLike>
+  function withClicks(clean: Float32Array<ArrayBufferLike>, clicks: readonly Click[]): Float32Array<ArrayBufferLike>
 
 @audiogubbins/project-commands
   interface ProjectCommand extends Command<ProjectState>
@@ -5580,6 +5658,53 @@ packages/design-system/src/primitives/row-window.ts
   readonly WindowRow.index: number
   readonly WindowRow.before: number
 
+packages/detection-runtime/src/detection-host.ts
+  interface Waiting
+  readonly Waiting.key: string
+  readonly Waiting.watch: DetectionWatch
+  readonly Waiting.settle: (outcome: DetectionOutcome) => void
+  readonly Waiting.stopWatching: () => void
+
+packages/detection-runtime/src/detection-messages.ts
+  interface DetectRequest
+  readonly DetectRequest.kind: "detect"
+  readonly DetectRequest.job: string
+  readonly DetectRequest.target: string
+  readonly DetectRequest.channels: number
+  readonly DetectRequest.description: PcmDescription
+  readonly DetectRequest.quality: QualityMode
+  readonly DetectRequest.range: EditRange
+  readonly DetectRequest.assistants: readonly string[]
+  type FromDetectionWorker = { readonly kind: typeof FromDetectionWorkerKind.Cancelled; readonly job: string; } | { readonly kind: typeof FromDetectionWorkerKind.Done; readonly job: string; readonly result: DetectionResult; } | { readonly kind: typeof FromDetectionWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromDetectionWorkerKind.Progress; readonly job: string; readonly framesRead: number; readonly framesTotal: number; } | { readonly kind: typeof FromDetectionWorkerKind.Refused; readonly reason: string; }
+  type ToDetectionWorker = DetectRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string; }
+
+packages/detection-runtime/src/detection-worker-core.ts
+  class DetectionWorkerCore
+  new DetectionWorkerCore(host: DetectionWorkerHost): DetectionWorkerCore
+  readonly DetectionWorkerCore.#host: DetectionWorkerHost
+  readonly DetectionWorkerCore.#queue: Job[]
+  DetectionWorkerCore.#running: Job | undefined
+  DetectionWorkerCore.receive: (data: unknown) => void
+  DetectionWorkerCore.messageFailed: () => void
+  DetectionWorkerCore.#cancel: (matches: (job: Job) => boolean) => void
+  DetectionWorkerCore.#pump: () => Promise<void>
+  DetectionWorkerCore.#run: (job: Job) => Promise<void>
+  DetectionWorkerCore.#post: (job: string, answer: DomainResult<DetectionResult>) => void
+  DetectionWorkerCore.#sourceOf: (request: DetectRequest) => DomainResult<PcmSource>
+  DetectionWorkerCore.#assistantsOf: (request: DetectRequest) => DomainResult<readonly Assistant[]>
+  interface DetectionWorkerHost
+  readonly DetectionWorkerHost.post: (message: FromDetectionWorker) => void
+  readonly DetectionWorkerHost.yieldToHost: () => Promise<void>
+  readonly DetectionWorkerHost.dsp: CanonicalDsp
+  readonly DetectionWorkerHost.processing: ChainProcessing
+  readonly DetectionWorkerHost.assistants: readonly Assistant[]
+  readonly DetectionWorkerHost.types: ReadonlyMap<string, ProcessorType>
+  readonly DetectionWorkerHost.reportFault: (error: unknown) => void
+  interface Job
+  readonly Job.request: DetectRequest
+  readonly Job.cancellation: CancellationSource
+  Job.failedWith: string | undefined
+
 packages/domain/src/processing/effect-chain.ts
   interface SlotControls
   readonly SlotControls.enabled: boolean
@@ -5799,39 +5924,12 @@ packages/model-packs/src/pack-transfers.ts
 packages/processors/src/framework/processor-type.ts
   type MeasuringRun = { readonly parameters: ParameterReader; readonly state?: ProcessorState; readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly input: ChannelLayout; readonly blockFrames: number; readonly dsp: CanonicalDsp; readonly output: ChannelLayout; readonly sideChain?: ChannelLayout; }
 
-packages/processors/src/spectral/frame-analysis.ts
-  class FrameAnalysis
-  new FrameAnalysis(fft: CanonicalFft, channels: number, hop: number): FrameAnalysis
-  readonly FrameAnalysis.size: number
-  readonly FrameAnalysis.hop: number
-  readonly FrameAnalysis.bins: number
-  readonly FrameAnalysis.channels: number
-  readonly FrameAnalysis.window: Float64Array<ArrayBufferLike>
-  readonly FrameAnalysis.real: readonly Float64Array<ArrayBufferLike>[]
-  readonly FrameAnalysis.imaginary: readonly Float64Array<ArrayBufferLike>[]
-  readonly FrameAnalysis.fft: CanonicalFft
-  readonly FrameAnalysis.#history: readonly Float64Array<ArrayBufferLike>[]
-  readonly FrameAnalysis.#signal: Float64Array<ArrayBufferLike>
-  FrameAnalysis.#position: number
-  FrameAnalysis.#sinceFrame: number
-  FrameAnalysis.#filled: number
-  FrameAnalysis.position: number
-  FrameAnalysis.full: boolean
-  FrameAnalysis.push: (input: readonly Float32Array[], frame: number) => boolean
-  FrameAnalysis.analyse: () => void
-  FrameAnalysis.release: () => void
-
-packages/processors/src/spectral/noise-profile.ts
-  class NoiseProfileLearner
-  new NoiseProfileLearner(analysis: FrameAnalysis, rate: number): NoiseProfileLearner
-  readonly NoiseProfileLearner.#analysis: FrameAnalysis
-  readonly NoiseProfileLearner.#rate: number
-  readonly NoiseProfileLearner.#sums: readonly Float64Array<ArrayBufferLike>[]
-  NoiseProfileLearner.#frames: number
-  NoiseProfileLearner.add: (input: readonly Float32Array[], frames: number) => void
-  NoiseProfileLearner.#accumulate: () => void
-  NoiseProfileLearner.result: () => ProcessorState
-  NoiseProfileLearner.release: () => void
+packages/processors/src/testing/repair-signals.ts
+  interface Click
+  readonly Click.at: number
+  readonly Click.width: number
+  readonly Click.size: number
+  readonly Click.seed?: number
 
 packages/project-format/src/given-names.ts
   type NamedSubject = "asset" | "project"

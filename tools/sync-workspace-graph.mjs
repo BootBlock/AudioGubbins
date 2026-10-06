@@ -380,6 +380,29 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // The detection worker: a target's processed audio read through the
+    // engine, the detectors and assistants run over it in one pass, and the
+    // findings and recommendations answered as data (ADR-0061, ADR-0062).
+    // No browser: the worker's scope is declared by its shape.
+    dir: 'packages/detection-runtime',
+    name: '@audiogubbins/detection-runtime',
+    description:
+      "The detection worker: a target's processed audio read once, its detectors and assistants run over it, and the findings and recommendations answered as data.",
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'detection-worker.ts': 'dedicated-worker' },
+    deps: [
+      '@audiogubbins/domain',
+      '@audiogubbins/audio-engine',
+      '@audiogubbins/effect-rack',
+      '@audiogubbins/processors',
+    ],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // The renderer contract and its WebGPU, WebGL2 and Canvas 2D backends,
     // with the choice among them and recovery from a lost device (ADR-0040,
     // ADR-0044). Given its canvases and the GPU object; it reads no global.
@@ -725,6 +748,7 @@ const PACKAGES = [
       '@audiogubbins/video-reference',
       '@audiogubbins/clipboard',
       '@audiogubbins/processors',
+      '@audiogubbins/detection-runtime',
     ],
     devDeps: ['@audiogubbins/test-fixtures'],
     external: { react: '19.3.0', 'react-dom': '19.3.0' },

@@ -234,6 +234,12 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/effect-rack',
     '@audiogubbins/processors',
   ],
+  '@audiogubbins/detection-runtime': [
+    '@audiogubbins/domain',
+    '@audiogubbins/audio-engine',
+    '@audiogubbins/effect-rack',
+    '@audiogubbins/processors',
+  ],
   '@audiogubbins/audio-engine': [
     '@audiogubbins/domain',
     '@audiogubbins/audio-graph',
@@ -820,6 +826,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'clipboard',
     'codecs',
     'commands',
+    'detection-runtime',
     'domain',
     'editor-view',
     'effect-rack',

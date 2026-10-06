@@ -100,6 +100,9 @@
       "path": "../../packages/processors"
     },
     {
+      "path": "../../packages/detection-runtime"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

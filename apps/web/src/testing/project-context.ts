@@ -46,6 +46,8 @@ import type { ProjectServices } from '../storage/project-services.js';
 import { abandonment } from '../state/abandoning.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
+import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
+
 import type { FakePlayback } from './audio-fakes.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
 import { StorageRoot } from '../state/storage-root-store.js';
@@ -137,6 +139,9 @@ export interface ProjectWindow {
 
   /** The audio engine the window plays through, which a test reads what it was given from. */
   readonly audio: { readonly playback: FakePlayback };
+
+  /** The detection workers the window made, in order, which a test reads what it asked of. */
+  readonly detectionWorkers: readonly LocalDetectionWorker[];
 
   /** Runs a shell command as the interface runs one. */
   run(id: string, args?: CommandInvocation['arguments']): ExecutionResult<ShellContext>;
@@ -279,6 +284,7 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
         files,
         takeDown,
         audio: built.audio,
+        detectionWorkers: built.detectionWorkers,
       });
     },
   };
@@ -290,7 +296,14 @@ async function windowOver(
   base: ShellContext,
   parts: Pick<
     ProjectWindow,
-    'services' | 'storage' | 'root' | 'projects' | 'files' | 'takeDown' | 'audio'
+    | 'services'
+    | 'storage'
+    | 'root'
+    | 'projects'
+    | 'files'
+    | 'takeDown'
+    | 'audio'
+    | 'detectionWorkers'
   >,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;

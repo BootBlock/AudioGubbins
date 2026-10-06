@@ -127,6 +127,9 @@ export function openedEntry(
   // from its source's.
   const { sampleRate } = stream;
   const sources = reads.sources.map((source) => source?.media);
+  // Written as the project writes a plan, so every value in it counts, the
+  // parameter values of its chains among them.
+  const content = `${canonicalJson(writeEditPlan(plan))}${JSON.stringify(sources)}`;
   return {
     kind: 'open',
     asset: {
@@ -136,9 +139,8 @@ export function openedEntry(
       sampleRate,
       layout: stream.layout,
       length: derivedSampleCount(streamLength(stream)),
-      // Written as the project writes a plan, so every value in it counts,
-      // the parameter values of its chains among them.
-      revision: revisionOf(`${canonicalJson(writeEditPlan(plan))}${JSON.stringify(sources)}`),
+      content,
+      revision: revisionOf(content),
       describe: () => ({
         kind: PcmDescriptionKind.Edited,
         sampleRate,

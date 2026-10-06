@@ -22,7 +22,8 @@ import {
 import { learnedProfile } from '../testing/spectral-measures.js';
 import { setLayout } from '../testing/space-measures.js';
 import { DEREVERBERATION } from './dereverb.js';
-import { NOISE_REDUCTION, noiseProfileLearner } from './noise-reduction.js';
+import { NOISE_REDUCTION } from './noise-reduction.js';
+import { noiseLearner } from '../testing/spectral-measures.js';
 
 const FRAMES = 128;
 
@@ -112,7 +113,7 @@ describe('no spectral kernel allocates while it processes', () => {
   it('in the noise profile learner while it learns', () => {
     const layout = StandardLayouts.stereo;
     const learner = expectSuccess(
-      noiseProfileLearner({
+      noiseLearner({
         values: processorValues(NOISE_REDUCTION),
         input: layout,
         sampleRate: TEST_RATE,

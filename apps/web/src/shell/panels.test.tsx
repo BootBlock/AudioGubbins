@@ -13,7 +13,8 @@ import {
 
 import { PanelKinds } from '@audiogubbins/workspace';
 
-import { ProjectPanelKinds } from '../panel-kinds.js';
+import type { Detections } from '../analysis/detection-control.js';
+import { EditingPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
@@ -102,6 +103,7 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audio']>().toEqualTypeOf<Observable<AudioView>>();
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
+    expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
   });
 });
 
@@ -109,9 +111,11 @@ describe('every panel', () => {
   it.each([
     ...Object.values(PanelKinds),
     ...Object.values(ProjectPanelKinds),
+    ...Object.values(EditingPanelKinds),
     'a-kind-this-build-does-not-have',
   ])('draws %s with its heading and no region', (kind) => {
     const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
+    const shell = buildShellContext().context;
     render(
       <>
         {renderPanel({ id: 'probe', kind }, 'Probe', {
@@ -137,7 +141,8 @@ describe('every panel', () => {
           run: () => true,
           unavailableReason: () => undefined,
           labelFor: (id) => id,
-          editor: fakePanelParts(buildShellContext().context, logger),
+          editor: fakePanelParts(shell, logger),
+          detection: shell.detection,
         })}
       </>,
     );

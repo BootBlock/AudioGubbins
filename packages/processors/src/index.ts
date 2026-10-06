@@ -19,13 +19,14 @@ export {
   type ParameterReader,
   type ProcessorDefinition,
   type ProcessorRun,
+  type LearningSettings,
   type ProcessorType,
+  type StateLearner,
   ProcessorPort,
   processorNodeType,
 } from './framework/processor-type.js';
 export { processorNodeSettings } from './framework/processor-node.js';
 export { type Measurement, type Measurer, type WholePass } from './framework/whole-pass.js';
-export { type NoiseProfileSettings, noiseProfileLearner } from './spectral/noise-reduction.js';
 export {
   type Assistant,
   type AudioDetector,

@@ -283,6 +283,8 @@ export {
 
 export { effectChainFrom } from './processing/chain-decoding.js';
 
+export { treatmentChain, treatmentValues } from './processing/treatment-chain.js';
+
 export {
   EMPTY_LIBRARY,
   LONGEST_SAVED_NAME,

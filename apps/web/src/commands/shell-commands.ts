@@ -17,6 +17,7 @@
 import { AVAILABLE, CommandCategory, unavailable, type Command } from '@audiogubbins/commands';
 import type { PanelDescriptor, PanelKind } from '@audiogubbins/workspace';
 
+import { analysisCommands } from './analysis-commands.js';
 import { backupCommands } from './backup-commands.js';
 import { backupFolderCommands } from './backup-folder-commands.js';
 import { compactionCommands } from './compaction-commands.js';
@@ -194,6 +195,7 @@ export function shellCommands(
     ...regionBoundaryCommands(),
     ...regionPropertyCommands(),
     ...splitCommands(),
+    ...analysisCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

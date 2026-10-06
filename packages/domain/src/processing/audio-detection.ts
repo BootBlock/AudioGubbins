@@ -8,7 +8,7 @@
  * and recommends one chain, which the person applies or not; none applies
  * processing itself. A treatment names processor types and parameter values
  * rather than instances, so a finding holds no identifier until a person
- * applies it, when the chain is made under new ones (`chain-edits.ts`).
+ * applies it, when the chain is made under new ones (`treatment-chain.ts`).
  */
 
 import type { EditRange } from '../editing/operations.js';

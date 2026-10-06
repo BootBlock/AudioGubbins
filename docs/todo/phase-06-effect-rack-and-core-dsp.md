@@ -165,6 +165,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     not DSP). The runtime's WebAssembly is fetched from the application's
     origin by a second named network exception, verified, and handed to the
     runtime as bytes.
+21. **Detection in the application** (2026-10-06): `packages/detection-runtime`
+    runs the chosen detectors over a target's processed audio (the render and
+    peaks reader, final quality, from the stream's start) in a worker, one
+    detection at a time, a new request for a target superseding its old one,
+    then the assistants; the page keeps 64 results by the asset's full
+    content, the render settings, channels, range and assistants. The
+    Analysis panel shows findings and recommendations; "Apply" makes the
+    treatment chain (`treatmentChain`) in one history step through existing
+    commands: a rack edit over the analysed range, or the target's rack for
+    the whole target (an existing rack kept, the treatment after a copy of
+    it). A processor type learns its state through `learner`.
 
 ## The first model packs' sources (researched 2026-10-05)
 

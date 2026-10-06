@@ -195,19 +195,23 @@ const NOT_IN_A_PROJECT =
 function assetOf(spec: AssetSpec, rate: SampleRate): DomainResult<EditorAsset> {
   return flatMapResult(spec.layout, (layout) => {
     if (channelCount(layout) !== spec.channels.length) return mismatchedChannels(spec, layout);
-    return mapResult(signalRecipe({ channels: spec.channels, length: spec.length }), (recipe) => ({
-      id: spec.key,
-      name: spec.name,
-      description: spec.description,
-      sampleRate: rate,
-      layout,
-      length: recipe.length,
-      revision: revisionOf(JSON.stringify({ rate, recipe })),
-      describe: () => ({ kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }),
-      owner: { kind: 'session', reason: NOT_IN_A_PROJECT },
-      markers: [],
-      regions: [],
-    }));
+    return mapResult(signalRecipe({ channels: spec.channels, length: spec.length }), (recipe) => {
+      const content = JSON.stringify({ rate, recipe });
+      return {
+        id: spec.key,
+        name: spec.name,
+        description: spec.description,
+        sampleRate: rate,
+        layout,
+        length: recipe.length,
+        content,
+        revision: revisionOf(content),
+        describe: () => ({ kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }),
+        owner: { kind: 'session', reason: NOT_IN_A_PROJECT },
+        markers: [],
+        regions: [],
+      };
+    });
   });
 }
 

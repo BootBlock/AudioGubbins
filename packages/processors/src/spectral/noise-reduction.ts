@@ -6,14 +6,14 @@
  *
  * The frames are the resolution's `N` samples, `N / overlap` apart for the
  * quality's spectral overlap, and the latency is `N − 1` (`overlap-add.ts`).
- * The application learns the profile over the marked stretch by
- * {@link noiseProfileLearner}, and it is the instance's state, learned per
- * channel and shared from one channel, and refused when the kernel is made if
- * it was learned with frames of another size, at another rate or on another
- * channel count. Without a profile the kernel writes its input delayed by the
- * latency, unchanged, since there is nothing to subtract. The reduction,
- * sensitivity and smoothing ramp as they move; the resolution and the output
- * change what the kernel is.
+ * The type's learner, {@link noiseProfileLearner}, learns the profile over the
+ * marked stretch, and it is the instance's state, learned per channel and
+ * shared from one channel, and refused when the kernel is made if it was
+ * learned with frames of another size, at another rate or on another channel
+ * count. Without a profile the kernel writes its input delayed by the latency,
+ * unchanged, since there is nothing to subtract. The reduction, sensitivity and
+ * smoothing ramp as they move; the resolution and the output change what the
+ * kernel is.
  */
 
 import {
@@ -28,18 +28,20 @@ import {
   ProcessorCategory,
   succeed,
   unsafeBrandId,
-  type ChannelLayout,
   type ChoiceParameterDescriptor,
   type DomainResult,
   type NumericParameterDescriptor,
-  type ParameterValues,
   type ProcessorLatency,
   type ProcessorSettings,
-  type SampleRate,
 } from '@audiogubbins/domain';
-import type { CanonicalDsp, NodeKernel } from '@audiogubbins/audio-engine';
+import type { NodeKernel } from '@audiogubbins/audio-engine';
 
-import { processorType, type ProcessorRun } from '../framework/processor-type.js';
+import {
+  processorType,
+  type LearningSettings,
+  type ProcessorRun,
+  type StateLearner,
+} from '../framework/processor-type.js';
 import { RampedParameters } from '../dynamics/ramped-parameters.js';
 import { choiceOf, numberOf } from '../filters/parameter-values.js';
 import { FrameAnalysis } from './frame-analysis.js';
@@ -206,16 +208,8 @@ export const NOISE_REDUCTION = processorType({
       sizeOf(choiceOf(values, resolution)) / quality.spectralOverlap,
   },
   kernel,
+  learn: noiseProfileLearner,
 });
-
-/** What a noise profile is learned for. */
-export interface NoiseProfileSettings {
-  /** The noise reduction's values, whose resolution sets the frames it is learned with. */
-  readonly values: ParameterValues;
-  readonly input: ChannelLayout;
-  readonly sampleRate: SampleRate;
-  readonly dsp: CanonicalDsp;
-}
 
 /**
  * The learner of a noise profile for a noise reduction of `settings`, which
@@ -225,9 +219,7 @@ export interface NoiseProfileSettings {
  * quality, since the mean magnitude of a steady noise does not depend on the
  * hop of the frames it is taken over.
  */
-export function noiseProfileLearner(
-  settings: NoiseProfileSettings,
-): DomainResult<NoiseProfileLearner> {
+function noiseProfileLearner(settings: LearningSettings): DomainResult<StateLearner> {
   const size = sizeOf(choiceOf(settings.values, resolution));
   const channels = settings.input.roles.length;
   if (PROFILE_HEADER + channels * (size / 2 + 1) > MAXIMUM_STATE_VALUES) {

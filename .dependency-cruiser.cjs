@@ -159,7 +159,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -323,6 +323,28 @@ module.exports = {
         'kept through a port the application implements.',
       from: { path: '^packages/waveform/' },
       to: { path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|processors)/)' },
+    },
+    {
+      name: 'detection-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        "The detection worker reads a target's processed audio through the engine and runs the " +
+        'detectors and assistants over it (ADR-0061, ADR-0062). It depends on the domain, the ' +
+        'engine and the processors whose detectors and learners it runs, and its thread entry ' +
+        'and test support on the effect rack an edited sound is read with; it knows no ' +
+        'interface, storage or command package.',
+      from: { path: '^packages/detection-runtime/' },
+      to: { path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|processors)/)' },
+    },
+    {
+      name: 'detection-rack-made-only-in-thread-entries',
+      severity: 'error',
+      comment:
+        'The detection core is given the effect rack as a port (ADR-0060): only the module that ' +
+        'starts the worker, and the test support that composes it as that module does, make it, ' +
+        'so the core runs in tests with any processing.',
+      from: { path: '^packages/detection-runtime/src/', pathNot: '/src/(threads|testing)/' },
+      to: { path: '^packages/effect-rack/' },
     },
     {
       name: 'renderer-owns-nothing-else',

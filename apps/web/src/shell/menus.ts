@@ -167,6 +167,11 @@ const EDITOR_GROUPS: readonly {
     ],
   },
   {
+    key: 'analysis',
+    label: 'Analysis',
+    ids: ['analysis.detect', 'analysis.cancel'],
+  },
+  {
     key: 'picture',
     label: 'Reference picture',
     ids: [

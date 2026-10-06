@@ -117,6 +117,14 @@
       ]
     },
     {
+      "name": "detection-runtime",
+      "root": "packages/detection-runtime",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "renderer",
       "root": "packages/renderer",
       "environment": "jsdom",

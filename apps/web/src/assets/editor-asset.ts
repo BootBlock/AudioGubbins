@@ -56,7 +56,17 @@ export interface EditorAsset {
   readonly sampleRate: SampleRate;
   readonly layout: ChannelLayout;
   readonly length: SampleCount;
-  /** Which version of its audio, so peaks kept for another are never drawn for it. */
+  /**
+   * What its audio is made from, written out whole: for an asset of the
+   * project, its plan as the project writes it and the media that plan reads.
+   * Two assets of one content sound alike, so work kept for one, such as a
+   * detection's findings, answers for the other.
+   */
+  readonly content: string;
+  /**
+   * Which version of its audio, so peaks kept for another are never drawn for
+   * it: a short fingerprint of its content, `revisionOf(content)`.
+   */
   readonly revision: string;
   /**
    * Its audio, described for the thread that reads it. Arrays in memory are

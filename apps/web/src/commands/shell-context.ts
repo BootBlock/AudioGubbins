@@ -35,6 +35,7 @@ import type {
 
 import type { IdGenerator } from '@audiogubbins/domain';
 
+import type { DetectionControl } from '../analysis/detection-control.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { PictureSoundDecoder } from '../picture/picture-sound.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
@@ -154,4 +155,11 @@ export interface ShellContext {
 
   /** What the last copy or cut took, for the session. */
   readonly clipboard: ClipboardStore;
+
+  /**
+   * What the assistants were asked to analyse this session and what they
+   * found, which only a recommendation applied through the project's
+   * commands acts on.
+   */
+  readonly detection: DetectionControl;
 }

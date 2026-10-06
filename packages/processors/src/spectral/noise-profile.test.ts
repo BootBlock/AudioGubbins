@@ -7,7 +7,8 @@ import { noise } from '@audiogubbins/test-fixtures';
 
 import { TEST_RATE, processorValues } from '../testing/processor-run.js';
 import { NOISE_PROFILE_KIND } from './noise-profile.js';
-import { NOISE_REDUCTION, noiseProfileLearner } from './noise-reduction.js';
+import { NOISE_REDUCTION } from './noise-reduction.js';
+import { noiseLearner } from '../testing/spectral-measures.js';
 
 /** Mono noise of `amplitude`, `length` frames of it, a profile's stretch. */
 function noiseOf(amplitude: number, length: number): Float32Array[] {
@@ -17,7 +18,7 @@ function noiseOf(amplitude: number, length: number): Float32Array[] {
 describe('the noise profile learner', () => {
   const learn = (stretch: readonly Float32Array[], chunks: readonly number[]): ProcessorState => {
     const learner = expectSuccess(
-      noiseProfileLearner({
+      noiseLearner({
         values: processorValues(NOISE_REDUCTION),
         input: StandardLayouts.mono,
         sampleRate: TEST_RATE,
@@ -60,7 +61,7 @@ describe('the noise profile learner', () => {
 
   it('refuses to learn a profile larger than a processor’s state may be', () => {
     const at = (channels: number) =>
-      noiseProfileLearner({
+      noiseLearner({
         values: processorValues(NOISE_REDUCTION, { resolution: '8192' }),
         input: expectSuccess(discreteLayout(channels)),
         sampleRate: TEST_RATE,

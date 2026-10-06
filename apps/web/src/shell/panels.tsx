@@ -5,8 +5,9 @@
  * view of an asset (`editor-panel.tsx`), the reference picture
  * (`picture-panel.tsx`), the project's audio in the Asset Browser
  * (`asset-browser.tsx`), the properties of what the editor acts on in the
- * Inspector (`inspector/inspector-panel.tsx`), and the project system's
- * History and Storage panels (`project-panels.tsx`).
+ * Inspector (`inspector/inspector-panel.tsx`), what the assistants found in
+ * the Analysis panel (`analysis/analysis-panel.tsx`), and the project
+ * system's History and Storage panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -23,13 +24,15 @@ import { PanelKinds, type OpenPanel } from '@audiogubbins/workspace';
 import type { NodeId } from '@audiogubbins/audio-graph';
 import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
+import type { Detections } from '../analysis/detection-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { ProjectPanelKinds } from '../panel-kinds.js';
+import { EditingPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
+import { AnalysisPanel, type AnalysisParts } from './analysis/analysis-panel.js';
 import { AssetBrowserPanel } from './asset-browser.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
@@ -129,6 +132,9 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** What the Editor and Picture panels are given. */
   readonly editor: EditorPanelParts;
+
+  /** What the assistants found this session, which the Analysis panel shows. */
+  readonly detection: Observable<Detections>;
 }
 
 /**
@@ -159,9 +165,20 @@ export function panelContextOf(
     playhead: () => context.playback.audiblePosition(),
     meters: () => context.playback.meters(),
     framesRendered: () => context.rendering.framesRendered(),
+    detection: context.detection,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
+  };
+}
+
+/** What the Analysis panel reads of a panel's context. */
+function analysisPartsOf(context: PanelContext): AnalysisParts {
+  return {
+    editorViews: context.editor.stores.editorViews,
+    assets: context.editor.assets,
+    detection: context.detection,
+    audioSettings: context.audioSettings,
   };
 }
 
@@ -240,6 +257,9 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
           editorViews={context.editor.stores.editorViews}
         />
       );
+
+    case EditingPanelKinds.Analysis:
+      return <AnalysisPanel title={title} parts={analysisPartsOf(context)} commands={context} />;
 
     case PanelKinds.Diagnostics:
       return (
