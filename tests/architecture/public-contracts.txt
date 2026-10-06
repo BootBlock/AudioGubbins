@@ -25,6 +25,8 @@ Published paths
   @audiogubbins/ml-runtime
   @audiogubbins/ml-runtime/testing
   @audiogubbins/ml-runtime/threads/*
+  @audiogubbins/model-packs
+  @audiogubbins/model-packs/testing
   @audiogubbins/processors
   @audiogubbins/processors/testing
   @audiogubbins/project-commands
@@ -2988,6 +2990,168 @@ Published paths
   readonly FakeModel.outputs: readonly TensorInfo[]
   FakeModel.run: (inputs: ReadonlyMap<string, Tensor>) => ReadonlyMap<string, Tensor>
 
+@audiogubbins/model-packs
+  type AutomaticDownload = "never" | "required"
+  interface AvailabilityContext
+  readonly AvailabilityContext.packs: readonly KnownPack[]
+  readonly AvailabilityContext.catalogue: readonly ModelPackManifest[]
+  readonly AvailabilityContext.runtime: Pick<RuntimeIdentity, "name" | "version">
+  readonly AvailabilityContext.device: LocalInferenceSupport
+  interface FileRange
+  readonly FileRange.pack: ModelPackManifest
+  readonly FileRange.file: PackFile
+  readonly FileRange.offset: number
+  class HttpPackSource
+  new HttpPackSource(catalogueUrl: string, request?: PackFetch): HttpPackSource
+  readonly HttpPackSource.base: string
+  readonly HttpPackSource.request: PackFetch
+  HttpPackSource.catalogue: (signal?: AbortSignal) => Promise<DomainResult<readonly ModelPackManifest[]>>
+  HttpPackSource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
+  HttpPackSource.urlOf: (range: FileRange) => string
+  class ImportedPackSource
+  new ImportedPackSource(manifest: ModelPackManifest, files: ReadonlyMap<string, ByteSource>): ImportedPackSource
+  readonly ImportedPackSource.manifest: ModelPackManifest
+  readonly ImportedPackSource.files: ReadonlyMap<string, ByteSource>
+  ImportedPackSource.catalogue: () => Promise<DomainResult<readonly ModelPackManifest[]>>
+  ImportedPackSource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
+  type InstallEvent = { readonly kind: "cancel"; } | { readonly kind: "damaged"; readonly reason: DomainFailure; } | { readonly kind: "downloaded"; } | { readonly kind: "fail"; readonly reason: DomainFailure; readonly resumable: boolean; } | { readonly kind: "pause"; } | { readonly kind: "progress"; readonly received: number; } | { readonly kind: "remove"; } | { readonly kind: "removed"; } | { readonly kind: "resume"; readonly received: number; } | { readonly kind: "retry"; readonly received: number; readonly total: number; } | { readonly kind: "start"; readonly received: number; readonly total: number; } | { readonly kind: "verified"; }
+  type InstallState = { readonly kind: "available"; } | { readonly kind: "downloading"; readonly received: number; readonly total: number; } | { readonly kind: "failed"; readonly reason: DomainFailure; readonly resumable: boolean; readonly received: number; } | { readonly kind: "installed"; } | { readonly kind: "paused"; readonly received: number; readonly total: number; } | { readonly kind: "removing"; } | { readonly kind: "verifying"; readonly total: number; }
+  interface Installation
+  readonly Installation.ref: PackRef
+  readonly Installation.manifest: ModelPackManifest | undefined
+  readonly Installation.state: InstallState
+  interface InstallerServices
+  readonly InstallerServices.store: PackStore
+  readonly InstallerServices.sha256: Sha256
+  readonly InstallerServices.changed?: (ref: PackRef, state: InstallState) => void
+  type KeptPack = { readonly kind: "damaged"; readonly ref: PackRef; readonly reason: DomainFailure; } | { readonly kind: "sealed"; readonly manifest: ModelPackManifest; } | { readonly kind: "staged"; readonly manifest: ModelPackManifest; readonly received: number; }
+  interface KnownPack
+  readonly KnownPack.manifest: ModelPackManifest
+  readonly KnownPack.state: InstallState
+  interface LocalInferenceSupport
+  readonly LocalInferenceSupport.status: "full" | "reduced" | "unavailable"
+  readonly LocalInferenceSupport.explanation: string
+  readonly LocalInferenceSupport.missingRequired: readonly { readonly key: string; readonly reason: string; }[]
+  readonly LocalInferenceSupport.missingPreferred: readonly { readonly key: string; readonly reason: string; }[]
+  interface ModelPackManifest
+  readonly ModelPackManifest.id: string
+  readonly ModelPackManifest.name: string
+  readonly ModelPackManifest.purpose: string
+  readonly ModelPackManifest.version: string
+  readonly ModelPackManifest.downloadBytes: number
+  readonly ModelPackManifest.installedBytes: number
+  readonly ModelPackManifest.files: readonly PackFile[]
+  readonly ModelPackManifest.licence: PackLicence
+  readonly ModelPackManifest.runtime: PackRuntime
+  readonly ModelPackManifest.tiers: readonly NamedQualityLevel[]
+  readonly ModelPackManifest.serves: PackServes
+  type PackAvailability = { readonly condition: "available"; readonly pack: ModelPackManifest; } | { readonly condition: "device-unavailable"; readonly reason: DomainFailure; } | { readonly condition: "incompatible"; readonly pack: ModelPackManifest; readonly reason: DomainFailure; readonly offered?: ModelPackManifest; } | { readonly condition: "optional-unavailable" | "required-unavailable"; readonly reason: DomainFailure; readonly offered?: ModelPackManifest; } | { readonly condition: "update-available"; readonly pack: ModelPackManifest; readonly update: ModelPackManifest; }
+  type PackBodyRead = { readonly done: false; readonly value: Uint8Array<ArrayBuffer>; } | { readonly done: true; readonly value?: undefined; }
+  interface PackBodyReader
+  PackBodyReader.read: () => Promise<PackBodyRead>
+  PackBodyReader.cancel: (reason?: unknown) => Promise<void>
+  const PackCapability: { readonly WebAssemblySimd: "webassembly-simd"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly WebGpu: "webgpu"; }
+  type PackCapability = "shared-array-buffer" | "webassembly-simd" | "webgpu"
+  type PackFetch = (url: string, request: PackRequest) => Promise<PackResponse>
+  interface PackFile
+  readonly PackFile.path: string
+  readonly PackFile.bytes: number
+  readonly PackFile.sha256: string
+  class PackInstaller
+  new PackInstaller(services: InstallerServices): PackInstaller
+  readonly PackInstaller.services: InstallerServices
+  readonly PackInstaller.versions: Installations
+  PackInstaller.restore: () => Promise<DomainResult<void>>
+  PackInstaller.installations: () => readonly Installation[]
+  PackInstaller.stateOf: (ref: PackRef) => InstallState
+  PackInstaller.download: (manifest: ModelPackManifest, source: PackSource, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PackInstaller.resume: (ref: PackRef, source: PackSource, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PackInstaller.retry: (ref: PackRef, source: PackSource, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PackInstaller.pause: (ref: PackRef) => DomainResult<void>
+  PackInstaller.cancel: (ref: PackRef) => Promise<DomainResult<InstallState>>
+  PackInstaller.remove: (ref: PackRef, retention: Retention) => Promise<DomainResult<InstallState>>
+  PackInstaller.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer>>>
+  PackInstaller.stop: (ref: PackRef, how: Stop) => DomainResult<void>
+  PackInstaller.transfer: (entry: Entry, manifest: ModelPackManifest, source: PackSource, signal: AbortSignal | undefined) => Promise<DomainResult<InstallState>>
+  PackInstaller.settled: (entry: Entry, manifest: ModelPackManifest, stop: Stop | undefined, arrival: Arrival) => Promise<DomainResult<InstallState>>
+  PackInstaller.rejected: (entry: Entry, reason: DomainFailure) => Promise<DomainResult<InstallState>>
+  PackInstaller.deleted: (entry: Entry) => Promise<DomainResult<InstallState>>
+  interface PackLicence
+  readonly PackLicence.code: string
+  readonly PackLicence.weights: string
+  interface PackNeed
+  readonly PackNeed.role: "detector" | "processor"
+  readonly PackNeed.typeKey: string
+  readonly PackNeed.required: boolean
+  readonly PackNeed.model?: ModelIdentity
+  interface PackRef
+  readonly PackRef.id: string
+  readonly PackRef.version: string
+  interface PackRequest
+  readonly PackRequest.method: "GET"
+  readonly PackRequest.headers: Readonly<Record<string, string>>
+  readonly PackRequest.credentials: "omit"
+  readonly PackRequest.cache: "no-store"
+  readonly PackRequest.redirect: "error"
+  readonly PackRequest.referrerPolicy: "no-referrer"
+  readonly PackRequest.signal: AbortSignal | null
+  interface PackResponse
+  readonly PackResponse.status: number
+  readonly PackResponse.headers: { get(name: string): null | string; }
+  readonly PackResponse.body: null | { getReader(): PackBodyReader; }
+  interface PackRuntime
+  readonly PackRuntime.name: string
+  readonly PackRuntime.minimum: string
+  readonly PackRuntime.below: string
+  readonly PackRuntime.capabilities: readonly PackCapability[]
+  interface PackServes
+  readonly PackServes.processors: readonly string[]
+  readonly PackServes.detectors: readonly string[]
+  interface PackSource
+  PackSource.catalogue: (signal?: AbortSignal) => Promise<DomainResult<readonly ModelPackManifest[]>>
+  PackSource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
+  interface PackStore
+  PackStore.kept: () => Promise<DomainResult<readonly KeptPack[]>>
+  PackStore.stage: (manifest: ModelPackManifest) => Promise<DomainResult<void>>
+  PackStore.stagedBytes: (ref: PackRef, index: number) => Promise<DomainResult<number>>
+  PackStore.append: (ref: PackRef, index: number) => Promise<DomainResult<ByteSink>>
+  PackStore.open: (ref: PackRef, index: number) => Promise<DomainResult<ByteSource | undefined>>
+  PackStore.seal: (ref: PackRef) => Promise<DomainResult<void>>
+  PackStore.remove: (ref: PackRef) => Promise<DomainResult<void>>
+  type ReceiveChunk = (chunk: Uint8Array<ArrayBuffer>) => Promise<DomainResult<void>>
+  interface Retention
+  readonly Retention.pinned: readonly PackRef[]
+  readonly Retention.knowingly?: boolean
+  type Sha256 = () => Sha256Run
+  interface Sha256Run
+  Sha256Run.update: (bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  Sha256Run.digest: () => Promise<Uint8Array>
+  interface UpdateOutcome
+  readonly UpdateOutcome.state: InstallState
+  readonly UpdateOutcome.previousRetained: boolean
+  function availabilityOf(need: PackNeed, context: AvailabilityContext): PackAvailability
+  const manifestConverter: Converter<ModelPackManifest>
+  function manifestJson(manifest: ModelPackManifest): JsonObject
+  function nextInstallState(state: InstallState, event: InstallEvent): DomainResult<InstallState>
+  function packKey(ref: PackRef): string
+  function packsToFetch(needs: readonly PackNeed[], context: AvailabilityContext, policy: AutomaticDownload): readonly ModelPackManifest[]
+  function readModelPackManifest(text: string): DomainResult<ModelPackManifest>
+  function readPackCatalogue(text: string): DomainResult<readonly ModelPackManifest[]>
+  function refOf(manifest: ModelPackManifest): PackRef
+  function updatePack(installer: PackInstaller, previous: PackRef, next: ModelPackManifest, source: PackSource, retention: Retention, signal?: AbortSignal | undefined): Promise<DomainResult<UpdateOutcome>>
+
+@audiogubbins/model-packs/testing
+  const ANY_SHA256: string
+  interface SampleOptions
+  readonly SampleOptions.id?: string
+  readonly SampleOptions.version?: string
+  readonly SampleOptions.files?: readonly PackFile[]
+  readonly SampleOptions.processors?: readonly string[]
+  readonly SampleOptions.detectors?: readonly string[]
+  readonly SampleOptions.runtime?: Partial<import("packages/model-packs/src/manifest").PackRuntime>
+  function describePackStoreContract(name: string, make: () => PackStore): void
+  function sampleManifest(options?: SampleOptions): ModelPackManifest
+
 @audiogubbins/processors
   interface Assistant
   readonly Assistant.key: string
@@ -3998,6 +4162,25 @@ Published paths
   readonly LeaseOwner.label: string
   type LocatedFile = { readonly kind: "absent"; readonly reason: AbsenceReason; } | { readonly kind: "found"; readonly file: ExternalFile; }
   const MEDIA_DIRECTORY: "media"
+  class ModelPackStore
+  new ModelPackStore(tree: StorageTree, digest: Digest): ModelPackStore
+  readonly ModelPackStore.records: CheckedRecords
+  ModelPackStore.kept: () => Promise<DomainResult<readonly KeptPack[]>>
+  ModelPackStore.stage: (manifest: ModelPackManifest) => Promise<DomainResult<void>>
+  ModelPackStore.stagedBytes: (ref: PackRef, index: number) => Promise<DomainResult<number>>
+  ModelPackStore.append: (ref: PackRef, index: number) => Promise<DomainResult<ByteSink>>
+  ModelPackStore.open: (ref: PackRef, index: number) => Promise<DomainResult<ByteSource | undefined>>
+  ModelPackStore.seal: (ref: PackRef) => Promise<DomainResult<void>>
+  ModelPackStore.remove: (ref: PackRef) => Promise<DomainResult<void>>
+  ModelPackStore.tree: StorageTree
+  ModelPackStore.directoryOf: (ref: PackRef) => string
+  ModelPackStore.filesOf: (ref: PackRef, index: number) => string
+  ModelPackStore.runPath: (ref: PackRef, index: number, offset: number) => string
+  ModelPackStore.manifestOf: (ref: PackRef) => Promise<CheckedReading<ModelPackManifest>>
+  ModelPackStore.isStaged: (ref: PackRef) => Promise<boolean>
+  ModelPackStore.digestOf: (manifest: ModelPackManifest) => Promise<string>
+  ModelPackStore.runsOf: (ref: PackRef, index: number) => Promise<Runs>
+  ModelPackStore.keptVersion: (ref: PackRef) => Promise<KeptPack>
   interface NewProject
   readonly NewProject.name: string
   readonly NewProject.settings: ProjectSettings
@@ -5471,6 +5654,34 @@ packages/ml-runtime/src/worker-inference.ts
   Connection.#fail: (summary: string) => void
   type Pending = { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly settle: (result: DomainResult<InferenceSession>) => void; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly session: number; readonly settle: (result: DomainResult<ReadonlyMap<string, Tensor>>) => void; }
 
+packages/model-packs/src/installations.ts
+  interface Entry
+  readonly Entry.ref: PackRef
+  Entry.manifest: ModelPackManifest | undefined
+  Entry.state: InstallState
+  Entry.busy: boolean
+  Entry.transfer: Transfer | undefined
+  class Installations
+  new Installations(changed?: ((ref: PackRef, state: InstallState) => void) | undefined): Installations
+  readonly Installations.entries: Map<string, Entry>
+  readonly Installations.changed: ((ref: PackRef, state: InstallState) => void) | undefined
+  Installations.found: (kept: readonly KeptPack[]) => void
+  Installations.list: () => readonly Installation[]
+  Installations.get: (ref: PackRef) => Entry | undefined
+  Installations.entryFor: (ref: PackRef) => Entry
+  Installations.stateOf: (ref: PackRef) => InstallState
+  Installations.claim: (entry: Entry, event: InstallEvent) => DomainResult<void>
+  Installations.run: <TValue>(entry: Entry, work: () => Promise<TValue>) => Promise<TValue>
+  Installations.apply: (entry: Entry, event: InstallEvent) => void
+  Installations.track: (ref: PackRef, manifest: ModelPackManifest | undefined, state: InstallState) => Entry
+  type Stop = "cancel" | "pause"
+  interface Transfer
+  readonly Transfer.controller: AbortController
+  Transfer.stop: Stop | undefined
+
+packages/model-packs/src/pack-download.ts
+  type Arrival = { readonly kind: "arrived"; } | { readonly kind: "failed"; readonly result: DomainFailureResult; } | { readonly kind: "stopped"; }
+
 packages/processors/src/framework/processor-type.ts
   interface Measurer
   Measurer.add: (input: readonly Float32Array[], frames: number) => void
@@ -5711,8 +5922,8 @@ packages/storage/src/checked-records.ts
   readonly CheckedRecords.digest: Digest
   CheckedRecords.write: (path: string, kind: RecordKind, body: JsonValue, signal?: AbortSignal) => Promise<DomainResult<void>>
   CheckedRecords.read: <TValue>(path: string, kind: RecordKind, convert: Converter<TValue>, signal?: AbortSignal) => Promise<CheckedReading<TValue>>
-  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly HistorySegment: "history-segment"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; }
-  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "history-segment" | "journal-record" | "lease" | "project-head" | "project-header" | "storage-root"
+  const RecordKind: { readonly StorageRoot: "storage-root"; readonly ProjectHeader: "project-header"; readonly ProjectHead: "project-head"; readonly Checkpoint: "checkpoint"; readonly HistorySegment: "history-segment"; readonly JournalRecord: "journal-record"; readonly Lease: "lease"; readonly CacheSeal: "cache-seal"; readonly BackupGeneration: "backup-generation"; readonly PackManifest: "pack-manifest"; readonly PackSeal: "pack-seal"; }
+  type RecordKind = "backup-generation" | "cache-seal" | "checkpoint" | "history-segment" | "journal-record" | "lease" | "pack-manifest" | "pack-seal" | "project-head" | "project-header" | "storage-root"
 
 packages/storage/src/checkpoint-files.ts
   class CheckpointFiles
@@ -5802,6 +6013,16 @@ packages/storage/src/lease-records.ts
   readonly LeaseRecord.epoch: number
   readonly LeaseRecord.seals: readonly EpochSeal[]
   readonly LeaseRecord.holder: string
+
+packages/storage/src/model-pack-store.ts
+  interface Run
+  readonly Run.offset: number
+  readonly Run.path: string
+  readonly Run.source: ByteSource
+  interface Runs
+  readonly Runs.whole: readonly Run[]
+  readonly Runs.length: number
+  readonly Runs.stranded: readonly string[]
 
 packages/storage/src/project-copy.ts
   interface ProjectCopy

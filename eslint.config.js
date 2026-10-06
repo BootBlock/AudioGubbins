@@ -16,9 +16,10 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
  * Every browser API capable of leaving the machine. REQ-PRIV-162 prohibits
  * usage analytics outright and REQ-PRIV-161 prohibits transmitting anything
  * without express permission, so AudioGubbins has no legitimate use for any of
- * these in application code. A future consented diagnostic-submission workflow
- * will need an explicit, reviewed exemption on the single module that performs
- * the upload.
+ * these in application code. The one exemption is the download of a model
+ * pack's files (ADR-0062, below), which sends a request for the pack and
+ * nothing else. A future consented diagnostic-submission workflow will need an
+ * explicit, reviewed exemption on the single module that performs the upload.
  */
 const NETWORK_GLOBALS = [
   {
@@ -54,6 +55,26 @@ const NETWORK_GLOBALS = [
   {
     name: 'importScripts',
     message: 'A worker loads only the modules the bundler resolved (REQ-PRIV-161).',
+  },
+];
+
+/**
+ * A module compiled without the browser's definitions declares a global it
+ * uses by its shape, which makes the name a binding of the module's own and so
+ * hides it from the rule above. Declaring a network API that way is reaching
+ * the network all the same, so it is refused everywhere but the one module the
+ * network rule excepts (below).
+ */
+const NETWORK_NAME_PATTERN = NETWORK_GLOBALS.map(({ name }) => name).join('|');
+
+const NETWORK_DECLARATIONS = [
+  {
+    selector: `VariableDeclaration[declare=true] > VariableDeclarator[id.name=/^(${NETWORK_NAME_PATTERN})$/]`,
+    message: 'Declaring a network API by its shape reaches the network (REQ-PRIV-161).',
+  },
+  {
+    selector: `TSDeclareFunction[id.name=/^(${NETWORK_NAME_PATTERN})$/]`,
+    message: 'Declaring a network API by its shape reaches the network (REQ-PRIV-161).',
   },
 ];
 
@@ -173,6 +194,7 @@ export default tseslint.config(
       'no-console': 'error',
       'prefer-const': 'error',
       'no-restricted-globals': ['error', ...NETWORK_GLOBALS],
+      'no-restricted-syntax': ['error', ...NETWORK_DECLARATIONS],
       'no-restricted-properties': [
         'error',
         {
@@ -187,7 +209,7 @@ export default tseslint.config(
   // Domain and command packages: framework-agnostic, platform-agnostic.
   {
     files: [
-      'packages/{audio-engine,audio-graph,clipboard,codecs,domain,commands,editor-view,effect-rack,input,ml-runtime,timeline,version,video-reference,waveform,processors,project-format,project-commands,history,media-store,storage}/**/*.ts',
+      'packages/{audio-engine,audio-graph,clipboard,codecs,domain,commands,editor-view,effect-rack,input,ml-runtime,model-packs,timeline,version,video-reference,waveform,processors,project-format,project-commands,history,media-store,storage}/**/*.ts',
     ],
     languageOptions: { globals: {} },
     rules: {
@@ -197,6 +219,15 @@ export default tseslint.config(
         ...BROWSER_GLOBALS_FORBIDDEN_IN_DOMAIN,
       ],
     },
+  },
+
+  // The network rule's one exception (ADR-0062): the download of a model
+  // pack's files, which asks the catalogue the build configures for the pack
+  // and sends nothing else. It declares the platform's `fetch` by its shape;
+  // no other module may, and tests/architecture holds the same line.
+  {
+    files: ['packages/model-packs/src/adapter/http-pack-source.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
   },
 
   // Browser-facing packages and the application shell.

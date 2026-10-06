@@ -228,6 +228,14 @@
       ]
     },
     {
+      "name": "model-packs",
+      "root": "packages/model-packs",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "storage",
       "root": "packages/storage",
       "environment": "node",

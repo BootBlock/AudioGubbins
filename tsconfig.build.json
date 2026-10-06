@@ -126,6 +126,9 @@
       "path": "./packages/media-store"
     },
     {
+      "path": "./packages/model-packs"
+    },
+    {
       "path": "./packages/storage"
     },
     {

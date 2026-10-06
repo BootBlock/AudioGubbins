@@ -569,6 +569,24 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Model packs (ADR-0062): the manifest and its reader, the install state
+    // machine, the integrity check, the installer over a source port and a
+    // store port, and which processors a pack makes available. The download
+    // adapter is the one module in the repository that reaches the network.
+    // Not portable: its ports speak the project format's byte ports, which
+    // the storage packages implement, and the storage package keeps packs.
+    dir: 'packages/model-packs',
+    name: '@audiogubbins/model-packs',
+    description:
+      'Model packs: the manifest, the install state machine, the integrity check, the installer, the download adapter and which processors a pack makes available.',
+    dom: false,
+    jsx: false,
+    deps: ['@audiogubbins/domain', '@audiogubbins/ml-runtime', '@audiogubbins/project-format'],
+    devDeps: [],
+    external: {},
+    externalDev: {},
+  },
+  {
     // Keeping projects: the journal, snapshots, sessions, leases, backups and
     // cleanup, over a backend port, so no browser API is reached from here
     // (ADR-0002, ADR-0020).
@@ -585,6 +603,7 @@ const PACKAGES = [
       '@audiogubbins/diagnostics',
       '@audiogubbins/history',
       '@audiogubbins/media-store',
+      '@audiogubbins/model-packs',
       '@audiogubbins/project-format',
       '@audiogubbins/text',
       '@audiogubbins/version',

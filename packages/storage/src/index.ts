@@ -17,9 +17,11 @@
  * (REQ-STOR-105), disposable caches (REQ-STOR-027), usage by category, history
  * compaction, and a cleanup planned in the safest order and carried out only
  * with the person's confirmation (REQ-STOR-055, REQ-STOR-102, REQ-STOR-106,
- * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; and the media store's
+ * REQ-STOR-200), forks (REQ-STOR-199) and consolidation; the media store's
  * sharing of the storage-wide lock, which keeps a purge from media another
- * window has stored and not yet referred to.
+ * window has stored and not yet referred to; and the model packs a person
+ * installs, kept beside the projects through the model packs' store port
+ * (ADR-0062).
  *
  * The package reaches no browser or Node global: the tree, the digest, the
  * clock, the identifiers, the command bus and the lease coordination are
@@ -201,6 +203,8 @@ export {
   type PassedOverReason,
   consolidate,
 } from './consolidation.js';
+
+export { ModelPackStore } from './model-pack-store.js';
 
 export { type VersionChange, takeSourceVersion } from './source-versions.js';
 export { type AudioImport, type ImportedAudio, importAudio } from './audio-import.js';

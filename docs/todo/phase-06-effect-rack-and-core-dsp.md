@@ -123,6 +123,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     adapter (cruise rules), and the inference worker with its client, one
     worker per runtime configuration. `packages/capabilities` probes
     fixed-width WebAssembly SIMD and states `LOCAL_INFERENCE`.
+18. **Model packs.** `packages/model-packs` holds the manifest and its one
+    validating reader, the pure install state machine (update available
+    and incompatible are availability, not states), integrity through a
+    streaming `Sha256` port, the `PackSource` port and its HTTP adapter,
+    the only network module (credentials omitted, `Range` on resume; an
+    ESLint rule refuses a local `declare const fetch` anywhere else), the
+    installer (pins kept unless removed knowingly) and `availabilityOf`.
+    It defines a `PackStore` port that the storage package implements
+    (`ModelPackStore`, under `packs/`), so the dependency runs from
+    storage to model-packs, the port inverted as G1 asks, rather than
+    model-packs calling storage as ADR-0062 words it.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -278,9 +289,20 @@ Open points from `ml-runtime`:
   (`onnxruntime-web`, MIT, and its MIT, Apache-2.0, ISC and BSD-3-Clause
   dependencies) to the browser, so it adds the generator and the file.
 
-Next, in order: `packages/model-packs` (brief written, outside the
-repository), the three packs, the application's detection worker and the
-rest of "Remaining" in the session handover.
+Open points from `model-packs`:
+
+- No browser streaming SHA-256 exists yet: Web Crypto hashes only a whole
+  buffer. The application needs one (the `sha2` crate in the existing
+  WebAssembly module, or a vetted library).
+- `LOCAL_INFERENCE` is not exported from `packages/capabilities`' entry,
+  and the application needs it.
+- Storage usage and the cleanup plan do not yet count `packs/`.
+- Downloads are one file at a time per pack, with no bound across packs.
+- The dereverberation allocation tests failed once under the whole
+  suite's load and passed on the next run; watch for a repeat.
+
+Next, in order: the three packs, the application's detection worker and
+the rest of "Remaining" in the session handover.
 
 Known limits the agents stated: de-click repairs a click whose context
 holds another from corrupted context; de-pop lowers music below its

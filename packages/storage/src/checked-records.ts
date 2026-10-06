@@ -56,6 +56,8 @@ export const RecordKind = {
   Lease: 'lease',
   CacheSeal: 'cache-seal',
   BackupGeneration: 'backup-generation',
+  PackManifest: 'pack-manifest',
+  PackSeal: 'pack-seal',
 } as const;
 
 /** What a record is, written in its envelope. */

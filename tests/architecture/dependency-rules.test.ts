@@ -291,6 +291,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/project-format',
   ],
   '@audiogubbins/media-store': ['@audiogubbins/domain', '@audiogubbins/project-format'],
+  '@audiogubbins/model-packs': [
+    '@audiogubbins/domain',
+    '@audiogubbins/ml-runtime',
+    '@audiogubbins/project-format',
+  ],
   '@audiogubbins/storage': [
     '@audiogubbins/domain',
     '@audiogubbins/codecs',
@@ -298,6 +303,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/diagnostics',
     '@audiogubbins/history',
     '@audiogubbins/media-store',
+    '@audiogubbins/model-packs',
     '@audiogubbins/project-format',
     '@audiogubbins/text',
     '@audiogubbins/version',
@@ -598,7 +604,17 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     /\binsertAdjacentHTML\s*\(/,
     /\bdangerouslySetInnerHTML\b/,
     /\bdocument\s*\.\s*write(?:ln)?\s*\(/,
+    // A request API declared by its shape, as a module compiled without the
+    // browser's definitions names a global, which it then calls by any name.
+    /\bdeclare\s+(?:const|let|var|function)\s+(?:fetch|XMLHttpRequest|WebSocket|EventSource|(?:webkit)?RTCPeerConnection|WebTransport|importScripts)\b/,
   ];
+
+  /**
+   * The one module that may reach the network: the download of a model pack's
+   * files (ADR-0062), which asks the catalogue the build configures for the
+   * pack and sends nothing else. ESLint's network rule excepts it alone too.
+   */
+  const DOWNLOAD = 'packages/model-packs/src/adapter/http-pack-source.ts';
 
   it.each([
     ['a fetch', "await fetch('/log');"],
@@ -612,6 +628,8 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     ['an injected script', "document.createElement('script');"],
     ['markup written as text', 'panel.innerHTML = markup;'],
     ['markup handed to React', '<div dangerouslySetInnerHTML={{ __html: markup }} />'],
+    ['a request API declared by its shape', 'declare const fetch: Fetch;'],
+    ['a socket declared by its shape', 'declare function WebSocket(url: string): Socket;'],
   ])('recognises %s', (_form, code) => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(true);
   });
@@ -625,13 +643,20 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(false);
   });
 
-  it('has no network call anywhere in production source', () => {
+  it('has no network call in production source but the download of a model pack', () => {
     const offenders = ALL_SOURCES.filter((path) => {
       const code = readCode(path);
       return NETWORK_APIS.some((pattern) => pattern.test(code));
     });
 
-    expect(offenders).toEqual([]);
+    expect(offenders).toEqual([DOWNLOAD]);
+  });
+
+  it('lets the download reach the network by its declared fetch and by nothing else', () => {
+    const code = readCode(DOWNLOAD);
+    expect(NETWORK_APIS.filter((pattern) => pattern.test(code))).toHaveLength(1);
+    expect(code).toMatch(/\bdeclare\s+const\s+fetch\b/);
+    expect(code).not.toMatch(/\bdeclare\s+(?:const|let|var|function)\s+(?!fetch\b)\w+/);
   });
 
   it('has none in the page, the build configuration or the tools either', () => {
@@ -786,6 +811,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'input',
     'media-store',
     'ml-runtime',
+    'model-packs',
     'processors',
     'project-commands',
     'project-format',
@@ -3066,6 +3092,10 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
     'packages/audio-engine/src/dsp/reference/logarithm.ts: lnParts': [
       61,
       'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
+    ],
+    'packages/model-packs/src/install-state.ts: nextInstallState': [
+      83,
+      "The install state machine's whole table, one arm for each event, each the states that take it and where they go; the switch is exhaustive over the events, so an event cannot be left without its rule, and split by event the table would be read in twelve places to see what a state can take.",
     ],
     'packages/diagnostics/src/bundle.ts: assembleBundle': [
       60,

@@ -32,6 +32,7 @@
     "@audiogubbins/diagnostics": "workspace:*",
     "@audiogubbins/history": "workspace:*",
     "@audiogubbins/media-store": "workspace:*",
+    "@audiogubbins/model-packs": "workspace:*",
     "@audiogubbins/project-format": "workspace:*",
     "@audiogubbins/text": "workspace:*",
     "@audiogubbins/version": "workspace:*"

@@ -65,9 +65,14 @@
  *   project-format.
  * - media-store: content-addressed source media; depends on domain +
  *   project-format.
- * - storage: keeping projects over a backend port; depends on domain + codecs +
- *   commands + diagnostics + history + media-store + project-format + version,
- *   and on no browser API.
+ * - model-packs: model packs (ADR-0062): the manifest, the install state
+ *   machine, the integrity check, the installer over a source port and a store
+ *   port, and the download over HTTP, the one module that reaches the network;
+ *   depends on domain + ml-runtime + project-format.
+ * - storage: keeping projects, and the model packs installed, over a backend
+ *   port; depends on domain + codecs + commands + diagnostics + history +
+ *   media-store + model-packs + project-format + version, and on no browser
+ *   API.
  * - browser-storage: the browser beneath the storage ports; depends on
  *   diagnostics + media-store + project-format + storage.
  * - storage-runtime: the browser host of project storage, its worker, the port
@@ -153,7 +158,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -418,15 +423,26 @@ module.exports = {
       },
     },
     {
+      name: 'model-packs-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Model packs speak the domain, the identity of the runtime a pack runs on and the ' +
+        "project format's byte ports, and keep packs through a store port that storage " +
+        'implements from above, so they know no storage, browser or interface (ADR-0062).',
+      from: { path: '^packages/model-packs/' },
+      to: { path: '^packages/(?!(domain|ml-runtime|model-packs|project-format)/)' },
+    },
+    {
       name: 'storage-owns-nothing-else',
       severity: 'error',
       comment:
         'Storage depends on domain and project-format contracts, and on the read contract an ' +
         'import opens a file with, not the interface, and on no browser adapter: the browser ' +
-        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052).',
+        'implements its ports from above (Phase 02 packet, ADR-0020, ADR-0052). It keeps model ' +
+        "packs through the model packs' store port (ADR-0062).",
       from: { path: '^packages/storage/' },
       to: {
-        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|project-format|storage|text|version)/)',
+        path: '^packages/(?!(codecs|commands|diagnostics|domain|history|media-store|model-packs|project-format|storage|text|version)/)',
         pathNot: '^packages/test-fixtures/',
       },
     },

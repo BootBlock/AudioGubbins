@@ -1,0 +1,36 @@
+{
+  "name": "@audiogubbins/model-packs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Model packs: the manifest, the install state machine, the integrity check, the installer, the download adapter and which processors a pack makes available.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project model-packs"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*",
+    "@audiogubbins/project-format": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "5.0.1"
+  }
+}
