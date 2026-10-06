@@ -20,101 +20,102 @@ ESLint, Playwright, TypeScript and Vite, are not shipped and are not listed.
 | @floating-ui/dom | 1.8.0 | MIT | Copyright (c) 2021-present Floating UI contributors | [1](#text-1) |
 | @floating-ui/react-dom | 2.1.9 | MIT | Copyright (c) 2021-present Floating UI contributors | [1](#text-1) |
 | @floating-ui/utils | 0.2.12 | MIT | Copyright (c) 2021-present Floating UI contributors | [1](#text-1) |
-| @protobufjs/aspromise | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/base64 | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/codegen | 2.0.5 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/eventemitter | 1.1.1 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/fetch | 1.1.1 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/float | 1.0.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/path | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/pool | 1.1.0 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @protobufjs/utf8 | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [2](#text-2) |
-| @radix-ui/number | 1.1.3 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/primitive | 1.1.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-accessible-icon | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-accordion | 1.2.20 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-alert-dialog | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-arrow | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-aspect-ratio | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-avatar | 1.2.6 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-checkbox | 1.3.11 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-collapsible | 1.1.20 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-collection | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-compose-refs | 1.1.5 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-context | 1.2.2 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-context-menu | 2.3.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-dialog | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-direction | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-dismissable-layer | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-dropdown-menu | 2.1.24 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-focus-guards | 1.1.6 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-focus-scope | 1.1.16 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-form | 0.1.16 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-hover-card | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-id | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-label | 2.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-menu | 2.1.24 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-menubar | 1.1.24 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-navigation-menu | 1.2.22 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-one-time-password-field | 0.1.16 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-password-toggle-field | 0.1.11 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-popover | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-popper | 1.3.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-portal | 1.1.17 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-presence | 1.1.10 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-primitive | 2.1.10 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-progress | 1.1.16 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-radio-group | 1.4.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-roving-focus | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-scroll-area | 1.2.18 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-select | 2.3.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-separator | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-slider | 1.4.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-slot | 1.3.3 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-switch | 1.3.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-tabs | 1.1.21 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-toast | 1.2.23 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-toggle | 1.1.18 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-toggle-group | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-toolbar | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-tooltip | 1.2.16 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-callback-ref | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-controllable-state | 1.2.6 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-effect-event | 0.0.5 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-escape-keydown | 1.1.5 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-is-hydrated | 0.1.3 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-layout-effect | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-previous | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-rect | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-use-size | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/react-visually-hidden | 1.2.11 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @radix-ui/rect | 1.1.3 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| @types/node | 26.6.1 | MIT | Copyright (c) Microsoft Corporation. | [4](#text-4) |
-| @webgpu/types | 0.1.74 | BSD-3-Clause | Copyright 2022 WebGPU Developers | [5](#text-5) |
-| aria-hidden | 1.2.6 | MIT | Copyright (c) 2017 Anton Korzunov | [6](#text-6) |
-| detect-node-es | 1.1.0 | MIT | Copyright (c) 2017 Ilya Kantor | [7](#text-7) |
-| dockview | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [8](#text-8) |
-| dockview-core | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [8](#text-8) |
-| dockview-react | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [8](#text-8) |
-| flatbuffers | 25.9.23 | Apache-2.0 | — | [9](#text-9) |
-| get-nonce | 1.0.1 | MIT | Copyright (c) 2020 Anton Korzunov | [10](#text-10) |
-| guid-typescript | 1.0.9 | ISC | — | [11](#text-11) (standard text: the package ships none) |
-| long | 5.3.2 | Apache-2.0 | — | [9](#text-9) |
-| onnxruntime-common | 1.30.0 | MIT | — | [12](#text-12) (standard text: the package ships none) |
-| onnxruntime-web | 1.30.0 | MIT | — | [12](#text-12) (standard text: the package ships none) |
-| platform | 1.3.6 | MIT | Copyright 2014-2020 Benjamin Tan<br>Copyright 2011-2013 John-David Dalton | [13](#text-13) |
-| protobufjs | 7.6.6 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [14](#text-14) |
-| radix-ui | 1.6.7 | MIT | Copyright (c) 2022 WorkOS | [3](#text-3) |
-| react | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [15](#text-15) |
-| react-dom | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [15](#text-15) |
-| react-remove-scroll | 2.7.2 | MIT | Copyright (c) 2017 Anton Korzunov | [6](#text-6) |
-| react-remove-scroll-bar | 2.3.8 | MIT | — | [12](#text-12) (standard text: the package ships none) |
-| react-style-singleton | 2.2.3 | MIT | Copyright (c) 2017 Anton Korzunov | [6](#text-6) |
-| scheduler | 0.28.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [15](#text-15) |
-| tslib | 2.8.1 | 0BSD | Copyright (c) Microsoft Corporation. | [16](#text-16) |
-| undici-types | 8.9.0 | MIT | Copyright (c) Matteo Collina and Undici contributors | [17](#text-17) |
-| use-callback-ref | 1.3.3 | MIT | Copyright (c) 2017 Anton Korzunov | [6](#text-6) |
-| use-sidecar | 1.1.3 | MIT | Copyright (c) 2017 Anton Korzunov | [6](#text-6) |
+| @noble/hashes | 2.4.0 | MIT | Copyright (c) 2022 Paul Miller (https://paulmillr.com) | [2](#text-2) |
+| @protobufjs/aspromise | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/base64 | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/codegen | 2.0.5 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/eventemitter | 1.1.1 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/fetch | 1.1.1 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/float | 1.0.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/path | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/pool | 1.1.0 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @protobufjs/utf8 | 1.1.2 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [3](#text-3) |
+| @radix-ui/number | 1.1.3 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/primitive | 1.1.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-accessible-icon | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-accordion | 1.2.20 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-alert-dialog | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-arrow | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-aspect-ratio | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-avatar | 1.2.6 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-checkbox | 1.3.11 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-collapsible | 1.1.20 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-collection | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-compose-refs | 1.1.5 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-context | 1.2.2 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-context-menu | 2.3.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-dialog | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-direction | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-dismissable-layer | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-dropdown-menu | 2.1.24 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-focus-guards | 1.1.6 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-focus-scope | 1.1.16 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-form | 0.1.16 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-hover-card | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-id | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-label | 2.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-menu | 2.1.24 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-menubar | 1.1.24 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-navigation-menu | 1.2.22 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-one-time-password-field | 0.1.16 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-password-toggle-field | 0.1.11 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-popover | 1.1.23 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-popper | 1.3.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-portal | 1.1.17 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-presence | 1.1.10 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-primitive | 2.1.10 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-progress | 1.1.16 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-radio-group | 1.4.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-roving-focus | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-scroll-area | 1.2.18 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-select | 2.3.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-separator | 1.1.15 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-slider | 1.4.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-slot | 1.3.3 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-switch | 1.3.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-tabs | 1.1.21 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-toast | 1.2.23 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-toggle | 1.1.18 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-toggle-group | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-toolbar | 1.1.19 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-tooltip | 1.2.16 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-callback-ref | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-controllable-state | 1.2.6 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-effect-event | 0.0.5 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-escape-keydown | 1.1.5 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-is-hydrated | 0.1.3 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-layout-effect | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-previous | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-rect | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-use-size | 1.1.4 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/react-visually-hidden | 1.2.11 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @radix-ui/rect | 1.1.3 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| @types/node | 26.6.1 | MIT | Copyright (c) Microsoft Corporation. | [5](#text-5) |
+| @webgpu/types | 0.1.74 | BSD-3-Clause | Copyright 2022 WebGPU Developers | [6](#text-6) |
+| aria-hidden | 1.2.6 | MIT | Copyright (c) 2017 Anton Korzunov | [7](#text-7) |
+| detect-node-es | 1.1.0 | MIT | Copyright (c) 2017 Ilya Kantor | [8](#text-8) |
+| dockview | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [9](#text-9) |
+| dockview-core | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [9](#text-9) |
+| dockview-react | 8.3.1 | MIT | Copyright (c) 2021 mathuo | [9](#text-9) |
+| flatbuffers | 25.9.23 | Apache-2.0 | — | [10](#text-10) |
+| get-nonce | 1.0.1 | MIT | Copyright (c) 2020 Anton Korzunov | [11](#text-11) |
+| guid-typescript | 1.0.9 | ISC | — | [12](#text-12) (standard text: the package ships none) |
+| long | 5.3.2 | Apache-2.0 | — | [10](#text-10) |
+| onnxruntime-common | 1.30.0 | MIT | — | [13](#text-13) (standard text: the package ships none) |
+| onnxruntime-web | 1.30.0 | MIT | — | [13](#text-13) (standard text: the package ships none) |
+| platform | 1.3.6 | MIT | Copyright 2014-2020 Benjamin Tan<br>Copyright 2011-2013 John-David Dalton | [14](#text-14) |
+| protobufjs | 7.6.6 | BSD-3-Clause | Copyright (c) 2016, Daniel Wirtz  All rights reserved. | [15](#text-15) |
+| radix-ui | 1.6.7 | MIT | Copyright (c) 2022 WorkOS | [4](#text-4) |
+| react | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [16](#text-16) |
+| react-dom | 19.3.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [16](#text-16) |
+| react-remove-scroll | 2.7.2 | MIT | Copyright (c) 2017 Anton Korzunov | [7](#text-7) |
+| react-remove-scroll-bar | 2.3.8 | MIT | — | [13](#text-13) (standard text: the package ships none) |
+| react-style-singleton | 2.2.3 | MIT | Copyright (c) 2017 Anton Korzunov | [7](#text-7) |
+| scheduler | 0.28.0 | MIT | Copyright (c) Meta Platforms, Inc. and affiliates. | [16](#text-16) |
+| tslib | 2.8.1 | 0BSD | Copyright (c) Microsoft Corporation. | [17](#text-17) |
+| undici-types | 8.9.0 | MIT | Copyright (c) Matteo Collina and Undici contributors | [18](#text-18) |
+| use-callback-ref | 1.3.3 | MIT | Copyright (c) 2017 Anton Korzunov | [7](#text-7) |
+| use-sidecar | 1.1.3 | MIT | Copyright (c) 2017 Anton Korzunov | [7](#text-7) |
 
 ## Licence texts
 
@@ -147,6 +148,34 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### Text 2
 
+Shipped by @noble/hashes 2.4.0.
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2022 Paul Miller (https://paulmillr.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the “Software”), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+### Text 3
+
 Shipped by @protobufjs/aspromise 1.1.2, @protobufjs/base64 1.1.2, @protobufjs/codegen 2.0.5, @protobufjs/eventemitter 1.1.1, @protobufjs/fetch 1.1.1, @protobufjs/float 1.0.2, @protobufjs/path 1.1.2, @protobufjs/pool 1.1.0, @protobufjs/utf8 1.1.2.
 
 ```text
@@ -178,7 +207,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 3
+### Text 4
 
 Shipped by @radix-ui/number 1.1.3, @radix-ui/primitive 1.1.7, @radix-ui/react-accessible-icon 1.1.15, @radix-ui/react-accordion 1.2.20, @radix-ui/react-alert-dialog 1.1.23, @radix-ui/react-arrow 1.1.15, @radix-ui/react-aspect-ratio 1.1.15, @radix-ui/react-avatar 1.2.6, @radix-ui/react-checkbox 1.3.11, @radix-ui/react-collapsible 1.1.20, @radix-ui/react-collection 1.1.15, @radix-ui/react-compose-refs 1.1.5, @radix-ui/react-context 1.2.2, @radix-ui/react-context-menu 2.3.7, @radix-ui/react-dialog 1.1.23, @radix-ui/react-direction 1.1.4, @radix-ui/react-dismissable-layer 1.1.19, @radix-ui/react-dropdown-menu 2.1.24, @radix-ui/react-focus-guards 1.1.6, @radix-ui/react-focus-scope 1.1.16, @radix-ui/react-form 0.1.16, @radix-ui/react-hover-card 1.1.23, @radix-ui/react-id 1.1.4, @radix-ui/react-label 2.1.15, @radix-ui/react-menu 2.1.24, @radix-ui/react-menubar 1.1.24, @radix-ui/react-navigation-menu 1.2.22, @radix-ui/react-one-time-password-field 0.1.16, @radix-ui/react-password-toggle-field 0.1.11, @radix-ui/react-popover 1.1.23, @radix-ui/react-popper 1.3.7, @radix-ui/react-portal 1.1.17, @radix-ui/react-presence 1.1.10, @radix-ui/react-primitive 2.1.10, @radix-ui/react-progress 1.1.16, @radix-ui/react-radio-group 1.4.7, @radix-ui/react-roving-focus 1.1.19, @radix-ui/react-scroll-area 1.2.18, @radix-ui/react-select 2.3.7, @radix-ui/react-separator 1.1.15, @radix-ui/react-slider 1.4.7, @radix-ui/react-slot 1.3.3, @radix-ui/react-switch 1.3.7, @radix-ui/react-tabs 1.1.21, @radix-ui/react-toast 1.2.23, @radix-ui/react-toggle 1.1.18, @radix-ui/react-toggle-group 1.1.19, @radix-ui/react-toolbar 1.1.19, @radix-ui/react-tooltip 1.2.16, @radix-ui/react-use-callback-ref 1.1.4, @radix-ui/react-use-controllable-state 1.2.6, @radix-ui/react-use-effect-event 0.0.5, @radix-ui/react-use-escape-keydown 1.1.5, @radix-ui/react-use-is-hydrated 0.1.3, @radix-ui/react-use-layout-effect 1.1.4, @radix-ui/react-use-previous 1.1.4, @radix-ui/react-use-rect 1.1.4, @radix-ui/react-use-size 1.1.4, @radix-ui/react-visually-hidden 1.2.11, @radix-ui/rect 1.1.3, radix-ui 1.6.7.
 
@@ -206,7 +235,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 4
+### Text 5
 
 Shipped by @types/node 26.6.1.
 
@@ -234,7 +263,7 @@ Shipped by @types/node 26.6.1.
     SOFTWARE
 ```
 
-### Text 5
+### Text 6
 
 Shipped by @webgpu/types 0.1.74.
 
@@ -267,7 +296,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 6
+### Text 7
 
 Shipped by aria-hidden 1.2.6, react-remove-scroll 2.7.2, react-style-singleton 2.2.3, use-callback-ref 1.3.3, use-sidecar 1.1.3.
 
@@ -295,7 +324,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 7
+### Text 8
 
 Shipped by detect-node-es 1.1.0.
 
@@ -323,7 +352,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 8
+### Text 9
 
 Shipped by dockview 8.3.1, dockview-core 8.3.1, dockview-react 8.3.1.
 
@@ -351,7 +380,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 9
+### Text 10
 
 Shipped by flatbuffers 25.9.23, long 5.3.2.
 
@@ -559,7 +588,7 @@ Shipped by flatbuffers 25.9.23, long 5.3.2.
    limitations under the License.
 ```
 
-### Text 10
+### Text 11
 
 Shipped by get-nonce 1.0.1.
 
@@ -587,7 +616,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 11
+### Text 12
 
 Shipped by guid-typescript 1.0.9.
 
@@ -599,7 +628,7 @@ Permission to use, copy, modify, and/or distribute this software for any purpose
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 12
+### Text 13
 
 Shipped by onnxruntime-common 1.30.0, onnxruntime-web 1.30.0, react-remove-scroll-bar 2.3.8.
 
@@ -622,7 +651,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTI
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 13
+### Text 14
 
 Shipped by platform 1.3.6.
 
@@ -650,7 +679,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 14
+### Text 15
 
 Shipped by protobufjs 7.6.6.
 
@@ -696,7 +725,7 @@ standalone and requires a support library to be linked with it. This
 support library is itself covered by the above license.
 ```
 
-### Text 15
+### Text 16
 
 Shipped by react 19.3.0, react-dom 19.3.0, scheduler 0.28.0.
 
@@ -724,7 +753,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 16
+### Text 17
 
 Shipped by tslib 2.8.1.
 
@@ -743,7 +772,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 17
+### Text 18
 
 Shipped by undici-types 8.9.0.
 

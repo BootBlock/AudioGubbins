@@ -12,10 +12,19 @@
  * gain serves the whole signal and keeps the balance between its channels.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import {
+  fail,
+  failure,
+  FailureKind,
+  succeed,
+  throwIfCancelled,
+  type CancellationSignal,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
-import type { Measurer, ProcessorRun } from '../framework/processor-type.js';
+import type { ProcessorRun } from '../framework/processor-type.js';
 import { finiteSample } from '../framework/sample-safety.js';
+import type { Measurement, Measurer } from '../framework/whole-pass.js';
 
 /** The values a measurement opens with: the rate, then the channel count. */
 const HEADER = 2;
@@ -34,15 +43,32 @@ function measurementOf(run: MeasuringRun, values: readonly number[]): readonly n
 }
 
 /**
- * The `count` values of `run`'s measurement after its header, or nothing
- * where it has none or it is stale.
+ * The `count` values of `run`'s measurement after its header, nothing where
+ * it has none or it is stale, or why the kernel `label` names cannot run:
+ * samples are another processor's kind of measurement, so a node holding
+ * them was built wrongly, which no pass over the stream again would mend.
  */
-export function measuredValues(run: ProcessorRun, count: number): readonly number[] | undefined {
+export function measuredValues(
+  run: ProcessorRun,
+  count: number,
+  label: string,
+): DomainResult<readonly number[] | undefined> {
   const { measured } = run;
-  if (measured?.length !== HEADER + count) return undefined;
-  if (measured[0] !== run.sampleRate || measured[1] !== run.input.roles.length) return undefined;
+  if (measured instanceof Float32Array) {
+    return fail(
+      failure(
+        'processor.measurement-kind',
+        FailureKind.Unrecoverable,
+        `A ${label} measures its input as a list of numbers, but its node holds samples.`,
+      ),
+    );
+  }
+  if (measured?.length !== HEADER + count) return succeed(undefined);
+  if (measured[0] !== run.sampleRate || measured[1] !== run.input.roles.length) {
+    return succeed(undefined);
+  }
   const values = measured.slice(HEADER);
-  return values.every((value) => Number.isFinite(value)) ? values : undefined;
+  return succeed(values.every((value) => Number.isFinite(value)) ? values : undefined);
 }
 
 /** The largest of the value at `offset` of each channel's four in a peak meter's `reading`. */
@@ -125,7 +151,7 @@ export class WholePassMeasurer implements Measurer {
   readonly #run: MeasuringRun;
   readonly #finite: FiniteFeed;
   readonly #meters: WholePassMeters;
-  #result: readonly number[] | undefined;
+  #result: Measurement | undefined;
   #released = false;
 
   constructor(run: MeasuringRun, meters: WholePassMeters) {
@@ -134,20 +160,32 @@ export class WholePassMeasurer implements Measurer {
     this.#meters = meters;
   }
 
-  add(input: readonly Float32Array[], frames: number): void {
-    if (this.#result !== undefined) throw new Error('A finished measurement was given more input.');
-    if (this.#released) throw new Error('A released measurer was given more input.');
-    this.#finite.feed(input, frames, (chunk) => {
-      this.#meters.push(chunk);
+  // The meters work synchronously, so a chunk is measured as it is given and
+  // the pass is never held back; the promise's executor turns a misuse or a
+  // cancellation into its rejection.
+  add(input: readonly Float32Array[], frames: number, signal?: CancellationSignal): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.#result !== undefined) {
+        throw new Error('A finished measurement was given more input.');
+      }
+      if (this.#released) throw new Error('A released measurer was given more input.');
+      throwIfCancelled(signal);
+      this.#finite.feed(input, frames, (chunk) => {
+        this.#meters.push(chunk);
+      });
+      resolve();
     });
   }
 
-  result(): readonly number[] {
-    if (this.#result === undefined && this.#released) {
-      throw new Error('A released measurer was asked for its result.');
-    }
-    this.#result ??= measurementOf(this.#run, this.#meters.finish());
-    return this.#result;
+  result(signal?: CancellationSignal): Promise<DomainResult<Measurement>> {
+    return new Promise((resolve) => {
+      if (this.#result === undefined && this.#released) {
+        throw new Error('A released measurer was asked for its result.');
+      }
+      throwIfCancelled(signal);
+      this.#result ??= measurementOf(this.#run, this.#meters.finish());
+      resolve(succeed(this.#result));
+    });
   }
 
   release(): void {

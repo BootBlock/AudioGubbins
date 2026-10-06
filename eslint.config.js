@@ -16,9 +16,11 @@ import jsxA11y from 'eslint-plugin-jsx-a11y';
  * Every browser API capable of leaving the machine. REQ-PRIV-162 prohibits
  * usage analytics outright and REQ-PRIV-161 prohibits transmitting anything
  * without express permission, so AudioGubbins has no legitimate use for any of
- * these in application code. The one exemption is the download of a model
- * pack's files (ADR-0062, below), which sends a request for the pack and
- * nothing else. A future consented diagnostic-submission workflow will need an
+ * these in application code. The two exemptions (ADR-0062, below) are the
+ * download of a model pack's files, which sends a request for the pack and
+ * nothing else, and the read of the inference runtime's WebAssembly from the
+ * application's own origin, which sends a request for the file and nothing
+ * else. A future consented diagnostic-submission workflow will need an
  * explicit, reviewed exemption on the single module that performs the upload.
  */
 const NETWORK_GLOBALS = [
@@ -62,8 +64,8 @@ const NETWORK_GLOBALS = [
  * A module compiled without the browser's definitions declares a global it
  * uses by its shape, which makes the name a binding of the module's own and so
  * hides it from the rule above. Declaring a network API that way is reaching
- * the network all the same, so it is refused everywhere but the one module the
- * network rule excepts (below).
+ * the network all the same, so it is refused everywhere but the two modules
+ * the network rule excepts (below).
  */
 const NETWORK_NAME_PATTERN = NETWORK_GLOBALS.map(({ name }) => name).join('|');
 
@@ -221,12 +223,22 @@ export default tseslint.config(
     },
   },
 
-  // The network rule's one exception (ADR-0062): the download of a model
+  // The network rule's first exception (ADR-0062): the download of a model
   // pack's files, which asks the catalogue the build configures for the pack
   // and sends nothing else. It declares the platform's `fetch` by its shape;
   // no other module may, and tests/architecture holds the same line.
   {
     files: ['packages/model-packs/src/adapter/http-pack-source.ts'],
+    rules: { 'no-restricted-syntax': 'off' },
+  },
+
+  // The network rule's second exception (ADR-0062): the read of the inference
+  // runtime's WebAssembly, which asks the application's own origin for the
+  // file and sends nothing else, so the runtime is given checked bytes and
+  // fetches nothing itself. It declares the platform's `fetch` by its shape;
+  // no other module may, and tests/architecture holds the same line.
+  {
+    files: ['packages/ml-runtime/src/adapter/origin-runtime-files.ts'],
     rules: { 'no-restricted-syntax': 'off' },
   },
 

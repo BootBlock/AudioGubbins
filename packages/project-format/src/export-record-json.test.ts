@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -7,7 +7,12 @@ import { canonicalJson, type JsonValue } from './canonical-json.js';
 import { stateFingerprintFrom } from './content-identity.js';
 import { startReading } from './document-reading.js';
 import { readExportRecord, writeExportRecord } from './export-record-json.js';
-import { ExportDestinationKind, ExportStatus, type ExportRecord } from './export-provenance.js';
+import {
+  ExportDestinationKind,
+  ExportStatus,
+  type ExportOutput,
+  type ExportRecord,
+} from './export-provenance.js';
 import { ProvenanceLevel, stripExportRecords } from './provenance-stripping.js';
 import { edited, withValue, without } from './testing/json-editing.js';
 import { contentIdOfDigit } from './testing/project-states.js';
@@ -48,6 +53,14 @@ function read(value: JsonValue): ExportRecord | readonly (readonly [string, unkn
 }
 
 describe('export records as JSON', () => {
+  it('take settings of plain values, so samples a running graph carries never reach one', () => {
+    // A graph node's settings may hold samples in memory; an export's are
+    // their own type, which the checker keeps samples out of.
+    type ExportSetting =
+      ExportOutput['settings'] extends ReadonlyMap<string, infer Value> ? Value : never;
+    expectTypeOf<Float32Array>().not.toExtend<ExportSetting>();
+  });
+
   it('read back as the record written, at every provenance level', () => {
     for (const level of Object.values(ProvenanceLevel)) {
       for (const record of stripExportRecords([RECORD], level)) {

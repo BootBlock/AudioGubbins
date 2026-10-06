@@ -42,6 +42,7 @@ import {
 import {
   FINITE_NUMBER,
   finiteNumbers,
+  isNumberList,
   optionalSetting,
   refuseOtherSettings,
   type SettingRule,
@@ -78,9 +79,7 @@ function polarities(length: number): SettingRule<readonly number[]> {
   return {
     describes: `a list of ${String(length)} polarities, each ${POLARITY_DESCRIBES}, one for each channel in layout order`,
     read: (value) =>
-      typeof value === 'object' && value.length === length && value.every(isPolarity)
-        ? value
-        : undefined,
+      isNumberList(value) && value.length === length && value.every(isPolarity) ? value : undefined,
   };
 }
 

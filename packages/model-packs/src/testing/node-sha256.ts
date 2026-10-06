@@ -1,7 +1,7 @@
 /**
- * What this package's own tests hash with: SHA-256 through Node's streaming
- * hash, as the platform's would be injected, and manifests whose hashes are
- * those of the bytes a test gives.
+ * What this package's own tests check hashes with: SHA-256 through Node's
+ * hash, which the tests hold the package's own SHA-256 to, and manifests whose
+ * hashes are those of the bytes a test gives.
  *
  * Kept apart from the test support other packages take, which never reaches a
  * Node module, so that support compiles wherever the package's entry points do.
@@ -9,21 +9,8 @@
 
 import { createHash } from 'node:crypto';
 
-import type { Sha256 } from '../integrity.js';
 import type { ModelPackManifest, PackFile } from '../manifest.js';
 import { sampleManifest, type SampleOptions } from './sample-packs.js';
-
-/** SHA-256 through `node:crypto`. */
-export const nodeSha256: Sha256 = () => {
-  const hash = createHash('sha256');
-  return {
-    update: (bytes) => {
-      hash.update(bytes);
-      return Promise.resolve();
-    },
-    digest: () => Promise.resolve(new Uint8Array(hash.digest())),
-  };
-};
 
 /** The SHA-256 of `bytes`, in lower-case hexadecimal. */
 export function sha256Hex(bytes: Uint8Array): string {

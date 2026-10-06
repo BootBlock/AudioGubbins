@@ -610,11 +610,20 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
   ];
 
   /**
-   * The one module that may reach the network: the download of a model pack's
-   * files (ADR-0062), which asks the catalogue the build configures for the
-   * pack and sends nothing else. ESLint's network rule excepts it alone too.
+   * The first of the two modules that may reach the network: the download of
+   * a model pack's files (ADR-0062), which asks the catalogue the build
+   * configures for the pack and sends nothing else. ESLint's network rule
+   * excepts it too.
    */
   const DOWNLOAD = 'packages/model-packs/src/adapter/http-pack-source.ts';
+
+  /**
+   * The second: the read of the inference runtime's WebAssembly (ADR-0062),
+   * which asks the application's own origin for the file and sends nothing
+   * else, so the runtime fetches nothing itself. ESLint's network rule
+   * excepts it too.
+   */
+  const RUNTIME_FILES = 'packages/ml-runtime/src/adapter/origin-runtime-files.ts';
 
   it.each([
     ['a fetch', "await fetch('/log');"],
@@ -643,17 +652,20 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(false);
   });
 
-  it('has no network call in production source but the download of a model pack', () => {
+  it('has no network call in production source but the two modules excepted', () => {
     const offenders = ALL_SOURCES.filter((path) => {
       const code = readCode(path);
       return NETWORK_APIS.some((pattern) => pattern.test(code));
     });
 
-    expect(offenders).toEqual([DOWNLOAD]);
+    expect(offenders.toSorted()).toEqual([RUNTIME_FILES, DOWNLOAD]);
   });
 
-  it('lets the download reach the network by its declared fetch and by nothing else', () => {
-    const code = readCode(DOWNLOAD);
+  it.each([
+    ['the download', DOWNLOAD],
+    ['the read of the runtime’s files', RUNTIME_FILES],
+  ])('lets %s reach the network by its declared fetch and by nothing else', (_name, path) => {
+    const code = readCode(path);
     expect(NETWORK_APIS.filter((pattern) => pattern.test(code))).toHaveLength(1);
     expect(code).toMatch(/\bdeclare\s+const\s+fetch\b/);
     expect(code).not.toMatch(/\bdeclare\s+(?:const|let|var|function)\s+(?!fetch\b)\w+/);

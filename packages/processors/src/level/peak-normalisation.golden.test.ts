@@ -19,10 +19,10 @@ function tone(turns: number, amplitude: number, phase = 0): Float32Array {
 }
 
 describe('peak normalisation, held to a recorded render', () => {
-  it('renders noisy stereo normalised to −3 dBTP to the recorded bits', () => {
+  it('renders noisy stereo normalised to −3 dBTP to the recorded bits', async () => {
     const left = noisySine(440).channels[0] ?? new Float32Array(0);
     const right = noisySine(660, 2, { amplitude: 0.3 }).channels[0] ?? new Float32Array(0);
-    const { output, measured } = normalised(
+    const { output, measured } = await normalised(
       PEAK_NORMALISATION,
       { layout: StandardLayouts.stereo, values: { target: -3, detection: 'true-peak' } },
       [left, right],
@@ -38,10 +38,10 @@ describe('peak normalisation, held to a recorded render', () => {
     expect(Math.abs(peaksOf(output).truePeak + 3)).toBeLessThan(0.05);
   });
 
-  it('takes a sine of known peak to −1 dBFS within a thousandth of a decibel', () => {
+  it('takes a sine of known peak to −1 dBFS within a thousandth of a decibel', async () => {
     // A hundred frames a cycle, so frame 25 is the crest: the peak is 0.3 exactly.
     const input = [tone(0.01, 0.3)];
-    const { output } = normalised(
+    const { output } = await normalised(
       PEAK_NORMALISATION,
       { layout: StandardLayouts.mono, values: { target: -1 } },
       input,
@@ -58,10 +58,10 @@ describe('peak normalisation, held to a recorded render', () => {
     );
   });
 
-  it('takes a quarter-rate sine at 45° to −1 dBTP by the meter within 0.05 dB', () => {
+  it('takes a quarter-rate sine at 45° to −1 dBTP by the meter within 0.05 dB', async () => {
     // Every sample is 3 dB under the crests between them (EBU Tech 3341 case 16).
     const input = [tone(0.25, decibelsToGain(-6), 0.125)];
-    const { output } = normalised(
+    const { output } = await normalised(
       PEAK_NORMALISATION,
       { layout: StandardLayouts.mono, values: { target: -1, detection: 'true-peak' } },
       input,

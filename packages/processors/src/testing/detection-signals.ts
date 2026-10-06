@@ -59,24 +59,24 @@ export function countingDsp(): { readonly dsp: CanonicalDsp; readonly live: () =
  * The findings of `detector` over `channels`, all of one length, given in
  * chunks of `chunk` frames at the test rate.
  */
-export function detect(
+export async function detect(
   detector: AudioDetector,
   channels: readonly Float32Array[],
   chunk = 4_096,
   dsp: CanonicalDsp = REFERENCE_DSP,
-): readonly DetectorFinding[] {
+): Promise<readonly DetectorFinding[]> {
   const detection = expectSuccess(
     detector.open({ input: layoutOf(channels.length), sampleRate: TEST_RATE, dsp }),
   );
   const length = channels[0]?.length ?? 0;
   for (let start = 0; start < length; start += chunk) {
     const frames = Math.min(chunk, length - start);
-    detection.add(
+    await detection.add(
       channels.map((channel) => channel.subarray(start, start + frames)),
       frames,
     );
   }
-  const found = detection.findings();
+  const found = expectSuccess(await detection.result());
   detection.release();
   return found;
 }

@@ -10,8 +10,9 @@
  * to the node contract the engine supplies for it (ADR-0030).
  *
  * The descriptor is a versioned runtime and interchange type. It crosses into a
- * worker and an AudioWorklet, so it is plain data, and it is not yet a stored
- * format: nothing persists it before the phase that saves processor graphs.
+ * worker and an AudioWorklet, so it is plain data that a structured clone
+ * carries, and it is not yet a stored format: nothing persists it before the
+ * phase that saves processor graphs, and nothing writes it as JSON.
  */
 
 import type { ChannelLayout } from '@audiogubbins/domain';
@@ -21,8 +22,12 @@ import type { NodeId, PortReference } from './node-id.js';
 /** The version of the descriptor's shape, which a reader refuses to guess past. */
 export const GRAPH_DESCRIPTOR_VERSION = 1;
 
-/** A value one setting of a node may hold. */
-export type SettingValue = number | boolean | string | readonly number[];
+/**
+ * A value one setting of a node may hold. Samples are a value only a running
+ * graph carries in memory, as a whole-pass processor's measurement over a
+ * stream: a descriptor read from data never holds them.
+ */
+export type SettingValue = number | boolean | string | readonly number[] | Float32Array;
 
 /** One named port and the channel layout that flows through it. */
 export interface PortDescriptor {

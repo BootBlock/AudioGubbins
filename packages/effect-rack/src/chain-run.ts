@@ -8,7 +8,9 @@
  * engine. A processor that measures its whole input is measured first, one
  * pass over the stream each, in signal order, each pass running the chain
  * with the measurements already made, so each measures what really reaches
- * it. A chain whose latency cannot be known is refused, since its output
+ * it. A measurement that fails refuses the chain with its reason: the
+ * processor unmeasured would pass its input on, and that would pass for
+ * success. A chain whose latency cannot be known is refused, since its output
  * could not be put back where its input was (REQ-ARCH-144).
  */
 
@@ -38,7 +40,7 @@ import {
   type NodeImplementations,
   type StreamReader,
 } from '@audiogubbins/audio-engine';
-import type { ProcessorType } from '@audiogubbins/processors';
+import type { Measurement, ProcessorType } from '@audiogubbins/processors';
 
 import { chainGraph, type ChainGraph } from './chain-graph.js';
 
@@ -197,7 +199,7 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
   const implementations = implementationsOf(types);
   return {
     prepare: async (request, read, signal) => {
-      const measured = new Map<ProcessorId, readonly number[]>();
+      const measured = new Map<ProcessorId, Measurement>();
       const first = chainGraph(request.chain, types, request.input, request.quality, { measured });
       if (!first.ok) return first;
       for (const processor of measuredProcessors(first.value, request, types)) {
@@ -265,19 +267,22 @@ const PASS_CHUNK = 16_384;
 
 /**
  * What a pass over the stream measures at the input of `processor`, the
- * processors before it running with the measurements already made. The
- * stream is followed by silence for as long as the path to the processor is
- * late, so the measurer hears every frame of it, and the late start is cut.
+ * processors before it running with the measurements already made, or why the
+ * measurer could not measure it. The stream is followed by silence for as long
+ * as the path to the processor is late, so the measurer hears every frame of
+ * it, and the late start is cut. Each chunk is read only once the measurer has
+ * heard the one before, so a measurer slow per chunk holds the reading back
+ * rather than the stream queuing in memory.
  */
 async function measure(
   request: ChainRequest,
   read: StreamReader,
   types: ReadonlyMap<string, ProcessorType>,
   implementations: NodeImplementations,
-  measured: ReadonlyMap<ProcessorId, readonly number[]>,
+  measured: ReadonlyMap<ProcessorId, Measurement>,
   processor: ProcessorId,
   signal: CancellationSignal | undefined,
-): Promise<DomainResult<readonly number[]>> {
+): Promise<DomainResult<Measurement>> {
   const built = chainGraph(request.chain, types, request.input, request.quality, {
     measured,
     at: processor,
@@ -308,13 +313,14 @@ async function measure(
       processBlocks(running.value, input.channels, output.channels, frames);
       const skip = Math.max(0, latency - position);
       if (skip < frames) {
-        measurer.value.add(
+        await measurer.value.add(
           output.channels.map((channel) => channel.subarray(skip, frames)),
           frames - skip,
+          signal,
         );
       }
     }
-    return succeed(measurer.value.result());
+    return await measurer.value.result(signal);
   } finally {
     measurer.value.release();
     running.value.executor.release();

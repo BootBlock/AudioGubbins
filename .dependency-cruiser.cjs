@@ -67,8 +67,9 @@
  *   project-format.
  * - model-packs: model packs (ADR-0062): the manifest, the install state
  *   machine, the integrity check, the installer over a source port and a store
- *   port, and the download over HTTP, the one module that reaches the network;
- *   depends on domain + ml-runtime + project-format.
+ *   port, the download over HTTP, one of the two modules that reach the
+ *   network, and the streaming SHA-256 the integrity check runs on; depends on
+ *   domain + ml-runtime + project-format.
  * - storage: keeping projects, and the model packs installed, over a backend
  *   port; depends on domain + codecs + commands + diagnostics + history +
  *   media-store + model-packs + project-format + version, and on no browser
@@ -230,6 +231,19 @@ module.exports = {
         'to one module, and the port, the worker client and every processor know none of it.',
       from: { pathNot: '^packages/ml-runtime/src/adapter/onnx-runtime\\.ts$' },
       to: { dependencyTypes: THIRD_PARTY, path: thirdParty('onnxruntime-(web|common)') },
+    },
+    {
+      name: 'sha256-library-stays-behind-its-adapters',
+      severity: 'error',
+      comment:
+        'The hash library is named in two modules alone: the streaming SHA-256 the model packs ' +
+        "check their files with, and the adapter that checks the runtime's WebAssembly before " +
+        'the runtime has it (ADR-0062), so replacing the library is a change to those two.',
+      from: {
+        pathNot:
+          '^packages/(model-packs/src/adapter/noble-sha256|ml-runtime/src/adapter/onnx-runtime)\\.ts$',
+      },
+      to: { dependencyTypes: THIRD_PARTY, path: thirdParty('@noble/hashes') },
     },
     {
       name: 'onnx-runtime-loaded-only-when-used',

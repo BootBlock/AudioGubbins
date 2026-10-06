@@ -55,9 +55,12 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
    `crates/dsp-core` and the reference path; processor kernels are TypeScript,
    calling the reference primitives directly and the FFT through
    `CanonicalDsp`; `crates/analysis` holds the STFT, measurement and detectors.
-6. **Network.** The model-pack download is the one place that fetches; it is
-   an adapter behind a port, and the rule that forbids network calls names it
-   as its one exception.
+6. **Network.** Two modules fetch, each an adapter behind a port that sends
+   nothing but its request: the model-pack download
+   (`model-packs/src/adapter/http-pack-source.ts`) and the read of the
+   inference runtime's WebAssembly from the application's own origin
+   (`ml-runtime/src/adapter/origin-runtime-files.ts`). The network rule
+   (ESLint and `tests/architecture`) names exactly these two.
 7. **Plans can fail.** `assetPlan(asset, context, processing)` and
    `regionPlan(asset, region, context, resolver)` take a `PlanContext`
    (`chains`, `catalogue`) and answer a `DomainResult`: a rack whose chain the
@@ -103,14 +106,15 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
 15. **State and measurement.** A processor's `state?: StateRequirement`
     is checked by `chainOutputLayout` at the stream's rate, by the check its
     kernel reads the state with. A `Measurer` is released on every path of a
-    measuring pass, finished, refused or failed.
+    measuring pass, finished, refused, cancelled or failed; a failed
+    measurement refuses the chain with its reason.
 16. **Detectors and assistants.** The domain holds the data
     (`processing/audio-detection.ts`): a finding is a kind, an `EditRange`,
     its channels, a measure and a treatment; a treatment names processor
     types and values by key (and, for state, the range it is learned
     from), never instances, so nothing holds an identifier until a person
     applies it. `packages/processors/src/detection/` holds `AudioDetector`
-    (open, add, findings, release, as a `Measurer`), the six canonical
+    (open, and a `Detection` that is a `WholePass`: add, result, release), the six canonical
     detectors on `crates/analysis`'s features and the three assistants
     (classification, restoration, repair), which recommend steps in one
     order and apply nothing. Running a detection over a stream is the
@@ -127,13 +131,32 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     validating reader, the pure install state machine (update available
     and incompatible are availability, not states), integrity through a
     streaming `Sha256` port, the `PackSource` port and its HTTP adapter,
-    the only network module (credentials omitted, `Range` on resume; an
+    one of the two network modules (credentials omitted, `Range` on resume; an
     ESLint rule refuses a local `declare const fetch` anywhere else), the
     installer (pins kept unless removed knowingly) and `availabilityOf`.
     It defines a `PackStore` port that the storage package implements
     (`ModelPackStore`, under `packs/`), so the dependency runs from
     storage to model-packs, the port inverted as G1 asks, rather than
     model-packs calling storage as ADR-0062 words it.
+19. **ML processors are whole-pass processors** (2026-10-06): their pass is
+    their inference, and their result is their output over the whole
+    stream, which their kernel plays back. So a whole pass may wait and may
+    carry audio, for every processor: `Measurer.add` answers a promise the
+    rack awaits (backpressure, not a queue), `result` answers a
+    `DomainResult` (a refused inference refuses the chain with its reason),
+    and a `Measurement` is `readonly number[]` or a `Float32Array`, which a
+    graph setting may carry in memory (`framework/whole-pass.ts`;
+    descriptor reading refuses samples, `graph.setting-in-memory`, and a
+    kernel refuses the other kind, `processor.measurement-kind`). An ML
+    type is made with its
+    inference port and a `ModelLibrary`; its descriptor is a constant. A
+    model's identity hashes the listing of the files it runs, and the
+    instance's version check compares it. Every quality runs pinned for now.
+20. **Hashing.** The browser's streaming SHA-256 is `@noble/hashes`, as an
+    adapter of model-packs' `Sha256` port (not the DSP module: hashing is
+    not DSP). The runtime's WebAssembly is fetched from the application's
+    origin by a second named network exception, verified, and handed to the
+    runtime as bytes.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -274,11 +297,14 @@ assistants (decision 16), and `packages/ml-runtime` (decision 17).
 
 Open points from `ml-runtime`:
 
-- The runtime's identity hash is the caller's statement; nothing checks it
-  against the WebAssembly file the runtime loads. Better: the application
-  fetches the file from its own origin, verifies its hash, and gives the
-  bytes to the runtime (`wasmBinary`), so the hash is of what runs and the
-  runtime makes no request of its own.
+- Closed (decision 20): the adapter reads the runtime's WebAssembly through
+  a `RuntimeFiles` port, checks it against the setup's digest
+  (`inference.runtime-file-mismatch`), and gives it as `wasmBinary`; a run
+  in Node and in Chromium showed the runtime then requests nothing itself
+  (`onnxruntime-web/wasm` is the bundle with its glue; a threaded preview's
+  workers load that bundle again). Still to wire: the build stating both
+  files' digests and serving them under `filesBase`, and COOP/COEP for a
+  threaded preview.
 - The runtime sorts a failure into "runtime unavailable" or "model
   refused" by its message text, the only signal it gives.
 - A WebGPU preview may run some operators on the CPU and still report
@@ -290,11 +316,9 @@ Open points from `ml-runtime`:
 
 Open points from `model-packs`:
 
-- No browser streaming SHA-256 exists yet: Web Crypto hashes only a whole
-  buffer. The application needs one (the `sha2` crate in the existing
-  WebAssembly module, or a vetted library).
-- `LOCAL_INFERENCE` is not exported from `packages/capabilities`' entry,
-  and the application needs it.
+- Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
+  only) implements the `Sha256` port; `LOCAL_INFERENCE` and
+  `localInferenceCapabilities` are exported from `packages/capabilities`.
 - Storage usage and the cleanup plan do not yet count `packs/`.
 - Downloads are one file at a time per pack, with no bound across packs.
 - The dereverberation allocation tests failed once under the whole

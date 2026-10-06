@@ -4,10 +4,10 @@
  * A plan is the graph decided: its nodes in running order, the buffer slot each
  * port reads or writes, and the delay each input needs to stay aligned. The
  * executor runs it without deciding anything, so every decision is made once,
- * here, where it can be tested without audio. It holds only numbers, strings
- * and arrays, because it is posted to an AudioWorklet, and a plan made twice
- * from the same graph is the same value, settings in the same order included,
- * so that the same graph renders the same bits (REQ-ARCH-049).
+ * here, where it can be tested without audio. It holds only numbers, strings,
+ * arrays and typed arrays, because it is posted to an AudioWorklet, and a plan
+ * made twice from the same graph is the same value, settings in the same order
+ * included, so that the same graph renders the same bits (REQ-ARCH-049).
  */
 
 import type { ChannelLayout, SampleCount, SampleRate } from '@audiogubbins/domain';

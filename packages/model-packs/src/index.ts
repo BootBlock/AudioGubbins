@@ -3,10 +3,11 @@
  *
  * A pack's manifest, `ModelPackManifest`, and the one reader that admits a
  * manifest or a catalogue from text nobody here wrote; the install state
- * machine (REQ-ARCH-153); the integrity check over an injected SHA-256; the
- * source port a catalogue is listed and a file read through, with its two
- * implementations, the download over HTTP, which is the one module in the
- * repository that reaches the network, and the files a person already has; the
+ * machine (REQ-ARCH-153); the integrity check over an injected SHA-256, and the
+ * streaming SHA-256 to inject, the same in the browser and in Node; the source
+ * port a catalogue is listed and a file read through, with its two
+ * implementations, the download over HTTP, one of the two modules in the
+ * repository that reach the network, and the files a person already has; the
  * store port the storage package keeps packs through; the installer that
  * composes them; and which of REQ-AUDIO-139's conditions holds for a processor
  * or detector a project names. Everything absent from this list is internal and
@@ -30,6 +31,7 @@ export { manifestJson } from './manifest-writing.js';
 
 export { type InstallEvent, type InstallState, nextInstallState } from './install-state.js';
 export { type Sha256, type Sha256Run } from './integrity.js';
+export { nobleSha256 } from './adapter/noble-sha256.js';
 
 export { type FileRange, type PackSource, type ReceiveChunk } from './pack-source.js';
 export {

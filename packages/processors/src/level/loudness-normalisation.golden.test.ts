@@ -20,9 +20,13 @@ function tone(seconds: number, level: number): Float32Array[] {
 }
 
 describe('loudness normalisation, held to a recorded render', () => {
-  it('takes the EBU Tech 3341 stereo sine at −20 dBFS to −23.0 LUFS, to the recorded bits', () => {
+  it('takes the EBU Tech 3341 stereo sine at −20 dBFS to −23.0 LUFS, to the recorded bits', async () => {
     const input = tone(10, -20);
-    const { output, measured } = normalised(LOUDNESS_NORMALISATION, { layout: STEREO }, input);
+    const { output, measured } = await normalised(
+      LOUDNESS_NORMALISATION,
+      { layout: STEREO },
+      input,
+    );
     expect(output.map((channel) => fingerprint(channel))).toEqual([
       1380495470617316005n,
       1380495470617316005n,
@@ -33,11 +37,11 @@ describe('loudness normalisation, held to a recorded render', () => {
     expect(Math.abs(integratedOf(STEREO, output) + 23)).toBeLessThan(0.1);
   });
 
-  it('holds noisy programme at its true-peak ceiling within 0.05 dB, to the recorded bits', () => {
+  it('holds noisy programme at its true-peak ceiling within 0.05 dB, to the recorded bits', async () => {
     const left = noisySine(440, 4, { amplitude: 0.1 }).channels[0] ?? new Float32Array(0);
     const right = noisySine(550, 2, { amplitude: 0.1 }).channels[0] ?? new Float32Array(0);
     const values = { target: -3, 'limit-true-peak': true, ceiling: -1 };
-    const { output } = normalised(LOUDNESS_NORMALISATION, { layout: STEREO, values }, [
+    const { output } = await normalised(LOUDNESS_NORMALISATION, { layout: STEREO, values }, [
       left,
       right,
     ]);

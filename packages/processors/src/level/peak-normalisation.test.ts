@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, type ChannelLayout } from '@audiogubbins/domain';
-import { decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
+import {
+  StandardLayouts,
+  createCancellationSource,
+  type ChannelLayout,
+} from '@audiogubbins/domain';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
+import { REFERENCE_DSP, decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
 import { noisySine } from '@audiogubbins/test-fixtures';
 
 import { processorProperties } from '../testing/processor-properties.js';
@@ -9,6 +14,8 @@ import {
   TEST_BLOCK_FRAMES,
   TEST_RATE,
   processorKernel,
+  processorKernelOf,
+  processorStep,
   runProcessor,
 } from '../testing/processor-run.js';
 import { firstDifference, measureOf, normalised, peaksOf } from '../testing/level-measures.js';
@@ -44,10 +51,10 @@ function tone(frames: number, turns: number, amplitude: number, phase = 0): Floa
 const LENGTH = 24_000;
 
 describe('peak normalisation', () => {
-  it('meets the target with its loudest channel and keeps the balance between them', () => {
+  it('meets the target with its loudest channel and keeps the balance between them', async () => {
     const left = tone(LENGTH, 0.01, 0.25);
     const right = tone(LENGTH, 0.013, 0.125);
-    const { output } = normalised(
+    const { output } = await normalised(
       PEAK_NORMALISATION,
       { layout: StandardLayouts.stereo, values: { target: -6 } },
       [left, right],
@@ -59,12 +66,16 @@ describe('peak normalisation', () => {
     expect(peaksOf([output[1] ?? right]).samplePeak - louder).toBeCloseTo(under, 4);
   });
 
-  it('takes the true peak between samples where its detection asks for it', () => {
+  it('takes the true peak between samples where its detection asks for it', async () => {
     // A quarter-rate sine from 45°: every sample is 3 dB under the waveform's peak.
     const input = [tone(LENGTH, 0.25, 0.5, 0.125)];
     const settings = { layout: StandardLayouts.mono } as const;
-    const bySample = normalised(PEAK_NORMALISATION, { ...settings, values: { target: -1 } }, input);
-    const byTrue = normalised(
+    const bySample = await normalised(
+      PEAK_NORMALISATION,
+      { ...settings, values: { target: -1 } },
+      input,
+    );
+    const byTrue = await normalised(
       PEAK_NORMALISATION,
       { ...settings, values: { target: -1, detection: 'true-peak' } },
       input,
@@ -108,12 +119,23 @@ describe('peak normalisation', () => {
     expect(firstDifference([moved ?? new Float32Array(0)], input)).toBeDefined();
   });
 
-  it('measures the same however its pass is cut, and hears NaN and infinity as silence', () => {
+  it('refuses samples for its measurement, the kind a model’s output is, with the reason', () => {
+    // Samples holding the very numbers a current measurement holds: only
+    // their kind is wrong.
+    const made = processorKernelOf(PEAK_NORMALISATION, {
+      layout: StandardLayouts.mono,
+      measured: Float32Array.from([TEST_RATE, 1, 0.5, 0.5]),
+    });
+    expect(expectFailureCode(made)).toBe('processor.measurement-kind');
+    expect(made.ok ? undefined : made.failures[0].summary).toContain('its node holds samples');
+  });
+
+  it('measures the same however its pass is cut, and hears NaN and infinity as silence', async () => {
     const settings = { layout: StandardLayouts.stereo } as const;
     const clean = [tone(LENGTH, 0.01, 0.3), tone(LENGTH, 0.02, 0.6)];
-    const whole = measureOf(PEAK_NORMALISATION, settings, clean, LENGTH);
+    const whole = await measureOf(PEAK_NORMALISATION, settings, clean, LENGTH);
     for (const chunk of [1, 7, 4_096]) {
-      expect(measureOf(PEAK_NORMALISATION, settings, clean, chunk)).toEqual(whole);
+      expect(await measureOf(PEAK_NORMALISATION, settings, clean, chunk)).toEqual(whole);
     }
     const spoiled = clean.map((channel) => channel.slice());
     const silenced = clean.map((channel) => channel.slice());
@@ -123,9 +145,30 @@ describe('peak normalisation', () => {
       const quiet = silenced[channel];
       if (quiet !== undefined) quiet.fill(0, 100, 102);
     }
-    expect(measureOf(PEAK_NORMALISATION, settings, spoiled)).toEqual(
-      measureOf(PEAK_NORMALISATION, settings, silenced),
+    expect(await measureOf(PEAK_NORMALISATION, settings, spoiled)).toEqual(
+      await measureOf(PEAK_NORMALISATION, settings, silenced),
     );
+  });
+
+  it('ends its measurement with a cancellation, heard or answering', async () => {
+    if (PEAK_NORMALISATION.measurer === undefined) throw new Error('It measures its input.');
+    const layout = StandardLayouts.mono;
+    const measurer = expectSuccess(
+      PEAK_NORMALISATION.measurer(processorStep(PEAK_NORMALISATION, { layout }).settings, layout, {
+        sampleRate: TEST_RATE,
+        blockFrames: TEST_BLOCK_FRAMES,
+        dsp: REFERENCE_DSP,
+      }),
+    );
+    const source = createCancellationSource();
+    const input = [tone(LENGTH, 0.01, 0.5)];
+    await measurer.add(input, LENGTH, source.signal);
+    source.cancel(new Error('The person stopped the render.'));
+    await expect(measurer.add(input, LENGTH, source.signal)).rejects.toThrow(
+      'The person stopped the render.',
+    );
+    await expect(measurer.result(source.signal)).rejects.toThrow('The person stopped the render.');
+    measurer.release();
   });
 
   it('moves to a new target while it plays over a ramp, and refuses what cannot move', () => {

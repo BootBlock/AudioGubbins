@@ -17,6 +17,8 @@ import type {
 } from '@audiogubbins/domain';
 import type { CanonicalDsp } from '@audiogubbins/audio-engine';
 
+import type { WholePass } from '../framework/whole-pass.js';
+
 /** What a detection is made for. */
 export interface DetectionSettings {
   readonly input: ChannelLayout;
@@ -24,18 +26,11 @@ export interface DetectionSettings {
   readonly dsp: CanonicalDsp;
 }
 
-/** One pass of a detector over audio, heard in order, in chunks of any size. */
-export interface Detection {
-  /** Hears the next `frames` frames of `input`, one array per channel. */
-  add(input: readonly Float32Array[], frames: number): void;
-  /**
-   * The findings over everything heard, the audio being done: their ranges
-   * count frames from the first frame given.
-   */
-  findings(): readonly DetectorFinding[];
-  /** Frees what it measures with, whether or not it answered. */
-  release(): void;
-}
+/**
+ * One pass of a detector over audio. Its result is its findings over
+ * everything heard, their ranges counting frames from the first frame given.
+ */
+export type Detection = WholePass<readonly DetectorFinding[]>;
 
 /** A detector: what it is, what it finds, and a pass of it over audio. */
 export interface AudioDetector {

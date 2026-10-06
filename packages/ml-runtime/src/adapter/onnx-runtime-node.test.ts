@@ -2,10 +2,11 @@
  * The adapter over the real runtime, in Node: ONNX Runtime Web's WebAssembly
  * build runs here as it runs in a worker, so the port's contract is held
  * against real inference of a model built in the test, directly and through
- * the worker's client and core. The runtime's files are served over HTTP from
- * this machine's loopback, as the application serves them from its own
- * origin, so the request the runtime's loader makes is the one it makes in a
- * browser, and the test sees it.
+ * the worker's client and core. The runtime's WebAssembly is served over HTTP
+ * from this machine's loopback, as the application serves it from its own
+ * origin, and read by the worker's own reader, so the request the worker makes
+ * is the one it makes in a browser; the runtime runs the bytes that were read
+ * and checked, and the test sees that it requests nothing itself.
  */
 
 import { createHash } from 'node:crypto';
@@ -25,7 +26,9 @@ import { addModelBytes } from '../testing/add-model.js';
 import { InProcessWorker, TEST_ORIGIN } from '../testing/in-process-worker.js';
 import { PINNED, portContract, valueOf } from '../testing/port-contract.js';
 import { WorkerInference } from '../worker-inference.js';
+import type { RuntimeFiles } from '../runtime-files.js';
 import { ONNX_RUNTIME_BUILDS, OnnxRuntimeInference } from './onnx-runtime.js';
+import { OriginRuntimeFiles } from './origin-runtime-files.js';
 
 /** The runtime's installed files. */
 const RUNTIME_FILES = dirname(createRequire(import.meta.url).resolve('onnxruntime-web'));
@@ -40,8 +43,10 @@ const CPU_DIGEST = createHash('sha256')
 /** What Node offers the runtime: SIMD, and one thread, since nothing here is isolated. */
 const NODE: InferenceCapabilities = { fixedWidthSimd: true, threads: 1, webGpu: false };
 
-/** Every path the runtime requested of the server. */
+/** Every path requested of the server. */
 const requested: string[] = [];
+/** How many times the worker's reader read a file, each one request of its own. */
+let reads = 0;
 let server: Server | undefined;
 let origin = '';
 
@@ -70,18 +75,34 @@ afterAll(() => {
   server?.close();
 });
 
-function setupFor(capabilities: InferenceCapabilities, filesBase = `${origin}/`): RuntimeSetup {
+function setupFor(
+  capabilities: InferenceCapabilities,
+  filesBase = `${origin}/`,
+  cpuDigest = CPU_DIGEST,
+): RuntimeSetup {
   return {
     filesBase,
     // The WebGPU build is never started in Node, which has no WebGPU.
-    webAssemblySha256: { [RuntimeBuild.Cpu]: CPU_DIGEST, [RuntimeBuild.WebGpu]: 'f'.repeat(64) },
+    webAssemblySha256: { [RuntimeBuild.Cpu]: cpuDigest, [RuntimeBuild.WebGpu]: 'f'.repeat(64) },
     capabilities,
+  };
+}
+
+/** The worker's reader over Node's own `fetch`, counting its reads. */
+function countedFiles(filesBase: string): RuntimeFiles {
+  const files = new OriginRuntimeFiles(filesBase);
+  return {
+    read: (build) => {
+      reads += 1;
+      return files.read(build);
+    },
   };
 }
 
 function adapter(setup: RuntimeSetup): OnnxRuntimeInference {
   return new OnnxRuntimeInference(setup, {
     load: ONNX_RUNTIME_BUILDS,
+    files: countedFiles(setup.filesBase),
     reportFault: (error) => {
       throw error;
     },
@@ -118,8 +139,33 @@ describe('the real runtime', { timeout: 30_000 }, () => {
     session.release();
   });
 
-  it('requests its WebAssembly file from the base it was given, and nothing else, once', () => {
-    expect(requested).toEqual([`/${CPU_FILE}`]);
+  it('requests nothing itself: every request was a read of the WebAssembly file by the worker’s reader', () => {
+    expect(reads).toBeGreaterThan(0);
+    expect(requested).toHaveLength(reads);
+    expect(new Set(requested.map((path) => path.slice(path.lastIndexOf('/') + 1)))).toEqual(
+      new Set([CPU_FILE]),
+    );
+  });
+
+  it('refuses a WebAssembly file whose digest is not the setup’s, before the runtime has it', async () => {
+    const opened = await adapter(setupFor(NODE, `${origin}/`, '0'.repeat(64))).open(
+      addModelBytes(),
+      PINNED,
+    );
+    expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
+      'inference.runtime-file-mismatch',
+    ]);
+    expect(opened.ok ? '' : opened.failures[0].summary).toContain(CPU_DIGEST);
+  });
+
+  it('answers a WebAssembly file the server does not have as unavailable', async () => {
+    const opened = await adapter(setupFor(NODE, `${origin}/elsewhere/`)).open(
+      addModelBytes(),
+      PINNED,
+    );
+    expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
+      'inference.runtime-file-unavailable',
+    ]);
   });
 
   it("refuses runtime files from an origin that is not the worker's own", async () => {

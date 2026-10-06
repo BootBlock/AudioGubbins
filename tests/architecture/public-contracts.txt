@@ -656,7 +656,7 @@ Published paths
   readonly ProcessingNodeDescriptor.inputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.outputs: readonly PortDescriptor[]
   readonly ProcessingNodeDescriptor.settings: Readonly<Record<string, SettingValue>>
-  type SettingValue = boolean | number | readonly number[] | string
+  type SettingValue = Float32Array<ArrayBufferLike> | boolean | number | readonly number[] | string
   interface SubgraphInput
   readonly SubgraphInput.name: string
   readonly SubgraphInput.layout: ChannelLayout
@@ -1080,8 +1080,13 @@ Published paths
   readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
   type HostYielding = { readonly kind: "macrotask"; readonly createChannel: () => MessageChannel; } | { readonly kind: "none"; } | { readonly kind: "scheduler"; readonly yieldNow: () => Promise<void>; }
+  const LOCAL_INFERENCE: FeatureRequirement
   type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "webassembly-simd"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
+  interface LocalInferenceCapabilities
+  readonly LocalInferenceCapabilities.fixedWidthSimd: boolean
+  readonly LocalInferenceCapabilities.threads: number
+  readonly LocalInferenceCapabilities.webGpu: boolean
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
   const OFFLINE_RENDERING: FeatureRequirement
@@ -1095,6 +1100,8 @@ Published paths
   readonly PlatformSignals.userAgent: string
   readonly PlatformSignals.platformHint?: string
   readonly PlatformSignals.maxTouchPoints: number
+  interface ProcessorCount
+  readonly ProcessorCount.hardwareConcurrency?: number
   const RECORDING: FeatureRequirement
   interface ResourceFigures
   readonly ResourceFigures.availableMemoryBytes: number | undefined
@@ -1136,6 +1143,7 @@ Published paths
   function createCapabilityRegistry(environment: CapabilityEnvironment, logger: Logger, late?: Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>): CapabilityRegistry
   function describeEnvironment(signals: PlatformSignals): EnvironmentSummary
   function detectBrowserEnvironment(): CapabilityEnvironment
+  function localInferenceCapabilities(registry: CapabilityRegistry, navigatorLike: ProcessorCount): LocalInferenceCapabilities
   function missingStorageCapabilities(platform: StoragePlatform): readonly StorageCapabilityAbsence[]
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
@@ -3133,6 +3141,7 @@ Published paths
   const manifestConverter: Converter<ModelPackManifest>
   function manifestJson(manifest: ModelPackManifest): JsonObject
   function nextInstallState(state: InstallState, event: InstallEvent): DomainResult<InstallState>
+  const nobleSha256: Sha256
   function packKey(ref: PackRef): string
   function packsToFetch(needs: readonly PackNeed[], context: AvailabilityContext, policy: AutomaticDownload): readonly ModelPackManifest[]
   function readModelPackManifest(text: string): DomainResult<ModelPackManifest>
@@ -3166,15 +3175,14 @@ Published paths
   const CLICK_DETECTOR: AudioDetector
   const CLIPPING_DETECTOR: AudioDetector
   const DC_OFFSET_DETECTOR: AudioDetector
-  interface Detection
-  Detection.add: (input: readonly Float32Array[], frames: number) => void
-  Detection.findings: () => readonly DetectorFinding[]
-  Detection.release: () => void
+  type Detection = WholePass<readonly DetectorFinding[]>
   interface DetectionSettings
   readonly DetectionSettings.input: ChannelLayout
   readonly DetectionSettings.sampleRate: SampleRate
   readonly DetectionSettings.dsp: CanonicalDsp
   const HUM_DETECTOR: AudioDetector
+  type Measurement = Float32Array<ArrayBufferLike> | readonly number[]
+  type Measurer = WholePass<Measurement>
   const NOISE_FLOOR_DETECTOR: AudioDetector
   interface NoiseProfileSettings
   readonly NoiseProfileSettings.values: ParameterValues
@@ -3203,7 +3211,7 @@ Published paths
   readonly ProcessorRun.blockFrames: number
   readonly ProcessorRun.quality: QualitySettings
   readonly ProcessorRun.state?: ProcessorState
-  readonly ProcessorRun.measured?: readonly number[]
+  readonly ProcessorRun.measured?: Measurement
   readonly ProcessorRun.dsp: CanonicalDsp
   interface ProcessorType extends NodeImplementation
   readonly ProcessorType.descriptor: ProcessorDescriptor
@@ -3217,8 +3225,12 @@ Published paths
   const REPAIR_ASSISTANT: Assistant
   const RESTORATION_ASSISTANT: Assistant
   const TRANSIENT_DETECTOR: AudioDetector
+  interface WholePass<TResult>
+  WholePass.add: (input: readonly Float32Array[], frames: number, signal?: CancellationSignal) => Promise<void>
+  WholePass.result: (signal?: CancellationSignal) => Promise<DomainResult<TResult>>
+  WholePass.release: () => void
   function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
-  function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: readonly number[] | undefined): Readonly<Record<string, SettingValue>>
+  function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
   function recommendation(assistant: Assistant, findings: readonly DetectorFinding[]): Recommendation
 
@@ -3227,6 +3239,13 @@ Published paths
   readonly Change.frame: number
   readonly Change.name: string
   readonly Change.value: number
+  interface PassCounts
+  PassCounts.released: number
+  PassCounts.live: number
+  readonly PassCounts.measured: (Measurement | undefined)[]
+  interface PassScript
+  PassScript.add?: (signal: CancellationSignal | undefined) => Promise<void>
+  PassScript.result: (signal: CancellationSignal | undefined) => Promise<DomainResult<Measurement>>
   interface PropertyCases
   readonly PropertyCases.layouts: readonly ChannelLayout[]
   readonly PropertyCases.settings?: readonly Readonly<Record<string, ParameterValue>>[]
@@ -3240,7 +3259,7 @@ Published paths
   readonly RunSettings.layout: ChannelLayout
   readonly RunSettings.sampleRate?: SampleRate
   readonly RunSettings.quality?: QualitySettings
-  readonly RunSettings.measured?: readonly number[]
+  readonly RunSettings.measured?: Measurement
   readonly RunSettings.state?: ProcessorState
   readonly RunSettings.dsp?: CanonicalDsp
   const TEST_BLOCK_FRAMES: 4096
@@ -3252,6 +3271,7 @@ Published paths
   function processorStep(type: ProcessorType, settings: RunSettings): PlanStep
   function processorValues(type: ProcessorType, byKey?: Readonly<Record<string, ParameterValue>>): ParameterValues
   function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[], change?: Change | undefined): Float32Array<ArrayBufferLike>[]
+  function scriptedWholePass(script: PassScript, counts: PassCounts): ProcessorType
 
 @audiogubbins/project-commands
   interface ProjectCommand extends Command<ProjectState>
@@ -5570,7 +5590,7 @@ packages/effect-rack/src/chain-graph.ts
   readonly MeasureTap.type: string
   readonly MeasureTap.settings: Readonly<Record<string, import("packages/audio-graph/src/descriptor").SettingValue>>
   interface Measuring
-  readonly Measuring.measured: ReadonlyMap<ProcessorId, readonly number[]>
+  readonly Measuring.measured: ReadonlyMap<ProcessorId, Measurement>
   readonly Measuring.at?: ProcessorId
 
 packages/media-store/src/exclusion-gate.ts
@@ -5681,12 +5701,6 @@ packages/model-packs/src/installations.ts
 
 packages/model-packs/src/pack-download.ts
   type Arrival = { readonly kind: "arrived"; } | { readonly kind: "failed"; readonly result: DomainFailureResult; } | { readonly kind: "stopped"; }
-
-packages/processors/src/framework/processor-type.ts
-  interface Measurer
-  Measurer.add: (input: readonly Float32Array[], frames: number) => void
-  Measurer.result: () => readonly number[]
-  Measurer.release: () => void
 
 packages/processors/src/spectral/frame-analysis.ts
   class FrameAnalysis

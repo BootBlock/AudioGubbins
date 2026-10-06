@@ -116,6 +116,16 @@ describe('reading a graph descriptor', () => {
     ]);
   });
 
+  it('refuses samples in a setting, which only a running graph carries, with the reason', () => {
+    // A structured clone keeps a typed array, so one can arrive in a message.
+    const value = data();
+    const nodes = value['nodes'] as Record<string, unknown>[];
+    nodes[1] = { ...nodes[1], settings: { coefficients: Float32Array.from([0.5, -1, 0.25]) } };
+    expect(failures(value)).toEqual([
+      'graph.setting-in-memory at graph.nodes[1].settings.coefficients',
+    ]);
+  });
+
   it('rebuilds each layout through the domain, so a forged one cannot pass', () => {
     const value = data();
     const ports = (value['nodes'] as Record<string, unknown>[])[1]!['outputs'] as Record<

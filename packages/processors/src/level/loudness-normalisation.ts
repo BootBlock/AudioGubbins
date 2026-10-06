@@ -34,7 +34,8 @@ import {
 } from '@audiogubbins/domain';
 import { decibelsToGain, type NodeKernel } from '@audiogubbins/audio-engine';
 
-import { processorType, type Measurer, type ProcessorRun } from '../framework/processor-type.js';
+import { processorType, type ProcessorRun } from '../framework/processor-type.js';
+import type { Measurer } from '../framework/whole-pass.js';
 import { levelKernel } from './level-gain.js';
 import {
   TRUE_PEAK,
@@ -134,8 +135,10 @@ function gainFor(
 }
 
 function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
-  const values = measuredValues(run, MEASURED_VALUES);
   const label = 'loudness normalisation';
+  const read = measuredValues(run, MEASURED_VALUES, label);
+  if (!read.ok) return read;
+  const values = read.value;
   // A toggle changes what the gain is made of, so only the levels move.
   const moving = [target, ceiling];
   if (values === undefined) return levelKernel(run, { label, moving, law: () => 1 });

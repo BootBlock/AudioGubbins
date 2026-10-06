@@ -18,13 +18,16 @@ import {
   type RunSettings,
 } from './processor-run.js';
 
-/** What `type`'s whole pass measures of `input`, given to it in chunks of `chunk` frames. */
-export function measureOf(
+/**
+ * What `type`'s whole pass measures of `input`, given to it in chunks of
+ * `chunk` frames: a list of numbers, as every canonical measurer makes.
+ */
+export async function measureOf(
   type: ProcessorType,
   settings: RunSettings,
   input: readonly Float32Array[],
   chunk = 1_000,
-): readonly number[] {
+): Promise<readonly number[]> {
   if (type.measurer === undefined) throw new Error('A whole-pass processor has a measurer.');
   const made = expectSuccess(
     type.measurer(processorStep(type, settings).settings, settings.layout, {
@@ -37,24 +40,26 @@ export function measureOf(
     const length = input[0]?.length ?? 0;
     for (let start = 0; start < length; start += chunk) {
       const frames = Math.min(chunk, length - start);
-      made.add(
+      await made.add(
         input.map((channel) => channel.subarray(start, start + frames)),
         frames,
       );
     }
-    return made.result();
+    const measured = expectSuccess(await made.result());
+    if (measured instanceof Float32Array) throw new Error('A normalisation measures numbers.');
+    return measured;
   } finally {
     made.release();
   }
 }
 
 /** The output of `type` for `input` once its whole pass has measured it, and the measurement. */
-export function normalised(
+export async function normalised(
   type: ProcessorType,
   settings: RunSettings,
   input: readonly Float32Array[],
-): { readonly output: Float32Array[]; readonly measured: readonly number[] } {
-  const measured = measureOf(type, settings, input);
+): Promise<{ readonly output: Float32Array[]; readonly measured: readonly number[] }> {
+  const measured = await measureOf(type, settings, input);
   return { output: runProcessor(type, { ...settings, measured }, input), measured };
 }
 

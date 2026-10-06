@@ -253,7 +253,7 @@ const WAVEFORM_CACHE: FeatureRequirement = {
  * WebGPU only make a preview faster: a final render never uses them, so its
  * result is the same with or without them.
  */
-const LOCAL_INFERENCE: FeatureRequirement = {
+export const LOCAL_INFERENCE: FeatureRequirement = {
   featureKey: 'local-inference',
   label: 'Machine-learning processing',
   required: [CapabilityKey.WebWorkers, CapabilityKey.WebAssembly, CapabilityKey.WebAssemblySimd],

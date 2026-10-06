@@ -28,7 +28,12 @@ import {
   type NodeReading,
   type NodeShape,
 } from './node-shape.js';
-import { refuseOtherSettings, requiredSetting, type SettingRule } from './setting-values.js';
+import {
+  isNumberList,
+  refuseOtherSettings,
+  requiredSetting,
+  type SettingRule,
+} from './setting-values.js';
 import { ZERO_LATENCY } from './zero-latency.js';
 
 const MAP = 'map';
@@ -40,7 +45,7 @@ function channelIndices(length: number, inputs: number): SettingRule<readonly nu
   return {
     describes: `a list of ${String(length)} input channel indices, one for each output channel, each a whole number from 0 to ${String(inputs - 1)}`,
     read: (value) =>
-      typeof value === 'object' &&
+      isNumberList(value) &&
       value.length === length &&
       value.every((index) => Number.isInteger(index) && index >= 0 && index < inputs)
         ? value

@@ -70,8 +70,13 @@ function accepted(step: TreatmentStep): boolean {
 }
 
 /** Every finding of `assistant`'s detectors over `channels`. */
-function findingsOf(assistant: Assistant, channels: Float32Array[]): DetectorFinding[] {
-  return assistant.detectors.flatMap((detector) => [...detect(detector, channels)]);
+async function findingsOf(
+  assistant: Assistant,
+  channels: Float32Array[],
+): Promise<DetectorFinding[]> {
+  const found: DetectorFinding[] = [];
+  for (const detector of assistant.detectors) found.push(...(await detect(detector, channels)));
+  return found;
 }
 
 describe('the assistants', () => {
@@ -136,7 +141,7 @@ describe('the assistants', () => {
     });
   });
 
-  it('recommend steps the catalogue accepts, from audio with every fault they treat', () => {
+  it('recommend steps the catalogue accepts, from audio with every fault they treat', async () => {
     const length = 4 * TEST_RATE;
     const music = scaled(partials(length), TEST_RATE, 2 * TEST_RATE, 0);
     const restoration = mixed(
@@ -145,7 +150,7 @@ describe('the assistants', () => {
       tone(length, 60.2, -40),
       new Float32Array(length).fill(0.01),
     );
-    const found = findingsOf(RESTORATION_ASSISTANT, [restoration]);
+    const found = await findingsOf(RESTORATION_ASSISTANT, [restoration]);
     expect(found.map(({ kind }) => kind)).toEqual([
       FindingKind.DcOffset,
       FindingKind.Hum,
@@ -164,7 +169,7 @@ describe('the assistants', () => {
     const repair = withClicks(clipped(partials(length), 0.4), [
       { at: 30_000, width: 9, size: 0.2 },
     ]);
-    const steps = REPAIR_ASSISTANT.recommend(findingsOf(REPAIR_ASSISTANT, [repair]));
+    const steps = REPAIR_ASSISTANT.recommend(await findingsOf(REPAIR_ASSISTANT, [repair]));
     expect(steps.map(({ typeKey }) => typeKey)).toEqual(['de-click']);
 
     for (const step of [...restored.steps, ...steps]) expect(accepted(step)).toBe(true);

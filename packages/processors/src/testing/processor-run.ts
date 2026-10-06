@@ -31,6 +31,7 @@ import {
 
 import { processorNodeSettings } from '../framework/processor-node.js';
 import { ProcessorPort, type ProcessorType } from '../framework/processor-type.js';
+import type { Measurement } from '../framework/whole-pass.js';
 
 /** The rate a processor's tests run at unless they say otherwise. */
 export const TEST_RATE: SampleRate = expectSuccess(sampleRate(48_000));
@@ -42,7 +43,7 @@ export interface RunSettings {
   readonly layout: ChannelLayout;
   readonly sampleRate?: SampleRate;
   readonly quality?: QualitySettings;
-  readonly measured?: readonly number[];
+  readonly measured?: Measurement;
   /** The instance's non-parameter state, such as a learned noise profile. */
   readonly state?: ProcessorState;
   readonly dsp?: CanonicalDsp;

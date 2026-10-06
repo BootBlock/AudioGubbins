@@ -18,6 +18,9 @@
 import {
   derivedSampleCount,
   mapResult,
+  succeed,
+  throwIfCancelled,
+  type CancellationSignal,
   type DetectorFinding,
   type DomainResult,
   type EditRange,
@@ -89,9 +92,43 @@ class FeaturePass implements Detection {
     this.#recent = Array.from({ length: channels }, () => new Float32Array(ring));
   }
 
-  add(input: readonly Float32Array[], frames: number): void {
-    if (this.#findings !== undefined) throw new Error('A finished detection was given more audio.');
-    if (this.#released) throw new Error('A released detection was given more audio.');
+  // An extractor works synchronously, so a chunk is heard as it is given and
+  // the pass is never held back; the promise's executor turns a misuse or a
+  // cancellation into its rejection.
+  add(input: readonly Float32Array[], frames: number, signal?: CancellationSignal): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.#findings !== undefined) {
+        throw new Error('A finished detection was given more audio.');
+      }
+      if (this.#released) throw new Error('A released detection was given more audio.');
+      throwIfCancelled(signal);
+      this.#hear(input, frames);
+      resolve();
+    });
+  }
+
+  result(signal?: CancellationSignal): Promise<DomainResult<readonly DetectorFinding[]>> {
+    return new Promise((resolve) => {
+      if (this.#findings === undefined && this.#released) {
+        throw new Error('A released detection was asked for its findings.');
+      }
+      throwIfCancelled(signal);
+      if (this.#findings === undefined) {
+        this.#pushTail();
+        this.#findings = this.#judge.findings(this.#heard);
+      }
+      resolve(succeed(this.#findings));
+    });
+  }
+
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    this.#features.release();
+  }
+
+  /** Hands the first `frames` frames of `input` to the extractor, made finite. */
+  #hear(input: readonly Float32Array[], frames: number): void {
     for (let start = 0; start < frames; start += FEED_FRAMES) {
       const length = Math.min(FEED_FRAMES, frames - start);
       for (let channel = 0; channel < this.#chunk.length; channel += 1) {
@@ -108,20 +145,6 @@ class FeaturePass implements Detection {
       this.#push(length);
       this.#heard += length;
     }
-  }
-
-  findings(): readonly DetectorFinding[] {
-    if (this.#findings !== undefined) return this.#findings;
-    if (this.#released) throw new Error('A released detection was asked for its findings.');
-    this.#pushTail();
-    this.#findings = this.#judge.findings(this.#heard);
-    return this.#findings;
-  }
-
-  release(): void {
-    if (this.#released) return;
-    this.#released = true;
-    this.#features.release();
   }
 
   /** Hands the first `length` frames of the chunk to the extractor, and reads what it made. */

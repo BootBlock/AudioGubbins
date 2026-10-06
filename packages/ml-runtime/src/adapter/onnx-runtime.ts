@@ -6,18 +6,26 @@
  * The runtime is imported on the first session that needs it, by a dynamic
  * `import()`, so the base bundle carries none of it (REQ-AUDIO-139), and only
  * the worker that hosts this adapter ever loads it. Each build is started once
- * in its global scope: its WebAssembly file is named under the base URL the
- * application gives, and its threads, SIMD and proxying are set before its
- * first session, after which the runtime keeps them. This module calls no
- * network API of its own. The runtime's loader requests its WebAssembly file
- * from the URL set here, under the application's own origin; that is the one
- * request inference makes, and it carries nothing of the person's.
+ * in its global scope, and before it is imported its WebAssembly file is read
+ * through the port the adapter is given and its SHA-256 checked against the
+ * digest the application's setup states: a file that differs is refused, and
+ * the runtime is never imported. The runtime is given the bytes that matched
+ * (`wasmBinary`) and no path, so it requests nothing of its own, and the
+ * digest a session reports is that of the code that runs it. Each build's
+ * script, the glue that instantiates its WebAssembly, is bundled into the
+ * build's module, and a preview on more threads starts its workers from that
+ * module, which the bundler emitted with the application. Threads, SIMD and
+ * proxying are set before the first session, after which the runtime keeps
+ * them.
  *
  * Pinned sessions run on the CPU build's WebAssembly backend alone, on one
  * thread, with fixed-width SIMD and in sequence; were that backend to fail,
  * the session is refused with the runtime's reason and no other backend is
  * tried.
  */
+
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 
 import {
   FailureKind,
@@ -46,6 +54,7 @@ import {
   type InferenceSession,
   type ModelBytes,
 } from '../inference-port.js';
+import { RUNTIME_WEBASSEMBLY_FILES, type RuntimeFiles } from '../runtime-files.js';
 import { sessionOver, type OnnxSession, type OnnxTensorConstructor } from './onnx-session.js';
 
 /** The session options the adapter sets, named as the runtime names them. */
@@ -65,8 +74,11 @@ export interface OnnxRuntimeModule {
       numThreads?: number;
       simd?: boolean | 'fixed' | 'relaxed';
       proxy?: boolean;
-      /** Written as `{ wasm }`, and never read here, so its type is the runtime's concern. */
-      wasmPaths?: unknown;
+      /**
+       * The WebAssembly the runtime instantiates, so it fetches none: written
+       * and never read here, so its type is the runtime's own.
+       */
+      wasmBinary?: ArrayBufferLike | Uint8Array;
     };
   };
   readonly InferenceSession: {
@@ -79,6 +91,8 @@ export interface OnnxRuntimeModule {
 export interface OnnxRuntimeHost {
   /** Imports each build of the runtime, called on the first session that needs it. */
   readonly load: Readonly<Record<RuntimeBuild, () => Promise<OnnxRuntimeModule>>>;
+  /** Reads each build's WebAssembly file, which the adapter checks before the runtime has it. */
+  readonly files: RuntimeFiles;
   /** Reports the runtime failing to free a session, which no caller can act on. */
   readonly reportFault: (error: unknown) => void;
 }
@@ -87,12 +101,6 @@ export interface OnnxRuntimeHost {
 export const ONNX_RUNTIME_BUILDS: OnnxRuntimeHost['load'] = {
   [RuntimeBuild.Cpu]: () => import('onnxruntime-web/wasm'),
   [RuntimeBuild.WebGpu]: () => import('onnxruntime-web/webgpu'),
-};
-
-/** Each build's WebAssembly file, which the application serves under its base URL. */
-const WEBASSEMBLY_FILES: Readonly<Record<RuntimeBuild, string>> = {
-  [RuntimeBuild.Cpu]: 'ort-wasm-simd-threaded.wasm',
-  [RuntimeBuild.WebGpu]: 'ort-wasm-simd-threaded.asyncify.wasm',
 };
 
 /** The runtime's own report that it could start no backend it was asked for. */
@@ -116,6 +124,25 @@ function messageOf(error: unknown): string {
 
 function unavailable(summary: string): DomainResult<never> {
   return fail(failure('inference.runtime-unavailable', FailureKind.Unrecoverable, summary));
+}
+
+/** `bytes`, read as `build`'s WebAssembly file, with their SHA-256, where it is `expected`. */
+function verified(
+  build: RuntimeBuild,
+  bytes: Uint8Array<ArrayBuffer>,
+  expected: string,
+): DomainResult<{ readonly bytes: Uint8Array<ArrayBuffer>; readonly sha256: string }> {
+  const file = RUNTIME_WEBASSEMBLY_FILES[build];
+  const found = bytesToHex(sha256(bytes));
+  if (found === expected) return succeed({ bytes, sha256: found });
+  return fail(
+    failure(
+      'inference.runtime-file-mismatch',
+      FailureKind.IntegrityViolation,
+      `The runtime's WebAssembly file ${file} is not the one this build names, so the runtime is not started: its SHA-256 is ${found}, and the build names ${expected}.`,
+      { details: { file, expectedSha256: expected, foundSha256: found } },
+    ),
+  );
 }
 
 /** The options a session of `options` is created with. */
@@ -206,19 +233,40 @@ export class OnnxRuntimeInference implements InferencePort {
             ),
           );
     }
-    const runtime = this.#host.load[build]().then(
-      (module) => this.#configured(module, configuration),
+    const runtime = this.#launched(configuration);
+    this.#started.set(build, { threads, runtime });
+    return runtime;
+  }
+
+  /**
+   * The build `configuration` names, imported and configured once its
+   * WebAssembly file has been read and has matched the setup's digest.
+   */
+  async #launched(configuration: RuntimeConfiguration): Started['runtime'] {
+    const { build } = configuration;
+    const read = await this.#host.files.read(build);
+    if (!read.ok) {
+      // Nothing was started, and the server may answer the next time, so the
+      // next session reads the file again rather than meeting this failure
+      // for the worker's life. The entry is this call's own: it was set as
+      // the call began, and nothing replaces an entry while it stands.
+      this.#started.delete(build);
+      return read;
+    }
+    const file = verified(build, read.value, this.#setup.webAssemblySha256[build]);
+    if (!file.ok) return file;
+    return await this.#host.load[build]().then(
+      (module) => this.#configured(module, configuration, file.value),
       (error: unknown) =>
         unavailable(`The runtime's ${build} build could not be loaded: ${messageOf(error)}`),
     );
-    this.#started.set(build, { threads, runtime });
-    return runtime;
   }
 
   /** Sets what the runtime reads as it starts, before its first session, and names it. */
   #configured(
     module: OnnxRuntimeModule,
-    { build, threads }: RuntimeConfiguration,
+    { threads }: RuntimeConfiguration,
+    file: { readonly bytes: Uint8Array<ArrayBuffer>; readonly sha256: string },
   ): DomainResult<Runtime> {
     const version = module.env.versions.web;
     if (version === undefined) {
@@ -229,16 +277,13 @@ export class OnnxRuntimeInference implements InferencePort {
     module.env.wasm.simd = 'fixed';
     // This adapter already runs in a worker of its own; a proxy would start another.
     module.env.wasm.proxy = false;
-    // The file alone, not a base: given a base, the runtime would also import
-    // its script from there rather than run the one bundled with it.
-    module.env.wasm.wasmPaths = { wasm: `${this.#setup.filesBase}${WEBASSEMBLY_FILES[build]}` };
+    // The bytes, and no path: given a path, the runtime would fetch its file
+    // itself, and given a base it would import its script from there too
+    // rather than run the one bundled with it.
+    module.env.wasm.wasmBinary = file.bytes;
     return succeed({
       module,
-      identity: {
-        name: 'onnxruntime-web',
-        version,
-        webAssemblySha256: this.#setup.webAssemblySha256[build],
-      },
+      identity: { name: 'onnxruntime-web', version, webAssemblySha256: file.sha256 },
     });
   }
 }

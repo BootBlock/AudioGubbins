@@ -29,7 +29,8 @@ import {
 } from '@audiogubbins/domain';
 import { decibelsToGain, type NodeKernel } from '@audiogubbins/audio-engine';
 
-import { processorType, type Measurer, type ProcessorRun } from '../framework/processor-type.js';
+import { processorType, type ProcessorRun } from '../framework/processor-type.js';
+import type { Measurer } from '../framework/whole-pass.js';
 import { levelKernel } from './level-gain.js';
 import {
   SAMPLE_PEAK,
@@ -97,11 +98,14 @@ function gainFor(targetLevel: number, peak: number | undefined): number {
 }
 
 function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
+  const label = 'peak normalisation';
+  const measured = measuredValues(run, MEASURED_VALUES, label);
+  if (!measured.ok) return measured;
   // A choice changes what the kernel measures against, so only the target moves.
-  const measured = measuredValues(run, MEASURED_VALUES);
-  const peak = run.parameters.choice(detection.key) === TRUE ? measured?.[1] : measured?.[0];
+  const values = measured.value;
+  const peak = run.parameters.choice(detection.key) === TRUE ? values?.[1] : values?.[0];
   return levelKernel(run, {
-    label: 'peak normalisation',
+    label,
     moving: [target],
     law: (values) => gainFor(values[0] ?? target.defaultValue, peak),
   });

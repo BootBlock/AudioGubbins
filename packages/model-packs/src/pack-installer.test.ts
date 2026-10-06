@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { DomainResult } from '@audiogubbins/domain';
 
+import { nobleSha256 } from './adapter/noble-sha256.js';
 import { ImportedPackSource } from './imported-pack-source.js';
 import type { InstallState } from './install-state.js';
 import { refOf, type PackRef } from './manifest.js';
@@ -9,7 +10,7 @@ import { PackInstaller } from './pack-installer.js';
 import { updatePack } from './pack-update.js';
 import { MemoryPackStore } from './testing/memory-pack-store.js';
 import { MemorySource } from './testing/memory-pack-source.js';
-import { nodeSha256, patterned, testPack, type TestPack } from './testing/node-sha256.js';
+import { patterned, testPack, type TestPack } from './testing/node-sha256.js';
 
 /** The value of a result that must have succeeded. */
 function valueOf<TValue>(result: DomainResult<TValue>): TValue {
@@ -26,7 +27,7 @@ function installerOver(store = new MemoryPackStore()) {
   const states: InstallState[] = [];
   const installer = new PackInstaller({
     store,
-    sha256: nodeSha256,
+    sha256: nobleSha256,
     changed: (_ref, state) => states.push(state),
   });
   return { installer, store, states };

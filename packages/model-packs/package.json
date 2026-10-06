@@ -28,7 +28,8 @@
   "dependencies": {
     "@audiogubbins/domain": "workspace:*",
     "@audiogubbins/ml-runtime": "workspace:*",
-    "@audiogubbins/project-format": "workspace:*"
+    "@audiogubbins/project-format": "workspace:*",
+    "@noble/hashes": "2.4.0"
   },
   "devDependencies": {
     "vitest": "5.0.1"

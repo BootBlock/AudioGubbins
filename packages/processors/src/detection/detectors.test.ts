@@ -7,9 +7,14 @@
  * rate are ones its extractor takes at every rate the domain accepts.
  */
 
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { StandardLayouts, sampleRate, type DetectorFinding } from '@audiogubbins/domain';
+import {
+  StandardLayouts,
+  createCancellationSource,
+  sampleRate,
+  type DetectorFinding,
+} from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 
@@ -73,7 +78,10 @@ function placesOf(found: readonly DetectorFinding[]): readonly string[] {
 describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector, audio] as const))(
   'the %s detector',
   (_key, detector, audio) => {
-    const whole = detect(detector, audio, LENGTH);
+    let whole: readonly DetectorFinding[] = [];
+    beforeAll(async () => {
+      whole = await detect(detector, audio, LENGTH);
+    });
 
     it('finds its fault, within the audio, on the channels it is on, in order', () => {
       expect(whole.length).toBeGreaterThan(0);
@@ -87,13 +95,13 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
       }
     });
 
-    it('finds the same however the audio is cut into chunks', () => {
+    it('finds the same however the audio is cut into chunks', async () => {
       for (const chunk of [1, 7, 333, 4_096]) {
-        expect(detect(detector, audio, chunk)).toEqual(whole);
+        expect(await detect(detector, audio, chunk)).toEqual(whole);
       }
     });
 
-    it('hears a NaN or an infinity as silence, and still finds its fault', () => {
+    it('hears a NaN or an infinity as silence, and still finds its fault', async () => {
       // At the very start, and in the programme away from every fault, where
       // the silence they are heard as may itself be a click or an onset.
       for (const at of [0, 100_000]) {
@@ -103,8 +111,8 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
           out.fill(0, at, at + 3);
           return out;
         });
-        const found = detect(detector, spoiled, 4_096);
-        expect(found).toEqual(detect(detector, silenced, 4_096));
+        const found = await detect(detector, spoiled, 4_096);
+        expect(found).toEqual(await detect(detector, silenced, 4_096));
         // Every finding the silenced frames are not part of is still found.
         const apart = whole.filter(({ range }) => range.end <= at || range.start >= at + 3);
         const places = new Set(placesOf(found));
@@ -112,37 +120,53 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
       }
     });
 
-    it('frees its extractor whether or not it was asked for its findings', () => {
+    it('frees its extractor whether or not it was asked for its findings', async () => {
       const asked = countingDsp();
-      expect(detect(detector, audio, 4_096, asked.dsp).length).toBeGreaterThan(0);
+      expect((await detect(detector, audio, 4_096, asked.dsp)).length).toBeGreaterThan(0);
       expect(asked.live()).toBe(0);
 
       const unasked = countingDsp();
       const detection = expectSuccess(
         detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: unasked.dsp }),
       );
-      detection.add(audio, LENGTH);
+      await detection.add(audio, LENGTH);
       expect(unasked.live()).toBe(1);
       detection.release();
       detection.release();
       expect(unasked.live()).toBe(0);
-      expect(() => detection.findings()).toThrow(
+      await expect(detection.result()).rejects.toThrow(
         'A released detection was asked for its findings.',
       );
     });
 
-    it('answers its findings again once done, and hears no more', () => {
+    it('answers its findings again once done, and hears no more', async () => {
       const detection = expectSuccess(
         detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: REFERENCE_DSP }),
       );
-      detection.add(audio, LENGTH);
-      const found = detection.findings();
-      expect(detection.findings()).toBe(found);
-      expect(() => {
-        detection.add(audio, LENGTH);
-      }).toThrow('A finished detection was given more audio.');
+      await detection.add(audio, LENGTH);
+      const found = expectSuccess(await detection.result());
+      expect(expectSuccess(await detection.result())).toBe(found);
+      await expect(detection.add(audio, LENGTH)).rejects.toThrow(
+        'A finished detection was given more audio.',
+      );
       detection.release();
-      expect(detection.findings()).toBe(found);
+      expect(expectSuccess(await detection.result())).toBe(found);
+    });
+
+    it('ends its pass with the cancellation, heard or answering', async () => {
+      const source = createCancellationSource();
+      const detection = expectSuccess(
+        detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: REFERENCE_DSP }),
+      );
+      await detection.add(audio, LENGTH, source.signal);
+      source.cancel(new Error('The person stopped the detection.'));
+      await expect(detection.add(audio, LENGTH, source.signal)).rejects.toThrow(
+        'The person stopped the detection.',
+      );
+      await expect(detection.result(source.signal)).rejects.toThrow(
+        'The person stopped the detection.',
+      );
+      detection.release();
     });
 
     it('opens at every rate the domain accepts, on a layout of many channels', () => {

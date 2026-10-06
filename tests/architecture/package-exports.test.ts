@@ -319,7 +319,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['ModelPackStore'],
   },
   '@audiogubbins/model-packs': {
-    "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
+    "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
       [
         'AutomaticDownload',
         'AvailabilityContext',
@@ -348,6 +348,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'UpdateOutcome',
         'availabilityOf',
         'nextInstallState',
+        'nobleSha256',
         'packsToFetch',
         'readModelPackManifest',
         'readPackCatalogue',
@@ -453,6 +454,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ACCELERATED_RENDERING',
         'DIRECT_FILE_ACCESS',
         'HARDWARE_CODECS',
+        'LOCAL_INFERENCE',
         'MULTI_THREADED_DSP',
         'OFFLINE_USE',
         'PRESSURE_SENSITIVE_TOOLS',
@@ -461,6 +463,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'SETTINGS_STORAGE',
         'SYSTEM_APPEARANCE',
       ],
+    "What the inference runtime may use on this device (ADR-0062), which the application starts the inference worker with as Phase 06's ML processors are wired into it.":
+      ['LocalInferenceCapabilities', 'ProcessorCount', 'localInferenceCapabilities'],
   },
 };
 

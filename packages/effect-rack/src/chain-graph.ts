@@ -43,6 +43,7 @@ import {
   ProcessorPort,
   processorNodeSettings,
   processorNodeType,
+  type Measurement,
   type ProcessorType,
 } from '@audiogubbins/processors';
 
@@ -81,7 +82,7 @@ export interface MeasureTap {
  * were made for, and the processor a measuring graph taps, if it is one.
  */
 export interface Measuring {
-  readonly measured: ReadonlyMap<ProcessorId, readonly number[]>;
+  readonly measured: ReadonlyMap<ProcessorId, Measurement>;
   readonly at?: ProcessorId;
 }
 

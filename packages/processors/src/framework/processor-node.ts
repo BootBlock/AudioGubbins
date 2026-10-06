@@ -22,6 +22,8 @@ import {
 } from '@audiogubbins/domain';
 import type { SettingValue } from '@audiogubbins/audio-graph';
 
+import type { Measurement } from './whole-pass.js';
+
 /** The settings a parameter, a quality setting, the state and a measurement are written under. */
 const PARAMETER = 'parameter.';
 const QUALITY = 'quality.';
@@ -37,7 +39,7 @@ export function processorNodeSettings(
   processor: ProcessorInstance,
   descriptor: ProcessorDescriptor,
   quality: QualitySettings,
-  measured?: readonly number[],
+  measured?: Measurement,
 ): Readonly<Record<string, SettingValue>> {
   const settings: Record<string, SettingValue> = {};
   for (const parameter of descriptor.parameters) {
@@ -59,7 +61,7 @@ export interface ProcessorNodeReading {
   readonly quality: QualitySettings;
   readonly state?: ProcessorState;
   /** What a whole pass over the node's input measured, where one was made. */
-  readonly measured?: readonly number[];
+  readonly measured?: Measurement;
 }
 
 /** Every setting a node of `descriptor` may hold. */
@@ -112,14 +114,16 @@ export function readProcessorNode(
   const kind = settings[STATE_KIND];
   const stateValues = settings[STATE_VALUES];
   let state: ProcessorState | undefined;
-  if (typeof kind === 'string' && typeof stateValues === 'object') {
+  // State is a person's learned data, stored with the project as a list, so
+  // samples held in memory are never state.
+  if (typeof kind === 'string' && Array.isArray(stateValues)) {
     state = { kind, values: stateValues };
   } else if (kind !== undefined || stateValues !== undefined) {
     problems.push('its state needs both a kind and its values');
   }
   const measured = settings[MEASURED];
   if (measured !== undefined && typeof measured !== 'object') {
-    problems.push('its measurement is not a list of numbers');
+    problems.push('its measurement is neither a list of numbers nor samples');
   }
   return problems.length > 0
     ? { problems }

@@ -16,8 +16,8 @@ function offset(value: number, length = LENGTH): Float32Array {
 }
 
 describe('the DC offset detector', () => {
-  it('finds an offset over the whole audio on the channels it is on, measured as their mean', () => {
-    const found = detect(DC_OFFSET_DETECTOR, [
+  it('finds an offset over the whole audio on the channels it is on, measured as their mean', async () => {
+    const found = await detect(DC_OFFSET_DETECTOR, [
       mixed(programme, offset(0.05)),
       programme,
       mixed(programme, offset(-0.02)),
@@ -36,31 +36,31 @@ describe('the DC offset detector', () => {
     });
   });
 
-  it('measures a negative offset as negative', () => {
-    const [finding] = detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(-0.004))]);
+  it('measures a negative offset as negative', async () => {
+    const [finding] = await detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(-0.004))]);
     expect(Math.abs((finding?.measure.value ?? 0) + 0.004)).toBeLessThan(1e-4);
   });
 
-  it('finds an offset past a thousandth of full scale, and none short of it', () => {
-    expect(detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(0.0015))])).toHaveLength(1);
-    expect(detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(0.0005))])).toEqual([]);
+  it('finds an offset past a thousandth of full scale, and none short of it', async () => {
+    expect(await detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(0.0015))])).toHaveLength(1);
+    expect(await detect(DC_OFFSET_DETECTOR, [mixed(programme, offset(0.0005))])).toEqual([]);
   });
 
-  it('finds no offset that does not stay on one side', () => {
+  it('finds no offset that does not stay on one side', async () => {
     const turning = offset(0.01);
     turning.fill(-0.01, TEST_RATE);
-    expect(detect(DC_OFFSET_DETECTOR, [mixed(programme, turning)])).toEqual([]);
+    expect(await detect(DC_OFFSET_DETECTOR, [mixed(programme, turning)])).toEqual([]);
     const fading = offset(0.01);
     fading.fill(0, 2 * TEST_RATE);
-    expect(detect(DC_OFFSET_DETECTOR, [mixed(programme, fading)])).toEqual([]);
+    expect(await detect(DC_OFFSET_DETECTOR, [mixed(programme, fading)])).toEqual([]);
   });
 
-  it('finds nothing in clean programme, a low tone, or audio shorter than a window', () => {
-    expect(detect(DC_OFFSET_DETECTOR, [programme])).toEqual([]);
+  it('finds nothing in clean programme, a low tone, or audio shorter than a window', async () => {
+    expect(await detect(DC_OFFSET_DETECTOR, [programme])).toEqual([]);
     // Half a cycle of a full-scale 20.5 Hz tone left over in each window
     // gives means of ±0.016, one side and then the other.
-    expect(detect(DC_OFFSET_DETECTOR, [tone(LENGTH, 20.5, 0)])).toEqual([]);
-    expect(detect(DC_OFFSET_DETECTOR, [offset(0.1, TEST_RATE - 1)])).toEqual([]);
-    expect(detect(DC_OFFSET_DETECTOR, [offset(0.1, TEST_RATE)])).toHaveLength(1);
+    expect(await detect(DC_OFFSET_DETECTOR, [tone(LENGTH, 20.5, 0)])).toEqual([]);
+    expect(await detect(DC_OFFSET_DETECTOR, [offset(0.1, TEST_RATE - 1)])).toEqual([]);
+    expect(await detect(DC_OFFSET_DETECTOR, [offset(0.1, TEST_RATE)])).toHaveLength(1);
   });
 });

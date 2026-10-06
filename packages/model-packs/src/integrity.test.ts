@@ -3,10 +3,11 @@ import { describe, expect, it } from 'vitest';
 import type { DomainResult } from '@audiogubbins/domain';
 import type { ByteSource } from '@audiogubbins/project-format';
 
+import { nobleSha256 } from './adapter/noble-sha256.js';
 import { readKept, verifyKept, type Sha256 } from './integrity.js';
 import { refOf, type PackFile } from './manifest.js';
 import type { PackStore } from './pack-store.js';
-import { nodeSha256, patterned, sha256Hex } from './testing/node-sha256.js';
+import { patterned, sha256Hex } from './testing/node-sha256.js';
 import { sampleManifest } from './testing/sample-packs.js';
 
 function sourceOf(bytes: Uint8Array<ArrayBuffer>, reads?: number[]): ByteSource {
@@ -85,7 +86,7 @@ function summingDigest(handed: number[]): Sha256 {
 describe('the integrity check', () => {
   it('accepts a file whose length and SHA-256 are its manifest’s', async () => {
     const bytes = patterned(3_000_000, 4);
-    expect(await verifyFile(sourceOf(bytes), fileOf(bytes), nodeSha256)).toEqual({
+    expect(await verifyFile(sourceOf(bytes), fileOf(bytes), nobleSha256)).toEqual({
       ok: true,
       value: undefined,
     });
@@ -110,7 +111,7 @@ describe('the integrity check', () => {
     const corrupted = bytes.slice();
     corrupted[2_000_000] = (corrupted[2_000_000] ?? 0) ^ 1;
 
-    const result = await verifyFile(sourceOf(corrupted), file, nodeSha256);
+    const result = await verifyFile(sourceOf(corrupted), file, nobleSha256);
     expect(codes(result)).toEqual(['model-pack.file-hash-mismatch']);
     expect(result.ok ? undefined : result.failures[0].details?.['file']).toBe(
       'models/decoder.onnx',
@@ -120,7 +121,7 @@ describe('the integrity check', () => {
   it('refuses a file of another length without reading it', async () => {
     const bytes = patterned(10, 6);
     const reads: number[] = [];
-    const result = await verifyFile(sourceOf(bytes.slice(0, 9), reads), fileOf(bytes), nodeSha256);
+    const result = await verifyFile(sourceOf(bytes.slice(0, 9), reads), fileOf(bytes), nobleSha256);
     expect(codes(result)).toEqual(['model-pack.file-size-mismatch']);
     expect(reads).toEqual([]);
   });
@@ -128,7 +129,7 @@ describe('the integrity check', () => {
   it('reads a large file a mebibyte at a time, never whole', async () => {
     const bytes = patterned(2_500_000, 7);
     const reads: number[] = [];
-    await verifyFile(sourceOf(bytes, reads), fileOf(bytes), nodeSha256);
+    await verifyFile(sourceOf(bytes, reads), fileOf(bytes), nobleSha256);
     expect(reads).toEqual([1_048_576, 1_048_576, 402_848]);
   });
 
@@ -138,19 +139,19 @@ describe('the integrity check', () => {
       size: 10,
       read: (offset, length) => Promise.resolve(bytes.slice(offset, offset + length - 1)),
     };
-    expect(codes(await verifyFile(shrinking, fileOf(bytes), nodeSha256))).toEqual([
+    expect(codes(await verifyFile(shrinking, fileOf(bytes), nobleSha256))).toEqual([
       'model-pack.file-short-read',
     ]);
   });
 
   it('hands over the bytes read for use only once every one matched', async () => {
     const bytes = patterned(1_500_000, 9);
-    const read = await readVerified(sourceOf(bytes), fileOf(bytes), nodeSha256);
+    const read = await readVerified(sourceOf(bytes), fileOf(bytes), nobleSha256);
     expect(read.ok && read.value).toEqual(bytes);
 
     const corrupted = bytes.slice();
     corrupted[1_400_000] = (corrupted[1_400_000] ?? 0) ^ 0x80;
-    const refused = await readVerified(sourceOf(corrupted), fileOf(bytes), nodeSha256);
+    const refused = await readVerified(sourceOf(corrupted), fileOf(bytes), nobleSha256);
     expect(codes(refused)).toEqual(['model-pack.file-hash-mismatch']);
   });
 
@@ -159,7 +160,7 @@ describe('the integrity check', () => {
     const controller = new AbortController();
     controller.abort(new Error('stopped'));
     await expect(
-      readVerified(sourceOf(bytes), fileOf(bytes), nodeSha256, controller.signal),
+      readVerified(sourceOf(bytes), fileOf(bytes), nobleSha256, controller.signal),
     ).rejects.toThrow('stopped');
   });
 
@@ -170,7 +171,7 @@ describe('the integrity check', () => {
       files: [fileOf(first, 'encoder.onnx'), fileOf(second, 'decoder.onnx')],
     });
     expect(
-      (await verifyKept(keeping(sourceOf(first), sourceOf(second)), manifest, nodeSha256)).ok,
+      (await verifyKept(keeping(sourceOf(first), sourceOf(second)), manifest, nobleSha256)).ok,
     ).toBe(true);
 
     const rotten = second.slice();
@@ -178,11 +179,11 @@ describe('the integrity check', () => {
     const refused = await verifyKept(
       keeping(sourceOf(first), sourceOf(rotten)),
       manifest,
-      nodeSha256,
+      nobleSha256,
     );
     expect(refused.ok ? undefined : refused.failures[0].details?.['file']).toBe('decoder.onnx');
 
-    expect(codes(await verifyKept(keeping(sourceOf(first)), manifest, nodeSha256))).toEqual([
+    expect(codes(await verifyKept(keeping(sourceOf(first)), manifest, nobleSha256))).toEqual([
       'model-pack.file-missing',
     ]);
   });

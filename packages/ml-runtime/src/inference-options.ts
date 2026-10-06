@@ -103,7 +103,8 @@ export interface RuntimeSetup {
   readonly filesBase: string;
   /**
    * The SHA-256 of each build's WebAssembly file, in lowercase hexadecimal, as
-   * the build that serves the file states it: the runtime's identity.
+   * the build that serves the file states it: the runtime's identity, which
+   * the file is checked against before the runtime is given it.
    */
   readonly webAssemblySha256: Readonly<Record<RuntimeBuild, string>>;
   readonly capabilities: InferenceCapabilities;

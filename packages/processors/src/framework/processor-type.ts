@@ -43,6 +43,7 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import { readProcessorNode, type ProcessorNodeReading } from './processor-node.js';
+import type { Measurement, Measurer } from './whole-pass.js';
 
 /** The node type a processor type runs as, apart from the engine's own node types. */
 export function processorNodeType(typeKey: string): string {
@@ -77,22 +78,11 @@ export interface ProcessorRun {
   /**
    * What a whole pass over the input measured, for a processor that needs
    * one; absent until the pass is made, when the kernel passes its input on
-   * unchanged so the pass can be made through it.
+   * unchanged so the pass can be made through it. The kernel checks it is
+   * the kind it takes.
    */
-  readonly measured?: readonly number[];
+  readonly measured?: Measurement;
   readonly dsp: CanonicalDsp;
-}
-
-/** What measures a processor's whole input, a block at a time, before it can run. */
-export interface Measurer {
-  add(input: readonly Float32Array[], frames: number): void;
-  /** The measurement, written into the node for its kernel. */
-  result(): readonly number[];
-  /**
-   * Frees what it measures with, whether or not it made its result: a pass
-   * can be cancelled, or fail to read, part way.
-   */
-  release(): void;
 }
 
 /** What a processor type is defined by. */

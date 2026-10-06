@@ -1,6 +1,15 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it, vi } from 'vitest';
 
-import { createCancellationSource, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  createCancellationSource,
+  fail,
+  failure,
+  succeed,
+  type DomainResult,
+} from '@audiogubbins/domain';
 
 import {
   GraphOptimisation,
@@ -10,6 +19,7 @@ import {
   type InferenceOptions,
   type RuntimeSetup,
 } from '../inference-options.js';
+import type { RuntimeFiles } from '../runtime-files.js';
 import { EVERY_CAPABILITY } from '../testing/fake-inference.js';
 import { PINNED, valueOf, vector } from '../testing/port-contract.js';
 import {
@@ -20,11 +30,29 @@ import {
 } from './onnx-runtime.js';
 import type { OnnxSession, OnnxTensor, OnnxValueMetadata } from './onnx-session.js';
 
+/** Each build's WebAssembly file, as the files port reads it: bytes that differ by build. */
+const FILES: Readonly<Record<RuntimeBuild, Uint8Array<ArrayBuffer>>> = {
+  [RuntimeBuild.Cpu]: new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1]),
+  [RuntimeBuild.WebGpu]: new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 2]),
+};
+
+function sha256Of(bytes: Uint8Array): string {
+  return createHash('sha256').update(bytes).digest('hex');
+}
+
 const SETUP: RuntimeSetup = {
   filesBase: 'https://audiogubbins.test/runtime/',
-  webAssemblySha256: { [RuntimeBuild.Cpu]: 'a'.repeat(64), [RuntimeBuild.WebGpu]: 'b'.repeat(64) },
+  webAssemblySha256: {
+    [RuntimeBuild.Cpu]: sha256Of(FILES[RuntimeBuild.Cpu]),
+    [RuntimeBuild.WebGpu]: sha256Of(FILES[RuntimeBuild.WebGpu]),
+  },
   capabilities: EVERY_CAPABILITY,
 };
+
+/** The files port, reading `FILES` and recording which builds it was asked for. */
+function filesOf(read: RuntimeFiles['read'] = (build) => Promise.resolve(succeed(FILES[build]))) {
+  return { read: vi.fn(read) } satisfies RuntimeFiles;
+}
 
 /** A promise and the functions that settle it, so a test decides when. */
 function deferred<TValue>(): {
@@ -110,14 +138,19 @@ function runtimeBuild(
   return { module, created };
 }
 
-/** An adapter over fake builds, with the spies that load them and the faults it reports. */
-function adapterOver(cpu = runtimeBuild(), webGpu = runtimeBuild(), setup = SETUP) {
+/** An adapter over fake builds, with the spies that load them and read their files, and the faults it reports. */
+function adapterOver(cpu = runtimeBuild(), webGpu = runtimeBuild(), files = filesOf()) {
   const load = {
     [RuntimeBuild.Cpu]: vi.fn(() => Promise.resolve(cpu.module)),
     [RuntimeBuild.WebGpu]: vi.fn(() => Promise.resolve(webGpu.module)),
   };
   const reportFault = vi.fn<OnnxRuntimeHost['reportFault']>();
-  return { adapter: new OnnxRuntimeInference(setup, { load, reportFault }), load, reportFault };
+  return {
+    adapter: new OnnxRuntimeInference(SETUP, { load, files, reportFault }),
+    load,
+    files,
+    reportFault,
+  };
 }
 
 const MODEL = new Uint8Array([1, 2, 3]);
@@ -155,7 +188,7 @@ describe('the adapter over ONNX Runtime Web', () => {
       numThreads: 1,
       simd: 'fixed',
       proxy: false,
-      wasmPaths: { wasm: 'https://audiogubbins.test/runtime/ort-wasm-simd-threaded.wasm' },
+      wasmBinary: FILES[RuntimeBuild.Cpu],
     });
     expect(cpu.created).toEqual([
       {
@@ -173,8 +206,70 @@ describe('the adapter over ONNX Runtime Web', () => {
     const session = valueOf(await adapter.open(MODEL, PINNED));
     expect(session.execution).toEqual({
       options: PINNED,
-      runtime: { name: 'onnxruntime-web', version: '1.30.0', webAssemblySha256: 'a'.repeat(64) },
+      runtime: {
+        name: 'onnxruntime-web',
+        version: '1.30.0',
+        webAssemblySha256: sha256Of(FILES[RuntimeBuild.Cpu]),
+      },
     });
+  });
+
+  it('gives the runtime the very bytes the files port read, and sets it no path to fetch from', async () => {
+    const cpu = runtimeBuild();
+    const { adapter, files } = adapterOver(cpu);
+
+    valueOf(await adapter.open(MODEL, PINNED));
+
+    expect(files.read.mock.calls).toEqual([[RuntimeBuild.Cpu]]);
+    expect(cpu.module.env.wasm.wasmBinary).toBe(FILES[RuntimeBuild.Cpu]);
+    expect(Object.keys(cpu.module.env.wasm)).not.toContain('wasmPaths');
+  });
+
+  it('refuses a WebAssembly file whose digest is not the setup’s, naming the file and both digests, and never imports the runtime', async () => {
+    const cpu = runtimeBuild();
+    const tampered = FILES[RuntimeBuild.Cpu].slice();
+    tampered[8] = 9;
+    const { adapter, load } = adapterOver(
+      cpu,
+      runtimeBuild(),
+      filesOf(() => Promise.resolve(succeed(tampered))),
+    );
+
+    const opened = await adapter.open(MODEL, PINNED);
+
+    expect(codesOf(opened)).toEqual(['inference.runtime-file-mismatch']);
+    const reason = opened.ok ? undefined : opened.failures[0];
+    const expected = SETUP.webAssemblySha256[RuntimeBuild.Cpu];
+    expect(reason?.kind).toBe(FailureKind.IntegrityViolation);
+    expect(reason?.summary).toContain('ort-wasm-simd-threaded.wasm');
+    expect(reason?.summary).toContain(sha256Of(tampered));
+    expect(reason?.summary).toContain(expected);
+    expect(reason?.details).toEqual({
+      file: 'ort-wasm-simd-threaded.wasm',
+      expectedSha256: expected,
+      foundSha256: sha256Of(tampered),
+    });
+    expect(load[RuntimeBuild.Cpu]).not.toHaveBeenCalled();
+    expect(cpu.created).toEqual([]);
+    expect(cpu.module.env.wasm).toEqual({});
+  });
+
+  it('reads the file once for every session on its build, and again after a read that failed', async () => {
+    const files = filesOf();
+    files.read.mockResolvedValueOnce(
+      fail(failure('inference.runtime-file-unavailable', FailureKind.Unrecoverable, 'Offline.')),
+    );
+    const { adapter, load } = adapterOver(runtimeBuild(), runtimeBuild(), files);
+
+    expect(codesOf(await adapter.open(MODEL, PINNED))).toEqual([
+      'inference.runtime-file-unavailable',
+    ]);
+    expect(load[RuntimeBuild.Cpu]).not.toHaveBeenCalled();
+    valueOf(await adapter.open(MODEL, PINNED));
+    valueOf(await adapter.open(MODEL, PINNED));
+
+    expect(files.read).toHaveBeenCalledTimes(2);
+    expect(load[RuntimeBuild.Cpu]).toHaveBeenCalledOnce();
   });
 
   it('refuses a pinned session whose backend cannot start, and tries no other', async () => {
@@ -272,10 +367,8 @@ describe('the adapter over ONNX Runtime Web', () => {
     expect(cpu.module.env.wasm.numThreads).toBe(4);
     expect(cpu.created[0]?.intraOpNumThreads).toBe(4);
     expect(webGpu.created[0]?.executionProviders).toEqual(['webgpu']);
-    expect(webGpu.module.env.wasm.wasmPaths).toEqual({
-      wasm: 'https://audiogubbins.test/runtime/ort-wasm-simd-threaded.asyncify.wasm',
-    });
-    expect(onGpu.execution.runtime.webAssemblySha256).toBe('b'.repeat(64));
+    expect(webGpu.module.env.wasm.wasmBinary).toBe(FILES[RuntimeBuild.WebGpu]);
+    expect(onGpu.execution.runtime.webAssemblySha256).toBe(sha256Of(FILES[RuntimeBuild.WebGpu]));
     expect(load[RuntimeBuild.WebGpu]).toHaveBeenCalledOnce();
   });
 

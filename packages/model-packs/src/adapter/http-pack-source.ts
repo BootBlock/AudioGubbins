@@ -1,7 +1,7 @@
 /**
- * The download: a `PackSource` over HTTP, and the one module in the repository
- * that reaches the network (ADR-0062; the network rule names it as its only
- * exception).
+ * The download: a `PackSource` over HTTP, and one of the two modules in the
+ * repository that reach the network (ADR-0062; the network rule names it and
+ * the read of the inference runtime's WebAssembly as its exceptions).
  *
  * It asks the catalogue the build configures, which the application's own
  * origin serves by default, for two things and nothing else: the catalogue,

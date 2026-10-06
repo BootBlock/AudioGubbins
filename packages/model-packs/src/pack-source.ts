@@ -6,11 +6,12 @@
  * at a time, so a download that stopped resumes from the bytes already kept
  * rather than from the start, and the chunks it receives are its progress. Two
  * sources implement it: the download from the catalogue the build configures
- * (`adapter/http-pack-source.ts`, the one module in the repository that reaches
- * the network) and the files a person already has (`imported-pack-source.ts`);
- * both are installed by the same path and checked by the same hashes. A source
- * answers every failure as a result, an abort included, and never delivers a
- * byte past the end of the file it was asked for.
+ * (`adapter/http-pack-source.ts`, one of the two modules in the repository that
+ * reach the network) and the files a person already has
+ * (`imported-pack-source.ts`); both are installed by the same path and checked
+ * by the same hashes. A source answers every failure as a result, an abort
+ * included, and never delivers a byte past the end of the file it was asked
+ * for.
  */
 
 import {

@@ -247,7 +247,9 @@ const PACKAGES = [
     // model through, its adapter over ONNX Runtime Web, which alone names the
     // runtime and loads it on the first session, and the worker that hosts it.
     // The port and the worker's client know no browser, so they run in any
-    // scope; what the device offers the runtime is given, never probed.
+    // scope; what the device offers the runtime is given, never probed. The
+    // worker reads the runtime's WebAssembly from the application's origin, in
+    // one of the two modules in the repository that reach the network.
     dir: 'packages/ml-runtime',
     name: '@audiogubbins/ml-runtime',
     description:
@@ -258,9 +260,10 @@ const PACKAGES = [
     threads: { 'inference-worker.ts': 'dedicated-worker' },
     deps: ['@audiogubbins/domain'],
     devDeps: [],
-    // MIT. Pinned exactly: a pinned render names the runtime build it ran on
-    // (REQ-AUDIO-145), so a version is changed deliberately, never by a range.
-    external: { 'onnxruntime-web': '1.30.0' },
+    // Both MIT, and pinned exactly. A pinned render names the runtime build it
+    // ran on (REQ-AUDIO-145), so its version changes deliberately, never by a
+    // range; the hashes check its WebAssembly against that name before it runs.
+    external: { '@noble/hashes': '2.4.0', 'onnxruntime-web': '1.30.0' },
     externalDev: {},
   },
   {
@@ -570,11 +573,12 @@ const PACKAGES = [
   },
   {
     // Model packs (ADR-0062): the manifest and its reader, the install state
-    // machine, the integrity check, the installer over a source port and a
-    // store port, and which processors a pack makes available. The download
-    // adapter is the one module in the repository that reaches the network.
-    // Not portable: its ports speak the project format's byte ports, which
-    // the storage packages implement, and the storage package keeps packs.
+    // machine, the integrity check and the streaming SHA-256 it runs on, the
+    // installer over a source port and a store port, and which processors a
+    // pack makes available. The download adapter is one of the two modules in
+    // the repository that reach the network. Not portable: its ports speak the
+    // project format's byte ports, which the storage packages implement, and
+    // the storage package keeps packs.
     dir: 'packages/model-packs',
     name: '@audiogubbins/model-packs',
     description:
@@ -583,7 +587,10 @@ const PACKAGES = [
     jsx: false,
     deps: ['@audiogubbins/domain', '@audiogubbins/ml-runtime', '@audiogubbins/project-format'],
     devDeps: [],
-    external: {},
+    // MIT, audited, with no dependencies: the streaming SHA-256 the integrity
+    // check runs, the same code in the browser and in Node, since Web Crypto
+    // hashes only a whole buffer. Pinned exactly, as every dependency is.
+    external: { '@noble/hashes': '2.4.0' },
     externalDev: {},
   },
   {
