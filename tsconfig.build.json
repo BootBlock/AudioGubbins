@@ -42,6 +42,15 @@
       "path": "./packages/audio-engine/scopes/any"
     },
     {
+      "path": "./packages/ml-runtime"
+    },
+    {
+      "path": "./packages/ml-runtime/scopes/any"
+    },
+    {
+      "path": "./packages/ml-runtime/scopes/dedicated-worker"
+    },
+    {
       "path": "./packages/processors"
     },
     {

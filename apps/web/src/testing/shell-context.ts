@@ -62,6 +62,7 @@ export const CAPABLE: CapabilityEnvironment = {
   isCrossOriginIsolated: true,
   hasAudioWorklet: true,
   compilesWebAssembly: true,
+  validatesWebAssemblySimd: true,
   choosesAudioOutput: true,
   hasWebWorkers: true,
   hasWebGpu: true,

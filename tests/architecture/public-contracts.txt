@@ -22,6 +22,9 @@ Published paths
   @audiogubbins/input/testing
   @audiogubbins/media-store
   @audiogubbins/media-store/testing
+  @audiogubbins/ml-runtime
+  @audiogubbins/ml-runtime/testing
+  @audiogubbins/ml-runtime/threads/*
   @audiogubbins/processors
   @audiogubbins/processors/testing
   @audiogubbins/project-commands
@@ -1015,6 +1018,7 @@ Published paths
   readonly CapabilityEnvironment.isCrossOriginIsolated: boolean
   readonly CapabilityEnvironment.hasAudioWorklet: boolean
   readonly CapabilityEnvironment.compilesWebAssembly: boolean
+  readonly CapabilityEnvironment.validatesWebAssemblySimd: boolean
   readonly CapabilityEnvironment.choosesAudioOutput: boolean
   readonly CapabilityEnvironment.hasWebWorkers: boolean
   readonly CapabilityEnvironment.hasWebGpu: boolean
@@ -1033,8 +1037,8 @@ Published paths
   readonly CapabilityEnvironment.comparesNames: boolean
   readonly CapabilityEnvironment.hasVideoFrameCallback: boolean
   readonly CapabilityEnvironment.hasFullscreen: boolean
-  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; }
-  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webgl2" | "webgpu"
+  const CapabilityKey: { readonly OriginPrivateFileSystem: "origin-private-file-system"; readonly FileSystemAccess: "file-system-access"; readonly SharedArrayBuffer: "shared-array-buffer"; readonly CrossOriginIsolation: "cross-origin-isolation"; readonly AudioWorklet: "audio-worklet"; readonly WebAssembly: "webassembly"; readonly WebAssemblySimd: "webassembly-simd"; readonly AudioOutputSelection: "audio-output-selection"; readonly WebWorkers: "web-workers"; readonly WebGpu: "webgpu"; readonly WebGl2: "webgl2"; readonly OffscreenCanvas: "offscreen-canvas"; readonly WebCodecs: "web-codecs"; readonly MediaDevices: "media-devices"; readonly ServiceWorker: "service-worker"; readonly StorageEstimate: "storage-estimate"; readonly PersistentStorage: "persistent-storage"; readonly PointerEvents: "pointer-events"; readonly PointerPressure: "pointer-pressure"; readonly LocalStorage: "local-storage"; readonly MediaQueries: "media-queries"; readonly KeyboardLayoutMap: "keyboard-layout-map"; readonly NameComparison: "name-comparison"; readonly VideoFrameCallback: "video-frame-callback"; readonly Fullscreen: "fullscreen"; }
+  type CapabilityKey = "audio-output-selection" | "audio-worklet" | "cross-origin-isolation" | "file-system-access" | "fullscreen" | "keyboard-layout-map" | "local-storage" | "media-devices" | "media-queries" | "name-comparison" | "offscreen-canvas" | "origin-private-file-system" | "persistent-storage" | "pointer-events" | "pointer-pressure" | "service-worker" | "shared-array-buffer" | "storage-estimate" | "video-frame-callback" | "web-codecs" | "web-workers" | "webassembly" | "webassembly-simd" | "webgl2" | "webgpu"
   interface CapabilityPresent
   readonly CapabilityPresent.key: CapabilityKey
   readonly CapabilityPresent.available: true
@@ -1074,7 +1078,7 @@ Published paths
   readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
   type HostYielding = { readonly kind: "macrotask"; readonly createChannel: () => MessageChannel; } | { readonly kind: "none"; } | { readonly kind: "scheduler"; readonly yieldNow: () => Promise<void>; }
-  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; }
+  type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "webassembly-simd"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
@@ -2914,6 +2918,75 @@ Published paths
   function generatedSource(size: number, seed: number): ObservedSource
   function memorySource(bytes: Uint8Array<ArrayBufferLike>): ObservedSource
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
+
+@audiogubbins/ml-runtime
+  const GraphOptimisation: { readonly Disabled: "disabled"; readonly Basic: "basic"; readonly Extended: "extended"; readonly Layout: "layout"; readonly All: "all"; }
+  type GraphOptimisation = "all" | "basic" | "disabled" | "extended" | "layout"
+  interface InferenceCapabilities
+  readonly InferenceCapabilities.fixedWidthSimd: boolean
+  readonly InferenceCapabilities.threads: number
+  readonly InferenceCapabilities.webGpu: boolean
+  interface InferenceExecution
+  readonly InferenceExecution.options: InferenceOptions
+  readonly InferenceExecution.runtime: RuntimeIdentity
+  const InferenceMode: { readonly Pinned: "pinned"; readonly Preview: "preview"; }
+  type InferenceOptions = { readonly kind: typeof InferenceMode.Pinned; readonly graphOptimisation: GraphOptimisation; } | { readonly kind: typeof InferenceMode.Preview; readonly graphOptimisation: GraphOptimisation; readonly accelerator: PreviewAccelerator; }
+  interface InferencePort
+  InferencePort.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  interface InferenceSession
+  readonly InferenceSession.inputs: readonly TensorInfo[]
+  readonly InferenceSession.outputs: readonly TensorInfo[]
+  readonly InferenceSession.execution: InferenceExecution
+  InferenceSession.run: (inputs: ReadonlyMap<string, Tensor>, signal?: CancellationSignal) => Promise<DomainResult<ReadonlyMap<string, Tensor>>>
+  InferenceSession.release: () => void
+  interface InferenceWorkerPort
+  InferenceWorkerPort.post: (message: ToInferenceWorker, transfer: readonly ArrayBuffer[]) => void
+  InferenceWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  InferenceWorkerPort.terminate: () => void
+  type ModelBytes = Uint8Array<ArrayBuffer>
+  type PreviewAccelerator = { readonly kind: typeof PreviewAcceleratorKind.Threads; readonly threads: number; } | { readonly kind: typeof PreviewAcceleratorKind.WebGpu; }
+  const PreviewAcceleratorKind: { readonly Threads: "threads"; readonly WebGpu: "webgpu"; }
+  const RuntimeBuild: { readonly Cpu: "cpu"; readonly WebGpu: "webgpu"; }
+  type RuntimeBuild = "cpu" | "webgpu"
+  interface RuntimeIdentity
+  readonly RuntimeIdentity.name: string
+  readonly RuntimeIdentity.version: string
+  readonly RuntimeIdentity.webAssemblySha256: string
+  interface RuntimeSetup
+  readonly RuntimeSetup.filesBase: string
+  readonly RuntimeSetup.webAssemblySha256: Readonly<Record<RuntimeBuild, string>>
+  readonly RuntimeSetup.capabilities: InferenceCapabilities
+  interface Tensor
+  readonly Tensor.data: Float32Array<ArrayBuffer>
+  readonly Tensor.dims: readonly number[]
+  type TensorDimension = number | string
+  interface TensorInfo
+  readonly TensorInfo.name: string
+  readonly TensorInfo.dims: readonly TensorDimension[]
+  class WorkerInference
+  new WorkerInference(options: { readonly createWorker: () => InferenceWorkerPort; readonly setup: RuntimeSetup; }): WorkerInference
+  readonly WorkerInference.#createWorker: () => InferenceWorkerPort
+  readonly WorkerInference.#setup: RuntimeSetup
+  readonly WorkerInference.#connections: Map<string, Connection>
+  WorkerInference.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  WorkerInference.dispose: () => void
+  function tensor(data: Float32Array<ArrayBuffer>, dims: readonly number[]): DomainResult<Tensor>
+
+@audiogubbins/ml-runtime/testing
+  const EVERY_CAPABILITY: InferenceCapabilities
+  const FAKE_RUNTIME: RuntimeIdentity
+  class FakeInference
+  new FakeInference(model: FakeModel, capabilities?: InferenceCapabilities): FakeInference
+  readonly FakeInference.#model: FakeModel
+  readonly FakeInference.#capabilities: InferenceCapabilities
+  readonly FakeInference.opened: InferenceOptions[]
+  FakeInference.#open: number
+  FakeInference.openSessions: number
+  FakeInference.open: (_model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  interface FakeModel
+  readonly FakeModel.inputs: readonly TensorInfo[]
+  readonly FakeModel.outputs: readonly TensorInfo[]
+  FakeModel.run: (inputs: ReadonlyMap<string, Tensor>) => ReadonlyMap<string, Tensor>
 
 @audiogubbins/processors
   interface Assistant
@@ -5369,6 +5442,34 @@ packages/media-store/src/testing/memory-tree.ts
   FileBody.length: number
   FileBody.append: (chunk: Uint8Array) => void
   FileBody.slice: (start: number, end: number) => Uint8Array<ArrayBuffer>
+
+packages/ml-runtime/src/protocol/inference-messages.ts
+  type FromInferenceWorker = { readonly kind: typeof FromInferenceWorkerKind.Failed; readonly call: number; readonly failures: InferenceFailures; } | { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly call: number; readonly inputs: readonly TensorInfo[]; readonly outputs: readonly TensorInfo[]; readonly execution: InferenceExecution; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly call: number; readonly outputs: readonly NamedTensor[]; } | { readonly kind: typeof FromInferenceWorkerKind.Refused; readonly failures: InferenceFailures; }
+  type InferenceFailures = readonly [DomainFailure, ...DomainFailure[]]
+  interface NamedTensor extends Tensor
+  readonly NamedTensor.name: string
+  readonly NamedTensor.data: Float32Array<ArrayBuffer>
+  readonly NamedTensor.dims: readonly number[]
+  type ToInferenceWorker = { readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; } | { readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: ModelBytes; readonly options: InferenceOptions; } | { readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; } | { readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; } | { readonly kind: typeof ToInferenceWorkerKind.Start; readonly setup: RuntimeSetup; }
+
+packages/ml-runtime/src/worker-inference.ts
+  class Connection
+  new Connection(worker: InferenceWorkerPort, setup: RuntimeSetup, ended: () => void): Connection
+  readonly Connection.#worker: InferenceWorkerPort
+  readonly Connection.#ended: () => void
+  readonly Connection.#pending: Map<number, Pending>
+  Connection.#calls: number
+  Connection.#failure: DomainFailureResult | undefined
+  Connection.open: (bytes: ModelBytes, options: InferenceOptions, signal: CancellationSignal | undefined) => Promise<DomainResult<InferenceSession>>
+  Connection.run: (session: number, inputs: ReadonlyMap<string, Tensor>, signal: CancellationSignal | undefined) => Promise<DomainResult<ReadonlyMap<string, Tensor>>>
+  Connection.release: (session: number) => void
+  Connection.close: (reason: string) => void
+  Connection.#nextCall: () => number
+  Connection.#await: <TValue>(call: number, signal: CancellationSignal | undefined, pending: (settle: (result: DomainResult<TValue>) => void) => Pending) => Promise<DomainResult<TValue>>
+  Connection.#receive: (value: unknown) => void
+  Connection.#settle: (pending: Pending, reply: Exclude<FromInferenceWorker, { kind: "refused"; }>) => void
+  Connection.#fail: (summary: string) => void
+  type Pending = { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly settle: (result: DomainResult<InferenceSession>) => void; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly session: number; readonly settle: (result: DomainResult<ReadonlyMap<string, Tensor>>) => void; }
 
 packages/processors/src/framework/processor-type.ts
   interface Measurer

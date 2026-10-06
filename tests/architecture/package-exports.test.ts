@@ -273,6 +273,30 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'recommendation',
       ],
   },
+  '@audiogubbins/ml-runtime': {
+    "The inference port and its client over the inference workers (ADR-0062), which Phase 06's machine-learning processors run models through and the application starts the workers for, as each is built.":
+      [
+        'GraphOptimisation',
+        'InferenceCapabilities',
+        'InferenceExecution',
+        'InferenceMode',
+        'InferenceOptions',
+        'InferencePort',
+        'InferenceSession',
+        'InferenceWorkerPort',
+        'ModelBytes',
+        'PreviewAccelerator',
+        'PreviewAcceleratorKind',
+        'RuntimeBuild',
+        'RuntimeIdentity',
+        'RuntimeSetup',
+        'Tensor',
+        'TensorDimension',
+        'TensorInfo',
+        'WorkerInference',
+        'tensor',
+      ],
+  },
   '@audiogubbins/effect-rack': {
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
       ['ChainGraph', 'chainGraph'],

@@ -243,6 +243,27 @@ const PACKAGES = [
     externalDev: {},
   },
   {
+    // Local inference (ADR-0062): the port a machine-learning processor runs a
+    // model through, its adapter over ONNX Runtime Web, which alone names the
+    // runtime and loads it on the first session, and the worker that hosts it.
+    // The port and the worker's client know no browser, so they run in any
+    // scope; what the device offers the runtime is given, never probed.
+    dir: 'packages/ml-runtime',
+    name: '@audiogubbins/ml-runtime',
+    description:
+      'Local inference: the port a machine-learning processor runs a model through, its adapter over ONNX Runtime Web, and the worker that hosts it.',
+    dom: false,
+    jsx: false,
+    portable: true,
+    threads: { 'inference-worker.ts': 'dedicated-worker' },
+    deps: ['@audiogubbins/domain'],
+    devDeps: [],
+    // MIT. Pinned exactly: a pinned render names the runtime build it ran on
+    // (REQ-AUDIO-145), so a version is changed deliberately, never by a range.
+    external: { 'onnxruntime-web': '1.30.0' },
+    externalDev: {},
+  },
+  {
     // The processor types: each one object that states its descriptor and
     // makes its kernel on the engine (ADR-0061). No browser, so a processor
     // runs on the feeder, the render worker and the worklet alike.

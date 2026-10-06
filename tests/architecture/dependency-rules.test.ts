@@ -212,6 +212,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   '@audiogubbins/diagnostics': ['@audiogubbins/text', '@audiogubbins/version'],
   '@audiogubbins/audio-graph': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/codecs': ['@audiogubbins/domain'],
+  '@audiogubbins/ml-runtime': ['@audiogubbins/domain'],
   '@audiogubbins/clipboard': [
     '@audiogubbins/domain',
     '@audiogubbins/project-format',
@@ -784,6 +785,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'history',
     'input',
     'media-store',
+    'ml-runtime',
     'processors',
     'project-commands',
     'project-format',
@@ -922,6 +924,22 @@ describe('third-party libraries stay behind their adapters', () => {
       'packages/workspace/src/styles/workspace.css',
       'tests/e2e/dock.ts',
     ]);
+  });
+
+  it('imports the inference runtime only from its adapter, and there only when a session needs it', () => {
+    // ADR-0062: only the adapter knows ONNX Runtime Web, and REQ-AUDIO-139
+    // keeps the runtime out of the base bundle, so the adapter reaches it by
+    // `import()` alone, which the bundler splits into chunks of its own.
+    const runtime = /^onnxruntime-(web|common)$/;
+    const importing = ALL_SOURCES.filter((path) => importsPackage(path, runtime));
+    expect(importing).toEqual(['packages/ml-runtime/src/adapter/onnx-runtime.ts']);
+
+    const staticImports = importing.flatMap((path) =>
+      [...readCode(path).matchAll(/\b(?:from|import)\s*['"`](onnxruntime-[^'"`]+)['"`]/g)].map(
+        (match) => match[1],
+      ),
+    );
+    expect(staticImports).toEqual([]);
   });
 
   it('imports the primitive library only from the design system primitives', () => {

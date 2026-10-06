@@ -30,6 +30,7 @@ const PORTABLE = [
   'packages/waveform',
   'packages/processors',
   'packages/effect-rack',
+  'packages/ml-runtime',
 ];
 
 /** The library each thread entry's scope is compiled with, by entry. */
@@ -48,6 +49,10 @@ const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly 
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },
     'packages/storage-runtime/src/threads/storage-worker.ts': {
+      scope: 'dedicated-worker',
+      lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
+    },
+    'packages/ml-runtime/src/threads/inference-worker.ts': {
       scope: 'dedicated-worker',
       lib: ['lib.es2023.d.ts', 'lib.webworker.d.ts'],
     },

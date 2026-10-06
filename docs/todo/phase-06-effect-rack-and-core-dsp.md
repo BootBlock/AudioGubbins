@@ -115,6 +115,14 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     (classification, restoration, repair), which recommend steps in one
     order and apply nothing. Running a detection over a stream is the
     application's, in a worker.
+17. **Local inference.** `packages/ml-runtime` holds the inference port
+    (no browser global), `InferenceOptions` (pinned: WebAssembly, fixed
+    SIMD, one thread, full precision, a stated optimisation level, never a
+    fallback; or preview, which says so), the adapter over
+    `onnxruntime-web` 1.30.0, imported only by `import()` and only in the
+    adapter (cruise rules), and the inference worker with its client, one
+    worker per runtime configuration. `packages/capabilities` probes
+    fixed-width WebAssembly SIMD and states `LOCAL_INFERENCE`.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -250,8 +258,29 @@ pitch processors" with `verify:commit` green:
 - The browser-global rule no longer reads a member called `window` as the
   global.
 
-Next, in order: `AudioDetector` and the assistants (ADR-0062), the ML
-runtime and packs, and the rest of "Remaining" in the session handover.
+Then, committed separately with `verify:commit` green: the detectors and
+assistants (decision 16), and `packages/ml-runtime` (decision 17).
+
+Open points from `ml-runtime`:
+
+- The runtime's identity hash is the caller's statement; nothing checks it
+  against the WebAssembly file the runtime loads. Better: the application
+  fetches the file from its own origin, verifies its hash, and gives the
+  bytes to the runtime (`wasmBinary`), so the hash is of what runs and the
+  runtime makes no request of its own.
+- The runtime sorts a failure into "runtime unavailable" or "model
+  refused" by its message text, the only signal it gives.
+- A WebGPU preview may run some operators on the CPU and still report
+  WebGPU; it is a preview, so it is disclosed as one.
+- `NOTICE` names `THIRD-PARTY-NOTICES.md`, "generated from the committed
+  lockfiles", which neither exists nor has a generator, and no phase owns
+  it. This phase is the first to ship third-party runtime files
+  (`onnxruntime-web`, MIT, and its MIT, Apache-2.0, ISC and BSD-3-Clause
+  dependencies) to the browser, so it adds the generator and the file.
+
+Next, in order: `packages/model-packs` (brief written, outside the
+repository), the three packs, the application's detection worker and the
+rest of "Remaining" in the session handover.
 
 Known limits the agents stated: de-click repairs a click whose context
 holds another from corrupted context; de-pop lowers music below its

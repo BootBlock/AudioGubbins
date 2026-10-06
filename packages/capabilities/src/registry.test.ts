@@ -32,6 +32,7 @@ function environmentWhere(available: boolean): CapabilityEnvironment {
     isCrossOriginIsolated: available,
     hasAudioWorklet: available,
     compilesWebAssembly: available,
+    validatesWebAssemblySimd: available,
     choosesAudioOutput: available,
     hasWebWorkers: available,
     hasWebGpu: available,
@@ -255,6 +256,7 @@ describe('degradedFeatures', () => {
       ['reference-picture', FeatureStatus.Reduced],
       ['full-screen-picture', FeatureStatus.Unavailable],
       ['waveform-cache', FeatureStatus.Unavailable],
+      ['local-inference', FeatureStatus.Unavailable],
     ]);
   });
 
@@ -299,6 +301,45 @@ describe('degradedFeatures', () => {
     expect(registry.featureAvailability(NAMING).explanation).toBe(
       'This browser cannot compare two names the way AudioGubbins does on every machine. Workspaces and shortcut profiles cannot be saved as new ones, copied, renamed or imported, and the built-in shortcuts cannot be changed. Those you have are kept, and you can still switch between them.',
     );
+  });
+});
+
+describe('local machine-learning processing (ADR-0062)', () => {
+  it('is unavailable without fixed-width WebAssembly SIMD, and says so', () => {
+    const registry = registryFor({ ...CAPABLE, validatesWebAssemblySimd: false });
+
+    const degraded = registry.degradedFeatures(ALL_FEATURES);
+
+    expect(degraded.map((feature) => [feature.featureKey, feature.status])).toEqual([
+      ['local-inference', FeatureStatus.Unavailable],
+    ]);
+    expect(degraded[0]?.explanation).toMatch(
+      /^This browser cannot run WebAssembly SIMD, which local machine-learning processing needs\. Without what it requires, processors that need a model pack cannot run/,
+    );
+  });
+
+  it('is unavailable where WebAssembly cannot be compiled, though the engine knows SIMD', () => {
+    // Validating the vector module compiles nothing, so a page whose security
+    // policy forbids compilation answers yes to SIMD and still cannot run it.
+    const registry = registryFor({ ...CAPABLE, compilesWebAssembly: false });
+    expect(
+      registry
+        .degradedFeatures(ALL_FEATURES)
+        .find((feature) => feature.featureKey === 'local-inference')?.status,
+    ).toBe(FeatureStatus.Unavailable);
+  });
+
+  it('is only reduced without WebGPU or shared memory, which serve previews alone', () => {
+    for (const environment of [
+      { ...CAPABLE, hasWebGpu: false },
+      { ...CAPABLE, hasSharedArrayBuffer: false },
+    ]) {
+      const local = registryFor(environment)
+        .degradedFeatures(ALL_FEATURES)
+        .find((feature) => feature.featureKey === 'local-inference');
+      expect(local?.status).toBe(FeatureStatus.Reduced);
+      expect(local?.explanation).toMatch(/previews run on one thread, as final renders always do/);
+    }
   });
 });
 

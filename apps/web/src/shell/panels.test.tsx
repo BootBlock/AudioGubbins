@@ -63,6 +63,7 @@ function bareEnvironment(): CapabilityEnvironment {
     isCrossOriginIsolated: false,
     hasAudioWorklet: false,
     compilesWebAssembly: false,
+    validatesWebAssemblySimd: false,
     choosesAudioOutput: false,
     hasWebWorkers: false,
     hasWebGpu: false,

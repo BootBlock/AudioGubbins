@@ -23,6 +23,10 @@
  *   audio-runtime   the browser host of the engine: context, worklet, render
  *                   worker and their messages; depends on domain, diagnostics,
  *                   capabilities, audio-graph and audio-engine (ADR-0030)
+ *   ml-runtime      local inference: the port, its adapter over ONNX Runtime
+ *                   Web, which alone imports the runtime and only by import(),
+ *                   and the worker that hosts it; depends on domain alone
+ *                   (ADR-0062)
  *   timeline        the time axis as values: viewport, formats, ruler, the
  *                   selection set and snapping; depends on domain alone, knows
  *                   no thread or browser (ADR-0040)
@@ -149,7 +153,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -201,6 +205,38 @@ module.exports = {
       from: { path: '^packages/audio-runtime/' },
       to: {
         path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|processors)/)',
+      },
+    },
+    {
+      name: 'ml-runtime-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Local inference is a port, its adapter over the runtime and the worker that hosts it ' +
+        '(ADR-0062). It depends on the domain alone, whose results and cancellation it speaks, ' +
+        'so the processors that call it and the application that starts its worker sit above it.',
+      from: { path: '^packages/ml-runtime/' },
+      to: { path: '^packages/(?!(ml-runtime|domain)/)' },
+    },
+    {
+      name: 'onnx-runtime-stays-behind-its-adapter',
+      severity: 'error',
+      comment:
+        'ADR-0062: only the adapter knows ONNX Runtime Web, so replacing the runtime is a change ' +
+        'to one module, and the port, the worker client and every processor know none of it.',
+      from: { pathNot: '^packages/ml-runtime/src/adapter/onnx-runtime\\.ts$' },
+      to: { dependencyTypes: THIRD_PARTY, path: thirdParty('onnxruntime-(web|common)') },
+    },
+    {
+      name: 'onnx-runtime-loaded-only-when-used',
+      severity: 'error',
+      comment:
+        'REQ-AUDIO-139: the base bundle carries none of the runtime. Its adapter imports it by a ' +
+        'dynamic import() on the first session, never statically, so the bundler splits it out.',
+      from: { path: '^packages/ml-runtime/src/adapter/onnx-runtime\\.ts$' },
+      to: {
+        dependencyTypes: THIRD_PARTY,
+        path: thirdParty('onnxruntime-(web|common)'),
+        dynamic: false,
       },
     },
     {

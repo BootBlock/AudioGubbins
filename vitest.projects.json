@@ -66,6 +66,14 @@
       ]
     },
     {
+      "name": "ml-runtime",
+      "root": "packages/ml-runtime",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "processors",
       "root": "packages/processors",
       "environment": "node",
