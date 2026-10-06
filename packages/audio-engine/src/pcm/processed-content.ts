@@ -11,8 +11,9 @@
  * Reads are made in order, as every reader of a plan makes them. A read
  * behind the last one starts the run again from the stream's start, so it is
  * still the canonical answer. A preview may instead start part way through,
- * the run begun the chain's lead-in before the frame asked for, which is what
- * playback does after a seek, and says it is a preview (ADR-0061).
+ * the run begun at least the chain's lead-in before the frame asked for, on
+ * the chain's frame grid, which is what playback does after a seek, and says
+ * it is a preview (ADR-0061).
  */
 
 import {
@@ -143,7 +144,9 @@ export class ProcessedContent implements ContentReader {
       );
     }
     const from =
-      this.#settings.start === ProcessedStart.Preview ? Math.max(0, start - run.leadIn) : 0;
+      this.#settings.start === ProcessedStart.Preview
+        ? Math.floor(Math.max(0, start - run.leadIn) / run.frameGrid) * run.frameGrid
+        : 0;
     const running: Running = { run, raw: from, produced: from };
     this.#running = running;
     await this.#consume(running, run.latency, undefined, 0, signal);

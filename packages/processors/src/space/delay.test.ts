@@ -12,7 +12,7 @@ import {
   processorValues,
   runProcessor,
 } from '../testing/processor-run.js';
-import { lastAudibleFrame, runWithChange } from '../testing/filter-measures.js';
+import { lastAudibleFrame } from '../testing/filter-measures.js';
 import { DELAY } from './delay.js';
 import { setLayout } from '../testing/space-measures.js';
 
@@ -105,8 +105,8 @@ describe('the delay', () => {
     const input = [noise(9, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { time: 20, feedback: 60 } };
     const change = { frame: 3_001, name: 'time', value: 33.3 };
-    const [steady] = runWithChange(DELAY, settings, input, [4_096], change);
-    const [cut] = runWithChange(DELAY, settings, input, [1, 7, 128, 333, 31], change);
+    const [steady] = runProcessor(DELAY, settings, input, [4_096], change);
+    const [cut] = runProcessor(DELAY, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

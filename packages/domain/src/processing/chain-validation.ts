@@ -22,6 +22,7 @@ import {
 } from './effect-chain.js';
 import type { ProcessorDescriptor } from './processor-descriptor.js';
 import { MAXIMUM_STATE_VALUES } from './processor-version.js';
+import type { SampleRate } from '../time/sample-time.js';
 
 /** The processor types a build has, by type key. */
 export type ProcessorCatalogue = ReadonlyMap<string, ProcessorDescriptor>;
@@ -135,12 +136,33 @@ function unknownType(processor: ProcessorInstance): DomainResult<never> {
   );
 }
 
+/** Why `slot` cannot run for want of the state `descriptor` needs, or nothing. */
+function stateProblem(
+  slot: ProcessorInstance,
+  descriptor: ProcessorDescriptor,
+  input: ChannelLayout,
+  sampleRate: SampleRate,
+): DomainResult<void> {
+  const required = descriptor.state;
+  if (required === undefined) return succeed(undefined);
+  const { state } = slot;
+  if (state?.kind !== required.kind) {
+    return fail(
+      failure('processor.state-missing', FailureKind.Rejected, required.missing, {
+        details: { slotId: slot.id },
+      }),
+    );
+  }
+  return required.check(state, input, sampleRate, slot.values);
+}
+
 /** The layout one slot passes on, applied or bypassed. */
 function slotLayout(
   slot: ChainSlot,
   applied: boolean,
   catalogue: ProcessorCatalogue,
   input: ChannelLayout,
+  sampleRate: SampleRate,
 ): DomainResult<ChannelLayout> {
   let output: DomainResult<ChannelLayout>;
   if (slot.kind === 'processor') {
@@ -149,13 +171,15 @@ function slotLayout(
     const valid = validateProcessorInstance(slot, descriptor);
     if (!valid.ok) return valid;
     if (!applied) return succeed(input);
+    const state = stateProblem(slot, descriptor, input, sampleRate);
+    if (!state.ok) return state;
     output = descriptor.outputLayout(input, slot.values);
   } else {
     if (!applied) {
       const checked = checkInstances([slot], catalogue);
       return checked.ok ? succeed(input) : checked;
     }
-    output = groupLayout(slot.branches, catalogue, input);
+    output = groupLayout(slot.branches, catalogue, input, sampleRate);
   }
   if (!output.ok) return output;
   if (slot.mix < 1 && !layoutsMatch(output.value, input)) {
@@ -176,10 +200,11 @@ function groupLayout(
   branches: readonly { readonly slots: readonly ChainSlot[] }[],
   catalogue: ProcessorCatalogue,
   input: ChannelLayout,
+  sampleRate: SampleRate,
 ): DomainResult<ChannelLayout> {
   let agreed: ChannelLayout | undefined;
   for (const branch of branches) {
-    const made = seriesLayout(branch.slots, catalogue, input);
+    const made = seriesLayout(branch.slots, catalogue, input, sampleRate);
     if (!made.ok) return made;
     if (agreed !== undefined && !layoutsMatch(agreed, made.value)) {
       return fail(
@@ -200,11 +225,12 @@ function seriesLayout(
   slots: readonly ChainSlot[],
   catalogue: ProcessorCatalogue,
   input: ChannelLayout,
+  sampleRate: SampleRate,
 ): DomainResult<ChannelLayout> {
   const applied = new Set(appliedSlots(slots));
   let layout = input;
   for (const slot of slots) {
-    const made = slotLayout(slot, applied.has(slot), catalogue, layout);
+    const made = slotLayout(slot, applied.has(slot), catalogue, layout, sampleRate);
     if (!made.ok) return made;
     layout = made.value;
   }
@@ -212,13 +238,15 @@ function seriesLayout(
 }
 
 /**
- * The layout the chain makes of `input`, checking every processor against the
- * catalogue, or the first reason it cannot run.
+ * The layout the chain makes of `input` at `sampleRate`, checking every
+ * processor against the catalogue and every state a processor needs against
+ * its requirement, or the first reason it cannot run.
  */
 export function chainOutputLayout(
   chain: Pick<EffectChain, 'slots'>,
   catalogue: ProcessorCatalogue,
   input: ChannelLayout,
+  sampleRate: SampleRate,
 ): DomainResult<ChannelLayout> {
-  return seriesLayout(chain.slots, catalogue, input);
+  return seriesLayout(chain.slots, catalogue, input, sampleRate);
 }

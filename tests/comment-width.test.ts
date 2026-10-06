@@ -355,7 +355,11 @@ function inTheTree(lines: (comments: FileComments) => readonly CommentLine[]): r
   );
 }
 
-describe('the width a comment is wrapped at', () => {
+// The first test to walk the tree reads every written file: over 2 s alone,
+// growing with the tree, and more than twice that under the whole suite's
+// load, so the walks are given a budget of their own rather than Vitest's
+// five-second default.
+describe('the width a comment is wrapped at', { timeout: 30_000 }, () => {
   it('writes comments at a width within the print width, which Prettier leaves them past', () => {
     expect(WRITTEN_AT).toBeLessThanOrEqual(PRINT_WIDTH);
   });

@@ -1,9 +1,8 @@
 /**
  * Measures the filter tests hold their processors to: a response computed
  * from coefficients by complex arithmetic, a response measured from an
- * impulse response by the canonical FFT, the gain a processor gives a sine,
- * and a run that changes a parameter at a chosen frame of the stream however
- * the stream is cut into blocks.
+ * impulse response by the canonical FFT, and the gain a processor gives a
+ * sine.
  */
 
 import {
@@ -14,17 +13,11 @@ import {
   type ParameterValue,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { REFERENCE_DSP, blockView, type AudioFrameBlock } from '@audiogubbins/audio-engine';
+import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import { sine } from '@audiogubbins/test-fixtures';
 
 import type { ProcessorType } from '../framework/processor-type.js';
-import {
-  TEST_BLOCK_FRAMES,
-  TEST_RATE,
-  processorKernel,
-  runProcessor,
-  type RunSettings,
-} from './index.js';
+import { TEST_RATE, runProcessor } from './index.js';
 import type { BiquadCascade } from '../filters/biquad.js';
 
 /**
@@ -123,55 +116,4 @@ export function sineGain(
   const input = sine(frequency, { amplitude, length }).channels[0] ?? new Float32Array(0);
   const [output] = runProcessor(type, { layout: StandardLayouts.mono, values }, [input]);
   return decibels(rms(output ?? input, length / 2) / rms(input, length / 2));
-}
-
-/** A parameter change made at a frame of the stream. */
-export interface Change {
-  readonly frame: number;
-  readonly name: string;
-  readonly value: number;
-}
-
-/**
- * The output of a kernel of `type` for `input`, in blocks whose sizes cycle
- * through `blocks`, cut where `change` falls so it is made at its frame.
- */
-export function runWithChange(
-  type: ProcessorType,
-  settings: RunSettings,
-  input: readonly Float32Array[],
-  blocks: readonly number[],
-  change: Change,
-): Float32Array[] {
-  const { kernel, output: layout } = processorKernel(type, settings);
-  const length = input[0]?.length ?? 0;
-  const whole = (channels: readonly Float32Array[], of: ChannelLayout): AudioFrameBlock => ({
-    layout: of,
-    sampleRate: TEST_RATE,
-    frames: length,
-    channels,
-  });
-  const source = whole(input, settings.layout);
-  const sink = whole(
-    layout.roles.map(() => new Float32Array(length)),
-    layout,
-  );
-  let position = 0;
-  for (let turn = 0; position < length; turn += 1) {
-    if (position === change.frame) expectSuccess(kernel.setParameter(change.name, change.value));
-    const until = position < change.frame ? change.frame : length;
-    const frames = Math.min(
-      blocks[turn % blocks.length] ?? 128,
-      until - position,
-      TEST_BLOCK_FRAMES,
-    );
-    kernel.process(
-      [blockView(source, position, frames)],
-      [blockView(sink, position, frames)],
-      frames,
-    );
-    position += frames;
-  }
-  kernel.release();
-  return [...sink.channels];
 }

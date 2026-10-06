@@ -226,6 +226,7 @@ export const COMPRESSOR = processorType({
     outputLayout,
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn,
+    frameGrid: () => 1,
   },
   sideChain: acceptsSideChain,
   kernel,

@@ -19,7 +19,7 @@ import type { DomainResult } from '../result.js';
 import type { SampleRate } from '../time/sample-time.js';
 import type { ParameterDescriptor, ParameterValue } from './parameter.js';
 import type { ProcessorLatency } from './processor-latency.js';
-import type { ProcessorStateVersion } from './processor-version.js';
+import type { ProcessorState, ProcessorStateVersion } from './processor-version.js';
 import type { QualitySettingKey, QualitySettings } from './quality-mode.js';
 
 /**
@@ -97,6 +97,12 @@ export interface ProcessorDescriptor {
   readonly realTime: boolean;
 
   /**
+   * The non-parameter state it cannot run without, such as a learned noise
+   * profile, where it needs one (ADR-0061).
+   */
+  readonly state?: StateRequirement;
+
+  /**
    * The layout it makes of `input`, or why it does not accept it
    * (REQ-ARCH-157). A processor never downmixes in silence: a layout it does
    * not take is refused with the reason.
@@ -116,6 +122,40 @@ export interface ProcessorDescriptor {
    * processor with no memory.
    */
   leadIn(settings: ProcessorSettings): number;
+
+  /**
+   * Frames its kernel counts its analysis frames or blocks in from its own
+   * first frame, as a spectral processor's hop: a run started part way through
+   * a stream settles, within its lead-in, to what a run from the stream's start
+   * gives only when it starts a whole number of these into the stream, since
+   * otherwise it judges other stretches of audio together. A count that only
+   * decides when a running sum is remade or a design is taken changes nothing
+   * beyond rounding, and is not one. 1 for a processor with none.
+   */
+  frameGrid(settings: ProcessorSettings): number;
+}
+
+/**
+ * The state a processor cannot run without. A chain whose instance lacks it,
+ * or holds state the check refuses, cannot be planned, so the entry it would
+ * make is unavailable with the reason rather than rendered as if the
+ * processor were not there; the kernel reads the state by the same check, so
+ * the two cannot disagree.
+ */
+export interface StateRequirement {
+  /** The kind of state it reads, as `ProcessorState.kind` names it. */
+  readonly kind: string;
+
+  /** What a person is told to do where an instance holds none. */
+  readonly missing: string;
+
+  /** Why `state`, of that kind, cannot serve `input` at `sampleRate` with `values`. */
+  check(
+    state: ProcessorState,
+    input: ChannelLayout,
+    sampleRate: SampleRate,
+    values: ParameterValues,
+  ): DomainResult<void>;
 }
 
 /** The descriptor of the parameter `key`, where the processor has one. */

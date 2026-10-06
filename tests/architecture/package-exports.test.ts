@@ -253,6 +253,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/processors': {
     "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
+    "The learner of a noise reduction's profile (ADR-0061), which the application runs over a stretch a person marks as noise alone and stores as the instance's state, as Phase 06's rack views are built.":
+      ['NoiseProfileSettings', 'noiseProfileLearner'],
   },
   '@audiogubbins/effect-rack': {
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
@@ -339,9 +341,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'timelineFrameAt',
       ],
     "The canonical scalar primitives ADR-0061 admits that no processor calls yet, and the bounds of the FFT's sizes, which Phase 06's spectral processors and Phase 08's spectral analysis are the first to size a transform by. The engine's own nodes need none of them.":
-      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'ln', 'log2', 'pow'],
-    "The engine's delay line, which a processor that delays its signal by a set time takes as it is written (ADR-0061).":
-      ['DelayLine'],
+      ['LARGEST_FFT_SIZE', 'SMALLEST_FFT_SIZE', 'arctangentTurns', 'ln', 'log2'],
   },
   '@audiogubbins/diagnostics': {
     'The redaction every export path must apply (REQ-PRIV-165). The diagnostic report is the one path in this phase, and reaches all four through `assembleBundle`, which calls `redactFields`, `redactRecords` and `redactText`, and `redactRecords` calls `redactStack`.':

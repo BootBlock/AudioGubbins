@@ -17,7 +17,7 @@ import {
   TEST_RATE,
 } from '../testing/processor-run.js';
 import { MAXIMUM_QUALITY } from '@audiogubbins/domain';
-import { runWithChange } from '../testing/filter-measures.js';
+
 import { AMBISONIC_ROTATION } from './ambisonic-rotate.js';
 import {
   AMBISONIC_LAYOUTS,
@@ -104,8 +104,8 @@ describe('the ambisonic rotation', () => {
     );
     const settings = { layout, values: { yaw: 0 } };
     const change = { frame: 3_001, name: 'yaw', value: 120 };
-    const steady = runWithChange(AMBISONIC_ROTATION, settings, field, [4_096], change);
-    const cut = runWithChange(AMBISONIC_ROTATION, settings, field, [1, 7, 128, 333, 31], change);
+    const steady = runProcessor(AMBISONIC_ROTATION, settings, field, [4_096], change);
+    const cut = runProcessor(AMBISONIC_ROTATION, settings, field, [1, 7, 128, 333, 31], change);
     expect(cut.map((channel) => fingerprint(channel))).toEqual(
       steady.map((channel) => fingerprint(channel)),
     );

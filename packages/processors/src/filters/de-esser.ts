@@ -338,6 +338,7 @@ export const DE_ESSER = processorType({
     outputLayout: (input) => succeed(input),
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn,
+    frameGrid: () => 1,
   },
   kernel: (run) => succeed(new DeEsserKernel(run)),
 });

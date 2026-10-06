@@ -275,6 +275,7 @@ export const DELAY = processorType({
     // The echoes are a copy beside the dry signal, not the signal delayed.
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn,
+    frameGrid: () => 1,
   },
   kernel,
 });

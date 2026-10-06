@@ -162,13 +162,15 @@ class RunningChain implements ChainRun {
   readonly latency: number;
   readonly layout: ChannelLayout;
   readonly leadIn: number;
+  readonly frameGrid: number;
   readonly #running: Running;
 
-  constructor(running: Running, leadIn: number) {
+  constructor(running: Running, start: PartWayStart) {
     this.#running = running;
     this.latency = running.latency;
     this.layout = running.built.layout;
-    this.leadIn = leadIn;
+    this.leadIn = start.leadIn;
+    this.frameGrid = start.frameGrid;
   }
 
   process(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void {
@@ -215,31 +217,47 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
       if (!built.ok) return built;
       const running = run(built.value, built.value.output, implementations, request);
       if (!running.ok) return running;
-      return succeed(new RunningChain(running.value, leadInOf(request, types, built.value)));
+      return succeed(new RunningChain(running.value, partWayStart(request, types, built.value)));
     },
   };
 }
 
-/** The longest lead-in of the processors the chain runs. */
-function leadInOf(
+/** How a run of the chain may start part way through a stream. */
+interface PartWayStart {
+  readonly leadIn: number;
+  readonly frameGrid: number;
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let [a, b] = [left, right];
+  while (b !== 0) [a, b] = [b, a % b];
+  return a;
+}
+
+/**
+ * The longest lead-in of the processors the chain runs, and the least common
+ * multiple of their frame grids.
+ */
+function partWayStart(
   request: ChainRequest,
   types: ReadonlyMap<string, ProcessorType>,
   built: ChainGraph,
-): number {
-  let longest = 0;
+): PartWayStart {
+  let leadIn = 0;
+  let frameGrid = 1;
   for (const processor of processorsOf(request.chain.slots)) {
     const descriptor = types.get(processor.typeKey)?.descriptor;
     if (descriptor === undefined || !built.processors.has(processor.id)) continue;
-    longest = Math.max(
-      longest,
-      descriptor.leadIn({
-        values: processor.values,
-        sampleRate: request.sampleRate,
-        quality: request.quality,
-      }),
-    );
+    const settings = {
+      values: processor.values,
+      sampleRate: request.sampleRate,
+      quality: request.quality,
+    };
+    leadIn = Math.max(leadIn, descriptor.leadIn(settings));
+    const grid = descriptor.frameGrid(settings);
+    frameGrid = (frameGrid / greatestCommonDivisor(frameGrid, grid)) * grid;
   }
-  return longest;
+  return { leadIn, frameGrid };
 }
 
 /** Frames read from the stream at a time during a measuring pass. */
@@ -267,12 +285,15 @@ async function measure(
   if (!built.ok) return built;
   const tap = built.value.measure;
   if (tap === undefined) throw new Error('A graph built to measure a processor has its tap.');
-  const running = run(built.value, tap.sink, implementations, request);
-  if (!running.ok) return running;
   const type = [...types.values()].find((one) => one.type === tap.type);
   const measurer = type?.measurer?.(tap.settings, tap.layout, request);
   if (measurer === undefined) throw new Error('A processor measured in a pass has a measurer.');
   if (!measurer.ok) return measurer;
+  const running = run(built.value, tap.sink, implementations, request);
+  if (!running.ok) {
+    measurer.value.release();
+    return running;
+  }
   const input = allocateBlock(request.input, request.sampleRate, PASS_CHUNK);
   const output = allocateBlock(tap.layout, request.sampleRate, PASS_CHUNK);
   const { latency } = running.value;
@@ -293,8 +314,9 @@ async function measure(
         );
       }
     }
+    return succeed(measurer.value.result());
   } finally {
+    measurer.value.release();
     running.value.executor.release();
   }
-  return succeed(measurer.value.result());
 }

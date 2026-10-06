@@ -1,7 +1,8 @@
 /**
  * Running one processor type's kernel over audio, for its tests: a node made
- * from its descriptor by the rack's own encoding (`processor-node.ts`), a
- * kernel made by the type, and the audio given to it in blocks of any sizes.
+ * from its descriptor by the rack's own encoding (`processor-node.ts`), state
+ * and all, a kernel made by the type, and the audio given to it in blocks of
+ * any sizes, with a parameter changed at a frame where a test asks.
  */
 
 import {
@@ -11,8 +12,10 @@ import {
   sampleRate,
   unsafeBrandId,
   type ChannelLayout,
+  type DomainResult,
   type ParameterValue,
   type ParameterValues,
+  type ProcessorState,
   type QualitySettings,
   type SampleRate,
 } from '@audiogubbins/domain';
@@ -40,7 +43,16 @@ export interface RunSettings {
   readonly sampleRate?: SampleRate;
   readonly quality?: QualitySettings;
   readonly measured?: readonly number[];
+  /** The instance's non-parameter state, such as a learned noise profile. */
+  readonly state?: ProcessorState;
   readonly dsp?: CanonicalDsp;
+}
+
+/** A parameter change made at a frame of the stream. */
+export interface Change {
+  readonly frame: number;
+  readonly name: string;
+  readonly value: number;
 }
 
 /** The most frames a kernel made here is given at once. */
@@ -67,11 +79,12 @@ export function processorStep(type: ProcessorType, settings: RunSettings): PlanS
   const made = instantiateProcessor(TEST_PROCESSOR, descriptor);
   const values = processorValues(type, settings.values);
   const output = expectSuccess(descriptor.outputLayout(settings.layout, values));
+  const { state } = settings;
   return {
     node: expectSuccess(nodeId('processor-under-test')),
     type: type.type,
     settings: processorNodeSettings(
-      { ...made, values },
+      { ...made, values, ...(state === undefined ? {} : { state }) },
       descriptor,
       settings.quality ?? MAXIMUM_QUALITY.settings,
       settings.measured,
@@ -81,35 +94,43 @@ export function processorStep(type: ProcessorType, settings: RunSettings): PlanS
   };
 }
 
+/** The kernel of a processor for `settings`, or why the type refused to make it. */
+export function processorKernelOf(
+  type: ProcessorType,
+  settings: RunSettings,
+): DomainResult<NodeKernel> {
+  return type.createKernel(processorStep(type, settings), {
+    sampleRate: settings.sampleRate ?? TEST_RATE,
+    blockFrames: TEST_BLOCK_FRAMES,
+    dsp: settings.dsp ?? REFERENCE_DSP,
+    feedFor: () => undefined,
+    sinkFor: () => undefined,
+    meterFor: () => undefined,
+  });
+}
+
 /** The kernel of a processor for `settings`, and the layout it writes. */
 export function processorKernel(
   type: ProcessorType,
   settings: RunSettings,
 ): { readonly kernel: NodeKernel; readonly output: ChannelLayout } {
-  const step = processorStep(type, settings);
-  const output = step.outputs[0]?.layout ?? settings.layout;
-  const kernel = expectSuccess(
-    type.createKernel(step, {
-      sampleRate: settings.sampleRate ?? TEST_RATE,
-      blockFrames: TEST_BLOCK_FRAMES,
-      dsp: settings.dsp ?? REFERENCE_DSP,
-      feedFor: () => undefined,
-      sinkFor: () => undefined,
-      meterFor: () => undefined,
-    }),
+  const output = expectSuccess(
+    type.descriptor.outputLayout(settings.layout, processorValues(type, settings.values)),
   );
-  return { kernel, output };
+  return { kernel: expectSuccess(processorKernelOf(type, settings)), output };
 }
 
 /**
  * The output of a kernel of `type` for `input`, given in blocks whose sizes
- * cycle through `blocks`, as many frames as the input.
+ * cycle through `blocks`, as many frames as the input, cut where `change`, if
+ * any, falls so it is made at its frame.
  */
 export function runProcessor(
   type: ProcessorType,
   settings: RunSettings,
   input: readonly Float32Array[],
   blocks: readonly number[] = [128],
+  change?: Change,
 ): Float32Array[] {
   const { kernel, output: layout } = processorKernel(type, settings);
   const rate = settings.sampleRate ?? TEST_RATE;
@@ -125,11 +146,15 @@ export function runProcessor(
     layout.roles.map(() => new Float32Array(length)),
     layout,
   );
+  const at = change?.frame ?? length;
   let position = 0;
   for (let turn = 0; position < length; turn += 1) {
+    if (change !== undefined && position === at) {
+      expectSuccess(kernel.setParameter(change.name, change.value));
+    }
     const frames = Math.min(
       blocks[turn % blocks.length] ?? 128,
-      length - position,
+      (position < at ? at : length) - position,
       TEST_BLOCK_FRAMES,
     );
     kernel.process(

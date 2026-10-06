@@ -12,7 +12,7 @@ import {
   processorValues,
   runProcessor,
 } from '../testing/processor-run.js';
-import { lastAudibleFrame, runWithChange } from '../testing/filter-measures.js';
+import { lastAudibleFrame } from '../testing/filter-measures.js';
 import { REVERB } from './reverb.js';
 import { lineLengths } from './reverb-network.js';
 import { correlation, measuredRt60, reverbImpulse } from '../testing/reverb-measures.js';
@@ -141,8 +141,8 @@ describe('the reverb', () => {
     const input = [noise(4, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { decay: 0.5 } };
     const change = { frame: 3_001, name: 'decay', value: 4 };
-    const [steady] = runWithChange(REVERB, settings, input, [4_096], change);
-    const [cut] = runWithChange(REVERB, settings, input, [1, 7, 128, 333, 31], change);
+    const [steady] = runProcessor(REVERB, settings, input, [4_096], change);
+    const [cut] = runProcessor(REVERB, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

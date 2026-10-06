@@ -13,12 +13,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { DE_HUM } from './de-hum.js';
-import {
-  EVERY_LAYOUT,
-  lastAudibleFrame,
-  runWithChange,
-  sineGain,
-} from '../testing/filter-measures.js';
+import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 processorProperties(DE_HUM, {
   layouts: EVERY_LAYOUT,
@@ -65,8 +60,8 @@ describe('de-hum', () => {
     const input = [noise(8, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { depth: 10, q: 5 } };
     const change = { frame: 4_001, name: 'depth', value: 60 };
-    const [steady] = runWithChange(DE_HUM, settings, input, [4_096], change);
-    const [cut] = runWithChange(DE_HUM, settings, input, [1, 7, 128, 333, 31], change);
+    const [steady] = runProcessor(DE_HUM, settings, input, [4_096], change);
+    const [cut] = runProcessor(DE_HUM, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

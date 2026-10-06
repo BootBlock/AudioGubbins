@@ -66,6 +66,7 @@ const COMMON = {
   outputLayout: (input: Parameters<ProcessorDescriptor['outputLayout']>[0]) => succeed(input),
   latency: () => ({ kind: 'known', frames: derivedSampleCount(0) }) as const,
   leadIn: () => 0,
+  frameGrid: () => 1,
 } as const;
 
 export const TEST_FILTER: ProcessorDescriptor = {

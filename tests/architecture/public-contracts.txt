@@ -126,6 +126,7 @@ Published paths
   readonly ChainRun.latency: number
   readonly ChainRun.layout: ChannelLayout
   readonly ChainRun.leadIn: number
+  readonly ChainRun.frameGrid: number
   ChainRun.process: (input: readonly Float32Array[], output: readonly Float32Array[], frames: number) => void
   ChainRun.setParameter: (processor: ProcessorId, key: string, value: number) => DomainResult<void>
   ChainRun.release: () => void
@@ -493,6 +494,7 @@ Published paths
   function describedSource(description: PcmDescription, layout: ChannelLayout, dsp: CanonicalDsp, processing: PlanProcessing): DomainResult<PcmSource>
   function estimateWorkload(shape: WorkloadShape): DomainResult<WorkloadEstimate>
   function exp(x: number): number
+  function findPeaks(magnitude: Float64Array<ArrayBufferLike>, bins: number, peaks: Int32Array<ArrayBufferLike>): number
   function frameBlock(layout: ChannelLayout, sampleRate: SampleRate, channels: readonly Float32Array<ArrayBufferLike>[]): DomainResult<AudioFrameBlock>
   function framesAvailable(length: SampleCount | undefined, start: number, wanted: number): number
   function gainToDecibels(gain: number): number
@@ -512,6 +514,7 @@ Published paths
   function pow(x: number, y: number): number
   function previewQualityFor(profile: PerformanceProfile): QualityMode
   function rampFrames(sampleRate: SampleRate): number
+  function regionEnd(peaks: Int32Array<ArrayBufferLike>, index: number, count: number, bins: number): number
   function renderOffline(job: RenderJob, dsp: CanonicalDsp, implementations: NodeImplementations, options?: RenderOptions): Promise<DomainResult<RenderSummary>>
   function resampledSource(dsp: CanonicalDsp, source: PcmSource, to: SampleRate, quality: ResamplingQuality, coefficientBudgetBytes?: number | undefined): DomainResult<ResampledSource>
   function selectNodePaths(plan: ExecutionPlan, implementations: NodeImplementations, available: Readonly<Record<"gpu", boolean>>, purpose: ProcessingPurpose): readonly NodePath[]
@@ -522,12 +525,14 @@ Published paths
   function signalSource(dsp: CanonicalDsp, settings: SignalSettings): DomainResult<PcmSource>
   function silence(block: AudioFrameBlock): void
   function sineOfTurns(turns: number): number
+  function stretchWindow(rate: number): number
   function tangentOfTurns(turns: number): number
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
   function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
   function unknownParameter(type: string, name: string): DomainFailureResult
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
+  function vocoderWindow(size: number): Float64Array<ArrayBufferLike>
   function wasmDsp(exports: unknown): DomainResult<CanonicalDsp>
 
 @audiogubbins/audio-engine/testing
@@ -2001,9 +2006,11 @@ Published paths
   readonly ProcessorDescriptor.determinism: DeterminismClass
   readonly ProcessorDescriptor.wholePass: boolean
   readonly ProcessorDescriptor.realTime: boolean
+  readonly ProcessorDescriptor.state?: StateRequirement
   ProcessorDescriptor.outputLayout: (input: ChannelLayout, values: ParameterValues) => DomainResult<ChannelLayout>
   ProcessorDescriptor.latency: (settings: ProcessorSettings) => ProcessorLatency
   ProcessorDescriptor.leadIn: (settings: ProcessorSettings) => number
+  ProcessorDescriptor.frameGrid: (settings: ProcessorSettings) => number
   type ProcessorGroupId = string & { readonly [BrandTag]: "ProcessorGroupId"; }
   type ProcessorId = string & { readonly [BrandTag]: "ProcessorId"; }
   interface ProcessorInstance extends SlotControls
@@ -2099,6 +2106,10 @@ Published paths
   readonly Span.start: number
   readonly Span.end: number
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
+  interface StateRequirement
+  readonly StateRequirement.kind: string
+  readonly StateRequirement.missing: string
+  StateRequirement.check: (state: ProcessorState, input: ChannelLayout, sampleRate: SampleRate, values: ParameterValues) => DomainResult<void>
   type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
   const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
   type SummingLaw = "equal-power" | "mean" | "sum"
@@ -2134,7 +2145,7 @@ Published paths
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
   function cancellationReason(signal: CancellationSignal): Error
   function chainLatency(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): DomainResult<ProcessorLatency>
-  function chainOutputLayout(chain: Pick<EffectChain, "slots">, catalogue: ProcessorCatalogue, input: ChannelLayout): DomainResult<ChannelLayout>
+  function chainOutputLayout(chain: Pick<EffectChain, "slots">, catalogue: ProcessorCatalogue, input: ChannelLayout, sampleRate: SampleRate): DomainResult<ChannelLayout>
   function chainUseCount(users: ChainUsers): number
   function chainUsers(project: Project, chain: EffectChainId): ChainUsers
   function channelCount(layout: ChannelLayout): number
@@ -2878,6 +2889,11 @@ Published paths
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
 @audiogubbins/processors
+  interface NoiseProfileSettings
+  readonly NoiseProfileSettings.values: ParameterValues
+  readonly NoiseProfileSettings.input: ChannelLayout
+  readonly NoiseProfileSettings.sampleRate: SampleRate
+  readonly NoiseProfileSettings.dsp: CanonicalDsp
   const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor>
   const PROCESSOR_TYPES: readonly ProcessorType[]
   const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType>
@@ -2911,10 +2927,15 @@ Published paths
   readonly ProcessorType.role: NodeRole
   ProcessorType.check: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor) => readonly GraphDiagnostic[]
   ProcessorType.latency: (node: import("packages/audio-graph/src/descriptor").ProcessingNodeDescriptor, sampleRate: SampleRate) => import("packages/domain/src/index").ProcessorLatency
+  function noiseProfileLearner(settings: NoiseProfileSettings): DomainResult<NoiseProfileLearner>
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, measured?: readonly number[] | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
 
 @audiogubbins/processors/testing
+  interface Change
+  readonly Change.frame: number
+  readonly Change.name: string
+  readonly Change.value: number
   interface PropertyCases
   readonly PropertyCases.layouts: readonly ChannelLayout[]
   readonly PropertyCases.settings?: readonly Readonly<Record<string, ParameterValue>>[]
@@ -2922,20 +2943,24 @@ Published paths
   readonly PropertyCases.silenceStays?: boolean
   readonly PropertyCases.passThrough?: { readonly values: Readonly<Record<string, ParameterValue>>; readonly tolerance: number; }
   readonly PropertyCases.measured?: readonly number[]
+  readonly PropertyCases.state?: (layout: ChannelLayout, values: Readonly<Record<string, ParameterValue>>) => ProcessorState
   interface RunSettings
   readonly RunSettings.values?: Readonly<Record<string, ParameterValue>>
   readonly RunSettings.layout: ChannelLayout
   readonly RunSettings.sampleRate?: SampleRate
   readonly RunSettings.quality?: QualitySettings
   readonly RunSettings.measured?: readonly number[]
+  readonly RunSettings.state?: ProcessorState
   readonly RunSettings.dsp?: CanonicalDsp
   const TEST_BLOCK_FRAMES: 4096
   const TEST_RATE: SampleRate
+  function learnedProfile(layout: ChannelLayout, stretch: readonly Float32Array<ArrayBufferLike>[], values?: Readonly<Record<string, ParameterValue>>, rate?: number): ProcessorState
   function processorKernel(type: ProcessorType, settings: RunSettings): { readonly kernel: NodeKernel; readonly output: ChannelLayout; }
+  function processorKernelOf(type: ProcessorType, settings: RunSettings): DomainResult<NodeKernel>
   function processorProperties(type: ProcessorType, cases: PropertyCases): void
   function processorStep(type: ProcessorType, settings: RunSettings): PlanStep
   function processorValues(type: ProcessorType, byKey?: Readonly<Record<string, ParameterValue>>): ParameterValues
-  function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[]): Float32Array<ArrayBufferLike>[]
+  function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[], change?: Change | undefined): Float32Array<ArrayBufferLike>[]
 
 @audiogubbins/project-commands
   interface ProjectCommand extends Command<ProjectState>
@@ -5295,6 +5320,41 @@ packages/processors/src/framework/processor-type.ts
   interface Measurer
   Measurer.add: (input: readonly Float32Array[], frames: number) => void
   Measurer.result: () => readonly number[]
+  Measurer.release: () => void
+
+packages/processors/src/spectral/frame-analysis.ts
+  class FrameAnalysis
+  new FrameAnalysis(fft: CanonicalFft, channels: number, hop: number): FrameAnalysis
+  readonly FrameAnalysis.size: number
+  readonly FrameAnalysis.hop: number
+  readonly FrameAnalysis.bins: number
+  readonly FrameAnalysis.channels: number
+  readonly FrameAnalysis.window: Float64Array<ArrayBufferLike>
+  readonly FrameAnalysis.real: readonly Float64Array<ArrayBufferLike>[]
+  readonly FrameAnalysis.imaginary: readonly Float64Array<ArrayBufferLike>[]
+  readonly FrameAnalysis.fft: CanonicalFft
+  readonly FrameAnalysis.#history: readonly Float64Array<ArrayBufferLike>[]
+  readonly FrameAnalysis.#signal: Float64Array<ArrayBufferLike>
+  FrameAnalysis.#position: number
+  FrameAnalysis.#sinceFrame: number
+  FrameAnalysis.#filled: number
+  FrameAnalysis.position: number
+  FrameAnalysis.full: boolean
+  FrameAnalysis.push: (input: readonly Float32Array[], frame: number) => boolean
+  FrameAnalysis.analyse: () => void
+  FrameAnalysis.release: () => void
+
+packages/processors/src/spectral/noise-profile.ts
+  class NoiseProfileLearner
+  new NoiseProfileLearner(analysis: FrameAnalysis, rate: number): NoiseProfileLearner
+  readonly NoiseProfileLearner.#analysis: FrameAnalysis
+  readonly NoiseProfileLearner.#rate: number
+  readonly NoiseProfileLearner.#sums: readonly Float64Array<ArrayBufferLike>[]
+  NoiseProfileLearner.#frames: number
+  NoiseProfileLearner.add: (input: readonly Float32Array[], frames: number) => void
+  NoiseProfileLearner.#accumulate: () => void
+  NoiseProfileLearner.result: () => ProcessorState
+  NoiseProfileLearner.release: () => void
 
 packages/project-format/src/given-names.ts
   type NamedSubject = "asset" | "project"

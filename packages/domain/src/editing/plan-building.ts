@@ -91,7 +91,12 @@ function processRange(
   }
   const chain = namedChain(context, edit.chain);
   if (!chain.ok) return chain;
-  const layout = chainOutputLayout(chain.value, context.catalogue, stream.layout);
+  const layout = chainOutputLayout(
+    chain.value,
+    context.catalogue,
+    stream.layout,
+    stream.sampleRate,
+  );
   if (!layout.ok) return layout;
   if (!layoutsMatch(layout.value, stream.layout)) {
     return fail(
@@ -268,7 +273,12 @@ export function withRack(
   const chain = namedChain(context, rack);
   if (!chain.ok) return chain;
   return mapResult(
-    chainOutputLayout(chain.value, context.catalogue, plan.streams[0].layout),
+    chainOutputLayout(
+      chain.value,
+      context.catalogue,
+      plan.streams[0].layout,
+      plan.streams[0].sampleRate,
+    ),
     (layout) => rackWhole(plan, chain.value, layout),
   );
 }

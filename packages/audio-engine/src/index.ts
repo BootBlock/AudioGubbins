@@ -93,6 +93,12 @@ export { pow } from './dsp/reference/power.js';
 export { besselI0, sineOfTurns } from './dsp/reference/primitives.js';
 export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
 
+// The pieces of identity phase locking (Laroche and Dolson) the stretch's
+// vocoder is built from, which a pitch shift locks its phases by too, and the
+// window length both take at a rate.
+export { findPeaks, regionEnd, vocoderWindow } from './dsp/phase-locking.js';
+export { stretchWindow } from './pcm/stretched-content.js';
+
 // The fallback ADR-0031 names, for a host whose WebAssembly is refused.
 export { REFERENCE_DSP } from './dsp/reference/reference-dsp.js';
 export { wasmDsp } from './dsp/wasm/wasm-dsp.js';

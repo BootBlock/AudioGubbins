@@ -17,6 +17,7 @@ import {
   namedQualityMode,
   type ChannelLayout,
   type ParameterValue,
+  type ProcessorState,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { dspModuleExports, fingerprint } from '@audiogubbins/audio-engine/testing';
@@ -35,13 +36,24 @@ export interface PropertyCases {
   readonly bound?: number;
   /** Whether silence in is silence out, as it is for all but a generator. */
   readonly silenceStays?: boolean;
-  /** Settings at which it passes its input through, delayed by its latency, within `tolerance`. */
+  /**
+   * Parameter values at which it passes its input through, delayed by its
+   * latency, within `tolerance`: run with no measurement and no state.
+   */
   readonly passThrough?: {
     readonly values: Readonly<Record<string, ParameterValue>>;
     readonly tolerance: number;
   };
   /** A measurement to give a whole-pass processor's kernel. */
   readonly measured?: readonly number[];
+  /**
+   * The state an instance holds for a layout and parameter values, such as a
+   * noise profile learned for them; made once for each, when first run.
+   */
+  readonly state?: (
+    layout: ChannelLayout,
+    values: Readonly<Record<string, ParameterValue>>,
+  ) => ProcessorState;
 }
 
 /** One second of each channel of `layout` from `make`, each channel distinct. */
@@ -91,6 +103,24 @@ function sameBits(left: readonly Float32Array[], right: readonly Float32Array[])
   );
 }
 
+/** The settings `cases` give a run of `layout` at `values`, its state made once. */
+function caseSettings(
+  cases: PropertyCases,
+  layout: ChannelLayout,
+  values: Readonly<Record<string, ParameterValue>>,
+): () => RunSettings {
+  let settings: RunSettings | undefined;
+  return () => {
+    settings ??= {
+      layout,
+      values,
+      ...(cases.measured === undefined ? {} : { measured: cases.measured }),
+      ...(cases.state === undefined ? {} : { state: cases.state(layout, values) }),
+    };
+    return settings;
+  };
+}
+
 /** Registers the property tests of `type` over `cases`. */
 export function processorProperties(type: ProcessorType, cases: PropertyCases): void {
   const settingsList = [{}, ...(cases.settings ?? [])];
@@ -99,22 +129,12 @@ export function processorProperties(type: ProcessorType, cases: PropertyCases): 
     for (const layout of cases.layouts) {
       const width = String(channelCount(layout));
       for (const [index, values] of settingsList.entries()) {
+        const settings = caseSettings(cases, layout, values);
         const run = (
           input: readonly Float32Array[],
           extra: Partial<RunSettings> = {},
           blocks?: readonly number[],
-        ) =>
-          runProcessor(
-            type,
-            {
-              layout,
-              values,
-              ...(cases.measured === undefined ? {} : { measured: cases.measured }),
-              ...extra,
-            },
-            input,
-            blocks,
-          );
+        ) => runProcessor(type, { ...settings(), ...extra }, input, blocks);
         const label = `${width} channels, settings ${String(index)}`;
 
         it(`gives silence for silence (${label})`, () => {
@@ -171,6 +191,14 @@ export function processorProperties(type: ProcessorType, cases: PropertyCases): 
           const wasm = expectSuccess(wasmDsp(await dspModuleExports()));
           expect(sameBits(run(input, { dsp: wasm }), run(input))).toBe(true);
         });
+
+        if (cases.state !== undefined) {
+          it(`runs by the state it holds, which changes what it writes (${label})`, () => {
+            const input = programme(layout);
+            const { state: _held, ...without } = settings();
+            expect(sameBits(run(input), runProcessor(type, without, input))).toBe(false);
+          });
+        }
 
         it(`runs at every quality level (${label})`, () => {
           for (const level of NAMED_QUALITY_LEVELS) {

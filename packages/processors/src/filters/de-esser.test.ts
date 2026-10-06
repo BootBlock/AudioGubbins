@@ -13,12 +13,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { DE_ESSER } from './de-esser.js';
-import {
-  EVERY_LAYOUT,
-  binMagnitudes,
-  decibels,
-  runWithChange,
-} from '../testing/filter-measures.js';
+import { EVERY_LAYOUT, binMagnitudes, decibels } from '../testing/filter-measures.js';
 
 processorProperties(DE_ESSER, {
   layouts: EVERY_LAYOUT,
@@ -91,8 +86,8 @@ describe('the de-esser', () => {
     const input = [noise(9, { length: 12_000, amplitude: 0.5 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { threshold: -10 } };
     const moved = { frame: 4_999, name: 'threshold', value: -40 };
-    const [steady] = runWithChange(DE_ESSER, settings, input, [4_096], moved);
-    const [cut] = runWithChange(DE_ESSER, settings, input, [1, 7, 128, 333, 31], moved);
+    const [steady] = runProcessor(DE_ESSER, settings, input, [4_096], moved);
+    const [cut] = runProcessor(DE_ESSER, settings, input, [1, 7, 128, 333, 31], moved);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

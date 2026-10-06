@@ -11,7 +11,6 @@ import {
   processorValues,
   runProcessor,
 } from '../testing/processor-run.js';
-import { runWithChange } from '../testing/filter-measures.js';
 import { AMBISONIC_ENCODER } from './ambisonic-encode.js';
 import {
   NORMALISATIONS,
@@ -78,8 +77,8 @@ describe('the ambisonic encoder', () => {
     const input = [burst(12_000)];
     const settings = { layout: StandardLayouts.mono, values: { order: 'second', azimuth: -45 } };
     const change = { frame: 3_001, name: 'azimuth', value: 100 };
-    const steady = runWithChange(AMBISONIC_ENCODER, settings, input, [4_096], change);
-    const cut = runWithChange(AMBISONIC_ENCODER, settings, input, [1, 7, 128, 333, 31], change);
+    const steady = runProcessor(AMBISONIC_ENCODER, settings, input, [4_096], change);
+    const cut = runProcessor(AMBISONIC_ENCODER, settings, input, [1, 7, 128, 333, 31], change);
     expect(cut.map((channel) => fingerprint(channel))).toEqual(
       steady.map((channel) => fingerprint(channel)),
     );

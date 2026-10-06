@@ -17,29 +17,17 @@ import {
   succeed,
   unsafeBrandId,
   type DomainResult,
-  type ParameterDescriptor,
+  type NumericParameterDescriptor,
 } from '@audiogubbins/domain';
-import { nodeId } from '@audiogubbins/audio-graph';
-import {
-  BUILT_IN_NODES,
-  BuiltInNodeType,
-  allocateBlock,
-  blockView,
-  decibelsToGain,
-  unknownParameter,
-  type AudioFrameBlock,
-  type NodeKernel,
-} from '@audiogubbins/audio-engine';
+import { decibelsToGain, type NodeKernel } from '@audiogubbins/audio-engine';
 
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
-import { finiteSample } from '../framework/sample-safety.js';
+import { levelKernel } from './level-gain.js';
 
-const GAIN = 'gain';
-
-const gain: ParameterDescriptor = {
+const gain: NumericParameterDescriptor = {
   kind: 'numeric',
   id: unsafeBrandId<'ParameterId'>('9a1e0001-0001'),
-  key: GAIN,
+  key: 'gain',
   label: 'Gain',
   minimum: -96,
   maximum: 48,
@@ -49,73 +37,15 @@ const gain: ParameterDescriptor = {
   step: 0.1,
 };
 
-/** The engine's gain node, which this type runs. */
-function engineGain() {
-  const node = BUILT_IN_NODES.get(BuiltInNodeType.Gain);
-  if (node === undefined) throw new Error('The engine has a gain node.');
-  return node;
-}
-
-/** The gain kernel over a copy of its input in which every sample is finite. */
-class GainProcessorKernel implements NodeKernel {
-  readonly #gain: NodeKernel;
-  readonly #finite: AudioFrameBlock;
-
-  constructor(gainKernel: NodeKernel, finite: AudioFrameBlock) {
-    this.#gain = gainKernel;
-    this.#finite = finite;
-  }
-
-  process(
-    inputs: readonly AudioFrameBlock[],
-    outputs: readonly AudioFrameBlock[],
-    frames: number,
-  ): void {
-    const input = inputs[0];
-    if (input === undefined) throw new Error('A gain processor was given no input.');
-    for (const [index, channel] of input.channels.entries()) {
-      const into = this.#finite.channels[index];
-      if (into === undefined) continue;
-      for (let frame = 0; frame < frames; frame += 1)
-        into[frame] = finiteSample(channel[frame] ?? 0);
-    }
-    this.#gain.process([blockView(this.#finite, 0, frames)], outputs, frames);
-  }
-
-  setParameter(name: string, value: number): DomainResult<void> {
-    if (name !== GAIN) return unknownParameter('gain processor', name);
-    return this.#gain.setParameter(GAIN, decibelsToGain(value));
-  }
-
-  release(): void {
-    this.#gain.release();
-  }
-}
+/** The one level a person moves, in decibels, as the linear factor the node takes. */
+const MOVING = [gain] as const;
 
 function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
-  const id = nodeId('gain');
-  if (!id.ok) return id;
-  const made = engineGain().createKernel(
-    {
-      node: id.value,
-      type: BuiltInNodeType.Gain,
-      settings: { [GAIN]: decibelsToGain(run.parameters.number(GAIN)) },
-      inputs: [{ port: 'in', layout: run.input, slot: 0, delay: ZERO_SAMPLES }],
-      outputs: [{ port: 'out', layout: run.output, slot: 1 }],
-    },
-    {
-      sampleRate: run.sampleRate,
-      blockFrames: run.blockFrames,
-      dsp: run.dsp,
-      feedFor: () => undefined,
-      sinkFor: () => undefined,
-      meterFor: () => undefined,
-    },
-  );
-  if (!made.ok) return made;
-  return succeed(
-    new GainProcessorKernel(made.value, allocateBlock(run.input, run.sampleRate, run.blockFrames)),
-  );
+  return levelKernel(run, {
+    label: 'gain processor',
+    moving: MOVING,
+    law: (values) => decibelsToGain(values[0] ?? 0),
+  });
 }
 
 /** Gain, as a processor of the rack. */
@@ -133,6 +63,7 @@ export const GAIN_PROCESSOR = processorType({
     outputLayout: (input) => succeed(input),
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn: () => 0,
+    frameGrid: () => 1,
   },
   kernel,
 });

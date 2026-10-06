@@ -290,8 +290,11 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
     ],
   'The key preferences are stored under, which the browser suite writes to start a page at the brightest; the store reads and writes it itself.':
     ['apps/web/src/state/preferences-store.ts: PREFERENCES_KEY'],
-  'The window a stretch analyses at, which its tests hold to its sizes at the common rates; a stretch sizes its own window.':
-    ['packages/audio-engine/src/pcm/stretched-content.ts: stretchWindow'],
+  'The frame size a dereverberation transforms at and the most taps it solves for, which its tests hold to its sizes at the common rates and to the layouts it refuses; the processor sizes its own frames and refuses its own layouts.':
+    [
+      'packages/processors/src/spectral/dereverb.ts: MAXIMUM_TAPS',
+      'packages/processors/src/spectral/dereverb.ts: dereverbFrameSize',
+    ],
   'The max-rE weights of each order, which their test holds to the closed form and to the published second-order value; the decoder takes them when it makes its matrix.':
     ['packages/processors/src/space/ambisonic-decode.ts: maxReWeights'],
   'The key the audio settings are stored under, which their tests write stored text to and read written text from; the store reads and writes it itself.':

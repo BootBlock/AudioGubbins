@@ -25,7 +25,9 @@ import {
   type ProcessorInstance,
 } from './effect-chain.js';
 import type { ProcessorDescriptor } from './processor-descriptor.js';
-import { MAXIMUM_STATE_VALUES } from './processor-version.js';
+import { MAXIMUM_STATE_VALUES, type ProcessorState } from './processor-version.js';
+import { sampleRate } from '../time/sample-time.js';
+import { FailureKind, fail, failure, succeed } from '../result.js';
 
 const CHAIN_ID: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-aaaa');
 
@@ -131,12 +133,64 @@ describe('validateChainShape', () => {
   });
 });
 
+/** The rate a chain is checked at. */
+const RATE = expectSuccess(sampleRate(48_000));
+
+/** A filter that cannot run without a profile learned at the rate it runs at. */
+const PROFILED: ProcessorDescriptor = {
+  ...TEST_FILTER,
+  typeKey: 'test-profiled',
+  state: {
+    kind: 'test-profile',
+    missing: 'Learn a profile first.',
+    check: (state, _input, rate) =>
+      state.values[0] === rate
+        ? succeed(undefined)
+        : fail(
+            failure('processor.state-refused', FailureKind.Rejected, 'Learned at another rate.'),
+          ),
+  },
+};
+
+describe('a chain whose processor needs state it does not hold', () => {
+  const catalogue = new Map([...TEST_CATALOGUE, [PROFILED.typeKey, PROFILED]]);
+  const holding = (state?: ProcessorState): ProcessorInstance => ({
+    ...processor('aaaa', PROFILED),
+    ...(state === undefined ? {} : { state }),
+  });
+  const layoutOf = (slot: ProcessorInstance) =>
+    chainOutputLayout({ slots: [slot] }, catalogue, StandardLayouts.mono, RATE);
+
+  it('cannot be planned without it, saying what to do', () => {
+    const refused = layoutOf(holding());
+    expect(expectFailureCode(refused)).toBe('processor.state-missing');
+    expect(refused.ok ? undefined : refused.failures[0].summary).toBe('Learn a profile first.');
+  });
+
+  it('cannot be planned with state of another kind, which it would not read', () => {
+    expect(expectFailureCode(layoutOf(holding({ kind: 'mask', values: [48_000] })))).toBe(
+      'processor.state-missing',
+    );
+  });
+
+  it('is checked at the rate the stream runs at', () => {
+    expectSuccess(layoutOf(holding({ kind: 'test-profile', values: [48_000] })));
+    expect(expectFailureCode(layoutOf(holding({ kind: 'test-profile', values: [44_100] })))).toBe(
+      'processor.state-refused',
+    );
+  });
+
+  it('is not checked where the slot is off, since nothing runs it', () => {
+    expectSuccess(layoutOf({ ...holding(), enabled: false }));
+  });
+});
+
 describe('chainOutputLayout', () => {
   const mono = StandardLayouts.mono;
   const stereo = StandardLayouts.stereo;
 
   function layoutOf(input: ChannelLayout, ...slots: ChainSlot[]) {
-    return chainOutputLayout({ slots }, TEST_CATALOGUE, input);
+    return chainOutputLayout({ slots }, TEST_CATALOGUE, input, RATE);
   }
 
   it('passes the layout through each processor in order, so a filter after an upmixer sees stereo', () => {

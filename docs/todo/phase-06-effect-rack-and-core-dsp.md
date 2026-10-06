@@ -93,6 +93,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
 13. **App caches.** An app entry is rebuilt when a chain its plans name
     changes (`chainsNamed`), its rate is its plan's first stream's, and its
     peak revision is the plan's canonical JSON, so parameter values count.
+14. **Part-way starts.** A descriptor states its `frameGrid`: the frames its
+    kernel counts analysis frames or blocks in from its first frame (noise
+    reduction, dereverberation and pitch shift their hop, de-click its
+    detector block; 1 elsewhere, since a count that only decides when a sum
+    is remade or a design taken changes nothing beyond rounding). A
+    `ChainRun` answers the least common multiple over what it runs, and a
+    preview starts at the grid point at or before its frame less the lead-in.
+15. **State and measurement.** A processor's `state?: StateRequirement`
+    is checked by `chainOutputLayout` at the stream's rate, by the check its
+    kernel reads the state with. A `Measurer` is released on every path of a
+    measuring pass, finished, refused or failed.
 
 ## The first model packs' sources (researched 2026-10-05)
 
@@ -178,29 +189,62 @@ Second session, 2026-10-05 (16:00 to 18:00), committed as above with
   since under the whole suite's load V8 left reference primitives
   unoptimised for 20 s and more.
 
-Third session, 2026-10-05 (18:00 on), not yet committed when written:
+Third session, 2026-10-05 (18:00 to 23:00). Committed as `5aba08c`
+("Add the core processors and the analysis crate"), `verify:commit` green
+(8,202 tests):
 
 - Processors of groups A, B and C (filters and equalisation, dynamics,
-  time and space), each in the catalogue in category order; a node must
-  list `input` before `side-chain`; the limiter reads the engine's
-  `besselI0`.
+  time and space), in the catalogue in category order; a node must list
+  `input` before `side-chain`; the limiter reads the engine's `besselI0`.
 - `crates/analysis` and its reference: STFT, peak (the BS.1770-4 Annex 2
   table, checked against the published Recommendation), loudness, and the
   six detector features; DSP ABI 5.
 - F-07's remnants: `quoted` and `timeOfDay` in the text package (ADR-0018
   amended), read by the engine's packages, storage, the clipboard, the
   storage runtime and the application; usage measurement uses
-  `projectsIn`. `packages/text` is now portable.
+  `projectsIn`. `packages/text` is portable.
 - The `processors` test project runs in its own later group, and the
-  allocation tests after it: beside it, the storage round trips ran past
-  their patience.
-- Found: V8 boxes a double a function returns to a caller it was not
-  inlined into, and whether it inlines a mid-sized primitive varies with
-  load, so a kernel could allocate a number a sample on the audio thread
-  (the allocation tests failed now and then at 32 bytes a sample). The
-  fix: a double crosses a call on a per-sample path only through a slot or
-  from a function small enough to be always inlined.
+  allocation tests after it.
+- V8 boxes a double a function returns to a caller it was not inlined
+  into, and under load it sometimes does not inline a mid-sized primitive,
+  so a kernel allocated a number a sample. Rule now: on a per-sample path a
+  double crosses a call only through a `Float64Array` slot or from a
+  function small enough that V8 always inlines it (the reference DSP and
+  every kernel follow it).
 
-Next: finish that fix and commit; then D (pitch shift, noise reduction,
-de-click, de-pop, dereverb), E (normalisation), `AudioDetector` and the
-assistants.
+Fourth session, 2026-10-06, committed as "Add repair, spectral, level and
+pitch processors" with `verify:commit` green:
+
+- Groups D1 (de-click, de-pop), D2 (noise reduction with a learned profile,
+  dereverberation by online WPE), E (peak and loudness normalisation on
+  `level/level-gain.ts`, which the gain processor uses too) and pitch shift
+  (`pitch/`, the engine's `dsp/phase-locking.ts`), all in the catalogue;
+  `catalogue.test.ts` holds one entry per key and the category order.
+- Decisions 14 and 15. The tests: a chain with a noise reduction with no
+  profile, or one learned at another rate, is refused; a failed measuring
+  pass frees its meters; a preview starts on the grid (`processed-content`
+  test); noise reduction and de-click give the canonical bits on their grid
+  and not off it, and dereverberation settles on it and not off it. Each
+  was seen to fail against a mutation.
+- One test runner: `runProcessor` takes `state` and a `Change`
+  (`runWithChange`, `runStateful` and `spectral-run.ts` are gone); the
+  property harness takes `state` per layout and values and checks the
+  state changes the output, so D2's duplicated property checks are gone.
+  With a profile, noise reduction is bounded at 4, as the other cut-only
+  filters are: a full-scale square losing harmonics rings 4.4 % past full
+  scale.
+- D2 windows by the engine's `vocoderWindow`; the dereverberation golden
+  was re-recorded (its two independent checks hold), the noise reduction
+  golden did not change.
+- The browser-global rule no longer reads a member called `window` as the
+  global.
+
+Next, in order: `AudioDetector` and the assistants (ADR-0062), the ML
+runtime and packs, and the rest of "Remaining" in the session handover.
+
+Known limits the agents stated: de-click repairs a click whose context
+holds another from corrupted context; de-pop lowers music below its
+frequency during a pop; a QR sign-flip mutation in `autoregressive.ts`
+survived (numerical only); pitch shift's Draft quality (overlap 2) may
+ripple up to 3 dB. Pitch shift's frame grid has no sample-level test: a
+part-way start gives each partial another constant phase by design.

@@ -2,8 +2,9 @@
  * The frame transform of a phase vocoder with identity phase locking
  * (Laroche and Dolson, 1999): one windowed frame of input in, one frame of
  * output to overlap-add out, its partials moved on by the synthesis hop
- * whatever hop the analysis took. A stretch is built on it, and so is a
- * pitch shift, which stretches and converts the rate back.
+ * whatever hop the analysis took. A stretch is built on it. Its window, its
+ * peaks and their regions are the ones the pitch shift locks its phases by
+ * (`phase-locking.ts`).
  *
  * A frame keeps the input's magnitudes. A peak's phase advances by its
  * measured frequency over the synthesis hop, and every bin of a peak's
@@ -20,6 +21,7 @@
 import { succeed, type DomainResult } from '@audiogubbins/domain';
 
 import type { CanonicalDsp, CanonicalFft } from './canonical-dsp.js';
+import { findPeaks, regionEnd, vocoderWindow } from './phase-locking.js';
 import { sineOfTurns } from './reference/primitives.js';
 import { arctangentTurns, cosineOfTurns } from './reference/trigonometry.js';
 
@@ -55,7 +57,7 @@ export class PhaseVocoder {
     this.hop = size / overlap;
     this.#overlap = overlap;
     this.#fft = fft;
-    this.#window = Float64Array.from({ length: size }, (_, n) => sineOfTurns(n / (2 * size)));
+    this.#window = vocoderWindow(size);
     this.#real = new Float64Array(bins);
     this.#imaginary = new Float64Array(bins);
     this.#magnitude = new Float64Array(bins);
@@ -114,7 +116,8 @@ export class PhaseVocoder {
     if (analysisHop === undefined) {
       for (let k = 0; k < bins; k += 1) phases.synthesised[k] = wrapped(phase[k] ?? 0);
     } else {
-      this.#advance(phases, this.#findPeaks(bins), bins, analysisHop);
+      const peakCount = findPeaks(magnitude, bins, this.#peaks);
+      this.#advance(phases, peakCount, bins, analysisHop);
     }
     phases.analysed.set(phase);
     for (let k = 0; k < bins; k += 1) {
@@ -130,25 +133,6 @@ export class PhaseVocoder {
     }
   }
 
-  /** The bins louder than the two on each side, in order; their count. */
-  #findPeaks(bins: number): number {
-    const magnitude = this.#magnitude;
-    let count = 0;
-    for (let k = 0; k < bins; k += 1) {
-      const level = magnitude[k] ?? 0;
-      if (
-        level > (magnitude[k - 1] ?? -1) &&
-        level > (magnitude[k - 2] ?? -1) &&
-        level >= (magnitude[k + 1] ?? -1) &&
-        level >= (magnitude[k + 2] ?? -1)
-      ) {
-        this.#peaks[count] = k;
-        count += 1;
-      }
-    }
-    return count;
-  }
-
   /**
    * Each peak's phase advanced by its measured frequency over the synthesis
    * hop, and each bin of its region, the bins nearer it than any other peak,
@@ -159,9 +143,7 @@ export class PhaseVocoder {
     let regionStart = 0;
     for (let index = 0; index < peakCount; index += 1) {
       const peak = this.#peaks[index] ?? 0;
-      const last = index + 1 === peakCount;
-      const nextPeak = last ? bins : (this.#peaks[index + 1] ?? bins);
-      const regionEnd = last ? bins : Math.floor((peak + nextPeak) / 2) + 1;
+      const end = regionEnd(this.#peaks, index, peakCount, bins);
       const centre = peak / this.size;
       let frequency = centre;
       if (analysisHop > 0) {
@@ -170,10 +152,10 @@ export class PhaseVocoder {
       }
       const peakPhase = wrapped((phases.synthesised[peak] ?? 0) + this.hop * frequency);
       const peakAnalysed = phase[peak] ?? 0;
-      for (let k = regionStart; k < regionEnd; k += 1) {
+      for (let k = regionStart; k < end; k += 1) {
         phases.synthesised[k] = wrapped(peakPhase + (phase[k] ?? 0) - peakAnalysed);
       }
-      regionStart = regionEnd;
+      regionStart = end;
     }
     for (let k = regionStart; k < bins; k += 1) phases.synthesised[k] = wrapped(phase[k] ?? 0);
   }

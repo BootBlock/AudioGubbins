@@ -88,6 +88,11 @@ export interface Measurer {
   add(input: readonly Float32Array[], frames: number): void;
   /** The measurement, written into the node for its kernel. */
   result(): readonly number[];
+  /**
+   * Frees what it measures with, whether or not it made its result: a pass
+   * can be cancelled, or fail to read, part way.
+   */
+  release(): void;
 }
 
 /** What a processor type is defined by. */

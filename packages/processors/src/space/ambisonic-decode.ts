@@ -257,6 +257,7 @@ export const AMBISONIC_DECODER = processorType({
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     // A matrix, with no memory of earlier frames.
     leadIn: () => 0,
+    frameGrid: () => 1,
   },
   kernel,
 });

@@ -226,6 +226,7 @@ export const DE_HUM = processorType({
     outputLayout: (input) => succeed(input),
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn,
+    frameGrid: () => 1,
   },
   kernel,
 });

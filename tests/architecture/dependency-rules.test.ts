@@ -825,8 +825,9 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     // The packages are also compiled without the DOM type definitions, so this
     // would be a type error first. The rule stays because the `lib` setting is
     // one line in a generated file, and this is a test that says why it
-    // matters.
-    const forbidden = /\b(window|document|localStorage|sessionStorage|navigator)\s*\./;
+    // matters. A member of that name, such as an analysis's `window`, is not
+    // the global.
+    const forbidden = /(?<![\w$.])(window|document|localStorage|sessionStorage|navigator)\s*\./;
     expect(FRAMEWORK_FREE.filter((path) => forbidden.test(readCode(path)))).toEqual([]);
   });
 

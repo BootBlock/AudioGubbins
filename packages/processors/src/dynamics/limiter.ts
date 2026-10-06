@@ -122,6 +122,7 @@ export const LIMITER = processorType({
     outputLayout: (input) => succeed(input),
     latency,
     leadIn,
+    frameGrid: () => 1,
   },
   kernel,
 });

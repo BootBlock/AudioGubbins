@@ -13,12 +13,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { DC_OFFSET_REMOVAL } from './dc-offset-removal.js';
-import {
-  EVERY_LAYOUT,
-  lastAudibleFrame,
-  runWithChange,
-  sineGain,
-} from '../testing/filter-measures.js';
+import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 processorProperties(DC_OFFSET_REMOVAL, {
   layouts: EVERY_LAYOUT,
@@ -63,8 +58,8 @@ describe('DC offset removal', () => {
     const input = [noise(6, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { cutoff: 2 } };
     const change = { frame: 2_999, name: 'cutoff', value: 40 };
-    const [steady] = runWithChange(DC_OFFSET_REMOVAL, settings, input, [4_096], change);
-    const [cut] = runWithChange(DC_OFFSET_REMOVAL, settings, input, [1, 7, 128, 333, 31], change);
+    const [steady] = runProcessor(DC_OFFSET_REMOVAL, settings, input, [4_096], change);
+    const [cut] = runProcessor(DC_OFFSET_REMOVAL, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

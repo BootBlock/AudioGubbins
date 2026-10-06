@@ -6,11 +6,14 @@
 
 export { type PropertyCases, processorProperties } from './processor-properties.js';
 export {
+  type Change,
   type RunSettings,
   TEST_BLOCK_FRAMES,
   TEST_RATE,
   processorKernel,
+  processorKernelOf,
   processorStep,
   processorValues,
   runProcessor,
 } from './processor-run.js';
+export { learnedProfile } from './spectral-measures.js';

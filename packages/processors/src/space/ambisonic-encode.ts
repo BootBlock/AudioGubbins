@@ -252,6 +252,7 @@ export const AMBISONIC_ENCODER = processorType({
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     // Each frame is its source times gains, with no memory of earlier frames.
     leadIn: () => 0,
+    frameGrid: () => 1,
   },
   kernel,
 });

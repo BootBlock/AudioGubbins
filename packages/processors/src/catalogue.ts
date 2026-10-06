@@ -18,7 +18,14 @@ import { DE_ESSER } from './filters/de-esser.js';
 import { DE_HUM } from './filters/de-hum.js';
 import { FILTER } from './filters/filter.js';
 import { PARAMETRIC_EQUALISER } from './filters/parametric-equaliser.js';
+import { DEREVERBERATION } from './spectral/dereverb.js';
+import { NOISE_REDUCTION } from './spectral/noise-reduction.js';
+import { DE_CLICK } from './repair/de-click.js';
+import { DE_POP } from './repair/de-pop.js';
 import { GAIN_PROCESSOR } from './level/gain-processor.js';
+import { LOUDNESS_NORMALISATION } from './level/loudness-normalisation.js';
+import { PEAK_NORMALISATION } from './level/peak-normalisation.js';
+import { PITCH_SHIFT } from './pitch/pitch-shift.js';
 import { AMBISONIC_DECODER } from './space/ambisonic-decode.js';
 import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
 import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
@@ -31,6 +38,8 @@ import { REVERB } from './space/reverb.js';
  */
 export const PROCESSOR_TYPES: readonly ProcessorType[] = [
   GAIN_PROCESSOR,
+  PEAK_NORMALISATION,
+  LOUDNESS_NORMALISATION,
   PARAMETRIC_EQUALISER,
   FILTER,
   COMPRESSOR,
@@ -39,12 +48,17 @@ export const PROCESSOR_TYPES: readonly ProcessorType[] = [
   EXPANDER,
   DE_ESSER,
   DELAY,
+  PITCH_SHIFT,
   REVERB,
   AMBISONIC_ENCODER,
   AMBISONIC_ROTATION,
   AMBISONIC_DECODER,
   DC_OFFSET_REMOVAL,
   DE_HUM,
+  DE_CLICK,
+  DE_POP,
+  NOISE_REDUCTION,
+  DEREVERBERATION,
 ];
 
 /** Every processor type by type key, as the effect rack finds a slot's type. */

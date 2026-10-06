@@ -13,12 +13,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { FILTER } from './filter.js';
-import {
-  EVERY_LAYOUT,
-  runWithChange,
-  sineGain,
-  lastAudibleFrame,
-} from '../testing/filter-measures.js';
+import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 processorProperties(FILTER, {
   layouts: EVERY_LAYOUT,
@@ -99,8 +94,8 @@ describe('the filter', () => {
     const input = [noise(5, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: { cutoff: 500 } };
     const change = { frame: 3_001, name: 'cutoff', value: 5_000 };
-    const [steady] = runWithChange(FILTER, settings, input, [4_096], change);
-    const [cut] = runWithChange(FILTER, settings, input, [1, 7, 128, 333, 31], change);
+    const [steady] = runProcessor(FILTER, settings, input, [4_096], change);
+    const [cut] = runProcessor(FILTER, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

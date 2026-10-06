@@ -14,3 +14,4 @@ export {
   processorNodeType,
 } from './framework/processor-type.js';
 export { processorNodeSettings } from './framework/processor-node.js';
+export { type NoiseProfileSettings, noiseProfileLearner } from './spectral/noise-reduction.js';

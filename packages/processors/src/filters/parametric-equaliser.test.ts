@@ -13,12 +13,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { PARAMETRIC_EQUALISER } from './parametric-equaliser.js';
-import {
-  EVERY_LAYOUT,
-  runWithChange,
-  sineGain,
-  lastAudibleFrame,
-} from '../testing/filter-measures.js';
+import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 /** Band `band` on, with `rest` of its parameters by their names within the band. */
 function bandOn(band: number, rest: Readonly<Record<string, ParameterValue>> = {}) {
@@ -90,14 +85,8 @@ describe('the parametric equaliser', () => {
     const input = [noise(4, { length: 12_000 }).channels[0] ?? new Float32Array(0)];
     const settings = { layout: StandardLayouts.mono, values: bandOn(4, { gain: -6 }) };
     const change = { frame: 5_003, name: 'band-4-gain', value: 12 };
-    const [steady] = runWithChange(PARAMETRIC_EQUALISER, settings, input, [4_096], change);
-    const [cut] = runWithChange(
-      PARAMETRIC_EQUALISER,
-      settings,
-      input,
-      [1, 7, 128, 333, 31],
-      change,
-    );
+    const [steady] = runProcessor(PARAMETRIC_EQUALISER, settings, input, [4_096], change);
+    const [cut] = runProcessor(PARAMETRIC_EQUALISER, settings, input, [1, 7, 128, 333, 31], change);
     expect(fingerprint(cut ?? new Float32Array(0))).toBe(
       fingerprint(steady ?? new Float32Array(1)),
     );

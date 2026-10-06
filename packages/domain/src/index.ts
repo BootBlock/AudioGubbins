@@ -228,6 +228,7 @@ export {
   type ParameterValues,
   ProcessorCategory,
   type ProcessorDescriptor,
+  type StateRequirement,
   type ProcessorSettings,
   parameterOf,
 } from './processing/processor-descriptor.js';

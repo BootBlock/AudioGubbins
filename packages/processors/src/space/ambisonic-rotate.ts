@@ -210,6 +210,7 @@ export const AMBISONIC_ROTATION = processorType({
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     // Each frame is turned on its own, with no memory of earlier frames.
     leadIn: () => 0,
+    frameGrid: () => 1,
   },
   kernel,
 });

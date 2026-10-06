@@ -58,6 +58,13 @@ export interface ChainRun {
    */
   readonly leadIn: number;
 
+  /**
+   * Frames a part-way start must fall a whole number of into the stream, so
+   * every processor it runs frames its audio as a run from the start does:
+   * the least common multiple of their frame grids.
+   */
+  readonly frameGrid: number;
+
   /** Processes the next `frames` frames, at most the request's block, from `input` into `output`. */
   process(input: readonly Float32Array[], output: readonly Float32Array[], frames: number): void;
 
