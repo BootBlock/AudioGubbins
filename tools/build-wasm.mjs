@@ -30,8 +30,13 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const TARGET = 'wasm32-unknown-unknown';
-const CRATE = 'audiogubbins-wasm-bindings';
+
+/**
+ * The target the module is built for, and the crate it is built from: what
+ * the third-party notices read the shipped crates from, as well as the build.
+ */
+export const WASM_TARGET = 'wasm32-unknown-unknown';
+export const WASM_CRATE = 'audiogubbins-wasm-bindings';
 
 /**
  * The features the module is built with: the MVP, and each addition every
@@ -67,7 +72,7 @@ export const DSP_MODULE = join(REPO_ROOT, 'target', 'wasm', 'audiogubbins-dsp.wa
 export function buildDspModule() {
   const build = spawnSync(
     'cargo',
-    ['build', '--release', '--locked', '--target', TARGET, '-p', CRATE],
+    ['build', '--release', '--locked', '--target', WASM_TARGET, '-p', WASM_CRATE],
     {
       cwd: REPO_ROOT,
       encoding: 'utf8',
@@ -85,7 +90,7 @@ export function buildDspModule() {
   }
   mkdirSync(dirname(DSP_MODULE), { recursive: true });
   copyFileSync(
-    join(REPO_ROOT, 'target', TARGET, 'release', `${CRATE.replaceAll('-', '_')}.wasm`),
+    join(REPO_ROOT, 'target', WASM_TARGET, 'release', `${WASM_CRATE.replaceAll('-', '_')}.wasm`),
     DSP_MODULE,
   );
   return DSP_MODULE;

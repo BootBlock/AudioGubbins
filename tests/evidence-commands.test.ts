@@ -164,7 +164,7 @@ describe('the evidence says what each command it verified with runs', () => {
 
     expect(
       untrueOf([
-        'pnpm run lint             # pnpm run version:check, pnpm run graph:check, eslint ., prettier --check .',
+        'pnpm run lint             # pnpm run version:check, pnpm run graph:check, pnpm run notices:check, eslint ., prettier --check .',
         'pnpm run typecheck:full   # tsc --build --force tsconfig.build.json, then tsc -p tsconfig.json',
         `pnpm run test             # ${testStep}`,
         'pnpm run test:e2e         # playwright test, every project',
@@ -173,25 +173,28 @@ describe('the evidence says what each command it verified with runs', () => {
     ).toEqual([]);
 
     expect(
-      untrueOf(['pnpm run lint # pnpm run version:check, eslint ., prettier --check .']),
+      untrueOf([
+        'pnpm run lint # pnpm run version:check, pnpm run notices:check, eslint ., prettier --check .',
+      ]),
     ).toEqual([
-      'lint: says "eslint ." where it runs "pnpm run graph:check"',
+      'lint: says "pnpm run notices:check" where it runs "pnpm run graph:check"',
+      'lint: says "eslint ." where it runs "pnpm run notices:check"',
       'lint: says "prettier --check ." where it runs "eslint ."',
       'lint: says "(nothing)" where it runs "prettier --check ."',
     ]);
     expect(
       untrueOf([
-        'pnpm run lint # pnpm run version:check, pnpm run graph:check, tsc, eslint ., prettier --check .',
+        'pnpm run lint # pnpm run version:check, pnpm run graph:check, pnpm run notices:check, tsc, eslint ., prettier --check .',
       ]).length,
     ).toBeGreaterThan(0);
     expect(
       untrueOf([
-        'pnpm run lint # pnpm run version:check, pnpm run graph:check, eslint . --fix, prettier --check .',
+        'pnpm run lint # pnpm run version:check, pnpm run graph:check, pnpm run notices:check, eslint . --fix, prettier --check .',
       ]),
     ).toEqual(['lint: says "eslint . --fix" where it runs "eslint ."']);
     expect(
       untrueOf([
-        'pnpm run lint # version:check, pnpm run graph:check, eslint ., prettier --check .',
+        'pnpm run lint # version:check, pnpm run graph:check, pnpm run notices:check, eslint ., prettier --check .',
       ]),
     ).toEqual(['lint: says "version:check" where it runs "pnpm run version:check"']);
     expect(untrueOf(['pnpm run typecheck:full # tsc --build, then tsc -p tsconfig.json'])).toEqual([

@@ -13,7 +13,9 @@
     "**/*.ts",
     "../tools/build-wasm.mjs",
     "../tools/check-build-output.mjs",
-    "../tools/check-record-titles.mjs"
+    "../tools/check-record-titles.mjs",
+    "../tools/read-pnpm-lockfile.mjs",
+    "../tools/sync-third-party-notices.mjs"
   ],
   "exclude": ["dist"],
   "references": [

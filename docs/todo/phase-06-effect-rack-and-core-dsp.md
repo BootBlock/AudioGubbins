@@ -283,11 +283,10 @@ Open points from `ml-runtime`:
   refused" by its message text, the only signal it gives.
 - A WebGPU preview may run some operators on the CPU and still report
   WebGPU; it is a preview, so it is disclosed as one.
-- `NOTICE` names `THIRD-PARTY-NOTICES.md`, "generated from the committed
-  lockfiles", which neither exists nor has a generator, and no phase owns
-  it. This phase is the first to ship third-party runtime files
-  (`onnxruntime-web`, MIT, and its MIT, Apache-2.0, ISC and BSD-3-Clause
-  dependencies) to the browser, so it adds the generator and the file.
+- Closed: `THIRD-PARTY-NOTICES.md` is generated from the committed
+  lockfiles (`tools/sync-third-party-notices.mjs`, the production closure
+  of `apps/web` and the crates linked into the WebAssembly) and checked by
+  `pnpm run lint`, which refuses a shipped licence off its allow-list.
 
 Open points from `model-packs`:
 
