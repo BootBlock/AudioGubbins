@@ -90,13 +90,24 @@ class FakeSession implements InferenceSession {
 export class FakeInference implements InferencePort {
   readonly #model: FakeModel;
   readonly #capabilities: InferenceCapabilities;
+  readonly #runtime: RuntimeIdentity;
   /** The options of every session opened, in order. */
   readonly opened: InferenceOptions[] = [];
   #open = 0;
 
-  constructor(model: FakeModel, capabilities: InferenceCapabilities = EVERY_CAPABILITY) {
+  /**
+   * A runtime running `model` on a device that offers `capabilities`, saying
+   * it is `runtime`: the fake's own identity, unless a test plays the build a
+   * model is pinned to.
+   */
+  constructor(
+    model: FakeModel,
+    capabilities: InferenceCapabilities = EVERY_CAPABILITY,
+    runtime: RuntimeIdentity = FAKE_RUNTIME,
+  ) {
     this.#model = model;
     this.#capabilities = capabilities;
+    this.#runtime = runtime;
   }
 
   /** How many sessions are open: opened and not yet released. */
@@ -114,7 +125,7 @@ export class FakeInference implements InferencePort {
     if (refusal !== undefined) return Promise.resolve(fail(refusal));
     this.opened.push(options);
     this.#open += 1;
-    const session = new FakeSession(this.#model, { options, runtime: FAKE_RUNTIME }, () => {
+    const session = new FakeSession(this.#model, { options, runtime: this.#runtime }, () => {
       this.#open -= 1;
     });
     return Promise.resolve(succeed(session));

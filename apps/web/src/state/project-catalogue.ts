@@ -5,20 +5,26 @@
  * them, and an undo moves every one back.
  *
  * A subscription the composition root makes once, beside the catalogue and the
- * project stores, so no command remembers to tell the editor what changed.
+ * project stores, so no command remembers to tell the editor what changed. An
+ * entry whose chains run a model this page cannot run says why, and every
+ * entry is made again when what the page can run changes, as a pack is
+ * installed or removed.
  */
 
 import type { AssetId } from '@audiogubbins/domain';
 
+import type { ModelGate } from '../assets/model-gate.js';
 import type { MadeAsset } from '../assets/project-assets.js';
 import { projectEntries } from '../assets/project-assets.js';
 import type { AssetCatalogue } from './asset-catalogue.js';
+import type { Observable } from './observable.js';
 import type { ProjectStores } from './project-stores.js';
 
 /** Follows the open project into `catalogue` from now on, and gives back the function that stops. */
 export function followProjectAssets(
   projects: Pick<ProjectStores, 'project' | 'media'>,
   catalogue: AssetCatalogue,
+  gates: Observable<ModelGate>,
 ): () => void {
   let made: ReadonlyMap<AssetId, MadeAsset> = new Map();
   const follow = (): void => {
@@ -28,15 +34,21 @@ export function followProjectAssets(
       catalogue.showProject(new Map());
       return;
     }
-    const shown = projectEntries(open.snapshot.model.state, projects.media.of, made);
+    const shown = projectEntries(open.snapshot.model.state, projects.media.of, gates.get(), made);
     made = shown.made;
     catalogue.showProject(shown.entries);
   };
   follow();
   const stopProject = projects.project.subscribe(follow);
   const stopMedia = projects.media.subscribe(follow);
+  const stopModels = gates.subscribe(() => {
+    // What can run changed, so no entry made before is the entry it was.
+    made = new Map();
+    follow();
+  });
   return () => {
     stopProject();
     stopMedia();
+    stopModels();
   };
 }

@@ -7,6 +7,7 @@ import {
   PROCESSOR_CATALOGUE,
   PROCESSOR_TYPES,
   PROCESSOR_TYPES_BY_KEY,
+  processorTypesWith,
 } from './catalogue.js';
 import { FakeModels, MemoryModelLibrary } from './testing/model-services.js';
 import { deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
@@ -44,6 +45,15 @@ describe('the processor catalogue', () => {
       models: new MemoryModelLibrary([]),
     });
     expect(PROCESSOR_CATALOGUE.get(made.descriptor.typeKey)).toBe(made.descriptor);
+  });
+
+  it('makes a type for every descriptor it lists, each the type of that descriptor, so a thread runs every chain the catalogue admits', () => {
+    const types = processorTypesWith({
+      inference: new FakeModels(new Map()),
+      models: new MemoryModelLibrary([]),
+    });
+    expect([...types.keys()].sort()).toEqual([...PROCESSOR_CATALOGUE.keys()].sort());
+    for (const [key, type] of types) expect(type.descriptor).toBe(PROCESSOR_CATALOGUE.get(key));
   });
 
   it('gives each parameter of every type its own identifier, no two types sharing one', () => {

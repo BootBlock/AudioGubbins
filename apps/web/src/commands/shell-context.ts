@@ -36,12 +36,14 @@ import type {
 import type { IdGenerator } from '@audiogubbins/domain';
 
 import type { DetectionControl } from '../analysis/detection-control.js';
+import type { ModelGate } from '../assets/model-gate.js';
 import type { PlaybackControl } from '../audio/playback-control.js';
 import type { PictureSoundDecoder } from '../picture/picture-sound.js';
 import type { ReferencePicture } from '../picture/reference-picture.js';
 import type { AssetCatalogue } from '../state/asset-catalogue.js';
 import type { ChosenFiles } from '../state/chosen-files.js';
 import type { ClipboardStore } from '../state/clipboard-store.js';
+import type { Observable } from '../state/observable.js';
 import type { CueStore } from '../state/cue-store.js';
 import type { EditorViewStore } from '../state/editor-view-store.js';
 import type { SelectionStore } from '../state/selection-store.js';
@@ -155,6 +157,12 @@ export interface ShellContext {
 
   /** What the last copy or cut took, for the session. */
   readonly clipboard: ClipboardStore;
+
+  /**
+   * Why a processor cannot run for want of its model, as the page knows now
+   * (ADR-0062), which every entry of the project is made with.
+   */
+  readonly modelGate: Observable<ModelGate>;
 
   /**
    * What the assistants were asked to analyse this session and what they

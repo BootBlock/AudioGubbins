@@ -58,6 +58,7 @@ import { executeVoiced, type VoicedOptions } from './commands/voiced-execution.j
 import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { startEditor, type PanelControls } from './editor-part.js';
+import { startModels, type ModelServices } from './ml/model-services.js';
 import { createAudioSettingsStore, previewQualityOf } from './state/audio-settings-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
@@ -140,6 +141,7 @@ function startAudio(
   interaction: InteractionStore,
   storage: StateStorage,
   logger: Logger,
+  models: ModelServices,
 ): {
   readonly parts: Pick<
     ShellContext,
@@ -151,10 +153,10 @@ function startAudio(
   readonly dispose: () => void;
 } {
   const audio = createAudioViewStore();
-  const previews = browserPreviews(logger, audio);
+  const previews = browserPreviews(logger, audio, models);
   let stopFollowing = (): void => undefined;
   const runtime = audioRuntimeCapabilities(capabilities);
-  const engine = browserEngineLoader(runtime, previews.host);
+  const engine = browserEngineLoader(runtime, previews.host, models);
   const audioSettings = createAudioSettingsStore(storage, logger);
   const renderStrategy = createRenderStrategyStore();
   const announce = (text: string): void => {
@@ -296,8 +298,10 @@ export function createApplication() {
     logViews.forgetClosed(panelsIn(workspace.get().layout).map((panel) => panel.id));
   });
 
-  const audioPart = startAudio(capabilities, interaction, storage, diagnostics.loggerFor('audio'));
-  const analysisPart = startAnalysis(interaction, audioPart.previews);
+  const audioLogger = diagnostics.loggerFor('audio');
+  const models = startModels(capabilities, projectSystem.storage, audioLogger);
+  const audioPart = startAudio(capabilities, interaction, storage, audioLogger, models);
+  const analysisPart = startAnalysis(interaction, audioPart.previews, models);
   const editorPart = startEditor(
     capabilities,
     storage,
@@ -306,6 +310,7 @@ export function createApplication() {
     audioPart.parts.audioSettings,
     projectSystem,
     audioPart.previews,
+    models,
   );
   audioPart.followAssets(editorPart.parts.assets);
 
@@ -394,6 +399,7 @@ export function createApplication() {
       analysisPart.dispose();
       audioPart.dispose();
       editorPart.dispose();
+      models.dispose();
       projectSystem.dispose();
     },
   };

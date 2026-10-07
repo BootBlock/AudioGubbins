@@ -18,6 +18,8 @@ import {
 } from '@audiogubbins/domain';
 import {
   PLAN_WITHOUT_CHAINS,
+  TEST_CATALOGUE,
+  deepestChain,
   expectFailureCode,
   expectSuccess,
   renderPlan,
@@ -25,7 +27,14 @@ import {
 import {
   NESTED_ARGUMENT_LIMITS,
   canonicalJson,
+  parseJson,
+  readEditOperation,
+  readEffectChain,
+  startReading,
   writeEditOperation,
+  writeEffectChain,
+  type Converter,
+  type JsonValue,
   type ProjectState,
 } from '@audiogubbins/project-format';
 import { referenceState } from '@audiogubbins/project-format/testing';
@@ -33,6 +42,7 @@ import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { copyAudio, type AudioPayload } from './clipboard-payload.js';
 import { planPaste, type PasteRequest } from './paste-planning.js';
+import { copyProcessing, pasteProcessing } from './processing-payload.js';
 
 /**
  * Copying and pasting (ADR-0053), checked by what the result sounds like: each
@@ -384,5 +394,53 @@ describe('pasting (ADR-0053)', () => {
     expect(
       expectFailureCode(planPaste(withSlower, converting, ids, wholeLength(copy, true) - 1)),
     ).toBe('clipboard.too-large-to-convert');
+  });
+});
+
+describe('a copy of a chain whose groups nest as deep as the domain allows', () => {
+  /**
+   * `value` read back from the text an invocation's argument carries it as,
+   * within the bounds and by the reader the command that takes it reads with.
+   */
+  function throughArgument<TValue>(read: Converter<TValue>, value: JsonValue): TValue {
+    const parsed = expectSuccess(parseJson(canonicalJson(value), NESTED_ARGUMENT_LIMITS));
+    const reading = startReading();
+    return expectSuccess(reading.outcome(read(reading, parsed, '', 'value')));
+  }
+
+  it('pastes audio the chain racks as edits each carried whole in its argument', () => {
+    const chain = deepestChain(ids);
+    const held = state.project.assets.get(footstep.id);
+    if (held === undefined) throw new Error('The reference state has no footstep.');
+    const racked: Asset = { ...held, rack: chain.id };
+    const chains = new Map([...state.project.effectChains, [chain.id, chain]]);
+    const into: ProjectState = {
+      ...state,
+      project: {
+        ...state.project,
+        assets: new Map(state.project.assets).set(racked.id, racked),
+        effectChains: chains,
+      },
+    };
+    const plan = expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE }));
+    const copy = expectSuccess(copyAudio(into, plan, { start: at(1_000), end: at(3_000) }));
+    expect(copy.plan.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);
+
+    const paste = expectSuccess(
+      planPaste(into, request(copy, racked, { kind: 'at', at: at(0) }), ids),
+    );
+
+    for (const operation of paste.operations) {
+      expect(throughArgument(readEditOperation, writeEditOperation(operation))).toEqual(operation);
+    }
+  });
+
+  it('pastes the chain’s deepest group into another rack, which its change carries whole', () => {
+    const payload = expectSuccess(copyProcessing(deepestChain(ids).slots, false));
+    const target = { id: ids.next<'EffectChainId'>(), slots: [] };
+
+    const pasted = expectSuccess(pasteProcessing(payload, target, { index: 0 }, ids));
+
+    expect(throughArgument(readEffectChain, writeEffectChain(pasted))).toEqual(pasted);
   });
 });

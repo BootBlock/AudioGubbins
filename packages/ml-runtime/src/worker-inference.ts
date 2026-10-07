@@ -1,16 +1,18 @@
 /**
- * The inference port on the page's side of the inference worker (ADR-0062).
+ * The inference port on a thread's side of the inference workers (ADR-0062).
  *
  * A runtime keeps the threads it was started with, so each runtime
  * configuration a session needs (`runtimeConfigurationOf`) runs in a worker of
- * its own, made on the first session that needs it and kept for the next. Each
- * call is a message; each answer is read field by field and settles the call
- * it names. A cancelled call is answered at once and the worker told; a
- * session that opened for a call already answered is let go. Inputs' buffers
- * are transferred, not copied; a model's bytes are copied, since the caller's
- * pack cache keeps them. A worker that fails, or answers what cannot be read,
- * is ended, and every call and session it held fails with the reason; the next
- * session makes a new one.
+ * its own. The client asks for a connection to a configuration's worker on the
+ * first session that needs it and keeps it for the next; whoever made the
+ * client says how a connection is made, and the page starts the worker with the
+ * runtime's setup. Each call is a message; each answer is read field by field
+ * and settles the call it names. A cancelled call is answered at once and the
+ * worker told; a session that opened for a call already answered is let go.
+ * Inputs' buffers are transferred, not copied; a model's bytes are copied,
+ * since the caller's pack cache keeps them. A connection that fails, or answers
+ * what cannot be read, is ended, and every call and session it held fails with
+ * the reason; the next session makes a new one.
  */
 
 import {
@@ -26,9 +28,10 @@ import {
 import {
   capabilityRefusal,
   runtimeConfigurationOf,
+  type InferenceCapabilities,
   type InferenceExecution,
   type InferenceOptions,
-  type RuntimeSetup,
+  type RuntimeConfiguration,
 } from './inference-options.js';
 import {
   cancelled,
@@ -49,7 +52,7 @@ import {
 } from './protocol/inference-messages.js';
 import { tensor, type Tensor, type TensorInfo } from './tensor.js';
 
-/** The page's end of an inference worker. */
+/** A thread's end of its connection to an inference worker. */
 export interface InferenceWorkerPort {
   post(message: ToInferenceWorker, transfer: readonly ArrayBuffer[]): void;
   /** Listens for the worker's messages, and for its failing, with the reason. */
@@ -143,7 +146,7 @@ class Connection {
   /** Why the worker is gone, once it is. */
   #failure: DomainFailureResult | undefined;
 
-  constructor(worker: InferenceWorkerPort, setup: RuntimeSetup, ended: () => void) {
+  constructor(worker: InferenceWorkerPort, ended: () => void) {
     this.#worker = worker;
     this.#ended = ended;
     worker.listen(
@@ -154,7 +157,6 @@ class Connection {
         this.#fail(`The inference worker stopped: ${reason}`);
       },
     );
-    worker.post({ kind: ToInferenceWorkerKind.Start, setup }, []);
   }
 
   open(
@@ -295,16 +297,18 @@ class Connection {
 
 /** The inference port over inference workers, one for each runtime configuration. */
 export class WorkerInference implements InferencePort {
-  readonly #createWorker: () => InferenceWorkerPort;
-  readonly #setup: RuntimeSetup;
+  readonly #connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort;
+  readonly #capabilities: InferenceCapabilities;
   readonly #connections = new Map<string, Connection>();
 
   constructor(options: {
-    readonly createWorker: () => InferenceWorkerPort;
-    readonly setup: RuntimeSetup;
+    /** A new connection to the worker that runs `configuration`. */
+    readonly connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort;
+    /** What the device offers, as the page started the workers with it. */
+    readonly capabilities: InferenceCapabilities;
   }) {
-    this.#createWorker = options.createWorker;
-    this.#setup = options.setup;
+    this.#connect = options.connect;
+    this.#capabilities = options.capabilities;
   }
 
   open(
@@ -316,13 +320,13 @@ export class WorkerInference implements InferencePort {
     // Refused here as well as in the worker, so a session the device cannot
     // run starts no worker, and a preview's thread count that is no count
     // never reaches one as a message it would refuse whole.
-    const refusal = capabilityRefusal(options, this.#setup.capabilities);
+    const refusal = capabilityRefusal(options, this.#capabilities);
     if (refusal !== undefined) return Promise.resolve(fail(refusal));
-    const { build, threads } = runtimeConfigurationOf(options);
-    const key = `${build}:${String(threads)}`;
+    const configuration = runtimeConfigurationOf(options);
+    const key = configurationKey(configuration);
     let connection = this.#connections.get(key);
     if (connection === undefined) {
-      connection = new Connection(this.#createWorker(), this.#setup, () => {
+      connection = new Connection(this.#connect(configuration), () => {
         this.#connections.delete(key);
       });
       this.#connections.set(key, connection);
@@ -330,10 +334,26 @@ export class WorkerInference implements InferencePort {
     return connection.open(model, options, signal);
   }
 
-  /** Ends every worker; whatever they held is answered as having failed. */
+  /**
+   * Ends the connection to the worker that runs `configuration`, which the
+   * page found had failed for `reason`: whatever it held is answered with the
+   * reason, and the next session connects again.
+   */
+  failed(configuration: RuntimeConfiguration, reason: string): void {
+    this.#connections
+      .get(configurationKey(configuration))
+      ?.close(`The inference worker stopped: ${reason}`);
+  }
+
+  /** Ends every connection; whatever they held is answered as having failed. */
   dispose(): void {
     for (const connection of [...this.#connections.values()]) {
       connection.close('The inference workers were closed.');
     }
   }
+}
+
+/** A configuration as text, one for each worker. */
+export function configurationKey({ build, threads }: RuntimeConfiguration): string {
+  return `${build}:${String(threads)}`;
 }

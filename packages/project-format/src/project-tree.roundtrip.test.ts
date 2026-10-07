@@ -15,7 +15,7 @@ import { projectTree, type ProjectTreeContent } from './project-tree-writing.js'
 import { ProvenanceLevel, stripAssetProvenance } from './provenance-stripping.js';
 import { nodeDigest } from './testing/node-digest.js';
 import { TREE_READING } from './testing/tree-reading.js';
-import { referenceState } from './testing/project-states.js';
+import { deeplyRackedState, referenceState } from './testing/project-states.js';
 import {
   everyState,
   historyContent,
@@ -109,6 +109,16 @@ describe('the unpacked tree round-trips (REQ-STOR-103)', () => {
       expect(files.some(({ path }) => path.startsWith('history/'))).toBe(false);
     },
   );
+
+  it('keeps a project whose chains nest as deep as the domain allows, its history holding it whole', async () => {
+    const content = await historyContent(deeplyRackedState(sampleProject()), 11, nodeDigest);
+    const { files, read, again } = await roundTrip(content);
+
+    expect(files.some(({ path }) => path.startsWith('history/states/'))).toBe(true);
+    expect(filesText(again)).toEqual(filesText(files));
+    const oldestFirst = { ...content, exports: [...content.exports].reverse() };
+    expect(await contentText(read)).toBe(await contentText(oldestFirst));
+  });
 
   it('writes one file per entity, the header first, and media by reference', async () => {
     const content = await historyContent(referenceState(sampleProject()), 3, nodeDigest);

@@ -21,6 +21,7 @@ import { cacheClient, type CacheClient } from './cache-client.js';
 import { libraryClient, type LibraryClient } from './library-client.js';
 import { mediaClient, type MediaClient } from './media-client.js';
 import { ownershipClient, type OwnershipClient } from './ownership-client.js';
+import { packsClient, type PacksClient } from './packs-client.js';
 import { PagePorts, lendingCall } from './page-ports.js';
 import {
   processingLibraryClient,
@@ -45,6 +46,9 @@ export interface StorageClient {
   readonly sources: SourcesClient;
   readonly media: MediaClient;
   readonly caches: CacheClient;
+
+  /** The model packs a person has installed, their installation and their files. */
+  readonly packs: PacksClient;
   readonly usage: UsageClient;
   readonly ownership: OwnershipClient;
 }
@@ -86,6 +90,7 @@ export function storageClientOver(
     sources: sourcesClient(lending),
     media: mediaClient(channel, lending),
     caches: cacheClient(channel),
+    packs: packsClient(channel),
     usage: usageClient(channel),
     ownership: ownershipClient(channel),
   };

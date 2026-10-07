@@ -6,7 +6,6 @@ import {
   GraphOptimisation,
   InferenceMode,
   PreviewAcceleratorKind,
-  RuntimeBuild,
   type InferenceCapabilities,
   type InferenceOptions,
 } from './inference-options.js';
@@ -14,9 +13,8 @@ import type { InferencePort, InferenceSession, ModelBytes } from './inference-po
 import type { Tensor } from './tensor.js';
 import { FAKE_ADD, addModelBytes } from './testing/add-model.js';
 import { EVERY_CAPABILITY, FakeInference } from './testing/fake-inference.js';
-import { InProcessWorker, TEST_ORIGIN } from './testing/in-process-worker.js';
+import { inProcessInference, testSetup } from './testing/in-process-worker.js';
 import { PINNED, valueOf, vector } from './testing/port-contract.js';
-import { WorkerInference } from './worker-inference.js';
 
 /** A port whose sessions open only when the test lets them. */
 class GatedInference implements InferencePort {
@@ -41,29 +39,13 @@ class GatedInference implements InferencePort {
   }
 }
 
-/** A client over played workers serving `serve`, with the workers it made. */
+/** A thread's client over played workers serving `serve`, with the workers the page started. */
 function clientOver(
   serve: () => InferencePort = () => new FakeInference(FAKE_ADD),
   capabilities: InferenceCapabilities = EVERY_CAPABILITY,
 ) {
-  const workers: InProcessWorker[] = [];
-  const createWorker = vi.fn(() => {
-    const worker = new InProcessWorker(serve);
-    workers.push(worker);
-    return worker;
-  });
-  const client = new WorkerInference({
-    createWorker,
-    setup: {
-      filesBase: `${TEST_ORIGIN}/runtime/`,
-      webAssemblySha256: {
-        [RuntimeBuild.Cpu]: 'a'.repeat(64),
-        [RuntimeBuild.WebGpu]: 'b'.repeat(64),
-      },
-      capabilities,
-    },
-  });
-  return { client, workers, createWorker };
+  const { inference, threads } = inProcessInference(serve, testSetup(capabilities));
+  return { client: inference, workers: threads };
 }
 
 function codesOf<TValue>(result: DomainResult<TValue>): readonly string[] {
@@ -84,7 +66,7 @@ const PREVIEW_ON_TWO: InferenceOptions = {
 };
 
 describe("the inference workers' client", () => {
-  it('starts each worker with the setup, and runs each runtime configuration in a worker of its own', async () => {
+  it('has each worker started with the setup, and runs each runtime configuration in a worker of its own', async () => {
     const { client, workers } = clientOver();
 
     valueOf(await client.open(addModelBytes(), PINNED));
@@ -92,10 +74,11 @@ describe("the inference workers' client", () => {
     valueOf(await client.open(addModelBytes(), PREVIEW_ON_TWO));
 
     expect(workers).toHaveLength(2);
-    expect(workers.map((worker) => worker.kinds)).toEqual([
-      ['start', 'open', 'open'],
-      ['start', 'open'],
+    expect(workers.map((worker) => worker.scope)).toEqual([
+      ['start', 'connect'],
+      ['start', 'connect'],
     ]);
+    expect(workers.map((worker) => worker.kinds)).toEqual([['open', 'open'], ['open']]);
   });
 
   it("takes the inputs' buffers to the worker, and leaves the model's bytes with the caller", async () => {
@@ -230,7 +213,7 @@ describe("the inference workers' client", () => {
     expect(workers).toHaveLength(2);
   });
 
-  it('ends a worker that answers what cannot be read', async () => {
+  it('ends a connection whose worker answers what cannot be read', async () => {
     const { client, workers } = clientOver();
     const session = valueOf(await client.open(addModelBytes(), PINNED));
     const [worker] = workers;
@@ -245,7 +228,7 @@ describe("the inference workers' client", () => {
     const ended = await running;
     expect(codesOf(ended)).toEqual(['inference.worker-failed']);
     expect(ended.ok ? '' : ended.failures[0].summary).toMatch(/data is not 32-bit floats/);
-    expect(worker?.terminated).toBe(true);
+    expect(worker?.channels[0]?.other?.closed).toBe(true);
   });
 
   it("refuses a tensor whose dimensions miss its data, without the worker's hearing of it", async () => {
@@ -264,14 +247,14 @@ describe("the inference workers' client", () => {
   });
 
   it('refuses a session the device cannot run without starting a worker', async () => {
-    const { client, createWorker } = clientOver(undefined, { ...EVERY_CAPABILITY, threads: 1 });
+    const { client, workers } = clientOver(undefined, { ...EVERY_CAPABILITY, threads: 1 });
     expect(codesOf(await client.open(addModelBytes(), PREVIEW_ON_TWO))).toEqual([
       'inference.capability-missing',
     ]);
-    expect(createWorker).not.toHaveBeenCalled();
+    expect(workers).toHaveLength(0);
   });
 
-  it('ends every worker it closes, failing what they held', async () => {
+  it('ends every connection it closes, failing what they held', async () => {
     const { client, workers } = clientOver();
     const session = valueOf(await client.open(addModelBytes(), PINNED));
     workers[0]?.holdAnswers();
@@ -280,6 +263,6 @@ describe("the inference workers' client", () => {
     client.dispose();
 
     expect(codesOf(await running)).toEqual(['inference.worker-failed']);
-    expect(workers[0]?.terminated).toBe(true);
+    expect(workers[0]?.channels[0]?.other?.closed).toBe(true);
   });
 });

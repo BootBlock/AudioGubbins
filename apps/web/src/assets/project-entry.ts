@@ -33,6 +33,7 @@ import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/pr
 import { counted, quoted } from '@audiogubbins/text';
 
 import { revisionOf, type EditorAsset } from './editor-asset.js';
+import { planModelRefusal, type ModelGate } from './model-gate.js';
 
 /** Whether the page holds the file an asset's media is kept in. */
 export type MediaAvailability =
@@ -193,10 +194,11 @@ export function regionEntry(
     readonly markers: readonly PlacedMarker[];
     readonly resolver: AnchorResolver;
     readonly context: PlanContext;
+    readonly models: ModelGate;
   },
   reads: Reads,
 ): ProjectEntry {
-  const { asset, region, markers, resolver, context } = parts;
+  const { asset, region, markers, resolver, context, models } = parts;
   const id = regionEntryId(region.id);
   const placed = placeRegion(resolver, region);
   if (placed === undefined || placed.length === 0) {
@@ -219,6 +221,10 @@ export function regionEntry(
       name: region.displayName,
       reason: unracked.failures[0].summary,
     };
+  }
+  const withoutModel = planModelRefusal(plan.value, models);
+  if (withoutModel !== undefined) {
+    return { kind: 'unavailable', id, name: region.displayName, reason: withoutModel };
   }
   return openedEntry(
     {

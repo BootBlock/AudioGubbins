@@ -8,6 +8,7 @@
 import { succeed } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MediaObjectStore } from '@audiogubbins/media-store';
+import { PackInstaller, nobleSha256 } from '@audiogubbins/model-packs';
 import { countingTokens, generatedSource, memorySource } from '@audiogubbins/media-store/testing';
 import type {
   ByteSink,
@@ -136,6 +137,7 @@ export function storageOf(
   });
   const caches = new CacheStore(tree, digest);
   const packs = new ModelPackStore(tree, digest, test.coordinator);
+  const packInstaller = new PackInstaller({ store: packs, sha256: nobleSha256 });
   const services = test.services(tree, yieldToHost === undefined ? {} : { yieldToHost });
   return {
     tree,
@@ -144,7 +146,7 @@ export function storageOf(
     packs,
     exporting: { ...services, store, caches, invocationProvenance: TEST_INVOCATION_PROVENANCE },
     measuring: { ...services, store, caches, packs },
-    cleaning: { ...services, store, caches, packs, packPins: NO_PINS },
+    cleaning: { ...services, store, caches, packs, packPins: NO_PINS, packInstaller },
     importing: {
       tree,
       digest,

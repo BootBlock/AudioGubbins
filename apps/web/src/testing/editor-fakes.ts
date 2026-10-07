@@ -18,14 +18,23 @@ import { createRendererReports } from '../state/renderer-reports.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { PictureSoundDecoder, type DecodeSound } from '../picture/picture-sound.js';
 import { ReferencePicture, type PicturePlatform } from '../picture/reference-picture.js';
+import type { ModelGate } from '../assets/model-gate.js';
 import { createAssetCatalogue } from '../state/asset-catalogue.js';
 import { createChosenFiles } from '../state/chosen-files.js';
 import { createClipboardStore } from '../state/clipboard-store.js';
 import { createCueStore } from '../state/cue-store.js';
 import { createEditorViewStore } from '../state/editor-view-store.js';
 import { reconcileSelections } from '../state/selection-reconciling.js';
+import { observable } from '../state/observable.js';
 import { createSelectionStore } from '../state/selection-store.js';
 import type { StateStorage } from '../state/state-storage.js';
+
+/**
+ * A gate that refuses nothing, taking every processor's model to be there,
+ * for a test of what a project's entries are made of rather than of whether
+ * a model can run.
+ */
+export const OPEN_MODEL_GATE: ModelGate = () => undefined;
 
 /**
  * The frame callbacks waiting on a fake element, which a test fires as the
@@ -153,6 +162,7 @@ export function fakeEditor(
   | 'pictureSound'
   | 'chosenFiles'
   | 'clipboard'
+  | 'modelGate'
 > {
   const assets = createAssetCatalogue(testAssets(), logger);
   const picture = new ReferencePicture({ platform: fakePicturePlatform(), logger });
@@ -177,6 +187,8 @@ export function fakeEditor(
     }),
     chosenFiles: createChosenFiles(),
     clipboard: createClipboardStore(),
+    // The editor's fakes hold no project, whose entries alone a gate refuses.
+    modelGate: observable(OPEN_MODEL_GATE),
   };
 }
 

@@ -12,10 +12,30 @@
  * never planned, and the listing says why it is kept, as it does for every
  * version where the pins cannot be read. A removal reads the pins again, and
  * keeps, and reports, a version a project has come to need since the plan.
+ *
+ * Every removal goes through the installer, the one authority on a version's
+ * install state (REQ-ARCH-153): a partial version is cancelled and an
+ * installed one removed with the pins as its retention, so the installer's
+ * state machine sees each removal as it happens, refuses one while another
+ * operation runs on the version, and never goes on holding as installed a
+ * version a cleanup has deleted, to find it missing on its next read.
  */
 
-import { succeed, type DomainResult } from '@audiogubbins/domain';
-import { packKey, type PackRef } from '@audiogubbins/model-packs';
+import {
+  FailureKind,
+  fail,
+  failure,
+  succeed,
+  type DomainFailure,
+  type DomainResult,
+} from '@audiogubbins/domain';
+import {
+  VERSION_BUSY,
+  VERSION_PINNED,
+  packKey,
+  type PackInstaller,
+  type PackRef,
+} from '@audiogubbins/model-packs';
 
 import type { MeasuredPack, ModelPackStore } from './model-pack-store.js';
 
@@ -133,9 +153,10 @@ export async function planPacks(
 export async function removePartialPacks(
   planned: readonly PlannedPack[],
   store: ModelPackStore,
+  installer: PackInstaller,
   signal?: AbortSignal,
 ): Promise<DomainResult<number>> {
-  return await removeFound(planned, store, 'partial', new Set(), signal);
+  return await removeFound(planned, { store, installer, kind: 'partial', pins: [] }, signal);
 }
 
 /**
@@ -146,42 +167,74 @@ export async function removePartialPacks(
 export async function removeChosenPacks(
   planned: readonly PlannedPack[],
   store: ModelPackStore,
+  installer: PackInstaller,
   pins: PackPins,
   signal?: AbortSignal,
 ): Promise<DomainResult<ChosenRemoval>> {
   const pinned = await pins(signal);
   if (!pinned.ok) return succeed({ freed: 0, refused: { kind: 'needs-unknown' } });
   const keys = new Set(pinned.value.map(packKey));
-  const freed = await removeFound(planned, store, 'installed', keys, signal);
+  const freed = await removeFound(
+    planned,
+    { store, installer, kind: 'installed', pins: pinned.value },
+    signal,
+  );
   if (!freed.ok) return freed;
   const needed = planned.flatMap(({ ref }) => (keys.has(packKey(ref)) ? [ref] : []));
   return succeed({ freed: freed.value, ...(needed.length === 0 ? {} : { needed }) });
 }
 
+/** What a removal of planned versions works with, and which versions it removes. */
+interface Removal {
+  readonly store: ModelPackStore;
+  readonly installer: PackInstaller;
+  /** The versions removed: those the store still keeps as this. */
+  readonly kind: MeasuredPack['kind'];
+  /** The versions projects need, which are kept. */
+  readonly pins: readonly PackRef[];
+}
+
 /**
- * Removes each planned version the store still keeps as `kind`, but those
- * `kept` names, giving the bytes they held.
+ * Removes each planned version the store still keeps as `removal.kind`, but
+ * those the pins name, through the installer (see the module comment),
+ * giving the bytes they held. A version another operation is running on is
+ * left, and counts for nothing, as is one the installer finds pinned, which
+ * the caller reports as needed by the same pins; any other refusal of the
+ * installer's, or a deletion the storage refuses, fails the step with the
+ * reason.
  */
 async function removeFound(
   planned: readonly PlannedPack[],
-  store: ModelPackStore,
-  kind: MeasuredPack['kind'],
-  kept: ReadonlySet<string>,
+  removal: Removal,
   signal?: AbortSignal,
 ): Promise<DomainResult<number>> {
+  const { store, installer, kind, pins } = removal;
+  const restored = await installer.restore();
+  if (!restored.ok) return restored;
   const measured = await store.measured(signal);
   if (!measured.ok) return measured;
   const found = new Map(
     measured.value.flatMap((pack) => (pack.kind === kind ? [[packKey(pack.ref), pack]] : [])),
   );
+  const kept = new Set(pins.map(packKey));
   let freed = 0;
   for (const { ref } of planned) {
     signal?.throwIfAborted();
     const pack = found.get(packKey(ref));
     if (pack === undefined || kept.has(packKey(ref))) continue;
-    const removed = await store.remove(pack.ref);
-    if (!removed.ok) return removed;
-    freed += pack.bytes;
+    const removed =
+      kind === 'installed'
+        ? await installer.remove(pack.ref, { pinned: pins })
+        : await installer.cancel(pack.ref);
+    if (!removed.ok) {
+      const [refusal] = removed.failures;
+      // Nothing was removed, and the next cleanup finds the version again.
+      if (refusal.code === VERSION_BUSY || refusal.code === VERSION_PINNED) continue;
+      return fail(removalRefused(ref, refusal));
+    }
+    const state = removed.value;
+    if (state.kind === 'failed') return fail(state.reason);
+    if (state.kind === 'available') freed += pack.bytes;
   }
   return succeed(freed);
 }
@@ -207,6 +260,20 @@ async function offered(
         : undefined;
     return { ref, name, bytes, ...(kept === undefined ? {} : { kept }) };
   });
+}
+
+/**
+ * Why a cleanup stopped: the installer refused a removal for a reason other
+ * than the two it expects, such as a version the installer holds in a state
+ * other than the store's, which no later cleanup would mend by itself.
+ */
+function removalRefused(ref: PackRef, reason: DomainFailure): DomainFailure {
+  return failure(
+    'storage.pack-removal-refused',
+    FailureKind.Conflict,
+    `The cleanup could not remove ${packKey(ref)}: ${reason.summary}`,
+    { details: { pack: ref.id, version: ref.version }, cause: reason },
+  );
 }
 
 /** A version as a step carries it. */

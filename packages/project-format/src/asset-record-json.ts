@@ -18,7 +18,7 @@ import { objectOf, pathOf, required, type Converter } from './document-reading.j
 import type { AssetSource } from './project-state.js';
 import { writeAsset, writeSourceEntry } from './project-writing.js';
 import { checkAgainstAsset, readSourceEntry } from './source-reading.js';
-import { asAsset } from './timeline-reading.js';
+import { WRITTEN_ASSET_DEPTH, asAsset } from './timeline-reading.js';
 
 /** One asset and its source. */
 export interface AssetRecord {
@@ -27,6 +27,12 @@ export interface AssetRecord {
 }
 
 const RECORD_MEMBERS: ReadonlySet<string> = new Set(['asset', 'source']);
+
+/**
+ * How many levels of arrays and objects a written record takes: its own
+ * object, then its asset, which nests deeper than its source.
+ */
+export const WRITTEN_ASSET_RECORD_DEPTH = 1 + WRITTEN_ASSET_DEPTH;
 
 /** Writes an asset with its source. */
 export function writeAssetRecord(record: AssetRecord): JsonObject {

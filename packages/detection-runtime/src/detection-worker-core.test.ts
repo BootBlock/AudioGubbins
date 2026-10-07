@@ -7,9 +7,11 @@ import {
   MAXIMUM_QUALITY,
   derivedSampleCount,
   mapResult,
+  succeed,
   type DetectorFinding,
 } from '@audiogubbins/domain';
 import {
+  type Assistant,
   CLASSIFICATION_ASSISTANT,
   PROCESSOR_TYPES_BY_KEY,
   REPAIR_ASSISTANT,
@@ -73,7 +75,14 @@ function countingDsp(): {
 }
 
 /** The core, with what it posts kept, and a wait for a job's last answer. */
-function rig(dsp: CanonicalDsp = REFERENCE_DSP) {
+function rig(
+  dsp: CanonicalDsp = REFERENCE_DSP,
+  assistants: readonly Assistant[] = [
+    CLASSIFICATION_ASSISTANT,
+    REPAIR_ASSISTANT,
+    RESTORATION_ASSISTANT,
+  ],
+) {
   const posted: FromDetectionWorker[] = [];
   const waiting = new Map<string, (message: FromDetectionWorker) => void>();
   const core = new DetectionWorkerCore({
@@ -85,7 +94,7 @@ function rig(dsp: CanonicalDsp = REFERENCE_DSP) {
     yieldToHost: turn,
     dsp,
     processing: NO_CHAIN_PROCESSING,
-    assistants: [CLASSIFICATION_ASSISTANT, REPAIR_ASSISTANT, RESTORATION_ASSISTANT],
+    assistants,
     types: PROCESSOR_TYPES_BY_KEY,
     reportFault: (error) => {
       throw error;
@@ -120,6 +129,40 @@ function detect(
       end: derivedSampleCount(options.end ?? FAULTY_LENGTH),
     },
     assistants: options.assistants ?? ['repair', 'restoration', 'classification'],
+  };
+}
+
+/**
+ * An assistant whose one detector finds `count` clicks, each at frame 0,
+ * whatever it hears, and which recommends nothing.
+ */
+function findingEverything(count: number): Assistant {
+  const finding: DetectorFinding = {
+    kind: FindingKind.Click,
+    range: { start: derivedSampleCount(0), end: derivedSampleCount(1) },
+    channels: [0],
+    measure: { value: 0, unit: 'linear' },
+    treatment: { kind: 'none', reason: 'A stand-in finds what it is told to.' },
+  };
+  const findings: readonly DetectorFinding[] = Array.from({ length: count }, () => finding);
+  const [clicks] = REPAIR_ASSISTANT.detectors;
+  if (clicks === undefined) throw new Error('The repair assistant runs no detector.');
+  return {
+    key: 'everything',
+    label: 'Everything',
+    detectors: [
+      {
+        identity: clicks.identity,
+        finds: [FindingKind.Click],
+        open: () =>
+          succeed({
+            add: () => Promise.resolve(),
+            result: () => Promise.resolve(succeed(findings)),
+            release: () => undefined,
+          }),
+      },
+    ],
+    recommend: () => [],
   };
 }
 
@@ -409,5 +452,16 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
     const reason = 'A message to the detection worker could not be read.';
     expect(await queued).toEqual({ kind: FromDetectionWorkerKind.Failed, job: 'queued', reason });
     expect(await running).toEqual({ kind: FromDetectionWorkerKind.Failed, job: 'running', reason });
+  });
+
+  it('answers a detector’s findings however many it finds', async () => {
+    // More than a call takes as arguments, which a spread of them would pass.
+    const count = 1_000_000;
+    const { core, answer } = rig(REFERENCE_DSP, [findingEverything(count)]);
+    const done = answer('many');
+    core.receive(detect('many', { end: TEST_RATE / 10, assistants: ['everything'] }));
+
+    const [report] = resultOf(await done).reports;
+    expect(report?.recommendation.findings).toHaveLength(count);
   });
 });

@@ -39,9 +39,16 @@ import {
   asFadeShape,
   asLevelGain,
 } from './edit-value-reading.js';
-import { readEditPlan } from './plan-reading.js';
+import { WRITTEN_PLAN_DEPTH, readEditPlan } from './plan-reading.js';
 import { asBoolean, asId, oneOfConverter } from './scalar-reading.js';
 import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
+
+/**
+ * How many levels of arrays and objects a written operation of an asset's
+ * chain takes, its own object the first: a paste's plan, one level down, is
+ * the deepest thing any operation holds. A region's operations hold no plan.
+ */
+export const WRITTEN_OPERATION_DEPTH = 1 + WRITTEN_PLAN_DEPTH;
 
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['start', 'end']);
 const REGION_OPERATION_MEMBERS: ReadonlySet<string> = new Set([

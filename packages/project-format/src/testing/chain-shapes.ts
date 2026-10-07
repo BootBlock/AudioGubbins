@@ -12,7 +12,6 @@ import {
   MAXIMUM_GROUP_DEPTH,
   SummingLaw,
   instantiateProcessor,
-  type ChainSlot,
   type EffectChain,
   type IdGenerator,
   type ParameterId,
@@ -27,6 +26,7 @@ import {
   TEST_CATALOGUE,
   TEST_FILTER,
   TEST_LIMITER,
+  nestedGroups,
 } from '@audiogubbins/domain/testing';
 
 /** A filter whose version names a resampler and a model, as an ML processor's does. */
@@ -65,20 +65,6 @@ export function fullySetProcessor(ids: IdGenerator): ProcessorInstance {
   };
 }
 
-/** Groups nested `depth` deep, the innermost holding a limiter. */
-function nested(ids: IdGenerator, depth: number): ChainSlot {
-  if (depth === 0) return instantiateProcessor(ids.next<'ProcessorId'>(), TEST_LIMITER);
-  return {
-    kind: 'group',
-    id: ids.next<'ProcessorGroupId'>(),
-    enabled: true,
-    soloed: false,
-    mix: 1,
-    summing: SummingLaw.EqualPower,
-    branches: [{ slots: [nested(ids, depth - 1)] }],
-  };
-}
-
 /** A chain of every shape (see the module comment). */
 export function everyChainShape(ids: IdGenerator): EffectChain {
   const limiter = instantiateProcessor(ids.next<'ProcessorId'>(), TEST_LIMITER);
@@ -103,7 +89,7 @@ export function everyChainShape(ids: IdGenerator): EffectChain {
         soloed: false,
         mix: 0,
         summing: SummingLaw.Sum,
-        branches: [{ slots: [nested(ids, MAXIMUM_GROUP_DEPTH - 1)] }],
+        branches: [{ slots: [nestedGroups(ids, MAXIMUM_GROUP_DEPTH - 1)] }],
       },
     ],
   };

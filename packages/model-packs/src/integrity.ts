@@ -7,7 +7,9 @@
  * megabytes is checked without being held whole; Web Crypto's digest takes its
  * input whole and so cannot be the port. A file read for use is held whole
  * anyway, since the runtime loads a model from one buffer, and is checked as it
- * is read, so no byte reaches the runtime before the whole file matched.
+ * is read, so no byte reaches the runtime before the whole file matched; it is
+ * handed over with the SHA-256 taken as it was read, so nothing hashes it
+ * again.
  */
 
 import {
@@ -32,6 +34,12 @@ export interface Sha256Run {
 
 /** Starts a SHA-256: the platform's, injected. */
 export type Sha256 = () => Sha256Run;
+
+/** A kept file read whole, with the SHA-256 of its bytes, in lower-case hexadecimal, taken as they were read. */
+export interface KeptFile {
+  readonly bytes: Uint8Array<ArrayBuffer>;
+  readonly sha256: string;
+}
 
 /** The bytes read and hashed at a time. */
 const CHUNK_BYTES = 1_048_576;
@@ -65,8 +73,8 @@ function sizeMismatch(file: PackFile, found: number): DomainFailureResult {
 
 /**
  * Hashes `source` a chunk at a time, copying each chunk into `into` where it is
- * given, and answers whether it is `file`. Rejects with the signal's reason
- * when `signal` aborts.
+ * given, and answers its SHA-256 where it is `file`. Rejects with the signal's
+ * reason when `signal` aborts.
  */
 async function checked(
   source: ByteSource,
@@ -74,7 +82,7 @@ async function checked(
   sha256: Sha256,
   into: Uint8Array<ArrayBuffer> | undefined,
   signal: AbortSignal | undefined,
-): Promise<DomainResult<void>> {
+): Promise<DomainResult<string>> {
   if (source.size !== file.bytes) return sizeMismatch(file, source.size);
   const run = sha256();
   for (let offset = 0; offset < file.bytes; offset += CHUNK_BYTES) {
@@ -93,8 +101,9 @@ async function checked(
     await run.update(bytes);
   }
   signal?.throwIfAborted();
-  return hexOf(await run.digest()) === file.sha256
-    ? succeed(undefined)
+  const found = hexOf(await run.digest());
+  return found === file.sha256
+    ? succeed(found)
     : mismatch(
         file,
         'model-pack.file-hash-mismatch',
@@ -109,25 +118,27 @@ async function verifyFile(
   sha256: Sha256,
   signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
-  return await checked(source, file, sha256, undefined, signal);
+  const result = await checked(source, file, sha256, undefined, signal);
+  return result.ok ? succeed(undefined) : result;
 }
 
 /**
- * The whole of `source`, where it is `file`; checked as it is read, so the
- * bytes are handed over only once every one has matched.
+ * The whole of `source`, where it is `file`, with the SHA-256 taken as it was
+ * read; checked as it is read, so the bytes are handed over only once every
+ * one has matched.
  */
 async function readVerified(
   source: ByteSource,
   file: PackFile,
   sha256: Sha256,
   signal?: AbortSignal,
-): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
+): Promise<DomainResult<KeptFile>> {
   if (source.size !== file.bytes) return sizeMismatch(file, source.size);
   // Sized by the manifest, which the reader bounds, so a source cannot make
   // this allocate more than the pack said it holds.
   const whole = new Uint8Array(file.bytes);
   const result = await checked(source, file, sha256, whole, signal);
-  return result.ok ? succeed(whole) : result;
+  return result.ok ? succeed({ bytes: whole, sha256: result.value }) : result;
 }
 
 /** A file the manifest names that the store does not keep. */
@@ -159,7 +170,10 @@ export async function verifyKept(
   return succeed(undefined);
 }
 
-/** The whole of the file at `index` of a kept version, where it is `file`, checked as it is read. */
+/**
+ * The whole of the file at `index` of a kept version, where it is `file`,
+ * checked as it is read, with the SHA-256 taken as it was.
+ */
 export async function readKept(
   store: PackStore,
   ref: PackRef,
@@ -167,7 +181,7 @@ export async function readKept(
   file: PackFile,
   sha256: Sha256,
   signal?: AbortSignal,
-): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
+): Promise<DomainResult<KeptFile>> {
   const opened = await store.open(ref, index);
   if (!opened.ok) return opened;
   return opened.value === undefined

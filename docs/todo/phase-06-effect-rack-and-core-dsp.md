@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-10-05: the branch is made and the work is
-> sliced; the slices below are built in order, each with `verify:commit`
-> green before it is committed.
+> **Status:** In progress. 2026-10-07: the sixth session committed the
+> chain depth bounds and the ML wiring in the application; each slice is
+> committed with `verify:commit` green. Next is the views (see "Next").
 
 # Phase 06 — Effect Rack and Core DSP
 
@@ -10,10 +10,11 @@ decisions that shape the work are `ADR-0060`, `ADR-0061` and `ADR-0062`.
 
 ## Where the work is
 
-|        |                        |
-| ------ | ---------------------- |
-| Branch | `phase-06-effect-rack` |
-| Base   | `main` at `563d5a4`    |
+|        |                           |
+| ------ | ------------------------- |
+| Branch | `phase-06-effect-rack`    |
+| Base   | `main` at `563d5a4`       |
+| Head   | see `git log`, not pushed |
 
 ## Gates
 
@@ -219,6 +220,35 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     (`runningChanges` reach `ChainRun.setParameter`); a rendered chain
     refuses it and playback reloads where it plays, remaking the render.
 
+27. **ML in the application** (2026-10-07). One inference worker per runtime
+    configuration for the whole page (`InferenceHost`), started on its first
+    connection. Every thread that runs chains (preview, render, feeder, peak,
+    detection) is started by `ModelServices.startChainWorker`, which gives it
+    a `ModelChannel`; per configuration the thread opens a `MessageChannel`
+    straight to the inference worker, so a tensor crosses once. A worker
+    serves at most 32 channels (`MOST_CONNECTIONS`); terminating a thread
+    lets go of its channel. Model files are read thread to page to storage
+    worker by `installedModelFiles`, the hash taken while reading. The build
+    serves onnxruntime-web's two `.wasm` files under
+    `inference/onnxruntime-web-<version>/` and states their SHA-256 from the
+    shipped bytes (`apps/web/inference-runtime.ts`); the build-output check
+    hashes them again. COOP/COEP stay development-only: an unisolated page
+    offers one thread, and a threaded preview is refused with its reason.
+    Packs are served under `<base>packs/` in development from
+    `AUDIOGUBBINS_PACK_CACHE`, and copied into a build only with
+    `AUDIOGUBBINS_PACKS_IN_BUILD=1`; the output check refuses a file under
+    `packs/` that no defined pack holds. The page's `AvailabilityContext`
+    (`nobleTextSha256`, the build's runtime, the device) makes the model gate
+    every entry is made with (`ShellContext.modelGate`, the A/B audition
+    included): a processor that cannot run leaves its entry unopened with
+    REQ-AUDIO-139's condition, and the project stays valid. A browser with no
+    pack storage, or a device that runs no pack, is "device unavailable".
+    `projectPackPins` reads current state, history, journal, checkpoints and
+    every backup generation one file at a time, over the walk the media
+    search shares (`project-roots.ts`), and fails safe (every pack kept).
+    Pack removal goes through the installer (REQ-ARCH-153); cleanup handles
+    its busy and pinned refusals by code and fails on any other.
+
 ## The first model packs' sources (researched 2026-10-05)
 
 None is blocked. Every graph below loaded and ran in onnxruntime-web 1.30
@@ -405,6 +435,26 @@ framework, DeepFilterNet 3 and the pack build tool, each with
   the goldens share `testing/pack-cache.ts` and `golden-render.ts`. All four
   goldens were unchanged by it.
 
+Sixth session, 2026-10-07, committed the chain depth bounds and the ML
+wiring together (the media search's walk, which the depth bound changed, moved
+into `project-roots.ts` for the pack pins, so the files did not allow two
+commits), with `verify:commit` green:
+
+- Decision 27, and the depth bounds in the open points below.
+- `tools/local-traces.mjs` holds the traces of the machine that the
+  build-output check and the notices tool both look for, and
+  `ml-runtime/src/channel-worker-port.ts` the channel's adapter to an
+  `InferenceWorkerPort`: each broke an import cycle.
+- The project catalogue takes an `Observable<ModelGate>` (`modelGates`),
+  so the state part does not import the ML part.
+- A detector's findings, the pack pins' walk and the media search's walk
+  add one value at a time (`storage/src/nested-values.ts`): a spread of an
+  unbounded list overflowed the stack. Each was proved by a test of a
+  million values against the old code.
+- The contract test's path pattern no longer takes a URL's scheme for a
+  drive.
+- Every test the wiring added was seen to fail against a mutation.
+
 Open points from `ml-runtime`:
 
 - Closed (decision 20): the adapter reads the runtime's WebAssembly through
@@ -412,9 +462,13 @@ Open points from `ml-runtime`:
   (`inference.runtime-file-mismatch`), and gives it as `wasmBinary`; a run
   in Node and in Chromium showed the runtime then requests nothing itself
   (`onnxruntime-web/wasm` is the bundle with its glue; a threaded preview's
-  workers load that bundle again). Still to wire: the build stating both
-  files' digests and serving them under `filesBase`, and COOP/COEP for a
-  threaded preview.
+  workers load that bundle again). Closed (decision 27): the build states
+  both files' digests and serves them; COOP/COEP stay development-only.
+- A refused setup or a malformed page message reaches the inference
+  worker's `reportError`, which the host takes as the worker failing, so it
+  ends the worker for every thread on it. Not checked: whether the PWA
+  precache takes the runtime's `.wasm` files and copied packs; a threaded
+  preview refused on a host without COOP/COEP has no test.
 - The runtime sorts a failure into "runtime unavailable" or "model
   refused" by its message text, the only signal it gives.
 - A WebGPU preview may run some operators on the CPU and still report
@@ -426,10 +480,8 @@ Open points from `ml-runtime`:
 
 Open points from `model-packs`:
 
-- The thread entries do not yet build ML types: they need an
-  `InferencePort` (a `WorkerInference` client with a `RuntimeSetup`), a
-  `ModelLibrary` on the installed packs, and the ML factories in the map
-  they give `chainProcessing`.
+- Closed (decision 27): the thread entries build the ML types
+  (`processorTypesWith`) over a `ModelChannel` and the installed packs.
 - The resampler's version (`CANONICAL_RESAMPLER_VERSION = 1`) is stated in
   processors; it belongs to the engine.
 - A parameter change of an ML processor while playing is refused: it needs
@@ -438,18 +490,20 @@ Open points from `model-packs`:
   (DeepFilterNet, ClearerVoice-Studio, torchaudio, Kaldi, PyTorch,
   Spleeter), rendered into `THIRD-PARTY-NOTICES.md` and checked by
   `notices:check` (paths exist, licences on the allow-list).
-- Serving the built packs from the application's origin in development and
-  in a build is not wired.
+- Closed (decision 27): the built packs are served from the application's
+  origin. Left for the pack-manager view: no command installs a pack yet,
+  so `virtual:audiogubbins/model-packs` (`PACK_CATALOGUE`) has no consumer,
+  and the browser run with a request log waits for it.
 - Closed (decisions 24–26): a whole pass runs once per preview render, and
   waveforms of racked audio read a render.
-- Nothing in production builds an `AvailabilityContext` yet; it must pass
-  `nobleTextSha256`.
-- The domain allows groups nested 8 deep, but a chain command's argument
-  limit refuses more than 2 and the project document's limit refuses the
-  domain's 8 (`json.too-deep`). Decided: every bound derives from
-  `WRITTEN_CHAIN_DEPTH`; the domain's limit stays.
-- `chain-commands.ts`: `addChain` carries out removal and `removeChain`
-  adding; the names are swapped.
+- Closed (decision 27): the page builds its `AvailabilityContext`.
+- Closed: every JSON depth bound a chain passes through derives from
+  `WRITTEN_CHAIN_DEPTH` plus what holds it (plan +4, operation +1, asset
+  +2, asset record +1): command arguments 45, the project document and tree
+  files 47; the media search uses the record reader's bound; each reader is
+  pinned by a test building the deepest chain. `addChain` and `removeChain`
+  say what they do. Left: `SHALLOW_RECORD_DEPTH` (32) is a hand-picked
+  floor for records that hold no chain; `clipboard-commands.ts` has no test.
 - Other tabs are not told when the library changes; the library view must
   re-read on focus or listen on a broadcast channel.
 - Preview renders are in memory, not on disk; the preview worker uses the
@@ -471,15 +525,10 @@ Open points from `model-packs`:
   `queued` install state that can be paused or cancelled;
   `PackStore.transferring` shares the storage-wide lock while a transfer
   writes. The worker composes `ModelPackStore`.
-- Which packs projects need is not worked out yet: the worker's `packPins`
-  refuses, so every pack is kept ("cannot be told"). Decided: a project
-  needs every pack version a processor instance names in its current
-  state, its history, its snapshots or its backups, since an undo or a
-  restore brings the instance back. To build, in storage, from each
-  instance's `ModelIdentity`.
-- A live installer is not told when a cleanup removes a pack (an installed
-  one is found missing on its next read and downloaded again on retry);
-  pack removal should go through the installer once its home is decided.
+- Closed (decision 27): a project needs every pack version a processor
+  instance names in its current state, its history, its snapshots or its
+  backups (`projectPackPins`), and cleanup removes a pack through the
+  installer.
 - The download bound is per installer, not across tabs; an import from a
   file waits in the same slot; storage-pressure relief does not yet take
   partial downloads; `PackStore.transferring` is not in the store contract
@@ -487,8 +536,34 @@ Open points from `model-packs`:
 - The dereverberation allocation tests failed once under the whole
   suite's load and passed on the next run; watch for a repeat.
 
-Next, in order: the three packs, the application's detection worker and
-the rest of "Remaining" in the session handover.
+Next, in order (2026-10-06):
+
+1. The views, through project commands only: rack and processor views in
+   the editor and the Inspector (which also lets the cached preview mode be
+   tested in a browser), the library view (re-read on focus or a broadcast
+   channel), applying a saved chain to several targets, A/B and
+   processed/original comparison, and the model-pack manager view with the
+   commands that install, pause, resume and remove a pack (the consumer of
+   `PACK_CATALOGUE`). Then the ML browser run: `pnpm build` with
+   `AUDIOGUBBINS_PACKS_IN_BUILD=1`, install DeepFilterNet 3 from the
+   application's own origin, hear a chain holding it, and save screenshots
+   and every request the page makes (only the app's and the pack's files).
+2. Amend ADR-0061 (decision 24: the preview worker makes the cached
+   render) and ADR-0062 (the `queued` install state, the runtime's
+   WebAssembly read and checked as bytes), with `spec:verify` and
+   `CHECKSUMS.sha256`.
+3. Scripts `test:dsp-property` and `test:ml-locality` (no request carrying
+   audio, project data or derived content); the phase's browser test
+   (apply a chain to a selection, give a region a rack, reload, hear the
+   same project); gates; ONE review pass with the packet's seven lenses
+   after committing; evidence, review, ledger PASS, handoff
+   `traceability/handoffs/phase-06.md`, README readiness; land (merge main
+   into the branch, `verify:commit`, `merge --no-ff` from the primary
+   checkout, push, remove the worktree, `git branch -d`, delete the briefs
+   folder); `gambit_record_change` for the user-visible changes (quality
+   settings and the transport's quality lines, the Analysis panel, the
+   storage panel's pack rows and cleanup, the cached preview in the
+   processing modes, and the views).
 
 Known limits of the ML packs: Spleeter's butted segments leave a
 measurable seam at each join (RMS difference 0.016 near joins against

@@ -16,6 +16,7 @@ import type { Logger } from '@audiogubbins/diagnostics';
 import { PreviewHost } from '@audiogubbins/audio-runtime';
 import previewWorkerUrl from '@audiogubbins/audio-runtime/threads/preview-worker.ts?worker&url';
 
+import type { ModelServices } from '../ml/model-services.js';
 import type { AudioViewStore } from '../state/audio-view-store.js';
 
 /** The page's end of the preview worker, and how to stop it. */
@@ -24,13 +25,18 @@ export interface BrowserPreviews {
   readonly dispose: () => void;
 }
 
-/** The preview worker, made when a worker is first connected to it, reporting to `view`. */
+/**
+ * The preview worker, made when a worker is first connected to it, reporting
+ * to `view`, and connected to the inference workers and installed packs by
+ * `models`, since a render runs a chain's models.
+ */
 export function browserPreviews(
   logger: Logger,
   view: Pick<AudioViewStore, 'showPreviews'>,
+  models: Pick<ModelServices, 'startChainWorker'>,
 ): BrowserPreviews {
   const host = new PreviewHost({
-    createWorker: () => new Worker(previewWorkerUrl, { type: 'module' }),
+    createWorker: () => models.startChainWorker(previewWorkerUrl),
     createChannel: () => new MessageChannel(),
     logger,
   });

@@ -23,6 +23,7 @@ import {
   type StoragePlatform,
 } from '@audiogubbins/capabilities';
 import type { DiagnosticCentre } from '@audiogubbins/diagnostics';
+import type { StorageClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
@@ -56,6 +57,12 @@ export interface ProjectSystem {
 
   /** Where the editor keeps waveform peaks: among the storage's caches (ADR-0043). */
   readonly peakCache: PeakCacheStore;
+
+  /**
+   * The storage worker's client, for what keeps its own state there beside the
+   * projects, as the model packs do; absent where projects cannot be kept.
+   */
+  readonly storage: StorageClient | undefined;
 
   /** Stops what the system put on the page. */
   readonly dispose: () => void;
@@ -118,6 +125,7 @@ export function startProjectSystem(
       projects: undefined,
       storageAbsences,
       peakCache: NO_PEAK_CACHE,
+      storage: undefined,
       dispose: () => undefined,
     };
   }
@@ -155,6 +163,7 @@ export function projectSystemOver(
       caches: services.client.caches,
       digest: services.digest,
     }),
+    storage: services.client,
     dispose: () => {
       stop();
       lifetime.abort(abandonment('The page took the project system down.'));

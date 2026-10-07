@@ -36,6 +36,7 @@ import feederWorkerUrl from '@audiogubbins/audio-runtime/threads/feeder-worker.t
 import renderWorkerUrl from '@audiogubbins/audio-runtime/threads/render-worker.ts?worker&url';
 import { DSP_MODULE_BYTES } from 'virtual:audiogubbins/dsp-module';
 
+import type { ModelServices } from '../ml/model-services.js';
 import type { ChosenProfile } from '../state/audio-settings-store.js';
 import { browserSchedule } from './browser-schedule.js';
 import type { PlaybackSessionPort } from './playback-parts.js';
@@ -51,11 +52,15 @@ const RENDER_CONCURRENCY = 2;
 
 /**
  * The feeder worker, a module worker as the render worker is, the channel it
- * feeds the worklet on, and its connection to the preview worker.
+ * feeds the worklet on, and its connections to the preview worker and to the
+ * models a chain it runs itself needs.
  */
-function playbackThreads(previews: PreviewHost): PlaybackThreads {
+function playbackThreads(
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
+): PlaybackThreads {
   return {
-    createFeeder: () => new Worker(feederWorkerUrl, { type: 'module' }),
+    createFeeder: () => models.startChainWorker(feederWorkerUrl),
     createChannel: () => new MessageChannel(),
     connectPreviews: () => previews.connect(CachePurpose.Playback),
   };
@@ -78,9 +83,10 @@ export interface BrowserEngine {
 export async function browserEngine(
   capabilities: AudioRuntimeCapabilities,
   previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
 ): Promise<BrowserEngine> {
   const dspModule = await compileDspModule(DSP_MODULE_BYTES, capabilities);
-  const threads = playbackThreads(previews);
+  const threads = playbackThreads(previews, models);
   return {
     openSession: ({ lifecycle, profile, logger }) =>
       new PlaybackSession({
@@ -103,9 +109,7 @@ export async function browserEngine(
         (scheduler) => ({
           scheduler,
           host: createRenderHost({
-            // A module worker: the development server serves it as a module
-            // with imports, and the build's single file runs as one as well.
-            createWorker: () => new Worker(renderWorkerUrl, { type: 'module' }),
+            createWorker: () => models.startChainWorker(renderWorkerUrl),
             scheduler,
             dsp: dspModule,
             schedule: browserSchedule,

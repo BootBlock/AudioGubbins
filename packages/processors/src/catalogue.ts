@@ -6,8 +6,9 @@
  * render runs cannot differ.
  *
  * A machine-learning type runs its model through services the thread that
- * runs it is given (ADR-0062), so it is made there, from its module's
- * function; its descriptor is a constant, listed here in the catalogue.
+ * runs it is given (ADR-0062), so it is made there, by
+ * {@link processorTypesWith}, from the functions listed here; its descriptor
+ * is a constant, listed here in the catalogue.
  */
 
 import type { ProcessorDescriptor } from '@audiogubbins/domain';
@@ -35,11 +36,14 @@ import { AMBISONIC_ENCODER } from './space/ambisonic-encode.js';
 import { AMBISONIC_ROTATION } from './space/ambisonic-rotate.js';
 import { DELAY } from './space/delay.js';
 import { REVERB } from './space/reverb.js';
-import { DEEPFILTERNET_3_DESCRIPTOR } from './ml/deepfilternet/deepfilternet.js';
-import { MOSSFORMER2_SE_48K_DESCRIPTOR } from './ml/mossformer2/mossformer2.js';
+import { DEEPFILTERNET_3_DESCRIPTOR, deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
+import type { ModelServices } from './ml/model-sessions.js';
+import { MOSSFORMER2_SE_48K_DESCRIPTOR, mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
 import {
   SPLEETER_2_STEMS_DESCRIPTOR,
   SPLEETER_4_STEMS_DESCRIPTOR,
+  spleeter2Stems,
+  spleeter4Stems,
 } from './ml/spleeter/spleeter.js';
 
 /**
@@ -86,6 +90,29 @@ export const MODEL_PROCESSOR_DESCRIPTORS: readonly ProcessorDescriptor[] = [
   SPLEETER_2_STEMS_DESCRIPTOR,
   SPLEETER_4_STEMS_DESCRIPTOR,
 ];
+
+/** How each machine-learning type is made, in the order of their descriptors. */
+const MODEL_PROCESSOR_TYPES: readonly ((services: ModelServices) => ProcessorType)[] = [
+  deepFilterNet3,
+  mossFormer2Se48k,
+  spleeter2Stems,
+  spleeter4Stems,
+];
+
+/**
+ * Every processor type by type key, those that run a model made to run it
+ * through `services`: what a thread that runs chains gives the effect rack,
+ * once, as it starts.
+ */
+export function processorTypesWith(services: ModelServices): ReadonlyMap<string, ProcessorType> {
+  return new Map([
+    ...PROCESSOR_TYPES_BY_KEY,
+    ...MODEL_PROCESSOR_TYPES.map((make) => {
+      const type = make(services);
+      return [type.descriptor.typeKey, type] as const;
+    }),
+  ]);
+}
 
 /** The descriptors of every processor type, those that run a model among them, by type key. */
 export const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor> = new Map([

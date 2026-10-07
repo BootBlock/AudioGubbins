@@ -7,6 +7,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 import { buildDspModule } from '../../tools/build-wasm.mjs';
+import { inferenceRuntime } from './inference-runtime.js';
+import { modelPackServing } from './model-pack-serving.js';
 import { previewRequestLog } from './preview-request-log.js';
 
 /**
@@ -240,6 +242,14 @@ export default defineConfig(({ command }) => ({
 
     dspModule(),
 
+    // The inference runtime's WebAssembly, served from the application's own
+    // origin with the digests taken from the bytes served (ADR-0062).
+    inferenceRuntime(),
+
+    // The model packs' catalogue on the application's own origin: the built
+    // packs served in development, and copied into a build only when asked.
+    modelPackServing(),
+
     // The browser suite's record of what the preview server received and
     // answered, present only where the suite asks for it.
     previewRequestLog(),
@@ -288,6 +298,10 @@ export default defineConfig(({ command }) => ({
     // Cross-origin isolation, which SharedArrayBuffer needs. Setting it in
     // development means the capability surface reports the same thing locally
     // as it will once the site is served with these headers (REQ-EXEC-216).
+    // It is also what lets a preview run the inference runtime on more than
+    // one thread; a static host that cannot send these headers serves a page
+    // that is not isolated, where the capabilities offer one thread and a
+    // threaded preview is refused with that reason (ADR-0062).
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',

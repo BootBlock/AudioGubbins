@@ -148,7 +148,7 @@ describe('the integrity check', () => {
   it('hands over the bytes read for use only once every one matched', async () => {
     const bytes = patterned(1_500_000, 9);
     const read = await readVerified(sourceOf(bytes), fileOf(bytes), nobleSha256);
-    expect(read.ok && read.value).toEqual(bytes);
+    expect(read.ok && read.value).toEqual({ bytes, sha256: sha256Hex(bytes) });
 
     const corrupted = bytes.slice();
     corrupted[1_400_000] = (corrupted[1_400_000] ?? 0) ^ 0x80;

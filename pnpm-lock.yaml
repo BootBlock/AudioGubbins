@@ -283,6 +283,12 @@ importers:
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../../packages/media-store
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../../packages/ml-runtime
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:../../packages/model-packs
       '@audiogubbins/processors':
         specifier: workspace:*
         version: link:../../packages/processors
@@ -412,6 +418,9 @@ importers:
       '@audiogubbins/effect-rack':
         specifier: workspace:*
         version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
       '@audiogubbins/processors':
         specifier: workspace:*
         version: link:../processors
@@ -560,6 +569,9 @@ importers:
       '@audiogubbins/effect-rack':
         specifier: workspace:*
         version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
       '@audiogubbins/processors':
         specifier: workspace:*
         version: link:../processors
@@ -853,6 +865,9 @@ importers:
       '@audiogubbins/media-store':
         specifier: workspace:*
         version: link:../media-store
+      '@audiogubbins/model-packs':
+        specifier: workspace:*
+        version: link:../model-packs
       '@audiogubbins/processors':
         specifier: workspace:*
         version: link:../processors
@@ -928,6 +943,9 @@ importers:
       '@audiogubbins/effect-rack':
         specifier: workspace:*
         version: link:../effect-rack
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:../ml-runtime
       '@audiogubbins/processors':
         specifier: workspace:*
         version: link:../processors

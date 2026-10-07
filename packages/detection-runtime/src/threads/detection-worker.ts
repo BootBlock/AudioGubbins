@@ -6,19 +6,23 @@
  * worker, and gives it the effect rack an edited sound's chains run on, the
  * assistants and the processor types. The package is compiled without any
  * browser's type definitions, so the parts of the scope this module uses are
- * declared here by their shape; the build compiles it again, with everything
- * it imports, by `scopes/dedicated-worker`, against a worker's definitions.
- * It reads with the reference DSP, which gives the canonical bits without the
- * WebAssembly module a render worker is sent, as the peak worker does.
+ * declared here by their shape; the build compiles it again, with everything it
+ * imports, by `scopes/dedicated-worker`, against a worker's definitions. It
+ * reads with the reference DSP, which gives the canonical bits without the
+ * WebAssembly module a render worker is sent, as the peak worker does. A chain
+ * it runs itself rather than read from a render runs a model through the model
+ * channel the page connects it by, which its scope hands on before the core
+ * reads anything.
  */
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import { chainProcessing } from '@audiogubbins/effect-rack';
+import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
 import {
   CLASSIFICATION_ASSISTANT,
-  PROCESSOR_TYPES_BY_KEY,
   REPAIR_ASSISTANT,
   RESTORATION_ASSISTANT,
+  processorTypesWith,
 } from '@audiogubbins/processors';
 
 import type { FromDetectionWorker } from '../detection-messages.js';
@@ -41,7 +45,7 @@ interface TurnChannel {
 }
 
 declare const self: DetectionWorkerScope;
-declare const MessageChannel: new () => TurnChannel;
+declare const MessageChannel: new () => TurnChannel & ChannelPair;
 
 /**
  * A yield to the worker's event loop between chunks, so a cancellation that
@@ -63,22 +67,25 @@ function yieldToHost(): Promise<void> {
   });
 }
 
+const models = new ModelChannel(() => new MessageChannel());
+const types = processorTypesWith({ inference: models, models });
+
 const core = new DetectionWorkerCore({
   post: (message) => {
     self.postMessage(message);
   },
   yieldToHost,
   dsp: REFERENCE_DSP,
-  processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
+  processing: chainProcessing(types),
   assistants: [CLASSIFICATION_ASSISTANT, REPAIR_ASSISTANT, RESTORATION_ASSISTANT],
-  types: PROCESSOR_TYPES_BY_KEY,
+  types,
   reportFault: (error) => {
     self.reportError(error);
   },
 });
 
 self.addEventListener('message', (event) => {
-  core.receive(event.data);
+  if (!models.receive(event.data)) core.receive(event.data);
 });
 // A message that could not be deserialised arrives as this rather than as a
 // message, and the page would otherwise wait on its detections for ever.

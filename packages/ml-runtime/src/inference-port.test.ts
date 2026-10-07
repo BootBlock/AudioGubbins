@@ -6,30 +6,20 @@ import { unlessCancelled } from './inference-port.js';
 import { tensor } from './tensor.js';
 import { FAKE_ADD, addModelBytes } from './testing/add-model.js';
 import { FakeInference } from './testing/fake-inference.js';
-import { InProcessWorker, TEST_ORIGIN } from './testing/in-process-worker.js';
+import { inProcessInference, testSetup } from './testing/in-process-worker.js';
 import { portContract } from './testing/port-contract.js';
-import { RuntimeBuild } from './inference-options.js';
-import { WorkerInference } from './worker-inference.js';
 
 portContract('the fake runtime', {
   port: (capabilities) => new FakeInference(FAKE_ADD, capabilities),
   model: addModelBytes,
 });
 
-portContract("the worker's client, over a worker serving the fake", {
+portContract("a thread's client, over the page's workers serving the fake", {
   port: (capabilities) =>
-    new WorkerInference({
-      createWorker: () =>
-        new InProcessWorker((setup) => new FakeInference(FAKE_ADD, setup.capabilities)),
-      setup: {
-        filesBase: `${TEST_ORIGIN}/runtime/`,
-        webAssemblySha256: {
-          [RuntimeBuild.Cpu]: 'a'.repeat(64),
-          [RuntimeBuild.WebGpu]: 'b'.repeat(64),
-        },
-        capabilities,
-      },
-    }),
+    inProcessInference(
+      (setup) => new FakeInference(FAKE_ADD, setup.capabilities),
+      testSetup(capabilities),
+    ).inference,
   model: addModelBytes,
 });
 

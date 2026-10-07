@@ -42,7 +42,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { WASM_CRATE, WASM_TARGET } from './build-wasm.mjs';
-import { localTracesIn } from './check-build-output.mjs';
+import { localTracesIn } from './local-traces.mjs';
 import { lockedPackagesOf } from './read-pnpm-lockfile.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');

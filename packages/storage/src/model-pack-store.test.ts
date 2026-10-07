@@ -203,8 +203,10 @@ describe('the model packs a storage keeps', () => {
         const state = installer.stateOf(REF);
         if (crash.at === undefined) expect(state).toEqual({ kind: 'installed' });
         if (state.kind !== 'installed') return;
-        expect([...expectSuccess(await installer.read(REF, 'encoder.onnx'))]).toEqual([...ENCODER]);
-        expect([...expectSuccess(await installer.read(REF, 'models/decoder.onnx'))]).toEqual([
+        expect([...expectSuccess(await installer.read(REF, 'encoder.onnx')).bytes]).toEqual([
+          ...ENCODER,
+        ]);
+        expect([...expectSuccess(await installer.read(REF, 'models/decoder.onnx')).bytes]).toEqual([
           ...DECODER,
         ]);
       },

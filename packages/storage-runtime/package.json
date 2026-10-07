@@ -40,6 +40,7 @@
     "@audiogubbins/storage": "workspace:*",
     "@audiogubbins/browser-storage": "workspace:*",
     "@audiogubbins/processors": "workspace:*",
+    "@audiogubbins/model-packs": "workspace:*",
     "@audiogubbins/text": "workspace:*"
   },
   "devDependencies": {

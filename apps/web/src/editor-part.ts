@@ -27,6 +27,8 @@ import { playheadOf } from './commands/editor-target.js';
 import type { ShellContext } from './commands/shell-context.js';
 import type { EditorPanelParts } from './editor/panel-parts.js';
 import { browserPeakWorker } from './editor/peak-threads.js';
+import type { ModelServices } from './ml/model-services.js';
+import { modelGates } from './ml/model-words.js';
 import { holdShownPeaks } from './editor/shown-peaks.js';
 import { browserPicturePlatform, browserSoundDecoder } from './picture/browser-picture.js';
 import { PictureSoundDecoder } from './picture/picture-sound.js';
@@ -73,10 +75,18 @@ function followWorkspace(workspace: WorkspaceStore, editorViews: EditorViewStore
   workspace.subscribe(follow);
 }
 
-/** The one peak host, its peaks kept in `cache`, its racked sounds read from `previews`. */
-function peakHost(cache: PeakCacheStore, logger: Logger, previews: PreviewHost): PeakHost {
+/**
+ * The one peak host, its peaks kept in `cache`, its racked sounds read from
+ * `previews`, its worker connected to the models a chain runs by `models`.
+ */
+function peakHost(
+  cache: PeakCacheStore,
+  logger: Logger,
+  previews: PreviewHost,
+  models: ModelServices,
+): PeakHost {
   return new PeakHost({
-    createWorker: () => browserPeakWorker(previews),
+    createWorker: () => browserPeakWorker(previews, models),
     cache,
     report: (event) => {
       const fields = { reason: event.reason };
@@ -163,10 +173,14 @@ export function startEditor(
     readonly peakCache: PeakCacheStore;
   },
   previews: PreviewHost,
+  models: ModelServices,
 ) {
   const assets = createAssetCatalogue(testAssets(), logger);
+  const modelGate = modelGates(models.availability);
   const stopFollowing =
-    projects.projects === undefined ? undefined : followProjectAssets(projects.projects, assets);
+    projects.projects === undefined
+      ? undefined
+      : followProjectAssets(projects.projects, assets, modelGate);
   const selections = createSelectionStore();
   reconcileSelections(selections, assets);
   const editorViews = createEditorViewStore(storage, logger, (write) => {
@@ -180,7 +194,7 @@ export function startEditor(
   };
   document.addEventListener('visibilitychange', flushViews);
   const { picture, pictureSound } = referencePicture(capabilities, assets, logger);
-  const peaks = peakHost(projects.peakCache, logger, previews);
+  const peaks = peakHost(projects.peakCache, logger, previews, models);
   const letShownPeaksGo = holdShownPeaks(editorViews, assets, audioSettings, peaks);
   const graphics = readGraphicsPlatform();
   const rendererReports = createRendererReports();
@@ -195,6 +209,7 @@ export function startEditor(
       pictureSound,
       chosenFiles: createChosenFiles(),
       clipboard: createClipboardStore(),
+      modelGate,
     },
     /** What the Editor and Picture panels are given, once the controls exist. */
     panelParts: (context: ShellContext, controls: PanelControls): EditorPanelParts =>

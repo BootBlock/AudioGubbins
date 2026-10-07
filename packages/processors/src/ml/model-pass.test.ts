@@ -186,14 +186,18 @@ describe('a model pass refuses, with the reason, and lets its sessions go', () =
     expect(services.inference.opened).toEqual([]);
   });
 
-  it('a runtime that is not the build the model is pinned to', async () => {
+  it('a runtime that is not the build the model is pinned to, as a model incompatible with the runtime', async () => {
     const services = { inference: runtime(), models: library() };
     const pinnedElsewhere = recurrentDefinition(TEST_RATE, 'a'.repeat(64));
     const answer = await passOver(
       modelPassOf(typeOver(services, pinnedElsewhere), { layout: MONO }),
       stream(500),
     );
-    expect(codesOf(answer)).toEqual(['model.runtime-mismatch']);
+    expect(codesOf(answer)).toEqual(['model.unavailable']);
+    expect(answer.ok ? undefined : answer.failures[0]).toMatchObject({
+      details: { condition: 'incompatible', pack: RECURRENT_PACK },
+      cause: { code: 'model.runtime-mismatch' },
+    });
     expect(services.inference.opened).toHaveLength(1);
     expect(services.inference.openSessions).toBe(0);
   });

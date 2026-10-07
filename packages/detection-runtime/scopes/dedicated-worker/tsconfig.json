@@ -28,6 +28,9 @@
     },
     {
       "path": "../../../../packages/processors"
+    },
+    {
+      "path": "../../../../packages/ml-runtime"
     }
   ]
 }

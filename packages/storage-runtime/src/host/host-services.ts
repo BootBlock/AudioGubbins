@@ -13,7 +13,7 @@
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { createCommandBus, createCommandRegistry } from '@audiogubbins/commands';
 import type { Clock, Logger } from '@audiogubbins/diagnostics';
-import { FailureKind, fail, failure, type IdGenerator } from '@audiogubbins/domain';
+import type { IdGenerator } from '@audiogubbins/domain';
 import { MediaObjectStore } from '@audiogubbins/media-store';
 import { commandProvenance, projectCommands } from '@audiogubbins/project-commands';
 import type {
@@ -26,7 +26,6 @@ import type {
 import {
   CacheStore,
   MEDIA_DIRECTORY,
-  ModelPackStore,
   ProcessingLibraryStore,
   ProjectRepository,
   mediaSharingOf,
@@ -34,10 +33,10 @@ import {
   type LeaseCoordinator,
   type LeaseOwner,
   type OpeningServices,
-  type PackPins,
 } from '@audiogubbins/storage';
 
 import { TurnTakingTree } from './host-turns.js';
+import { packServices, type PackServices } from './pack-services.js';
 
 /** Where the worker's loggers come from: a logger for each subsystem. */
 export interface HostLogs {
@@ -71,7 +70,7 @@ export interface HostParts {
 }
 
 /** Everything the areas serving the page work with, each made once. */
-export interface HostServices extends OpeningServices, CleanupRunServices {
+export interface HostServices extends OpeningServices, CleanupRunServices, PackServices {
   readonly repository: ProjectRepository;
 
   /**
@@ -87,22 +86,6 @@ export interface HostServices extends OpeningServices, CleanupRunServices {
   /** The person's library of saved chains and presets. */
   readonly processingLibrary: ProcessingLibraryStore;
 }
-
-/**
- * Which pack versions the projects need is not read from them yet, so a
- * cleanup keeps every installed pack and says why, rather than offer one a
- * project may need.
- */
-const PINS_NOT_READ: PackPins = () =>
-  Promise.resolve(
-    fail(
-      failure(
-        'storage.pack-pins-unread',
-        FailureKind.Unrecoverable,
-        'Which model packs the projects need is not read yet.',
-      ),
-    ),
-  );
 
 /** The services made from their parts (see the module comment). */
 export function hostServices(parts: HostParts): HostServices {
@@ -129,8 +112,7 @@ export function hostServices(parts: HostParts): HostServices {
       sharing: mediaSharingOf(coordinator),
     }),
     caches: new CacheStore(tree, digest),
-    packs: new ModelPackStore(tree, digest, coordinator),
-    packPins: PINS_NOT_READ,
+    ...packServices(tree, digest, coordinator),
     repository: new ProjectRepository({
       tree,
       digest,

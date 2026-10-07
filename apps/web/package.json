@@ -40,6 +40,8 @@
     "@audiogubbins/clipboard": "workspace:*",
     "@audiogubbins/processors": "workspace:*",
     "@audiogubbins/detection-runtime": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*",
+    "@audiogubbins/model-packs": "workspace:*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

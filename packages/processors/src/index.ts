@@ -4,7 +4,12 @@
  * internal to the package.
  */
 
-export { PROCESSOR_CATALOGUE, PROCESSOR_TYPES, PROCESSOR_TYPES_BY_KEY } from './catalogue.js';
+export {
+  PROCESSOR_CATALOGUE,
+  PROCESSOR_TYPES,
+  PROCESSOR_TYPES_BY_KEY,
+  processorTypesWith,
+} from './catalogue.js';
 export { deepFilterNet3 } from './ml/deepfilternet/deepfilternet.js';
 export { mossFormer2Se48k } from './ml/mossformer2/mossformer2.js';
 export { spleeter2Stems, spleeter4Stems } from './ml/spleeter/spleeter.js';
@@ -15,6 +20,7 @@ export {
   modelUnavailable,
 } from './ml/model-library.js';
 export { type ModelServices } from './ml/model-sessions.js';
+export { PINNED_RUNTIME_SHA256 } from './ml/model-definition.js';
 export {
   type ParameterReader,
   type ProcessorDefinition,

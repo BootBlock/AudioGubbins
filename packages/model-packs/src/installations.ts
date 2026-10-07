@@ -53,11 +53,14 @@ export interface Entry {
   transfer: Transfer | undefined;
 }
 
+/** The code of a refusal because another operation runs on the version. */
+export const VERSION_BUSY = 'model-pack.busy';
+
 /** The failure of an operation begun while another runs on the version. */
 function busy(ref: PackRef): DomainFailureResult {
   return fail(
     failure(
-      'model-pack.busy',
+      VERSION_BUSY,
       FailureKind.Conflict,
       `Another operation is running on ${packKey(ref)}.`,
       { details: { pack: ref.id, version: ref.version } },

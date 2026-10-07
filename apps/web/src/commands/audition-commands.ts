@@ -2,7 +2,8 @@
  * Hearing the two states of an A/B comparison (REQ-STOR-195): the asset or
  * region in the editor in use, played as it stands in the side heard, built
  * from that side's state as the editor builds the project's own entries
- * (`projectEntry`) and played by the transport at its own rate.
+ * (`projectEntry`), a chain whose model cannot run saying so as it does there,
+ * and played by the transport at its own rate.
  *
  * Neither state changes: the side's state is worked out in the storage worker
  * and only read here. Switching sides while one is heard goes on with the
@@ -69,7 +70,7 @@ async function auditioned(
 ): Promise<DomainResult<void>> {
   const state = await stores.review.sideState(side);
   if (!state.ok) return state;
-  const entry = projectEntry(state.value, stores.media.of, view.id);
+  const entry = projectEntry(state.value, stores.media.of, context.modelGate.get(), view.id);
   const named = `side ${side.toUpperCase()}`;
   if (entry === undefined) {
     return fail(

@@ -10,12 +10,15 @@
  * here by the part of it the worker uses. It is compiled again, with
  * everything it imports, by `scopes/dedicated-worker`, against a worker's
  * definitions alone. It renders with the reference DSP, which gives the
- * canonical bits without the WebAssembly module a render worker is sent.
+ * canonical bits without the WebAssembly module a render worker is sent, and
+ * runs a model through the model channel the page connects it by, which its
+ * scope hands on before the core reads anything.
  */
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import { chainProcessing } from '@audiogubbins/effect-rack';
-import { PROCESSOR_TYPES_BY_KEY } from '@audiogubbins/processors';
+import { ModelChannel } from '@audiogubbins/ml-runtime';
+import { processorTypesWith } from '@audiogubbins/processors';
 
 import { PreviewWorkerCore } from '../preview/preview-worker-core.js';
 import type { FromPreviewWorker } from '../protocol/preview-worker-messages.js';
@@ -30,6 +33,8 @@ interface PreviewWorkerScope {
 }
 
 const scope: PreviewWorkerScope = self;
+
+const models = new ModelChannel(() => new MessageChannel());
 
 /**
  * The most the renders kept may take: 512 MiB, about 23 minutes of stereo at
@@ -56,7 +61,7 @@ const core = new PreviewWorkerCore({
       scope.clearTimeout(timer);
     };
   },
-  processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
+  processing: chainProcessing(processorTypesWith({ inference: models, models })),
   dsp: REFERENCE_DSP,
   bound: PREVIEW_CACHE_BYTES,
   concurrency: PREVIEW_CONCURRENCY,
@@ -66,7 +71,7 @@ const core = new PreviewWorkerCore({
 });
 
 scope.addEventListener('message', (event) => {
-  core.receive(event.data);
+  if (!models.receive(event.data)) core.receive(event.data);
 });
 // A message that could not be deserialised is a connection lost on the way,
 // whose worker would wait on its renders for ever: it is a fault to report.

@@ -6,13 +6,11 @@ import { FailureKind, fail, failure, succeed } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import {
-  PackInstaller,
   refOf,
   type FileRange,
   type PackRef,
   type PackSource,
   type ReceiveChunk,
-  type Sha256,
 } from '@audiogubbins/model-packs';
 import { ANY_SHA256, sampleManifest } from '@audiogubbins/model-packs/testing';
 
@@ -29,7 +27,9 @@ import { harness } from './testing/node-services.js';
  * is used, but never while it is being written; an installed pack is removed
  * only where the person chose it, needing their confirmation; and a version a
  * project needs is never offered, the plan saying why it is kept, nor removed
- * where a project came to need it after the plan.
+ * where a project came to need it after the plan. Every removal goes through
+ * the installer, so the installer the application holds is never left thinking
+ * it has what a cleanup removed.
  */
 
 /** Keeps a version of pack `id` whose one file holds `size` bytes, `kept` of them, sealed where whole. */
@@ -125,6 +125,34 @@ describe('model packs in a cleanup', () => {
     expect(await keptKinds(storage.packs)).toEqual(['needed-pack@1.0.0 installed']);
   });
 
+  it('removes through the installer, so the installer holds neither a removed pack nor a removed download as kept', async () => {
+    const { storage, cleaning } = storageWith(149, pinning());
+    const spare = await keptPack(storage.packs, 'spare-pack', 2_000);
+    const stale = await keptPack(storage.packs, 'stale-pack', 5_000, 1_200);
+    const installer = cleaning.packInstaller;
+    expectSuccess(await installer.restore());
+    expect([installer.stateOf(spare).kind, installer.stateOf(stale).kind]).toEqual([
+      'installed',
+      'paused',
+    ]);
+
+    const plan = expectSuccess(
+      await planCleanup(
+        [{ kind: 'model-packs', packs: [spare] }, { kind: 'pack-downloads' }],
+        cleaning,
+        0,
+      ),
+    );
+    expectSuccess(await runCleanup(plan, { bytes: plan.confirmationBytes }, cleaning));
+
+    expect(await keptKinds(storage.packs)).toEqual([]);
+    expect([installer.stateOf(spare).kind, installer.stateOf(stale).kind]).toEqual([
+      'available',
+      'available',
+    ]);
+    expect(installer.installations()).toEqual([]);
+  });
+
   it('keeps every installed pack, saying so, where which ones projects need cannot be told', async () => {
     const unknown: PackPins = () =>
       Promise.resolve(
@@ -156,6 +184,41 @@ describe('model packs in a cleanup', () => {
     expect(await keptKinds(storage.packs)).toEqual(['some-pack@1.0.0 installed']);
   });
 
+  it('fails with the reason where the installer refuses a removal for a reason it does not expect', async () => {
+    const { storage, cleaning } = storageWith(151, pinning());
+    const installer = cleaning.packInstaller;
+    const manifest = sampleManifest({
+      id: 'sealed-behind',
+      files: [{ path: 'model.onnx', bytes: 2_000, sha256: ANY_SHA256 }],
+    });
+    const ref = refOf(manifest);
+    expectSuccess(await storage.packs.stage(manifest));
+    const sink = expectSuccess(await storage.packs.append(ref, 0));
+    await sink.write(new Uint8Array(2_000));
+    await sink.close();
+    // The installer learns the version as a paused download, and then the
+    // store seals it without the installer, so the two disagree: a removal
+    // of what the store calls installed meets a paused version.
+    expectSuccess(await installer.restore());
+    expect(installer.stateOf(ref).kind).toBe('paused');
+    expectSuccess(await storage.packs.seal(ref));
+    const plan = expectSuccess(
+      await planCleanup([{ kind: 'model-packs', packs: [ref] }], cleaning, 0),
+    );
+    expect(plan.steps).toHaveLength(1);
+
+    const ran = await runCleanup(plan, { bytes: plan.confirmationBytes }, cleaning);
+
+    expect(ran.ok ? [] : ran.failures.map(({ code, details }) => ({ code, details }))).toEqual([
+      {
+        code: 'storage.pack-removal-refused',
+        details: { pack: 'sealed-behind', version: '1.0.0' },
+      },
+    ]);
+    expect(ran.ok ? undefined : ran.failures[0].cause?.code).toBe('model-pack.transition-refused');
+    expect(await keptKinds(storage.packs)).toEqual(['sealed-behind@1.0.0 installed']);
+  });
+
   it('passes over a download being written, which installs once written', async () => {
     const { storage, cleaning } = storageWith(147, pinning());
     const bytes = new Uint8Array(12).fill(7);
@@ -184,18 +247,7 @@ describe('model packs in a cleanup', () => {
         return await receive(bytes.slice(6));
       },
     };
-    const sha256: Sha256 = () => {
-      const hash = createHash('sha256');
-      return {
-        update: (chunk) => {
-          hash.update(chunk);
-          return Promise.resolve();
-        },
-        digest: () => Promise.resolve(new Uint8Array(hash.digest())),
-      };
-    };
-    const installer = new PackInstaller({ store: storage.packs, sha256 });
-    const downloading = installer.download(manifest, source);
+    const downloading = cleaning.packInstaller.download(manifest, source);
     await reachedHalfway;
 
     const plan = expectSuccess(await planCleanup([{ kind: 'pack-downloads' }], cleaning, 0));

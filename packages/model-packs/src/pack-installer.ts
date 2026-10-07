@@ -33,7 +33,7 @@ import {
 
 import type { InstallState } from './install-state.js';
 import { Installations, type Installation, type Stop } from './installations.js';
-import { readKept, type Sha256 } from './integrity.js';
+import { readKept, type KeptFile, type Sha256 } from './integrity.js';
 import { packKey, refOf, sameRef, type ModelPackManifest, type PackRef } from './manifest.js';
 import type { PackSource } from './pack-source.js';
 import type { PackStore } from './pack-store.js';
@@ -56,6 +56,9 @@ export interface Retention {
   readonly pinned: readonly PackRef[];
   readonly knowingly?: boolean;
 }
+
+/** The code of a removal refused because a project needs the version. */
+export const VERSION_PINNED = 'model-pack.version-pinned';
 
 function unknownManifest(ref: PackRef): DomainFailureResult {
   return fail(
@@ -214,7 +217,7 @@ export class PackInstaller {
     if (isPinned(ref, retention) && retention.knowingly !== true) {
       return fail(
         failure(
-          'model-pack.version-pinned',
+          VERSION_PINNED,
           FailureKind.Conflict,
           `A project needs ${packKey(ref)}, so it is kept until it is removed knowingly.`,
           { details: { pack: ref.id, version: ref.version } },
@@ -232,14 +235,11 @@ export class PackInstaller {
 
   /**
    * The whole of an installed version's file at `path`, checked against its
-   * manifest as it is read. A file that no longer matches marks the version
-   * damaged, so nothing uses it until it is removed and installed again.
+   * manifest as it is read, with the SHA-256 taken as it was. A file that no
+   * longer matches marks the version damaged, so nothing uses it until it is
+   * removed and installed again.
    */
-  async read(
-    ref: PackRef,
-    path: string,
-    signal?: AbortSignal,
-  ): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
+  async read(ref: PackRef, path: string, signal?: AbortSignal): Promise<DomainResult<KeptFile>> {
     const entry = this.versions.get(ref);
     const index = entry?.manifest?.files.findIndex((file) => file.path === path) ?? -1;
     const file = entry?.manifest?.files[index];

@@ -2527,8 +2527,10 @@ Published paths
   const TEST_LIMITER: ProcessorDescriptor
   const TEST_UPMIXER: ProcessorDescriptor
   function applyEdit(samples: Samples, operation: EditOperation, world?: OracleWorld, rate?: number): Samples
+  function deepestChain(ids: IdGenerator): EffectChain
   function expectFailureCode<TValue>(result: DomainResult<TValue>): string
   function expectSuccess<TValue>(result: DomainResult<TValue>): TValue
+  function nestedGroups(ids: IdGenerator, depth: number): ChainSlot
   function renderPlan(plan: EditPlan, sources: ReadonlyMap<AssetId, Samples>, world?: OracleWorld): Samples
   function sourceShape(asset: Asset): EditShape
 
@@ -3156,15 +3158,42 @@ Published paths
   function observeFile(file: ExternalFile, digest: Digest, signal?: AbortSignal | undefined): Promise<DomainResult<ExternalSourceIdentity>>
 
 @audiogubbins/ml-runtime
+  interface ChannelEnd
+  ChannelEnd.postMessage: (message: unknown, transfer: readonly object[]) => void
+  ChannelEnd.addEventListener: (type: "message" | "messageerror", listener: (event: { readonly data: unknown; }) => void) => void
+  ChannelEnd.start: () => void
+  ChannelEnd.close: () => void
+  interface ChannelPair
+  readonly ChannelPair.port1: ChannelEnd
+  readonly ChannelPair.port2: ChannelEnd
   const GraphOptimisation: { readonly Disabled: "disabled"; readonly Basic: "basic"; readonly Extended: "extended"; readonly Layout: "layout"; readonly All: "all"; }
   type GraphOptimisation = "all" | "basic" | "disabled" | "extended" | "layout"
   interface InferenceCapabilities
   readonly InferenceCapabilities.fixedWidthSimd: boolean
   readonly InferenceCapabilities.threads: number
   readonly InferenceCapabilities.webGpu: boolean
+  interface InferenceClient
+  InferenceClient.connect: (configuration: RuntimeConfiguration, end: ChannelEnd) => void
+  InferenceClient.disconnect: () => void
   interface InferenceExecution
   readonly InferenceExecution.options: InferenceOptions
   readonly InferenceExecution.runtime: RuntimeIdentity
+  type InferenceFailed = (configuration: RuntimeConfiguration, reason: string) => void
+  class InferenceHost
+  new InferenceHost(options: InferenceHostOptions): InferenceHost
+  readonly InferenceHost.#options: InferenceHostOptions
+  readonly InferenceHost.#running: Map<string, Running>
+  readonly InferenceHost.#clients: Map<number, Client>
+  InferenceHost.#clientsMade: number
+  InferenceHost.setup: RuntimeSetup
+  InferenceHost.workers: number
+  InferenceHost.client: (failed: InferenceFailed) => InferenceClient
+  InferenceHost.dispose: () => void
+  InferenceHost.#started: (configuration: RuntimeConfiguration) => Running
+  InferenceHost.#failed: (key: string, running: Running, reason: string) => void
+  interface InferenceHostOptions
+  readonly InferenceHostOptions.createWorker: () => InferenceThreadPort
+  readonly InferenceHostOptions.setup: RuntimeSetup
   const InferenceMode: { readonly Pinned: "pinned"; readonly Preview: "preview"; }
   type InferenceOptions = { readonly kind: typeof InferenceMode.Pinned; readonly graphOptimisation: GraphOptimisation; } | { readonly kind: typeof InferenceMode.Preview; readonly graphOptimisation: GraphOptimisation; readonly accelerator: PreviewAccelerator; }
   interface InferencePort
@@ -3175,15 +3204,53 @@ Published paths
   readonly InferenceSession.execution: InferenceExecution
   InferenceSession.run: (inputs: ReadonlyMap<string, Tensor>, signal?: CancellationSignal) => Promise<DomainResult<ReadonlyMap<string, Tensor>>>
   InferenceSession.release: () => void
+  interface InferenceThreadPort
+  InferenceThreadPort.postMessage: (message: ToInferenceThread, transfer: readonly object[]) => void
+  InferenceThreadPort.addEventListener: (type: "error", listener: (event: { readonly message: string; }) => void) => void
+  InferenceThreadPort.terminate: () => void
   interface InferenceWorkerPort
   InferenceWorkerPort.post: (message: ToInferenceWorker, transfer: readonly ArrayBuffer[]) => void
   InferenceWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
   InferenceWorkerPort.terminate: () => void
   type ModelBytes = Uint8Array<ArrayBuffer>
+  class ModelChannel
+  new ModelChannel(createChannel: () => ChannelPair): ModelChannel
+  readonly ModelChannel.#createChannel: () => ChannelPair
+  readonly ModelChannel.#pending: Map<number, Settle>
+  ModelChannel.#end: ChannelEnd | undefined
+  ModelChannel.#inference: WorkerInference | undefined
+  ModelChannel.#calls: number
+  ModelChannel.#failure: DomainFailureResult | undefined
+  ModelChannel.receive: (value: unknown) => boolean
+  ModelChannel.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  ModelChannel.file: (pack: string, version: string, path: string, signal?: CancellationSignal) => Promise<DomainResult<ModelFileRead>>
+  ModelChannel.#receive: (value: unknown) => void
+  ModelChannel.#post: (message: FromModelThread, transfer: readonly object[]) => void
+  ModelChannel.#fail: (summary: string) => void
+  interface ModelFileRead
+  readonly ModelFileRead.bytes: ModelBytes
+  readonly ModelFileRead.sha256: string
+  type ModelFileReader = (pack: string, version: string, path: string, signal: CancellationSignal) => Promise<DomainResult<ModelFileRead>>
+  interface ModelThread
+  ModelThread.postMessage: (message: ToModelThread, transfer: readonly object[]) => void
+  class ModelThreads
+  new ModelThreads(options: ModelThreadsOptions): ModelThreads
+  readonly ModelThreads.#options: ModelThreadsOptions
+  ModelThreads.connect: (thread: ModelThread) => () => void
+  interface ModelThreadsOptions
+  readonly ModelThreadsOptions.inference: () => Promise<InferenceHost>
+  readonly ModelThreadsOptions.capabilities: InferenceCapabilities
+  readonly ModelThreadsOptions.files: ModelFileReader
+  readonly ModelThreadsOptions.createChannel: () => ChannelPair
+  readonly ModelThreadsOptions.reportFault: (summary: string) => void
   type PreviewAccelerator = { readonly kind: typeof PreviewAcceleratorKind.Threads; readonly threads: number; } | { readonly kind: typeof PreviewAcceleratorKind.WebGpu; }
   const PreviewAcceleratorKind: { readonly Threads: "threads"; readonly WebGpu: "webgpu"; }
+  const RUNTIME_WEBASSEMBLY_FILES: Readonly<Record<RuntimeBuild, string>>
   const RuntimeBuild: { readonly Cpu: "cpu"; readonly WebGpu: "webgpu"; }
   type RuntimeBuild = "cpu" | "webgpu"
+  interface RuntimeConfiguration
+  readonly RuntimeConfiguration.build: RuntimeBuild
+  readonly RuntimeConfiguration.threads: number
   interface RuntimeIdentity
   readonly RuntimeIdentity.name: string
   readonly RuntimeIdentity.version: string
@@ -3200,11 +3267,12 @@ Published paths
   readonly TensorInfo.name: string
   readonly TensorInfo.dims: readonly TensorDimension[]
   class WorkerInference
-  new WorkerInference(options: { readonly createWorker: () => InferenceWorkerPort; readonly setup: RuntimeSetup; }): WorkerInference
-  readonly WorkerInference.#createWorker: () => InferenceWorkerPort
-  readonly WorkerInference.#setup: RuntimeSetup
+  new WorkerInference(options: { readonly connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort; readonly capabilities: InferenceCapabilities; }): WorkerInference
+  readonly WorkerInference.#connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort
+  readonly WorkerInference.#capabilities: InferenceCapabilities
   readonly WorkerInference.#connections: Map<string, Connection>
   WorkerInference.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  WorkerInference.failed: (configuration: RuntimeConfiguration, reason: string) => void
   WorkerInference.dispose: () => void
   function tensor(data: Float32Array<ArrayBuffer>, dims: readonly number[]): DomainResult<Tensor>
 
@@ -3212,9 +3280,10 @@ Published paths
   const EVERY_CAPABILITY: InferenceCapabilities
   const FAKE_RUNTIME: RuntimeIdentity
   class FakeInference
-  new FakeInference(model: FakeModel, capabilities?: InferenceCapabilities): FakeInference
+  new FakeInference(model: FakeModel, capabilities?: InferenceCapabilities, runtime?: RuntimeIdentity): FakeInference
   readonly FakeInference.#model: FakeModel
   readonly FakeInference.#capabilities: InferenceCapabilities
+  readonly FakeInference.#runtime: RuntimeIdentity
   readonly FakeInference.opened: InferenceOptions[]
   FakeInference.#open: number
   FakeInference.openSessions: number
@@ -3223,14 +3292,33 @@ Published paths
   readonly FakeModel.inputs: readonly TensorInfo[]
   readonly FakeModel.outputs: readonly TensorInfo[]
   FakeModel.run: (inputs: ReadonlyMap<string, Tensor>) => ReadonlyMap<string, Tensor>
+  class InProcessThread
+  new InProcessThread(serve: (setup: RuntimeSetup) => InferencePort, origin: string): InProcessThread
+  readonly InProcessThread.core: InferenceWorkerCore
+  InProcessThread.terminated: boolean
+  readonly InProcessThread.channels: InProcessEnd[]
+  readonly InProcessThread.scope: ("connect" | "disconnect" | "start")[]
+  readonly InProcessThread.#errors: ((event: { readonly message: string; }) => void)[]
+  InProcessThread.postMessage: (message: ToInferenceThread, _transfer: readonly object[]) => void
+  InProcessThread.addEventListener: (_type: "error", listener: (event: { readonly message: string; }) => void) => void
+  InProcessThread.terminate: () => void
+  InProcessThread.fail: (reason: string) => void
+  InProcessThread.kinds: readonly ("cancel" | "open" | "release" | "run")[]
+  InProcessThread.holdAnswers: () => void
+  InProcessThread.deliverHeld: () => void
+  InProcessThread.answer: (value: unknown) => void
+  const TEST_ORIGIN: "https://audiogubbins.test"
+  function inProcessChannel(): readonly [InProcessEnd, InProcessEnd]
+  function inProcessInference(serve: (setup: RuntimeSetup) => InferencePort, setup?: RuntimeSetup, origin?: string): InProcessInference
   function realInference(cpuWebAssembly: Uint8Array<ArrayBuffer>, cpuSha256: string): InferencePort
+  function testSetup(capabilities?: InferenceCapabilities, filesBase?: string): RuntimeSetup
 
 @audiogubbins/model-packs
   type AutomaticDownload = "never" | "required"
   interface AvailabilityContext
   readonly AvailabilityContext.packs: readonly KnownPack[]
   readonly AvailabilityContext.catalogue: readonly ModelPackManifest[]
-  readonly AvailabilityContext.runtime: Pick<RuntimeIdentity, "name" | "version">
+  readonly AvailabilityContext.runtime: RuntimeIdentity
   readonly AvailabilityContext.device: LocalInferenceSupport
   readonly AvailabilityContext.sha256: TextSha256
   interface FileRange
@@ -3260,6 +3348,9 @@ Published paths
   readonly InstallerServices.store: PackStore
   readonly InstallerServices.sha256: Sha256
   readonly InstallerServices.changed?: (ref: PackRef, state: InstallState) => void
+  interface KeptFile
+  readonly KeptFile.bytes: Uint8Array<ArrayBuffer>
+  readonly KeptFile.sha256: string
   type KeptPack = { readonly kind: "damaged"; readonly ref: PackRef; readonly reason: DomainFailure; } | { readonly kind: "sealed"; readonly manifest: ModelPackManifest; } | { readonly kind: "staged"; readonly manifest: ModelPackManifest; readonly received: number; }
   interface KnownPack
   readonly KnownPack.manifest: ModelPackManifest
@@ -3307,7 +3398,7 @@ Published paths
   PackInstaller.pause: (ref: PackRef) => DomainResult<void>
   PackInstaller.cancel: (ref: PackRef) => Promise<DomainResult<InstallState>>
   PackInstaller.remove: (ref: PackRef, retention: Retention) => Promise<DomainResult<InstallState>>
-  PackInstaller.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<Uint8Array<ArrayBuffer>>>
+  PackInstaller.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<KeptFile>>
   PackInstaller.stop: (ref: PackRef, how: Stop) => DomainResult<void>
   interface PackLicence
   readonly PackLicence.code: string
@@ -3363,6 +3454,9 @@ Published paths
   interface UpdateOutcome
   readonly UpdateOutcome.state: InstallState
   readonly UpdateOutcome.previousRetained: boolean
+  const VERSION_BUSY: "model-pack.busy"
+  const VERSION_PINNED: "model-pack.version-pinned"
+  type VersionAvailability = { readonly condition: "available"; readonly pack: ModelPackManifest; } | { readonly condition: "device-unavailable" | "incompatible" | "required-unavailable"; readonly reason: DomainFailure; }
   function availabilityOf(need: PackNeed, context: AvailabilityContext): PackAvailability
   const manifestConverter: Converter<ModelPackManifest>
   function manifestJson(manifest: ModelPackManifest): JsonObject
@@ -3375,6 +3469,7 @@ Published paths
   function readPackCatalogue(text: string): DomainResult<readonly ModelPackManifest[]>
   function refOf(manifest: ModelPackManifest): PackRef
   function updatePack(installer: PackInstaller, previous: PackRef, next: ModelPackManifest, source: PackSource, retention: Retention, signal?: AbortSignal | undefined): Promise<DomainResult<UpdateOutcome>>
+  function versionAvailability(ref: PackRef, context: Pick<AvailabilityContext, "device" | "packs" | "runtime">): VersionAvailability
 
 @audiogubbins/model-packs/testing
   const ANY_SHA256: string
@@ -3415,9 +3510,7 @@ Published paths
   readonly LearningSettings.dsp: CanonicalDsp
   type Measurement = Float32Array<ArrayBufferLike> | readonly number[]
   type Measurer = WholePass<Measurement>
-  interface ModelFile
-  readonly ModelFile.bytes: ModelBytes
-  readonly ModelFile.sha256: string
+  type ModelFile = ModelFileRead
   interface ModelLibrary
   ModelLibrary.file: (pack: string, version: string, path: string, signal?: CancellationSignal) => Promise<DomainResult<ModelFile>>
   interface ModelServices
@@ -3426,6 +3519,7 @@ Published paths
   const ModelUnavailability: { readonly RequiredUnavailable: "required-unavailable"; readonly Incompatible: "incompatible"; readonly DeviceUnavailable: "device-unavailable"; }
   type ModelUnavailability = "device-unavailable" | "incompatible" | "required-unavailable"
   const NOISE_FLOOR_DETECTOR: AudioDetector
+  const PINNED_RUNTIME_SHA256: "3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2"
   const PROCESSOR_CATALOGUE: ReadonlyMap<string, ProcessorDescriptor>
   const PROCESSOR_TYPES: readonly ProcessorType[]
   const PROCESSOR_TYPES_BY_KEY: ReadonlyMap<string, ProcessorType>
@@ -3474,10 +3568,11 @@ Published paths
   WholePass.result: (signal?: CancellationSignal) => Promise<DomainResult<TResult>>
   WholePass.release: () => void
   function deepFilterNet3(services: ModelServices): ProcessorType
-  function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path: string; }, reason?: DomainFailure | undefined): DomainFailureResult
+  function modelUnavailable(condition: ModelUnavailability, summary: string, where: { readonly pack: string; readonly version: string; readonly path?: string; }, reason?: DomainFailure | undefined): DomainFailureResult
   function mossFormer2Se48k(services: ModelServices): ProcessorType
   function processorNodeSettings(processor: ProcessorInstance, descriptor: ProcessorDescriptor, quality: QualitySettings, start: number, measured?: Measurement | undefined): Readonly<Record<string, SettingValue>>
   function processorNodeType(typeKey: string): string
+  function processorTypesWith(services: ModelServices): ReadonlyMap<string, ProcessorType>
   function recommendation(assistant: Assistant, findings: readonly DetectorFinding[]): Recommendation
   function spleeter2Stems(services: ModelServices): ProcessorType
   function spleeter4Stems(services: ModelServices): ProcessorType
@@ -3512,9 +3607,21 @@ Published paths
   readonly RunSettings.inputArrival?: number
   readonly RunSettings.state?: ProcessorState
   readonly RunSettings.dsp?: CanonicalDsp
+  interface StandInFile
+  readonly StandInFile.path: string
+  readonly StandInFile.bytes: Uint8Array<ArrayBuffer>
+  readonly StandInFile.sha256: string
+  class StandInInference
+  new StandInInference(graphs: ReadonlyMap<string, FakeModel>, runtime: RuntimeIdentity): StandInInference
+  readonly StandInInference.#runtimes: ReadonlyMap<string, FakeInference>
+  StandInInference.openSessions: number
+  StandInInference.opened: readonly InferenceOptions[]
+  StandInInference.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<import("packages/domain/src/result").DomainResult<import("packages/ml-runtime/src/inference-port").InferenceSession>>
   const TEST_BLOCK_FRAMES: 4096
   const TEST_RATE: SampleRate
   function clipped(signal: Float32Array<ArrayBufferLike>, ceiling: number): Float32Array<ArrayBufferLike>
+  function deepFilterNetGraphs(gain: number, tap: number): ReadonlyMap<string, FakeModel>
+  function deepFilterNetPack(): readonly StandInFile[]
   function delayingProcessor(frames: number): ProcessorType
   function hiss(length: number, level: number, seed?: number): Float32Array<ArrayBufferLike>
   function learnedProfile(layout: ChannelLayout, stretch: readonly Float32Array<ArrayBufferLike>[], values?: Readonly<Record<string, ParameterValue>>, rate?: number): ProcessorState
@@ -4043,6 +4150,7 @@ Published paths
   readonly SampleProject.tracks: { readonly foley: Track; readonly background: Track; }
   function contentIdOfDigit(digit: string): ContentId
   function countedTurns(onTurn?: (asked: number) => void): CountedTurns
+  function deeplyRackedState(fixture: SampleProject): ProjectState
   function editedReferenceState(fixture: SampleProject): ProjectState
   function everyChainShape(ids: IdGenerator): EffectChain
   function fullySetProcessor(ids: IdGenerator): ProcessorInstance
@@ -4290,6 +4398,7 @@ Published paths
   readonly CleanupRunOptions.signal?: AbortSignal
   interface CleanupRunServices extends CleanupServices, OpeningServices
   readonly CleanupRunServices.coordinator?: LeaseCoordinator
+  readonly CleanupRunServices.packInstaller: PackInstaller
   readonly CleanupRunServices.tree: import("packages/project-format/src/storage-tree").StorageTree
   readonly CleanupRunServices.digest: import("packages/project-format/src/byte-ports").Digest
   readonly CleanupRunServices.store: import("packages/media-store/src/object-store").MediaObjectStore
@@ -4767,6 +4876,7 @@ Published paths
   function pasteAudio(session: ProjectSession, paste: AudioPaste, services: AudioPasteServices, signal?: AbortSignal | undefined): Promise<DomainResult<ChangeOutcome>>
   function planBackupPruning(generations: readonly BackupGeneration[], retention: BackupRetention, now: number): BackupPruning
   function planCleanup(selection: CleanupSelection, services: CleanupServices, now: number, signal?: AbortSignal | undefined): Promise<DomainResult<CleanupPlan>>
+  function projectPackPins(tree: StorageTree, digest: Digest): PackPins
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
@@ -4819,6 +4929,20 @@ Published paths
   interface OwnershipClient
   OwnershipClient.ownerOf: (project: ProjectId) => Promise<LeaseOwner | undefined>
   OwnershipClient.watch: (project: ProjectId, listener: (event: OwnershipEvent) => void) => Promise<() => Promise<void>>
+  interface PackChange
+  readonly PackChange.ref: PackRef
+  readonly PackChange.state: InstallState
+  interface PacksClient
+  PacksClient.installations: (signal?: AbortSignal) => Promise<DomainResult<readonly Installation[]>>
+  PacksClient.catalogue: (catalogue: string, signal?: AbortSignal) => Promise<DomainResult<readonly ModelPackManifest[]>>
+  PacksClient.download: (catalogue: string, manifest: ModelPackManifest, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PacksClient.resume: (catalogue: string, ref: PackRef, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PacksClient.retry: (catalogue: string, ref: PackRef, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
+  PacksClient.pause: (ref: PackRef) => Promise<DomainResult<void>>
+  PacksClient.cancel: (ref: PackRef) => Promise<DomainResult<InstallState>>
+  PacksClient.remove: (ref: PackRef, knowingly: boolean) => Promise<DomainResult<InstallState>>
+  PacksClient.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<KeptFile>>
+  PacksClient.listen: (listener: (change: PackChange) => void) => () => void
   type PageBytes = HeldFile | { readonly kind: "source"; readonly source: ByteSource; }
   type PageFile = Omit<ExternalFile, "source"> & { readonly bytes: PageBytes; }
   type PageFolder = { readonly kind: "files"; readonly files: readonly FolderFile[]; } | { readonly kind: "reader"; readonly reader: DirectoryReader; }
@@ -4897,6 +5021,7 @@ Published paths
   readonly StorageClient.sources: SourcesClient
   readonly StorageClient.media: MediaClient
   readonly StorageClient.caches: CacheClient
+  readonly StorageClient.packs: PacksClient
   readonly StorageClient.usage: UsageClient
   readonly StorageClient.ownership: OwnershipClient
   interface TransfersClient
@@ -4914,7 +5039,7 @@ Published paths
   function connectStorage(endpoint: PortEndpoint, diagnostics: Pick<DiagnosticCentre, "relay">): StorageClient
 
 @audiogubbins/storage-runtime/testing
-  interface HostServices extends OpeningServices, CleanupRunServices
+  interface HostServices extends OpeningServices, CleanupRunServices, PackServices
   readonly HostServices.repository: ProjectRepository
   readonly HostServices.invocationProvenance: InvocationProvenance
   readonly HostServices.fileAt: (path: string) => Promise<Blob | undefined>
@@ -4929,10 +5054,12 @@ Published paths
   readonly HostServices.owner: LeaseOwner
   readonly HostServices.cadence?: import("packages/storage/src/session-contracts").SessionCadence
   readonly HostServices.yieldToHost: YieldToHost
+  readonly HostServices.packInstaller: import("packages/model-packs/src/pack-installer").PackInstaller
   readonly HostServices.store: MediaObjectStore
   readonly HostServices.caches: CacheStore
-  readonly HostServices.packs: ModelPackStore
-  readonly HostServices.packPins: PackPins
+  readonly HostServices.packs: import("packages/storage/src/model-pack-store").ModelPackStore
+  readonly HostServices.packPins: import("packages/storage/src/pack-cleanup").PackPins
+  readonly HostServices.onPackChanged: (listener: import("packages/storage-runtime/src/host/pack-services").PackChanged) => () => void
   interface MemoryStorageOptions
   readonly MemoryStorageOptions.tree?: StorageTree
   readonly MemoryStorageOptions.yieldToHost?: YieldToHost
@@ -6113,6 +6240,62 @@ packages/media-store/src/testing/memory-tree.ts
   FileBody.append: (chunk: Uint8Array) => void
   FileBody.slice: (start: number, end: number) => Uint8Array<ArrayBuffer>
 
+packages/ml-runtime/src/inference-conversation.ts
+  interface ConversationHost
+  readonly ConversationHost.post: (message: FromInferenceWorker, transfer: readonly ArrayBuffer[]) => void
+  readonly ConversationHost.runtime: () => WorkerRuntime
+  class InferenceConversation
+  new InferenceConversation(host: ConversationHost): InferenceConversation
+  readonly InferenceConversation.#host: ConversationHost
+  readonly InferenceConversation.#sessions: Map<number, InferenceSession>
+  readonly InferenceConversation.#calls: Map<number, CancellationSource>
+  InferenceConversation.#closed: boolean
+  InferenceConversation.receive: (value: unknown) => void
+  InferenceConversation.messageFailed: () => void
+  InferenceConversation.close: () => void
+  InferenceConversation.#open: ({ call, model, options }: Message<typeof ToInferenceWorkerKind.Open>) => Promise<void>
+  InferenceConversation.#run: ({ call, session, inputs }: Message<typeof ToInferenceWorkerKind.Run>) => Promise<void>
+  InferenceConversation.#faulted: (call: number) => (error: unknown) => void
+  InferenceConversation.#begin: (call: number) => CancellationSource
+  InferenceConversation.#answer: (call: number, result: DomainFailureResult) => void
+  InferenceConversation.#failed: (call: number, failures_0: DomainFailure, ...failures: DomainFailure[]) => void
+  InferenceConversation.#post: (message: FromInferenceWorker, transfer: readonly ArrayBuffer[]) => void
+  type Message<TKind extends "cancel" | "open" | "release" | "run"> = Extract<{ readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: import("packages/ml-runtime/src/inference-port").ModelBytes; readonly options: import("packages/ml-runtime/src/inference-options").InferenceOptions; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }, { readonly kind: TKind; }>
+  type WorkerRuntime = { readonly kind: "serving"; readonly port: InferencePort; } | { readonly kind: "unavailable"; readonly reason: DomainFailure; }
+
+packages/ml-runtime/src/inference-host.ts
+  interface Client
+  readonly Client.failed: InferenceFailed
+  readonly Client.connected: Set<string>
+  interface Running
+  readonly Running.worker: InferenceThreadPort
+  readonly Running.configuration: RuntimeConfiguration
+
+packages/ml-runtime/src/inference-worker-core.ts
+  interface Connection
+  readonly Connection.client: number
+  readonly Connection.end: ChannelEnd
+  readonly Connection.conversation: InferenceConversation
+  class InferenceWorkerCore
+  new InferenceWorkerCore(host: InferenceWorkerHost): InferenceWorkerCore
+  readonly InferenceWorkerCore.#host: InferenceWorkerHost
+  InferenceWorkerCore.#runtime: WorkerRuntime
+  readonly InferenceWorkerCore.#connections: Set<Connection>
+  InferenceWorkerCore.connections: number
+  InferenceWorkerCore.receive: (value: unknown) => void
+  InferenceWorkerCore.messageFailed: () => void
+  InferenceWorkerCore.#connect: (client: number, end: ChannelEnd) => void
+  InferenceWorkerCore.#close: (connection: Connection) => void
+  InferenceWorkerCore.#setupRefusal: (setup: RuntimeSetup) => DomainFailure | undefined
+  InferenceWorkerCore.#report: (refusal: DomainFailure) => void
+  interface InferenceWorkerHost
+  readonly InferenceWorkerHost.serve: (setup: RuntimeSetup) => InferencePort
+  readonly InferenceWorkerHost.origin: string
+  readonly InferenceWorkerHost.reportFault: (error: Error) => void
+
+packages/ml-runtime/src/model-channel.ts
+  type Settle = (result: DomainResult<ModelFileRead>) => void
+
 packages/ml-runtime/src/protocol/inference-messages.ts
   type FromInferenceWorker = { readonly kind: typeof FromInferenceWorkerKind.Failed; readonly call: number; readonly failures: InferenceFailures; } | { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly call: number; readonly inputs: readonly TensorInfo[]; readonly outputs: readonly TensorInfo[]; readonly execution: InferenceExecution; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly call: number; readonly outputs: readonly NamedTensor[]; } | { readonly kind: typeof FromInferenceWorkerKind.Refused; readonly failures: InferenceFailures; }
   type InferenceFailures = readonly [DomainFailure, ...DomainFailure[]]
@@ -6120,11 +6303,41 @@ packages/ml-runtime/src/protocol/inference-messages.ts
   readonly NamedTensor.name: string
   readonly NamedTensor.data: Float32Array<ArrayBuffer>
   readonly NamedTensor.dims: readonly number[]
-  type ToInferenceWorker = { readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; } | { readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: ModelBytes; readonly options: InferenceOptions; } | { readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; } | { readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; } | { readonly kind: typeof ToInferenceWorkerKind.Start; readonly setup: RuntimeSetup; }
+  type ToInferenceThread = { readonly kind: typeof ToInferenceThreadKind.Connect; readonly client: number; readonly port: ChannelEnd; } | { readonly kind: typeof ToInferenceThreadKind.Disconnect; readonly client: number; } | { readonly kind: typeof ToInferenceThreadKind.Start; readonly setup: RuntimeSetup; }
+  type ToInferenceWorker = { readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; } | { readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: ModelBytes; readonly options: InferenceOptions; } | { readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; } | { readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }
+
+packages/ml-runtime/src/protocol/model-channel-messages.ts
+  type FromModelThread = { readonly kind: typeof FromModelThreadKind.Cancel; readonly call: number; } | { readonly kind: typeof FromModelThreadKind.File; readonly call: number; readonly pack: string; readonly version: string; readonly path: string; } | { readonly kind: typeof FromModelThreadKind.Inference; readonly configuration: RuntimeConfiguration; readonly port: ChannelEnd; }
+  interface ToModelThread
+  readonly ToModelThread.kind: "model-channel"
+  readonly ToModelThread.port: ChannelEnd
+  readonly ToModelThread.capabilities: InferenceCapabilities
+
+packages/ml-runtime/src/testing/in-process-worker.ts
+  class InProcessEnd
+  new InProcessEnd(): InProcessEnd
+  InProcessEnd.other: InProcessEnd | undefined
+  InProcessEnd.closed: boolean
+  readonly InProcessEnd.received: unknown[]
+  InProcessEnd.#listener: Listener | undefined
+  InProcessEnd.#started: boolean
+  InProcessEnd.#queue: unknown[]
+  InProcessEnd.held: undefined | unknown[]
+  InProcessEnd.postMessage: (message: unknown, transfer: readonly object[]) => void
+  InProcessEnd.addEventListener: (type: "message" | "messageerror", listener: Listener) => void
+  InProcessEnd.start: () => void
+  InProcessEnd.close: () => void
+  InProcessEnd.arrive: (value: unknown) => void
+  interface InProcessInference
+  readonly InProcessInference.inference: WorkerInference
+  readonly InProcessInference.host: InferenceHost
+  readonly InProcessInference.client: InferenceClient
+  readonly InProcessInference.threads: readonly InProcessThread[]
+  type Listener = (event: { readonly data: unknown; }) => void
 
 packages/ml-runtime/src/worker-inference.ts
   class Connection
-  new Connection(worker: InferenceWorkerPort, setup: RuntimeSetup, ended: () => void): Connection
+  new Connection(worker: InferenceWorkerPort, ended: () => void): Connection
   readonly Connection.#worker: InferenceWorkerPort
   readonly Connection.#ended: () => void
   readonly Connection.#pending: Map<number, Pending>
@@ -6247,6 +6460,14 @@ packages/storage-runtime/src/host/host-services.ts
   interface HostLogs
   HostLogs.loggerFor: (category: string) => Logger
 
+packages/storage-runtime/src/host/pack-services.ts
+  type PackChanged = (ref: PackRef, state: InstallState) => void
+  interface PackServices
+  readonly PackServices.packs: ModelPackStore
+  readonly PackServices.packInstaller: PackInstaller
+  readonly PackServices.packPins: PackPins
+  readonly PackServices.onPackChanged: (listener: PackChanged) => () => void
+
 packages/storage-runtime/src/protocol/backup-operations.ts
   type BackupOperations = { 'backups.tick': Tick; 'backups.backUpNow': Tick; 'backups.list': Operation<ProjectId, DomainResult<GenerationListing>>; 'backups.protect': Operation<{ readonly project: ProjectId; readonly generation: number; readonly protect: boolean; }, DomainResult<void>>; 'backups.remove': Operation<{ readonly project: ProjectId; readonly generations: readonly number[]; }, DomainResult<void>>; 'backups.restoreAsNew': Operation<{ readonly project: ProjectId; readonly generation: number; }, DomainResult<ProjectHeader>>; 'backups.restoreInPlace': Operation<{ readonly handle: ProjectHandle; readonly project: ProjectId; readonly generation: number; }, DomainResult<RestoredInPlace>>; }
   interface RestoredInPlace extends HeldOpening
@@ -6276,6 +6497,11 @@ packages/storage-runtime/src/protocol/operations.ts
   new Transferring<TValue>(value: TValue, transfer: readonly Transferable[]): Transferring<TValue>
   readonly Transferring.value: TValue
   readonly Transferring.transfer: readonly Transferable[]
+
+packages/storage-runtime/src/protocol/pack-operations.ts
+  interface CatalogueAt
+  readonly CatalogueAt.catalogue: string
+  type PackOperations = { 'packs.installations': Operation<undefined, DomainResult<readonly Installation[]>>; 'packs.catalogue': Operation<CatalogueAt, DomainResult<readonly ModelPackManifest[]>>; 'packs.download': Operation<CatalogueAt & { readonly manifest: ModelPackManifest; }, DomainResult<InstallState>>; 'packs.resume': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.retry': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.pause': Operation<PackRef, DomainResult<void>>; 'packs.cancel': Operation<PackRef, DomainResult<InstallState>>; 'packs.remove': Operation<{ readonly ref: PackRef; readonly knowingly: boolean; }, DomainResult<InstallState>>; 'packs.read': Operation<{ readonly ref: PackRef; readonly path: string; }, DomainResult<KeptFile>>; }
 
 packages/storage-runtime/src/protocol/page-operations.ts
   type BackupCopy = { readonly project: import("packages/domain/src/index").ProjectId; readonly name: string; readonly number: number; readonly at: number; }
@@ -6358,9 +6584,9 @@ packages/storage-runtime/src/protocol/storage-operations.ts
   type ClientChannel = PortChannel<StorageWorkerSide, StoragePageSide>
   type LogEntry = { readonly kind: "performance"; readonly record: PerformanceRecord; } | { readonly kind: "record"; readonly record: LogRecord; }
   type OwnershipStream = `ownership:${string}`
-  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
+  type StorageOperations = ProjectOperations & TransferOperations & BackupOperations & MediaOperations & PackOperations & { 'library.list': Operation<undefined, readonly CatalogueEntry[]>; 'library.create': Operation<NewProject, DomainResult<ProjectHeader>>; 'library.softDelete': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.restore': Operation<ProjectId, DomainResult<ProjectHeader>>; 'library.purge': Operation<{ readonly project: ProjectId; readonly confirmation: PurgeProjectConfirmation; }, DomainResult<void>>; 'library.fork': Operation<ForkRequest, DomainResult<ProjectHeader>>; 'processingLibrary.list': Operation<undefined, DomainResult<readonly ListedEntry[]>>; 'processingLibrary.entry': Operation<LibraryEntryId, DomainResult<ListedEntry>>; 'processingLibrary.save': Operation<{ readonly name: string; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.replace': Operation<{ readonly entry: LibraryEntryId; readonly content: LibraryContent; }, DomainResult<LibraryEntry>>; 'processingLibrary.rename': Operation<{ readonly entry: LibraryEntryId; readonly name: string; }, DomainResult<LibraryEntry>>; 'processingLibrary.remove': Operation<LibraryEntryId, DomainResult<void>>; 'root.open': Operation<undefined, DomainResult<StorageRootOpening>>; 'root.wipe': Operation<WipeConfirmation, DomainResult<void>>; 'root.exportRaw': Operation<{ readonly sink: PagePort; }, DomainResult<ZipWritten>>; 'sources.examine': Operation<{ readonly recorded: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ExternalSourceIdentity>>; 'sources.takeVersion': Operation<{ readonly handle: ProjectHandle; readonly asset: AssetId; readonly change: VersionChange; readonly identity: ExternalSourceIdentity; readonly file: CrossingFile; }, DomainResult<ChangeOutcome>>; 'caches.read': Operation<CacheKey, DomainResult<Uint8Array<ArrayBuffer> | undefined>>; 'caches.put': Operation<{ readonly key: CacheKey; readonly bytes: Uint8Array<ArrayBuffer>; }, DomainResult<void>>; 'caches.evictScope': Operation<{ readonly category: CacheCategory; readonly scope: CacheScope; }, DomainResult<void>>; 'usage.measure': Operation<undefined, DomainResult<StorageUsage>>; 'usage.planCleanup': Operation<CleanupSelection, DomainResult<CleanupPlan>>; 'usage.runCleanup': Operation<{ readonly plan: CleanupPlan; readonly confirmation?: CleanupConfirmation; readonly held?: ProjectHandle; }, DomainResult<readonly StepOutcome[]>>; 'usage.relievePressure': Operation<undefined, DomainResult<PressureRelief>>; 'ownership.ownerOf': Operation<ProjectId, LeaseOwner | undefined>; 'ownership.subscribe': Operation<ProjectId, undefined>; 'ownership.unsubscribe': Operation<ProjectId, undefined>; }
   type StoragePageSide = { readonly operations: PageOperations; readonly streams: Readonly<Record<string, never>>; }
-  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
+  type StorageWorkerSide = { readonly operations: StorageOperations; readonly streams: { readonly log: Stream<LogEntry>; readonly packs: Stream<PackChange>; readonly [project: OwnershipStream]: Stream<OwnershipEvent>; readonly [handle: ProjectStream]: Stream<ProjectUpdate>; readonly [handle: OpeningStream]: Stream<HistoryDelta>; }; }
 
 packages/storage-runtime/src/protocol/transfer-operations.ts
   type BundleExport<TArgument> = Operation<{ readonly project: ProjectId; readonly sink: PagePort; readonly options: CopyOptions; } & TArgument, DomainResult<ExportAttempt<ExportedBundle>>>

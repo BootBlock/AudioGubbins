@@ -17,6 +17,7 @@ import { addRegionInvocation, applyInvocation } from '@audiogubbins/project-comm
 import { ProjectCommandId } from '@audiogubbins/project-commands';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
+import { OPEN_MODEL_GATE } from '../testing/editor-fakes.js';
 import { holdPlatformFiles, windowWithAudio } from '../testing/project-audio.js';
 import { projectEntries, projectEntry } from './project-assets.js';
 import { assetEntryId, regionEntryId, type MediaAvailability } from './project-entry.js';
@@ -162,11 +163,12 @@ describe('an asset of the project, as a view opens it (ADR-0051)', () => {
     const audio = await windowWithAudio();
     const state = audio.session.getSnapshot().model.state;
 
-    const finding = projectEntries(state, () => ({ kind: 'finding' })).entries;
-    const missing = projectEntries(state, () => ({
-      kind: 'unavailable',
-      reason: 'The file it is linked to could not be found.',
-    })).entries;
+    const finding = projectEntries(state, () => ({ kind: 'finding' }), OPEN_MODEL_GATE).entries;
+    const missing = projectEntries(
+      state,
+      () => ({ kind: 'unavailable', reason: 'The file it is linked to could not be found.' }),
+      OPEN_MODEL_GATE,
+    ).entries;
 
     expect(finding.get(audio.entry)).toEqual({
       kind: 'finding',
@@ -236,12 +238,12 @@ describe('the entries of a state the worker sends, against those of the state be
   });
 
   it('plans again only the asset a change touched, and keeps the entries of the rest', () => {
-    const before = projectEntries(state, media);
+    const before = projectEntries(state, media, OPEN_MODEL_GATE);
     const [region] = state.project.regions.values();
     if (region === undefined) throw new Error('No region.');
     planned.length = 0;
 
-    const after = projectEntries(renamedAmbience(), media, before.made);
+    const after = projectEntries(renamedAmbience(), media, OPEN_MODEL_GATE, before.made);
 
     expect(planned).toEqual([ambience.id]);
     for (const id of [assetEntryId(footstep.id), regionEntryId(region.id)]) {
@@ -254,10 +256,10 @@ describe('the entries of a state the worker sends, against those of the state be
   });
 
   it('plans nothing again where only the files the page holds were told of again', () => {
-    const before = projectEntries(state, media);
+    const before = projectEntries(state, media, OPEN_MODEL_GATE);
     planned.length = 0;
 
-    const after = projectEntries(state, media, before.made);
+    const after = projectEntries(state, media, OPEN_MODEL_GATE, before.made);
 
     expect(planned).toEqual([]);
     expect([...after.entries.values()]).toEqual([...before.entries.values()]);
@@ -268,10 +270,10 @@ describe('the entries of a state the worker sends, against those of the state be
     const [region] = state.project.regions.values();
     if (region === undefined) throw new Error('No region.');
     const id = regionEntryId(region.id);
-    const whole = projectEntries(state, media).entries.get(id);
+    const whole = projectEntries(state, media, OPEN_MODEL_GATE).entries.get(id);
     planned.length = 0;
 
-    const one = projectEntry(state, media, id);
+    const one = projectEntry(state, media, OPEN_MODEL_GATE, id);
 
     expect(planned).toEqual([footstep.id]);
     if (one?.kind !== 'open' || whole?.kind !== 'open') throw new Error('Not opened.');
@@ -279,6 +281,6 @@ describe('the entries of a state the worker sends, against those of the state be
     const { describe: wholeHears, ...wholeShown } = whole.asset;
     expect(shown).toEqual(wholeShown);
     expect(hears()).toEqual(wholeHears());
-    expect(projectEntry(state, media, 'region:none')).toBeUndefined();
+    expect(projectEntry(state, media, OPEN_MODEL_GATE, 'region:none')).toBeUndefined();
   });
 });

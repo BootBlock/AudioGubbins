@@ -8,7 +8,12 @@ import {
   PreviewAcceleratorKind,
   RuntimeBuild,
 } from '../inference-options.js';
-import { readFromInferenceWorker, readToInferenceWorker } from './inference-message-reading.js';
+import { inProcessChannel } from '../testing/in-process-worker.js';
+import {
+  readFromInferenceWorker,
+  readToInferenceThread,
+  readToInferenceWorker,
+} from './inference-message-reading.js';
 import type { FromInferenceWorker, ToInferenceWorker } from './inference-messages.js';
 
 const SETUP = {
@@ -18,7 +23,6 @@ const SETUP = {
 };
 
 const TO_WORKER: readonly ToInferenceWorker[] = [
-  { kind: 'start', setup: SETUP },
   {
     kind: 'open',
     call: 1,
@@ -90,6 +94,32 @@ describe('the inference protocol', () => {
     },
   );
 
+  it("reads the page's start and disconnect messages to the worker's scope, as they cross a thread", () => {
+    for (const message of [
+      { kind: 'start', setup: SETUP },
+      { kind: 'disconnect', client: 3 },
+    ] as const) {
+      expect(readToInferenceThread(structuredClone(message))).toEqual({ ok: true, value: message });
+    }
+  });
+
+  it("reads the page's connection of a thread with the channel's end it carries", () => {
+    const [, port] = inProcessChannel();
+    expect(readToInferenceThread({ kind: 'connect', client: 2, port })).toEqual({
+      ok: true,
+      value: { kind: 'connect', client: 2, port },
+    });
+    expect(refusal(readToInferenceThread({ kind: 'connect', client: 2, port: {} }))).toMatch(
+      /port is not the end of a message channel/,
+    );
+  });
+
+  it("refuses a start sent over a thread's channel, which only the page may send", () => {
+    expect(refusal(readToInferenceWorker({ kind: 'start', setup: SETUP }))).toMatch(
+      /kind is not one of/,
+    );
+  });
+
   it.each(FROM_WORKER.map((message) => [message.kind, message] as const))(
     'reads a %s message the worker sends, as it crosses a thread',
     (_kind, message) => {
@@ -157,6 +187,15 @@ describe('the inference protocol', () => {
       },
       /inputs\[0\]\.dims is not the dimensions of its data/,
     ],
+  ])('refuses %s, naming the field', (_case, message, expected) => {
+    const read = readToInferenceWorker(message);
+    expect(read.ok ? [] : read.failures.map((one) => one.code)).toEqual([
+      'inference.message-malformed',
+    ]);
+    expect(refusal(read)).toMatch(expected);
+  });
+
+  it.each([
     [
       'a digest that is not SHA-256 in lowercase hexadecimal',
       {
@@ -170,8 +209,8 @@ describe('the inference protocol', () => {
       { kind: 'start', setup: { ...SETUP, filesBase: 'https://audiogubbins.test/runtime' } },
       /filesBase is not a base URL ending in a slash/,
     ],
-  ])('refuses %s, naming the field', (_case, message, expected) => {
-    const read = readToInferenceWorker(message);
+  ])('refuses a setup with %s, naming the field', (_case, message, expected) => {
+    const read = readToInferenceThread(message);
     expect(read.ok ? [] : read.failures.map((one) => one.code)).toEqual([
       'inference.message-malformed',
     ]);

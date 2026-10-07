@@ -6,6 +6,7 @@
 
 import { FailureKind, failure, type DomainFailure, type DomainResult } from '@audiogubbins/domain';
 
+import { isChannelEnd } from '../channel-end.js';
 import {
   GraphOptimisation,
   InferenceMode,
@@ -35,22 +36,24 @@ import {
 } from './fields.js';
 import {
   FromInferenceWorkerKind,
+  ToInferenceThreadKind,
   ToInferenceWorkerKind,
   type FromInferenceWorker,
   type InferenceFailures,
   type NamedTensor,
+  type ToInferenceThread,
   type ToInferenceWorker,
 } from './inference-messages.js';
 
 /** A SHA-256 digest in lowercase hexadecimal. */
-function digestAt(fields: Fields, field: string): string {
+export function digestAt(fields: Fields, field: string): string {
   const value = textAt(fields, field);
   if (!isSha256Hex(value)) throw new Malformed(field, 'a SHA-256 digest in lowercase hexadecimal');
   return value;
 }
 
 /** A whole number, one or more. */
-function positiveAt(fields: Fields, field: string): number {
+export function positiveAt(fields: Fields, field: string): number {
   const value = countAt(fields, field);
   if (value === 0) throw new Malformed(field, 'a whole number, one or more');
   return value;
@@ -77,7 +80,7 @@ function optionsFrom(value: unknown, name: string): InferenceOptions {
       };
 }
 
-function capabilitiesFrom(value: unknown): InferenceCapabilities {
+export function capabilitiesFrom(value: unknown): InferenceCapabilities {
   const fields = fieldsOf(value, 'capabilities');
   return {
     fixedWidthSimd: flagAt(fields, 'fixedWidthSimd'),
@@ -166,17 +169,30 @@ function failureFrom(value: unknown, name: string): DomainFailure {
   );
 }
 
-function failuresAt(fields: Fields): InferenceFailures {
+export function failuresAt(fields: Fields): InferenceFailures {
   const [first, ...rest] = itemsAt(fields, 'failures', failureFrom);
   if (first === undefined) throw new Malformed('failures', 'a list of at least one');
   return [first, ...rest];
 }
 
+function toThreadFrom(fields: Fields): ToInferenceThread {
+  const kind = oneOf(fields, 'kind', ToInferenceThreadKind);
+  switch (kind) {
+    case ToInferenceThreadKind.Start:
+      return { kind, setup: setupFrom(fields['setup']) };
+    case ToInferenceThreadKind.Connect: {
+      const port = fields['port'];
+      if (!isChannelEnd(port)) throw new Malformed('port', 'the end of a message channel');
+      return { kind, client: countAt(fields, 'client'), port };
+    }
+    case ToInferenceThreadKind.Disconnect:
+      return { kind, client: countAt(fields, 'client') };
+  }
+}
+
 function toWorkerFrom(fields: Fields): ToInferenceWorker {
   const kind = oneOf(fields, 'kind', ToInferenceWorkerKind);
   switch (kind) {
-    case ToInferenceWorkerKind.Start:
-      return { kind, setup: setupFrom(fields['setup']) };
     case ToInferenceWorkerKind.Open:
       return {
         kind,
@@ -222,7 +238,12 @@ function fromWorkerFrom(fields: Fields): FromInferenceWorker {
   }
 }
 
-/** A message the inference worker received, read, or why it cannot be. */
+/** A message the inference worker's own scope received from the page, read, or why it cannot be. */
+export function readToInferenceThread(value: unknown): DomainResult<ToInferenceThread> {
+  return readMessage(value, 'inference.message-malformed', toThreadFrom);
+}
+
+/** A message the inference worker received over a thread's channel, read, or why it cannot be. */
 export function readToInferenceWorker(value: unknown): DomainResult<ToInferenceWorker> {
   return readMessage(value, 'inference.message-malformed', toWorkerFrom);
 }

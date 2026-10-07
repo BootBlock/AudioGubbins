@@ -19,7 +19,11 @@
 
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 
-import { readAssetRecord, writeAssetRecord } from './asset-record-json.js';
+import {
+  WRITTEN_ASSET_RECORD_DEPTH,
+  readAssetRecord,
+  writeAssetRecord,
+} from './asset-record-json.js';
 import {
   canonicalJson,
   type JsonLimits,
@@ -39,15 +43,14 @@ import { readExternalIdentity, readMediaSource } from './source-reading.js';
  *
  * As long as an argument's text may be, since an asset record carries the
  * asset's chain of edits and a paste carries its plan, neither of which any
- * count of names bounds. As deep as the deepest value an argument holds: an
- * asset record (1) holds its asset (2), whose edits (3) hold a paste (4) whose
- * payload (5) has streams (6), each a stream (7) of segments (8), each a
- * segment (9) of stages (10), each a stage (11) whose matrix (12) has rows
- * (13). A single operation or plan nests less, and a region less still.
+ * count of names bounds. As deep as the deepest value an argument holds, an
+ * asset record, whose asset's edits hold a paste whose plan holds a chain
+ * nested as deep as the domain lets groups nest. A chain alone, a processor,
+ * an operation or a plan nests less, and a region less still.
  */
 export const NESTED_ARGUMENT_LIMITS: JsonLimits = {
   maximumLength: LONGEST_ARGUMENT_TEXT,
-  maximumDepth: 13,
+  maximumDepth: WRITTEN_ASSET_RECORD_DEPTH,
 };
 
 /** The shapes of value with provenance in it that an argument may hold. */

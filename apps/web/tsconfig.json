@@ -103,6 +103,12 @@
       "path": "../../packages/detection-runtime"
     },
     {
+      "path": "../../packages/ml-runtime"
+    },
+    {
+      "path": "../../packages/model-packs"
+    },
+    {
       "path": "../../packages/test-fixtures"
     }
   ]

@@ -12,7 +12,8 @@ import { collect, type CollectionPlan, type MediaObjectStore } from '@audiogubbi
 import type { ContentId, Digest, StorageTree } from '@audiogubbins/project-format';
 
 import type { MediaRefusal } from './cleanup-plan.js';
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { retainedMedia } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import { whileAlone } from './storage-sharing.js';
 import type { LeaseCoordinator } from './write-lease.js';
 

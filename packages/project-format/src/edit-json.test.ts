@@ -13,7 +13,7 @@ import {
   type EditOperation,
   type EditPlan,
 } from '@audiogubbins/domain';
-import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
+import { TEST_CATALOGUE, deepestChain, expectSuccess } from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { readAssetRecord, writeAssetRecord, type AssetRecord } from './asset-record-json.js';
@@ -166,9 +166,10 @@ function assetOf(edits: readonly EditOperation[]): Asset {
 }
 
 /**
- * An asset whose chain holds the deepest value an argument carries: a paste
- * of audio already converted to stereo, so each of its segments has a matrix
- * stage, whose rows are the deepest arrays of any edit-model value.
+ * An asset whose chain holds the deepest value an argument carries: a paste of
+ * audio racked by the deepest chain the domain accepts, so the paste's plan
+ * holds that chain, and already converted to stereo, so each of its segments
+ * has a matrix stage too.
  */
 function deepestAsset(): Asset {
   const conversion: EditOperation = {
@@ -178,9 +179,12 @@ function deepestAsset(): Asset {
     matrix: [[1], [1]],
   };
   const base = assetOf([conversion]);
+  const rack = deepestChain(IDS);
+  const context = { chains: new Map([[rack.id, rack]]), catalogue: TEST_CATALOGUE };
   const payload: EditPlan = expectSuccess(
-    slicePlan(expectSuccess(assetPlan(base, PLAN_WITHOUT_CHAINS)), 0, 1_000),
+    slicePlan(expectSuccess(assetPlan({ ...base, rack: rack.id }, context)), 0, 1_000),
   );
+  expect(payload.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);
   const paste: EditOperation = {
     id: IDS.next<'EditOperationId'>(),
     kind: 'insert',
@@ -189,7 +193,7 @@ function deepestAsset(): Asset {
     convertRate: false,
   };
   const asset = { ...base, edits: [conversion, paste] };
-  expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), PLAN_WITHOUT_CHAINS.chains));
+  expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), context.chains));
   return asset;
 }
 

@@ -103,22 +103,22 @@ function addChain(
   state: ProjectState,
   invocation: CommandInvocation,
 ): CommandOutcome<ProjectState> {
-  const named = namedChain(state, invocation);
-  if (!named.ok) return refusedBy(named);
-  const chain = named.value;
-  if (chainUseCount(chainUsers(state.project, chain.id)) > 0) {
+  const chain = chainArgument(invocation);
+  if (!chain.ok) return refusedBy(chain);
+  if (state.project.effectChains.has(chain.value.id)) {
+    return refusal('chain.duplicate-id', 'The project already has a chain with that identifier.');
+  }
+  if (sharesIdentifiers(state, chain.value)) {
     return refusal(
-      'chain.in-use',
-      'Something in the project still processes audio with this chain, so it cannot be removed.',
+      'chain.duplicate-slot',
+      'A processor of the chain has the identifier of one already in the project.',
     );
   }
-  const chains = new Map(state.project.effectChains);
-  chains.delete(chain.id);
-  return applied(
-    withChains(state, chains),
-    addChainInvocation(chain),
-    'Remove a chain of processors',
+  const next = withChains(
+    state,
+    new Map([...state.project.effectChains, [chain.value.id, chain.value]]),
   );
+  return applied(next, removeChainInvocation(chain.value.id), 'Add a chain of processors');
 }
 
 function setChain(
@@ -155,22 +155,22 @@ function removeChain(
   state: ProjectState,
   invocation: CommandInvocation,
 ): CommandOutcome<ProjectState> {
-  const chain = chainArgument(invocation);
-  if (!chain.ok) return refusedBy(chain);
-  if (state.project.effectChains.has(chain.value.id)) {
-    return refusal('chain.duplicate-id', 'The project already has a chain with that identifier.');
-  }
-  if (sharesIdentifiers(state, chain.value)) {
+  const named = namedChain(state, invocation);
+  if (!named.ok) return refusedBy(named);
+  const chain = named.value;
+  if (chainUseCount(chainUsers(state.project, chain.id)) > 0) {
     return refusal(
-      'chain.duplicate-slot',
-      'A processor of the chain has the identifier of one already in the project.',
+      'chain.in-use',
+      'Something in the project still processes audio with this chain, so it cannot be removed.',
     );
   }
-  const next = withChains(
-    state,
-    new Map([...state.project.effectChains, [chain.value.id, chain.value]]),
+  const chains = new Map(state.project.effectChains);
+  chains.delete(chain.id);
+  return applied(
+    withChains(state, chains),
+    addChainInvocation(chain),
+    'Remove a chain of processors',
   );
-  return applied(next, removeChainInvocation(chain.value.id), 'Add a chain of processors');
 }
 
 /** The commands that add, change and remove chains, checked against `catalogue`. */
@@ -182,7 +182,7 @@ export function chainCommands(catalogue: ProcessorCatalogue): readonly ProjectCo
       category: CommandCategory.Edit,
       description: 'Adds a chain of processors to the project, for a rack or a range to name.',
       provenance: NO_PROVENANCE,
-      run: (state, invocation) => removeChain(state, invocation),
+      run: (state, invocation) => addChain(state, invocation),
     }),
     projectCommand({
       id: ProjectCommandId.SetChain,
@@ -198,7 +198,7 @@ export function chainCommands(catalogue: ProcessorCatalogue): readonly ProjectCo
       category: CommandCategory.Edit,
       description: 'Removes a chain of processors nothing in the project names.',
       provenance: NO_PROVENANCE,
-      run: (state, invocation) => addChain(state, invocation),
+      run: (state, invocation) => removeChain(state, invocation),
     }),
   ];
 }

@@ -35,5 +35,7 @@ export { type RootClient } from './client/root-client.js';
 export { type SourcesClient } from './client/sources-client.js';
 export { type AudioFileImport, type MediaClient } from './client/media-client.js';
 export { type CacheClient } from './client/cache-client.js';
+export { type PacksClient } from './client/packs-client.js';
+export { type PackChange } from './protocol/pack-operations.js';
 export { type UsageClient } from './client/usage-client.js';
 export { type OwnershipClient } from './client/ownership-client.js';

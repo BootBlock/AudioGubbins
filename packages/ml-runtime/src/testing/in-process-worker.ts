@@ -1,96 +1,256 @@
 /**
- * An inference worker played in the test's own thread, for testing the page's
- * client and the worker's core together without a worker, which Node's test
- * environment does not start.
+ * The inference workers played in the test's own thread, for testing the
+ * page's host, a thread's client and the worker's core together without a
+ * worker, which Node's test environment does not start.
  *
- * Every message crosses as a worker's does: as a structured clone, its listed
- * buffers transferred, so a buffer the sender gave up is detached here as it
- * would be there, and delivered a turn of the event loop later. The core
- * serves whatever port the test makes from the setup. The test can hold the
- * worker's answers back to deliver them later, send an answer of its own, or
- * make the worker fail.
+ * The topology is the application's: the host starts a worker for each
+ * runtime configuration with the setup, a client asks for a channel to it,
+ * and the worker serves a conversation over the channel. Every message on a
+ * channel crosses as it would between threads: as a structured clone, its
+ * listed buffers transferred, so a buffer the sender gave up is detached here
+ * as it would be there, and delivered a turn of the event loop later. The
+ * test can hold the worker's answers back to deliver them later, send an
+ * answer of its own, or make a worker fail.
  */
 
+import type { ChannelEnd } from '../channel-end.js';
+import { channelWorkerPort } from '../channel-worker-port.js';
+import {
+  InferenceHost,
+  type InferenceClient,
+  type InferenceThreadPort,
+} from '../inference-host.js';
+import {
+  RuntimeBuild,
+  type InferenceCapabilities,
+  type RuntimeSetup,
+} from '../inference-options.js';
 import type { InferencePort } from '../inference-port.js';
-import type { RuntimeSetup } from '../inference-options.js';
 import { InferenceWorkerCore } from '../inference-worker-core.js';
-import type { ToInferenceWorker } from '../protocol/inference-messages.js';
-import type { InferenceWorkerPort } from '../worker-inference.js';
+import { readToInferenceWorker } from '../protocol/inference-message-reading.js';
+import type { ToInferenceThread, ToInferenceWorker } from '../protocol/inference-messages.js';
+import { WorkerInference } from '../worker-inference.js';
+import { EVERY_CAPABILITY } from './fake-inference.js';
 
 /** The origin the played worker says it was loaded from. */
 export const TEST_ORIGIN = 'https://audiogubbins.test';
 
-/** A worker in the test's thread whose answers and faults the test can steer. */
-export class InProcessWorker implements InferenceWorkerPort {
-  /** Every message the page sent, as the worker received it. */
-  readonly received: ToInferenceWorker[] = [];
-  terminated = false;
-  readonly #core: InferenceWorkerCore;
-  #onMessage: ((value: unknown) => void) | undefined;
-  #onFault: ((reason: string) => void) | undefined;
-  /** Answers held back, while the test holds them. */
-  #held: unknown[] | undefined;
+/** A setup on the test origin, with digests no real runtime has. */
+export function testSetup(
+  capabilities: InferenceCapabilities = EVERY_CAPABILITY,
+  filesBase = `${TEST_ORIGIN}/runtime/`,
+): RuntimeSetup {
+  return {
+    filesBase,
+    webAssemblySha256: {
+      [RuntimeBuild.Cpu]: 'a'.repeat(64),
+      [RuntimeBuild.WebGpu]: 'b'.repeat(64),
+    },
+    capabilities,
+  };
+}
 
-  constructor(serve: (setup: RuntimeSetup) => InferencePort, origin = TEST_ORIGIN) {
-    this.#core = new InferenceWorkerCore({
-      post: (message, transfer) => {
-        const clone = structuredClone(message, { transfer: [...transfer] });
-        if (this.#held === undefined) this.#deliver(clone);
-        else this.#held.push(clone);
-      },
+type Listener = (event: { readonly data: unknown }) => void;
+
+/**
+ * `message` as it arrives in another thread: a structured clone, its buffers
+ * transferred, and each end of a channel it names, which a clone would copy
+ * into a lifeless object, moved as it is, as a transfer moves a port. The
+ * protocols here name an end only as a member of the message itself.
+ */
+function crossing(message: unknown, transfer: readonly object[]): unknown {
+  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
+  if (typeof message !== 'object' || message === null) {
+    return structuredClone(message, { transfer: buffers });
+  }
+  const ends = new Map(
+    Object.entries(message).filter(
+      (entry): entry is [string, InProcessEnd] => entry[1] instanceof InProcessEnd,
+    ),
+  );
+  const rest = Object.fromEntries(Object.entries(message).filter(([key]) => !ends.has(key)));
+  return { ...structuredClone(rest, { transfer: buffers }), ...Object.fromEntries(ends) };
+}
+
+/** One end of a channel in this thread (see the module comment). */
+class InProcessEnd implements ChannelEnd {
+  other: InProcessEnd | undefined;
+  closed = false;
+  /** Every message that arrived here, as it arrived. */
+  readonly received: unknown[] = [];
+  #listener: Listener | undefined;
+  #started = false;
+  #queue: unknown[] = [];
+  /** Messages posted from here held back, while the test holds them. */
+  held: unknown[] | undefined;
+
+  postMessage(message: unknown, transfer: readonly object[]): void {
+    if (this.closed) return;
+    const clone = crossing(message, transfer);
+    if (this.held === undefined) this.other?.arrive(clone);
+    else this.held.push(clone);
+  }
+
+  addEventListener(type: 'message' | 'messageerror', listener: Listener): void {
+    if (type === 'message') this.#listener = listener;
+  }
+
+  start(): void {
+    this.#started = true;
+    const queued = this.#queue;
+    this.#queue = [];
+    for (const value of queued) this.arrive(value);
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  /**
+   * Delivers `value` here a turn later, once started and unless this end is
+   * closed: as between threads, what was posted before the other end closed
+   * still arrives.
+   */
+  arrive(value: unknown): void {
+    if (!this.#started) {
+      this.#queue.push(value);
+      return;
+    }
+    setTimeout(() => {
+      if (this.closed) return;
+      this.received.push(value);
+      this.#listener?.({ data: value });
+    }, 0);
+  }
+}
+
+/** A channel in this thread: two ends, each delivering to the other. */
+export function inProcessChannel(): readonly [InProcessEnd, InProcessEnd] {
+  const one = new InProcessEnd();
+  const other = new InProcessEnd();
+  one.other = other;
+  other.other = one;
+  return [one, other];
+}
+
+/** An inference worker in the test's thread, as the page's host sees it. */
+export class InProcessThread implements InferenceThreadPort {
+  readonly core: InferenceWorkerCore;
+  terminated = false;
+  /** The worker's end of each channel it was connected by, in order. */
+  readonly channels: InProcessEnd[] = [];
+  /** The kinds of message the page sent the worker's scope, in order. */
+  readonly scope: ToInferenceThread['kind'][] = [];
+  readonly #errors: ((event: { readonly message: string }) => void)[] = [];
+
+  constructor(serve: (setup: RuntimeSetup) => InferencePort, origin: string) {
+    this.core = new InferenceWorkerCore({
       serve,
       origin,
+      // As a worker's reported error reaches the page: as an error event.
+      reportFault: (error) => {
+        this.fail(error.message);
+      },
     });
   }
 
-  post(message: ToInferenceWorker, transfer: readonly ArrayBuffer[]): void {
-    const clone = structuredClone(message, { transfer: [...transfer] });
+  postMessage(message: ToInferenceThread, _transfer: readonly object[]): void {
+    // The channel's end moves to the worker as it is: a clone would be a copy.
+    if (message.kind === 'connect' && message.port instanceof InProcessEnd) {
+      this.channels.push(message.port);
+    }
     setTimeout(() => {
       if (this.terminated) return;
-      this.received.push(clone);
-      this.#core.receive(clone);
+      this.scope.push(message.kind);
+      this.core.receive(message);
     }, 0);
   }
 
-  listen(onMessage: (value: unknown) => void, onFault: (reason: string) => void): void {
-    this.#onMessage = onMessage;
-    this.#onFault = onFault;
+  addEventListener(_type: 'error', listener: (event: { readonly message: string }) => void): void {
+    this.#errors.push(listener);
   }
 
   terminate(): void {
     this.terminated = true;
-  }
-
-  /** The kinds of message the worker received, in order. */
-  get kinds(): readonly ToInferenceWorker['kind'][] {
-    return this.received.map((message) => message.kind);
-  }
-
-  /** Holds the worker's answers back until {@link deliverHeld}. */
-  holdAnswers(): void {
-    this.#held ??= [];
-  }
-
-  /** Delivers the answers held back, in order, and holds no more. */
-  deliverHeld(): void {
-    const held = this.#held ?? [];
-    this.#held = undefined;
-    for (const value of held) this.#deliver(value);
-  }
-
-  /** Delivers a value to the page as though the worker had sent it, held or not. */
-  answer(value: unknown): void {
-    this.#deliver(value);
+    for (const channel of this.channels) channel.close();
   }
 
   /** Fails the worker as an error its script did not catch would. */
   fail(reason: string): void {
-    this.#onFault?.(reason);
-  }
-
-  #deliver(value: unknown): void {
     setTimeout(() => {
-      if (!this.terminated) this.#onMessage?.(value);
+      if (this.terminated) return;
+      for (const listener of this.#errors) listener({ message: reason });
     }, 0);
   }
+
+  /** The kinds of message the worker received over its channels, in order. */
+  get kinds(): readonly ToInferenceWorker['kind'][] {
+    return this.channels.flatMap((channel) =>
+      channel.received.flatMap((value) => {
+        const read = readToInferenceWorker(value);
+        return read.ok ? [read.value.kind] : [];
+      }),
+    );
+  }
+
+  /** Holds the worker's answers on every channel back until {@link deliverHeld}. */
+  holdAnswers(): void {
+    for (const channel of this.channels) channel.held ??= [];
+  }
+
+  /** Delivers the answers held back, in order, and holds no more. */
+  deliverHeld(): void {
+    for (const channel of this.channels) {
+      const held = channel.held ?? [];
+      channel.held = undefined;
+      for (const value of held) channel.other?.arrive(value);
+    }
+  }
+
+  /** Delivers a value on the latest channel as though the worker had sent it. */
+  answer(value: unknown): void {
+    this.channels.at(-1)?.other?.arrive(value);
+  }
+}
+
+/** The inference workers played in this thread, and a thread's client of them. */
+export interface InProcessInference {
+  readonly inference: WorkerInference;
+  readonly host: InferenceHost;
+  readonly client: InferenceClient;
+  /** Each worker the host started, in order. */
+  readonly threads: readonly InProcessThread[];
+}
+
+/**
+ * The inference port a thread holds, over workers played in this thread that
+ * serve the port `serve` makes from the setup (see the module comment).
+ */
+export function inProcessInference(
+  serve: (setup: RuntimeSetup) => InferencePort,
+  setup: RuntimeSetup = testSetup(),
+  origin = TEST_ORIGIN,
+): InProcessInference {
+  const threads: InProcessThread[] = [];
+  const host = new InferenceHost({
+    createWorker: () => {
+      const thread = new InProcessThread(serve, origin);
+      threads.push(thread);
+      return thread;
+    },
+    setup,
+  });
+  // Told of a failure only once a worker has started, by when the client is made.
+  const client = host.client((configuration, reason) => {
+    inference.failed(configuration, reason);
+  });
+  const inference = new WorkerInference({
+    capabilities: setup.capabilities,
+    connect: (configuration) => {
+      const [mine, theirs] = inProcessChannel();
+      client.connect(configuration, theirs);
+      return channelWorkerPort(mine);
+    },
+  });
+  return { inference, host, client, threads };
 }

@@ -22,7 +22,7 @@ import type {
 } from '@audiogubbins/domain';
 
 import type { JsonObject } from './canonical-json.js';
-import { readEffectChain } from './chain-reading.js';
+import { WRITTEN_CHAIN_DEPTH, readEffectChain } from './chain-reading.js';
 import {
   anyObjectOf,
   checkMembers,
@@ -47,6 +47,14 @@ import {
   asSampleCount,
   asSampleRate,
 } from './value-reading.js';
+
+/**
+ * How many levels of arrays and objects a written plan takes, its own object
+ * the first: its list of streams, a stream and the stream's processing hold a
+ * chain, the deepest thing a plan holds. A stage's matrix row, the deepest
+ * thing besides, is at the ninth level, which a chain of no group passes.
+ */
+export const WRITTEN_PLAN_DEPTH = 4 + WRITTEN_CHAIN_DEPTH;
 
 /**
  * Fewer code units than any stream, segment or stage is written in: the

@@ -64,7 +64,8 @@ import {
 import { CheckedRecords } from './checked-records.js';
 import { expiredHistory } from './expired-history.js';
 import { projectsIn } from './project-listing.js';
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { retainedMedia } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import type { ModelPackStore } from './model-pack-store.js';
 import { planPacks, type PackPins } from './pack-cleanup.js';
 import { readProjectCopy } from './project-copy.js';

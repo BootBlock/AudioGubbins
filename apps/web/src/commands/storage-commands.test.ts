@@ -222,7 +222,7 @@ describe('measuring the storage and cleaning it up', () => {
     expect(session.getSnapshot().model.history.nodes.size).toBe(2);
   });
 
-  it('counts an installed model pack, and keeps it when chosen while the packs projects need are not read', async () => {
+  it('counts an installed model pack, and plans its removal when chosen, since no project needs it', async () => {
     const window = await projectWorld().window();
     const { packs } = window.storage;
     expectSuccess(await packs.stage(PACK));
@@ -239,10 +239,12 @@ describe('measuring the storage and cleaning it up', () => {
 
     const heard = window.nextSaid();
     window.run('storage.plan-cleanup', { choices: 'pack-downloads,model-pack:sample-pack@1.0.0' });
-    expect(await heard).toBe('There is nothing of that to clean up.');
-    expect(window.projects.usage.get().plan?.installedPacks).toMatchObject([
-      { ref: PACK_REF, name: 'Sample pack', kept: 'needs-unknown' },
+    await heard;
+    const plan = window.projects.usage.get().plan;
+    expect(plan?.installedPacks).toEqual([
+      { ref: PACK_REF, name: 'Sample pack', bytes: expect.any(Number) },
     ]);
+    expect(plan?.steps).toMatchObject([{ kind: 'model-packs', packs: [{ ref: PACK_REF }] }]);
   });
 
   it('refuses a cleanup the arguments do not name, and one with no plan', async () => {

@@ -16,131 +16,35 @@
  */
 
 import {
-  FailureKind,
-  failure,
   modelHashOf,
   type DomainFailure,
   type ModelIdentity,
   type TextSha256,
 } from '@audiogubbins/domain';
-import type { RuntimeIdentity } from '@audiogubbins/ml-runtime';
 
-import type { InstallState } from './install-state.js';
-import { packKey, refOf, type ModelPackManifest, type PackCapability } from './manifest.js';
-import { compareVersions, versionWithin } from './pack-version.js';
-
-/** A processor or detector a project names, and how much it needs its pack. */
-export interface PackNeed {
-  readonly role: 'processor' | 'detector';
-  readonly typeKey: string;
-  /**
-   * Whether the processor cannot run without a pack (an ML processor) or a pack
-   * only enhances it (a canonical detector a pack's detector joins).
-   */
-  readonly required: boolean;
-  /** The model an instance was made with, which it needs exactly. */
-  readonly model?: ModelIdentity;
-}
-
-/**
- * How this device runs local inference, as the capabilities package states its
- * local-inference feature: the shape of its `FeatureAvailability`, which this
- * package takes as given rather than probing anything itself.
- */
-export interface LocalInferenceSupport {
-  readonly status: 'full' | 'reduced' | 'unavailable';
-  readonly explanation: string;
-  readonly missingRequired: readonly { readonly key: string; readonly reason: string }[];
-  readonly missingPreferred: readonly { readonly key: string; readonly reason: string }[];
-}
-
-/** A pack the device keeps or knows of, and its installation's state. */
-export interface KnownPack {
-  readonly manifest: ModelPackManifest;
-  readonly state: InstallState;
-}
-
-/** What availability is decided from. */
-export interface AvailabilityContext {
-  /** The versions kept or being kept, with their states. */
-  readonly packs: readonly KnownPack[];
-  /** What the catalogue offers; empty where it has not been asked. */
-  readonly catalogue: readonly ModelPackManifest[];
-  /** The runtime this build carries. */
-  readonly runtime: Pick<RuntimeIdentity, 'name' | 'version'>;
-  readonly device: LocalInferenceSupport;
-  /** The SHA-256 a pack's model hash is taken with, the platform's. */
-  readonly sha256: TextSha256;
-}
-
-/** Which of REQ-AUDIO-139's conditions holds for a need (see the module comment). */
-export type PackAvailability =
-  | { readonly condition: 'available'; readonly pack: ModelPackManifest }
-  | {
-      readonly condition: 'update-available';
-      readonly pack: ModelPackManifest;
-      readonly update: ModelPackManifest;
-    }
-  | {
-      readonly condition: 'required-unavailable' | 'optional-unavailable';
-      readonly reason: DomainFailure;
-      /** A version the catalogue offers that runs here, to install. */
-      readonly offered?: ModelPackManifest;
-    }
-  | {
-      readonly condition: 'incompatible';
-      readonly pack: ModelPackManifest;
-      readonly reason: DomainFailure;
-      /** A version the catalogue offers that runs here, to install instead. */
-      readonly offered?: ModelPackManifest;
-    }
-  | { readonly condition: 'device-unavailable'; readonly reason: DomainFailure };
-
-/** Whether a person has chosen to fetch the packs a project requires when it opens. */
-export type AutomaticDownload = 'never' | 'required';
+import type {
+  AutomaticDownload,
+  AvailabilityContext,
+  KnownPack,
+  PackAvailability,
+  PackNeed,
+} from './availability-context.js';
+import { packKey, refOf, type ModelPackManifest } from './manifest.js';
+import {
+  deviceRefusal,
+  deviceRunsNothing,
+  needFailure,
+  runtimePinRefusal,
+  runtimeRefusal,
+  stateFailure,
+} from './pack-refusals.js';
+import { compareVersions } from './pack-version.js';
 
 /** Whether a manifest serves a need's processor or detector, and its model where it names one. */
 function serves(manifest: ModelPackManifest, need: PackNeed): boolean {
   const keys = need.role === 'processor' ? manifest.serves.processors : manifest.serves.detectors;
   if (!keys.includes(need.typeKey)) return false;
   return need.model === undefined || need.model.pack === manifest.id;
-}
-
-/** Why a pack does not run on this build's runtime, or `undefined` where it does. */
-function runtimeRefusal(
-  manifest: ModelPackManifest,
-  runtime: AvailabilityContext['runtime'],
-): DomainFailure | undefined {
-  const needs = manifest.runtime;
-  if (needs.name === runtime.name && versionWithin(runtime.version, needs.minimum, needs.below)) {
-    return undefined;
-  }
-  return failure(
-    'model-pack.runtime-incompatible',
-    FailureKind.Unrecoverable,
-    `${manifest.name} ${manifest.version} runs on ${needs.name} from ${needs.minimum} below ${needs.below}, not on ${runtime.name} ${runtime.version}.`,
-    { details: { pack: manifest.id, version: manifest.version } },
-  );
-}
-
-/** Why this device cannot run a pack, or `undefined` where it can. */
-function deviceRefusal(
-  manifest: ModelPackManifest,
-  device: LocalInferenceSupport,
-): DomainFailure | undefined {
-  if (device.status === 'unavailable') {
-    return failure('model-pack.device-unsupported', FailureKind.Unrecoverable, device.explanation, {
-      details: { pack: manifest.id },
-    });
-  }
-  const missing = [...device.missingRequired, ...device.missingPreferred].find((absent) =>
-    manifest.runtime.capabilities.some((needed: PackCapability) => needed === absent.key),
-  );
-  return missing === undefined
-    ? undefined
-    : failure('model-pack.device-unsupported', FailureKind.Unrecoverable, missing.reason, {
-        details: { pack: manifest.id, capability: missing.key },
-      });
 }
 
 /** The highest version first. */
@@ -172,42 +76,22 @@ function unavailable(
   };
 }
 
-function needFailure(code: string, summary: string, need: PackNeed): DomainFailure {
-  return failure(code, FailureKind.Conflict, summary, {
-    details: { role: need.role, typeKey: need.typeKey },
-  });
-}
-
-/** Why a version kept but not installed cannot serve. */
-function stateFailure(
-  manifest: ModelPackManifest,
-  state: InstallState,
-  need: PackNeed,
-): DomainFailure {
-  if (state.kind === 'failed') {
-    return failure(
-      'model-pack.damaged',
-      FailureKind.IntegrityViolation,
-      `${manifest.name} ${manifest.version} is not whole and is not used.`,
-      { details: { pack: manifest.id, version: manifest.version }, cause: state.reason },
-    );
-  }
-  return needFailure(
-    'model-pack.not-ready',
-    `${manifest.name} ${manifest.version} is ${state.kind}, not installed.`,
-    need,
-  );
-}
-
 /**
  * Which condition holds for `need` (see the module comment), decided in this
- * order: no pack serves it; the device runs none that does; an installed
- * version serves it, with or without an update; the versions installed all need
- * another runtime, or are not the model the instance was made with; a version
- * is kept but not installed; none is kept, and the catalogue offers one that
- * runs here, offers only ones that do not, or offers none.
+ * order: the device runs no pack at all; no pack serves it; the device runs
+ * none that does; its instance is pinned to another build of the runtime; an
+ * installed version serves it, with or without an update; the versions
+ * installed all need another runtime, or are not the model the instance was
+ * made with; a version is kept but not installed; none is kept, and the
+ * catalogue offers one that runs here, offers only ones that do not, or offers
+ * none.
  */
 export function availabilityOf(need: PackNeed, context: AvailabilityContext): PackAvailability {
+  // Asked before any pack is looked for: on a device that runs none, a pack
+  // installed is no remedy, and a person told the model is missing would look
+  // for one to install.
+  const nothing = deviceRunsNothing(context.device, { typeKey: need.typeKey });
+  if (nothing !== undefined) return { condition: 'device-unavailable', reason: nothing };
   const servingKept = context.packs.filter((pack) => serves(pack.manifest, need));
   const servingOffered = context.catalogue.filter((manifest) => serves(manifest, need));
   const candidates = [...servingKept.map((pack) => pack.manifest), ...servingOffered];
@@ -231,6 +115,8 @@ export function availabilityOf(need: PackNeed, context: AvailabilityContext): Pa
   if (firstRefusal !== undefined && !candidates.some(runsOnDevice)) {
     return { condition: 'device-unavailable', reason: firstRefusal };
   }
+  const pinned = runtimePinRefusal(need, context.runtime);
+  if (pinned !== undefined) return { condition: 'incompatible', pack: first, reason: pinned };
 
   const kept = servingKept.filter(
     (pack) => runsOnDevice(pack.manifest) && isNeededVersion(pack.manifest, need),

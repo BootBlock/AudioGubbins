@@ -104,7 +104,8 @@ export {
   type TransferRequest,
 } from './write-lease.js';
 
-export { type UnreadableRoot, retainedMedia } from './media-roots.js';
+export { retainedMedia } from './media-roots.js';
+export { type UnreadableRoot } from './project-roots.js';
 export { mediaSharingOf } from './storage-sharing.js';
 
 export {
@@ -184,6 +185,7 @@ export {
   type PackPins,
   type PlannedPack,
 } from './pack-cleanup.js';
+export { projectPackPins } from './pack-pins.js';
 export {
   type CleanupConfirmation,
   type CleanupRunOptions,

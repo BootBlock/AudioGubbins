@@ -70,7 +70,7 @@ describe('installing a pack', () => {
       total: 17,
     });
     expect(valueOf(await store.kept())).toEqual([{ kind: 'sealed', manifest: PACK.manifest }]);
-    expect([...valueOf(await installer.read(REF, 'models/decoder.onnx'))]).toEqual([
+    expect([...valueOf(await installer.read(REF, 'models/decoder.onnx')).bytes]).toEqual([
       ...(PACK.files.get('models/decoder.onnx') ?? []),
     ]);
   });

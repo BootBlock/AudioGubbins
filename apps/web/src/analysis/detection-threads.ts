@@ -19,9 +19,17 @@ import {
 } from '@audiogubbins/detection-runtime';
 import detectionWorkerUrl from '@audiogubbins/detection-runtime/threads/detection-worker.ts?worker&url';
 
-/** A new detection worker connected to `previews`, and the port the host talks to it through. */
-export function browserDetectionWorker(previews: PreviewHost): DetectionWorkerPort {
-  const worker = new Worker(detectionWorkerUrl, { type: 'module' });
+import type { ModelServices } from '../ml/model-services.js';
+
+/**
+ * A new detection worker connected to `previews` and to the models a chain
+ * runs by `models`, and the port the host talks to it through.
+ */
+export function browserDetectionWorker(
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
+): DetectionWorkerPort {
+  const worker = models.startChainWorker(detectionWorkerUrl);
   const connection = previews.connect(CachePurpose.Analysis);
   const connect: ToDetectionWorker = {
     kind: ToDetectionWorkerKind.Previews,

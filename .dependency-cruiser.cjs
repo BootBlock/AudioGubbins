@@ -207,10 +207,10 @@ module.exports = {
         'the audio thread and in workers (ADR-0030). It depends on the two audio packages below ' +
         'it, the domain, diagnostics and the capabilities it is told, and on no interface, ' +
         'storage or command package. Its thread entries also make the effect rack its workers ' +
-        'run chains with (ADR-0061).',
+        'run chains with (ADR-0061), and the model channel its models run through (ADR-0062).',
       from: { path: '^packages/audio-runtime/' },
       to: {
-        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|processors)/)',
+        path: '^packages/(?!(audio-runtime|audio-engine|audio-graph|capabilities|diagnostics|domain|effect-rack|ml-runtime|processors)/)',
       },
     },
     {
@@ -320,9 +320,12 @@ module.exports = {
         'Peaks are derived from sources the engine reads and are drawn by the views above them ' +
         '(ADR-0043). The package depends on the domain and the engine, and its worker entry on ' +
         'the effect rack it reads chains with; it knows no interface or storage: the cache is ' +
-        'kept through a port the application implements.',
+        'kept through a port the application implements. Its worker entry runs models through ' +
+        'the model channel (ADR-0062).',
       from: { path: '^packages/waveform/' },
-      to: { path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|processors)/)' },
+      to: {
+        path: '^packages/(?!(waveform|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+      },
     },
     {
       name: 'detection-runtime-owns-nothing-else',
@@ -331,10 +334,13 @@ module.exports = {
         "The detection worker reads a target's processed audio through the engine and runs the " +
         'detectors and assistants over it (ADR-0061, ADR-0062). It depends on the domain, the ' +
         'engine and the processors whose detectors and learners it runs, and its thread entry ' +
-        'and test support on the effect rack an edited sound is read with; it knows no ' +
-        'interface, storage or command package.',
+        'and test support on the effect rack an edited sound is read with, and the entry on the ' +
+        'model channel its models run through (ADR-0062); it knows no interface, storage or ' +
+        'command package.',
       from: { path: '^packages/detection-runtime/' },
-      to: { path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|processors)/)' },
+      to: {
+        path: '^packages/(?!(detection-runtime|audio-engine|domain|effect-rack|ml-runtime|processors)/)',
+      },
     },
     {
       name: 'detection-rack-made-only-in-thread-entries',
@@ -513,11 +519,12 @@ module.exports = {
       severity: 'error',
       comment:
         'The browser host of project storage composes the storage packages and their browser ' +
-        'adapters in a worker and serves them to the page (ADR-0022). It knows nothing of the ' +
-        'interface that calls it, or of the audio packages.',
+        "adapters in a worker and serves them to the page (ADR-0022), the model packs' installer " +
+        'among them (ADR-0062). It knows nothing of the interface that calls it, or of the audio ' +
+        'packages.',
       from: { path: '^packages/storage-runtime/' },
       to: {
-        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|processors|project-commands|project-format|storage|storage-runtime|text)/)',
+        path: '^packages/(?!(browser-storage|capabilities|commands|diagnostics|domain|history|media-store|model-packs|processors|project-commands|project-format|storage|storage-runtime|text)/)',
       },
     },
     {

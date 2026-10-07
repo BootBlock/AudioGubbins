@@ -15,6 +15,7 @@
     "tools/build-wasm.mjs",
     "tools/check-build-output.mjs",
     "tools/check-record-titles.mjs",
+    "tools/local-traces.mjs",
     "tools/read-pnpm-lockfile.mjs",
     "tools/sync-third-party-notices.mjs",
     "tools/model-packs/build-packs.mjs",

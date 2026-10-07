@@ -13,6 +13,7 @@
 export {
   type SampleProject,
   contentIdOfDigit,
+  deeplyRackedState,
   editedReferenceState,
   referenceState,
   withSources,

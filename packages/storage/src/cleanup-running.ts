@@ -36,6 +36,7 @@ import {
   type DomainResult,
   type ProjectId,
 } from '@audiogubbins/domain';
+import type { PackInstaller } from '@audiogubbins/model-packs';
 
 import { BackupGenerations } from './backup-generations.js';
 import { CheckedRecords } from './checked-records.js';
@@ -82,6 +83,9 @@ export interface CleanupConfirmation {
  */
 export interface CleanupRunServices extends CleanupServices, OpeningServices {
   readonly coordinator?: LeaseCoordinator;
+
+  /** The installer every removal of a model pack goes through (`pack-cleanup.ts`). */
+  readonly packInstaller: PackInstaller;
 }
 
 /** What one step did. */
@@ -203,11 +207,22 @@ async function packsRemoved(
   signal?: AbortSignal,
 ): Promise<DomainResult<StepOutcome>> {
   if (step.kind === 'model-packs') {
-    const removed = await removeChosenPacks(step.packs, services.packs, services.packPins, signal);
+    const removed = await removeChosenPacks(
+      step.packs,
+      services.packs,
+      services.packInstaller,
+      services.packPins,
+      signal,
+    );
     return outcomeOf(step.kind, removed);
   }
   return await aloneFor(step, services, signal, async () => {
-    const removed = await removePartialPacks(step.packs, services.packs, signal);
+    const removed = await removePartialPacks(
+      step.packs,
+      services.packs,
+      services.packInstaller,
+      signal,
+    );
     return outcomeOf(
       step.kind,
       mapResult(removed, (freed) => ({ freed })),

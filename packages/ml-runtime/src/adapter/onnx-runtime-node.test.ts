@@ -23,9 +23,8 @@ import {
   type RuntimeSetup,
 } from '../inference-options.js';
 import { addModelBytes } from '../testing/add-model.js';
-import { InProcessWorker, TEST_ORIGIN } from '../testing/in-process-worker.js';
+import { TEST_ORIGIN, inProcessInference } from '../testing/in-process-worker.js';
 import { PINNED, portContract, valueOf } from '../testing/port-contract.js';
-import { WorkerInference } from '../worker-inference.js';
 import type { RuntimeFiles } from '../runtime-files.js';
 import { ONNX_RUNTIME_BUILDS, OnnxRuntimeInference } from './onnx-runtime.js';
 import { OriginRuntimeFiles } from './origin-runtime-files.js';
@@ -118,15 +117,15 @@ portContract('the adapter over the real runtime', {
   timeout: 30_000,
 });
 
-portContract("the worker's client, over a worker serving the adapter over the real runtime", {
-  port: (capabilities) =>
-    new WorkerInference({
-      createWorker: () => new InProcessWorker((setup) => adapter(setup), origin),
-      setup: setupFor(capabilities),
-    }),
-  model: addModelBytes,
-  timeout: 30_000,
-});
+portContract(
+  "a thread's client, over the page's workers serving the adapter over the real runtime",
+  {
+    port: (capabilities) =>
+      inProcessInference((setup) => adapter(setup), setupFor(capabilities), origin).inference,
+    model: addModelBytes,
+    timeout: 30_000,
+  },
+);
 
 describe('the real runtime', { timeout: 30_000 }, () => {
   it('names itself by its version and the digest of the WebAssembly file it runs', async () => {
@@ -169,10 +168,11 @@ describe('the real runtime', { timeout: 30_000 }, () => {
   });
 
   it("refuses runtime files from an origin that is not the worker's own", async () => {
-    const port = new WorkerInference({
-      createWorker: () => new InProcessWorker((setup) => adapter(setup), TEST_ORIGIN),
-      setup: setupFor(NODE, 'https://cdn.example.com/onnxruntime/'),
-    });
+    const port = inProcessInference(
+      (setup) => adapter(setup),
+      setupFor(NODE, 'https://cdn.example.com/onnxruntime/'),
+      TEST_ORIGIN,
+    ).inference;
     const opened = await port.open(addModelBytes(), PINNED);
     expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
       'inference.worker-failed',

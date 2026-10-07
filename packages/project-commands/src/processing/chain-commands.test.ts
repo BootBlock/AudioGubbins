@@ -16,6 +16,7 @@ import {
   TEST_FILTER,
   TEST_LIMITER,
   TEST_UPMIXER,
+  deepestChain,
 } from '@audiogubbins/domain/testing';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { sampleProject } from '@audiogubbins/test-fixtures';
@@ -80,6 +81,31 @@ describe('the chain and rack commands (ADR-0060)', () => {
     expect(next.project.effectChains.get(chain.id)).toEqual(chain);
     const copy = { ...chain, id: ids.next<'EffectChainId'>() };
     expect(refusalCodeOf(bus.execute(next, addChainInvocation(copy)))).toBe('chain.duplicate-slot');
+  });
+
+  it('carries a chain whose groups nest as deep as the domain allows through every argument, undo and redo', () => {
+    const deep = deepestChain(ids);
+    const added = appliedAndUndone(state, addChainInvocation(deep));
+    expect(added.next.project.effectChains.get(deep.id)).toEqual(deep);
+
+    // A change's inverse and a removal's carry the whole chain as it was, so
+    // undoing either reads the deepest chain back from its argument's text.
+    const [outer] = deep.slots;
+    if (outer?.kind !== 'group') throw new Error('The deepest chain opens with a group.');
+    const changed = appliedAndUndone(
+      added.next,
+      setChainInvocation({ ...deep, slots: [{ ...outer, mix: 0.5 }] }),
+    );
+    const removed = appliedAndUndone(added.next, removeChainInvocation(deep.id));
+    expect(removed.next.project.effectChains.has(deep.id)).toBe(false);
+
+    for (const [from, { next, entry }] of [
+      [state, added],
+      [added.next, changed],
+      [added.next, removed],
+    ] as const) {
+      expect(after(from, ...entry.forward)).toEqual(next);
+    }
   });
 
   it('names what a change to a chain did, in the processor’s own words', () => {

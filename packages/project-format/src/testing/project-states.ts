@@ -31,7 +31,12 @@ import {
   type RegionOperation,
   type Track,
 } from '@audiogubbins/domain';
-import { PLAN_WITHOUT_CHAINS, expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  PLAN_WITHOUT_CHAINS,
+  TEST_CATALOGUE,
+  deepestChain,
+  expectSuccess,
+} from '@audiogubbins/domain/testing';
 
 import { contentIdFrom, type ContentId } from '../content-identity.js';
 import {
@@ -295,6 +300,47 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
       ...state.project,
       assets: new Map([...state.project.assets, [footstep.id, edited]]),
       regions,
+    },
+  };
+}
+
+/**
+ * The reference state with the deepest chain the domain accepts in each place
+ * a project keeps one: among the project's chains, as the footstep's rack, and
+ * in the plan of a paste of the footstep's racked audio into the footstep,
+ * which nests the chain deepest of all. Every reader of a whole project is
+ * pinned with it, so a depth bound picked by hand rather than derived from the
+ * domain's is found.
+ */
+export function deeplyRackedState(fixture: SampleProject): ProjectState {
+  const state = referenceState(fixture);
+  const { ids } = fixture;
+  const footstep = state.project.assets.get(fixture.assets.footstep.id);
+  if (footstep === undefined) throw new Error('The reference state has no footstep.');
+
+  const chain = deepestChain(ids);
+  const chains = new Map([...state.project.effectChains, [chain.id, chain]]);
+  const racked: Asset = { ...footstep, rack: chain.id };
+  const copied = expectSuccess(
+    slicePlan(
+      expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE })),
+      6_000,
+      18_000,
+    ),
+  );
+  const paste: EditOperation = {
+    id: ids.next<'EditOperationId'>(),
+    kind: 'insert',
+    at: derivedSampleCount(24_000),
+    payload: copied,
+    convertRate: false,
+  };
+  return {
+    ...state,
+    project: {
+      ...state.project,
+      assets: new Map([...state.project.assets, [footstep.id, { ...racked, edits: [paste] }]]),
+      effectChains: chains,
     },
   };
 }

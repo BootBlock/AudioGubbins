@@ -42,7 +42,8 @@ import {
 import type { CacheCategory, CacheStore } from './cache-store.js';
 import { CheckedRecords } from './checked-records.js';
 import { historyUsage, strongerOf, type RetainedBy } from './history-usage.js';
-import { retainedMedia, type UnreadableRoot } from './media-roots.js';
+import { retainedMedia } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import type { ModelPackStore } from './model-pack-store.js';
 import { ProjectFiles } from './project-files.js';
 import { projectsIn } from './project-listing.js';

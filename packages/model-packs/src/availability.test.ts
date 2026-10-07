@@ -6,14 +6,14 @@ import { FailureKind, failure, modelHashOf, type ModelIdentity } from '@audiogub
 
 import { nobleTextSha256 } from './adapter/noble-sha256.js';
 
-import {
-  availabilityOf,
-  packsToFetch,
-  type AvailabilityContext,
-  type LocalInferenceSupport,
-  type PackAvailability,
-  type PackNeed,
-} from './availability.js';
+import type {
+  AvailabilityContext,
+  LocalInferenceSupport,
+  PackAvailability,
+  PackNeed,
+} from './availability-context.js';
+import { availabilityOf, packsToFetch } from './availability.js';
+import { versionAvailability } from './version-availability.js';
 import type { InstallState } from './install-state.js';
 import type { ModelPackManifest } from './manifest.js';
 import { sampleManifest } from './testing/sample-packs.js';
@@ -40,7 +40,8 @@ const NO_WEBGPU: LocalInferenceSupport = {
   missingPreferred: [{ key: 'webgpu', reason: 'This browser has no WebGPU adapter.' }],
 };
 
-const RUNTIME = { name: 'onnxruntime-web', version: '1.30.0' };
+/** The runtime in use, the build every instance below was pinned to but where a test says. */
+const RUNTIME = { name: 'onnxruntime-web', version: '1.30.0', webAssemblySha256: 'a'.repeat(64) };
 const INSTALLED: InstallState = { kind: 'installed' };
 
 const V1 = sampleManifest();
@@ -151,8 +152,12 @@ describe('which condition holds for a processor or detector a project names (REQ
     );
   });
 
-  it('says the device cannot run it where local inference is unavailable here, installed or not', () => {
-    for (const situation of [context([[V1, INSTALLED]], [], NO_SIMD), context([], [V1], NO_SIMD)]) {
+  it('says the device cannot run it where local inference is unavailable here, installed, offered or neither', () => {
+    for (const situation of [
+      context([[V1, INSTALLED]], [], NO_SIMD),
+      context([], [V1], NO_SIMD),
+      context([], [], NO_SIMD),
+    ]) {
       const availability = availabilityOf(REQUIRED, situation);
       expect(summary(availability)).toEqual([
         'device-unavailable',
@@ -242,6 +247,25 @@ describe('which condition holds for a processor or detector a project names (REQ
     );
   });
 
+  it('finds an instance pinned to another build of the runtime incompatible, whatever is installed', () => {
+    const model: ModelIdentity = {
+      pack: 'sample-pack',
+      version: '1.0.0',
+      modelHash: modelHashOf(V1.files, nobleTextSha256),
+      runtimeHash: 'c'.repeat(64),
+    };
+    const pinnedElsewhere: PackNeed = { ...REQUIRED, model };
+    expect(summary(availabilityOf(pinnedElsewhere, context([[V1, INSTALLED]])))).toEqual([
+      'incompatible',
+      '1.0.0',
+      'model-pack.runtime-differs',
+      undefined,
+    ]);
+    expect(summary(availabilityOf(pinnedElsewhere, context([], [V1])))[2]).toBe(
+      'model-pack.runtime-differs',
+    );
+  });
+
   it('names a version by the listing of every file it holds, its notice as much as its model', () => {
     const files = [
       { path: 'model.onnx', bytes: 5, sha256: 'a'.repeat(64) },
@@ -303,5 +327,59 @@ describe('what opening a project fetches', () => {
     expect(packsToFetch(needs, context([[V1, INSTALLED]], [V1, V2]), 'required')).toEqual([]);
     expect(packsToFetch(needs, context([], [NEEDS_RUNTIME_2]), 'required')).toEqual([]);
     expect(packsToFetch(needs, context([], [V1], NO_SIMD), 'required')).toEqual([]);
+  });
+});
+
+describe("which condition holds for the version a model's files are read from", () => {
+  const ref = { id: V1.id, version: V1.version };
+  const read = (
+    packs: readonly (readonly [ModelPackManifest, InstallState])[],
+    device: LocalInferenceSupport = FULL,
+  ): readonly string[] => {
+    const decided = versionAvailability(ref, context(packs, [], device));
+    return decided.condition === 'available'
+      ? [decided.condition, decided.pack.version]
+      : [decided.condition, decided.reason.code];
+  };
+
+  it('can be read from an installed version this runtime runs', () => {
+    expect(read([[V1, INSTALLED]])).toEqual(['available', '1.0.0']);
+  });
+
+  it('is a required model unavailable where the version is not kept, or kept but not whole', () => {
+    expect(read([[V2, INSTALLED]])).toEqual(['required-unavailable', 'model-pack.not-installed']);
+    expect(read([[V1, { kind: 'paused', received: 1, total: 2 }]])).toEqual([
+      'required-unavailable',
+      'model-pack.not-ready',
+    ]);
+    expect(
+      read([
+        [
+          V1,
+          {
+            kind: 'failed',
+            reason: failure('model-pack.file-hash-mismatch', FailureKind.IntegrityViolation, 'x'),
+            resumable: false,
+            received: 0,
+          },
+        ],
+      ]),
+    ).toEqual(['required-unavailable', 'model-pack.damaged']);
+  });
+
+  it('is incompatible where the installed version needs another runtime', () => {
+    const elsewhere = sampleManifest({ runtime: { minimum: '2.0.0', below: '3.0.0' } });
+    expect(read([[elsewhere, INSTALLED]])).toEqual([
+      'incompatible',
+      'model-pack.runtime-incompatible',
+    ]);
+  });
+
+  it('is unavailable for the device where it cannot run the runtime, kept or not', () => {
+    expect(read([[V1, INSTALLED]], NO_SIMD)).toEqual([
+      'device-unavailable',
+      'model-pack.device-unsupported',
+    ]);
+    expect(read([], NO_SIMD)).toEqual(['device-unavailable', 'model-pack.device-unsupported']);
   });
 });

@@ -15,9 +15,17 @@ import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { ToPeakWorkerKind, type PeakWorkerPort, type ToPeakWorker } from '@audiogubbins/waveform';
 import peakWorkerUrl from '@audiogubbins/waveform/threads/peak-worker.ts?worker&url';
 
-/** A new peak worker connected to `previews`, and the port the host talks to it through. */
-export function browserPeakWorker(previews: PreviewHost): PeakWorkerPort {
-  const worker = new Worker(peakWorkerUrl, { type: 'module' });
+import type { ModelServices } from '../ml/model-services.js';
+
+/**
+ * A new peak worker connected to `previews` and to the models a chain runs by
+ * `models`, and the port the host talks to it through.
+ */
+export function browserPeakWorker(
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
+): PeakWorkerPort {
+  const worker = models.startChainWorker(peakWorkerUrl);
   const connection = previews.connect(CachePurpose.Waveform);
   const connect: ToPeakWorker = { kind: ToPeakWorkerKind.Previews, port: connection.port };
   worker.postMessage(connect, [connection.port]);

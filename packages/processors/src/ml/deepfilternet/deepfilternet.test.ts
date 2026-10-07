@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, type ChannelLayout } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
-import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
+import { deepFilterNetGraphs } from '../../testing/deepfilternet-stand-in.js';
 import { processorProperties } from '../../testing/processor-properties.js';
 import {
   FakeModels,
@@ -18,88 +18,13 @@ import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.
 import { modelProcessorType } from '../model-processor.js';
 import type { ModelDefinition } from '../model-definition.js';
 import { DEEPFILTERNET_3, deepFilterNet3 } from './deepfilternet.js';
-import { DEEPFILTERNET_3_MODEL, DeepFilterNetGraph } from './deepfilternet-model.js';
+import { DEEPFILTERNET_3_MODEL } from './deepfilternet-model.js';
 
 /** DeepFilterNet 3's definition over stand-ins for its graphs' files, on the fake runtime. */
 const STAND_IN: ModelDefinition = standInModel(DEEPFILTERNET_3_MODEL);
 
-function frames(dims: readonly number[]): number {
-  return dims[2] ?? 0;
-}
-
-/** The encoder, giving outputs of the declared shapes, all zero. */
-const ENCODER: FakeModel = {
-  inputs: [
-    { name: 'feat_erb', dims: [1, 1, 'S', 32] },
-    { name: 'feat_spec', dims: [1, 2, 'S', 96] },
-  ],
-  outputs: [],
-  run: (inputs) => {
-    const length = frames(inputs.get('feat_erb')?.dims ?? []);
-    const zeros = (dims: number[]) => ({
-      data: new Float32Array(dims.reduce((product, one) => product * one, 1)),
-      dims,
-    });
-    return new Map([
-      ['e0', zeros([1, 64, length, 32])],
-      ['e1', zeros([1, 64, length, 16])],
-      ['e2', zeros([1, 64, length, 8])],
-      ['e3', zeros([1, 64, length, 8])],
-      ['emb', zeros([1, length, 512])],
-      ['c0', zeros([1, 64, length, 96])],
-      ['lsnr', zeros([1, length, 1])],
-    ]);
-  },
-};
-
-/**
- * Decoders that give every band the gain `gain`, and every bin the deep
- * filter whose only tap, on the frame itself, is `tap`.
- */
-function decoders(gain: number, tap: number): readonly [FakeModel, FakeModel] {
-  const erb: FakeModel = {
-    inputs: [
-      { name: 'emb', dims: [1, 'S', 512] },
-      { name: 'e3', dims: [1, 64, 'S', 8] },
-      { name: 'e2', dims: [1, 64, 'S', 8] },
-      { name: 'e1', dims: [1, 64, 'S', 16] },
-      { name: 'e0', dims: [1, 64, 'S', 32] },
-    ],
-    outputs: [],
-    run: (inputs) => {
-      const length = frames(inputs.get('e0')?.dims ?? []);
-      return new Map([
-        ['m', { data: new Float32Array(length * 32).fill(gain), dims: [1, 1, length, 32] }],
-      ]);
-    },
-  };
-  const deep: FakeModel = {
-    inputs: [
-      { name: 'emb', dims: [1, 'S', 512] },
-      { name: 'c0', dims: [1, 64, 'S', 96] },
-    ],
-    outputs: [],
-    run: (inputs) => {
-      const length = frames(inputs.get('c0')?.dims ?? []);
-      const taps = new Float32Array(length * 96 * 10);
-      // Tap 2 of 5 is the frame itself: two of the five lie behind it.
-      for (let at = 0; at < length * 96; at += 1) taps[at * 10 + 4] = tap;
-      return new Map([['coefs', { data: taps, dims: [1, length, 96, 10] }]]);
-    },
-  };
-  return [erb, deep];
-}
-
 function servicesWith(gain: number, tap: number) {
-  const [erb, deep] = decoders(gain, tap);
-  return standInServices(
-    STAND_IN,
-    new Map([
-      [DeepFilterNetGraph.Encoder, ENCODER],
-      [DeepFilterNetGraph.ErbDecoder, erb],
-      [DeepFilterNetGraph.DeepFilterDecoder, deep],
-    ]),
-  );
+  return standInServices(STAND_IN, deepFilterNetGraphs(gain, tap));
 }
 
 async function enhanced(

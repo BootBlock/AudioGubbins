@@ -23,7 +23,7 @@ import {
 } from '@audiogubbins/domain';
 import type { InferenceExecution, InferenceMode, InferenceOptions } from '@audiogubbins/ml-runtime';
 
-import type { ModelFile } from './model-library.js';
+import { ModelUnavailability, modelUnavailable, type ModelFile } from './model-library.js';
 
 /**
  * The SHA-256 of `ort-wasm-simd-threaded.wasm` of onnxruntime-web 1.30.0,
@@ -108,7 +108,12 @@ export function fileRefusal(
   );
 }
 
-/** Why a session that ran on `execution` is not the runtime `definition` names, or nothing. */
+/**
+ * Why a session that ran on `execution` is not the runtime `definition` names,
+ * or nothing: the model is incompatible with the runtime in use, one of
+ * REQ-AUDIO-139's conditions, so the processor is unavailable for that reason,
+ * with the runtime's mismatch as its cause.
+ */
 export function runtimeRefusal(
   definition: ModelDefinition,
   execution: InferenceExecution,
@@ -116,18 +121,17 @@ export function runtimeRefusal(
   const found = execution.runtime.webAssemblySha256;
   const expected = definition.identity.runtimeHash;
   if (found === expected) return succeed(undefined);
-  return fail(
+  const { pack, version } = definition.identity;
+  const runtime = `${execution.runtime.name} ${execution.runtime.version}`;
+  return modelUnavailable(
+    ModelUnavailability.Incompatible,
+    `${pack} ${version} is pinned to another build of the inference runtime than ${runtime}, so its render would not be the one the instance names.`,
+    { pack, version },
     failure(
       'model.runtime-mismatch',
       FailureKind.Unrecoverable,
-      `The inference runtime is not the build ${definition.identity.pack} is pinned to, so its render would not be the one the instance names: its WebAssembly's SHA-256 is ${found}, and the build names ${expected}.`,
-      {
-        details: {
-          runtime: `${execution.runtime.name} ${execution.runtime.version}`,
-          foundSha256: found,
-          expectedSha256: expected,
-        },
-      },
+      `The inference runtime is not the build ${pack} is pinned to: its WebAssembly's SHA-256 is ${found}, and the build names ${expected}.`,
+      { details: { runtime, foundSha256: found, expectedSha256: expected } },
     ),
   );
 }

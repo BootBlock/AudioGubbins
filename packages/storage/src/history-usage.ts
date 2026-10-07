@@ -27,7 +27,7 @@ import {
 
 import type { StoredCheckpoint } from './checkpoint-files.js';
 import { contentIdsIn } from './content-references.js';
-import type { UnreadableRoot } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import type { ProjectFiles } from './project-files.js';
 
 /** The part of a history keeping a piece of media, the first a person would keep. */

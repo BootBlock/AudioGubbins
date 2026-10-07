@@ -20,14 +20,14 @@ import {
   type DomainFailureResult,
   type DomainResult,
 } from '@audiogubbins/domain';
-import type { ModelBytes } from '@audiogubbins/ml-runtime';
+import type { ModelFileRead } from '@audiogubbins/ml-runtime';
 
-/** A file of a model pack, read whole, as the runtime loads a model from one buffer. */
-export interface ModelFile {
-  readonly bytes: ModelBytes;
-  /** The SHA-256 of `bytes`, in lower-case hexadecimal, taken as they were read. */
-  readonly sha256: string;
-}
+/**
+ * A file of a model pack, read whole, as the runtime loads a model from one
+ * buffer, with the SHA-256 of its bytes, in lower-case hexadecimal, taken as
+ * they were read: the shape a thread's model channel carries it in.
+ */
+export type ModelFile = ModelFileRead;
 
 /**
  * Which of REQ-AUDIO-139's conditions keeps a required model from a
@@ -44,6 +44,17 @@ export const ModelUnavailability = {
 /** Which of REQ-AUDIO-139's conditions keeps a required model from a processor. */
 export type ModelUnavailability = (typeof ModelUnavailability)[keyof typeof ModelUnavailability];
 
+/**
+ * Each condition as REQ-AUDIO-139 names it, which leads the failure's summary,
+ * so a channel that carries only a failure's code and words still says which.
+ */
+const CONDITION_WORDS: Readonly<Record<ModelUnavailability, string>> = {
+  [ModelUnavailability.RequiredUnavailable]: 'Required model unavailable',
+  [ModelUnavailability.Incompatible]: 'Model incompatible with the current runtime',
+  [ModelUnavailability.DeviceUnavailable]:
+    'Model unavailable because of what this browser or device can do',
+};
+
 /** Reads the files of installed model packs. */
 export interface ModelLibrary {
   /**
@@ -59,20 +70,29 @@ export interface ModelLibrary {
 }
 
 /**
- * The library's answer for a file it cannot give: `model.unavailable`, the
- * condition in its details, and `reason`, the pack's own account of why, as
- * its cause where there is one.
+ * The answer for a model a processor cannot have: `model.unavailable`, its
+ * summary `summary` after the condition's name, the condition in its details
+ * with the pack, its version and the file where one is to blame, and
+ * `reason`, the pack's or the runtime's own account of why, as its cause
+ * where there is one. The library answers it for a file it cannot give, and a
+ * pass for a runtime the model is not pinned to.
  */
 export function modelUnavailable(
   condition: ModelUnavailability,
   summary: string,
-  where: { readonly pack: string; readonly version: string; readonly path: string },
+  where: { readonly pack: string; readonly version: string; readonly path?: string },
   reason?: DomainFailure,
 ): DomainFailureResult {
+  const { pack, version, path } = where;
   return fail(
-    failure('model.unavailable', FailureKind.Unrecoverable, summary, {
-      details: { condition, ...where },
-      ...(reason === undefined ? {} : { cause: reason }),
-    }),
+    failure(
+      'model.unavailable',
+      FailureKind.Unrecoverable,
+      `${CONDITION_WORDS[condition]}: ${summary}`,
+      {
+        details: { condition, pack, version, ...(path === undefined ? {} : { path }) },
+        ...(reason === undefined ? {} : { cause: reason }),
+      },
+    ),
   );
 }

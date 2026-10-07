@@ -44,9 +44,12 @@ import type { BackupFolderPort } from '../io/backup-folder.js';
 import type { ChosenBundle, SaveTarget, TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
 import { abandonment } from '../state/abandoning.js';
+import { createModelAvailabilityStore } from '../ml/model-availability.js';
+import { modelGates } from '../ml/model-words.js';
 import { followProjectAssets } from '../state/project-catalogue.js';
 import { createProjectStores, type ProjectStores } from '../state/project-stores.js';
 import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testing';
+import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 
 import type { FakePlayback } from './audio-fakes.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
@@ -291,6 +294,21 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
   return world;
 }
 
+/** The runtime a window's build ships: the one every model processor is pinned to. */
+const TEST_RUNTIME = {
+  name: 'onnxruntime-web',
+  version: '1.30.0',
+  webAssemblySha256: PINNED_RUNTIME_SHA256,
+};
+
+/** A device that offers local inference everything it prefers. */
+const EVERY_INFERENCE_CAPABILITY = {
+  status: 'full',
+  explanation: '',
+  missingRequired: [],
+  missingPreferred: [],
+} as const;
+
 /** A window of the world, started as the application starts it. */
 async function windowOver(
   base: ShellContext,
@@ -307,8 +325,18 @@ async function windowOver(
   >,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
-  const context: ShellContext = { ...base, storageRoot: root, projects };
-  followProjectAssets(projects, context.assets);
+  const modelGate = modelGates(
+    createModelAvailabilityStore({
+      packs: parts.services.client.packs,
+      runtime: () => Promise.resolve(TEST_RUNTIME),
+      device: () => EVERY_INFERENCE_CAPABILITY,
+      unknown: (reason) => {
+        throw new Error(`Which model packs can run could not be read: ${reason}`);
+      },
+    }),
+  );
+  const context: ShellContext = { ...base, storageRoot: root, projects, modelGate };
+  followProjectAssets(projects, context.assets, modelGate);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
   const bus = createCommandBus(registry, context.diagnostics.loggerFor('commands'));

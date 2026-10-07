@@ -7,7 +7,9 @@ import {
   StandardLayouts,
 } from '../audio/channel-layout.js';
 import { unsafeBrandId } from '../identity/branded-id.js';
+import { createDeterministicIdGenerator } from '../identity/id-generator.js';
 import { SummingLaw, instantiateProcessor, type EffectChain } from '../processing/effect-chain.js';
+import { deepestChain } from '../testing/deep-chains.js';
 import { OTHER_RATE, frames } from '../testing/editing-fixtures.js';
 import { TEST_DENOISER, TEST_UPMIXER } from '../testing/test-processors.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
@@ -129,6 +131,17 @@ function readWith(place: number, change: (stream: Fields) => void) {
 describe('editPlanFrom', () => {
   it('reads a structured clone of a plan back as the plan, its chain, stretch and ambisonic layout included', () => {
     expect(expectSuccess(editPlanFrom(structuredClone(PLAN)))).toEqual(PLAN);
+  });
+
+  it('reads a plan whose chain nests groups as deep as the domain allows, as a worker is sent one', () => {
+    const chain = deepestChain(createDeterministicIdGenerator(31));
+    const [first, racked, ...rest] = PLAN.streams;
+    if (racked?.processing?.kind !== 'chain') throw new Error('The fixture plan racks a stream.');
+    const plan: EditPlan = {
+      streams: [first, { ...racked, processing: { ...racked.processing, chain } }, ...rest],
+    };
+
+    expect(expectSuccess(editPlanFrom(structuredClone(plan)))).toEqual(plan);
   });
 
   it('rebuilds a Furse-Malham layout from its convention, so its channels keep their meaning', () => {

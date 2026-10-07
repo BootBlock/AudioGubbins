@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 
 import { describe, expect, it } from 'vitest';
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
@@ -16,6 +16,7 @@ import {
 import { parseJson } from './json-parsing.js';
 import {
   PROJECT_DOCUMENT_FORMAT,
+  PROJECT_DOCUMENT_LIMITS,
   parseProjectDocument,
   readProjectDocument,
   compactProjectDocument,
@@ -25,11 +26,9 @@ import {
 import type { ProjectState } from './project-state.js';
 import { edited, valueAt, withValue, without, type Step } from './testing/json-editing.js';
 import { nodeDigest } from './testing/node-digest.js';
-import { referenceState } from './testing/project-states.js';
+import { deeplyRackedState, referenceState } from './testing/project-states.js';
 import { randomState } from './testing/random-states.js';
 import { seededRandom } from './testing/random-values.js';
-
-const LIMITS = { maximumLength: 2 ** 28, maximumDepth: 32 };
 
 /** The written reference state, the document every refusal edits. */
 const REFERENCE = referenceState(sampleProject());
@@ -146,7 +145,9 @@ describe('a seeded property: every valid state survives the document', () => {
       for (let seed = block * 10 + 1; seed <= block * 10 + 10; seed += 1) {
         const state = randomState(seed);
         const compact = canonicalJson(writeProjectDocument(state));
-        const read = expectSuccess(readProjectDocument(expectSuccess(parseJson(compact, LIMITS))));
+        const read = expectSuccess(
+          readProjectDocument(expectSuccess(parseJson(compact, PROJECT_DOCUMENT_LIMITS))),
+        );
         expect(read, `seed ${String(seed)}`).toEqual(state);
         expect(canonicalJson(writeProjectDocument(read)), `seed ${String(seed)}`).toBe(compact);
 
@@ -815,5 +816,27 @@ describe('the generator of random states', () => {
       expectSuccess(compactProjectDocument(randomState(77))),
     );
     expect(seededRandom(3).next()).toBe(seededRandom(3).next());
+  });
+});
+
+describe('a project whose chains nest as deep as the domain allows', () => {
+  const state = deeplyRackedState(sampleProject());
+
+  it('is saved and reopened as itself, and saved as the same text again', () => {
+    const text = expectSuccess(compactProjectDocument(state));
+    const back = expectSuccess(parseProjectDocument(text));
+
+    expect(back).toEqual(state);
+    expect(expectSuccess(compactProjectDocument(back))).toBe(text);
+  });
+
+  it('needs every level the bound allows, so the bound is the smallest that fits', () => {
+    const text = canonicalJson(writeProjectDocument(state));
+    const shallower = {
+      ...PROJECT_DOCUMENT_LIMITS,
+      maximumDepth: PROJECT_DOCUMENT_LIMITS.maximumDepth - 1,
+    };
+
+    expect(expectFailureCode(parseJson(text, shallower))).toBe('json.too-deep');
   });
 });

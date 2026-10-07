@@ -12,7 +12,7 @@ import type { CollectionPlan } from '@audiogubbins/media-store';
 import type { PackRef } from '@audiogubbins/model-packs';
 
 import type { CacheCategory } from './cache-store.js';
-import type { UnreadableRoot } from './media-roots.js';
+import type { UnreadableRoot } from './project-roots.js';
 import type { InstalledPack, PlannedPack } from './pack-cleanup.js';
 import type { LeftOver } from './project-leftovers.js';
 

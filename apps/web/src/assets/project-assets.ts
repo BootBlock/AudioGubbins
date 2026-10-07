@@ -9,7 +9,8 @@
  * revision is a fingerprint of that plan and of the media it reads, so peaks
  * kept for one state of the chain are never drawn for another. A view opens
  * only once the page holds every file its plan reads, and until then it says
- * why.
+ * why; and one whose chains run a model this page cannot run says why too
+ * (`model-gate.ts`), the project kept as it is.
  *
  * Made again from each state of the project, but an entry whose asset, markers,
  * regions, sources and files are the ones it was made from is the entry it was,
@@ -45,6 +46,7 @@ import {
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
 
+import { planModelRefusal, type ModelGate } from './model-gate.js';
 import { sameRecord, sameRecords } from './record-values.js';
 import {
   assetEntryId,
@@ -105,19 +107,22 @@ function assetsRead(state: ProjectState, plan: EditPlan): readonly Asset[] {
 }
 
 /**
- * The entries of the project in `state`, its media held as `media` says, each
- * the entry it was in `previous` where nothing it is made from changed.
+ * The entries of the project in `state`, its media held as `media` says and
+ * its models as `models` says, each the entry it was in `previous` where
+ * nothing it is made from changed; a caller whose models change passes no
+ * `previous`.
  */
 export function projectEntries(
   state: ProjectState,
   media: (asset: AssetId) => MediaAvailability,
+  models: ModelGate,
   previous: ReadonlyMap<AssetId, MadeAsset> = new Map(),
 ): { readonly entries: ProjectEntries; readonly made: ReadonlyMap<AssetId, MadeAsset> } {
   const own = owning(state.project);
   const made = new Map<AssetId, MadeAsset>();
   const entries = new Map<string, ProjectEntry>();
   for (const asset of state.project.assets.values()) {
-    const one = madeAsset(state, own(asset), media, previous.get(asset.id));
+    const one = madeAsset(state, own(asset), media, previous.get(asset.id), models);
     made.set(asset.id, one);
     for (const [id, entry] of one.entries) entries.set(id, entry);
   }
@@ -126,12 +131,14 @@ export function projectEntries(
 
 /**
  * The entry a view names `id` in the project in `state`, its media held as
- * `media` says, or `undefined` where the project has none. Only the asset it is
- * of, or whose region it is, is planned.
+ * `media` says and its models as `models` says, or `undefined` where the
+ * project has none. Only the asset it is of, or whose region it is, is
+ * planned.
  */
 export function projectEntry(
   state: ProjectState,
   media: (asset: AssetId) => MediaAvailability,
+  models: ModelGate,
   id: string,
 ): ProjectEntry | undefined {
   const { project } = state;
@@ -140,7 +147,7 @@ export function projectEntry(
     [...project.regions.values()].find((region) => regionEntryId(region.id) === id)?.assetId;
   const asset = owner === undefined ? undefined : project.assets.get(owner);
   if (asset === undefined) return undefined;
-  return madeAsset(state, owning(project)(asset), media, undefined).entries.get(id);
+  return madeAsset(state, owning(project)(asset), media, undefined, models).entries.get(id);
 }
 
 /**
@@ -207,6 +214,7 @@ function madeAsset(
   own: Owned,
   media: (asset: AssetId) => MediaAvailability,
   before: MadeAsset | undefined,
+  models: ModelGate,
 ): MadeAsset {
   const context: PlanContext = {
     chains: state.project.effectChains,
@@ -240,11 +248,21 @@ function madeAsset(
     before.files.every((file, index) => file === reads.files[index])
       ? before
       : undefined;
-  return { ...own, ...reads, chains, entries: entriesOf(own, reads, place, kept, context) };
+  return {
+    ...own,
+    ...reads,
+    chains,
+    entries: entriesOf(own, reads, place, kept, { context, models }),
+  };
 }
 
 /** The entry of the asset itself, or why it cannot open, where a chain it names cannot run. */
-function assetEntry(own: Owned, reads: Reads, place: () => Placed): ProjectEntry {
+function assetEntry(
+  own: Owned,
+  reads: Reads,
+  place: () => Placed,
+  models: ModelGate,
+): ProjectEntry {
   const { asset } = own;
   const id = assetEntryId(asset.id);
   const { plan, unracked, markers, resolver } = place();
@@ -258,6 +276,10 @@ function assetEntry(own: Owned, reads: Reads, place: () => Placed): ProjectEntry
       name: asset.displayName,
       reason: unracked.failures[0].summary,
     };
+  }
+  const withoutModel = planModelRefusal(plan.value, models);
+  if (withoutModel !== undefined) {
+    return { kind: 'unavailable', id, name: asset.displayName, reason: withoutModel };
   }
   return openedEntry(
     {
@@ -279,15 +301,16 @@ function entriesOf(
   reads: Reads,
   place: () => Placed,
   kept: MadeAsset | undefined,
-  context: PlanContext,
+  planning: { readonly context: PlanContext; readonly models: ModelGate },
 ): ReadonlyMap<string, ProjectEntry> {
+  const { context, models } = planning;
   const { asset } = own;
   const sameRegions = kept !== undefined && sameRecords(kept.regions, own.regions);
   const entries = new Map<string, ProjectEntry>();
   const id = assetEntryId(asset.id);
   entries.set(
     id,
-    (sameRegions ? kept.entries.get(id) : undefined) ?? assetEntry(own, reads, place),
+    (sameRegions ? kept.entries.get(id) : undefined) ?? assetEntry(own, reads, place, models),
   );
   const regionsBefore = new Map(
     sameRegions ? [] : (kept?.regions.map((region) => [region.id, region] as const) ?? []),
@@ -299,7 +322,14 @@ function entriesOf(
       regionId,
       (same ? kept?.entries.get(regionId) : undefined) ??
         regionEntry(
-          { asset, region, markers: place().markers, resolver: place().resolver, context },
+          {
+            asset,
+            region,
+            markers: place().markers,
+            resolver: place().resolver,
+            context,
+            models,
+          },
           reads,
         ),
     );

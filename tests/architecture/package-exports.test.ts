@@ -222,7 +222,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'chainOutputLayout',
         'checkStateVersion',
         'effectChainFrom',
-        'isModelIdentity',
         'parameterOf',
         'segmentsLayout',
         'segmentsLength',
@@ -236,20 +235,14 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ['setChainInvocation', 'setEditChainInvocation'],
   },
   '@audiogubbins/processors': {
-    "The machine-learning processors and the model library they read their packs through (ADR-0062), which the threads that run racks make DeepFilterNet 3, MossFormer2 SE 48K and Spleeter's two-stem and four-stem types with, over the application's library on the installed packs, as Phase 06's pack manager and those threads are wired.":
-      [
-        'ModelFile',
-        'ModelLibrary',
-        'ModelServices',
-        'ModelUnavailability',
-        'deepFilterNet3',
-        'modelUnavailable',
-        'mossFormer2Se48k',
-        'spleeter2Stems',
-        'spleeter4Stems',
-      ],
+    'The machine-learning processors one by one (ADR-0062), each made with its services: the threads that run racks make every one at once with `processorTypesWith`, and a type alone serves a tool that runs one model, such as the pinned golden renders.':
+      ['deepFilterNet3', 'mossFormer2Se48k', 'spleeter2Stems', 'spleeter4Stems'],
     "The processor framework (ADR-0061): the catalogue's types and how a type is defined, which Phase 06's processors and the threads that run racks take as they are built.":
       ['PROCESSOR_TYPES', 'ParameterReader', 'ProcessorDefinition', 'ProcessorRun'],
+    'Every processor type that runs no model, by key, which the tests of the packages that run chains run with; a thread runs with `processorTypesWith`, which adds the types that run a model, made with its services.':
+      ['PROCESSOR_TYPES_BY_KEY'],
+    "The build of the inference runtime every model processor is pinned to (ADR-0062), which the application's tests state the runtime in use with, as the build states it from the bytes it serves.":
+      ['PINNED_RUNTIME_SHA256'],
     "The canonical detectors one by one (ADR-0061, ADR-0062), each an `AudioDetector` the assistants run and the detection worker reaches through them, offered alone for a model pack's detector to join or replace, as ADR-0062 has it, once one is licensed for redistribution.":
       [
         'CLICK_DETECTOR',
@@ -261,14 +254,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/ml-runtime': {
-    "The inference port's client over the inference workers and the setup the runtime is started with (ADR-0062), which the application starts the workers with as Phase 06's machine-learning processors are wired into its threads.":
-      [
-        'InferenceCapabilities',
-        'InferenceWorkerPort',
-        'RuntimeBuild',
-        'RuntimeSetup',
-        'WorkerInference',
-      ],
+    "The runtime's WebAssembly files by build (ADR-0062), which the application's build configuration serves under the files base and takes each file's digest of; the build configuration is no package, so no import of a package reads them.":
+      ['RUNTIME_WEBASSEMBLY_FILES'],
   },
   '@audiogubbins/effect-rack': {
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
@@ -294,34 +281,10 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
       [
         'AutomaticDownload',
-        'AvailabilityContext',
-        'FileRange',
-        'HttpPackSource',
         'ImportedPackSource',
         'InstallEvent',
-        'InstallState',
-        'Installation',
-        'InstallerServices',
-        'KnownPack',
-        'LocalInferenceSupport',
-        'PackAvailability',
-        'PackBodyRead',
-        'PackBodyReader',
-        'PackFetch',
-        'PackInstaller',
-        'PackNeed',
-        'PackRequest',
-        'PackResponse',
-        'PackSource',
-        'ReceiveChunk',
-        'Retention',
-        'Sha256',
-        'Sha256Run',
         'UpdateOutcome',
-        'availabilityOf',
         'nextInstallState',
-        'nobleSha256',
-        'nobleTextSha256',
         'packsToFetch',
         'readModelPackManifest',
         'readPackCatalogue',
@@ -419,7 +382,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'ACCELERATED_RENDERING',
         'DIRECT_FILE_ACCESS',
         'HARDWARE_CODECS',
-        'LOCAL_INFERENCE',
         'MULTI_THREADED_DSP',
         'OFFLINE_USE',
         'PRESSURE_SENSITIVE_TOOLS',
@@ -428,8 +390,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'SETTINGS_STORAGE',
         'SYSTEM_APPEARANCE',
       ],
-    "What the inference runtime may use on this device (ADR-0062), which the application starts the inference worker with as Phase 06's ML processors are wired into it.":
-      ['LocalInferenceCapabilities', 'ProcessorCount', 'localInferenceCapabilities'],
   },
 };
 

@@ -31,7 +31,7 @@ import {
   type Converter,
   type Reading,
 } from './document-reading.js';
-import { asEditChain } from './edit-reading.js';
+import { WRITTEN_OPERATION_DEPTH, asEditChain } from './edit-reading.js';
 import { asAssetName } from './given-names.js';
 import { asBoolean, asId, oneOfConverter, textConverter } from './scalar-reading.js';
 import { asChannelLayout, asGain, asName, asSampleCount, asSampleRate } from './value-reading.js';
@@ -61,6 +61,13 @@ const CLIP_MEMBERS: ReadonlySet<string> = new Set([
 ]);
 const RANGE_MEMBERS: ReadonlySet<string> = new Set(['assetId', 'start', 'length']);
 const asOrigin = oneOfConverter(Object.values(AssetOrigin));
+
+/**
+ * How many levels of arrays and objects a written asset takes, its own object
+ * the first: its list of edits and an operation in it, the deepest thing an
+ * asset holds. Its rack is named, not held.
+ */
+export const WRITTEN_ASSET_DEPTH = 2 + WRITTEN_OPERATION_DEPTH;
 
 /**
  * A storage key as the document holds it. Its value is checked against the

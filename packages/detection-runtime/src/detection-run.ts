@@ -154,7 +154,9 @@ async function findingsOver(
   for (const detection of detections) {
     const found = await detection.result(tools.signal);
     if (!found.ok) return found;
-    findings.push(...found.value.map((finding) => onSource(finding, range.start)));
+    // One at a time: a detector's findings have no bound, and a spread passes
+    // each as an argument, past the engine's limit on a long, noisy recording.
+    for (const finding of found.value) findings.push(onSource(finding, range.start));
   }
   return succeed({ frames, findings });
 }

@@ -11,17 +11,23 @@
 import type { PreviewHost } from '@audiogubbins/audio-runtime';
 import { DetectionHost } from '@audiogubbins/detection-runtime';
 
+import type { ModelServices } from '../ml/model-services.js';
 import type { InteractionStore } from '../state/interaction-store.js';
 import { DetectionControl } from './detection-control.js';
 import { browserDetectionWorker } from './detection-threads.js';
 
 /**
  * Builds the analysis part, saying what each detection found through
- * `interaction`, its racked sounds read from the renders of `previews`.
+ * `interaction`, its racked sounds read from the renders of `previews`, its
+ * worker connected to the models a chain runs by `models`.
  */
-export function startAnalysis(interaction: InteractionStore, previews: PreviewHost) {
+export function startAnalysis(
+  interaction: InteractionStore,
+  previews: PreviewHost,
+  models: Pick<ModelServices, 'startChainWorker'>,
+) {
   const detection = new DetectionControl({
-    host: new DetectionHost({ createWorker: () => browserDetectionWorker(previews) }),
+    host: new DetectionHost({ createWorker: () => browserDetectionWorker(previews, models) }),
     announce: (text) => {
       interaction.announce(text);
     },

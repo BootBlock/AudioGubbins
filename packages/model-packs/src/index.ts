@@ -30,7 +30,7 @@ export { readPackCatalogue } from './catalogue-reading.js';
 export { manifestJson } from './manifest-writing.js';
 
 export { type InstallEvent, type InstallState, nextInstallState } from './install-state.js';
-export { type Sha256, type Sha256Run } from './integrity.js';
+export { type KeptFile, type Sha256, type Sha256Run } from './integrity.js';
 export { nobleSha256, nobleTextSha256 } from './adapter/noble-sha256.js';
 
 export { type FileRange, type PackSource, type ReceiveChunk } from './pack-source.js';
@@ -45,8 +45,13 @@ export {
 export { ImportedPackSource } from './imported-pack-source.js';
 
 export { type KeptPack, type PackStore } from './pack-store.js';
-export { type InstallerServices, PackInstaller, type Retention } from './pack-installer.js';
-export { type Installation } from './installations.js';
+export {
+  type InstallerServices,
+  PackInstaller,
+  type Retention,
+  VERSION_PINNED,
+} from './pack-installer.js';
+export { type Installation, VERSION_BUSY } from './installations.js';
 export { type UpdateOutcome, updatePack } from './pack-update.js';
 
 export {
@@ -56,6 +61,6 @@ export {
   type LocalInferenceSupport,
   type PackAvailability,
   type PackNeed,
-  availabilityOf,
-  packsToFetch,
-} from './availability.js';
+} from './availability-context.js';
+export { availabilityOf, packsToFetch } from './availability.js';
+export { type VersionAvailability, versionAvailability } from './version-availability.js';

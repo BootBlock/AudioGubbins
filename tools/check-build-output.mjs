@@ -15,7 +15,10 @@
  * directory under the building account is invisible to lint, typecheck, the
  * unit suite and the architecture rules alike. Nor can any engine the browser
  * suite drives see a prefixed declaration the stylesheet transformer drops,
- * so the one Safari on a phone needs is held here as well.
+ * so the one Safari on a phone needs is held here as well. And the inference
+ * runtime's WebAssembly must be served whole, as the bytes whose digests the
+ * build states, and built model packs copied in must be the packs their
+ * definitions record (ADR-0062).
  *
  * Usage:
  *   node tools/check-build-output.mjs             check apps/web/dist
@@ -25,20 +28,21 @@
  * being found by whoever reads the deployment afterwards.
  */
 
-import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
-import { homedir, tmpdir, userInfo } from 'node:os';
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { transform } from 'lightningcss';
 
+import { localRoots, localTracesIn } from './local-traces.mjs';
+import { CATALOGUE_FILE, loadPackDefinitions } from './model-packs/pack-definitions.mjs';
+import { outputProblems, packsPresent } from './model-packs/pack-output.mjs';
+
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /**
- * What a machine's directories and account name are found by.
- *
- * @typedef {object} Roots
- * @property {readonly RegExp[]} directories
- * @property {RegExp} [account]
+ * @import { PackDefinition } from './model-packs/pack-definitions.mjs'
+ * @typedef {import('./local-traces.mjs').Roots} Roots
  */
 
 /**
@@ -103,70 +107,6 @@ const TEXT_EXTENSIONS = new Set([
 ]);
 
 /**
- * A regular expression that matches its argument literally.
- *
- * @param {string} text
- * @returns {string}
- */
-function literal(text) {
-  return text.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-/**
- * The directories this build ran in, in every form they could be written.
- *
- * Asking whether *this machine's* paths reached the output is the precise
- * question, and it has no false positives: a shape-matching rule over minified
- * third-party code would report `https://react.dev/` as a drive path and an
- * escaped `\\u00C0` as a share name. Every machine checks its own roots, so the
- * gate is as strong on a contributor's machine and on a build runner as it is
- * here.
- *
- * @returns {Roots}
- */
-export function localRoots() {
-  // The account name on its own, which is the part that identifies a person.
-  /** @type {string | undefined} */
-  let account;
-  try {
-    account = userInfo().username;
-  } catch {
-    // A container can have no passwd entry for the running user. The directory
-    // roots still cover the paths that would carry the name.
-    account = undefined;
-  }
-  return rootsOf([REPO_ROOT, process.cwd(), homedir(), tmpdir()], account);
-}
-
-/**
- * What a machine's directories and account name are found by, in every form
- * they could be written. The account is only counted when a separator
- * precedes it, so an account called `build` does not match the word.
- *
- * @param {readonly string[]} directories
- * @param {string | undefined} account
- * @returns {Roots}
- */
-export function rootsOf(directories, account) {
-  /** @type {Set<string>} */
-  const forms = new Set();
-  for (const root of directories) {
-    if (root === '') continue;
-    forms.add(root.replaceAll('\\', '/'));
-    forms.add(root.replaceAll('/', '\\'));
-  }
-
-  return {
-    // Matched case-insensitively: Windows paths are, and a bundler may
-    // normalise a drive letter either way.
-    directories: [...forms].map((form) => new RegExp(literal(form), 'gi')),
-    ...(account === undefined || account.length < 3
-      ? {}
-      : { account: new RegExp(String.raw`[\\/]${literal(account)}(?=[\\/]|$|["'\s])`, 'gi') }),
-  };
-}
-
-/**
  * An absolute filesystem path of any machine, for the path fields of a map.
  *
  * Applied only where a path is the only thing a value can be, so the shape
@@ -199,25 +139,6 @@ const ANALYTICS_HOSTS = Object.freeze(
  */
 export function analyticsHostsIn(text) {
   return [...text.matchAll(ANALYTICS_HOSTS)].map((match) => match[0]);
-}
-
-/**
- * Every trace of this machine in a piece of text.
- *
- * @param {string} text
- * @param {Roots} [roots]
- * @returns {string[]}
- */
-export function localTracesIn(text, roots = localRoots()) {
-  /** @type {string[]} */
-  const found = [];
-  for (const pattern of roots.directories) {
-    for (const match of text.matchAll(pattern)) found.push(match[0]);
-  }
-  if (roots.account !== undefined) {
-    for (const match of text.matchAll(roots.account)) found.push(match[0]);
-  }
-  return found;
 }
 
 /**
@@ -417,6 +338,105 @@ function escapeName(name) {
  */
 const JEKYLL_WOULD_DROP = /^_/;
 
+/**
+ * The inference runtime's WebAssembly as a build serves it: each build's file,
+ * named as the runtime names it (`RUNTIME_WEBASSEMBLY_FILES` in
+ * `packages/ml-runtime`, which a test holds this list to), in one folder named
+ * by the runtime's version.
+ */
+export const RUNTIME_WEBASSEMBLY_FILES = Object.freeze([
+  'ort-wasm-simd-threaded.wasm',
+  'ort-wasm-simd-threaded.asyncify.wasm',
+]);
+
+/** `inference/onnxruntime-web-<version>/<file>`, where a build serves the runtime. */
+const RUNTIME_FILE = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;
+
+/**
+ * Whether the build serves the inference runtime's files whole and as it
+ * states them: one version's folder holding each build's file, each of whose
+ * SHA-256 a script of the build names, as the page states it to the inference
+ * worker, which holds the file it reads to it. A file served that no script
+ * names would be refused by every worker; a file missing, by every session.
+ *
+ * @param {string} root
+ * @param {readonly string[]} files
+ * @param {ReadonlyMap<string, string>} texts
+ * @returns {Problem[]}
+ */
+export function runtimeProblems(root, files, texts) {
+  const served = files.flatMap((name) => {
+    const [, version, file] = RUNTIME_FILE.exec(name) ?? [];
+    return version === undefined || file === undefined ? [] : [{ name, version, file }];
+  });
+  const versions = new Set(served.map(({ version }) => version));
+  if (versions.size !== 1) {
+    return [
+      {
+        file: 'inference/',
+        field: 'name',
+        reason:
+          versions.size === 0
+            ? 'holds no inference runtime, so no model can run'
+            : 'holds more than one version of the inference runtime',
+      },
+    ];
+  }
+  const scripts = [...texts].filter(([name]) => extname(name) === '.js').map(([, text]) => text);
+  /** @type {Problem[]} */
+  const problems = [];
+  for (const wanted of RUNTIME_WEBASSEMBLY_FILES) {
+    const file = served.find((one) => one.file === wanted);
+    if (file === undefined) {
+      problems.push({ file: `inference/…/${wanted}`, field: 'name', reason: 'is missing' });
+      continue;
+    }
+    const digest = createHash('sha256')
+      .update(readFileSync(join(root, file.name)))
+      .digest('hex');
+    if (!scripts.some((text) => text.includes(digest))) {
+      problems.push({
+        file: file.name,
+        field: 'contents',
+        reason: `is not the file the build states: no script names its SHA-256, ${digest}`,
+      });
+    }
+  }
+  for (const { name, file } of served) {
+    if (!RUNTIME_WEBASSEMBLY_FILES.includes(file)) {
+      problems.push({ file: name, field: 'name', reason: 'is no file of the inference runtime' });
+    }
+  }
+  return problems;
+}
+
+/**
+ * Whether the model packs a build was given, under `packs/`, are the packs
+ * `definitions` record, the committed ones unless a caller names others, file
+ * for file, with their manifests and the catalogue, and nothing else: a file
+ * beside them would be served from the application's origin unchecked. A build
+ * ships packs only where asked, so where there are none there is nothing to
+ * check.
+ *
+ * @param {string} root
+ * @param {readonly PackDefinition[]} [definitions]
+ * @returns {Promise<Problem[]>}
+ */
+export async function packProblems(root, definitions) {
+  const out = join(root, 'packs');
+  if (!existsSync(out)) return [];
+  const present = await packsPresent(out, definitions ?? loadPackDefinitions());
+  const folders = present.map(({ id, version }) => `${id}/${version}/`);
+  const strays = filesUnder(out).filter(
+    (path) => path !== CATALOGUE_FILE && !folders.some((folder) => path.startsWith(folder)),
+  );
+  const problems = [
+    ...strays.map((path) => `${path} is no file of a pack the definitions record`),
+    ...(await outputProblems(out, present, present)),
+  ];
+  return problems.map((reason) => ({ file: 'packs/', field: 'contents', reason }));
+}
+
 /** The media types every screen is of. */
 const EVERY_SCREEN = new Set(['all', 'screen']);
 
@@ -596,6 +616,7 @@ export function checkDirectory(root, roots = localRoots()) {
     ...dropped,
     ...missing,
     ...textSize,
+    ...runtimeProblems(root, files, texts),
     ...[...texts].flatMap(([name, text]) => problemsIn(name, text, roots)),
   ];
 }
@@ -625,7 +646,7 @@ function describe(problem) {
 }
 
 /** The entry point, when this file is run rather than imported. */
-function main() {
+async function main() {
   const target = resolve(REPO_ROOT, process.argv[2] ?? 'apps/web/dist');
 
   try {
@@ -638,7 +659,7 @@ function main() {
     return;
   }
 
-  const problems = checkDirectory(target);
+  const problems = [...checkDirectory(target), ...(await packProblems(target))];
   if (problems.length === 0) {
     console.log(
       `Build output is free of local paths and analytics hosts: ${String(filesUnder(target).length)} files.`,
@@ -661,5 +682,5 @@ if (
   process.argv[1] !== undefined &&
   realpathSync.native(process.argv[1]) === realpathSync.native(fileURLToPath(import.meta.url))
 ) {
-  main();
+  await main();
 }
