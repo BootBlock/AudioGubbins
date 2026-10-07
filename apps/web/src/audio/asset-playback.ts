@@ -9,6 +9,11 @@
  * (Phase 03's rule that nothing is downmixed or truncated at the device). The
  * meter correlates the first two channels of a stereo asset, which the
  * Transport panel shows.
+ *
+ * An asset a chain processes is played as it is processed, or as its
+ * original, every chain bypassed, as the person chose (REQ-AUDIO-019). Either
+ * is the programme of the asset, under its key, so switching is followed
+ * where it plays, as any other change of its sound is.
  */
 
 import {
@@ -17,6 +22,8 @@ import {
   layoutsMatch,
   mapResult,
   type ChannelLayout,
+  type DomainResult,
+  type QualityMode,
 } from '@audiogubbins/domain';
 import {
   GRAPH_DESCRIPTOR_VERSION,
@@ -26,8 +33,10 @@ import {
   type ProcessingNodeDescriptor,
 } from '@audiogubbins/audio-graph';
 import { BuiltInNodeType } from '@audiogubbins/audio-engine';
+import type { PlaybackRequest } from '@audiogubbins/audio-runtime';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
+import { Hearing } from '../state/hearing-store.js';
 import type { Programme } from './programme.js';
 
 function node(
@@ -74,8 +83,19 @@ function graphOf(
   };
 }
 
-/** The programme that plays `asset` at its native rate. */
-export function assetProgramme(asset: EditorAsset): Programme {
+/** The programme that plays `asset` at its native rate, as `hearing` chooses it. */
+export function assetProgramme(asset: EditorAsset, hearing: Hearing): Programme {
+  const original = hearing === Hearing.Original ? asset.original : undefined;
+  if (original !== undefined) {
+    return {
+      key: asset.id,
+      rate: asset.sampleRate,
+      playing: `${asset.name} is playing as its original, every chain bypassed.`,
+      content: original.content,
+      plan: original.plan,
+      request: (_contextRate, quality) => requestOf(original.layout, original.describe, quality),
+    };
+  }
   return {
     key: asset.id,
     rate: asset.sampleRate,
@@ -85,15 +105,23 @@ export function assetProgramme(asset: EditorAsset): Programme {
     // The context's rate is not checked here: a context the browser made at
     // another rate is refused by the session, which says so, rather than the
     // asset being played at the wrong speed.
-    request: (_contextRate, quality) =>
-      flatMapResult(nodeId('asset'), (input) =>
-        flatMapResult(nodeId('meter'), (meter) =>
-          mapResult(nodeId('output'), (output) => ({
-            graph: graphOf(asset.layout, input, meter, output),
-            sources: [{ node: input, ...asset.describe() }],
-            quality,
-          })),
-        ),
-      ),
+    request: (_contextRate, quality) => requestOf(asset.layout, asset.describe, quality),
   };
+}
+
+/** The request that plays audio of `layout`, described by `describe`, previewing at `quality`. */
+function requestOf(
+  layout: ChannelLayout,
+  describe: EditorAsset['describe'],
+  quality: QualityMode,
+): DomainResult<PlaybackRequest> {
+  return flatMapResult(nodeId('asset'), (input) =>
+    flatMapResult(nodeId('meter'), (meter) =>
+      mapResult(nodeId('output'), (output) => ({
+        graph: graphOf(layout, input, meter, output),
+        sources: [{ node: input, ...describe() }],
+        quality,
+      })),
+    ),
+  );
 }

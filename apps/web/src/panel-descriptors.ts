@@ -12,7 +12,7 @@ import {
   type PanelKind,
 } from '@audiogubbins/workspace';
 
-import { EditingPanelKinds, ProjectPanelKinds } from './panel-kinds.js';
+import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from './panel-kinds.js';
 
 /**
  * Which panels this build has.
@@ -34,6 +34,9 @@ export const PANEL_DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [ProjectPanelKinds.Storage, 'Storage', DockRegion.Bottom],
       [PanelKinds.Picture, 'Picture', DockRegion.Right],
       [EditingPanelKinds.Analysis, 'Analysis', DockRegion.Bottom],
+      [EditingPanelKinds.Library, 'Library', DockRegion.Left],
+      [EditingPanelKinds.Rack, 'Effects rack', DockRegion.Right],
+      [ModelPanelKinds.ModelPacks, 'Model packs', DockRegion.Bottom],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,

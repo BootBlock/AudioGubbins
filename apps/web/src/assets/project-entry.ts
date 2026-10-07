@@ -8,6 +8,7 @@
  */
 
 import {
+  bypassedRegionPlan,
   channelCount,
   derivedSampleCount,
   markersInRegion,
@@ -32,7 +33,7 @@ import {
 import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
-import { revisionOf, type EditorAsset } from './editor-asset.js';
+import { revisionOf, type EditorAsset, type PlannedAudio } from './editor-asset.js';
 import { planModelRefusal, type ModelGate } from './model-gate.js';
 
 /** Whether the page holds the file an asset's media is kept in. */
@@ -115,9 +116,26 @@ export function assetSentence(asset: Asset, plan: EditPlan): string {
 }
 
 /**
+ * Whether a chain processes `asset`, or `region` of it where one is given:
+ * a rack of either, or a rack edit over a range of either, so its original
+ * sound is another than the one heard.
+ */
+export function runsChains(asset: Asset, region?: Region): boolean {
+  const racked = (operation: { readonly edit: { readonly kind: string } }): boolean =>
+    operation.edit.kind === 'rack';
+  return (
+    asset.rack !== undefined ||
+    asset.edits.some((operation) => operation.kind === 'process' && racked(operation)) ||
+    region?.rack !== undefined ||
+    (region?.operations.some(racked) ?? false)
+  );
+}
+
+/**
  * The view of `plan`, named `id`, of the asset `owner` holds, once every file
  * `reads` names is held, with `unracked`, its plan before its racks, where it
- * has any.
+ * has any, and `original`, its plan with every chain bypassed, where a chain
+ * processes it.
  */
 export function openedEntry(
   made: {
@@ -126,6 +144,7 @@ export function openedEntry(
     readonly description: string;
     readonly owner: Extract<EditorAsset['owner'], { readonly kind: 'project' }>;
     readonly unracked: EditPlan | undefined;
+    readonly original: EditPlan | undefined;
     readonly markers: readonly PlacedMarker[];
     readonly regions: EditorAsset['regions'];
   },
@@ -152,7 +171,15 @@ export function openedEntry(
     media: files.entries,
   });
   const content = contentOf(plan);
-  const { unracked } = made;
+  const planned = (other: EditPlan | undefined): PlannedAudio | undefined =>
+    other === undefined
+      ? undefined
+      : {
+          content: contentOf(other),
+          layout: other.streams[0].layout,
+          describe: describing(other),
+          plan: other,
+        };
   return {
     kind: 'open',
     asset: {
@@ -165,18 +192,40 @@ export function openedEntry(
       content,
       revision: revisionOf(content),
       describe: describing(plan),
-      unracked:
-        unracked === undefined
-          ? undefined
-          : {
-              content: contentOf(unracked),
-              layout: unracked.streams[0].layout,
-              describe: describing(unracked),
-            },
+      unracked: planned(made.unracked),
+      original: planned(made.original),
       owner: made.owner,
       markers: made.markers,
       regions: made.regions,
     },
+  };
+}
+
+/**
+ * The plans of `region` beside the one heard: before its racks, where either
+ * its asset or it has one, and with every chain bypassed, where a chain
+ * processes it; or why one cannot be made.
+ */
+function regionPlansBeside(
+  asset: Asset,
+  region: Region,
+  context: PlanContext,
+  resolver: AnchorResolver,
+): { readonly unracked?: EditPlan; readonly original?: EditPlan } | string {
+  // Its own processing is folded in among its asset's chain, before either
+  // rack, so it has audio before its racks where either rack is named.
+  const unracked =
+    asset.rack === undefined && region.rack === undefined
+      ? undefined
+      : unrackedRegionPlan(asset, region, context, resolver);
+  if (unracked?.ok === false) return unracked.failures[0].summary;
+  const original = runsChains(asset, region)
+    ? bypassedRegionPlan(asset, region, resolver)
+    : undefined;
+  if (original?.ok === false) return original.failures[0].summary;
+  return {
+    ...(unracked === undefined ? {} : { unracked: unracked.value }),
+    ...(original === undefined ? {} : { original: original.value }),
   };
 }
 
@@ -208,19 +257,9 @@ export function regionEntry(
   if (!plan.ok) {
     return { kind: 'unavailable', id, name: region.displayName, reason: plan.failures[0].summary };
   }
-  // Its own processing is folded in among its asset's chain, before either
-  // rack, so it has audio before its racks where either rack is named.
-  const unracked =
-    asset.rack === undefined && region.rack === undefined
-      ? undefined
-      : unrackedRegionPlan(asset, region, context, resolver);
-  if (unracked?.ok === false) {
-    return {
-      kind: 'unavailable',
-      id,
-      name: region.displayName,
-      reason: unracked.failures[0].summary,
-    };
+  const beside = regionPlansBeside(asset, region, context, resolver);
+  if (typeof beside === 'string') {
+    return { kind: 'unavailable', id, name: region.displayName, reason: beside };
   }
   const withoutModel = planModelRefusal(plan.value, models);
   if (withoutModel !== undefined) {
@@ -238,7 +277,8 @@ export function regionEntry(
         plan: plan.value,
         offset: placed.start,
       },
-      unracked: unracked?.value,
+      unracked: beside.unracked,
+      original: beside.original,
       markers: markersInRegion(markers, placed),
       regions: [],
     },

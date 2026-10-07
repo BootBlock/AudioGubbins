@@ -35,6 +35,7 @@ import {
   portPair,
   serveMemoryStorage,
   steppingClock,
+  type CatalogueSource,
   type HostServices,
 } from '@audiogubbins/storage-runtime/testing';
 
@@ -52,7 +53,12 @@ import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testi
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 
 import type { FakePlayback } from './audio-fakes.js';
+import { libraryChannel } from '../io/library-channel.js';
+import type { PackManager } from '../ml/pack-manager.js';
+import { packManagerOver } from './pack-managers.js';
 import { ScriptedLinkedFiles } from './scripted-linked-files.js';
+import { ScriptedPage } from './scripted-page.js';
+import { wordChannels, type WordChannels } from './word-channels.js';
 import { StorageRoot } from '../state/storage-root-store.js';
 import { DESCRIPTORS, buildShellContext } from './shell-context.js';
 
@@ -146,6 +152,12 @@ export interface ProjectWindow {
   /** The detection workers the window made, in order, which a test reads what it asked of. */
   readonly detectionWorkers: readonly LocalDetectionWorker[];
 
+  /** The window's page, which a test hides and shows as the person leaves it and comes back. */
+  readonly page: ScriptedPage;
+
+  /** The window's model packs, over its storage worker's installer. */
+  readonly packs: PackManager;
+
   /** Runs a shell command as the interface runs one. */
   run(id: string, args?: CommandInvocation['arguments']): ExecutionResult<ShellContext>;
 
@@ -172,6 +184,9 @@ export interface ProjectWorld {
 
   /** The world's own services over its storage, as another window of the profile holds them. */
   readonly storage: HostServices;
+
+  /** The broadcast channels the profile's windows share. */
+  readonly words: WordChannels;
 
   /**
    * A page joined to a storage worker of its own over the world's storage,
@@ -218,9 +233,11 @@ function pageOf(
   clock: ReturnType<typeof steppingClock>,
   context: ShellContext,
   number: number,
+  packSource: CatalogueSource | undefined,
 ): ProjectServices {
   const pair = portPair();
   serveMemoryStorage(pair.worker, {
+    ...(packSource === undefined ? {} : { packSource }),
     tree: world.tree,
     coordinator: world.coordinator,
     clock,
@@ -238,9 +255,17 @@ function pageOf(
   };
 }
 
-/** A world of windows over a new storage, or over `tree` where a test prepared one. */
-export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
+/**
+ * A world of windows over a new storage, or over `tree` where a test prepared
+ * one, whose storage workers download a catalogue's packs from `packSource`,
+ * where a test gives one, and from nowhere otherwise.
+ */
+export function projectWorld(
+  tree = new MemoryStorageTree(),
+  packSource?: CatalogueSource,
+): ProjectWorld {
   const clock = steppingClock();
+  const words = wordChannels();
   const coordinator = new MemoryLeaseCoordinator();
   const storage = memoryHostServices({
     tree,
@@ -251,12 +276,13 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
   let windows = 0;
   const page = (context: ShellContext): ProjectServices => {
     windows += 1;
-    return pageOf(world, clock, context, windows);
+    return pageOf(world, clock, context, windows, packSource);
   };
   const world: ProjectWorld = {
     tree,
     coordinator,
     storage,
+    words,
     page,
     window: async (options = {}) => {
       const built = buildShellContext();
@@ -272,6 +298,10 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
           canLink: true,
           backupFolder: options.backupFolder,
           linkedFiles: options.linkedFiles ?? new ScriptedLinkedFiles(),
+          libraryChanges: libraryChannel(
+            words.open,
+            built.context.diagnostics.loggerFor('projects'),
+          ),
         },
         lifetime.signal,
       );
@@ -279,16 +309,20 @@ export function projectWorld(tree = new MemoryStorageTree()): ProjectWorld {
         lifetime.abort(abandonment('The test took the window down.'));
         projects.project.dispose();
       };
-      return await windowOver(built.context, {
-        services,
-        storage,
-        root,
-        projects,
-        files,
-        takeDown,
-        audio: built.audio,
-        detectionWorkers: built.detectionWorkers,
-      });
+      return await windowOver(
+        built.context,
+        {
+          services,
+          storage,
+          root,
+          projects,
+          files,
+          takeDown,
+          audio: built.audio,
+          detectionWorkers: built.detectionWorkers,
+        },
+        lifetime.signal,
+      );
     },
   };
   return world;
@@ -323,19 +357,29 @@ async function windowOver(
     | 'audio'
     | 'detectionWorkers'
   >,
+  lifetime: AbortSignal,
 ): Promise<ProjectWindow> {
   const { root, projects } = parts;
-  const modelGate = modelGates(
-    createModelAvailabilityStore({
-      packs: parts.services.client.packs,
-      runtime: () => Promise.resolve(TEST_RUNTIME),
-      device: () => EVERY_INFERENCE_CAPABILITY,
-      unknown: (reason) => {
-        throw new Error(`Which model packs can run could not be read: ${reason}`);
-      },
-    }),
+  const availability = createModelAvailabilityStore({
+    packs: parts.services.client.packs,
+    runtime: () => Promise.resolve(TEST_RUNTIME),
+    device: () => EVERY_INFERENCE_CAPABILITY,
+    unknown: (reason) => {
+      throw new Error(`Which model packs can run could not be read: ${reason}`);
+    },
+  });
+  const modelGate = modelGates(availability);
+  const packs = packManagerOver(
+    parts.services.client.packs,
+    availability,
+    () => projects.files.chooseFolderToRead(),
+    lifetime,
   );
-  const context: ShellContext = { ...base, storageRoot: root, projects, modelGate };
+  const page = new ScriptedPage();
+  projects.savedProcessing.follow(page, (error) => {
+    throw error;
+  });
+  const context: ShellContext = { ...base, storageRoot: root, projects, modelGate, packs };
   followProjectAssets(projects, context.assets, modelGate);
   const registry = createCommandRegistry<ShellContext>();
   for (const command of shellCommands(DESCRIPTORS)) registry.register(command);
@@ -367,6 +411,8 @@ async function windowOver(
   return {
     ...parts,
     context,
+    page,
+    packs,
     run,
     said,
     nextSaid,

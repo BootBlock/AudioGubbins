@@ -24,6 +24,7 @@
 import {
   anchorResolver,
   assetPlan,
+  bypassedAssetPlan,
   derivedSampleCount,
   unrackedAssetPlan,
   placeMarkers,
@@ -54,6 +55,7 @@ import {
   openedEntry,
   regionEntry,
   regionEntryId,
+  runsChains,
   type MediaAvailability,
   type ProjectEntries,
   type ProjectEntry,
@@ -159,6 +161,8 @@ interface Placed {
   readonly plan: DomainResult<EditPlan>;
   /** Its plan before its rack, where it has one, which a rack edit over a range of it reads. */
   readonly unracked: DomainResult<EditPlan> | undefined;
+  /** Its plan with every chain bypassed, where a chain processes it. */
+  readonly original: DomainResult<EditPlan> | undefined;
   readonly markers: readonly PlacedMarker[];
 }
 
@@ -176,6 +180,7 @@ function placing(own: Owned, context: PlanContext): () => Placed {
       resolver,
       plan: assetPlan(own.asset, context),
       unracked: own.asset.rack === undefined ? undefined : unrackedAssetPlan(own.asset, context),
+      original: runsChains(own.asset) ? bypassedAssetPlan(own.asset) : undefined,
       markers,
     };
     return placed;
@@ -265,7 +270,7 @@ function assetEntry(
 ): ProjectEntry {
   const { asset } = own;
   const id = assetEntryId(asset.id);
-  const { plan, unracked, markers, resolver } = place();
+  const { plan, unracked, original, markers, resolver } = place();
   if (!plan.ok) {
     return { kind: 'unavailable', id, name: asset.displayName, reason: plan.failures[0].summary };
   }
@@ -275,6 +280,14 @@ function assetEntry(
       id,
       name: asset.displayName,
       reason: unracked.failures[0].summary,
+    };
+  }
+  if (original?.ok === false) {
+    return {
+      kind: 'unavailable',
+      id,
+      name: asset.displayName,
+      reason: original.failures[0].summary,
     };
   }
   const withoutModel = planModelRefusal(plan.value, models);
@@ -288,6 +301,7 @@ function assetEntry(
       description: assetSentence(asset, plan.value),
       owner: { kind: 'project', asset, plan: plan.value, offset: derivedSampleCount(0) },
       unracked: unracked?.value,
+      original: original?.value,
       markers,
       regions: placeRegions(asset, own.regions, resolver),
     },

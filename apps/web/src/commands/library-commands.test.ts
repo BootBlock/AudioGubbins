@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { searchCommands } from '@audiogubbins/commands';
+
 import {
   instantiateProcessor,
   processorsOf,
@@ -20,7 +22,9 @@ import type { ListedEntry } from '@audiogubbins/storage';
 import { sine, type SignalFixture } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
+import { DESCRIPTORS } from '../testing/shell-context.js';
 import { projectWorld } from '../testing/project-context.js';
+import { shellCommands } from './shell-commands.js';
 
 holdPlatformFiles();
 
@@ -281,6 +285,34 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
     expect(await twice('library.remove', { entry: chainEntry.id })).toBe(
       'The library has no such saved chain or preset.',
     );
+  });
+
+  it('offers every library command in the palette, and says there where an entry is chosen', async () => {
+    const { audio } = await racked();
+    const { context } = audio.window;
+    const offered = searchCommands(shellCommands(DESCRIPTORS), 'library', {
+      context,
+      profile: context.shortcuts.get().profile,
+      convention: context.convention,
+      layout: context.keyboardLayout.get(),
+    }).map((result) => String(result.command.id));
+
+    expect(offered).toEqual(
+      expect.arrayContaining([
+        'library.save-chain',
+        'library.save-preset',
+        'library.rename',
+        'library.remove',
+        'library.apply-chain',
+        'library.apply-preset',
+      ]),
+    );
+    for (const id of ['library.apply-chain', 'library.apply-preset', 'library.remove']) {
+      expect(audio.window.run(id)).toMatchObject({
+        kind: 'refused',
+        failures: [{ summary: 'Choose a saved chain or preset in the Library panel.' }],
+      });
+    }
   });
 
   it('keeps what was saved for another window of the profile, which lists it', async () => {

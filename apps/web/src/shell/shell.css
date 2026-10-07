@@ -1182,3 +1182,42 @@
 .ag-analysis-step-name {
   font-weight: 600;
 }
+
+/* The Effects rack: a chain's slots in signal order, a group's branches
+   nested under it, each slot set apart so its controls read as its own. */
+.ag-rack-slots,
+.ag-rack-ranges {
+  display: grid;
+  gap: var(--ag-space-small);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-rack-slot {
+  padding: var(--ag-space-small);
+  border: 1px solid var(--ag-chrome-border-subtle);
+  border-radius: var(--ag-radius-small);
+}
+
+.ag-rack-slot[data-ag-bypassed='true'] {
+  border-style: dashed;
+}
+
+.ag-rack-slot-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ag-space-small);
+  align-items: center;
+}
+
+.ag-rack-branch {
+  margin-block-start: var(--ag-space-small);
+  padding-inline-start: var(--ag-space-medium);
+  border-inline-start: 2px solid var(--ag-chrome-border-subtle);
+}
+
+.ag-rack-parameter {
+  display: grid;
+  gap: var(--ag-space-tiny);
+}

@@ -178,6 +178,9 @@ importers:
       '@audiogubbins/input':
         specifier: workspace:*
         version: link:packages/input
+      '@audiogubbins/ml-runtime':
+        specifier: workspace:*
+        version: link:packages/ml-runtime
       '@audiogubbins/model-packs':
         specifier: workspace:*
         version: link:packages/model-packs

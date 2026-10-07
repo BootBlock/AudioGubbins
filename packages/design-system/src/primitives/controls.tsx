@@ -1,5 +1,6 @@
 /**
- * Controls that hold a value: sliders, switches, selects, tabs and toolbars.
+ * Controls that hold a value: switches, selects, tabs and toolbars; the
+ * slider is `value-slider.tsx`.
  *
  * Each wraps a Radix primitive, which supplies the keyboard behaviour and the
  * ARIA roles, and adds what AudioGubbins needs on top: a value a screen reader
@@ -11,88 +12,11 @@
  * control here takes a function that formats its own value.
  */
 
-import { Select, Slider, Switch, Tabs, Toolbar, Tooltip } from 'radix-ui';
+import { Select, Switch, Tabs, Toolbar, Tooltip } from 'radix-ui';
 import { useId, type ReactNode } from 'react';
 
 import { Button, ButtonTone } from './button.js';
 import { hintSurface } from './overlays.js';
-
-/** What a slider takes. */
-export interface ValueSliderProps {
-  /** The visible label. */
-  readonly label: string;
-
-  readonly value: number;
-  readonly minimum: number;
-  readonly maximum: number;
-
-  /** The smallest change a keyboard press or a drag produces. */
-  readonly step: number;
-
-  readonly onValueChange: (value: number) => void;
-
-  /**
-   * Turns the value into the words a screen reader should say.
-   *
-   * For example `(value) => `${value.toFixed(1)} decibels``. Without this a
-   * screen reader announces a bare number, which for a logarithmic control is
-   * not the number the user is thinking about.
-   */
-  readonly describeValue: (value: number) => string;
-
-  /** Shown beside the control, for example `-6.0 dB`. */
-  readonly displayValue?: string;
-
-  readonly disabled?: boolean;
-}
-
-/** A control for a continuous value. */
-export function ValueSlider({
-  label,
-  value,
-  minimum,
-  maximum,
-  step,
-  onValueChange,
-  describeValue,
-  displayValue,
-  disabled = false,
-}: ValueSliderProps): ReactNode {
-  const labelId = useId();
-
-  return (
-    <div className="ag-slider-field">
-      <span className="ag-slider-label" id={labelId}>
-        {label}
-      </span>
-      <Slider.Root
-        className="ag-slider"
-        value={[value]}
-        min={minimum}
-        max={maximum}
-        step={step}
-        disabled={disabled}
-        onValueChange={(next) => {
-          const [first] = next;
-          if (first !== undefined) onValueChange(first);
-        }}
-      >
-        <Slider.Track className="ag-slider-track">
-          <Slider.Range className="ag-slider-range" />
-        </Slider.Track>
-        <Slider.Thumb
-          className="ag-slider-thumb ag-touch-target"
-          // The slider role sits on the thumb, not the root, so the label and
-          // the spoken value belong here. On the root they would name an
-          // element a screen reader never lands on.
-          aria-labelledby={labelId}
-          aria-valuetext={describeValue(value)}
-        />
-      </Slider.Root>
-      {displayValue !== undefined && <span className="ag-slider-value">{displayValue}</span>}
-    </div>
-  );
-}
 
 /** What a switch takes. */
 export interface ToggleSwitchProps {

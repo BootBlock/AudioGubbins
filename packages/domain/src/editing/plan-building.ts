@@ -58,6 +58,16 @@ export interface PlanContext {
 /** A range edit on the first stream: the asset's own processing, or a region's. */
 type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
 
+/**
+ * How a fold treats a rack edit: its chain run over its range, read from the
+ * project's chains, or bypassed, the range left as the edits before it made
+ * it, which is the sound with its processing bypassed (REQ-AUDIO-019).
+ */
+type RangeRacks =
+  { readonly kind: 'run'; readonly context: PlanContext } | { readonly kind: 'bypassed' };
+
+const BYPASSED: RangeRacks = { kind: 'bypassed' };
+
 /** The chain an edit or a rack names, or why the project does not have it. */
 function namedChain(context: PlanContext, id: EffectChainId): DomainResult<EffectChain> {
   const chain = context.chains.get(id);
@@ -77,7 +87,7 @@ function namedChain(context: PlanContext, id: EffectChainId): DomainResult<Effec
 function processRange(
   folding: Folding,
   processing: Processing,
-  context: PlanContext,
+  racks: RangeRacks,
 ): DomainResult<Folding> {
   const { stream } = folding;
   const { range } = processing;
@@ -89,6 +99,10 @@ function processRange(
       stream: { ...stream, segments: changeRange(stream.segments, range.start, range.end, stage) },
     });
   }
+  // A rack edit changes no time and keeps the layout, so leaving it out
+  // leaves every later edit where it was made.
+  if (racks.kind === 'bypassed') return succeed(folding);
+  const { context } = racks;
   const chain = namedChain(context, edit.chain);
   if (!chain.ok) return chain;
   const layout = chainOutputLayout(
@@ -132,7 +146,7 @@ function cutSegments(
 function foldOperation(
   plan: Folding,
   operation: EditOperation,
-  context: PlanContext,
+  racks: RangeRacks,
 ): DomainResult<Folding> {
   const { stream } = plan;
   switch (operation.kind) {
@@ -151,7 +165,7 @@ function foldOperation(
     case 'insert':
       return succeed(foldInsertion(plan, operation));
     case 'process':
-      return processRange(plan, operation, context);
+      return processRange(plan, operation, racks);
     case 'stretch':
       return succeed(
         stretchRange(plan, operation.range.start, operation.range.end, operation.length),
@@ -229,7 +243,7 @@ function byBasis(
 function editedPlan(
   asset: Asset,
   processing: readonly RegionOperation[],
-  context: PlanContext,
+  racks: RangeRacks,
 ): DomainResult<EditPlan> {
   let folding: Folding = {
     stream: {
@@ -250,13 +264,13 @@ function editedPlan(
   const placed = byBasis(asset, processing);
   for (let basis = 0; basis <= asset.edits.length; basis += 1) {
     for (const operation of placed.get(basis) ?? []) {
-      const folded = processRange(folding, operation, context);
+      const folded = processRange(folding, operation, racks);
       if (!folded.ok) return folded;
       folding = folded.value;
     }
     const operation = asset.edits[basis];
     if (operation === undefined) continue;
-    const folded = foldOperation(folding, operation, context);
+    const folded = foldOperation(folding, operation, racks);
     if (!folded.ok) return folded;
     folding = folded.value;
   }
@@ -293,7 +307,21 @@ export function unrackedAssetPlan(
   context: PlanContext,
   processing: readonly RegionOperation[] = [],
 ): DomainResult<EditPlan> {
-  return mapResult(editedPlan(asset, processing, context), pruneStreams);
+  return mapResult(editedPlan(asset, processing, { kind: 'run', context }), pruneStreams);
+}
+
+/**
+ * The plan of an asset with every chain it runs bypassed and every other edit
+ * kept, with a region's `processing` folded in among it where given: its rack
+ * edits leave their ranges as they were, and its rack is not run. What the
+ * original sound is, beside the processed one, for comparing the two
+ * (REQ-AUDIO-019). A region's is `bypassedRegionPlan`.
+ */
+export function bypassedAssetPlan(
+  asset: Asset,
+  processing: readonly RegionOperation[] = [],
+): DomainResult<EditPlan> {
+  return mapResult(editedPlan(asset, processing, BYPASSED), pruneStreams);
 }
 
 /**
@@ -305,7 +333,7 @@ export function assetPlan(
   context: PlanContext,
   processing: readonly RegionOperation[] = [],
 ): DomainResult<EditPlan> {
-  const edited = editedPlan(asset, processing, context);
+  const edited = editedPlan(asset, processing, { kind: 'run', context });
   if (!edited.ok) return edited;
   return mapResult(withRack(edited.value, asset.rack, context), pruneStreams);
 }

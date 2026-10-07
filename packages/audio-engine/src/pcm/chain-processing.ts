@@ -21,6 +21,7 @@
 
 import type {
   CancellationSignal,
+  ChainListening,
   ChannelLayout,
   DomainResult,
   EffectChain,
@@ -63,35 +64,6 @@ export interface ChainRequest {
 
 /** What how a chain is heard depends on: the chain, and the stream as it runs it. */
 export type ListeningRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
-
-/** How a run of a chain may start part way through a stream, for a preview. */
-export interface PartWayStart {
-  /** Frames it needs to settle: the longest lead-in of any processor it runs. */
-  readonly leadIn: number;
-
-  /**
-   * Frames a part-way start must fall a whole number of into the stream, so
-   * every processor it runs frames its audio as a run from the start does:
-   * the least common multiple of their frame grids.
-   */
-  readonly frameGrid: number;
-}
-
-/**
- * How playback hears a chain: run as it plays, started part way after its
- * lead-in, or from a render of the whole stream made ahead, where a processor
- * it runs measures its whole input first or cannot keep to the audio thread's
- * schedule (ADR-0061). Either way the chain may be started part way, which a
- * reader that has no render to read falls back to.
- */
-export type ChainListening =
-  | { readonly kind: 'live'; readonly partWay: PartWayStart }
-  | {
-      readonly kind: 'rendered';
-      readonly partWay: PartWayStart;
-      /** Why it cannot run as it is heard, naming the processors, worded for the person. */
-      readonly reason: string;
-    };
 
 /** A chain running over a stream from its request's start. */
 export interface ChainRun {

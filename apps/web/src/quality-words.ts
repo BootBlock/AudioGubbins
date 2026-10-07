@@ -91,22 +91,31 @@ export function qualitySentence(settings: QualitySettings): string {
   return `${values.join(', ')}.`;
 }
 
-/** The settings in which `one` and `other` differ, in reading order. */
+/** The settings of `read` in which `one` and `other` differ, in reading order. */
 function differingSettings(
   one: QualitySettings,
   other: QualitySettings,
+  read: ReadonlySet<QualitySettingKey>,
 ): readonly QualitySettingKey[] {
-  return QUALITY_SETTING_KEYS.filter((key) => one[key] !== other[key]);
+  return QUALITY_SETTING_KEYS.filter((key) => read.has(key) && one[key] !== other[key]);
 }
+
+/** Every setting, which the playback of a whole sound reads one or other of. */
+const EVERY_SETTING: ReadonlySet<QualitySettingKey> = new Set(QUALITY_SETTING_KEYS);
 
 /**
  * Where a preview at `preview` differs from a final render at `render`, said
  * plainly, so the person knows what they hear is not quite what a render
  * makes. Both are the values each runs at, a render's with its inference
- * pinned.
+ * pinned. Only the settings `read` names count, as a chain's processors read
+ * only theirs; every setting where it names none.
  */
-export function previewDifferenceText(preview: QualitySettings, render: QualitySettings): string {
-  const differing = differingSettings(preview, render).map(
+export function previewDifferenceText(
+  preview: QualitySettings,
+  render: QualitySettings,
+  read: ReadonlySet<QualitySettingKey> = EVERY_SETTING,
+): string {
+  const differing = differingSettings(preview, render, read).map(
     (key) =>
       `${QUALITY_SETTING_NAMES[key].toLowerCase()} (${qualityValueText(preview, key).toLowerCase()}, against ${qualityValueText(render, key).toLowerCase()})`,
   );

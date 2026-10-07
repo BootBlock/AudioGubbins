@@ -27,11 +27,18 @@ import { historyCommands } from './history-commands.js';
 import { libraryApplyCommands } from './library-apply-commands.js';
 import { libraryCommands } from './library-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
+import { packCommands } from './pack-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
+import { rackBuildingCommands } from './rack-building-commands.js';
+import { rackClipboardCommands } from './rack-clipboard-commands.js';
+import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { rackHearingCommands } from './rack-hearing-commands.js';
+import { rackParameterCommands } from './rack-parameter-commands.js';
+import { rackSlotCommands } from './rack-slot-commands.js';
 import { audioCommands } from './audio-commands.js';
 import { audioSettingsCommands } from './audio-settings-commands.js';
 import { qualityCommands } from './quality-commands.js';
@@ -198,8 +205,15 @@ export function shellCommands(
     ...regionPropertyCommands(),
     ...splitCommands(),
     ...analysisCommands(),
+    ...rackBuildingCommands(),
+    ...rackSlotCommands(),
+    ...rackParameterCommands(),
+    ...rackClipboardCommands(),
+    ...rackComparisonCommands(),
+    ...rackHearingCommands(),
     ...libraryCommands(),
     ...libraryApplyCommands(),
+    ...packCommands(),
     ...playheadCommands(),
     ...pictureCommands(),
   ];

@@ -207,8 +207,9 @@ function assetOf(spec: AssetSpec, rate: SampleRate): DomainResult<EditorAsset> {
         content,
         revision: revisionOf(content),
         describe: () => ({ kind: PcmDescriptionKind.Signal, sampleRate: rate, recipe }),
-        // A generated signal has no rack.
+        // A generated signal has no chain to run.
         unracked: undefined,
+        original: undefined,
         owner: { kind: 'session', reason: NOT_IN_A_PROJECT },
         markers: [],
         regions: [],

@@ -201,8 +201,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'clipsOverlap',
         'containsSample',
         'convertSampleRate',
-        'defaultParameterValue',
-        'instantiateProcessor',
         'isAssetInUse',
         'isFailure',
         'isRetryable',
@@ -215,24 +213,16 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
     "The effect rack's domain (ADR-0060, ADR-0061): chain edits, quality modes, the library and the processed stream's parts, which Phase 06's processors, rack commands and rack views take as they are built.":
       [
-        'ChainSettings',
         'MAXIMUM_CHAIN_SLOTS',
         'MAXIMUM_GROUP_BRANCHES',
         'MAXIMUM_STRETCH_RATIO',
         'chainOutputLayout',
         'checkStateVersion',
         'effectChainFrom',
-        'parameterOf',
         'segmentsLayout',
         'segmentsLength',
         'withRack',
-        'withSlotMoved',
-        'withoutSlot',
       ],
-  },
-  '@audiogubbins/project-commands': {
-    "The rack commands' invocations (ADR-0060) that change a chain in place and point a range at another chain, which Phase 06's rack views and the library's apply command run as they are built.":
-      ['setChainInvocation', 'setEditChainInvocation'],
   },
   '@audiogubbins/processors': {
     'The machine-learning processors one by one (ADR-0062), each made with its services: the threads that run racks make every one at once with `processorTypesWith`, and a type alone serves a tool that runs one model, such as the pinned golden renders.':
@@ -261,10 +251,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
       ['ChainGraph', 'chainGraph'],
   },
-  '@audiogubbins/clipboard': {
-    "Copying and pasting processing (ADR-0053 as amended), which Phase 06's rack views run as they are built.":
-      ['chainFromProcessing', 'copyProcessing', 'pasteProcessing'],
-  },
   '@audiogubbins/storage': {
     'The journal and the store of whole states, the two contracts ADR-0020 names the storage by. The session and the backups reach both inside the package, and nothing outside it keeps a journal or a state of its own.':
       ['CommandJournal', 'SnapshotStore'],
@@ -281,14 +267,12 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
       [
         'AutomaticDownload',
-        'ImportedPackSource',
         'InstallEvent',
         'UpdateOutcome',
         'nextInstallState',
         'packsToFetch',
         'readModelPackManifest',
         'readPackCatalogue',
-        'refOf',
         'updatePack',
       ],
   },
@@ -371,7 +355,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The contrast measure the tokens are solved by, what text must reach, and the conversion back from the channels a canvas is given, which the application's test of the editor's canvas colours holds every label a frame writes to, on what the frame draws under it.":
       ['ContrastRequirement', 'contrastRatio', 'srgbToOklch'],
     'The menu, context-action and popover primitives WU-01.B requires whether or not a consumer has arrived, and the props a caller writes each with.':
-      ['InfoPopover', 'InfoPopoverProps', 'Menu'],
+      ['InfoPopover', 'InfoPopoverProps'],
     'The props a caller writes a button with, beside the button the shell uses.': ['ButtonProps'],
   },
   '@audiogubbins/capabilities': {

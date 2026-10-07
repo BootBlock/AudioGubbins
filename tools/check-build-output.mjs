@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { transform } from 'lightningcss';
 
+import { RUNTIME_FILES } from './inference-runtime-files.mjs';
 import { localRoots, localTracesIn } from './local-traces.mjs';
 import { CATALOGUE_FILE, loadPackDefinitions } from './model-packs/pack-definitions.mjs';
 import { outputProblems, packsPresent } from './model-packs/pack-output.mjs';
@@ -339,15 +340,11 @@ function escapeName(name) {
 const JEKYLL_WOULD_DROP = /^_/;
 
 /**
- * The inference runtime's WebAssembly as a build serves it: each build's file,
- * named as the runtime names it (`RUNTIME_WEBASSEMBLY_FILES` in
- * `packages/ml-runtime`, which a test holds this list to), in one folder named
- * by the runtime's version.
+ * The inference runtime's WebAssembly as a build serves it: each build's file
+ * (`inference-runtime-files.mjs`), in one folder named by the runtime's
+ * version.
  */
-export const RUNTIME_WEBASSEMBLY_FILES = Object.freeze([
-  'ort-wasm-simd-threaded.wasm',
-  'ort-wasm-simd-threaded.asyncify.wasm',
-]);
+export const RUNTIME_WEBASSEMBLY_FILES = Object.freeze(RUNTIME_FILES.map(({ name }) => name));
 
 /** `inference/onnxruntime-web-<version>/<file>`, where a build serves the runtime. */
 const RUNTIME_FILE = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;

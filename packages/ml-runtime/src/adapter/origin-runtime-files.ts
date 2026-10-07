@@ -78,8 +78,11 @@ export class OriginRuntimeFiles implements RuntimeFiles {
 
   async read(build: RuntimeBuild): Promise<DomainResult<Uint8Array<ArrayBuffer>>> {
     const file = RUNTIME_WEBASSEMBLY_FILES[build];
+    // Called as a function: a browser's `fetch` called as a method of this
+    // object throws "Illegal invocation".
+    const request = this.#request;
     try {
-      const response = await this.#request(`${this.#filesBase}${file}`, REQUEST);
+      const response = await request(`${this.#filesBase}${file}`, REQUEST);
       if (response.status !== HTTP_OK) {
         return unavailable(
           file,

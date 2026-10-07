@@ -4,10 +4,10 @@
  *
  * The parts are what differ between the browser and a test: the tree, the
  * digest, the clock, identifiers and tokens, the window as others are told of
- * it, the leases, the turns and the loggers. Everything made from them is made
- * here alone, for both, so a test runs the worker's own composition over parts
- * in memory. Every storage path works through a tree that takes turns
- * (`host-turns.ts`).
+ * it, the leases, the turns, the loggers and where a catalogue's packs are
+ * downloaded from. Everything made from them is made here alone, for both, so
+ * a test runs the worker's own composition over parts in memory. Every storage
+ * path works through a tree that takes turns (`host-turns.ts`).
  */
 
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -36,7 +36,7 @@ import {
 } from '@audiogubbins/storage';
 
 import { TurnTakingTree } from './host-turns.js';
-import { packServices, type PackServices } from './pack-services.js';
+import { packServices, type CatalogueSource, type PackServices } from './pack-services.js';
 
 /** Where the worker's loggers come from: a logger for each subsystem. */
 export interface HostLogs {
@@ -67,6 +67,9 @@ export interface HostParts {
    * stored object through.
    */
   readonly fileAt: (path: string) => Promise<Blob | undefined>;
+
+  /** Where a catalogue's packs are downloaded from: over HTTP in the browser. */
+  readonly packSource: CatalogueSource;
 }
 
 /** Everything the areas serving the page work with, each made once. */
@@ -112,7 +115,7 @@ export function hostServices(parts: HostParts): HostServices {
       sharing: mediaSharingOf(coordinator),
     }),
     caches: new CacheStore(tree, digest),
-    ...packServices(tree, digest, coordinator),
+    ...packServices(tree, digest, coordinator, parts.packSource),
     repository: new ProjectRepository({
       tree,
       digest,

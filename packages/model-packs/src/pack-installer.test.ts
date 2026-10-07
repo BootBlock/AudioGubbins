@@ -10,7 +10,8 @@ import { PackInstaller } from './pack-installer.js';
 import { updatePack } from './pack-update.js';
 import { MemoryPackStore } from './testing/memory-pack-store.js';
 import { MemorySource } from './testing/memory-pack-source.js';
-import { patterned, testPack, type TestPack } from './testing/node-sha256.js';
+import { patterned, testPack } from './testing/node-sha256.js';
+import type { TestPack } from './testing/sample-packs.js';
 
 /** The value of a result that must have succeeded. */
 function valueOf<TValue>(result: DomainResult<TValue>): TValue {

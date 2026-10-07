@@ -33,6 +33,7 @@ import {
   processorsOf,
   succeed,
   throwIfCancelled,
+  unheardLive,
   type CancellationSignal,
   type ChannelLayout,
   type DomainResult,
@@ -57,7 +58,7 @@ import {
 import type { Measurement, ProcessorType } from '@audiogubbins/processors';
 
 import { chainGraph, type ChainGraph } from './chain-graph.js';
-import { descriptorsOf, listening, unheardLive } from './chain-listening.js';
+import { descriptorsByKey, descriptorsOf, listening } from './chain-listening.js';
 
 /** Where a block in flight is read from and written to, rebound for each call. */
 class Endpoints {
@@ -233,13 +234,16 @@ class RunningChain implements ChainRun {
 /** The effect rack's chain processing, for the processor types `types`. */
 export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing {
   const implementations = implementationsOf(types);
+  const descriptors = descriptorsByKey(types);
   return {
     listening: (request) => {
       const built = chainGraph(request.chain, types, request.input, request.quality, {
         start: 0,
         measured: new Map(),
       });
-      return built.ok ? succeed(listening(request, types, built.value)) : built;
+      // Built first, so a chain this build cannot run is refused with its
+      // reason rather than said to be heard.
+      return built.ok ? succeed(listening(request, descriptors)) : built;
     },
     prepare: async (request, read, signal) => {
       const invalid = startRefusal(request);

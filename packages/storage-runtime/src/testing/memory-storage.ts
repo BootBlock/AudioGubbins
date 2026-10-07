@@ -23,8 +23,11 @@ import {
   type LogStore,
 } from '@audiogubbins/diagnostics';
 import {
+  FailureKind,
   StandardLayouts,
   createDeterministicIdGenerator,
+  fail,
+  failure,
   sampleRate,
   type ProjectSettings,
 } from '@audiogubbins/domain';
@@ -41,6 +44,7 @@ import {
   type HostParts,
   type HostServices,
 } from '../host/host-services.js';
+import type { CatalogueSource } from '../host/pack-services.js';
 import { serveStorage } from '../host/storage-host.js';
 import { PortChannel, type PortEndpoint } from '../protocol/port-channel.js';
 import { portPair, type PortPair } from './port-pair.js';
@@ -93,7 +97,27 @@ export interface MemoryStorageOptions {
 
   /** The clock the worker reads, where the tabs of a test share one: one that steps where not. */
   readonly clock?: Clock;
+
+  /**
+   * Where a catalogue's packs come from, in place of the network: where not
+   * given, a source that offers nothing and refuses every read, so no test
+   * reaches the network by forgetting to say.
+   */
+  readonly packSource?: CatalogueSource;
 }
+
+/** Why a catalogue cannot be read in a worker in memory that was given none. */
+const NO_CATALOGUE = failure(
+  'model-pack.no-test-catalogue',
+  FailureKind.Rejected,
+  'This storage worker in memory was given no catalogue, and reaches no network.',
+);
+
+/** The source a worker in memory reads a catalogue from where a test gives none. */
+const NO_PACK_SOURCE: CatalogueSource = () => ({
+  catalogue: () => Promise.resolve(fail(NO_CATALOGUE)),
+  read: () => Promise.resolve(fail(NO_CATALOGUE)),
+});
 
 /** A clock that moves on a second each time it is read. */
 export function steppingClock(): Clock {
@@ -110,9 +134,11 @@ export function steppingClock(): Clock {
 function partsOf(
   owner: HostParts['owner'],
   seed: number,
-  shared: Pick<HostParts, 'tree' | 'clock' | 'coordinator' | 'yieldToHost' | 'logs'>,
+  shared: Pick<HostParts, 'tree' | 'clock' | 'coordinator' | 'yieldToHost' | 'logs'> &
+    Partial<Pick<HostParts, 'packSource'>>,
 ): HostParts {
   return {
+    packSource: NO_PACK_SOURCE,
     ...shared,
     digest: webDigest(crypto.subtle),
     ids: createDeterministicIdGenerator(seed),
@@ -140,7 +166,14 @@ export function serveMemoryStorage(
   let hostLogs: HostLogs | undefined;
   serveStorage(endpoint, clock, (logs) => {
     hostLogs = logs;
-    return partsOf(owner, tab.seed, { tree, clock, coordinator, yieldToHost, logs });
+    return partsOf(owner, tab.seed, {
+      tree,
+      clock,
+      coordinator,
+      yieldToHost,
+      logs,
+      ...(options.packSource === undefined ? {} : { packSource: options.packSource }),
+    });
   });
   if (hostLogs === undefined) throw new Error('The worker made its services without loggers.');
 

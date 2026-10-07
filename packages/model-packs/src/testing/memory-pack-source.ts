@@ -15,7 +15,7 @@ import {
   type PackSource,
   type ReceiveChunk,
 } from '../pack-source.js';
-import type { TestPack } from './node-sha256.js';
+import type { TestPack } from './sample-packs.js';
 
 /** A read the source was asked for. */
 export interface RecordedRead {
@@ -38,6 +38,8 @@ export interface SourceOptions {
 /** Packs in memory as a source (see the module comment). */
 export class MemorySource implements PackSource {
   readonly reads: RecordedRead[] = [];
+  /** How many times the catalogue was asked for. */
+  catalogues = 0;
   /** The most reads in flight at once. */
   mostAtOnce = 0;
   private inFlight = 0;
@@ -51,6 +53,7 @@ export class MemorySource implements PackSource {
   }
 
   catalogue(): Promise<DomainResult<readonly ModelPackManifest[]>> {
+    this.catalogues += 1;
     return Promise.resolve(succeed([...this.packs.values()].map((pack) => pack.manifest)));
   }
 

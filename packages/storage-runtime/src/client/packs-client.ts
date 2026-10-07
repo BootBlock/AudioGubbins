@@ -1,8 +1,9 @@
 /**
  * The model packs, as the page asks the storage worker for them (ADR-0062,
  * REQ-AUDIO-139): the versions the installer knows of, what the catalogue
- * offers, each step of an installation, a file of an installed version for a
- * model to run, and each change of an installation as it happens.
+ * offers, each step of an installation, a version brought in from a folder the
+ * person chose, a file of an installed version for a model to run, and each
+ * change of an installation as it happens.
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -14,8 +15,9 @@ import type {
   PackRef,
 } from '@audiogubbins/model-packs';
 
-import type { PackChange } from '../protocol/pack-operations.js';
+import type { PackChange, PackImport } from '../protocol/pack-operations.js';
 import type { ClientChannel } from '../protocol/storage-operations.js';
+import type { LendingCall, PageFolder } from './page-ports.js';
 
 /** The model packs, their installation and their files. */
 export interface PacksClient {
@@ -43,6 +45,12 @@ export interface PacksClient {
   pause(ref: PackRef): Promise<DomainResult<void>>;
   cancel(ref: PackRef): Promise<DomainResult<InstallState>>;
 
+  /**
+   * Installs the version `folder` holds, read from it and checked as a download
+   * is, fetching nothing; aborting `signal` pauses it.
+   */
+  importFolder(folder: PageFolder, signal?: AbortSignal): Promise<DomainResult<PackImport>>;
+
   /** Removes a version; one a project needs only `knowingly`. */
   remove(ref: PackRef, knowingly: boolean): Promise<DomainResult<InstallState>>;
 
@@ -53,8 +61,8 @@ export interface PacksClient {
   listen(listener: (change: PackChange) => void): () => void;
 }
 
-/** The model packs, over the page's end of the port. */
-export function packsClient(channel: ClientChannel): PacksClient {
+/** The model packs, over the page's end of the port and the calls that lend its folders. */
+export function packsClient(channel: ClientChannel, call: LendingCall): PacksClient {
   return {
     installations: (signal) => channel.call('packs.installations', undefined, { signal }),
     catalogue: (catalogue, signal) => channel.call('packs.catalogue', { catalogue }, { signal }),
@@ -65,6 +73,8 @@ export function packsClient(channel: ClientChannel): PacksClient {
     retry: (catalogue, ref, signal) => channel.call('packs.retry', { catalogue, ref }, { signal }),
     pause: (ref) => channel.call('packs.pause', ref),
     cancel: (ref) => channel.call('packs.cancel', ref),
+    importFolder: (folder, signal) =>
+      call('packs.import', (lend) => ({ folder: lend.folder(folder) }), signal),
     remove: (ref, knowingly) => channel.call('packs.remove', { ref, knowingly }),
     read: (ref, path, signal) => channel.call('packs.read', { ref, path }, { signal }),
     listen: (listener) => channel.listen('packs', listener),

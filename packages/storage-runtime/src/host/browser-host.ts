@@ -24,6 +24,7 @@ import {
 import type { StoragePlatform } from '@audiogubbins/capabilities';
 import type { Clock } from '@audiogubbins/diagnostics';
 import { createIdGenerator } from '@audiogubbins/domain';
+import { HttpPackSource } from '@audiogubbins/model-packs';
 
 import type { PortEndpoint } from '../protocol/port-channel.js';
 import { turnsEvery } from './host-turns.js';
@@ -92,6 +93,7 @@ function partsOf(
     yieldToHost: turnsEvery(TURN_MILLISECONDS, platform.elapsed, yieldToHost(storage.hostYielding)),
     logs,
     fileAt: originPrivateFile(platform.readRoot),
+    packSource: (catalogue) => new HttpPackSource(catalogue),
   };
 }
 

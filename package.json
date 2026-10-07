@@ -62,6 +62,7 @@
     "@audiogubbins/capabilities": "workspace:*",
     "@audiogubbins/commands": "workspace:*",
     "@audiogubbins/input": "workspace:*",
+    "@audiogubbins/ml-runtime": "workspace:*",
     "@audiogubbins/model-packs": "workspace:*",
     "@axe-core/playwright": "4.13.0",
     "@eslint/js": "10.0.1",

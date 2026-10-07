@@ -15,6 +15,7 @@ import {
   streamLength,
   type EditOperation,
   type EditRange,
+  type EffectChainId,
   type LevelEdit,
   type RangeEdit,
   type RegionOperation,
@@ -50,6 +51,8 @@ export interface EditWording {
   readonly position: (frames: number) => string;
   /** The names of the asset's channels on its timeline at `basis`, by index. */
   readonly channelsAt: (basis: number) => readonly string[];
+  /** The chain `chain` names, by what it runs, as "Gain, then Compressor". */
+  readonly chain: (chain: EffectChainId) => string;
 }
 
 /** A range, as "from 0:01.000 to 0:02.000". */
@@ -78,11 +81,12 @@ function levelWords(edit: LevelEdit): string {
   }
 }
 
-/** A change within a range, on the channels it names, called by `names`. */
+/** A change within a range, on the channels it names, called by `names`, its chain by `words`. */
 function rangeEditWords(
   edit: RangeEdit,
   channels: readonly number[] | undefined,
   names: readonly string[],
+  words: EditWording,
 ): string {
   const name = (index: number): string => names[index] ?? String(index + 1);
   switch (edit.kind) {
@@ -93,7 +97,7 @@ function rangeEditWords(
     case 'channel-gains':
       return `Channel gains of ${edit.gains.map(decibelsOf).join(', ')}`;
     case 'rack':
-      return 'Processed through a chain of processors';
+      return `Processed through ${words.chain(edit.chain)}`;
     default:
       return `${levelWords(edit)}${scopeWords(channels, names)}`;
   }
@@ -117,7 +121,7 @@ export function operationWords(
       return `Pasted ${counted(streamLength(stream), 'frame', 'frames')} at ${words.position(operation.at)}`;
     }
     case 'process':
-      return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(basis))}, ${rangeWords(operation.range, words)}`;
+      return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(basis), words)}, ${rangeWords(operation.range, words)}`;
     case 'convert-layout': {
       const names = channelNames(operation.layout);
       return `Converted to ${counted(channelCount(operation.layout), 'channel', 'channels')}: ${names.join(', ')}`;
@@ -131,5 +135,5 @@ export function operationWords(
 
 /** One operation of a region's own processing, in a phrase. */
 export function regionOperationWords(operation: RegionOperation, words: EditWording): string {
-  return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(operation.basis))}, ${rangeWords(operation.range, words)}`;
+  return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(operation.basis), words)}, ${rangeWords(operation.range, words)}`;
 }

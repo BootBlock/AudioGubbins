@@ -22,6 +22,8 @@ import { Button, ButtonTone, ToggleSwitch } from '@audiogubbins/design-system';
 import type { ProjectId } from '@audiogubbins/domain';
 import type { CleanupPlan, CleanupStep } from '@audiogubbins/storage';
 
+import { showPanelCommandId } from '../../commands/panel-commands.js';
+import { ModelPanelKinds } from '../../panel-kinds.js';
 import { describeBytes } from '../../wording.js';
 import type { RunCommand } from '../settings/section.js';
 import { refusalSentence } from '../../cleanup-words.js';
@@ -102,15 +104,20 @@ function InstalledPacks({
   plan,
   chosen,
   onChoose,
+  run,
 }: {
   readonly plan: CleanupPlan;
   readonly chosen: ReadonlySet<string>;
   readonly onChoose: (choice: string, chosen: boolean) => void;
+  readonly run: RunCommand;
 }): ReactNode {
   if (plan.installedPacks.length === 0) return null;
   return (
     <div role="group" aria-label="Installed model packs">
       <h4 className="ag-section-heading">Model packs you may remove</h4>
+      <Button compact onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}>
+        Manage model packs
+      </Button>
       <ul className="ag-cleanup-steps">
         {plan.installedPacks.map((pack) => {
           const choice = packChoice(pack);
@@ -241,6 +248,7 @@ export function CleanupPlanView({
         onChoose={(choice, chosen) => {
           choosePacks([choice], chosen);
         }}
+        run={run}
       />
       <div className="ag-settings-row">
         <Decision plan={plan} changes={changes} run={run} />

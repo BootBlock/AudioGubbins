@@ -134,7 +134,6 @@ Published paths
   CanonicalStft.pullComplex: (real: Float64Array, imaginary: Float64Array) => boolean
   CanonicalStft.pullPolar: (magnitudes: Float64Array, phases: Float64Array) => boolean
   CanonicalStft.release: () => void
-  type ChainListening = { readonly kind: "live"; readonly partWay: PartWayStart; } | { readonly kind: "rendered"; readonly partWay: PartWayStart; readonly reason: string; }
   interface ChainProcessing
   ChainProcessing.listening: (request: ListeningRequest) => DomainResult<ChainListening>
   ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
@@ -321,9 +320,6 @@ Published paths
   ParameterRamp.fill: (into: Float64Array, frames: number) => void
   interface ParameterTarget
   ParameterTarget.setParameter: (change: ParameterChange) => DomainResult<boolean>
-  interface PartWayStart
-  readonly PartWayStart.leadIn: number
-  readonly PartWayStart.frameGrid: number
   const PathReason: { readonly NoneDeclared: "none-declared"; readonly CanonicalOutput: "canonical-output"; readonly Unavailable: "unavailable"; readonly Accelerated: "accelerated"; }
   type PathReason = "accelerated" | "canonical-output" | "none-declared" | "unavailable"
   type PcmDescription = { readonly kind: typeof PcmDescriptionKind.Edited; readonly sampleRate: SampleRate; readonly plan: EditPlan; readonly media: readonly MediaEntry[]; } | { readonly kind: typeof PcmDescriptionKind.Pcm; readonly sampleRate: SampleRate; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof PcmDescriptionKind.Signal; readonly sampleRate: SampleRate; readonly recipe: SignalRecipe; }
@@ -1683,6 +1679,10 @@ Published paths
   readonly SelectOption.value: string
   readonly SelectOption.label: string
   type SelectionPalette = { readonly fill: Oklch; readonly border: Oklch; readonly handle: Oklch; }
+  interface SliderScale
+  readonly SliderScale.steps: number
+  readonly SliderScale.positionOf: (value: number) => number
+  readonly SliderScale.valueAt: (position: number) => number
   type SpacingScale = { readonly none: number; readonly tiny: number; readonly small: number; readonly medium: number; readonly large: number; readonly huge: number; }
   type SpectrogramRamp = readonly [Oklch, ...Oklch[]]
   interface Srgb
@@ -1751,16 +1751,7 @@ Published paths
   type TypographyScale = { readonly tiny: number; readonly small: number; readonly body: number; readonly large: number; readonly heading: number; readonly lineHeight: number; readonly monospaceBody: number; }
   const UNKNOWN_SYSTEM_APPEARANCE: SystemAppearance
   function ValueSlider(props: ValueSliderProps): ReactNode
-  interface ValueSliderProps
-  readonly ValueSliderProps.label: string
-  readonly ValueSliderProps.value: number
-  readonly ValueSliderProps.minimum: number
-  readonly ValueSliderProps.maximum: number
-  readonly ValueSliderProps.step: number
-  readonly ValueSliderProps.onValueChange: (value: number) => void
-  readonly ValueSliderProps.describeValue: (value: number) => string
-  readonly ValueSliderProps.displayValue?: string
-  readonly ValueSliderProps.disabled?: boolean
+  type ValueSliderProps = SliderFields & SliderTravel
   function VisuallyHidden(props: { readonly children: ReactNode; }): ReactNode
   const WINDOW_ROW: "data-ag-window-row"
   type WaveformPalette = { readonly background: Oklch; readonly peak: Oklch; readonly rms: Oklch; readonly centreLine: Oklch; readonly clipped: Oklch; readonly playhead: Oklch; readonly pending: Oklch; readonly label: Oklch; readonly labelSecondary: Oklch; }
@@ -2045,6 +2036,7 @@ Published paths
   new Cancelled(message?: string): Cancelled
   interface ChainBranch
   readonly ChainBranch.slots: readonly ChainSlot[]
+  type ChainListening = { readonly kind: "live"; readonly partWay: PartWayStart; } | { readonly kind: "rendered"; readonly partWay: PartWayStart; readonly reason: string; }
   type ChainSettings = { readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly quality: import("packages/domain/src/index").QualitySettings; }
   type ChainSlot = ParallelGroup | ProcessorInstance
   interface ChainUsers
@@ -2223,6 +2215,9 @@ Published paths
   type ParameterTaper = "decibel" | "linear" | "logarithmic"
   type ParameterValue = boolean | number | string
   type ParameterValues = ReadonlyMap<ParameterId, ParameterValue>
+  interface PartWayStart
+  readonly PartWayStart.leadIn: number
+  readonly PartWayStart.frameGrid: number
   interface PlacedMarker
   readonly PlacedMarker.id: MarkerId
   readonly PlacedMarker.displayName: string
@@ -2400,14 +2395,18 @@ Published paths
   function ambisonicComponentOf(layout: ChannelLayout, channel: number): AmbisonicComponent | undefined
   function ambisonicLayout(convention: AmbisonicConvention): DomainResult<ChannelLayout>
   function anchorResolver(asset: Asset): AnchorResolver
+  function appliedProcessors(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function appliedSlots(slots: readonly ChainSlot[]): readonly ChainSlot[]
   function applyStages(stages: readonly PlanStage[], place: BlockPlace, channels: readonly Float32Array<ArrayBufferLike>[]): readonly Float32Array<ArrayBufferLike>[]
   function assetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
+  function bypassedAssetPlan(asset: Asset, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
+  function bypassedRegionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): DomainResult<EditPlan>
   function cancellationReason(signal: CancellationSignal): Error
   function chainLatency(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): DomainResult<ProcessorLatency>
+  function chainListening(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): ChainListening
   function chainOutputLayout(chain: Pick<EffectChain, "slots">, catalogue: ProcessorCatalogue, input: ChannelLayout, sampleRate: SampleRate): DomainResult<ChannelLayout>
   function chainUseCount(users: ChainUsers): number
   function chainUsers(project: Project, chain: EffectChainId): ChainUsers
@@ -2423,6 +2422,7 @@ Published paths
   function clipsOverlap(left: Clip, right: Clip): boolean
   function combine<TValue>(results: readonly DomainResult<TValue>[]): DomainResult<readonly TValue[]>
   function containsSample(start: SampleCount, length: SampleCount, inner: SampleCount): boolean
+  function controlPosition(parameter: NumericParameterDescriptor, value: number): number
   function conversionMatrix(from: ChannelLayout, to: ChannelLayout): DomainResult<ChannelMatrix>
   function convertSampleRate(count: SampleCount, from: SampleRate, to: SampleRate): DomainResult<SampleCount>
   function convertedFrameCount(length: number, from: number, to: number): number
@@ -2458,6 +2458,7 @@ Published paths
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
   function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
+  function parameterAtPosition(parameter: NumericParameterDescriptor, position: number): number
   function parameterOf(descriptor: Pick<ProcessorDescriptor, "parameters">, key: string): ParameterDescriptor | undefined
   function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
   function placeOf(segment: PlanSegment): BlockPlace
@@ -2492,6 +2493,7 @@ Published paths
   function tracksInOrder(project: Project): readonly Track[]
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
   function treatmentValues(descriptor: ProcessorDescriptor, step: TreatmentStep): DomainResult<ParameterValues>
+  function unheardLive(descriptor: ProcessorDescriptor): string | undefined
   function unrackedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function unrackedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
@@ -3332,6 +3334,9 @@ Published paths
   HttpPackSource.catalogue: (signal?: AbortSignal) => Promise<DomainResult<readonly ModelPackManifest[]>>
   HttpPackSource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
   HttpPackSource.urlOf: (range: FileRange) => string
+  interface ImportedPack
+  readonly ImportedPack.manifest: ModelPackManifest
+  readonly ImportedPack.source: ImportedPackSource
   class ImportedPackSource
   new ImportedPackSource(manifest: ModelPackManifest, files: ReadonlyMap<string, ByteSource>): ImportedPackSource
   readonly ImportedPackSource.manifest: ModelPackManifest
@@ -3384,6 +3389,8 @@ Published paths
   readonly PackFile.path: string
   readonly PackFile.bytes: number
   readonly PackFile.sha256: string
+  interface PackFolder
+  PackFolder.open: (path: string) => Promise<ByteSource | undefined>
   class PackInstaller
   new PackInstaller(services: InstallerServices): PackInstaller
   readonly PackInstaller.services: InstallerServices
@@ -3443,6 +3450,7 @@ Published paths
   PackStore.seal: (ref: PackRef) => Promise<DomainResult<void>>
   PackStore.remove: (ref: PackRef) => Promise<DomainResult<void>>
   PackStore.transferring: <TValue>(work: () => Promise<TValue>, signal?: AbortSignal) => Promise<TValue>
+  type PackVersionCondition = { readonly condition: "device-unavailable"; readonly reason: DomainFailure; } | { readonly condition: "incompatible"; readonly reason: DomainFailure; } | { readonly condition: "runs"; } | { readonly condition: "update-available"; readonly update: ModelPackManifest; }
   type ReceiveChunk = (chunk: Uint8Array<ArrayBuffer>) => Promise<DomainResult<void>>
   interface Retention
   readonly Retention.pinned: readonly PackRef[]
@@ -3464,15 +3472,31 @@ Published paths
   const nobleSha256: Sha256
   const nobleTextSha256: TextSha256
   function packKey(ref: PackRef): string
+  function packVersionCondition(manifest: ModelPackManifest, context: Pick<AvailabilityContext, "catalogue" | "device" | "packs" | "runtime">): PackVersionCondition
   function packsToFetch(needs: readonly PackNeed[], context: AvailabilityContext, policy: AutomaticDownload): readonly ModelPackManifest[]
   function readModelPackManifest(text: string): DomainResult<ModelPackManifest>
   function readPackCatalogue(text: string): DomainResult<readonly ModelPackManifest[]>
+  function readPackFolder(folder: PackFolder, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedPack>>
   function refOf(manifest: ModelPackManifest): PackRef
   function updatePack(installer: PackInstaller, previous: PackRef, next: ModelPackManifest, source: PackSource, retention: Retention, signal?: AbortSignal | undefined): Promise<DomainResult<UpdateOutcome>>
   function versionAvailability(ref: PackRef, context: Pick<AvailabilityContext, "device" | "packs" | "runtime">): VersionAvailability
 
 @audiogubbins/model-packs/testing
   const ANY_SHA256: string
+  class MemorySource
+  new MemorySource(packs: readonly TestPack[], options?: SourceOptions): MemorySource
+  readonly MemorySource.reads: RecordedRead[]
+  MemorySource.catalogues: number
+  MemorySource.mostAtOnce: number
+  MemorySource.inFlight: number
+  readonly MemorySource.packs: ReadonlyMap<string, TestPack>
+  readonly MemorySource.options: SourceOptions
+  MemorySource.broken: boolean
+  MemorySource.catalogue: () => Promise<DomainResult<readonly ModelPackManifest[]>>
+  MemorySource.read: (range: FileRange, receive: ReceiveChunk, signal?: AbortSignal) => Promise<DomainResult<void>>
+  interface RecordedRead
+  readonly RecordedRead.path: string
+  readonly RecordedRead.offset: number
   interface SampleOptions
   readonly SampleOptions.id?: string
   readonly SampleOptions.version?: string
@@ -3480,6 +3504,14 @@ Published paths
   readonly SampleOptions.processors?: readonly string[]
   readonly SampleOptions.detectors?: readonly string[]
   readonly SampleOptions.runtime?: Partial<import("packages/model-packs/src/manifest").PackRuntime>
+  interface SourceOptions
+  readonly SourceOptions.chunkBytes?: number
+  readonly SourceOptions.breakAt?: { readonly path: string; readonly afterBytes: number; }
+  readonly SourceOptions.serve?: ReadonlyMap<string, Uint8Array<ArrayBuffer>>
+  readonly SourceOptions.afterChunk?: (path: string, served: number) => void
+  interface TestPack
+  readonly TestPack.manifest: ModelPackManifest
+  readonly TestPack.files: ReadonlyMap<string, Uint8Array<ArrayBuffer>>
   function describePackStoreContract(name: string, make: () => PackStore): void
   function sampleManifest(options?: SampleOptions): ModelPackManifest
 
@@ -4932,6 +4964,9 @@ Published paths
   interface PackChange
   readonly PackChange.ref: PackRef
   readonly PackChange.state: InstallState
+  interface PackImport
+  readonly PackImport.manifest: ModelPackManifest
+  readonly PackImport.state: InstallState
   interface PacksClient
   PacksClient.installations: (signal?: AbortSignal) => Promise<DomainResult<readonly Installation[]>>
   PacksClient.catalogue: (catalogue: string, signal?: AbortSignal) => Promise<DomainResult<readonly ModelPackManifest[]>>
@@ -4940,6 +4975,7 @@ Published paths
   PacksClient.retry: (catalogue: string, ref: PackRef, signal?: AbortSignal) => Promise<DomainResult<InstallState>>
   PacksClient.pause: (ref: PackRef) => Promise<DomainResult<void>>
   PacksClient.cancel: (ref: PackRef) => Promise<DomainResult<InstallState>>
+  PacksClient.importFolder: (folder: PageFolder, signal?: AbortSignal) => Promise<DomainResult<PackImport>>
   PacksClient.remove: (ref: PackRef, knowingly: boolean) => Promise<DomainResult<InstallState>>
   PacksClient.read: (ref: PackRef, path: string, signal?: AbortSignal) => Promise<DomainResult<KeptFile>>
   PacksClient.listen: (listener: (change: PackChange) => void) => () => void
@@ -5039,6 +5075,7 @@ Published paths
   function connectStorage(endpoint: PortEndpoint, diagnostics: Pick<DiagnosticCentre, "relay">): StorageClient
 
 @audiogubbins/storage-runtime/testing
+  type CatalogueSource = (catalogue: string) => PackSource
   interface HostServices extends OpeningServices, CleanupRunServices, PackServices
   readonly HostServices.repository: ProjectRepository
   readonly HostServices.invocationProvenance: InvocationProvenance
@@ -5059,6 +5096,7 @@ Published paths
   readonly HostServices.caches: CacheStore
   readonly HostServices.packs: import("packages/storage/src/model-pack-store").ModelPackStore
   readonly HostServices.packPins: import("packages/storage/src/pack-cleanup").PackPins
+  readonly HostServices.packSource: CatalogueSource
   readonly HostServices.onPackChanged: (listener: import("packages/storage-runtime/src/host/pack-services").PackChanged) => () => void
   interface MemoryStorageOptions
   readonly MemoryStorageOptions.tree?: StorageTree
@@ -5066,6 +5104,7 @@ Published paths
   readonly MemoryStorageOptions.coordinator?: MemoryLeaseCoordinator
   readonly MemoryStorageOptions.tab?: { readonly name: string; readonly seed: number; readonly label?: string; }
   readonly MemoryStorageOptions.clock?: Clock
+  readonly MemoryStorageOptions.packSource?: CatalogueSource
   interface MemoryWorker
   readonly MemoryWorker.coordinator: MemoryLeaseCoordinator
   readonly MemoryWorker.hostLogs: HostLogs
@@ -6051,6 +6090,19 @@ packages/design-system/src/primitives/row-window.ts
   readonly WindowRow.index: number
   readonly WindowRow.before: number
 
+packages/design-system/src/primitives/value-slider.tsx
+  interface SliderFields
+  readonly SliderFields.label: string
+  readonly SliderFields.value: number
+  readonly SliderFields.minimum: number
+  readonly SliderFields.maximum: number
+  readonly SliderFields.onValueChange: (value: number) => void
+  readonly SliderFields.onValueCommit?: (value: number) => void
+  readonly SliderFields.describeValue: (value: number) => string
+  readonly SliderFields.displayValue?: string
+  readonly SliderFields.disabled?: boolean
+  type SliderTravel = { readonly scale: SliderScale; readonly step?: undefined; } | { readonly step: number; readonly scale?: undefined; }
+
 packages/detection-runtime/src/detection-host.ts
   interface Waiting
   readonly Waiting.key: string
@@ -6466,6 +6518,7 @@ packages/storage-runtime/src/host/pack-services.ts
   readonly PackServices.packs: ModelPackStore
   readonly PackServices.packInstaller: PackInstaller
   readonly PackServices.packPins: PackPins
+  readonly PackServices.packSource: CatalogueSource
   readonly PackServices.onPackChanged: (listener: PackChanged) => () => void
 
 packages/storage-runtime/src/protocol/backup-operations.ts
@@ -6501,7 +6554,7 @@ packages/storage-runtime/src/protocol/operations.ts
 packages/storage-runtime/src/protocol/pack-operations.ts
   interface CatalogueAt
   readonly CatalogueAt.catalogue: string
-  type PackOperations = { 'packs.installations': Operation<undefined, DomainResult<readonly Installation[]>>; 'packs.catalogue': Operation<CatalogueAt, DomainResult<readonly ModelPackManifest[]>>; 'packs.download': Operation<CatalogueAt & { readonly manifest: ModelPackManifest; }, DomainResult<InstallState>>; 'packs.resume': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.retry': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.pause': Operation<PackRef, DomainResult<void>>; 'packs.cancel': Operation<PackRef, DomainResult<InstallState>>; 'packs.remove': Operation<{ readonly ref: PackRef; readonly knowingly: boolean; }, DomainResult<InstallState>>; 'packs.read': Operation<{ readonly ref: PackRef; readonly path: string; }, DomainResult<KeptFile>>; }
+  type PackOperations = { 'packs.installations': Operation<undefined, DomainResult<readonly Installation[]>>; 'packs.catalogue': Operation<CatalogueAt, DomainResult<readonly ModelPackManifest[]>>; 'packs.download': Operation<CatalogueAt & { readonly manifest: ModelPackManifest; }, DomainResult<InstallState>>; 'packs.resume': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.retry': Operation<CatalogueAt & { readonly ref: PackRef; }, DomainResult<InstallState>>; 'packs.pause': Operation<PackRef, DomainResult<void>>; 'packs.import': Operation<{ readonly folder: CrossingFolder; }, DomainResult<PackImport>>; 'packs.cancel': Operation<PackRef, DomainResult<InstallState>>; 'packs.remove': Operation<{ readonly ref: PackRef; readonly knowingly: boolean; }, DomainResult<InstallState>>; 'packs.read': Operation<{ readonly ref: PackRef; readonly path: string; }, DomainResult<KeptFile>>; }
 
 packages/storage-runtime/src/protocol/page-operations.ts
   type BackupCopy = { readonly project: import("packages/domain/src/index").ProjectId; readonly name: string; readonly number: number; readonly at: number; }

@@ -14,6 +14,7 @@ import {
   succeed,
   type DomainResult,
   type LibraryContent,
+  type LibraryEntryId,
   type LibraryEntryKind,
   type ProcessorInstance,
 } from '@audiogubbins/domain';
@@ -53,8 +54,16 @@ export function librarySession(context: ShellContext): LibrarySession | string {
   return typeof session === 'string' ? session : { library: stores.savedProcessing, session };
 }
 
-/** The entry an invocation names, as its identifier, or why it names none. */
-export function entryArgument(invocation: CommandInvocation) {
+/**
+ * The entry an invocation names, as its identifier, or why it names none: run
+ * from the palette, which names none, the person is told where to choose one.
+ */
+export function entryArgument(
+  invocation: CommandInvocation,
+): { readonly id: LibraryEntryId } | { readonly refused: string } {
+  if (textArgument(invocation, 'entry') === undefined) {
+    return { refused: 'Choose a saved chain or preset in the Library panel.' };
+  }
   return idArgument<'LibraryEntryId'>(invocation, 'entry', 'saved chain or preset');
 }
 

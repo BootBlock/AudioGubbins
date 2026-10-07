@@ -2,6 +2,11 @@ import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import type { CommandInvocation } from '@audiogubbins/commands';
+import { instantiateProcessor, type EffectChain } from '@audiogubbins/domain';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { addChainInvocation, setRackInvocation } from '@audiogubbins/project-commands';
+
 import { regionEntryId } from '../../assets/project-entry.js';
 import { shellCommands } from '../../commands/shell-commands.js';
 import type { ProjectWindow } from '../../testing/project-context.js';
@@ -24,7 +29,10 @@ const LABELS: ReadonlyMap<string, string> = new Map(
  * Draws the Inspector over a window's stores, its controls running the
  * window's commands, and gives back what those commands refused.
  */
-function inspectorOver(window: ProjectWindow): readonly string[] {
+function inspectorOver(
+  window: ProjectWindow,
+  ran: (readonly [string, CommandInvocation['arguments']])[] = [],
+): readonly string[] {
   const { context } = window;
   const refusals: string[] = [];
   render(
@@ -39,8 +47,9 @@ function inspectorOver(window: ProjectWindow): readonly string[] {
       }}
       commands={{
         run: (id, args) => {
-          const ran = window.run(id, args);
-          if (ran.kind === 'refused') refusals.push(ran.failures[0].summary);
+          ran.push([id, args]);
+          const outcome = window.run(id, args);
+          if (outcome.kind === 'refused') refusals.push(outcome.failures[0].summary);
         },
         unavailableReason: () => undefined,
       }}
@@ -270,6 +279,69 @@ describe('the Inspector panel (WU-05.D)', () => {
     });
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveValue('Intro');
+  });
+
+  it('says what the rack runs, names a range’s chain by its processors, and shows the rack by its command', async () => {
+    const audio = await loopInView();
+    const { context } = audio.window;
+    const make = (typeKey: string) => {
+      const descriptor = PROCESSOR_CATALOGUE.get(typeKey);
+      if (descriptor === undefined) throw new Error(`The build has no ${typeKey}.`);
+      return instantiateProcessor(context.ids.next<'ProcessorId'>(), descriptor);
+    };
+    const rack: EffectChain = {
+      id: context.ids.next<'EffectChainId'>(),
+      slots: [make('gain'), { ...make('compressor'), enabled: false }],
+    };
+    const asset = () => {
+      const held = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
+      if (held === undefined) throw new Error('The asset is in the project.');
+      return held;
+    };
+    await audio.session.run(addChainInvocation(rack));
+    await audio.session.run(setRackInvocation({ kind: 'asset', asset: asset() }, rack.id));
+    audio.window.run('editor.select-time', { start: 0, end: 4_800 });
+    await audio.window.runAndHear('rack.add-processor', {
+      typeKey: 'parametric-equaliser',
+      place: 'selection',
+    });
+    const ran: (readonly [string, CommandInvocation['arguments']])[] = [];
+    inspectorOver(audio.window, ran);
+
+    expect(
+      await screen.findByText(
+        'It runs Gain, then Compressor, some of it bypassed. One of its ranges is processed by a chain of its own.',
+      ),
+    ).toBeInTheDocument();
+    await expect
+      .poll(() => editsUnder('Its edits').textContent)
+      .toMatch(/^Processed through Parametric equaliser, from /u);
+    await userEvent.click(screen.getByRole('button', { name: 'Show the rack' }));
+    expect(ran.at(-1)).toEqual(['workspace.show-rack', undefined]);
+  });
+
+  it('shows the settings of the processor selected, set by its command, the rack’s controls', async () => {
+    const audio = await loopInView();
+    await audio.window.runAndHear('rack.add-processor', { typeKey: 'gain' });
+    const rack = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId)?.rack;
+    const gain = [...audio.session.getSnapshot().model.state.project.effectChains.values()].find(
+      (chain) => chain.id === rack,
+    )?.slots[0];
+    if (gain === undefined) throw new Error('The rack holds a gain.');
+    audio.window.run('editor.select-processor', { processorId: gain.id });
+    inspectorOver(audio.window);
+    const user = userEvent.setup();
+
+    expect(screen.getByRole('heading', { name: 'Processor: Gain' })).toBeInTheDocument();
+    const typed = screen.getByRole('textbox', { name: 'Gain in dB, typed' });
+    await user.clear(typed);
+    await user.type(typed, '-4.5{Enter}');
+
+    await expect.poll(() => audio.window.said).toContain('Gain of “Gain” set to −4.5 dB.');
+    expect(screen.getByRole('slider', { name: 'Gain' })).toHaveAttribute(
+      'aria-valuetext',
+      '−4.5 dB',
+    );
   });
 
   it('says audio of the session keeps no edits', async () => {

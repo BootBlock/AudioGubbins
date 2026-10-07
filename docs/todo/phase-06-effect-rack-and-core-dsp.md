@@ -1,6 +1,7 @@
 > **Status:** In progress. 2026-10-07: the sixth session committed the
-> chain depth bounds and the ML wiring in the application; each slice is
-> committed with `verify:commit` green. Next is the views (see "Next").
+> chain depth bounds, the ML wiring, the ADR amendments and the views; each
+> slice is committed with `verify:commit` green. Next is the ML hearing
+> check in a browser, then the scripts and the phase's browser test.
 
 # Phase 06 — Effect Rack and Core DSP
 
@@ -249,6 +250,35 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     Pack removal goes through the installer (REQ-ARCH-153); cleanup handles
     its busy and pinned refusals by code and fails on any other.
 
+28. **The views** (2026-10-07). Every action is a shell command over the
+    project commands, one history step each. `rack.*` commands
+    (`apps/web/src/commands/rack-*.ts`) add, remove, move, bypass, solo and
+    mix processors, set and reset parameters (out of range refused, never
+    clamped), add parallel groups and set their law, take a rack away, make a
+    shared chain independent, and copy and paste through the clipboard's
+    chain payload; `editor.select-processor` selects one. The "Effects rack"
+    panel and the Inspector share one processor control (`ValueSlider` with
+    the descriptor's taper, `parameter-control.ts` in the domain). No
+    mechanism joins a drag into one history step, so a value is committed at
+    the drag's end, on each keyboard step and on a typed value. How a chain
+    is heard has one rule in the domain (`processing/chain-listening.ts`),
+    which the effect rack calls. Processed/original is a page-level choice
+    (`hearing-store.ts`, `transport.listen-original`/`-processed`): the
+    original is the target with every chain bypassed and every other edit
+    kept (`bypassedAssetPlan`, `bypassedRegionPlan`). A/B is the history
+    comparison, opened by `rack.compare-before-change` against the state
+    before the rack's chain last changed. The "Library" panel lists saved
+    chains and presets, applies a chain to one or several targets (shared
+    or copied) and a preset to a processor; the library store re-reads on a
+    `BroadcastChannel` word every change posts and when the tab regains
+    focus. The "Model packs" panel follows the installer's state; `packs.*`
+    commands install, pause, resume, cancel, retry, remove (knowingly for a
+    pinned version) and import a pack's folder (`readPackFolder`,
+    `packs.import` in the storage worker); the catalogue is read only when
+    the panel is shown or the person asks. REQ-AUDIO-139's conditions are
+    named as the requirement names them, by one rule shared with processor
+    availability (`packVersionCondition`).
+
 ## The first model packs' sources (researched 2026-10-05)
 
 None is blocked. Every graph below loaded and ran in onnxruntime-web 1.30
@@ -454,6 +484,17 @@ commits), with `verify:commit` green:
 - The contract test's path pattern no longer takes a URL's scheme for a
   drive.
 - Every test the wiring added was seen to fail against a mutation.
+- The Vite configuration loads in Node again: its files import no
+  workspace package by value (`tools/inference-runtime-files.mjs`, the
+  cruise rule `vite-configuration-loads-in-node`); `fb3c512` had broken
+  `vite`, `vite build` and the browser tests.
+- ADR-0061 and ADR-0062 amended (`4fd5a88`).
+- The views (decision 28). The runtime's WebAssembly is fetched with the
+  platform's `fetch` called as a function: called as a method it threw
+  "Illegal invocation" in the browser, which the packs agent's browser run
+  found. That run installed DeepFilterNet 3 from the application's origin,
+  paused and resumed it, and made no request beyond the app's and the
+  pack's files.
 
 Open points from `ml-runtime`:
 
@@ -504,8 +545,17 @@ Open points from `model-packs`:
   pinned by a test building the deepest chain. `addChain` and `removeChain`
   say what they do. Left: `SHALLOW_RECORD_DEPTH` (32) is a hand-picked
   floor for records that hold no chain; `clipboard-commands.ts` has no test.
-- Other tabs are not told when the library changes; the library view must
-  re-read on focus or listen on a broadcast channel.
+- Closed (decision 28): other tabs hear a library change.
+- No history mechanism joins a drag's changes into one step, so a dragged
+  parameter is heard at release. No command removes a range rack edit (no
+  edit is removed but by undo). A range's position shows at the asset's
+  current rate. A processor selection replaces a region selection (one set
+  of objects per selection). After a reload no editor is in use until
+  clicked. The pack manager says which version a project needs, not which
+  project (the pins hold no names); no pack serves a detector, so
+  "optional enhancement unavailable" is never shown; `updatePack` has no
+  command (a newer version installs beside the old). The Library panel has
+  no browser test.
 - Preview renders are in memory, not on disk; the preview worker uses the
   reference DSP; a running change is heard after the feeder's read-ahead;
   nothing measures live cost, so a too-costly live chain never moves to a
@@ -536,23 +586,13 @@ Open points from `model-packs`:
 - The dereverberation allocation tests failed once under the whole
   suite's load and passed on the next run; watch for a repeat.
 
-Next, in order (2026-10-06):
+Next, in order (2026-10-07):
 
-1. The views, through project commands only: rack and processor views in
-   the editor and the Inspector (which also lets the cached preview mode be
-   tested in a browser), the library view (re-read on focus or a broadcast
-   channel), applying a saved chain to several targets, A/B and
-   processed/original comparison, and the model-pack manager view with the
-   commands that install, pause, resume and remove a pack (the consumer of
-   `PACK_CATALOGUE`). Then the ML browser run: `pnpm build` with
-   `AUDIOGUBBINS_PACKS_IN_BUILD=1`, install DeepFilterNet 3 from the
-   application's own origin, hear a chain holding it, and save screenshots
-   and every request the page makes (only the app's and the pack's files).
-2. Amend ADR-0061 (decision 24: the preview worker makes the cached
-   render) and ADR-0062 (the `queued` install state, the runtime's
-   WebAssembly read and checked as bytes), with `spec:verify` and
-   `CHECKSUMS.sha256`.
-3. Scripts `test:dsp-property` and `test:ml-locality` (no request carrying
+1. The ML hearing check: a build with `AUDIOGUBBINS_PACKS_IN_BUILD=1`,
+   install DeepFilterNet 3, rack a short sound with it, and hear it (no
+   "cannot be heard"), with the request log (the app's and the pack's files
+   only); the run before the `fetch` fix stopped there.
+2. Scripts `test:dsp-property` and `test:ml-locality` (no request carrying
    audio, project data or derived content); the phase's browser test
    (apply a chain to a selection, give a region a rack, reload, hear the
    same project); gates; ONE review pass with the packet's seven lenses

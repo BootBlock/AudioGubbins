@@ -45,6 +45,21 @@ describe('the runtime files read from the application’s own origin', () => {
     ]);
   });
 
+  it('calls the platform’s fetch as a function, which a browser refuses as a method of another object', async () => {
+    // As a browser's own `fetch` does: called with anything but the global
+    // scope, or nothing, as `this`, it throws "Illegal invocation".
+    function platformFetch(this: unknown): Promise<RuntimeFileResponse> {
+      if (this !== undefined && this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(bodyOf([0, 97, 115, 109]));
+    }
+    const files = new OriginRuntimeFiles(BASE, platformFetch);
+
+    expect(await files.read(RuntimeBuild.Cpu)).toEqual({
+      ok: true,
+      value: new Uint8Array([0, 97, 115, 109]),
+    });
+  });
+
   it('answers a status other than 200 as the file being unavailable, with the status', async () => {
     const files = new OriginRuntimeFiles(BASE, answering({ ...bodyOf([1]), status: 404 }));
     const read = await files.read(RuntimeBuild.Cpu);

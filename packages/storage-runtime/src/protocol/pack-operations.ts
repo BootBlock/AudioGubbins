@@ -1,8 +1,9 @@
 /**
  * What the page asks the storage worker of model packs (ADR-0062,
  * REQ-AUDIO-139): the versions the installer knows of, what the catalogue
- * offers, each step of a version's installation and removal, and a file of an
- * installed version read for a model to run.
+ * offers, each step of a version's installation and removal, a version brought
+ * in from the folder a person chose, and a file of an installed version read
+ * for a model to run.
  *
  * The installer is the worker's, beside the store it keeps packs in, so every
  * change of a version, a cleanup's removal among them, is one its state
@@ -22,6 +23,7 @@ import type {
 } from '@audiogubbins/model-packs';
 
 import type { Operation } from './operations.js';
+import type { CrossingFolder } from './page-operations.js';
 
 /** The URL of the catalogue the build configures: the directory its files are under, ending in `/`. */
 export interface CatalogueAt {
@@ -47,6 +49,14 @@ export type PackOperations = {
   'packs.resume': Operation<CatalogueAt & { readonly ref: PackRef }, DomainResult<InstallState>>;
   'packs.retry': Operation<CatalogueAt & { readonly ref: PackRef }, DomainResult<InstallState>>;
   'packs.pause': Operation<PackRef, DomainResult<void>>;
+
+  /**
+   * Installs the version the folder a person chose holds, its manifest and the
+   * files it names, checked as a download is: from nothing, or from what is
+   * kept of a paused or failed one. Nothing is fetched; abandoning the call
+   * pauses it.
+   */
+  'packs.import': Operation<{ readonly folder: CrossingFolder }, DomainResult<PackImport>>;
   'packs.cancel': Operation<PackRef, DomainResult<InstallState>>;
 
   /**
@@ -64,6 +74,12 @@ export type PackOperations = {
    */
   'packs.read': Operation<{ readonly ref: PackRef; readonly path: string }, DomainResult<KeptFile>>;
 };
+
+/** What an import came to: the version the folder held, by its manifest, and its state. */
+export interface PackImport {
+  readonly manifest: ModelPackManifest;
+  readonly state: InstallState;
+}
 
 /** A version's installation entering a state, as the stream of packs carries it. */
 export interface PackChange {

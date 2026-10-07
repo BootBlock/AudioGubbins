@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
-import { RUNTIME_WEBASSEMBLY_FILES, RuntimeBuild } from '@audiogubbins/ml-runtime';
+import type { RuntimeBuild } from '@audiogubbins/ml-runtime';
 import type { Connect, Plugin, ResolvedConfig } from 'vite';
+
+import { RUNTIME_FILES } from '../../tools/inference-runtime-files.mjs';
 
 /**
  * The inference runtime's WebAssembly, served by the application from its own
@@ -64,8 +66,7 @@ export function shippedRuntime(folder: string): ShippedRuntime {
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(version)) {
     throw new Error(`The inference runtime in ${folder} states no version.`);
   }
-  const files = Object.values(RuntimeBuild).map((build) => {
-    const name = RUNTIME_WEBASSEMBLY_FILES[build];
+  const files = RUNTIME_FILES.map(({ build, name }) => {
     const bytes = new Uint8Array(readFileSync(join(folder, 'dist', name)));
     return { build, name, bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
   });

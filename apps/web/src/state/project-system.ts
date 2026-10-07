@@ -13,8 +13,10 @@
  * application's clock ticks the backup scheduler, which the storage leaves to
  * the application because it keeps no timer. The backups folder kept by this
  * browser is looked for as the page starts, without asking for leave to write
- * into it, which only the person's gesture can. Taking the system down gives
- * up every piece of work it started in the storage worker.
+ * into it, which only the person's gesture can. The person's library of saved
+ * chains and presets is read again whenever another tab says it changed it, or
+ * the person comes back to this one. Taking the system down gives up every
+ * piece of work it started in the storage worker.
  */
 
 import {
@@ -27,6 +29,7 @@ import type { StorageClient } from '@audiogubbins/storage-runtime';
 import type { PeakCacheStore } from '@audiogubbins/waveform';
 
 import { browserBackupFolder } from '../io/backup-folder.js';
+import { libraryChannel } from '../io/library-channel.js';
 import { browserLinkedFiles } from '../io/linked-files.js';
 import { NO_PEAK_CACHE, storedPeakCache } from '../io/stored-peak-cache.js';
 import { browserTransferFiles } from '../io/transfer-files.js';
@@ -106,9 +109,14 @@ function run(
   const ticking = setInterval(() => {
     projects.backups.tick().catch(logFault('A scheduled backup failed.'));
   }, BACKUP_TICK_MILLISECONDS);
+  const stopFollowingLibrary = projects.savedProcessing.follow(
+    needs.page,
+    logFault('Your saved chains and presets could not be read again.'),
+  );
   return () => {
     stopWatching();
     clearInterval(ticking);
+    stopFollowingLibrary();
   };
 }
 
@@ -136,6 +144,10 @@ export function startProjectSystem(
     canLink: platform.pickers !== undefined,
     backupFolder: browserBackupFolder(platform.pickers, services.keeper),
     linkedFiles: browserLinkedFiles(services.keeper),
+    libraryChanges: libraryChannel(
+      platform.openBroadcastChannel,
+      needs.diagnostics.loggerFor('projects'),
+    ),
   };
   return { ...projectSystemOver(services, ports, needs), storageAbsences };
 }

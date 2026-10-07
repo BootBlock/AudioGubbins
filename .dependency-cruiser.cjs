@@ -273,6 +273,17 @@ module.exports = {
       },
     },
     {
+      name: 'vite-configuration-loads-in-node',
+      severity: 'error',
+      comment:
+        "Vite bundles its configuration's own files but loads a package it imports through Node, " +
+        'with no compiler, and a workspace package is TypeScript source: a value imported from ' +
+        'one stops `vite`, `vite build` and every browser test before they start. A type is ' +
+        'erased, so it may be imported.',
+      from: { path: '^apps/web/[^/]+[.][cm]?ts$' },
+      to: { path: '^packages/', dependencyTypesNot: ['type-only'] },
+    },
+    {
       name: 'rack-made-only-in-thread-entries',
       severity: 'error',
       comment:

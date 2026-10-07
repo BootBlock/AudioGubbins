@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { processorsOf } from '@audiogubbins/domain';
+import { MemorySource, sampleManifest } from '@audiogubbins/model-packs/testing';
 import { sine } from '@audiogubbins/test-fixtures';
 
+import { projectWorld } from '../testing/project-context.js';
 import {
   holdPlatformFiles,
   rackedWithDeepFilterNet,
@@ -12,12 +14,12 @@ import {
 holdPlatformFiles();
 
 /**
- * A project that names a model pack this browser does not hold
- * (REQ-AUDIO-139, ADR-0062): opening it, and racking a sound with the
- * processor that needs the pack, fetches nothing, however the page and the
- * storage worker behind it are composed, and the project stays as it is, its
- * instance and settings kept, while what the processor would make is shown as
- * unavailable, saying which condition holds.
+ * A project that names a model pack this browser does not hold (REQ-AUDIO-139,
+ * ADR-0062): opening it, and racking a sound with the processor that needs the
+ * pack, fetches nothing, however the page and the storage worker behind it are
+ * composed, the pack manager's catalogue among them, and the project stays as
+ * it is, its instance and settings kept, while what the processor would make is
+ * shown as unavailable, saying which condition holds.
  */
 
 afterEach(() => {
@@ -33,7 +35,17 @@ describe('a project naming a model pack this browser does not hold', { timeout: 
       requests.push(asked);
       return Promise.reject(new TypeError('No request may be made.'));
     });
-    const audio = await windowWithAudio({ fixture: sine(440, { length: 48_000 }), name: 'Voice' });
+    // A catalogue that offers the very pack the processor needs.
+    const offered = new MemorySource([
+      { manifest: sampleManifest({ id: 'deepfilternet-3' }), files: new Map() },
+    ]);
+    const audio = await windowWithAudio({
+      world: projectWorld(undefined, () => offered),
+      fixture: sine(440, { length: 48_000 }),
+      name: 'Voice',
+    });
+    // Followed, as the page follows what is kept once anything shows it.
+    audio.window.packs.subscribe(() => undefined);
 
     const rack = await rackedWithDeepFilterNet(audio);
 
@@ -49,6 +61,9 @@ describe('a project naming a model pack this browser does not hold', { timeout: 
       ),
     ).toEqual(['deepfilternet-3']);
     expect(requests).toEqual([]);
+    expect(offered.catalogues).toBe(0);
+    expect(offered.reads).toEqual([]);
+    expect(audio.window.packs.get().catalogue).toEqual({ kind: 'unasked' });
   });
 
   it('opens a sound whose rack bypasses the processor, since a processor that does not run needs no model', async () => {

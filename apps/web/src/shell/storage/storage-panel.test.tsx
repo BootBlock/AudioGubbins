@@ -212,6 +212,21 @@ describe('the Storage panel', () => {
     });
   });
 
+  it('opens the Model packs panel from beside its packs, and from its own controls', async () => {
+    const { run } = panelOver({ usage: USAGE, plan: PACK_PLAN });
+
+    const packs = screen.getByRole('group', { name: 'Installed model packs' });
+    await userEvent.click(within(packs).getByRole('button', { name: 'Manage model packs' }));
+    expect(run).toHaveBeenLastCalledWith('workspace.show-model-packs');
+    run.mockClear();
+    const [own] = screen
+      .getAllByRole('button', { name: 'Manage model packs' })
+      .filter((button) => !packs.contains(button));
+    if (own === undefined) throw new Error('The panel has its own way to the packs.');
+    await userEvent.click(own);
+    expect(run).toHaveBeenLastCalledWith('workspace.show-model-packs');
+  });
+
   it('tells what goes for good from packs downloaded again, and leaves a chosen pack out again', async () => {
     const { run } = panelOver({ usage: USAGE, plan: CHOSEN_PACK_PLAN });
 

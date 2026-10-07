@@ -13,7 +13,13 @@ import type { Marker, PlacedMarker, PlacedRegion, Region } from '../project/time
 import { mapResult, type DomainResult } from '../result.js';
 import { derivedSampleCount } from '../time/sample-time.js';
 import { Affinity, anchorResolver, type AnchorResolver, type Span } from './anchors.js';
-import { assetPlan, unrackedAssetPlan, withRack, type PlanContext } from './plan-building.js';
+import {
+  assetPlan,
+  bypassedAssetPlan,
+  unrackedAssetPlan,
+  withRack,
+  type PlanContext,
+} from './plan-building.js';
 import type { EditPlan } from './plan.js';
 import { sliceSegments } from './segment-list.js';
 import { pruneStreams } from './stream-tables.js';
@@ -144,6 +150,22 @@ export function unrackedRegionPlan(
   resolver = anchorResolver(asset),
 ): DomainResult<EditPlan> {
   return mapResult(unrackedAssetPlan(asset, context, region.operations), (whole) =>
+    pruneStreams(regionSlice(whole, resolver, region)),
+  );
+}
+
+/**
+ * What a region sounds like with every chain it runs bypassed: its asset's
+ * audio through the region's own processing but its rack edits, and the
+ * region's span of that, with neither rack run. The original sound beside
+ * the processed one, for comparing the two (REQ-AUDIO-019).
+ */
+export function bypassedRegionPlan(
+  asset: Asset,
+  region: Region,
+  resolver = anchorResolver(asset),
+): DomainResult<EditPlan> {
+  return mapResult(bypassedAssetPlan(asset, region.operations), (whole) =>
     pruneStreams(regionSlice(whole, resolver, region)),
   );
 }

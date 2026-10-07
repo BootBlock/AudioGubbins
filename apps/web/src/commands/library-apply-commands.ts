@@ -281,7 +281,6 @@ function applyChainCommand(): Command<ShellContext> {
       keywords: ['apply', 'chain', 'rack', 'library', 'favourite', 'batch'],
       description:
         'Applies a saved chain to the selected range, regions or assets, or to the whole asset or region shown, as one change; each gets its own copy unless asked to share one.',
-      discoverable: false,
     },
   );
 }
@@ -333,7 +332,6 @@ function applyPresetCommand(): Command<ShellContext> {
       keywords: ['apply', 'preset', 'processor', 'settings', 'library'],
       description:
         'Gives the selected processor, or the named one, the settings a preset keeps, as one change.',
-      discoverable: false,
     },
   );
 }

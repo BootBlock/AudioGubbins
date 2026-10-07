@@ -6,8 +6,9 @@
  *
  * The storage is measured when the panel is first shown and whenever the person
  * asks, and again after a cleanup. Nothing is removed without a plan the person
- * has read, and nothing past the caches without their confirmation. Every
- * action is a command.
+ * has read, and nothing past the caches without their confirmation. The model
+ * packs are managed in their own panel, which this one opens. Every action is a
+ * command.
  */
 
 import { cleanedSentences } from '../../cleanup-words.js';
@@ -17,6 +18,8 @@ import { Button } from '@audiogubbins/design-system';
 import type { StorageUsage } from '@audiogubbins/storage';
 import { counted } from '@audiogubbins/text';
 
+import { showPanelCommandId } from '../../commands/panel-commands.js';
+import { ModelPanelKinds } from '../../panel-kinds.js';
 import type { Observable } from '../../state/observable.js';
 import type { LibraryState } from '../../state/project-library-store.js';
 import type { StorageUsageState } from '../../state/storage-usage-store.js';
@@ -93,6 +96,9 @@ export function StoragePanel({
         </Button>
         <Button compact onClick={() => run('storage.plan-cleanup')}>
           Plan a cleanup
+        </Button>
+        <Button compact onClick={() => run(showPanelCommandId(ModelPanelKinds.ModelPacks))}>
+          Manage model packs
         </Button>
       </div>
       {state.plan !== undefined && (

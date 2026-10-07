@@ -35,13 +35,14 @@ import {
   type ChannelLayout,
   type DomainResult,
   type EffectChain,
+  type PartWayStart,
   type QualitySettings,
   type SampleRate,
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
 import type { CachedStreams } from './cached-streams.js';
-import type { ChainProcessing, ChainRun, PartWayStart, StreamReader } from './chain-processing.js';
+import type { ChainProcessing, ChainRun, StreamReader } from './chain-processing.js';
 import type { ContentReader } from './plan-content.js';
 import { MediaReadFailure } from './plan-content.js';
 import type { ParameterChange, RunningParameters } from './running-parameters.js';

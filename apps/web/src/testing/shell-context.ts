@@ -32,6 +32,7 @@ import { RenderControl } from '../audio/render-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
 import { createAudioSettingsStore, previewQualityOf } from '../state/audio-settings-store.js';
 import { createAudioViewStore } from '../state/audio-view-store.js';
+import { createHearingStore } from '../state/hearing-store.js';
 import { createInteractionStore, type InteractionStore } from '../state/interaction-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
 import {
@@ -51,6 +52,7 @@ import { createVerbosityStore } from '../state/verbosity-store.js';
 import { createWorkspaceStore } from '../state/workspace-store.js';
 import { unavailableStorageRoot } from '../state/storage-root-store.js';
 import { FakePlayback, FakeRendering } from './audio-fakes.js';
+import { noPackManager } from './pack-managers.js';
 import { fakeEditor } from './editor-fakes.js';
 import { recordingTextFiles, type RecordedTextFiles } from './text-files.js';
 
@@ -132,7 +134,7 @@ function fakeAudio(
 ): {
   readonly parts: Pick<
     ShellContext,
-    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly fakes: { readonly playback: FakePlayback; readonly rendering: FakeRendering };
 } {
@@ -157,6 +159,7 @@ function fakeAudio(
         announce,
         logger,
       }),
+      hearing: createHearingStore(),
       rendering: new RenderControl({
         view: audio,
         settings: audioSettings,
@@ -265,6 +268,7 @@ export function buildShellContext(
       ...parts,
       ...fakeEditor(storage, logger),
       detection: detection.control,
+      packs: noPackManager(),
     },
   };
 }

@@ -7,11 +7,12 @@
  * streaming SHA-256 to inject, the same in the browser and in Node; the source
  * port a catalogue is listed and a file read through, with its two
  * implementations, the download over HTTP, one of the two modules in the
- * repository that reach the network, and the files a person already has; the
- * store port the storage package keeps packs through; the installer that
- * composes them; and which of REQ-AUDIO-139's conditions holds for a processor
- * or detector a project names. Everything absent from this list is internal and
- * may change without being a contract change (REQ-REPO-186).
+ * repository that reach the network, and the files a person already has, read
+ * from a pack's folder; the store port the storage package keeps packs through;
+ * the installer that composes them; and which of REQ-AUDIO-139's conditions
+ * holds for a processor or detector a project names, and for one pack version
+ * as the pack manager lists it. Everything absent from this list is internal
+ * and may change without being a contract change (REQ-REPO-186).
  */
 
 export {
@@ -43,6 +44,7 @@ export {
   type PackResponse,
 } from './adapter/http-pack-source.js';
 export { ImportedPackSource } from './imported-pack-source.js';
+export { type ImportedPack, type PackFolder, readPackFolder } from './pack-folder.js';
 
 export { type KeptPack, type PackStore } from './pack-store.js';
 export {
@@ -64,3 +66,4 @@ export {
 } from './availability-context.js';
 export { availabilityOf, packsToFetch } from './availability.js';
 export { type VersionAvailability, versionAvailability } from './version-availability.js';
+export { type PackVersionCondition, packVersionCondition } from './pack-conditions.js';

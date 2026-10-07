@@ -90,7 +90,7 @@ export function storageClientOver(
     sources: sourcesClient(lending),
     media: mediaClient(channel, lending),
     caches: cacheClient(channel),
-    packs: packsClient(channel),
+    packs: packsClient(channel, lending),
     usage: usageClient(channel),
     ownership: ownershipClient(channel),
   };

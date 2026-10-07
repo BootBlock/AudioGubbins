@@ -45,7 +45,7 @@ import { LONGEST_VERSION, PACK_VERSION, compareVersions } from './pack-version.j
 const MOST_PACK_BYTES = 2 ** 34;
 
 /** A manifest's text: 64 files of long paths fit many times over. */
-const MANIFEST_LIMITS: JsonLimits = { maximumLength: 256 * 1024, maximumDepth: 6 };
+export const MANIFEST_LIMITS: JsonLimits = { maximumLength: 256 * 1024, maximumDepth: 6 };
 
 const MOST_TYPE_KEYS = 32;
 

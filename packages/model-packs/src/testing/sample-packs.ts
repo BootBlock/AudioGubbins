@@ -7,6 +7,12 @@ import { QualityLevel } from '@audiogubbins/domain';
 
 import type { ModelPackManifest, PackFile } from '../manifest.js';
 
+/** A pack's manifest and its files' bytes, by path. */
+export interface TestPack {
+  readonly manifest: ModelPackManifest;
+  readonly files: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
+}
+
 /** A hash for a file whose bytes no test checks. */
 export const ANY_SHA256 = '0'.repeat(64);
 

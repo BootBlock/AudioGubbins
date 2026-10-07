@@ -177,10 +177,8 @@ export { DelayLine } from './pcm/delay-line.js';
 export {
   type ChainProcessing,
   type ChainRequest,
-  type ChainListening,
   type ChainRun,
   type ListeningRequest,
-  type PartWayStart,
   type StreamReader,
 } from './pcm/chain-processing.js';
 

@@ -19,9 +19,14 @@ import { anchorResolver } from './anchors.js';
 import { shapesOf } from './edit-shape.js';
 import { validateChain, validateOperation } from './operation-validation.js';
 import type { EditOperation } from './operations.js';
-import { regionPlan, unrackedRegionPlan } from './placement.js';
+import { bypassedRegionPlan, regionPlan, unrackedRegionPlan } from './placement.js';
 import { validateRegion } from './placement-validation.js';
-import { assetPlan, unrackedAssetPlan, type PlanContext } from './plan-building.js';
+import {
+  assetPlan,
+  bypassedAssetPlan,
+  unrackedAssetPlan,
+  type PlanContext,
+} from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
 import { validatePlan } from './plan-validation.js';
 
@@ -217,6 +222,31 @@ function randomChain(seed: number, steps: number) {
   return { next, source, asset, sounds, made };
 }
 
+/**
+ * The source with `made` applied in turn, every chain passing its audio on
+ * unchanged: what the asset sounds like with its processing bypassed. A
+ * paste keeps what it copied, processed as it was when copied, since a
+ * payload is an edit of its own.
+ */
+function replayedBypassed(
+  samples: Samples,
+  asset: Asset,
+  made: readonly { readonly operation: EditOperation; readonly inserted: Samples }[],
+): Samples {
+  const shapes = shapesOf(asset);
+  let sound = samples;
+  for (const [basis, one] of made.entries()) {
+    const rate = shapes[basis]?.sampleRate;
+    sound = applyEdit(
+      sound,
+      one.operation,
+      { ...WORLD, chain: (_, heard) => heard, inserted: one.inserted },
+      rate,
+    );
+  }
+  return sound;
+}
+
 describe('the edit plan with racks, stretches and conversions, against the same applied in order', () => {
   it('renders every random chain to the bits of each edit applied to the samples in turn', () => {
     for (let run = 0; run < 120; run += 1) {
@@ -313,6 +343,60 @@ describe('the edit plan with racks, stretches and conversions, against the same 
           placed.map((channel) => channel.slice(span.start, span.end)),
         ),
         `run ${String(run)}, unracked`,
+      ).toBe(true);
+    }
+  });
+
+  it('bypasses every chain of an asset and keeps every other edit, its rack edits and its rack', () => {
+    for (let run = 0; run < 80; run += 1) {
+      const { source, asset, made, next } = randomChain(13_000 + run, 12);
+      const rack = chainOf(next);
+      const expected = replayedBypassed(source.samples, asset, made);
+      const plan = expectSuccess(bypassedAssetPlan({ ...asset, rack }));
+      expect(
+        sameBits(renderPlan(plan, new Map([[asset.id, source.samples]]), WORLD), expected),
+        `run ${String(run)}`,
+      ).toBe(true);
+    }
+  });
+
+  it('bypasses a region’s rack edits and both racks, its span of its asset kept', () => {
+    for (let run = 0; run < 60; run += 1) {
+      const { source, asset, made, next } = randomChain(17_000 + run, 10);
+      const bypassed = replayedBypassed(source.samples, asset, made);
+      const length = bypassed[0]?.length ?? 0;
+      if (length < 2) continue;
+      const span = rangeIn(next, length);
+      const processingRange = rangeIn(next, length);
+      const region: Region = {
+        id: unsafeBrandId<'RegionId'>('0000eeee-region'),
+        assetId: asset.id,
+        displayName: 'Region',
+        basis: asset.edits.length,
+        start: derivedSampleCount(span.start),
+        end: derivedSampleCount(span.end),
+        tags: [],
+        operations: [
+          {
+            id: unsafeBrandId<'EditOperationId'>('0000ffff-region'),
+            basis: asset.edits.length,
+            range: {
+              start: derivedSampleCount(processingRange.start),
+              end: derivedSampleCount(processingRange.end),
+            },
+            edit: { kind: 'rack', chain: chainOf(next) },
+          },
+        ],
+        rack: chainOf(next),
+      };
+      const withRack = { ...asset, rack: chainOf(next) };
+      const plan = expectSuccess(bypassedRegionPlan(withRack, region, anchorResolver(withRack)));
+      expect(
+        sameBits(
+          renderPlan(plan, new Map([[asset.id, source.samples]]), WORLD),
+          bypassed.map((channel) => channel.slice(span.start, span.end)),
+        ),
+        `run ${String(run)}`,
       ).toBe(true);
     }
   });

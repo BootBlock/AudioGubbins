@@ -5,9 +5,12 @@
  * view of an asset (`editor-panel.tsx`), the reference picture
  * (`picture-panel.tsx`), the project's audio in the Asset Browser
  * (`asset-browser.tsx`), the properties of what the editor acts on in the
- * Inspector (`inspector/inspector-panel.tsx`), what the assistants found in
- * the Analysis panel (`analysis/analysis-panel.tsx`), and the project
- * system's History and Storage panels (`project-panels.tsx`).
+ * Inspector (`inspector/inspector-panel.tsx`), what the assistants found in the
+ * Analysis panel (`analysis/analysis-panel.tsx`), the saved chains and presets
+ * in the Library (`library/library-panel.tsx`), the rack of what the editor
+ * acts on in the Effects rack (`rack/rack-panel.tsx`), the model packs in the
+ * Model packs panel (`packs/pack-manager-panel.tsx`), and the project system's
+ * History and Storage panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -26,8 +29,11 @@ import type { MeterLevels } from '@audiogubbins/audio-runtime';
 
 import type { Detections } from '../analysis/detection-control.js';
 import type { ShellContext } from '../commands/shell-context.js';
-import { EditingPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
+import type { PackManagerView } from '../ml/pack-manager.js';
+import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
+import type { ModelGate } from '../assets/model-gate.js';
 import type { AudioSettings } from '../state/audio-settings-store.js';
+import type { Hearing } from '../state/hearing-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { RenderStrategyView } from '../state/render-strategy-store.js';
@@ -38,8 +44,11 @@ import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
 import { InspectorPanel } from './inspector/inspector-panel.js';
+import { LibraryPanel, type LibraryParts } from './library/library-panel.js';
+import { PackManagerPanel, type PackManagerParts } from './packs/pack-manager-panel.js';
 import { PicturePanel } from './picture-panel.js';
 import { ProjectPanel, type ProjectPanelContext } from './project-panels.js';
+import { RackPanel } from './rack/rack-panel.js';
 import { RendererReportList } from './renderer-report-list.js';
 import type { RunCommand } from './settings/section.js';
 import { StorageAbsences } from './storage-absences.js';
@@ -135,6 +144,15 @@ export interface PanelContext extends ProjectPanelContext {
 
   /** What the assistants found this session, which the Analysis panel shows. */
   readonly detection: Observable<Detections>;
+
+  /** The model packs kept here and offered, which the Model packs panel shows. */
+  readonly packs: PackManagerView;
+
+  /** Why a processor cannot run for want of its model, which the Effects rack shows. */
+  readonly modelGate: Observable<ModelGate>;
+
+  /** Whether an asset is heard processed or as its original, which the rack and transport show. */
+  readonly hearing: Observable<Hearing>;
 }
 
 /**
@@ -166,6 +184,9 @@ export function panelContextOf(
     meters: () => context.playback.meters(),
     framesRendered: () => context.rendering.framesRendered(),
     detection: context.detection,
+    packs: context.packs,
+    modelGate: context.modelGate,
+    hearing: context.hearing,
     run,
     unavailableReason,
     labelFor: editorPanels.labelFor,
@@ -180,6 +201,24 @@ function analysisPartsOf(context: PanelContext): AnalysisParts {
     detection: context.detection,
     audioSettings: context.audioSettings,
   };
+}
+
+/** What the Library panel reads of a panel's context. */
+function libraryPartsOf({ projects, ...context }: PanelContext): LibraryParts {
+  return {
+    library:
+      projects === undefined
+        ? undefined
+        : { savedProcessing: projects.savedProcessing, project: projects.project },
+    unavailable: context.projectsUnavailable,
+    editorViews: context.editor.stores.editorViews,
+    assets: context.editor.assets,
+  };
+}
+
+/** What the Model packs panel reads of a panel's context. */
+function packPartsOf(context: PanelContext): PackManagerParts {
+  return { packs: context.packs, project: context.projects?.project };
 }
 
 /** The capability surface and the editing panels, or `undefined` for another kind. */
@@ -255,11 +294,21 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
           run={context.run}
           unavailableReason={context.unavailableReason}
           editorViews={context.editor.stores.editorViews}
+          hearing={context.hearing}
         />
       );
 
     case EditingPanelKinds.Analysis:
       return <AnalysisPanel title={title} parts={analysisPartsOf(context)} commands={context} />;
+
+    case EditingPanelKinds.Library:
+      return <LibraryPanel title={title} parts={libraryPartsOf(context)} commands={context} />;
+
+    case EditingPanelKinds.Rack:
+      return <RackPanel title={title} context={context} />;
+
+    case ModelPanelKinds.ModelPacks:
+      return <PackManagerPanel title={title} parts={packPartsOf(context)} commands={context} />;
 
     case PanelKinds.Diagnostics:
       return (

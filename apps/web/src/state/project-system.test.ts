@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
+import { libraryChannel } from '../io/library-channel.js';
 import { olderStorage, projectWorld, scriptedFiles } from '../testing/project-context.js';
 import { ScriptedLinkedFiles } from '../testing/scripted-linked-files.js';
 import { buildShellContext } from '../testing/shell-context.js';
@@ -38,6 +39,7 @@ describe('the peak cache the project system keeps', () => {
         canLink: true,
         backupFolder: undefined,
         linkedFiles: new ScriptedLinkedFiles(),
+        libraryChanges: libraryChannel(undefined, built.context.diagnostics.loggerFor('projects')),
       },
       { diagnostics: built.context.diagnostics, storage: built.storage, page: VISIBLE_PAGE },
     );

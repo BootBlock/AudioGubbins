@@ -59,7 +59,9 @@ import { dockRearrangement } from './dock-rearrangement.js';
 import { browserTextFiles } from './io/text-files.js';
 import { startEditor, type PanelControls } from './editor-part.js';
 import { startModels, type ModelServices } from './ml/model-services.js';
+import { startPackManager } from './ml/pack-manager-part.js';
 import { createAudioSettingsStore, previewQualityOf } from './state/audio-settings-store.js';
+import { createHearingStore } from './state/hearing-store.js';
 import { createAudioViewStore } from './state/audio-view-store.js';
 import { createInteractionStore, type InteractionStore } from './state/interaction-store.js';
 import { adoptLayoutMapOnReturn, browserVisibility } from './state/layout-map-watch.js';
@@ -145,7 +147,7 @@ function startAudio(
 ): {
   readonly parts: Pick<
     ShellContext,
-    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'rendering'
+    'audio' | 'audioSettings' | 'renderStrategy' | 'playback' | 'hearing' | 'rendering'
   >;
   readonly previews: PreviewHost;
   /** Has playback follow the asset it plays in `assets`, until the part is disposed. */
@@ -170,6 +172,7 @@ function startAudio(
     announce,
     logger,
   });
+  const hearing = createHearingStore();
   const rendering = new RenderControl({
     view: audio,
     settings: audioSettings,
@@ -182,10 +185,10 @@ function startAudio(
     logger,
   });
   return {
-    parts: { audio, audioSettings, renderStrategy, playback, rendering },
+    parts: { audio, audioSettings, renderStrategy, playback, hearing, rendering },
     previews: previews.host,
     followAssets: (assets) => {
-      stopFollowing = followPlayingAsset(assets, playback);
+      stopFollowing = followPlayingAsset(assets, hearing, playback);
     },
     dispose: () => {
       stopFollowing();
@@ -313,6 +316,7 @@ export function createApplication() {
     models,
   );
   audioPart.followAssets(editorPart.parts.assets);
+  const packsPart = startPackManager(projectSystem, models);
 
   const context: ShellContext = {
     preferences: createPreferencesStore(storage, logger),
@@ -335,6 +339,7 @@ export function createApplication() {
     ...audioPart.parts,
     ...editorPart.parts,
     ...analysisPart.parts,
+    packs: packsPart.manager,
   };
 
   const registry = createCommandRegistry<ShellContext>();
@@ -397,6 +402,7 @@ export function createApplication() {
     dispose: () => {
       stopWatching();
       analysisPart.dispose();
+      packsPart.dispose();
       audioPart.dispose();
       editorPart.dispose();
       models.dispose();

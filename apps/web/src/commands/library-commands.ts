@@ -110,7 +110,6 @@ function saveChainCommand(): Command<ShellContext> {
       keywords: ['save', 'chain', 'rack', 'library', 'favourite', 'replace'],
       description:
         'Saves the rack of the asset or region shown, or the chain named, to your library under a name, or in place of a saved chain.',
-      discoverable: false,
     },
   );
 }
@@ -134,7 +133,6 @@ function savePresetCommand(): Command<ShellContext> {
       keywords: ['save', 'preset', 'processor', 'settings', 'library', 'replace'],
       description:
         'Saves the selected processor’s settings, or the named processor’s, as a preset in your library under a name, or in place of a preset.',
-      discoverable: false,
     },
   );
 }
@@ -161,7 +159,8 @@ function renameCommand(): Command<ShellContext> {
     {
       availability: projectsAvailability,
       keywords: ['rename', 'chain', 'preset', 'library'],
-      discoverable: false,
+      description:
+        'Gives a saved chain or preset a new name, unique among its kind; what it was applied to is not changed.',
     },
   );
 }
@@ -188,7 +187,6 @@ function removeCommand(): Command<ShellContext> {
       keywords: ['remove', 'delete', 'chain', 'preset', 'library'],
       description:
         'Removes a saved chain or preset from your library for good; what it was applied to keeps its copy.',
-      discoverable: false,
     },
   );
 }

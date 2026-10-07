@@ -167,6 +167,7 @@ export { type ChannelMatrix, conversionMatrix } from './editing/channel-matrices
 export {
   type PlanContext,
   assetPlan,
+  bypassedAssetPlan,
   unrackedAssetPlan,
   withRack,
 } from './editing/plan-building.js';
@@ -187,6 +188,7 @@ export {
   placeMarkers,
   placeRegion,
   placeRegions,
+  bypassedRegionPlan,
   regionPlan,
   unrackedRegionPlan,
 } from './editing/placement.js';
@@ -287,6 +289,16 @@ export {
   withSlotReplaced,
   withoutSlot,
 } from './processing/chain-edits.js';
+
+export {
+  type ChainListening,
+  type PartWayStart,
+  appliedProcessors,
+  chainListening,
+  unheardLive,
+} from './processing/chain-listening.js';
+
+export { controlPosition, parameterAtPosition } from './processing/parameter-control.js';
 
 export { effectChainFrom } from './processing/chain-decoding.js';
 

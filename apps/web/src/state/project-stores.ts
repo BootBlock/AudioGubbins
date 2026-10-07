@@ -13,6 +13,7 @@
 import type { Logger } from '@audiogubbins/diagnostics';
 
 import type { BackupFolderPort } from '../io/backup-folder.js';
+import type { LibraryChanges } from '../io/library-channel.js';
 import type { LinkedFilesPort } from '../io/linked-files.js';
 import type { TransferFiles } from '../io/transfer-files.js';
 import type { ProjectServices } from '../storage/project-services.js';
@@ -78,6 +79,9 @@ export interface ProjectPorts {
 
   /** The files linked assets were recorded from, found again. */
   readonly linkedFiles: LinkedFilesPort;
+
+  /** How this tab and the person's others tell each other their library changed. */
+  readonly libraryChanges: LibraryChanges;
 }
 
 /**
@@ -132,7 +136,11 @@ export function createProjectStores(
     pastes: new ProjectPastes(client.media, project, linkedFiles),
     preferences,
     files,
-    savedProcessing: new SavedProcessingStore(client.processingLibrary, lifetime),
+    savedProcessing: new SavedProcessingStore(
+      client.processingLibrary,
+      lifetime,
+      ports.libraryChanges,
+    ),
   };
 }
 

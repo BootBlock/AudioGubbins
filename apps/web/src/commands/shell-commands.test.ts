@@ -56,11 +56,16 @@ import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
+import { packCommands } from './pack-commands.js';
 import { deletionCommands } from './project-deletion-commands.js';
 import { projectFileCommands } from './project-file-commands.js';
 import { projectTransferCommands } from './project-transfer-commands.js';
 import { audioImportCommands } from './audio-import-commands.js';
 import { quickEditCommands } from './quick-edit-commands.js';
+import { rackBuildingCommands } from './rack-building-commands.js';
+import { rackComparisonCommands } from './rack-comparison-commands.js';
+import { rackParameterCommands } from './rack-parameter-commands.js';
+import { rackSlotCommands } from './rack-slot-commands.js';
 import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
@@ -791,6 +796,9 @@ describe('finding the shell commands in the palette', () => {
       ...quickEditCommands(),
       ...libraryCommands(),
       ...libraryApplyCommands(),
+      // Each is a step of the storage worker's pack installer, run twice with
+      // its work awaited in `pack-commands.test.ts`.
+      ...packCommands(),
       ...backupCommands(),
       ...backupFolderCommands(),
       ...historyCommands(),
@@ -809,12 +817,26 @@ describe('finding the shell commands in the palette', () => {
       ...regionPropertyCommands(),
       ...splitCommands(),
       ...clipboardCommands(),
+      ...rackBuildingCommands(),
+      ...rackSlotCommands(),
+      ...rackParameterCommands(),
+      ...rackComparisonCommands(),
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')
       // Applying a recommendation changes the project, which settles after it
       // returns; it is run twice, its change awaited, in its own tests.
-      .concat('picture.mark-frame', 'analysis.apply'),
+      .concat('picture.mark-frame', 'analysis.apply')
+      // Each needs a rack of the project, which the loop here has none of and
+      // a rack command makes only once it settles; each is run twice over a
+      // rack in `rack-commands.test.ts`.
+      .concat(
+        'rack.copy',
+        'rack.paste',
+        'editor.select-processor',
+        'editor.deselect-processors',
+        'transport.listen-original',
+      ),
   );
 
   /** What a command is given, as an invocation carries it. */
@@ -1130,6 +1152,11 @@ describe('finding the shell commands in the palette', () => {
       },
     },
     'editor.clear-selection': inEditor({ before: (run) => run('editor.select-all') }),
+    'transport.listen-processed': inEditor({
+      before: (_run, context) => {
+        context.hearing.choose('original');
+      },
+    }),
     'editor.scope-all-channels': inEditor({
       before: (run) => run('editor.select-time', { start: 100, end: 200, channels: '0' }),
     }),

@@ -14,7 +14,8 @@ import {
 import { PanelKinds } from '@audiogubbins/workspace';
 
 import type { Detections } from '../analysis/detection-control.js';
-import { EditingPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
+import type { PackManagerState } from '../ml/pack-manager.js';
+import { EditingPanelKinds, ModelPanelKinds, ProjectPanelKinds } from '../panel-kinds.js';
 import { createAudioSettingsStore, type AudioSettings } from '../state/audio-settings-store.js';
 import { createAudioViewStore, type AudioView } from '../state/audio-view-store.js';
 import { createLogViewStore } from '../state/log-view-store.js';
@@ -104,6 +105,10 @@ describe('what a panel is given', () => {
     expectTypeOf<PanelContext['audioSettings']>().toEqualTypeOf<Observable<AudioSettings>>();
     expectTypeOf<PanelContext['renderStrategy']>().toEqualTypeOf<Observable<RenderStrategyView>>();
     expectTypeOf<PanelContext['detection']>().toEqualTypeOf<Observable<Detections>>();
+    // The manager's state alone, and no step that changes a pack.
+    expectTypeOf<Omit<PanelContext['packs'], 'unavailable' | 'availability'>>().toEqualTypeOf<
+      Observable<PackManagerState>
+    >();
   });
 });
 
@@ -112,6 +117,7 @@ describe('every panel', () => {
     ...Object.values(PanelKinds),
     ...Object.values(ProjectPanelKinds),
     ...Object.values(EditingPanelKinds),
+    ...Object.values(ModelPanelKinds),
     'a-kind-this-build-does-not-have',
   ])('draws %s with its heading and no region', (kind) => {
     const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).loggerFor('audio');
@@ -143,6 +149,9 @@ describe('every panel', () => {
           labelFor: (id) => id,
           editor: fakePanelParts(shell, logger),
           detection: shell.detection,
+          packs: shell.packs,
+          modelGate: shell.modelGate,
+          hearing: shell.hearing,
         })}
       </>,
     );

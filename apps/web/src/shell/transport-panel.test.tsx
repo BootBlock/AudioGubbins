@@ -39,6 +39,7 @@ import {
   type RenderStrategyStore,
 } from '../state/render-strategy-store.js';
 import { observable, type Observable } from '../state/observable.js';
+import { createHearingStore } from '../state/hearing-store.js';
 import { createStateStorage } from '../state/state-storage.js';
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { FAKE_DEVICE, FakeSession, UNLOADED } from '../testing/audio-fakes.js';
@@ -88,6 +89,7 @@ function draw(
       run={run}
       unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
       editorViews={options.editorViews ?? observable(undefined)}
+      hearing={createHearingStore()}
     />,
   );
   return { run };

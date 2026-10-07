@@ -9,18 +9,12 @@
 
 import { createHash } from 'node:crypto';
 
-import type { ModelPackManifest, PackFile } from '../manifest.js';
-import { sampleManifest, type SampleOptions } from './sample-packs.js';
+import type { PackFile } from '../manifest.js';
+import { sampleManifest, type SampleOptions, type TestPack } from './sample-packs.js';
 
 /** The SHA-256 of `bytes`, in lower-case hexadecimal. */
 export function sha256Hex(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
-}
-
-/** A pack's manifest and its files' bytes, by path. */
-export interface TestPack {
-  readonly manifest: ModelPackManifest;
-  readonly files: ReadonlyMap<string, Uint8Array<ArrayBuffer>>;
 }
 
 /** Bytes that differ from place to place, so a misplaced run shows. */

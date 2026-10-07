@@ -6,7 +6,10 @@ import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { RUNTIME_WEBASSEMBLY_FILES as PAGE_RUNTIME_FILES } from '@audiogubbins/ml-runtime';
+
 import { RUNTIME_WEBASSEMBLY_FILES } from '../tools/check-build-output.mjs';
+import { RUNTIME_FILES } from '../tools/inference-runtime-files.mjs';
 import { inRepository } from './repository.js';
 
 /**
@@ -86,6 +89,12 @@ afterEach(() => {
 });
 
 describe('the inference runtime a build serves', () => {
+  it('ships the file the page asks for, for every runtime build', () => {
+    expect(Object.fromEntries(RUNTIME_FILES.map(({ build, name }) => [build, name]))).toEqual(
+      PAGE_RUNTIME_FILES,
+    );
+  });
+
   it("states each build's SHA-256 from the bytes it ships, and the path it serves them at", () => {
     const runtime = shippedRuntime(folder);
 
