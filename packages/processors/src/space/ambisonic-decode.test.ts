@@ -10,7 +10,6 @@ import {
 } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -18,23 +17,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { AMBISONIC_DECODER, maxReWeights } from './ambisonic-decode.js';
-import {
-  AMBISONIC_LAYOUTS,
-  NORMALISATIONS,
-  ORDERS,
-  encoded,
-  setLayout,
-} from '../testing/space-measures.js';
-
-processorProperties(AMBISONIC_DECODER, {
-  layouts: AMBISONIC_LAYOUTS,
-  settings: [
-    { speakers: 'quadraphonic' },
-    { speakers: 'surround-5-1' },
-    { speakers: 'surround-7-1' },
-  ],
-  bound: 16,
-});
+import { NORMALISATIONS, ORDERS, encoded, setLayout } from '../testing/space-measures.js';
 
 /** Each speaker option, its layout, and the azimuth of each role that has one. */
 const SPEAKERS = [

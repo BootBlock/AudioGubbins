@@ -70,6 +70,7 @@ export {
 } from './preview/preview-producer.js';
 export { RenderPhase } from './preview/rendered-stream.js';
 export { PreviewClient } from './preview/preview-client.js';
+export { canonicalText } from './preview/canonical-text.js';
 export { PreviewService } from './preview/preview-service.js';
 export {
   type MessagePortLike,

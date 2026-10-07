@@ -1,34 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AmbisonicNormalisation,
-  AmbisonicOrdering,
-  StandardLayouts,
-  ambisonicLayout,
-} from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { StandardLayouts } from '@audiogubbins/domain';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import { runProcessor } from '../testing/processor-run.js';
 import { GATE } from './gate.js';
 import { appliedGain, firstFrame, runMono } from '../testing/dynamics-runs.js';
-
-const FIRST_ORDER = expectSuccess(
-  ambisonicLayout({
-    order: 1,
-    ordering: AmbisonicOrdering.Acn,
-    normalisation: AmbisonicNormalisation.Sn3d,
-  }),
-);
-
-processorProperties(GATE, {
-  layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1, FIRST_ORDER],
-  settings: [
-    { threshold: 0, hysteresis: 0, attack: 0.1, hold: 0, release: 5, range: 96 },
-    { threshold: -20, hysteresis: 20, attack: 200, hold: 2_000, release: 2_000, range: 6 },
-  ],
-  passThrough: { values: { range: 0 }, tolerance: 0 },
-});
 
 const RATE = 48_000;
 

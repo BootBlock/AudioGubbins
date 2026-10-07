@@ -2,7 +2,8 @@
  * Measures the filter tests hold their processors to: a response computed
  * from coefficients by complex arithmetic, a response measured from an
  * impulse response by the canonical FFT, and the gain a processor gives a
- * sine.
+ * sine; and the parametric equaliser's values that turn a band on, which its
+ * tests and its properties share.
  */
 
 import {
@@ -116,4 +117,17 @@ export function sineGain(
   const input = sine(frequency, { amplitude, length }).channels[0] ?? new Float32Array(0);
   const [output] = runProcessor(type, { layout: StandardLayouts.mono, values }, [input]);
   return decibels(rms(output ?? input, length / 2) / rms(input, length / 2));
+}
+
+/**
+ * The parametric equaliser's values that turn band `band` on, with `rest` of
+ * its parameters by their names within the band.
+ */
+export function bandOn(
+  band: number,
+  rest: Readonly<Record<string, ParameterValue>> = {},
+): Readonly<Record<string, ParameterValue>> {
+  const values: Record<string, ParameterValue> = { [`band-${String(band)}-on`]: true };
+  for (const [name, value] of Object.entries(rest)) values[`band-${String(band)}-${name}`] = value;
+  return values;
 }

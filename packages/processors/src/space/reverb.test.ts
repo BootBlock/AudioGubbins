@@ -5,7 +5,6 @@ import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -16,20 +15,6 @@ import { lastAudibleFrame } from '../testing/filter-measures.js';
 import { REVERB } from './reverb.js';
 import { lineLengths } from './reverb-network.js';
 import { correlation, measuredRt60, reverbImpulse } from '../testing/reverb-measures.js';
-import { setLayout } from '../testing/space-measures.js';
-
-processorProperties(REVERB, {
-  layouts: [
-    StandardLayouts.mono,
-    StandardLayouts.stereo,
-    StandardLayouts.surround5_1,
-    setLayout(1, 'sn3d'),
-  ],
-  settings: [
-    { size: 1, decay: 30, damping: 0, 'pre-delay': 200 },
-    { size: 0.1, decay: 0.1, damping: 90, 'pre-delay': 0, width: 0 },
-  ],
-});
 
 function greatestCommonDivisor(a: number, b: number): number {
   return b === 0 ? a : greatestCommonDivisor(b, a % b);

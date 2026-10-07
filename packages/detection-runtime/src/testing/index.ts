@@ -4,7 +4,11 @@
  * page talks to, and a signal holding a fault of each kind it acts on.
  */
 
-export { LocalDetectionWorker, turn } from './local-detection-worker.js';
+export {
+  type LocalDetectionOptions,
+  LocalDetectionWorker,
+  turn,
+} from './local-detection-worker.js';
 export {
   CLICKS,
   FAULTY_LENGTH,

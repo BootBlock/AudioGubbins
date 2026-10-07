@@ -137,6 +137,9 @@ export class PlaybackControl {
     const current = this.#opened;
     const session = current?.session;
     if (current === undefined || session === undefined || current.loaded?.key !== key) return false;
+    // A programme loaded again while stopped goes on at the next Play from
+    // where it stood then; a move made since is where it goes on from.
+    if (this.#resumeFrom?.key === key) this.#resumeFrom = { key, at: to };
     this.#moveTo(current, session, to);
     return true;
   }

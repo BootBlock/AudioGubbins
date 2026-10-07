@@ -3,6 +3,7 @@ Published paths
   @audiogubbins/audio-engine/testing
   @audiogubbins/audio-graph
   @audiogubbins/audio-runtime
+  @audiogubbins/audio-runtime/testing
   @audiogubbins/audio-runtime/threads/*
   @audiogubbins/browser-storage
   @audiogubbins/capabilities
@@ -595,6 +596,7 @@ Published paths
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
   function besselI0(x: number): number
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
+  function canonicalText(value: unknown): string
   function channelAt(block: AudioFrameBlock, index: number): Float32Array<ArrayBufferLike>
   function contextFrameFor(clock: MediaClock, anchor: ClockAnchor, timelineFrame: SampleCount): number
   function conversionTableBudget(shape: { readonly channels: number; readonly availableMemoryBytes: number | undefined; }, plan: ChunkPlan): number | undefined
@@ -1032,6 +1034,23 @@ Published paths
   function browserAudioContext(capabilities: AudioRuntimeCapabilities): CreateAudioContext
   function compileDspModule(bytes: Uint8Array<ArrayBuffer>, capabilities: AudioRuntimeCapabilities): Promise<DspDelivery<CompiledDspModule>>
   function createRenderHost(options: RenderHostOptions): RenderHost
+
+@audiogubbins/audio-runtime/testing
+  class LocalChainWorker
+  new LocalChainWorker(make: (models: ModelChannel, post: PostToPage) => Core): LocalChainWorker
+  LocalChainWorker.terminated: boolean
+  readonly LocalChainWorker.#listeners: { readonly message: Set<(event: MessageEvent<any>) => void>; readonly messageerror: Set<(event: MessageEvent<any>) => void>; readonly error: Set<(event: ErrorEvent) => void>; }
+  readonly LocalChainWorker.#models: ModelChannel
+  readonly LocalChainWorker.#core: Core
+  LocalChainWorker.postMessage: (message: unknown, transfer?: readonly unknown[]) => void
+  LocalChainWorker.addEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
+  LocalChainWorker.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
+  LocalChainWorker.terminate: () => void
+  LocalChainWorker.#toPage: (message: unknown, transfer: readonly unknown[]) => void
+  type TypesWith = (services: ModelServices) => ReadonlyMap<string, ProcessorType>
+  function fakeChannel(): { readonly port1: MessagePort; readonly port2: MessagePort; }
+  function localPreviewWorker(types?: TypesWith): LocalChainWorker
+  function localRenderWorker(types?: TypesWith): LocalChainWorker
 
 @audiogubbins/browser-storage
   class BlobSink
@@ -1815,15 +1834,21 @@ Published paths
   const CLICKS: readonly [30000, 150000]
   const FAULTY_LENGTH: number
   const HUM_HERTZ: 60.2
+  interface LocalDetectionOptions
+  readonly LocalDetectionOptions.types?: (services: ModelServices) => ReadonlyMap<string, ProcessorType>
+  readonly LocalDetectionOptions.createChannel?: () => ChannelPair
   class LocalDetectionWorker
-  new LocalDetectionWorker(): LocalDetectionWorker
+  new LocalDetectionWorker(options?: LocalDetectionOptions): LocalDetectionWorker
   readonly LocalDetectionWorker.sent: ToDetectionWorker[]
   readonly LocalDetectionWorker.posted: string[]
   LocalDetectionWorker.terminated: boolean
   LocalDetectionWorker.#onMessage: ((value: unknown) => void) | undefined
   LocalDetectionWorker.#onFault: ((reason: string) => void) | undefined
   readonly LocalDetectionWorker.#core: DetectionWorkerCore
+  readonly LocalDetectionWorker.#models: ModelChannel
   LocalDetectionWorker.post: (message: ToDetectionWorker, transfer: readonly ArrayBuffer[]) => void
+  LocalDetectionWorker.postMessage: (message: unknown, transfer: readonly unknown[]) => void
+  LocalDetectionWorker.#deliver: (message: unknown, transfer: readonly unknown[]) => void
   LocalDetectionWorker.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
   LocalDetectionWorker.answered: (kind: string) => number
   LocalDetectionWorker.fault: (reason: string) => void
@@ -3668,6 +3693,7 @@ Published paths
   function runProcessor(type: ProcessorType, settings: RunSettings, input: readonly Float32Array<ArrayBufferLike>[], blocks?: readonly number[], change?: Change | undefined): Float32Array<ArrayBufferLike>[]
   function scriptedWholePass(script: PassScript, counts: PassCounts): ProcessorType
   function tone(length: number, hertz: number, level: number, phase?: number): Float32Array<ArrayBufferLike>
+  function typesRunningDeepFilterNetFiles(files: readonly ModelDefinitionFile[]): (services: ModelServices) => ReadonlyMap<string, ProcessorType>
   function withClicks(clean: Float32Array<ArrayBufferLike>, clicks: readonly Click[]): Float32Array<ArrayBufferLike>
 
 @audiogubbins/project-commands
@@ -6050,6 +6076,11 @@ packages/audio-runtime/src/render/worker-render.ts
 packages/audio-runtime/src/schedule.ts
   type Schedule = (callback: () => void, delayMs: number) => () => void
 
+packages/audio-runtime/src/testing/local-chain-workers.ts
+  interface Core
+  Core.receive: (data: unknown) => void
+  type PostToPage = (message: unknown, transfer: readonly unknown[]) => void
+
 packages/codecs/src/format-descriptor.ts
   type ByteOrder = "big" | "little"
   interface FloatSampleEncoding
@@ -6465,6 +6496,11 @@ packages/model-packs/src/pack-transfers.ts
 
 packages/processors/src/framework/processor-type.ts
   type MeasuringRun = { readonly parameters: ParameterReader; readonly state?: ProcessorState; readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly input: ChannelLayout; readonly blockFrames: number; readonly dsp: CanonicalDsp; readonly output: ChannelLayout; readonly sideChain?: ChannelLayout; }
+
+packages/processors/src/ml/model-definition.ts
+  interface ModelDefinitionFile
+  readonly ModelDefinitionFile.path: string
+  readonly ModelDefinitionFile.sha256: string
 
 packages/processors/src/testing/repair-signals.ts
   interface Click

@@ -288,9 +288,10 @@ module.exports = {
       severity: 'error',
       comment:
         'A worker that reads edited sound is given the effect rack as a port (ADR-0060): only the ' +
-        'module that starts the thread makes it, so the cores that render, feed and summarise ' +
-        'depend on the port and run in tests with any processing.',
-      from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/threads/' },
+        'module that starts the thread, and the test support that composes it as that module ' +
+        'does, make it, so the cores that render, feed and summarise depend on the port and run ' +
+        'in tests with any processing.',
+      from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/(threads|testing)/' },
       to: { path: '^packages/(effect-rack|processors)/' },
     },
     {

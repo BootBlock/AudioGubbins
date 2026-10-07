@@ -1,7 +1,7 @@
 > **Status:** In progress. 2026-10-07: the sixth session committed the
-> chain depth bounds, the ML wiring, the ADR amendments and the views; each
-> slice is committed with `verify:commit` green. Next is the ML hearing
-> check in a browser, then the scripts and the phase's browser test.
+> chain depth bounds, the ML wiring, the ADR amendments, the views, the
+> phase's scripts and its browser test, each with `verify:commit` green.
+> Next is the one review pass.
 
 # Phase 06 — Effect Rack and Core DSP
 
@@ -279,6 +279,23 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     named as the requirement names them, by one rule shared with processor
     availability (`packVersionCondition`).
 
+29. **Properties.** Each processor's property registration is in its own
+    `<name>.properties.test.ts`; `pnpm test:dsp-property` runs them by name
+    with the rack edit's property test, and `catalogue-properties.test.ts`
+    fails for any catalogue type held to no layout.
+30. **Locality.** `pnpm test:ml-locality` runs the tests tagged
+    `ml-locality`: `apps/web/src/ml/ml-locality.test.ts` (every network
+    entry point recorded while a DeepFilterNet 3 chain is opened, applied,
+    previewed, rendered and analysed over the real worker cores: no request;
+    installing the pack: bodiless GETs of the pack's files only), the
+    network rule, both adapters' tests, the availability test and the pack
+    import test. A real runtime's `.wasm` read is covered by its adapter's
+    test only.
+31. **The browser test** (`tests/e2e/effect-rack.spec.ts`,
+    `pnpm test:e2e:effect-rack`) records every block the page plays with an
+    AudioWorklet tap (the app has no other sample-exact output before export
+    in Phase 09), and compares samples before and after a reload.
+
 ## The first model packs' sources (researched 2026-10-05)
 
 None is blocked. Every graph below loaded and ran in onnxruntime-web 1.30
@@ -489,6 +506,16 @@ commits), with `verify:commit` green:
   cruise rule `vite-configuration-loads-in-node`); `fb3c512` had broken
   `vite`, `vite build` and the browser tests.
 - ADR-0061 and ADR-0062 amended (`4fd5a88`).
+- The ML hearing check passed in a built app: DeepFilterNet 3 installed
+  from the app's origin (paused and resumed), racked, played, about 50 dB
+  less noise against the original; every request on the app's origin, the
+  runtime's `.wasm` among them, and opening the project fetched nothing.
+- Decisions 29 to 31. The browser test found two defects, fixed with
+  regression tests: a region's entry was not made again when only a
+  parameter of its rack changed (records compared by `JSON.stringify`,
+  which writes a `Map` as `{}`; now the engine's `canonicalText`, and no
+  other comparison of that kind holds a `Map`), and Play went on from a
+  stale position after a hearing switch while stopped.
 - The views (decision 28). The runtime's WebAssembly is fetched with the
   platform's `fetch` called as a function: called as a method it threw
   "Illegal invocation" in the browser, which the packs agent's browser run
@@ -546,6 +573,14 @@ Open points from `model-packs`:
   say what they do. Left: `SHALLOW_RECORD_DEPTH` (32) is a hand-picked
   floor for records that hold no chain; `clipboard-commands.ts` has no test.
 - Closed (decision 28): other tabs hear a library change.
+- Seen in the ML browser run, from before this phase (`bce05a8`): after a
+  sound plays to its end, "Move the playhead to the start" then "Play"
+  said it was playing and stayed stopped, since Play goes on from where a
+  held programme stopped. The stale-position fix above may cover it; not
+  checked again.
+- `vitest list` shows no tests in the `*.properties.test.ts` files, though
+  they run. `tests/e2e/core-editing.spec.ts` expects straight quotes where
+  the banner now writes curly ones; not run this session.
 - No history mechanism joins a drag's changes into one step, so a dragged
   parameter is heard at release. No command removes a range rack edit (no
   edit is removed but by undo). A range's position shows at the asset's
@@ -588,14 +623,7 @@ Open points from `model-packs`:
 
 Next, in order (2026-10-07):
 
-1. The ML hearing check: a build with `AUDIOGUBBINS_PACKS_IN_BUILD=1`,
-   install DeepFilterNet 3, rack a short sound with it, and hear it (no
-   "cannot be heard"), with the request log (the app's and the pack's files
-   only); the run before the `fetch` fix stopped there.
-2. Scripts `test:dsp-property` and `test:ml-locality` (no request carrying
-   audio, project data or derived content); the phase's browser test
-   (apply a chain to a selection, give a region a rack, reload, hear the
-   same project); gates; ONE review pass with the packet's seven lenses
+1. ONE review pass with the packet's seven lenses
    after committing; evidence, review, ledger PASS, handoff
    `traceability/handoffs/phase-06.md`, README readiness; land (merge main
    into the branch, `verify:commit`, `merge --no-ff` from the primary

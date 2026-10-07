@@ -1,9 +1,9 @@
 /**
  * What the spectral processors' tests are measured with: a noise profile
- * learned as the application learns one, a sine's level and its
- * signal-to-noise ratio by a least-squares fit, a room made by a synthetic
- * exponential impulse response, and the share of a signal's energy that is
- * late reverberation.
+ * learned as the application learns one, from each channel's own noise, a
+ * sine's level and its signal-to-noise ratio by a least-squares fit, a room
+ * made by a synthetic exponential impulse response, and the share of a
+ * signal's energy that is late reverberation.
  */
 
 import {
@@ -151,4 +151,15 @@ export function lateEnergyRatio(signal: Float32Array, from: number): number {
     else if (into >= (ON + 0.05) * TEST_RATE) late += energy;
   }
   return 10 * Math.log10(late / bursting);
+}
+
+/** A second of each channel's own noise, a profile's stretch. */
+export function noiseOf(
+  layout: ChannelLayout,
+  amplitude = 0.1,
+  length: number = TEST_RATE,
+): Float32Array[] {
+  return layout.roles.map(
+    (_, channel) => noise(40 + channel, { length, amplitude }).channels[0] ?? new Float32Array(0),
+  );
 }

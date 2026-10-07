@@ -5,7 +5,6 @@ import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -13,35 +12,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { PARAMETRIC_EQUALISER } from './parametric-equaliser.js';
-import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
-
-/** Band `band` on, with `rest` of its parameters by their names within the band. */
-function bandOn(band: number, rest: Readonly<Record<string, ParameterValue>> = {}) {
-  const values: Record<string, ParameterValue> = { [`band-${String(band)}-on`]: true };
-  for (const [name, value] of Object.entries(rest)) values[`band-${String(band)}-${name}`] = value;
-  return values;
-}
-
-processorProperties(PARAMETRIC_EQUALISER, {
-  layouts: EVERY_LAYOUT,
-  settings: [
-    { ...bandOn(1), ...bandOn(3, { gain: 12, q: 4 }), ...bandOn(7, { gain: -9 }) },
-    {
-      ...bandOn(1, { type: 'notch', frequency: 60, q: 24 }),
-      ...bandOn(2, { gain: 24 }),
-      ...bandOn(4, { type: 'band-pass', q: 0.1 }),
-      ...bandOn(5, { gain: -24, q: 0.1 }),
-      ...bandOn(8, { q: 10 }),
-    },
-  ],
-  bound: 64,
-  // Bells at 0 dB are sections whose numerator and denominator are one, so
-  // the input passes through them to the bit.
-  passThrough: {
-    values: { ...bandOn(3), ...bandOn(4), ...bandOn(5), ...bandOn(6) },
-    tolerance: 0,
-  },
-});
+import { bandOn, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 describe('the parametric equaliser', () => {
   it('raises a sine at a bell by its gain and leaves a decade below alone', () => {

@@ -291,20 +291,24 @@ describe('managing model packs', { timeout: 30_000 }, () => {
     expect(window.packs.get().needed.size).toBe(0);
   });
 
-  it('imports a pack from the folder the person chooses, fetching nothing', async () => {
-    const source = new MemorySource([]);
-    const window = await windowOver(source);
-    window.files.foldersToRead.push(folderOf(DENOISER));
+  it(
+    'imports a pack from the folder the person chooses, fetching nothing',
+    { tags: ['ml-locality'] },
+    async () => {
+      const source = new MemorySource([]);
+      const window = await windowOver(source);
+      window.files.foldersToRead.push(folderOf(DENOISER));
 
-    window.run('packs.import');
+      window.run('packs.import');
 
-    expect(await window.nextSaid()).toBe(
-      'Installed Denoiser 1.0.0. Every file matched its SHA-256.',
-    );
-    expect(source.catalogues).toBe(0);
-    expect(source.reads).toEqual([]);
-    await expect.poll(() => stateOf(window, DENOISER)).toBe('installed');
-  });
+      expect(await window.nextSaid()).toBe(
+        'Installed Denoiser 1.0.0. Every file matched its SHA-256.',
+      );
+      expect(source.catalogues).toBe(0);
+      expect(source.reads).toEqual([]);
+      await expect.poll(() => stateOf(window, DENOISER)).toBe('installed');
+    },
+  );
 
   it('finishes from a folder a download that was paused, from what it kept', async () => {
     const source = new HoldingSource([DENOISER], 1_000);

@@ -13,7 +13,7 @@ import type { KnownAvailability } from '../ml/model-availability.js';
 import { observable, type Observable } from '../state/observable.js';
 
 /** The catalogue's URL in every test: the page's own `packs/`. */
-const TEST_CATALOGUE = 'http://localhost/packs/';
+export const TEST_CATALOGUE = 'http://localhost/packs/';
 
 /**
  * A manager over `packs`, with what it reads of availability, its folders

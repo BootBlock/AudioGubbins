@@ -9,7 +9,6 @@ import {
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   processorKernel,
   processorValues,
@@ -21,7 +20,6 @@ import { MAXIMUM_QUALITY } from '@audiogubbins/domain';
 import { AMBISONIC_ROTATION } from './ambisonic-rotate.js';
 import { largestDifference } from '../testing/sample-difference.js';
 import {
-  AMBISONIC_LAYOUTS,
   NORMALISATIONS,
   ORDERS,
   burst,
@@ -29,16 +27,6 @@ import {
   setLayout,
   turned,
 } from '../testing/space-measures.js';
-
-processorProperties(AMBISONIC_ROTATION, {
-  layouts: AMBISONIC_LAYOUTS,
-  settings: [
-    { yaw: 90, pitch: -30, roll: 45 },
-    { yaw: -180, pitch: 180, roll: -180 },
-  ],
-  bound: 4,
-  passThrough: { values: { yaw: 0, pitch: 0, roll: 0 }, tolerance: 1e-6 },
-});
 
 /** The turns each direction is checked under: a yaw, a pitch, a roll, and all three. */
 const TURNS = [

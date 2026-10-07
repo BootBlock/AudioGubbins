@@ -5,19 +5,13 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
 
 import { deepFilterNetGraphs } from '../../testing/deepfilternet-stand-in.js';
-import { processorProperties } from '../../testing/processor-properties.js';
-import {
-  FakeModels,
-  MemoryModelLibrary,
-  standInModel,
-  standInServices,
-} from '../../testing/model-services.js';
+import { standInModel, standInServices } from '../../testing/model-services.js';
 import { toneMixture } from '../../testing/model-signals.js';
 import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
 import { modelProcessorType } from '../model-processor.js';
 import type { ModelDefinition } from '../model-definition.js';
-import { DEEPFILTERNET_3, deepFilterNet3 } from './deepfilternet.js';
+import { DEEPFILTERNET_3 } from './deepfilternet.js';
 import { DEEPFILTERNET_3_MODEL } from './deepfilternet-model.js';
 
 /** DeepFilterNet 3's definition over stand-ins for its graphs' files, on the fake runtime. */
@@ -133,18 +127,3 @@ describe('DeepFilterNet 3, around stand-in graphs', { timeout: 30_000 }, () => {
     expect(largestDifference(filtered, scaled(input, 0.5 * scale))).toBeLessThan(2e-7);
   });
 });
-
-// Unmeasured, the kernel passes its input on, which is all a kernel does
-// beside playing back, and the playback is the framework's
-// (`model-playback.test.ts`).
-processorProperties(
-  deepFilterNet3({
-    inference: new FakeModels(new Map()),
-    models: new MemoryModelLibrary([]),
-  }),
-  {
-    layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1],
-    bound: 1,
-    passThrough: { values: {}, tolerance: 0 },
-  },
-);

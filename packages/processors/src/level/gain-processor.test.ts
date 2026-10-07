@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts } from '@audiogubbins/domain';
 import { sine } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_BLOCK_FRAMES,
   TEST_RATE,
@@ -11,13 +10,6 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { GAIN_PROCESSOR } from './gain-processor.js';
-
-processorProperties(GAIN_PROCESSOR, {
-  layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1],
-  settings: [{ gain: -12 }, { gain: 24 }],
-  bound: 16,
-  passThrough: { values: { gain: 0 }, tolerance: 0 },
-});
 
 describe('the gain processor', () => {
   it('raises a sine by the decibels asked for, as the canonical conversion gives them', () => {

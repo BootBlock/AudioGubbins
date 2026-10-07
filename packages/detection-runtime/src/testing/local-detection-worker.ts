@@ -3,24 +3,64 @@
  *
  * `LocalDetectionWorker` runs the real `DetectionWorkerCore` behind the port
  * the host talks to, cloning every message both ways with its transfers, as a
- * worker boundary does, and a turn of the event loop late, so the host and
- * the application are tested against the worker's behaviour and not a
- * stand-in for it. It is composed as the worker's module composes it: the
- * real effect rack, assistants and processor types, on the reference DSP.
+ * worker boundary does, and a turn of the event loop late, so the host and the
+ * application are tested against the worker's behaviour and not a stand-in for
+ * it. It is composed as the worker's module composes it: the real effect rack,
+ * assistants and processor types, on the reference DSP, the types made with the
+ * worker's own model channel, which it hands on before the core reads anything.
+ * A channel's end in a message, the preview worker's or the model channel's,
+ * crosses as itself, as a port is transferred. A test may give the types
+ * another way of being made, as a pack of stand-ins needs, and the channels the
+ * model channel makes.
  */
 
-import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
+import { REFERENCE_DSP, isMessagePortLike } from '@audiogubbins/audio-engine';
 import { chainProcessing } from '@audiogubbins/effect-rack';
+import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
+import { inProcessChannel } from '@audiogubbins/ml-runtime/testing';
 import {
   CLASSIFICATION_ASSISTANT,
-  PROCESSOR_TYPES_BY_KEY,
   REPAIR_ASSISTANT,
   RESTORATION_ASSISTANT,
+  processorTypesWith,
+  type ModelServices,
+  type ProcessorType,
 } from '@audiogubbins/processors';
 
 import type { DetectionWorkerPort } from '../detection-host.js';
 import type { ToDetectionWorker } from '../detection-messages.js';
 import { DetectionWorkerCore } from '../detection-worker-core.js';
+
+/** How the worker is made: its types from its model services, and its model channel's channels. */
+export interface LocalDetectionOptions {
+  readonly types?: (services: ModelServices) => ReadonlyMap<string, ProcessorType>;
+  readonly createChannel?: () => ChannelPair;
+}
+
+/** Two joined ends of the inference workers' played channel. */
+function inProcessPair(): ChannelPair {
+  const [port1, port2] = inProcessChannel();
+  return { port1, port2 };
+}
+
+/**
+ * `message` as it arrives in another thread: a structured clone, its buffers
+ * transferred, and each channel's end among its fields carried as itself,
+ * which a clone would copy into a lifeless object.
+ */
+function crossing(message: unknown, transfer: readonly unknown[]): unknown {
+  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
+  if (typeof message !== 'object' || message === null) {
+    return structuredClone(message, { transfer: buffers });
+  }
+  const fields = Object.entries(message);
+  const ends = fields.filter(([, value]) => isMessagePortLike(value));
+  const rest = fields.filter(([, value]) => !isMessagePortLike(value));
+  return {
+    ...structuredClone(Object.fromEntries(rest), { transfer: buffers }),
+    ...Object.fromEntries(ends),
+  };
+}
 
 /** A turn of the event loop, as a worker's message takes. */
 export function turn(): Promise<void> {
@@ -38,8 +78,14 @@ export class LocalDetectionWorker implements DetectionWorkerPort {
   #onMessage: ((value: unknown) => void) | undefined;
   #onFault: ((reason: string) => void) | undefined;
   readonly #core: DetectionWorkerCore;
+  readonly #models: ModelChannel;
 
-  constructor() {
+  constructor(options: LocalDetectionOptions = {}) {
+    this.#models = new ModelChannel(options.createChannel ?? inProcessPair);
+    const types = (options.types ?? processorTypesWith)({
+      inference: this.#models,
+      models: this.#models,
+    });
     this.#core = new DetectionWorkerCore({
       post: (message) => {
         this.posted.push(message.kind);
@@ -48,9 +94,9 @@ export class LocalDetectionWorker implements DetectionWorkerPort {
       },
       yieldToHost: turn,
       dsp: REFERENCE_DSP,
-      processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
+      processing: chainProcessing(types),
       assistants: [CLASSIFICATION_ASSISTANT, REPAIR_ASSISTANT, RESTORATION_ASSISTANT],
-      types: PROCESSOR_TYPES_BY_KEY,
+      types,
       reportFault: (error) => {
         throw error;
       },
@@ -59,9 +105,18 @@ export class LocalDetectionWorker implements DetectionWorkerPort {
 
   post(message: ToDetectionWorker, transfer: readonly ArrayBuffer[]): void {
     this.sent.push(message);
-    const cloned: unknown = structuredClone(message, { transfer: [...transfer] });
+    this.#deliver(message, transfer);
+  }
+
+  /** Takes a message to the worker's scope, as a `Worker` does: the page's model channel. */
+  postMessage(message: unknown, transfer: readonly unknown[]): void {
+    this.#deliver(message, transfer);
+  }
+
+  #deliver(message: unknown, transfer: readonly unknown[]): void {
+    const cloned = crossing(message, transfer);
     setTimeout(() => {
-      this.#core.receive(cloned);
+      if (!this.#models.receive(cloned)) this.#core.receive(cloned);
     }, 0);
   }
 

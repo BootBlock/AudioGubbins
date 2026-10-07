@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { StandardLayouts, type ChannelLayout } from '@audiogubbins/domain';
+import { StandardLayouts } from '@audiogubbins/domain';
 import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_BLOCK_FRAMES,
   TEST_RATE,
@@ -19,26 +18,7 @@ import {
   normalised,
   peaksOf,
 } from '../testing/level-measures.js';
-import { setLayout } from '../testing/space-measures.js';
 import { LOUDNESS_NORMALISATION } from './loudness-normalisation.js';
-
-const LAYOUTS: readonly ChannelLayout[] = [
-  StandardLayouts.mono,
-  StandardLayouts.stereo,
-  StandardLayouts.surround5_1,
-  setLayout(1, 'sn3d'),
-];
-
-// A measurement is made for one channel count, so each layout is given its own.
-for (const layout of LAYOUTS) {
-  processorProperties(LOUDNESS_NORMALISATION, {
-    layouts: [layout],
-    settings: [{ target: -14 }, { 'limit-true-peak': true, ceiling: -3 }],
-    measured: [TEST_RATE, layout.roles.length, 1, -30, 0.5],
-    bound: 8,
-    passThrough: { values: {}, tolerance: 0 },
-  });
-}
 
 /** `seconds` of a 1 kHz sine at `level` dBFS, by the canonical sine, on each of `channels`. */
 function tone(seconds: number, level: number, channels: number): Float32Array[] {

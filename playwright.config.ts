@@ -162,6 +162,14 @@ export default defineConfig<SuiteOptions>({
       testMatch: /analysis\.spec\.ts/,
     },
     {
+      // The effect rack: a chain applied to a selection and a region given a
+      // rack, heard before and after a reload, sample for sample (the
+      // packet's `test:e2e:effect-rack`).
+      name: 'chromium-effect-rack',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /effect-rack\.spec\.ts/,
+    },
+    {
       // The editor's renderer losing its WebGL 2 context, where WebGPU gives
       // no adapter, as it does in the headless shell.
       name: 'chromium-renderer',

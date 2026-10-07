@@ -112,7 +112,7 @@ function only(headers: Readonly<Record<string, string>>, signal: AbortSignal | n
   };
 }
 
-describe('the download over HTTP', () => {
+describe('the download over HTTP', { tags: ['ml-locality'] }, () => {
   it('asks for the catalogue at the configured URL, sending nothing else', async () => {
     const text = JSON.stringify({ format: 1, packs: [manifestJson(PACK.manifest)] });
     const { fetch, sent } = recording(() =>

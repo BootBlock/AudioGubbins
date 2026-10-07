@@ -7,20 +7,14 @@ import type { Tensor } from '@audiogubbins/ml-runtime';
 import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { Measurement } from '../../framework/whole-pass.js';
-import { processorProperties } from '../../testing/processor-properties.js';
-import {
-  FakeModels,
-  MemoryModelLibrary,
-  standInModel,
-  standInServices,
-} from '../../testing/model-services.js';
+import { standInModel, standInServices } from '../../testing/model-services.js';
 import { toneMixture } from '../../testing/model-signals.js';
 import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
 import type { ModelDefinition } from '../model-definition.js';
 import { modelProcessorType } from '../model-processor.js';
 import { FeatureMaker } from './features.js';
-import { MOSSFORMER2_SE_48K, mossFormer2Se48k } from './mossformer2.js';
+import { MOSSFORMER2_SE_48K } from './mossformer2.js';
 import {
   BINS,
   FEATURES,
@@ -250,18 +244,3 @@ describe('MossFormer2 SE 48K, around a stand-in graph', { timeout: 60_000 }, () 
     expect(open).toBe(0);
   });
 });
-
-// Unmeasured, the kernel passes its input on, which is all a kernel does
-// beside playing back, and the playback is the framework's
-// (`model-playback.test.ts`).
-processorProperties(
-  mossFormer2Se48k({
-    inference: new FakeModels(new Map()),
-    models: new MemoryModelLibrary([]),
-  }),
-  {
-    layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1],
-    bound: 1,
-    passThrough: { values: {}, tolerance: 0 },
-  },
-);

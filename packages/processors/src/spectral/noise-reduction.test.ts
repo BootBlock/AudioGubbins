@@ -14,7 +14,6 @@ import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { chirp, noise, noisySine } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -22,44 +21,12 @@ import {
   processorValues,
   runProcessor,
 } from '../testing/processor-run.js';
-import { advanced, learnedProfile } from '../testing/spectral-measures.js';
+import { advanced, learnedProfile, noiseOf } from '../testing/spectral-measures.js';
 import { setLayout } from '../testing/space-measures.js';
 import { PROCESSOR_CATALOGUE } from '../catalogue.js';
 import { NOISE_REDUCTION } from './noise-reduction.js';
 
 const FIRST_ORDER = setLayout(1, 'sn3d');
-const LAYOUTS = [
-  StandardLayouts.mono,
-  StandardLayouts.stereo,
-  StandardLayouts.surround5_1,
-  FIRST_ORDER,
-];
-
-// Without a profile the node writes its input delayed.
-processorProperties(NOISE_REDUCTION, {
-  layouts: LAYOUTS,
-  settings: [
-    { reduction: 60, sensitivity: 18, smoothing: 0, mode: 'noise', resolution: '8192' },
-    { reduction: 0, smoothing: 100, resolution: '1024' },
-  ],
-  bound: 1,
-  passThrough: { values: {}, tolerance: 0 },
-});
-
-describe('with a profile learned from each channel’s own noise', () => {
-  processorProperties(NOISE_REDUCTION, {
-    layouts: LAYOUTS,
-    settings: [
-      { reduction: 60, sensitivity: 18, smoothing: 0, mode: 'noise', resolution: '8192' },
-      { reduction: 0, smoothing: 100, resolution: '1024' },
-    ],
-    // Its gains only cut, but a cut can raise a peak, as a full-scale square
-    // that loses harmonics rings past full scale: bounded as the other
-    // filters that only cut are.
-    bound: 4,
-    state: (layout, values) => learnedProfile(layout, noiseOf(layout), values),
-  });
-});
 
 /** Half a second of each channel of `layout`, each its own: a tone in noise or a sweep. */
 function programme(layout: ChannelLayout): Float32Array[] {
@@ -67,17 +34,6 @@ function programme(layout: ChannelLayout): Float32Array[] {
     const source = channel % 2 === 0 ? noisySine(440 + channel * 110) : chirp();
     return (source.channels[0] ?? new Float32Array(0)).slice(0, TEST_RATE / 2);
   });
-}
-
-/** A second of each channel's own noise, a profile's stretch. */
-function noiseOf(
-  layout: ChannelLayout,
-  amplitude = 0.1,
-  length: number = TEST_RATE,
-): Float32Array[] {
-  return layout.roles.map(
-    (_, channel) => noise(40 + channel, { length, amplitude }).channels[0] ?? new Float32Array(0),
-  );
 }
 
 function sameBits(left: readonly Float32Array[], right: readonly Float32Array[]): boolean {

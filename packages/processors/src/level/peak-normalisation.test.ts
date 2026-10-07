@@ -1,15 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  StandardLayouts,
-  createCancellationSource,
-  type ChannelLayout,
-} from '@audiogubbins/domain';
+import { StandardLayouts, createCancellationSource } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP, decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
 import { noisySine } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_BLOCK_FRAMES,
   TEST_RATE,
@@ -19,26 +14,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { firstDifference, measureOf, normalised, peaksOf } from '../testing/level-measures.js';
-import { setLayout } from '../testing/space-measures.js';
 import { PEAK_NORMALISATION } from './peak-normalisation.js';
-
-const LAYOUTS: readonly ChannelLayout[] = [
-  StandardLayouts.mono,
-  StandardLayouts.stereo,
-  StandardLayouts.surround5_1,
-  setLayout(1, 'sn3d'),
-];
-
-// A measurement is made for one channel count, so each layout is given its own.
-for (const layout of LAYOUTS) {
-  processorProperties(PEAK_NORMALISATION, {
-    layouts: [layout],
-    settings: [{ target: -12, detection: 'true-peak' }, { target: 0 }],
-    measured: [TEST_RATE, layout.roles.length, 0.5, 0.56],
-    bound: 4,
-    passThrough: { values: {}, tolerance: 0 },
-  });
-}
 
 /** `frames` of a sine of `turns` a frame at `amplitude`, by the canonical sine. */
 function tone(frames: number, turns: number, amplitude: number, phase = 0): Float32Array {

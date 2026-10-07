@@ -2,27 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { MAXIMUM_QUALITY, StandardLayouts } from '@audiogubbins/domain';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
   processorValues,
   runProcessor,
 } from '../testing/processor-run.js';
-import { EVERY_LAYOUT } from '../testing/filter-measures.js';
 import { changedFrames, faded, withPop } from '../testing/repair-signals.js';
 import { DE_POP } from './de-pop.js';
-
-processorProperties(DE_POP, {
-  layouts: EVERY_LAYOUT,
-  settings: [
-    { sensitivity: 6, frequency: 20, 'maximum-length': 50 },
-    { frequency: 300, 'maximum-length': 5 },
-  ],
-  // At the least sensitivity nothing in the programme is a pop, so this
-  // holds the declared latency to the kernel's, bit for bit.
-  passThrough: { values: { sensitivity: 40 }, tolerance: 0 },
-});
 
 const mono = StandardLayouts.mono;
 const LENGTH = 48_000;

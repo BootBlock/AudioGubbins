@@ -585,6 +585,9 @@ const PAGE_AND_BUILD = [
 /** The model-pack build's download, the build tooling's one network exception. */
 const PACK_BUILD_DOWNLOAD = 'tools/model-packs/source-download.mjs';
 
+/** The tests `pnpm test:ml-locality` runs among the locality checks (REQ-AUDIO-138). */
+const LOCALITY = { tags: ['ml-locality'] };
+
 describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
   /**
    * The ways code can reach another machine, or put code there that could.
@@ -666,7 +669,7 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
     expect(NETWORK_APIS.some((pattern) => pattern.test(code))).toBe(false);
   });
 
-  it('has no network call in production source but the two modules excepted', () => {
+  it('has no network call in production source but the two modules excepted', LOCALITY, () => {
     const offenders = ALL_SOURCES.filter((path) => {
       const code = readCode(path);
       return NETWORK_APIS.some((pattern) => pattern.test(code));
@@ -678,12 +681,16 @@ describe('no telemetry can exist (REQ-PRIV-161, REQ-PRIV-162)', () => {
   it.each([
     ['the download', DOWNLOAD],
     ['the read of the runtime’s files', RUNTIME_FILES],
-  ])('lets %s reach the network by its declared fetch and by nothing else', (_name, path) => {
-    const code = readCode(path);
-    expect(NETWORK_APIS.filter((pattern) => pattern.test(code))).toHaveLength(1);
-    expect(code).toMatch(/\bdeclare\s+const\s+fetch\b/);
-    expect(code).not.toMatch(/\bdeclare\s+(?:const|let|var|function)\s+(?!fetch\b)\w+/);
-  });
+  ])(
+    'lets %s reach the network by its declared fetch and by nothing else',
+    LOCALITY,
+    (_name, path) => {
+      const code = readCode(path);
+      expect(NETWORK_APIS.filter((pattern) => pattern.test(code))).toHaveLength(1);
+      expect(code).toMatch(/\bdeclare\s+const\s+fetch\b/);
+      expect(code).not.toMatch(/\bdeclare\s+(?:const|let|var|function)\s+(?!fetch\b)\w+/);
+    },
+  );
 
   it('has none in the page, the build configuration or the tools either', () => {
     expect(PAGE_AND_BUILD).toContain('apps/web/index.html');

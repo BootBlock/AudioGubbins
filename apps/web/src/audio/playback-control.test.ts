@@ -479,6 +479,24 @@ describe('following a programme the project changed while it plays', () => {
     expect(announce).toHaveBeenCalledWith('The change is heard once its preview is made again.');
   });
 
+  it('plays a programme loaded again while stopped from where the playhead was moved since', async () => {
+    // Hearing the original after playing to the end, moving the playhead to
+    // the start and pressing Play played on from the end, which is silence.
+    const { control, parts, settled } = rig();
+    control.play(racked(-6));
+    await settled();
+    parts.latest().contextFrame = 9_600;
+    control.pause();
+    control.follow(racked(-6, true));
+    await settled();
+
+    expect(control.seek('asset:racked', expectSuccess(sampleCount(0)))).toBe(true);
+    control.play(racked(-6, true));
+    await settled();
+
+    expect(parts.latest().seeks.at(-1)).toBe(0);
+  });
+
   it('loads anything else again where it plays, and a paused programme at the next Play', async () => {
     const { control, parts, settled } = rig();
     control.play(racked(-6));

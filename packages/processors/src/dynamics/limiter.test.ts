@@ -1,37 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AmbisonicNormalisation,
-  AmbisonicOrdering,
-  MAXIMUM_QUALITY,
-  StandardLayouts,
-  ambisonicLayout,
-  sampleRate,
-} from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, StandardLayouts, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { chirp, noisySine } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import { processorKernel, processorValues, runProcessor } from '../testing/processor-run.js';
 import { LIMITER } from './limiter.js';
-
-const FIRST_ORDER = expectSuccess(
-  ambisonicLayout({
-    order: 1,
-    ordering: AmbisonicOrdering.Acn,
-    normalisation: AmbisonicNormalisation.Sn3d,
-  }),
-);
-
-processorProperties(LIMITER, {
-  layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1, FIRST_ORDER],
-  settings: [
-    { ceiling: -6, release: 1, 'look-ahead': 0.5 },
-    { ceiling: -12, release: 2_000, 'look-ahead': 20 },
-  ],
-  bound: 1,
-  passThrough: { values: { ceiling: 0 }, tolerance: 0 },
-});
 
 const OVERSAMPLINGS = [1, 2, 4, 8] as const;
 

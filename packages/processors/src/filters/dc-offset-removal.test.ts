@@ -5,7 +5,6 @@ import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise, sine } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -13,13 +12,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { DC_OFFSET_REMOVAL } from './dc-offset-removal.js';
-import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
-
-processorProperties(DC_OFFSET_REMOVAL, {
-  layouts: EVERY_LAYOUT,
-  settings: [{ cutoff: 2 }, { cutoff: 40 }],
-  bound: 4,
-});
+import { lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 describe('DC offset removal', () => {
   it('takes a constant offset out and leaves the programme as it was', () => {

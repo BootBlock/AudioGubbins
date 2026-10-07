@@ -57,6 +57,16 @@ function environmentOf(name: string): 'node' | 'jsdom' {
 
 export default defineConfig({
   test: {
+    // A tag marks a test a root script selects across projects by what it
+    // proves rather than by where it lives.
+    tags: [
+      {
+        name: 'ml-locality',
+        description:
+          'No audio, project data or derived content leaves the device (REQ-AUDIO-138, ADR-0062): `pnpm test:ml-locality`.',
+      },
+    ],
+
     // Builds the canonical DSP module from the crates before any test runs,
     // so no test reads a module older than its source (ADR-0031).
     globalSetup: ['./tests/setup/dsp-module.ts'],

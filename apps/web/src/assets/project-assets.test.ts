@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   StandardLayouts,
   derivedSampleCount,
+  instantiateProcessor,
+  processorsOf,
   streamLength,
   unsafeBrandId,
   type Asset,
@@ -15,6 +17,7 @@ import type { ProjectState } from '@audiogubbins/project-format';
 import { editedReferenceState } from '@audiogubbins/project-format/testing';
 import { addRegionInvocation, applyInvocation } from '@audiogubbins/project-commands';
 import { ProjectCommandId } from '@audiogubbins/project-commands';
+import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { OPEN_MODEL_GATE } from '../testing/editor-fakes.js';
@@ -253,6 +256,54 @@ describe('the entries of a state the worker sends, against those of the state be
       kind: 'open',
       asset: { name: 'Rain' },
     });
+  });
+
+  it('plans a region again where only a parameter of its rack changed', () => {
+    // A chain holds its parameter values in a map, which the comparison wrote
+    // as an empty object, so a region kept playing its rack's old value.
+    const gain = PROCESSOR_CATALOGUE.get('gain');
+    const [parameter] = gain?.parameters ?? [];
+    if (gain === undefined || parameter === undefined) throw new Error('The build has a gain.');
+    const chain = unsafeBrandId<'EffectChainId'>('00000000-7ac4');
+    const racked = (decibels: number): ProjectState => {
+      const copy = structuredClone(state);
+      const regions = new Map(
+        [...copy.project.regions].map(([id, one]) => [id, { ...one, rack: chain }] as const),
+      );
+      const effectChains = new Map([
+        ...copy.project.effectChains,
+        [
+          chain,
+          {
+            id: chain,
+            slots: [
+              {
+                ...instantiateProcessor(unsafeBrandId<'ProcessorId'>('00000000-7ac5'), gain),
+                values: new Map([[parameter.id, decibels]]),
+              },
+            ],
+          },
+        ],
+      ]);
+      return { ...copy, project: { ...copy.project, regions, effectChains } };
+    };
+    const [region] = state.project.regions.values();
+    if (region === undefined) throw new Error('No region.');
+    const id = regionEntryId(region.id);
+    const before = projectEntries(racked(0), media, OPEN_MODEL_GATE);
+
+    const after = projectEntries(racked(6), media, OPEN_MODEL_GATE, before.made).entries.get(id);
+
+    if (after?.kind !== 'open' || after.asset.owner.kind !== 'project')
+      throw new Error('Not open.');
+    const values = after.asset.owner.plan.streams.flatMap((stream) =>
+      stream.processing?.kind === 'chain'
+        ? [...processorsOf(stream.processing.chain.slots)].map((one) =>
+            one.values.get(parameter.id),
+          )
+        : [],
+    );
+    expect(values).toEqual([6]);
   });
 
   it('plans nothing again where only the files the page holds were told of again', () => {

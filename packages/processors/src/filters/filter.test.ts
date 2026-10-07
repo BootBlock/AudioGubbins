@@ -5,7 +5,6 @@ import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -13,17 +12,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { FILTER } from './filter.js';
-import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
-
-processorProperties(FILTER, {
-  layouts: EVERY_LAYOUT,
-  settings: [
-    { mode: 'high-pass', slope: '48-db', cutoff: 200, resonance: 2 },
-    { mode: 'band-pass', slope: '24-db', cutoff: 3_000, resonance: 4 },
-    { mode: 'notch', slope: '36-db', cutoff: 50, resonance: 10 },
-    { mode: 'all-pass', slope: '12-db', cutoff: 20_000, resonance: 0.1 },
-  ],
-});
+import { lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 /**
  * The gain of a bilinear Butterworth low-pass of `order` at `frequency`, for

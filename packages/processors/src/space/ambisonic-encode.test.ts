@@ -4,7 +4,6 @@ import { MAXIMUM_QUALITY, StandardLayouts, discreteLayout } from '@audiogubbins/
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -14,16 +13,6 @@ import {
 import { AMBISONIC_ENCODER } from './ambisonic-encode.js';
 import { largestDifference } from '../testing/sample-difference.js';
 import { NORMALISATIONS, ORDERS, burst, encoded, setLayout } from '../testing/space-measures.js';
-
-processorProperties(AMBISONIC_ENCODER, {
-  layouts: [StandardLayouts.mono],
-  settings: [
-    { azimuth: 135, elevation: 45, order: 'third', normalisation: 'fuma' },
-    { azimuth: -90, elevation: -30, order: 'second', normalisation: 'n3d' },
-    { azimuth: 180, elevation: 90, order: 'third', normalisation: 'sn3d' },
-  ],
-  bound: 4,
-});
 
 describe('the ambisonic encoder', () => {
   it('makes the set of the order and normalisation chosen, of a mono input only', () => {

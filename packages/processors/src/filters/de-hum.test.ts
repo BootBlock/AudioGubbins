@@ -5,7 +5,6 @@ import { expectFailureCode } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import {
   TEST_RATE,
   processorKernel,
@@ -13,19 +12,7 @@ import {
   runProcessor,
 } from '../testing/processor-run.js';
 import { DE_HUM } from './de-hum.js';
-import { EVERY_LAYOUT, lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
-
-processorProperties(DE_HUM, {
-  layouts: EVERY_LAYOUT,
-  settings: [
-    { fundamental: '60-hz', harmonics: 12, q: 100 },
-    { depth: 20, q: 5, offset: 1.5, harmonics: 1 },
-  ],
-  bound: 4,
-  // At no depth every notch is a peaking section of 0 dB, whose numerator
-  // and denominator are one, so the input passes to the bit.
-  passThrough: { values: { depth: 0 }, tolerance: 0 },
-});
+import { lastAudibleFrame, sineGain } from '../testing/filter-measures.js';
 
 /** The gain at `frequency` of de-hum at `values`, measured once its notches have settled. */
 function gain(values: Readonly<Record<string, ParameterValue>>, frequency: number): number {

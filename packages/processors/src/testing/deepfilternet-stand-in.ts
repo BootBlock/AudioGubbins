@@ -1,7 +1,8 @@
 /**
  * DeepFilterNet 3's three graphs played by models written in TypeScript, for
  * the tests that run the processor without its pack: here, around stand-ins
- * for its graphs' files, and in the packages whose threads run it.
+ * for its graphs' files, and in the packages whose threads run it, from the
+ * stand-ins read as though installed or from a pack of them installed whole.
  *
  * The encoder gives outputs of the shapes it declares, all zero; the
  * decoders give every band the gain `gain` and every bin the deep filter
@@ -19,10 +20,16 @@ import type {
 } from '@audiogubbins/ml-runtime';
 import { FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
 
+import { processorTypesWith } from '../catalogue.js';
+import type { ProcessorType } from '../framework/processor-type.js';
+import { DEEPFILTERNET_3 } from '../ml/deepfilternet/deepfilternet.js';
+import { modelProcessorType } from '../ml/model-processor.js';
 import {
   DEEPFILTERNET_3_MODEL,
   DeepFilterNetGraph,
 } from '../ml/deepfilternet/deepfilternet-model.js';
+import type { ModelDefinitionFile } from '../ml/model-definition.js';
+import type { ModelServices } from '../ml/model-sessions.js';
 
 function frames(dims: readonly number[]): number {
   return dims[2] ?? 0;
@@ -115,6 +122,26 @@ export function deepFilterNetPack(): readonly StandInFile[] {
     bytes: new TextEncoder().encode(`${STAND_IN}${path}`),
     sha256,
   }));
+}
+
+/**
+ * How a thread that runs chains makes every processor type, those that run a
+ * model made with its services, but for DeepFilterNet 3, which runs `files`:
+ * the catalogue's descriptor and the identity an instance persists, held to
+ * the hashes given. So a chain made from the catalogue runs from a pack of the
+ * stand-ins of {@link deepFilterNetPack} that states their own hashes,
+ * installed through the installer, which a test hashes as the installer does.
+ */
+export function typesRunningDeepFilterNetFiles(
+  files: readonly ModelDefinitionFile[],
+): (services: ModelServices) => ReadonlyMap<string, ProcessorType> {
+  return (services) => {
+    const standIn = modelProcessorType(
+      { ...DEEPFILTERNET_3, model: { ...DEEPFILTERNET_3_MODEL, files } },
+      services,
+    );
+    return new Map([...processorTypesWith(services), [standIn.descriptor.typeKey, standIn]]);
+  };
 }
 
 /**

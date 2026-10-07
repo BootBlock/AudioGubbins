@@ -1,11 +1,13 @@
 /**
- * The properties every processor is held to (REQ-AUDIO-146, ADR-0061), run by
- * each processor's own test file for the layouts and settings it names:
- * silence, an impulse, full scale, subnormals, NaN and infinity with recovery,
- * programme material, the same bits however the audio is cut into blocks, the
- * same bits from the WebAssembly DSP as from the reference, every quality level
- * running, and, for settings that pass the signal through, the latency it
- * declares.
+ * The properties every processor is held to (REQ-AUDIO-146, ADR-0061): silence,
+ * an impulse, full scale, subnormals, NaN and infinity with recovery, programme
+ * material, the same bits however the audio is cut into blocks, the same bits
+ * from the WebAssembly DSP as from the reference, every quality level running,
+ * and, for settings that pass the signal through, the latency it declares. Each
+ * processor's own `<name>.properties.test.ts` runs them for the layouts and
+ * settings it names, and registers nothing else, so `pnpm test:dsp-property`
+ * selects them by that name and `catalogue-properties.test.ts` counts the types
+ * they hold.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -125,7 +127,10 @@ function caseSettings(
 export function processorProperties(type: ProcessorType, cases: PropertyCases): void {
   const settingsList = [{}, ...(cases.settings ?? [])];
   const bound = cases.bound ?? 64;
-  describe(`${type.descriptor.label}, held to every processor's properties`, () => {
+  // A type held both without state and with it would otherwise give two
+  // groups of the same tests the same names.
+  const holding = cases.state === undefined ? '' : ' with the state it holds';
+  describe(`${type.descriptor.label}${holding}, held to every processor's properties`, () => {
     for (const layout of cases.layouts) {
       const width = String(channelCount(layout));
       for (const [index, values] of settingsList.entries()) {

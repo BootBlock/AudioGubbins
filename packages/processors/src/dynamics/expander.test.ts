@@ -1,34 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  AmbisonicNormalisation,
-  AmbisonicOrdering,
-  StandardLayouts,
-  ambisonicLayout,
-} from '@audiogubbins/domain';
-import { expectSuccess } from '@audiogubbins/domain/testing';
+import { StandardLayouts } from '@audiogubbins/domain';
 
-import { processorProperties } from '../testing/processor-properties.js';
 import { runProcessor } from '../testing/processor-run.js';
 import { EXPANDER } from './expander.js';
 import { rmsGainDecibels, runMono, tone } from '../testing/dynamics-runs.js';
-
-const FIRST_ORDER = expectSuccess(
-  ambisonicLayout({
-    order: 1,
-    ordering: AmbisonicOrdering.Acn,
-    normalisation: AmbisonicNormalisation.Sn3d,
-  }),
-);
-
-processorProperties(EXPANDER, {
-  layouts: [StandardLayouts.mono, StandardLayouts.stereo, StandardLayouts.surround5_1, FIRST_ORDER],
-  settings: [
-    { threshold: 0, ratio: 10, range: 80, knee: 0, attack: 0.1, release: 5 },
-    { threshold: -20, ratio: 1.5, range: 6, knee: 24, attack: 200, release: 2_000 },
-  ],
-  passThrough: { values: { ratio: 1 }, tolerance: 0 },
-});
 
 const SECOND = 48_000;
 const TAIL = [SECOND / 2, SECOND] as const;

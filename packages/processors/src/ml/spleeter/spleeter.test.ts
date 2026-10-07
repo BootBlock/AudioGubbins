@@ -12,18 +12,12 @@ import { sineOfTurns } from '@audiogubbins/audio-engine';
 import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { Measurement } from '../../framework/whole-pass.js';
-import { processorProperties } from '../../testing/processor-properties.js';
-import {
-  FakeModels,
-  MemoryModelLibrary,
-  standInModel,
-  standInServices,
-} from '../../testing/model-services.js';
+import { standInModel, standInServices } from '../../testing/model-services.js';
 import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
 import { modelProcessorType } from '../model-processor.js';
 import type { ModelProcessor } from '../model-processor.js';
-import { SPLEETER_2_STEMS, SPLEETER_4_STEMS, spleeter2Stems, spleeter4Stems } from './spleeter.js';
+import { SPLEETER_2_STEMS, SPLEETER_4_STEMS } from './spleeter.js';
 import { FRAME, HOP, MODEL_BINS, SEGMENT_FRAMES, SPLEETER_GRAPH } from './spleeter-model.js';
 
 /** `processor` over a stand-in for its graph's file, on the fake runtime. */
@@ -311,16 +305,3 @@ describe("Spleeter's refusals", () => {
     });
   });
 });
-
-// Unmeasured, the kernel passes its input on, which is all a kernel does
-// beside playing back, and the playback is the framework's.
-for (const make of [spleeter2Stems, spleeter4Stems]) {
-  processorProperties(
-    make({ inference: new FakeModels(new Map()), models: new MemoryModelLibrary([]) }),
-    {
-      layouts: [StandardLayouts.mono, StandardLayouts.stereo],
-      bound: 1,
-      passThrough: { values: {}, tolerance: 0 },
-    },
-  );
-}
