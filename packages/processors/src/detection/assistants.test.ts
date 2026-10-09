@@ -15,13 +15,19 @@ import { PROCESSOR_CATALOGUE } from '../catalogue.js';
 import { partials, withClicks } from '../testing/repair-signals.js';
 import { clipped, detect, hiss, mixed, scaled, tone } from '../testing/detection-signals.js';
 import { TEST_RATE } from '../testing/processor-run.js';
-import {
-  CLASSIFICATION_ASSISTANT,
-  REPAIR_ASSISTANT,
-  RESTORATION_ASSISTANT,
-  recommendation,
-} from './assistants.js';
+import { CANONICAL_ASSISTANTS, SILENCE_ASSISTANT, recommendation } from './assistants.js';
 import type { Assistant } from './audio-detector.js';
+
+/** The assistant this build has of `key`. */
+function assistantOf(key: string): Assistant {
+  const found = CANONICAL_ASSISTANTS.find((assistant) => assistant.key === key);
+  if (found === undefined) throw new Error(`This build has no ${key} assistant.`);
+  return found;
+}
+
+const CLASSIFICATION_ASSISTANT = assistantOf('classification');
+const REPAIR_ASSISTANT = assistantOf('repair');
+const RESTORATION_ASSISTANT = assistantOf('restoration');
 
 const ids = createDeterministicIdGenerator(61);
 
@@ -138,6 +144,7 @@ describe('the assistants', () => {
       // The DC offset is no finding of its detectors, so it is left out.
       findings: findings.slice(0, 2),
       steps: [],
+      removals: [],
     });
   });
 
@@ -180,5 +187,35 @@ describe('the assistants', () => {
     expect(accepted({ typeKey: 'de-hum', values: { fundamental: '55-hz' } })).toBe(false);
     expect(accepted({ typeKey: 'de-click', values: { strength: 1 } })).toBe(false);
     expect(accepted({ typeKey: 'declipper', values: {} })).toBe(false);
+  });
+});
+
+describe('the silence assistant', () => {
+  /** A silence over frames `start` to `end`, taken out, or treated by nothing. */
+  function silence(start: number, end: number, removed = true): DetectorFinding {
+    return {
+      kind: FindingKind.Silence,
+      range: range(start, end),
+      channels: [0],
+      measure: { value: 0, unit: MeasureUnit.Linear },
+      treatment: removed ? { kind: 'removal' } : { kind: 'none', reason: 'All quiet.' },
+    };
+  }
+
+  it('recommends no processor, and gives the frames its findings take out, in order and apart', () => {
+    const found = [
+      silence(900, 1_000),
+      silence(0, 50),
+      silence(400, 500),
+      silence(450, 600),
+      silence(600, 700),
+      silence(800, 820, false),
+      finding(FindingKind.Click, [CLICK], 10, 20),
+    ];
+    const recommended = recommendation(SILENCE_ASSISTANT, found);
+    expect(recommended.steps).toEqual([]);
+    expect(recommended.removals).toEqual([range(0, 50), range(400, 700), range(900, 1_000)]);
+    expect(recommended.findings).toHaveLength(6);
+    expect(recommendation(REPAIR_ASSISTANT, found).removals).toEqual([]);
   });
 });

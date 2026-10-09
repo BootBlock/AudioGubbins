@@ -7,7 +7,6 @@ import {
   assetPlan,
   createDeterministicIdGenerator,
   derivedSampleCount,
-  finalRenderSettings,
   treatmentChain,
   unsafeBrandId,
   type Asset,
@@ -116,7 +115,7 @@ function racked(): PcmSource {
       REFERENCE_DSP,
       {
         processing: chainProcessing(PROCESSOR_TYPES_BY_KEY),
-        quality: finalRenderSettings(MAXIMUM_QUALITY),
+        quality: MAXIMUM_QUALITY.settings,
         start: ProcessedStart.Canonical,
       },
     ),

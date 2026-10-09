@@ -60,15 +60,16 @@ async function suiteConfig(): Promise<{
 }
 
 describe('the browser suite', () => {
-  it("prints both preview servers' output with the run's, each under its name", async () => {
+  it("prints every server's output with the run's, each under its name", async () => {
     // Playwright drops a server's standard output unless the entry asks for it,
     // and prints each piped line under the server's name, so the log of a run
     // that fails keeps what each server said while it failed.
     const { servers } = await suiteConfig();
-    expect(servers).toHaveLength(2);
+    expect(servers).toHaveLength(3);
     expect(servers.map(({ name, stdout, stderr }) => ({ name, stdout, stderr }))).toEqual([
       { name: 'preview', stdout: 'pipe', stderr: 'pipe' },
       { name: 'pages preview', stdout: 'pipe', stderr: 'pipe' },
+      { name: 'ml golden harness', stdout: 'pipe', stderr: 'pipe' },
     ]);
   });
 
@@ -81,13 +82,17 @@ describe('the browser suite', () => {
     expect(outputDir).toBe(output);
 
     const ports = servers.map(({ command }) => /--port (\d+)/.exec(command)?.[1]);
-    expect(ports).toEqual(['4173', '4174']);
+    expect(ports).toEqual(['4173', '4174', '4175']);
+    // The goldens' harness is a development server, which keeps no request
+    // log: the log is the preview server's, and the harness takes its packs'
+    // cache from the suite's own environment, which it is given whole.
     expect(servers.map(({ env }) => env)).toEqual([
       { AUDIOGUBBINS_PREVIEW_REQUEST_LOG: join(output, 'preview-4173-requests.log') },
       {
         AUDIOGUBBINS_BASE: '/AudioGubbins/',
         AUDIOGUBBINS_PREVIEW_REQUEST_LOG: join(output, 'preview-4174-requests.log'),
       },
+      undefined,
     ]);
   });
 });

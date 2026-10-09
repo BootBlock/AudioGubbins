@@ -18,7 +18,8 @@ import { FeederCore } from '../feeder/feeder-core.js';
 import type { ToFeeder } from '../protocol/feeder-messages.js';
 import type { FeederWorkerEvents, FeederWorkerPort } from '../playback/feeder-link.js';
 import type { Schedule } from '../schedule.js';
-import { FakeMessagePort, cloneAcross } from './fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { FakeMessagePort } from './fake-message-channel.js';
 import { NO_CHAIN_PROCESSING } from '@audiogubbins/audio-engine/testing';
 
 /** What a fake feeder is made with. */
@@ -104,7 +105,7 @@ export class FakeFeederWorker implements FeederWorkerPort {
   postMessage(message: ToFeeder, transfer: Transferable[]): void {
     this.received.push(message);
     if (this.terminated) return;
-    const data = cloneAcross(message, transfer);
+    const data = crossingThreads(message, transfer);
     queueMicrotask(() => {
       if (!this.terminated) this.#core.receive(data);
     });

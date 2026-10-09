@@ -1,24 +1,20 @@
 /**
- * A machine-learning processor's pinned golden render (ADR-0062): the real
- * inference runtime, in Node, running the pack's own files from the pack
- * cache (`pack-cache.ts`), over a signal the test makes, the output held to
- * one SHA-256 of its samples' bytes.
+ * A machine-learning processor's pinned golden render (ADR-0062) in Node: the
+ * real inference runtime running the pack's own files from the pack cache
+ * (`pack-cache.ts`), over the case's signal (`ml-goldens.ts`), the output
+ * held to the case's SHA-256 of its samples' bytes, as every browser's is.
  *
  * Goldens run in their own project, `ml-golden`, never in `pnpm test`, since
  * they need the packs' files: `pnpm test:ml-golden`, with
  * `AUDIOGUBBINS_PACK_CACHE` naming the cache.
  */
 
-import { expectSuccess } from '@audiogubbins/domain/testing';
 import { realInference } from '@audiogubbins/ml-runtime/testing';
 
-import type { ProcessorType } from '../framework/processor-type.js';
-import { PINNED_RUNTIME_SHA256, type ModelDefinition } from '../ml/model-definition.js';
-import type { ModelServices } from '../ml/model-sessions.js';
-import { modelPassOf, passOver } from './model-runs.js';
+import { PINNED_RUNTIME_SHA256 } from '../ml/model-definition.js';
+import { goldenSamples, type MlGolden } from './ml-goldens.js';
 import { runtimeWebAssembly, sha256Of } from './model-services.js';
 import { packCacheLibrary } from './pack-cache.js';
-import type { RunSettings } from './processor-run.js';
 
 /** What a golden render made: its length, the digest of its bytes, and how long it took. */
 export interface GoldenRender {
@@ -28,23 +24,17 @@ export interface GoldenRender {
 }
 
 /**
- * The pass of the type `make` makes, over `model`'s pack from the cache on the
- * pinned runtime, for `settings`, over `input`, given in chunks of 16 384.
+ * `golden`'s render (`ml-goldens.ts`), over its model's pack from the cache
+ * on the pinned runtime.
  */
-export async function goldenRender(
-  make: (services: ModelServices) => ProcessorType,
-  model: ModelDefinition,
-  settings: RunSettings,
-  input: readonly Float32Array[],
-): Promise<GoldenRender> {
-  const type = make({
+export async function goldenRender(golden: MlGolden): Promise<GoldenRender> {
+  const services = {
     inference: realInference(runtimeWebAssembly(), PINNED_RUNTIME_SHA256),
-    models: packCacheLibrary(model.identity),
-  });
+    models: packCacheLibrary(golden.model.identity),
+  };
   const started = performance.now();
-  const measured = expectSuccess(await passOver(modelPassOf(type, settings), input, [16_384]));
+  const measured = await goldenSamples(golden, services);
   const seconds = (performance.now() - started) / 1_000;
-  if (!(measured instanceof Float32Array)) throw new Error('A model pass makes samples.');
   const bytes = new Uint8Array(measured.buffer, measured.byteOffset, measured.byteLength);
   return { frames: measured.length, digest: sha256Of(bytes), seconds };
 }

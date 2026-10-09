@@ -15,7 +15,7 @@
  * frame (the packet's acceptance criterion).
  */
 
-import { finalRenderSettings, type QualityMode, type SampleCount } from '@audiogubbins/domain';
+import type { QualityMode, SampleCount } from '@audiogubbins/domain';
 import type { KnownAudio } from '@audiogubbins/editor-view';
 import { visibleRange, type ViewportState } from '@audiogubbins/timeline';
 import {
@@ -41,8 +41,8 @@ import type { EditorAsset } from '../assets/editor-asset.js';
  * changes what is drawn and peaks kept for the other must not be.
  */
 function peakRevisionOf(asset: EditorAsset, quality: QualityMode): string {
-  const { resampling, oversampling, spectralOverlap, inference } = finalRenderSettings(quality);
-  return `${asset.revision}.${resampling}-${String(oversampling)}-${String(spectralOverlap)}-${inference}`;
+  const { resampling, oversampling, spectralOverlap } = quality.settings;
+  return `${asset.revision}.${resampling}-${String(oversampling)}-${String(spectralOverlap)}`;
 }
 
 /**

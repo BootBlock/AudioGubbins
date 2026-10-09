@@ -23,7 +23,7 @@
     "below": "1.31.0",
     "capabilities": ["webassembly-simd"]
   },
-  "tiers": ["maximum"],
+  "tier": "thorough",
   "serves": { "processors": ["mossformer2-se-48k"], "detectors": [] },
   "sources": [
     {

@@ -14,7 +14,7 @@
  */
 
 import { EngineProcessorCore } from '../processor/engine-processor-core.js';
-import { cloneAcross } from './fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
 import { RENDER_QUANTUM_FRAMES } from '../processor/loaded-graph.js';
 import type {
   AudioDestinationPort,
@@ -94,7 +94,7 @@ export class FakeWorkletNode implements WorkletNodePort {
       postMessage: (message, transfer = []) => {
         this.sent.push(message);
         if (lost(message)) return;
-        const data = cloneAcross(message, transfer);
+        const data = crossingThreads(message, transfer);
         queueMicrotask(() => {
           this.#core.receive(data);
         });

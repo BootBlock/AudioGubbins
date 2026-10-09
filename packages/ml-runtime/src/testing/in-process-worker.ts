@@ -12,6 +12,8 @@
  * later, send an answer of its own, or make a worker fail.
  */
 
+import { crossingThreads } from '@audiogubbins/domain/testing';
+
 import type { ChannelEnd } from '../channel-end.js';
 import { channelWorkerPort } from '../channel-worker-port.js';
 import {
@@ -44,26 +46,6 @@ export function testSetup(
 
 type Listener = (event: { readonly data: unknown }) => void;
 
-/**
- * `message` as it arrives in another thread: a structured clone, its buffers
- * transferred, and each end of a channel it names, which a clone would copy
- * into a lifeless object, moved as it is, as a transfer moves a port. The
- * protocols here name an end only as a member of the message itself.
- */
-function crossing(message: unknown, transfer: readonly object[]): unknown {
-  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
-  if (typeof message !== 'object' || message === null) {
-    return structuredClone(message, { transfer: buffers });
-  }
-  const ends = new Map(
-    Object.entries(message).filter(
-      (entry): entry is [string, InProcessEnd] => entry[1] instanceof InProcessEnd,
-    ),
-  );
-  const rest = Object.fromEntries(Object.entries(message).filter(([key]) => !ends.has(key)));
-  return { ...structuredClone(rest, { transfer: buffers }), ...Object.fromEntries(ends) };
-}
-
 /** One end of a channel in this thread (see the module comment). */
 class InProcessEnd implements ChannelEnd {
   other: InProcessEnd | undefined;
@@ -78,7 +60,7 @@ class InProcessEnd implements ChannelEnd {
 
   postMessage(message: unknown, transfer: readonly object[]): void {
     if (this.closed) return;
-    const clone = crossing(message, transfer);
+    const clone = crossingThreads(message, transfer);
     if (this.held === undefined) this.other?.arrive(clone);
     else this.held.push(clone);
   }

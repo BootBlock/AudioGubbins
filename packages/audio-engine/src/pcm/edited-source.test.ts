@@ -6,6 +6,7 @@ import {
   StandardLayouts,
   assetPlan,
   derivedSampleCount,
+  readValue,
   sampleRate,
   slicePlan,
   unsafeBrandId,
@@ -29,10 +30,17 @@ import { MediaReadFailure, type MediaEntry } from './plan-content.js';
 import { allocateBlock, frameBlock } from './frame-block.js';
 import type { MediaFile } from './media-file.js';
 import { memorySource } from './memory-source.js';
-import { PcmDescriptionKind, describedSource, pcmDescription } from './pcm-description.js';
+import { PcmDescriptionKind, describedSource, pcmDescriptionOf } from './pcm-description.js';
 import type { PcmSource } from './pcm-source.js';
 import { resampledSource } from './resampled-source.js';
 import { ENGINE_VERSIONS } from '../dsp/algorithm-versions.js';
+
+/** A description read as a message carrying it reads it. */
+function pcmDescription(value: unknown) {
+  return readValue(value, 'pcm.description-unreadable', (one) =>
+    pcmDescriptionOf(one, 'description'),
+  );
+}
 
 const RATE = expectSuccess(sampleRate(48_000));
 const OTHER = expectSuccess(sampleRate(44_100));
@@ -167,7 +175,6 @@ describe('an edited source', () => {
         kind: 'insert',
         at: derivedSampleCount(3_000),
         payload: copied,
-        convertRate: false,
       },
       {
         id: id('fade'),
@@ -270,7 +277,7 @@ describe('an edited source', () => {
           kind: 'insert',
           at: derivedSampleCount(100),
           payload,
-          convertRate: true,
+          resampler: ENGINE_VERSIONS.resampler,
         },
       ],
     };

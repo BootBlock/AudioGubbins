@@ -51,7 +51,7 @@ fn refuses_settings_out_of_range() {
         DetectorSettings::from_values(DetectorKind::DcOffset, &[-1.0, 1.0]),
         refused
     );
-    let cases: [(DetectorKind, &[f64]); 12] = [
+    let cases: [(DetectorKind, &[f64]); 15] = [
         (DetectorKind::Clicks, &[63.0, 3.0]),
         (DetectorKind::Clicks, &[512.0, 0.0]),
         (DetectorKind::Hum, &[8.0, 4.0, 2.0, 10.0]),
@@ -67,6 +67,9 @@ fn refuses_settings_out_of_range() {
             DetectorKind::Transients,
             &[256.0, 128.0, 8.0, f64::NAN, 0.0],
         ),
+        (DetectorKind::Silence, &[0.0, 0.001]),
+        (DetectorKind::Silence, &[256.0, -0.001]),
+        (DetectorKind::Silence, &[256.0, f64::INFINITY]),
     ];
     for (kind, values) in cases {
         let settings = DetectorSettings::from_values(kind, values).expect("whole");
@@ -90,7 +93,8 @@ fn refuses_settings_out_of_range() {
         DetectorFeatures::new(1, 0, dc).unwrap_err(),
         AnalysisError::RateRefused
     );
-    assert_eq!(DetectorKind::from_code(6), None);
+    assert_eq!(DetectorKind::from_code(6), Some(DetectorKind::Silence));
+    assert_eq!(DetectorKind::from_code(7), None);
 }
 
 #[test]
@@ -170,6 +174,47 @@ fn finds_the_runs_of_a_clipped_sine() {
         .map(|half| [0.0, crate::exact(24 * half + 6), 13.0, 1.0])
         .collect();
     assert_eq!(runs, expected);
+}
+
+#[test]
+fn finds_the_runs_quiet_on_every_channel_block_by_block() {
+    // 2⁻¹¹ is under the threshold on both channels but where the first
+    // channel holds a half-scale stretch from 100 to 200, or a NaN at 700,
+    // which is never quiet.
+    let quiet = 1.0 / 2_048.0;
+    let mut planar = vec![quiet; 2 * 1_024];
+    for sample in &mut planar[100..200] {
+        *sample = 0.5;
+    }
+    planar[700] = f32::NAN;
+    let records = records_of(
+        features(DetectorKind::Silence, &[256.0, 0.001], 2, 48_000),
+        &planar,
+    );
+    let runs: Vec<[f64; 4]> = records
+        .chunks_exact(4)
+        .map(|e| [e[0], e[1], e[2], e[3]])
+        .collect();
+    let run = |first: usize, length: usize| {
+        let squares = f64::from(quiet) * f64::from(quiet);
+        [
+            crate::exact(first),
+            crate::exact(length),
+            f64::from(quiet),
+            crate::exact(2 * length) * squares,
+        ]
+    };
+    assert_eq!(
+        runs,
+        [
+            run(0, 100),
+            run(200, 56),
+            run(256, 256),
+            run(512, 188),
+            run(701, 67),
+            run(768, 256),
+        ]
+    );
 }
 
 #[test]
@@ -257,7 +302,7 @@ fn raises_the_flux_above_its_threshold_at_an_onset() {
 }
 
 /// The golden settings of each kind, as the ABI carries them, and the rate.
-pub(crate) const GOLDEN_SETTINGS: [(DetectorKind, &[f64], u32); 6] = [
+pub(crate) const GOLDEN_SETTINGS: [(DetectorKind, &[f64], u32); 7] = [
     (DetectorKind::Clicks, &[512.0, 3.0], 48_000),
     (DetectorKind::Hum, &[1_024.0, 512.0, 20.0, 60.0], 8_000),
     (DetectorKind::NoiseFloor, &[256.0, 100.0, 0.2, 7.0], 48_000),
@@ -268,6 +313,7 @@ pub(crate) const GOLDEN_SETTINGS: [(DetectorKind, &[f64], u32); 6] = [
         &[256.0, 128.0, 5.0, 1.5, 0.01],
         48_000,
     ),
+    (DetectorKind::Silence, &[300.0, 0.05], 48_000),
 ];
 
 /// The golden run of one kind: two channels of [`golden`], 6 000 frames,
@@ -318,11 +364,12 @@ fn writes_the_same_records_however_the_stream_arrives() {
 }
 
 /// [`golden_run`] of each of [`GOLDEN_SETTINGS`].
-const GOLDEN_DETECTORS: [(usize, u64); 6] = [
+const GOLDEN_DETECTORS: [(usize, u64); 7] = [
     (592, 0xbfe1_aa52_6cca_3f44),
     (10, 0x2cb7_9b35_b9c5_32da),
     (58, 0x6def_323e_a222_3e8b),
     (410, 0xa107_dbcc_ccd7_4af2),
     (45, 0xbbf1_27b9_3ff5_a2c7),
     (45, 0x2a0f_ef68_f76a_fd80),
+    (15, 0xbf2b_c432_2fdb_e698),
 ];

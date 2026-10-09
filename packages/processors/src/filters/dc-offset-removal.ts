@@ -25,7 +25,8 @@ import {
 import { tangentOfTurns, type NodeKernel } from '@audiogubbins/audio-engine';
 
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
-import { BiquadCascade, SectionSetting, designFrequency, poleDecayFrames } from './biquad.js';
+import { BiquadCascade, designFrequency, poleDecayFrames } from './biquad.js';
+import { SectionSetting } from './biquad-shape.js';
 import { CascadeKernel, type CascadeDesigner } from './cascade-kernel.js';
 import { numberOf } from './parameter-values.js';
 import { RampedParameter } from './ramped-parameter.js';

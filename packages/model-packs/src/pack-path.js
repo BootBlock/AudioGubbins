@@ -5,17 +5,20 @@
  * `<id>/<version>/<file path>`.
  *
  * A file's path is fetched from the catalogue under the pack's directory,
- * matched against the files a person imports, and answered by the development
- * server from a folder on disk, so one that climbed out with `..`, began at a
- * root, a drive or a share, or used a backslash could name a file the pack
- * does not own: on Windows a backslash, a drive or `\\?\` names a place a
- * check of the joined path does not see as outside, and a share opens a
- * network connection. So each part is held to a closed alphabet instead.
+ * matched against the files a person imports, answered by the development
+ * server from a folder on disk, and written by the pack build tool under its
+ * output, so one that climbed out with `..`, began at a root, a drive or a
+ * share, or used a backslash could name a file the pack does not own: on
+ * Windows a backslash, a drive or `\\?\` names a place a check of the joined
+ * path does not see as outside, and a share opens a network connection. So
+ * each part is held to a closed alphabet instead.
  *
- * It imports nothing but the version grammar, which imports nothing, since
- * the build's configuration bundles it by its path: Node loads a package the
- * configuration imports by name without a compiler (the dependency cruise
- * holds both).
+ * JavaScript with its types in JSDoc, which the package's compiler checks:
+ * the build's configuration bundles it by its path, and the pack build tool
+ * loads it in Node, which runs no compiler, so the package, the development
+ * server and the tool hold paths to this one grammar. It imports nothing but
+ * the version grammar, which imports nothing (the dependency cruise holds
+ * both).
  */
 
 import { PACK_VERSION } from './pack-version.js';
@@ -36,8 +39,13 @@ export const LONGEST_PACK_ID = 64;
 /** The catalogue's file under the catalogue's URL. */
 export const CATALOGUE_FILE = 'catalogue.json';
 
-/** Why a path is not one a file of a pack may have, or `undefined` where it may. */
-export function packFilePathProblem(path: string): string | undefined {
+/**
+ * Why a path is not one a file of a pack may have, or `undefined` where it may.
+ *
+ * @param {string} path
+ * @returns {string | undefined}
+ */
+export function packFilePathProblem(path) {
   if (path.includes('\\')) return 'A file path uses `/` between segments, never a backslash.';
   if (ABSOLUTE_PATH.test(path)) return 'A file path is relative to its pack, never absolute.';
   if (path.length > LONGEST_PATH) {
@@ -61,8 +69,11 @@ export function packFilePathProblem(path: string): string | undefined {
 /**
  * Why a path below the catalogue's URL, decoded, names nothing the catalogue
  * serves, or `undefined` where it names the catalogue's file or a pack's file.
+ *
+ * @param {string} path
+ * @returns {string | undefined}
  */
-export function cataloguePathProblem(path: string): string | undefined {
+export function cataloguePathProblem(path) {
   if (path === CATALOGUE_FILE) return undefined;
   const [id = '', version = '', ...file] = path.split('/');
   if (!PACK_ID.test(id)) return 'A path under the catalogue begins with a pack’s name.';
@@ -72,4 +83,26 @@ export function cataloguePathProblem(path: string): string | undefined {
   return file.length === 0
     ? 'A path under the catalogue names a file of a pack version.'
     : packFilePathProblem(file.join('/'));
+}
+
+/**
+ * The indices of the paths, of a pack's files in order, that one file system
+ * could not keep beside the others: a path another before it has in any
+ * case, which a case-insensitive system would keep as one file, or a path
+ * another lies inside, which no system can keep as a file and a directory.
+ *
+ * @param {readonly string[]} paths
+ * @returns {number[]}
+ */
+export function collidingPaths(paths) {
+  const folded = paths.map((path) => path.toLowerCase());
+  return folded.flatMap((path, index) =>
+    folded.some(
+      (other, otherIndex) =>
+        otherIndex !== index &&
+        ((otherIndex < index && other === path) || other.startsWith(`${path}/`)),
+    )
+      ? [index]
+      : [],
+  );
 }

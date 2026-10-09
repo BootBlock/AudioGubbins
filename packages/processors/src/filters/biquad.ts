@@ -2,168 +2,53 @@
  * The second-order section every filter and equaliser here is built from:
  * the designs of Robert Bristow-Johnson's "Audio EQ Cookbook", a cascade of
  * them run in transposed direct form II, and the Butterworth cascades that
- * give the steeper slopes.
- *
- * A design reads the angle of its frequency in turns through the canonical
- * cosine and sine, and the cookbook's `A`, `10^(dB/40)`, as the canonical
- * conversion of half the decibels, so a design is the same bits on every
- * machine (ADR-0032). Its six raw coefficients are each divided by `a0`, one
- * division apiece in the order b0, b1, b2, a1, a2, rather than multiplied by
- * a reciprocal, which would round twice.
+ * give the steeper slopes. The designs are the cookbook's (`cookbook.ts`)
+ * up to {@link HANDOVER_START} of the rate, and from there fitted to the
+ * magnitude (`magnitude-fit.ts`), handing over from the cookbook's to the
+ * analogue prototype's by {@link HIGHEST_DESIGN_FRACTION}, above which the
+ * cookbook cannot place a section.
  */
 
-import { cosineOfTurns, decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
+import { cosineOfTurns, decibelsToGain, ln } from '@audiogubbins/audio-engine';
 
 import { belowSilence, finiteSample } from '../framework/sample-safety.js';
-
-/** The shapes a section can take, each a design of the cookbook. */
-export const BiquadShape = {
-  Peaking: 'peaking',
-  LowShelf: 'low-shelf',
-  HighShelf: 'high-shelf',
-  LowPass: 'low-pass',
-  HighPass: 'high-pass',
-  BandPass: 'band-pass',
-  Notch: 'notch',
-  AllPass: 'all-pass',
-} as const;
-
-/** A shape a section can take. */
-export type BiquadShape = (typeof BiquadShape)[keyof typeof BiquadShape];
+import {
+  BiquadShape,
+  HANDOVER_START,
+  HIGHEST_DESIGN_FRACTION,
+  SectionSetting,
+  prototypeShare,
+} from './biquad-shape.js';
+import { designCookbook } from './cookbook.js';
+import { designFitted } from './magnitude-fit.js';
 
 /** The coefficients of one section: b0, b1, b2, a1 and a2, each divided by a0. */
 const COEFFICIENTS_PER_SECTION = 5;
 
 /**
- * The highest frequency a design is made at, as a fraction of the rate. At half
- * the rate the sine of the angle is zero, so `α` is zero and the poles of a
- * low-pass reach the unit circle; and a frequency a person set above half a low
- * rate, 20 kHz at 32 kHz, has no place in its spectrum. Just below half the
- * rate every design stays stable and as near to what was asked as the rate
- * allows.
+ * The frequency a first-order design's analogue estimate is taken at for
+ * `frequency` at `rate`: no higher than the cookbook places a section, for a
+ * design that has no fitted form (the DC-offset filter, whose cutoff is
+ * never near it) and for the decay of a pole pair below it.
  */
-export const HIGHEST_DESIGN_FRACTION = 0.49;
-
-/** The frequency a design is made at for `frequency` at `rate`. */
 export function designFrequency(frequency: number, rate: number): number {
   return Math.min(frequency, HIGHEST_DESIGN_FRACTION * rate);
 }
 
-/**
- * Where a design takes what it is made from and leaves its raw coefficients. V8
- * boxes a double passed to or returned from a call it does not inline, and a
- * running filter designs its sections again as its parameters move, on the
- * audio thread, so a design's steps return nothing and hand their doubles
- * through here: first `cos ω₀`, `α`, the cookbook's `A` (`10^(dB/40)`) and
- * `2·√A·α`, which the shelves alone take, then the raw b0, b1, b2, a0, a1 and
- * a2, before division by a0. Each step reads what it is given as it starts and
- * writes its answer as it ends.
- */
-const SLOT = new Float64Array(6);
-
-/** Replaces what a shape's design is made from in {@link SLOT} with its raw coefficients. */
-type Design = () => void;
-
-/** Each shape's raw coefficients, in the cookbook's order of terms. */
-const DESIGNS: Readonly<Record<BiquadShape, Design>> = {
-  [BiquadShape.Peaking]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    const a = SLOT[2] ?? 0;
-    SLOT[0] = 1 + alpha * a;
-    SLOT[1] = -2 * cosine;
-    SLOT[2] = 1 - alpha * a;
-    SLOT[3] = 1 + alpha / a;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha / a;
-  },
-  [BiquadShape.LowShelf]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const a = SLOT[2] ?? 0;
-    const shelf = SLOT[3] ?? 0;
-    SLOT[0] = a * (a + 1 - (a - 1) * cosine + shelf);
-    SLOT[1] = 2 * a * (a - 1 - (a + 1) * cosine);
-    SLOT[2] = a * (a + 1 - (a - 1) * cosine - shelf);
-    SLOT[3] = a + 1 + (a - 1) * cosine + shelf;
-    SLOT[4] = -2 * (a - 1 + (a + 1) * cosine);
-    SLOT[5] = a + 1 + (a - 1) * cosine - shelf;
-  },
-  [BiquadShape.HighShelf]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const a = SLOT[2] ?? 0;
-    const shelf = SLOT[3] ?? 0;
-    SLOT[0] = a * (a + 1 + (a - 1) * cosine + shelf);
-    SLOT[1] = -2 * a * (a - 1 + (a + 1) * cosine);
-    SLOT[2] = a * (a + 1 + (a - 1) * cosine - shelf);
-    SLOT[3] = a + 1 - (a - 1) * cosine + shelf;
-    SLOT[4] = 2 * (a - 1 - (a + 1) * cosine);
-    SLOT[5] = a + 1 - (a - 1) * cosine - shelf;
-  },
-  [BiquadShape.LowPass]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    SLOT[0] = (1 - cosine) / 2;
-    SLOT[1] = 1 - cosine;
-    SLOT[2] = (1 - cosine) / 2;
-    SLOT[3] = 1 + alpha;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha;
-  },
-  [BiquadShape.HighPass]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    SLOT[0] = (1 + cosine) / 2;
-    SLOT[1] = -(1 + cosine);
-    SLOT[2] = (1 + cosine) / 2;
-    SLOT[3] = 1 + alpha;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha;
-  },
-  [BiquadShape.BandPass]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    SLOT[0] = alpha;
-    SLOT[1] = 0;
-    SLOT[2] = -alpha;
-    SLOT[3] = 1 + alpha;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha;
-  },
-  [BiquadShape.Notch]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    SLOT[0] = 1;
-    SLOT[1] = -2 * cosine;
-    SLOT[2] = 1;
-    SLOT[3] = 1 + alpha;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha;
-  },
-  [BiquadShape.AllPass]: () => {
-    const cosine = SLOT[0] ?? 0;
-    const alpha = SLOT[1] ?? 0;
-    SLOT[0] = 1 - alpha;
-    SLOT[1] = -2 * cosine;
-    SLOT[2] = 1 + alpha;
-    SLOT[3] = 1 + alpha;
-    SLOT[4] = -2 * cosine;
-    SLOT[5] = 1 - alpha;
-  },
-};
-
-/**
- * The shelves' slope, S = 1, the steepest that does not overshoot, which
- * makes their `α` `sin(ω₀)/2 · √2` whatever their gain.
- */
-const SHELF_ALPHA_FACTOR = Math.SQRT2 / 2;
-
-/** Where each of a section's settings is in a cascade's {@link BiquadCascade.settings}. */
-export const SectionSetting = { Frequency: 0, Gain: 1, Q: 2 } as const;
+/** The two designs a section in the hand-over is made between, and the fitted design's share. */
+const HANDOVER = new Float64Array(2 * COEFFICIENTS_PER_SECTION);
+const SHARE = new Float64Array(1);
 
 /**
  * Writes the coefficients of `shape` at `rate`, at the frequency in Hz, gain
- * in dB and Q in `settings`, into `into` from `at`. The gain is read by the
- * peaking and shelf shapes alone, and the Q by every shape but the shelves.
+ * in dB and Q in `settings`, into `into` from `at`: the cookbook's exact
+ * design up to {@link HANDOVER_START} of the rate, the design fitted to the
+ * analogue magnitude from {@link HIGHEST_DESIGN_FRACTION} on, and between,
+ * each coefficient moved from the one to the other in proportion to the
+ * frequency, so a section's response has no step as its frequency crosses
+ * either. Every stable denominator lies in one triangle of `a1` and `a2`,
+ * which holds every point between two of its points, so each design between
+ * is stable too.
  */
 function designBiquad(
   shape: BiquadShape,
@@ -172,24 +57,23 @@ function designBiquad(
   into: Float64Array,
   at: number,
 ): void {
-  const turns = designFrequency(settings[SectionSetting.Frequency] ?? 0, rate) / rate;
-  const sine = sineOfTurns(turns);
-  const shelved = shape === BiquadShape.LowShelf || shape === BiquadShape.HighShelf;
-  const alpha = shelved
-    ? sine * SHELF_ALPHA_FACTOR
-    : sine / (2 * (settings[SectionSetting.Q] ?? 0));
-  const amplitude = decibelsToGain((settings[SectionSetting.Gain] ?? 0) / 2);
-  SLOT[0] = cosineOfTurns(turns);
-  SLOT[1] = alpha;
-  SLOT[2] = amplitude;
-  SLOT[3] = shelved ? 2 * Math.sqrt(amplitude) * alpha : 0;
-  DESIGNS[shape]();
-  const a0 = SLOT[3];
-  into[at] = SLOT[0] / a0;
-  into[at + 1] = SLOT[1] / a0;
-  into[at + 2] = SLOT[2] / a0;
-  into[at + 3] = (SLOT[4] ?? 0) / a0;
-  into[at + 4] = (SLOT[5] ?? 0) / a0;
+  prototypeShare(rate, settings, SHARE, 0);
+  const share = SHARE[0] ?? 0;
+  if (share === 0) {
+    designCookbook(shape, rate, settings, into, at);
+    return;
+  }
+  if (share === 1) {
+    designFitted(shape, rate, settings, into, at);
+    return;
+  }
+  designCookbook(shape, rate, settings, HANDOVER, 0);
+  designFitted(shape, rate, settings, HANDOVER, COEFFICIENTS_PER_SECTION);
+  for (let index = 0; index < COEFFICIENTS_PER_SECTION; index += 1) {
+    into[at + index] =
+      (1 - share) * (HANDOVER[index] ?? 0) +
+      share * (HANDOVER[COEFFICIENTS_PER_SECTION + index] ?? 0);
+  }
 }
 
 /**
@@ -232,11 +116,41 @@ export function poleDecayFrames(frequency: number, poleQ: number, rate: number):
   return silenceFrames(1 / (2 * Math.PI * designFrequency(frequency, rate) * damping), rate);
 }
 
+/** Where {@link fittedDecayFrames} designs the section it measures. */
+const MEASURED = new Float64Array(COEFFICIENTS_PER_SECTION);
+const MEASURED_SETTINGS = new Float64Array(3);
+
+/**
+ * Frames a fitted section takes to decay by 120 dB: from its own poles, whose
+ * larger radius `r` falls by 120 dB in `ln 10⁶ / −ln r` frames, with the
+ * margin the analogue estimate has, since a fitted section's poles are not
+ * its prototype's.
+ */
+function fittedDecayFrames(
+  shape: BiquadShape,
+  frequency: number,
+  rate: number,
+  gain: number,
+  q: number,
+): number {
+  MEASURED_SETTINGS[SectionSetting.Frequency] = frequency;
+  MEASURED_SETTINGS[SectionSetting.Gain] = gain;
+  MEASURED_SETTINGS[SectionSetting.Q] = q;
+  designBiquad(shape, rate, MEASURED_SETTINGS, MEASURED, 0);
+  const a1 = MEASURED[3] ?? 0;
+  const a2 = MEASURED[4] ?? 0;
+  const discriminant = a1 * a1 - 4 * a2;
+  const radius = discriminant < 0 ? Math.sqrt(a2) : (Math.abs(a1) + Math.sqrt(discriminant)) / 2;
+  if (radius === 0) return 0;
+  return Math.ceil((DECAY_MARGIN * TIME_CONSTANTS_TO_SILENCE) / -ln(radius));
+}
+
 /**
  * Frames a section of `shape` takes to decay by 120 dB, from the poles of its
  * analogue prototype: a peaking section's have the Q `A·Q`, a low shelf's lie
  * at `f/√A` and a high shelf's at `f·√A`, each with the Q of the slope S = 1,
- * `1/√2`, and every other shape's are at `f` with the Q asked for.
+ * `1/√2`, and every other shape's are at `f` with the Q asked for. A fitted
+ * section's are measured from its own poles.
  */
 export function sectionDecayFrames(
   shape: BiquadShape,
@@ -245,6 +159,9 @@ export function sectionDecayFrames(
   gain: number,
   q: number,
 ): number {
+  if (frequency > HANDOVER_START * rate) {
+    return fittedDecayFrames(shape, frequency, rate, gain, q);
+  }
   const amplitude = decibelsToGain(gain / 2);
   switch (shape) {
     case BiquadShape.Peaking:

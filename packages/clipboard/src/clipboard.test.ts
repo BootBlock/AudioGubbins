@@ -58,6 +58,8 @@ const footstep = fixture.assets.footstep;
 const forest = fixture.assets.ambience;
 const ids = createDeterministicIdGenerator(404);
 const at = derivedSampleCount;
+/** A version of the canonical resampler, as the engine states its own. */
+const RESAMPLER = 1;
 
 /** A recognisable sound for each asset: channel `c`, frame `f` is a value of both. */
 function soundOf(asset: Asset): Float32Array[] {
@@ -102,7 +104,7 @@ function copied(plan: EditPlan, start: number, end: number, channels?: readonly 
 }
 
 function request(copy: AudioPayload, asset: Asset, place: PasteRequest['place']): PasteRequest {
-  return { payload: copy, asset: asset.id, place, convertRate: false };
+  return { payload: copy, asset: asset.id, place, convertWith: undefined };
 }
 
 /** The frames `[start, end)` of each channel of `sound`. */
@@ -258,9 +260,10 @@ describe('pasting (ADR-0053)', () => {
       'editing.payload-rate',
     );
     const converted = expectSuccess(
-      planPaste(withSlower, { ...request(copy, footstep, place), convertRate: true }, ids),
+      planPaste(withSlower, { ...request(copy, footstep, place), convertWith: RESAMPLER }, ids),
     );
     const [insertion] = converted.operations;
+    expect(insertion).toMatchObject({ kind: 'insert', resampler: RESAMPLER });
     const before = shapesOf(footstep).at(-1);
     if (before === undefined) throw new Error('No shape.');
     // 441 frames at 44.1 kHz are 480 at 48 kHz.
@@ -272,14 +275,13 @@ describe('pasting (ADR-0053)', () => {
     const planned = expectSuccess(
       planPaste(
         state,
-        { ...request(copy, footstep, { kind: 'at', at: at(0) }), convertRate: true },
+        { ...request(copy, footstep, { kind: 'at', at: at(0) }), convertWith: RESAMPLER },
         ids,
       ),
     );
 
-    expect(planned.operations).toEqual([
-      expect.objectContaining({ kind: 'insert', convertRate: false }),
-    ]);
+    expect(planned.operations).toEqual([expect.objectContaining({ kind: 'insert' })]);
+    expect(planned.operations[0]).not.toHaveProperty('resampler');
   });
 
   it('brings the records of media another project lacks, and refuses one it holds differently', () => {
@@ -332,21 +334,21 @@ describe('pasting (ADR-0053)', () => {
   }
 
   /** How long the insertion of `copy` whole is as an argument. */
-  function wholeLength(copy: AudioPayload, convertRate: boolean): number {
+  function wholeLength(copy: AudioPayload, resampler: number | undefined): number {
     return canonicalJson(
       writeEditOperation({
         id: unsafeBrandId<'EditOperationId'>('ffffffff-ffff-4fff-bfff-ffffffffffff'),
         kind: 'insert',
         at: at(Number.MAX_SAFE_INTEGER),
         payload: copy.plan,
-        convertRate,
+        ...(resampler === undefined ? {} : { resampler }),
       }),
     ).length;
   }
 
   it('splits a payload too long for one argument into consecutive insertions between its segments', () => {
     const copy = intricate(footstep, 50);
-    const longest = Math.floor(wholeLength(copy, false) / 3);
+    const longest = Math.floor(wholeLength(copy, undefined) / 3);
     const planned = expectSuccess(
       planPaste(state, request(copy, footstep, { kind: 'at', at: at(7) }), ids, longest),
     );
@@ -366,7 +368,7 @@ describe('pasting (ADR-0053)', () => {
 
   it('splits only past the longest argument, which is the one the commands read by default', () => {
     const copy = intricate(footstep, 50);
-    const whole = wholeLength(copy, false);
+    const whole = wholeLength(copy, undefined);
     const place = { kind: 'at', at: at(0) } as const;
     const pieces = (longest?: number) =>
       expectSuccess(planPaste(state, request(copy, footstep, place), ids, longest)).operations
@@ -386,14 +388,19 @@ describe('pasting (ADR-0053)', () => {
     };
     const withSlower = withAsset(state, slower, footstep);
     const copy = intricate(slower, 50);
-    const converting = { ...request(copy, footstep, { kind: 'at', at: at(0) }), convertRate: true };
+    const converting = {
+      ...request(copy, footstep, { kind: 'at', at: at(0) }),
+      convertWith: RESAMPLER,
+    };
 
-    const whole = expectSuccess(planPaste(withSlower, converting, ids, wholeLength(copy, true)));
+    const whole = expectSuccess(
+      planPaste(withSlower, converting, ids, wholeLength(copy, RESAMPLER)),
+    );
     expect(whole.operations).toEqual([
       expect.objectContaining({ kind: 'insert', payload: copy.plan }),
     ]);
     expect(
-      expectFailureCode(planPaste(withSlower, converting, ids, wholeLength(copy, true) - 1)),
+      expectFailureCode(planPaste(withSlower, converting, ids, wholeLength(copy, RESAMPLER) - 1)),
     ).toBe('clipboard.too-large-to-convert');
   });
 });

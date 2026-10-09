@@ -39,12 +39,14 @@ import {
   treatmentValues,
   type CancellationSignal,
   type DetectorFinding,
+  type DetectorValues,
   type DomainResult,
   type EditRange,
   type FindingKind,
   type TreatmentStep,
 } from '@audiogubbins/domain';
 import {
+  detectionValues,
   recommendation,
   type Assistant,
   type AudioDetector,
@@ -107,7 +109,7 @@ function onSource(finding: DetectorFinding, offset: number): DetectorFinding {
     ...finding,
     range: moved(finding.range, offset),
     treatment:
-      treatment.kind === 'none'
+      treatment.kind !== 'steps'
         ? treatment
         : {
             kind: 'steps',
@@ -267,15 +269,17 @@ export interface DetectionAudio {
 }
 
 /**
- * What `assistants` find in and recommend for `range` of the audio heard, or
- * why they cannot: a range the audio does not hold, audio to learn from that is
- * not on the frames heard, or a detector that cannot hear audio of its shape
- * and rate. A cancellation is thrown, as the signal's reason.
+ * What `assistants` find in and recommend for `range` of the audio heard, each
+ * detector judging by its `values`, or why they cannot: a range the audio does
+ * not hold, audio to learn from that is not on the frames heard, values a
+ * detector refuses, or a detector that cannot hear audio of its shape and rate.
+ * A cancellation is thrown, as the signal's reason.
  */
 export async function runDetection(
   audio: DetectionAudio,
   range: EditRange,
   assistants: readonly Assistant[],
+  values: DetectorValues,
   tools: DetectionTools,
 ): Promise<DomainResult<DetectionResult>> {
   const { heard: source, learning } = audio;
@@ -294,13 +298,17 @@ export async function runDetection(
       'The range to analyse runs past the end of the audio.',
     );
   }
+  const detectors = detectorsOf(assistants);
+  const settled = detectionValues(detectors, values);
+  if (!settled.ok) return settled;
   const detections: Detection[] = [];
   try {
-    for (const detector of detectorsOf(assistants)) {
+    for (const detector of detectors) {
       const opened = detector.open({
         input: source.layout,
         sampleRate: source.sampleRate,
         dsp: tools.dsp,
+        values: settled.value.get(detector.identity.key) ?? new Map(),
       });
       if (!opened.ok) return opened;
       detections.push(opened.value);

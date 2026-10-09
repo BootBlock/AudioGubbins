@@ -7,13 +7,7 @@ import { createCapabilityRegistry, type CapabilityEnvironment } from '@audiogubb
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { nodeId, type NodeId } from '@audiogubbins/audio-graph';
-import {
-  InferencePath,
-  QualityLevel,
-  namedQualityMode,
-  sampleCount,
-  sampleRate,
-} from '@audiogubbins/domain';
+import { QualityLevel, namedQualityMode, sampleCount, sampleRate } from '@audiogubbins/domain';
 import {
   DspImplementation,
   PRESET_SETTINGS,
@@ -297,12 +291,11 @@ describe('the Transport panel’s quality modes', () => {
     draw();
 
     expect(reading('Render quality')).toBe(
-      'Maximum' +
-        'Resampling maximum, oversampling 8 times, spectral overlap 8 frames, inference path pinned.',
+      'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
     );
     expect(reading('Preview quality')).toBe(
       'Standard' +
-        'Resampling high, oversampling 2 times, spectral overlap 4 frames, inference path pinned.' +
+        'Resampling high, oversampling 2 times, spectral overlap 4 frames.' +
         ' Chosen by the performance profile.',
     );
     expect(
@@ -321,31 +314,13 @@ describe('the Transport panel’s quality modes', () => {
     });
 
     expect(reading('Preview quality')).toBe(
-      'Maximum' +
-        'Resampling maximum, oversampling 8 times, spectral overlap 8 frames, inference path pinned.',
+      'Maximum' + 'Resampling maximum, oversampling 8 times, spectral overlap 8 frames.',
     );
     expect(
       screen.getByText(
         'Playback previews at the values a render runs at, so what you hear is what a render makes.',
       ),
     ).toBeInTheDocument();
-  });
-
-  it('shows a render’s inference pinned, whatever its Custom settings say', () => {
-    const settings = audioSettings();
-    settings.chooseRenderQuality({
-      level: QualityLevel.Custom,
-      settings: {
-        ...namedQualityMode(QualityLevel.Standard).settings,
-        inference: InferencePath.Accelerated,
-      },
-    });
-    draw(undefined, { settings });
-
-    expect(reading('Render quality')).toBe(
-      'Custom' +
-        'Resampling high, oversampling 2 times, spectral overlap 4 frames, inference path pinned.',
-    );
   });
 });
 

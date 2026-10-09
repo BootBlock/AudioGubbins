@@ -153,6 +153,11 @@ function detectorReason(settings: DetectorSettings): string | null {
         finiteAtLeastZero(settings.offset)
         ? null
         : 'takes an STFT of a power of two from 2 to 65 536 samples, a hop of 1 to that, a history of 1 to 65 536 frames, and a multiplier and offset of zero or more';
+    case DetectorKind.Silence:
+      return wholeWithin(settings.block, 1, MOST_FRAME_SAMPLES) &&
+        finiteAtLeastZero(settings.threshold)
+        ? null
+        : 'takes blocks of 1 to 1 048 576 samples and a threshold of zero or more';
   }
 }
 
@@ -174,6 +179,7 @@ export const DETECTOR_CODES: Readonly<Record<DetectorKind, number>> = {
   [DetectorKind.Clipping]: 3,
   [DetectorKind.DcOffset]: 4,
   [DetectorKind.Transients]: 5,
+  [DetectorKind.Silence]: 6,
 };
 
 /** A detector's settings as the values the ABI carries, in `DetectorSettings::from_values` order. */
@@ -191,6 +197,8 @@ export function detectorValues(settings: DetectorSettings): readonly number[] {
       return [settings.window, settings.hop];
     case DetectorKind.Transients:
       return [settings.size, settings.hop, settings.history, settings.multiplier, settings.offset];
+    case DetectorKind.Silence:
+      return [settings.block, settings.threshold];
   }
 }
 

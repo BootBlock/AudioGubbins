@@ -149,6 +149,8 @@ function blockAt(rate: number): number {
 export const CLIPPING_DETECTOR: AudioDetector = {
   identity: { key: 'clipping', label: 'Clipping', version: 1 },
   finds: [FindingKind.Clipping],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const block = blockAt(sampleRate);
     const minimumRun = Math.max(FEWEST_RUN_SAMPLES, Math.ceil(MINIMUM_RUN_SECONDS * sampleRate));

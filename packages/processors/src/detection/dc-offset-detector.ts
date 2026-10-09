@@ -89,6 +89,8 @@ class DcOffsetJudge implements RecordJudge {
 export const DC_OFFSET_DETECTOR: AudioDetector = {
   identity: { key: 'dc-offset', label: 'DC offset', version: 1 },
   finds: [FindingKind.DcOffset],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const window = WINDOW_SECONDS * sampleRate;
     return openPass(

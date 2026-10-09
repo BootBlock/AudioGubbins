@@ -355,8 +355,8 @@ const RUNTIME_PATH = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;
  * the build names, as the page states it to the inference worker, which holds
  * the file it reads to it, and nothing else. A file served that no script
  * names would be refused by every worker; a file missing, by every session;
- * another file of the runtime's, such as a build no session runs, is only
- * weight a deployment carries.
+ * another file of the runtime's, such as a build no session runs, or a copy
+ * of its WebAssembly anywhere else, is only weight a deployment carries.
  *
  * @param {string} root
  * @param {readonly string[]} files
@@ -409,6 +409,18 @@ export function runtimeProblems(root, files, texts) {
         file: name,
         field: 'name',
         reason: 'is no file of the inference runtime a session runs',
+      });
+    }
+  }
+  // The runtime's bundle names its file beside itself, which a bundler copies
+  // into the assets under a hashed name: fourteen megabytes no session reads,
+  // since the worker is given the bytes from the runtime's folder.
+  for (const name of files) {
+    if (extname(name) === '.wasm' && !RUNTIME_PATH.test(name)) {
+      problems.push({
+        file: name,
+        field: 'name',
+        reason: 'is WebAssembly outside the inference runtime’s folder, which no session loads',
       });
     }
   }

@@ -202,36 +202,38 @@ describe('making a signal source', () => {
 describe('reading a signal recipe', () => {
   const refusedAt = (value: unknown): string | undefined => {
     const read = signalRecipe(value);
-    return read.ok ? undefined : String(read.failures[0].details?.['part']);
+    return read.ok ? undefined : String(read.failures[0].details?.['field']);
   };
 
-  it('names the part that is wrong', () => {
+  it('names the field that is wrong by its path', () => {
     expect(refusedAt(null)).toBe('recipe');
-    expect(refusedAt({ length: 1, channels: [] })).toBe('channels');
-    expect(refusedAt({ length: -1, channels: [{ repeats: false, segments: [] }] })).toBe('length');
+    expect(refusedAt({ length: 1, channels: [] })).toBe('recipe.channels');
+    expect(refusedAt({ length: -1, channels: [{ repeats: false, segments: [] }] })).toBe(
+      'recipe.length',
+    );
     expect(
       refusedAt({
         length: 1,
         channels: [{ repeats: false, segments: [{ kind: 'noise', length: 1 }] }],
       }),
-    ).toBe('channels[0].segments[0].kind');
+    ).toBe('recipe.channels[0].segments[0].kind');
     expect(
       refusedAt({
         length: 1,
         channels: [{ repeats: false, segments: [{ kind: 'silence', length: 0 }] }],
       }),
-    ).toBe('channels[0].segments[0].length');
+    ).toBe('recipe.channels[0].segments[0].length');
     expect(
       refusedAt({
         length: 1,
         channels: [{ repeats: false, segments: [{ kind: 'impulse', length: 1, amplitude: 2 }] }],
       }),
-    ).toBe('channels[0].segments[0].amplitude');
+    ).toBe('recipe.channels[0].segments[0].amplitude');
     expect(refusedAt({ length: 1, channels: [{ repeats: true, segments: [] }] })).toBe(
-      'channels[0].segments',
+      'recipe.channels[0].segments',
     );
     expect(refusedAt({ length: 1, channels: [{ repeats: 'yes', segments: [] }] })).toBe(
-      'channels[0].repeats',
+      'recipe.channels[0].repeats',
     );
   });
 
@@ -242,16 +244,16 @@ describe('reading a signal recipe', () => {
       length: 1,
     }));
     expect(refusedAt({ length: 1, channels: [{ repeats: false, segments: many }] })).toBe(
-      'channels[0].segments',
+      'recipe.channels[0].segments',
     );
     const wide = Array.from({ length: 257 }, () => ({ repeats: false, segments: [] }));
-    expect(refusedAt({ length: 1, channels: wide })).toBe('channels');
+    expect(refusedAt({ length: 1, channels: wide })).toBe('recipe.channels');
     const long = [
       { kind: 'silence', length: 2 ** 52 },
       { kind: 'silence', length: 2 ** 52 },
     ];
     expect(refusedAt({ length: 1, channels: [{ repeats: false, segments: long }] })).toBe(
-      'channels[0].segments',
+      'recipe.channels[0].segments',
     );
   });
 });

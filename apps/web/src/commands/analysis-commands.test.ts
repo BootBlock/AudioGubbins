@@ -293,3 +293,221 @@ describe('analysing the audio', { timeout: 60_000 }, () => {
     expect(audio.window.run('analysis.cancel')).toMatchObject({ kind: 'refused' });
   });
 });
+
+/** Frames of `seconds` at the test rate. */
+const seconds = (count: number): number => Math.round(count * TEST_RATE);
+
+/**
+ * Speech as far as the silence detector hears it: a −20 dBFS tone from 0.3 s
+ * to 1.3 s and from 2.3 s to 3.3 s, digital silence before, between and after,
+ * to 3.7 s.
+ */
+const PAUSED: SignalFixture = {
+  name: 'paused',
+  sampleRate: TEST_RATE,
+  channelLayout: StandardLayouts.mono,
+  channels: [
+    Float32Array.from({ length: seconds(3.7) }, (_, frame) => {
+      const sounding =
+        (frame >= seconds(0.3) && frame < seconds(1.3)) ||
+        (frame >= seconds(2.3) && frame < seconds(3.3));
+      // From a crest, so each stretch of tone starts and ends loud.
+      return sounding ? 0.1 * Math.cos((2 * Math.PI * 440 * frame) / TEST_RATE) : 0;
+    }),
+  ],
+  length: derivedSampleCount(seconds(3.7)),
+};
+
+describe('removing the silence found', { timeout: 60_000 }, () => {
+  async function openPaused(): Promise<AudioWindow> {
+    const audio = await windowWithAudio({ fixture: PAUSED, name: 'Paused' });
+    const { context } = audio.window;
+    context.editorViews.open('editor', audio.asset());
+    context.editorViews.measured('editor', 1000, audio.asset().length);
+    context.editorViews.focus('editor');
+    await analyse(audio);
+    return audio;
+  }
+
+  it('trims the edges and shortens the pause as trim and delete edits, in one step one undo reverses', async () => {
+    const audio = await openPaused();
+    const before = stateOf(audio).history.cursor;
+
+    const said = await audio.window.runAndHear('analysis.remove-silence');
+
+    expect(said).toBe('Removed the silence from all of Paused: 3 stretches.');
+    // The pause of a second keeps a quarter of it, an eighth either side.
+    expect(editsOf(audio)).toEqual([
+      expect.objectContaining({
+        kind: 'delete',
+        range: { start: seconds(1.3) + seconds(0.125), end: seconds(2.3) - seconds(0.125) },
+      }),
+      expect.objectContaining({
+        kind: 'trim',
+        range: { start: seconds(0.3), end: seconds(3.3) - seconds(0.75) },
+      }),
+    ]);
+    const { history } = stateOf(audio);
+    const step = history.nodes.get(history.cursor);
+    expect(step?.kind === 'change' ? [step.parent, step.description] : []).toEqual([
+      before,
+      'Remove silence',
+    ]);
+
+    await audio.window.runAndHear('edit.undo');
+
+    expect(editsOf(audio)).toEqual([]);
+  });
+
+  it('takes out only the edges, or only the pause, where asked', async () => {
+    const audio = await openPaused();
+
+    await audio.window.runAndHear('analysis.remove-silence', { part: 'edges' });
+    expect(editsOf(audio)).toEqual([
+      expect.objectContaining({
+        kind: 'trim',
+        range: { start: seconds(0.3), end: seconds(3.3) },
+      }),
+    ]);
+    await audio.window.runAndHear('edit.undo');
+
+    await audio.window.runAndHear('analysis.remove-silence', { part: 'within' });
+    expect(editsOf(audio).map((edit) => edit.kind)).toEqual(['delete']);
+  });
+
+  it('refuses a part it does not know, and to take out silence found before an edit since', async () => {
+    const audio = await openPaused();
+    expect(audio.window.run('analysis.remove-silence', { part: 'middle' })).toMatchObject({
+      kind: 'refused',
+      failures: [{ summary: 'Name the silence to take out: at the edges, within, or both.' }],
+    });
+    await audio.window.runAndHear('analysis.remove-silence', { part: 'edges' });
+
+    expect(audio.window.run('analysis.remove-silence', { part: 'within' })).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'Paused has changed since it was analysed. Analyse it again before applying what was found.',
+        },
+      ],
+    });
+  });
+
+  it('analyses again at settings other than the analysis used, rather than removing what it found', async () => {
+    const audio = await openPaused();
+    const first = audio.window.context.detection.of(audio.entry);
+
+    const said = await audio.window.runAndHear('analysis.remove-silence', {
+      part: 'within',
+      'silence-shortest-pause': 0.9,
+      'silence-pause-kept': 0.5,
+    });
+
+    expect(said).toBe(
+      'Analysing all of Paused again at these settings. Remove the silence once the Analysis panel shows what was found.',
+    );
+    expect(editsOf(audio)).toEqual([]);
+    const again = audio.window.context.detection.of(audio.entry);
+    expect(again).not.toBe(first);
+    expect(again?.detectors).toEqual({ silence: { 'shortest-pause': 0.9, 'pause-kept': 0.5 } });
+    await expect
+      .poll(() => audio.window.context.detection.of(audio.entry)?.kind, { timeout: 20_000 })
+      .toBe('done');
+
+    await audio.window.runAndHear('analysis.remove-silence', {
+      part: 'within',
+      'silence-shortest-pause': 0.9,
+      'silence-pause-kept': 0.5,
+    });
+
+    // Half a second kept of the second-long pause, a quarter either side.
+    expect(editsOf(audio)).toEqual([
+      expect.objectContaining({
+        kind: 'delete',
+        range: { start: seconds(1.3) + seconds(0.25), end: seconds(2.3) - seconds(0.25) },
+      }),
+    ]);
+  });
+
+  it('refuses a silence setting out of its range, or that is no number, and changes nothing', async () => {
+    const audio = await openPaused();
+    expect(audio.window.run('analysis.remove-silence', { 'silence-threshold': -10 })).toMatchObject(
+      {
+        kind: 'refused',
+        failures: [{ summary: "The Silence detector's threshold is from -120 to -20 dBFS." }],
+      },
+    );
+    expect(audio.window.run('analysis.detect', { 'silence-shortest-pause': 'long' })).toMatchObject(
+      {
+        kind: 'refused',
+        failures: [{ summary: 'The silence-shortest-pause setting is a number.' }],
+      },
+    );
+    expect(
+      audio.window.run('analysis.detect', { assistants: 'repair', 'silence-threshold': -50 }),
+    ).toMatchObject({
+      kind: 'refused',
+      failures: [
+        {
+          summary:
+            'No assistant asked for runs the silence detector, so its settings cannot be used.',
+        },
+      ],
+    });
+    expect(editsOf(audio)).toEqual([]);
+  });
+
+  it('analyses again when a silence setting changes, and says it is current when none does', async () => {
+    const audio = await openPaused();
+    const said = (args: Record<string, number>) => audio.window.run('analysis.detect', args).kind;
+
+    expect(said({ 'silence-threshold': -60 })).toBe('unchanged');
+    expect(said({ 'silence-threshold': -50 })).toBe('applied');
+    expect(audio.window.context.detection.of(audio.entry)?.detectors).toEqual({
+      silence: { threshold: -50 },
+    });
+  });
+
+  it('analyses again at a setting the scope the shown analysis used, whatever is selected now', async () => {
+    const audio = await openPaused();
+    const before = audio.window.context.detection.of(audio.entry);
+    audio.window.run('editor.select-time', { start: 0, end: seconds(1) });
+
+    const said = await audio.window.runAndHear('analysis.analyse-again', {
+      'silence-shortest-pause': 2,
+    });
+
+    expect(said).toBe('Analysing all of Paused again at these settings.');
+    const again = audio.window.context.detection.of(audio.entry);
+    expect(again?.scope).toEqual(before?.scope);
+    expect(again?.assistants).toEqual(before?.assistants);
+    expect(again?.detectors).toEqual({ silence: { 'shortest-pause': 2 } });
+    await expect
+      .poll(() => audio.window.context.detection.of(audio.entry)?.kind, { timeout: 20_000 })
+      .toBe('done');
+    expect(audio.window.run('analysis.analyse-again', { 'silence-shortest-pause': 2 }).kind).toBe(
+      'unchanged',
+    );
+  });
+
+  it('refuses a pause kept not shorter than the shortest pause when the command runs, by the detector’s rule', async () => {
+    const audio = await openPaused();
+    const reason =
+      'The pause kept must be shorter than the shortest pause, or no pause would be shortened.';
+    const refused = { kind: 'refused', failures: [{ summary: reason }] };
+    const first = audio.window.context.detection.of(audio.entry);
+
+    expect(audio.window.run('analysis.detect', { 'silence-pause-kept': 0.5 })).toMatchObject(
+      refused,
+    );
+    expect(
+      audio.window.run('analysis.analyse-again', { 'silence-shortest-pause': 0.2 }),
+    ).toMatchObject(refused);
+    expect(
+      audio.window.run('analysis.remove-silence', { 'silence-pause-kept': 0.75 }),
+    ).toMatchObject(refused);
+    expect(audio.window.context.detection.of(audio.entry)).toBe(first);
+    expect(editsOf(audio)).toEqual([]);
+  });
+});

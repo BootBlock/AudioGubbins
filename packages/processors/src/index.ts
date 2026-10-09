@@ -39,12 +39,8 @@ export {
   type Detection,
   type DetectionSettings,
 } from './detection/audio-detector.js';
-export {
-  CLASSIFICATION_ASSISTANT,
-  REPAIR_ASSISTANT,
-  RESTORATION_ASSISTANT,
-  recommendation,
-} from './detection/assistants.js';
+export { CANONICAL_ASSISTANTS, SILENCE_ASSISTANT, recommendation } from './detection/assistants.js';
+export { detectionValues, settledValues } from './detection/detector-values.js';
 export { CLICK_DETECTOR } from './detection/click-detector.js';
 export { CLIPPING_DETECTOR } from './detection/clipping-detector.js';
 export { DC_OFFSET_DETECTOR } from './detection/dc-offset-detector.js';

@@ -13,7 +13,6 @@ import {
   StandardLayouts,
   createDeterministicIdGenerator,
   derivedSampleCount,
-  finalRenderSettings,
   instantiateProcessor,
   succeed,
   type EffectChain,
@@ -146,7 +145,7 @@ describe('a waveform of racked audio drawn out of order', () => {
       id: ids.next(),
       slots: [instantiateProcessor(ids.next(), type.descriptor)],
     };
-    const quality = finalRenderSettings(MAXIMUM_QUALITY);
+    const quality = MAXIMUM_QUALITY.settings;
     const producer = new PreviewProducer({
       processing: counted,
       dsp: REFERENCE_DSP,

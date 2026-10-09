@@ -2,13 +2,16 @@
  * What a detector finds in audio, and what an assistant recommends for it
  * (ADR-0061, ADR-0062).
  *
- * A detector measures and never changes the audio: it answers findings, each
- * a kind, the frames and channels it covers, a measure, and the treatment
- * that would deal with it. An assistant gathers the findings of its detectors
- * and recommends one chain, which the person applies or not; none applies
+ * A detector measures and never changes the audio: it answers findings, each a
+ * kind, the frames and channels it covers, a measure, and the treatment that
+ * would deal with it. An assistant gathers the findings of its detectors and
+ * recommends one chain, which the person applies or not; none applies
  * processing itself. A treatment names processor types and parameter values
  * rather than instances, so a finding holds no identifier until a person
- * applies it, when the chain is made under new ones (`treatment-chain.ts`).
+ * applies it, when the chain is made under new ones (`treatment-chain.ts`). A
+ * finding whose frames are better taken out of the timeline than processed, a
+ * silence, is treated by removing them, which a person applies as the existing
+ * trim and delete edits (`removal-operations.ts`).
  */
 
 import type { EditRange } from '../editing/operations.js';
@@ -22,6 +25,7 @@ export const FindingKind = {
   Clipping: 'clipping',
   DcOffset: 'dc-offset',
   Transient: 'transient',
+  Silence: 'silence',
 } as const;
 
 /** What a finding is. */
@@ -61,11 +65,12 @@ export interface TreatmentStep {
 }
 
 /**
- * What would deal with a finding: the processors, in order, or why nothing
- * this build has can.
+ * What would deal with a finding: the processors, in order; taking its frames
+ * out of the timeline; or why nothing this build has can.
  */
 export type Treatment =
   | { readonly kind: 'steps'; readonly steps: readonly TreatmentStep[] }
+  | { readonly kind: 'removal' }
   | { readonly kind: 'none'; readonly reason: string };
 
 /** Something a detector found. */
@@ -79,6 +84,15 @@ export interface DetectorFinding {
   readonly treatment: Treatment;
 }
 
+/**
+ * The values a detection's detectors judge by, as a person set them: by the
+ * detector's key, then by its parameter's key, a silence's threshold among
+ * them. A detector or a parameter not named takes its default; a value is
+ * checked against the detector's own parameter where the request is read,
+ * and refused out of range, never moved into it.
+ */
+export type DetectorValues = Readonly<Record<string, Readonly<Record<string, number>>>>;
+
 /** Which detector, at which version, made a set of findings. */
 export interface DetectorIdentity {
   /** Stable machine-readable key, for example `clicks`. */
@@ -91,12 +105,14 @@ export interface DetectorIdentity {
 
 /**
  * What an assistant recommends from its detectors' findings: every finding,
- * and one chain of the treatments they share, in the order the assistant
- * applies them, or, where none can be treated, an empty chain.
+ * one chain of the treatments they share, in the order the assistant applies
+ * them, or, where none can be treated, an empty chain, and the frames its
+ * findings would have taken out of the timeline, in order and apart.
  */
 export interface Recommendation {
   readonly assistant: string;
   readonly detectors: readonly DetectorIdentity[];
   readonly findings: readonly DetectorFinding[];
   readonly steps: readonly TreatmentStep[];
+  readonly removals: readonly EditRange[];
 }

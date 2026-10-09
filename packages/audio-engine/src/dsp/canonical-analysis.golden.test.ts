@@ -128,6 +128,17 @@ const DETECTOR_GOLDENS: readonly (readonly [DetectorSettings, number, bigint])[]
     45,
     0x2a0fef68f76afd80n,
   ],
+  [
+    {
+      kind: DetectorKind.Silence,
+      channels: 2,
+      sampleRate: rate(48_000),
+      block: 300,
+      threshold: 0.05,
+    },
+    15,
+    0xbf2bc4322fdbe698n,
+  ],
 ];
 
 describe('the K-weighting the reference path designs', () => {

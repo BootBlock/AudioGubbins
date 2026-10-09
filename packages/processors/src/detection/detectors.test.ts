@@ -38,6 +38,8 @@ import { DC_OFFSET_DETECTOR } from './dc-offset-detector.js';
 import { HUM_DETECTOR } from './hum-detector.js';
 import { NOISE_FLOOR_DETECTOR } from './noise-floor-detector.js';
 import { TRANSIENT_DETECTOR } from './transient-detector.js';
+import { SILENCE_DETECTOR } from './silence-detector.js';
+import { settledValues } from './detector-values.js';
 
 const LENGTH = 2 * TEST_RATE;
 const programme = partials(LENGTH);
@@ -65,6 +67,7 @@ const CASES: readonly (readonly [AudioDetector, readonly Float32Array[]])[] = [
   [CLIPPING_DETECTOR, [tone(LENGTH, 440, -1), clipped(tone(LENGTH, 440, 0, 0.1), 0.5)]],
   [DC_OFFSET_DETECTOR, [programme, mixed(programme, new Float32Array(LENGTH).fill(-0.02))]],
   [TRANSIENT_DETECTOR, [programme, withOnsets(programme, [20_000, 50_000, 80_000], 0.5)]],
+  [SILENCE_DETECTOR, [scaled(programme, 0, 20_000, 0), scaled(programme, 0, 20_000, 0)]],
 ];
 
 /** The findings' ranges and channels, which a fault in the feeding moves. */
@@ -78,6 +81,7 @@ function placesOf(found: readonly DetectorFinding[]): readonly string[] {
 describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector, audio] as const))(
   'the %s detector',
   (_key, detector, audio) => {
+    const defaults = expectSuccess(settledValues(detector));
     let whole: readonly DetectorFinding[] = [];
     beforeAll(async () => {
       whole = await detect(detector, audio, LENGTH);
@@ -127,7 +131,12 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
 
       const unasked = countingDsp();
       const detection = expectSuccess(
-        detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: unasked.dsp }),
+        detector.open({
+          input: StandardLayouts.stereo,
+          sampleRate: TEST_RATE,
+          dsp: unasked.dsp,
+          values: defaults,
+        }),
       );
       await detection.add(audio, LENGTH);
       expect(unasked.live()).toBe(1);
@@ -141,7 +150,12 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
 
     it('answers its findings again once done, and hears no more', async () => {
       const detection = expectSuccess(
-        detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: REFERENCE_DSP }),
+        detector.open({
+          input: StandardLayouts.stereo,
+          sampleRate: TEST_RATE,
+          dsp: REFERENCE_DSP,
+          values: defaults,
+        }),
       );
       await detection.add(audio, LENGTH);
       const found = expectSuccess(await detection.result());
@@ -156,7 +170,12 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
     it('ends its pass with the cancellation, heard or answering', async () => {
       const source = createCancellationSource();
       const detection = expectSuccess(
-        detector.open({ input: StandardLayouts.stereo, sampleRate: TEST_RATE, dsp: REFERENCE_DSP }),
+        detector.open({
+          input: StandardLayouts.stereo,
+          sampleRate: TEST_RATE,
+          dsp: REFERENCE_DSP,
+          values: defaults,
+        }),
       );
       await detection.add(audio, LENGTH, source.signal);
       source.cancel(new Error('The person stopped the detection.'));
@@ -176,6 +195,7 @@ describe.each(CASES.map(([detector, audio]) => [detector.identity.key, detector,
           input: StandardLayouts.surround7_1_4,
           sampleRate: expectSuccess(sampleRate(rate)),
           dsp: counting.dsp,
+          values: defaults,
         });
         expectSuccess(opened).release();
         expect(counting.live()).toBe(0);

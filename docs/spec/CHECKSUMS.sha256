@@ -43,7 +43,7 @@ e09d9beab17be51756ee2b7d14c4c4bdc17b6dbe84f02f9c8c876e4d13321b66 *./adr/ADR-0052
 cd46ea290af6ec4fa6d6d55225ff31bb93ac15fb4e4a224770876f6a1aa9a45d *./adr/ADR-0053-clipboard-and-quick-edit.md
 17db1368b0a0da06cba1de310ad3b1a6066a5b96699efc5bce720fedb8ce3c1d *./adr/ADR-0060-effect-racks-in-the-edit-model.md
 8674a4459d05dc2c7106579d0b329b5c93eea4890800cca0bf155595a55b06e7 *./adr/ADR-0061-processors-quality-and-reproducibility.md
-6a412de069e2b0a631ffda899ea01c0236bb2f9a839630bee558b31311f5188f *./adr/ADR-0062-local-inference-and-model-packs.md
+cbd3c9e5647a751ceea33dbb2af64834d5b7a67a5209c8dd1cba9d933513a2a1 *./adr/ADR-0062-local-inference-and-model-packs.md
 3aa801f4026acfeacddd6441c83e872ee2722bfda6d020f2ea97edbd7da470e9 *./adr/README.md
 bfcba094b639e34a56a8d45996811e251a0f9e872b6ea53bad4a3ea27dcaebea *./contracts/agent-execution.md
 aec903d2ee3a2027ca2539570208a144b951aea9729a52a980996ee5df4c8988 *./contracts/architecture-invariants.md
@@ -54,15 +54,15 @@ fa8d432d52c399ba4914d02bc32fb97328788d544fff53531abf058f2258e608 *./contracts/re
 fd33314c702d80afc003fd6ab352c68615e162c76b0891a6913c1f5e4e4cea9f *./contracts/review-gates.md
 32b7b1be4c4d8882fb4d2299d44240b846f0d72c0dc4768e4e5e6d842a4fd022 *./contracts/specification-change-template.md
 41058219d3422f0598e7c61bdd83303f4da96270af168ad651b6c87c961538d4 *./contracts/specification-execution.md
-69f591cb797443f8edcf339cd8b3a474a3b204b784539775df1d8cf26fe19cd9 *./generated/AudioGubbins_Implementation_Specification.md
+682a6613b87b8e05a69d397586f3235aaedf10e9a9beddc924a5e7ff2a70c568 *./generated/AudioGubbins_Implementation_Specification.md
 7e17ec78148dc974cc6dd11791f53d6bc3f136ed054a2067cad9c95863a48489 *./generated/LEGACY_Requirements_Baseline.md
 f9ea912d134c0e97b42c7a996fb4781e75dd1aa6a331ae12cc7f07ad26efd10c *./generated/context/phase-00-context.md
-9211f9961683a696eaba4d527b205baca93d2c04c49dcbe32e91ca1b5f4e6300 *./generated/context/phase-01-context.md
+937cb5ab885089cb8e6acd81f67956a9ee41075619b2e6865d96f50ab3e88fbe *./generated/context/phase-01-context.md
 20ab116a9eb158f77ca511c54a79520f290a6dfa7c644272d2793bacbd6fac7f *./generated/context/phase-02-context.md
-baedeab5d3cb3c96d4851750e9eee8d5252953dfc5c24743d842d3f2ce86d1a1 *./generated/context/phase-03-context.md
+a7db4a0782d21cefde2f6ffde18b4a408ba3f54c25af85f083c1b7b269ce4c35 *./generated/context/phase-03-context.md
 46759bc3c4a9b222a6f7792ada05e33b25d987eff142c3fcb0b3fd48d31e470a *./generated/context/phase-04-context.md
 8e87cb9007a57c6f77bbf138b99e209ae1c6d3e18e60564b6fda079905ee233e *./generated/context/phase-05-context.md
-fd840339f00f804e50daf020a94923835ae7e29c7da1c38c06426624ae587e6d *./generated/context/phase-06-context.md
+4244a69e2d94d85f75f8f7535d5acf60a47d0cc025a0f2fc70a913ed36f3f161 *./generated/context/phase-06-context.md
 97eafb46b77654d012c1351da4c1780dc3638d9b37536971570ee5c4ce8331e5 *./generated/context/phase-07-context.md
 94a4ec2c7b37af7f55d600a2401244e110920052b98cace76892e41c9f394b2f *./generated/context/phase-08-context.md
 a443f4f1b2b1a2a10599ebb7b0e3ceb5344d0b07b84e7f6f70d275b48fc955a9 *./generated/context/phase-09-context.md
@@ -104,7 +104,7 @@ de2e8ffc0ef8146c4a116ce52c963a1747203efbf10c48b4571138e7b6f0ac42 *./requirements
 f75fa807c241e718823d2bc0c5cceeec4a49ea3cae0fac097132b950f839dc24 *./requirements/ux.md
 eef0109041707240671d1290d6a85f7cf88966d8342c3b0afef927d6922b7fa9 *./reviews/hardening-review.md
 024561684ff3bc4d1eee882b4fb78ea9f687b2c05f75eeaa923c256ba4dc71e2 *./reviews/phase-01-evidence.md
-a421d0b3cc561e7fc82c336c9d8f459e1afa2204c34f1f4f694f4f25208e77d3 *./reviews/phase-01-review.md
+447a1bc3984331134c79cd4ae765fa8d77aaf9b68e972957818c06c6c9ccb90e *./reviews/phase-01-review.md
 fcb717d7aa327701409db548db28fd74a46ae13dc11103454744a7de710d0e7d *./reviews/phase-02-evidence.md
 c15a6c8b7185e08652b1784ed177af73ca522637e77d5312b42e3cf6275b938f *./reviews/phase-02-review.md
 77076371ad2d0bf585fb06cf6ea3e8d1162041f8552d36bf9edbdf8ce80e1387 *./reviews/phase-03-evidence.md
@@ -113,6 +113,7 @@ a8cea072942c35f56e03f7d2242758a93476306f60f40ec52a21f2910ea857d7 *./reviews/phas
 27634f083ca4592116bf003d603bcb8b281c6f78aead4f3a6519330b648f7afb *./reviews/phase-04-review.md
 727333f9c89ca418ca583ccffb6cfeb300f7258c9faeca5fcd90a00806a027ab *./reviews/phase-05-evidence.md
 7118dc2abc01baf179fcb452e3eb5ef4258fc39e84f230c020bb564ccf479dcb *./reviews/phase-05-review.md
+3b6aa3280cfd19613a98ad5da8b72a552f615dc7203ad19b34fbfd7c8a39502c *./reviews/phase-06-review.md
 53161c9a24cf223e07368ce980fdfe672be9d24ac55b8eda4b5baf5f2d5f3492 *./reviews/verification-report.md
 9b07335e781d3c7a903d6a160e305658df705399447948ca94b3f397a82414cd *./tools/README.md
 c733f2a0b6031d990f07b58aab1e5c57cf85c2aa0225aaaf7e56fd7ddd8235cd *./tools/build_phase_contexts.py

@@ -174,7 +174,7 @@ function step(
     const at = derivedSampleCount(Math.floor(next() * (length + 1)));
     const payload = expectSuccess(slicePlan(plan, range.start, range.end));
     return {
-      operation: { id, kind: 'insert', at, payload, convertRate: false },
+      operation: { id, kind: 'insert', at, payload },
       inserted: samples.map((channel) => channel.slice(range.start, range.end)),
     };
   }

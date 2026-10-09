@@ -185,7 +185,6 @@ describe('the model packs the projects need', () => {
           kind: 'insert',
           at: derivedSampleCount(0),
           payload,
-          convertRate: false,
         },
       ],
     };

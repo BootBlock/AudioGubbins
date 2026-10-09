@@ -10,7 +10,9 @@
  * chain, and that chain processing the range that was analysed, as a rack
  * edit, or the whole asset or region, as its rack. A target that has a rack
  * keeps it, the treatment after it, as the analysis heard it, in a chain of
- * its own so another target sharing that rack hears no change.
+ * its own so another target sharing that rack hears no change. Removing the
+ * silence found, the other change an analysis leads to, is
+ * `silence-commands.ts`.
  */
 
 import {
@@ -21,14 +23,14 @@ import {
 } from '@audiogubbins/commands';
 import {
   treatmentChain,
+  type DetectorValues,
   type EditTarget,
   type EffectChain,
   type ProcessorState,
 } from '@audiogubbins/domain';
 import { extendedRackInvocation, rackRangeInvocation } from '@audiogubbins/project-commands';
 import type { AssistantReport } from '@audiogubbins/detection-runtime';
-import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import { formatPosition } from '@audiogubbins/timeline';
+import { CANONICAL_ASSISTANTS, PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 
 import {
   EVERY_ASSISTANT,
@@ -46,8 +48,12 @@ import {
   selectedTarget,
   type EditorTarget,
 } from './editor-target.js';
+import { currentResult, scopeWords } from './analysis-results.js';
+import { detectorValuesArgument, sameJudging, valuesRefusal } from './detector-arguments.js';
 import { currentBasis, needsProjectAsset, onAsset, type ProjectTarget } from './project-edits.js';
 import { changeRacks } from './rack-changes.js';
+import { analyseAgainCommand } from './reanalysis.js';
+import { removeSilenceCommand } from './silence-commands.js';
 import { rackTargetOf } from './rack-target.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -63,31 +69,58 @@ function assistantsArgument(invocation: CommandInvocation): readonly string[] {
         .filter((key) => key !== '');
 }
 
-/** What `scope` of the view's audio is, in a phrase: all of it, or a range of it. */
-function scopeWords(view: EditorTarget, scope: DetectionScope): string {
-  if (scope.whole) return `all of ${view.asset.name}`;
-  const at = (frames: number): string =>
-    formatPosition(frames, view.asset.sampleRate, view.state.timeFormat);
-  return `${view.asset.name} from ${at(scope.range.start)} to ${at(scope.range.end)}`;
-}
-
 /**
  * Whether `detection` is of `scope` of the audio `identity` names, with
- * `assistants`, running or answered: asked again, it would find the same.
+ * `assistants` judging by `detectors`, running or answered: asked again, it
+ * would find the same.
  */
 function asked(
   detection: Detection | undefined,
   identity: string,
   scope: DetectionScope,
   assistants: readonly string[],
+  detectors: DetectorValues,
 ): boolean {
   if (detection === undefined || detection.kind === 'failed') return false;
   const same =
     detection.identity === identity &&
     detection.scope.whole === scope.whole &&
     detection.scope.range.start === scope.range.start &&
-    detection.scope.range.end === scope.range.end;
+    detection.scope.range.end === scope.range.end &&
+    sameJudging(detection.detectors, detectors);
   return same && detection.assistants.join(',') === assistants.join(',');
+}
+
+/** Why `detectors` cannot be set on a detection by `assistants`: a value for a detector none runs. */
+function unrunRefusal(
+  assistants: readonly string[],
+  detectors: DetectorValues,
+): string | undefined {
+  const run = new Set(
+    CANONICAL_ASSISTANTS.filter((assistant) => assistants.includes(assistant.key)).flatMap(
+      (assistant) => assistant.detectors.map((detector) => detector.identity.key),
+    ),
+  );
+  const unrun = Object.keys(detectors).find((key) => !run.has(key));
+  return unrun === undefined
+    ? undefined
+    : `No assistant asked for runs the ${unrun} detector, so its settings cannot be used.`;
+}
+
+/**
+ * The assistants an invocation asks for and the values their detectors judge
+ * by, or why they cannot be asked for.
+ */
+function askedFor(
+  invocation: CommandInvocation,
+): { readonly assistants: readonly string[]; readonly detectors: DetectorValues } | string {
+  const assistants = assistantsArgument(invocation);
+  if (assistants.length === 0) return 'Name at least one assistant to analyse the audio with.';
+  const detectors = detectorValuesArgument(invocation);
+  if (typeof detectors === 'string') return detectors;
+  return (
+    valuesRefusal(detectors) ?? unrunRefusal(assistants, detectors) ?? { assistants, detectors }
+  );
 }
 
 function detectCommand(): Command<ShellContext> {
@@ -106,14 +139,16 @@ function detectCommand(): Command<ShellContext> {
       if (target.range.end <= target.range.start) return 'The selected range holds no audio.';
       const scope: DetectionScope = { range: target.range, whole: target.kind === 'whole-asset' };
       const quality = context.audioSettings.get().renderQuality;
-      const assistants = assistantsArgument(invocation);
-      if (assistants.length === 0) return 'Name at least one assistant to analyse the audio with.';
+      const asking = askedFor(invocation);
+      if (typeof asking === 'string') return asking;
+      const { assistants, detectors } = asking;
       if (
         asked(
           context.detection.of(view.asset.id),
           detectionIdentity(view.asset, quality),
           scope,
           assistants,
+          detectors,
         )
       ) {
         return unchanged(
@@ -121,7 +156,7 @@ function detectCommand(): Command<ShellContext> {
           `The analysis of ${scopeWords(view, scope)} is current; the Analysis panel shows what was found.`,
         );
       }
-      context.detection.detect(view.asset, scope, quality, assistants);
+      context.detection.detect(view.asset, scope, quality, assistants, detectors);
       context.interaction.announce(`Analysing ${scopeWords(view, scope)}.`);
       return undefined;
     },
@@ -129,7 +164,7 @@ function detectCommand(): Command<ShellContext> {
       availability: needsEditor,
       keywords: ['analyse', 'detect', 'find', 'clicks', 'hum', 'noise', 'clipping', 'repair'],
       description:
-        'Finds clicks, clipping, hum, noise, a DC offset and onsets in the selection, or in the whole sound with nothing selected, and recommends what would treat them.',
+        'Finds clicks, clipping, hum, noise, a DC offset, onsets and silence in the selection, or in the whole sound with nothing selected, and recommends what would treat them. The silence settings (silence-threshold in dBFS, silence-shortest-edge, silence-shortest-pause and silence-pause-kept in seconds) may be given.',
     },
   );
 }
@@ -164,26 +199,6 @@ function cancelCommand(): Command<ShellContext> {
       keywords: ['stop', 'cancel', 'analysis', 'analyse'],
     },
   );
-}
-
-/**
- * The finished detection of the view's audio as it is now, or why there is
- * none to apply: none asked for, still running, failed, or made of the audio
- * as it was before an edit since.
- */
-function currentResult(
-  context: ShellContext,
-  view: EditorTarget,
-): Extract<Detection, { readonly kind: 'done' }> | string {
-  const { name } = view.asset;
-  const detection = context.detection.of(view.asset.id);
-  if (detection === undefined) return `${name} has not been analysed. Analyse it first.`;
-  if (detection.kind === 'running') return `${name} is still being analysed.`;
-  if (detection.kind === 'failed') return detection.reason;
-  const identity = detectionIdentity(view.asset, context.audioSettings.get().renderQuality);
-  return detection.identity === identity
-    ? detection
-    : `${name} has changed since it was analysed. Analyse it again before applying what was found.`;
 }
 
 /** The state each of `report`'s steps learned, or why one of them could not learn it. */
@@ -264,5 +279,11 @@ function applyCommand(): Command<ShellContext> {
 
 /** The commands that analyse the audio and apply what the assistants recommend. */
 export function analysisCommands(): readonly Command<ShellContext>[] {
-  return [detectCommand(), cancelCommand(), applyCommand()];
+  return [
+    detectCommand(),
+    cancelCommand(),
+    analyseAgainCommand(),
+    applyCommand(),
+    removeSilenceCommand(),
+  ];
 }

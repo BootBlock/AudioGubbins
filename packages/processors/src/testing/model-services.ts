@@ -55,10 +55,32 @@ export class MemoryModelLibrary implements ModelLibrary {
   readonly #files: ReadonlyMap<string, ModelBytes>;
   /** Every file asked for, as `pack/version/path`. */
   readonly asked: string[] = [];
+  /** Every pack version asked after, as `pack/version`. */
+  readonly askedVersions: string[] = [];
 
   constructor(files: readonly MemoryModelFile[]) {
     this.#files = new Map(
       files.map((file) => [`${file.pack}/${file.version}/${file.path}`, file.bytes]),
+    );
+  }
+
+  available(pack: string, version: string, signal?: CancellationSignal) {
+    const key = `${pack}/${version}`;
+    this.askedVersions.push(key);
+    if (signal?.aborted === true) {
+      return Promise.resolve(
+        fail(failure('model.cancelled', FailureKind.Rejected, 'The read was cancelled.')),
+      );
+    }
+    const held = [...this.#files.keys()].some((file) => file.startsWith(`${key}/`));
+    return Promise.resolve(
+      held
+        ? succeed(undefined)
+        : modelUnavailable(
+            ModelUnavailability.RequiredUnavailable,
+            `No installed pack is ${pack} ${version}.`,
+            { pack, version },
+          ),
     );
   }
 

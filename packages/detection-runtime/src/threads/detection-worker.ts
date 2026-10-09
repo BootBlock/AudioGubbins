@@ -18,12 +18,7 @@
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
 import { chainProcessing } from '@audiogubbins/effect-rack';
 import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
-import {
-  CLASSIFICATION_ASSISTANT,
-  REPAIR_ASSISTANT,
-  RESTORATION_ASSISTANT,
-  processorTypesWith,
-} from '@audiogubbins/processors';
+import { CANONICAL_ASSISTANTS, processorTypesWith } from '@audiogubbins/processors';
 
 import type { FromDetectionWorker } from '../detection-messages.js';
 import { DetectionWorkerCore } from '../detection-worker-core.js';
@@ -77,7 +72,7 @@ const core = new DetectionWorkerCore({
   yieldToHost,
   dsp: REFERENCE_DSP,
   processing: chainProcessing(types),
-  assistants: [CLASSIFICATION_ASSISTANT, REPAIR_ASSISTANT, RESTORATION_ASSISTANT],
+  assistants: CANONICAL_ASSISTANTS,
   types,
   reportFault: (error) => {
     self.reportError(error);

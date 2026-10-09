@@ -17,9 +17,13 @@
  */
 
 import type { NodeId } from '@audiogubbins/audio-graph';
-import { describedBuffers, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import {
+  describedBuffers,
+  pcmDescriptionOf,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
 
-import { Malformed, type MessageFields } from '@audiogubbins/domain';
+import type { MessageFields } from '@audiogubbins/domain';
 import { nodeAt } from './message-reading.js';
 
 /** The audio one graph input reads, as it crosses to the worker. */
@@ -30,13 +34,7 @@ export function sourceTransferables(sources: readonly SourceDescription[]): Tran
   return [...describedBuffers(sources)];
 }
 
-/** A source's description, read field by field. */
-export function sourceFrom(fields: MessageFields): SourceDescription {
-  const node = nodeAt(fields, 'node');
-  const described = pcmDescription(fields);
-  if (!described.ok) {
-    const details = described.failures[0].details;
-    throw new Malformed(String(details?.['part']), String(details?.['expected']));
-  }
-  return { ...described.value, node };
+/** A source's description, named `field`, read field by field. */
+export function sourceFrom(fields: MessageFields, field: string): SourceDescription {
+  return { ...pcmDescriptionOf(fields, field), node: nodeAt(fields, 'node') };
 }

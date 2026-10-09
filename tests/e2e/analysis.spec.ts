@@ -57,8 +57,30 @@ function panelTitled(page: Page, title: string): Locator {
     .filter({ has: page.getByRole('heading', { name: title, level: 2, exact: true }) });
 }
 
+/**
+ * A note from 0.3 s to 1.3 s and from 2.3 s to 3.3 s, digital silence
+ * before, between and after, to 3.7 s, as a WAV file's bytes.
+ */
+function pausedWav(): Uint8Array<ArrayBuffer> {
+  const length = Math.round(3.7 * RATE);
+  const paused = sine(440, { sampleRate: RATE, length, amplitude: 0.3 });
+  const [samples] = paused.channels;
+  if (samples === undefined) throw new Error('The note has no channel.');
+  for (let frame = 0; frame < length; frame += 1) {
+    const seconds = frame / RATE;
+    const sounding = (seconds >= 0.3 && seconds < 1.3) || (seconds >= 2.3 && seconds < 3.3);
+    if (!sounding) samples[frame] = 0;
+  }
+  return wavFile(paused);
+}
+
 /** Makes a project, imports the scratchy recording into it, and waits for it to open. */
 async function importScratchy(page: Page): Promise<void> {
+  await importInto(page, 'Scratchy', scratchyWav());
+}
+
+/** Makes a project, imports `bytes` into it as `name`, and waits for it to open. */
+async function importInto(page: Page, name: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
   await banner(page).getByRole('button', { name: 'New project…' }).click();
   const dialogue = page.getByRole('dialog', { name: 'Projects' });
   await dialogue.getByRole('textbox', { name: 'Name' }).fill('Workshop');
@@ -69,8 +91,8 @@ async function importScratchy(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: 'Import audio…' }).click();
   await (
     await choosing
-  ).setFiles({ name: 'Scratchy.wav', mimeType: 'audio/wav', buffer: Buffer.from(scratchyWav()) });
-  await expect(page.getByText(/^.Scratchy. is imported and open\.$/u).first()).toBeVisible();
+  ).setFiles({ name: `${name}.wav`, mimeType: 'audio/wav', buffer: Buffer.from(bytes) });
+  await expect(page.getByText(`“${name}” is imported and open.`).first()).toBeVisible();
 }
 
 test.describe('the assistants', () => {
@@ -121,5 +143,51 @@ test.describe('the assistants', () => {
     await expect(
       repair.getByRole('button', { name: 'Apply the Repair recommendation' }),
     ).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  test('find the silence at the edges and the long pause, and take it out in one step', async ({
+    page,
+  }, testInfo) => {
+    await page.addInitScript(() => {
+      for (const picker of ['showOpenFilePicker', 'showSaveFilePicker', 'showDirectoryPicker']) {
+        Reflect.deleteProperty(window, picker);
+      }
+    });
+    await openFresh(page);
+    await importInto(page, 'Paused', pausedWav());
+    await runCommand(page, 'Show the Analysis panel');
+    await runCommand(page, 'Move this panel to the right');
+    const panel = panelTitled(page, 'Analysis');
+
+    await panel.getByRole('button', { name: 'Analyse the audio' }).click();
+
+    const silence = panel.getByRole('region', { name: 'Silence' });
+    await expect(silence).toBeVisible({ timeout: 60_000 });
+    await expect(silence.getByText('Silent stretches: 3')).toBeVisible();
+    await expect(silence.getByText(/^2 silent stretches at the edges\./u)).toBeVisible();
+    await expect(silence.getByText(/^1 long pause, shortened to the pause kept\./u)).toBeVisible();
+    await silence.screenshot({ path: testInfo.outputPath('analysis-silence.png') });
+
+    // A pause of a second is no pause once the shortest is two: analysed again.
+    const shortest = silence.getByRole('textbox', { name: 'Shortest pause in s' });
+    await shortest.fill('2');
+    await shortest.press('Enter');
+    await expect(silence.getByRole('textbox', { name: 'Shortest pause in s' })).toHaveValue('2', {
+      timeout: 60_000,
+    });
+    await expect(silence.getByText(/^1 long pause/u)).toBeHidden();
+    await expect(silence.getByText(/^2 silent stretches at the edges\./u)).toBeVisible();
+    await silence.screenshot({ path: testInfo.outputPath('analysis-silence-settings.png') });
+
+    await silence.getByRole('button', { name: 'Trim the silence at the edges' }).click();
+
+    await expect(
+      page.getByText('Removed the silence at the edges from all of Paused: 2 stretches.').first(),
+    ).toBeVisible();
+    await expect(panel.getByText(/The audio has changed since it was analysed, so/u)).toBeVisible();
+
+    await runCommand(page, 'Undo');
+
+    await expect(panel.getByText(/The audio has changed since it was analysed, so/u)).toBeHidden();
   });
 });

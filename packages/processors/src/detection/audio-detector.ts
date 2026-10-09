@@ -12,6 +12,7 @@ import type {
   DetectorIdentity,
   DomainResult,
   FindingKind,
+  NumericParameterDescriptor,
   SampleRate,
   TreatmentStep,
 } from '@audiogubbins/domain';
@@ -24,6 +25,11 @@ export interface DetectionSettings {
   readonly input: ChannelLayout;
   readonly sampleRate: SampleRate;
   readonly dsp: CanonicalDsp;
+  /**
+   * The value of each of the detector's parameters, by key, every one
+   * present and in its range (`detector-values.ts`).
+   */
+  readonly values: ReadonlyMap<string, number>;
 }
 
 /**
@@ -32,10 +38,18 @@ export interface DetectionSettings {
  */
 export type Detection = WholePass<readonly DetectorFinding[]>;
 
-/** A detector: what it is, what it finds, and a pass of it over audio. */
+/** A detector: what it is, what it finds, what a person may set, and a pass of it over audio. */
 export interface AudioDetector {
   readonly identity: DetectorIdentity;
   readonly finds: readonly FindingKind[];
+  /** What a person may set of how it judges, each with its range and default. */
+  readonly parameters: readonly NumericParameterDescriptor[];
+  /**
+   * Why `values`, every parameter's and each in its range, cannot be judged
+   * by together, or `undefined` where they can: the one rule every reader of
+   * the values asks (`settledValues`).
+   */
+  refusal(values: ReadonlyMap<string, number>): string | undefined;
   /** A pass over audio of `settings`, or why this detector cannot hear it. */
   open(settings: DetectionSettings): DomainResult<Detection>;
 }

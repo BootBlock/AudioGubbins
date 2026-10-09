@@ -12,7 +12,7 @@
  * and its progress is counted against.
  */
 
-import { QualityLevel, type DomainResult, type NamedQualityLevel } from '@audiogubbins/domain';
+import type { DomainResult } from '@audiogubbins/domain';
 import {
   integerConverter,
   objectOf,
@@ -28,22 +28,21 @@ import {
   type Reading,
 } from '@audiogubbins/project-format';
 
-import {
-  PackCapability,
-  type ModelPackManifest,
-  type PackFile,
-  type PackLicence,
-  type PackRuntime,
-  type PackServes,
+import type {
+  ModelPackManifest,
+  PackFile,
+  PackLicence,
+  PackRuntime,
+  PackServes,
 } from './manifest.js';
 import { distinctList } from './distinct-list.js';
 import { MANIFEST_FORMAT } from './manifest-writing.js';
 import { readFiles } from './pack-files.js';
+import { PACK_CAPABILITIES } from './pack-capability.js';
+import { MOST_PACK_BYTES } from './pack-limits.js';
 import { LONGEST_PACK_ID, PACK_ID } from './pack-path.js';
+import { PACK_TIERS } from './pack-tier.js';
 import { LONGEST_VERSION, PACK_VERSION, compareVersions } from './pack-version.js';
-
-/** The most a pack may take installed: 16 GiB, a bound on what is believed. */
-const MOST_PACK_BYTES = 2 ** 34;
 
 /** A manifest's text: 64 files of long paths fit many times over. */
 export const MANIFEST_LIMITS: JsonLimits = { maximumLength: 256 * 1024, maximumDepth: 6 };
@@ -52,15 +51,6 @@ const MOST_TYPE_KEYS = 32;
 
 /** Prose a person can read: no control character, nothing blank at either end. */
 const PROSE = /^(?!\s)[^\p{Cc}]*(?<!\s)$/u;
-
-const NAMED_LEVELS: readonly NamedQualityLevel[] = [
-  QualityLevel.Draft,
-  QualityLevel.Standard,
-  QualityLevel.High,
-  QualityLevel.Maximum,
-];
-
-const CAPABILITIES: readonly PackCapability[] = Object.values(PackCapability);
 
 const MANIFEST_MEMBERS: ReadonlySet<string> = new Set([
   'format',
@@ -73,7 +63,7 @@ const MANIFEST_MEMBERS: ReadonlySet<string> = new Set([
   'files',
   'licence',
   'runtime',
-  'tiers',
+  'tier',
   'serves',
 ]);
 const LICENCE_MEMBERS: ReadonlySet<string> = new Set(['code', 'weights']);
@@ -127,8 +117,8 @@ const readLicence: Converter<PackLicence> = (reading, value, parent, key) => {
 };
 
 const readCapabilities = distinctList(
-  CAPABILITIES.length,
-  oneOfConverter(CAPABILITIES),
+  PACK_CAPABILITIES.length,
+  oneOfConverter(PACK_CAPABILITIES),
   (capability) => capability,
   'A capability is named once.',
   0,
@@ -161,12 +151,7 @@ const readRuntime: Converter<PackRuntime> = (reading, value, parent, key) => {
   return { name, minimum, below, capabilities };
 };
 
-const readTiers = distinctList(
-  NAMED_LEVELS.length,
-  oneOfConverter(NAMED_LEVELS),
-  (tier) => tier,
-  'A quality tier is named once.',
-);
+const asTier = oneOfConverter(PACK_TIERS);
 
 const readTypeKeys = distinctList(
   MOST_TYPE_KEYS,
@@ -253,7 +238,7 @@ export const manifestConverter: Converter<ModelPackManifest> = (reading, value, 
   const files = required(reading, object, at, 'files', readFiles);
   const licence = required(reading, object, at, 'licence', readLicence);
   const runtime = required(reading, object, at, 'runtime', readRuntime);
-  const tiers = required(reading, object, at, 'tiers', readTiers);
+  const tier = required(reading, object, at, 'tier', asTier);
   const serves = required(reading, object, at, 'serves', readServes);
   if (
     format === undefined ||
@@ -266,7 +251,7 @@ export const manifestConverter: Converter<ModelPackManifest> = (reading, value, 
     files === undefined ||
     licence === undefined ||
     runtime === undefined ||
-    tiers === undefined ||
+    tier === undefined ||
     serves === undefined
   ) {
     return undefined;
@@ -282,7 +267,7 @@ export const manifestConverter: Converter<ModelPackManifest> = (reading, value, 
     files,
     licence,
     runtime,
-    tiers,
+    tier,
     serves,
   };
 };

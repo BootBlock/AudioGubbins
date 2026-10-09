@@ -243,7 +243,6 @@ export function editedReferenceState(fixture: SampleProject): ProjectState {
       kind: 'insert',
       at: derivedSampleCount(24_000),
       payload: copied.value,
-      convertRate: false,
     },
     {
       id: ids.next<'EditOperationId'>(),
@@ -334,7 +333,6 @@ export function deeplyRackedState(fixture: SampleProject): ProjectState {
     kind: 'insert',
     at: derivedSampleCount(24_000),
     payload: copied,
-    convertRate: false,
   };
   return {
     ...state,

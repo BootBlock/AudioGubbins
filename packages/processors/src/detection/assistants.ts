@@ -7,10 +7,17 @@
  * every finding of its kind and a noise reduction learns from one stretch.
  * Its steps are in `TREATMENT_ORDER`; a step of a processor the order does
  * not name, which a model pack's detector may recommend, follows them in the
- * order it was found.
+ * order it was found. The frames its findings would have taken out of the
+ * timeline, a silence's, it gives apart, made from every finding as its steps
+ * are, for the person to apply as trim and delete edits.
  */
 
-import type { DetectorFinding, Recommendation, TreatmentStep } from '@audiogubbins/domain';
+import type {
+  DetectorFinding,
+  EditRange,
+  Recommendation,
+  TreatmentStep,
+} from '@audiogubbins/domain';
 
 import type { Assistant, AudioDetector } from './audio-detector.js';
 import { CLICK_DETECTOR } from './click-detector.js';
@@ -18,6 +25,7 @@ import { CLIPPING_DETECTOR } from './clipping-detector.js';
 import { DC_OFFSET_DETECTOR } from './dc-offset-detector.js';
 import { HUM_DETECTOR } from './hum-detector.js';
 import { NOISE_FLOOR_DETECTOR } from './noise-floor-detector.js';
+import { SILENCE_DETECTOR } from './silence-detector.js';
 import { TRANSIENT_DETECTOR } from './transient-detector.js';
 import { TREATMENT_ORDER } from './treatments.js';
 
@@ -67,7 +75,7 @@ function treatingAssistant(
  * Classification: what the audio is made of, its onsets and its noise floor.
  * It reports, and recommends nothing.
  */
-export const CLASSIFICATION_ASSISTANT: Assistant = {
+const CLASSIFICATION_ASSISTANT: Assistant = {
   key: 'classification',
   label: 'Classification',
   detectors: [TRANSIENT_DETECTOR, NOISE_FLOOR_DETECTOR],
@@ -75,17 +83,56 @@ export const CLASSIFICATION_ASSISTANT: Assistant = {
 };
 
 /** Restoration: the steady faults of a recording, an offset, hum and noise. */
-export const RESTORATION_ASSISTANT = treatingAssistant('restoration', 'Restoration', [
+const RESTORATION_ASSISTANT = treatingAssistant('restoration', 'Restoration', [
   DC_OFFSET_DETECTOR,
   HUM_DETECTOR,
   NOISE_FLOOR_DETECTOR,
 ]);
 
 /** Repair: the momentary faults of a recording, clicks and clipping. */
-export const REPAIR_ASSISTANT = treatingAssistant('repair', 'Repair', [
-  CLICK_DETECTOR,
-  CLIPPING_DETECTOR,
-]);
+const REPAIR_ASSISTANT = treatingAssistant('repair', 'Repair', [CLICK_DETECTOR, CLIPPING_DETECTOR]);
+
+/**
+ * Silence: the quiet at the edges and the long pauses within, which trimming
+ * takes out. It recommends no processor; what it would take out is the
+ * recommendation's removals.
+ */
+export const SILENCE_ASSISTANT: Assistant = {
+  key: 'silence',
+  label: 'Silence',
+  detectors: [SILENCE_DETECTOR],
+  recommend: () => [],
+};
+
+/** Every assistant this build has, as a request names them by key. */
+export const CANONICAL_ASSISTANTS: readonly Assistant[] = [
+  CLASSIFICATION_ASSISTANT,
+  REPAIR_ASSISTANT,
+  RESTORATION_ASSISTANT,
+  SILENCE_ASSISTANT,
+];
+
+/** The ranges of the findings treated by removing their frames, in order and apart. */
+function removalsOf(findings: readonly DetectorFinding[]): readonly EditRange[] {
+  const removals: EditRange[] = [];
+  const ranges = findings
+    .filter((finding) => finding.treatment.kind === 'removal')
+    .map((finding) => finding.range)
+    .toSorted((one, other) => one.start - other.start);
+  for (const range of ranges) {
+    const last = removals.at(-1);
+    // Two that meet or overlap are one span, so the edits made of them are apart.
+    if (last !== undefined && range.start <= last.end) {
+      removals[removals.length - 1] = {
+        start: last.start,
+        end: range.end > last.end ? range.end : last.end,
+      };
+    } else {
+      removals.push(range);
+    }
+  }
+  return removals;
+}
 
 /**
  * What `assistant` recommends from `findings`, its detectors' findings over
@@ -104,5 +151,6 @@ export function recommendation(
     detectors: assistant.detectors.map((detector) => detector.identity),
     findings: own,
     steps: assistant.recommend(own),
+    removals: removalsOf(own),
   };
 }

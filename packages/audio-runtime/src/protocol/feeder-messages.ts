@@ -24,11 +24,10 @@
  */
 
 import {
-  Malformed,
   countAt,
   failureSummaryOf,
   flagAt,
-  isWellFormedId,
+  identifierAt,
   nonEmptyObjectsAt,
   numberAt,
   objectsAt,
@@ -37,7 +36,6 @@ import {
   qualityModeAt,
   readMessage,
   textAt,
-  unsafeBrandId,
   type DomainResult,
   type FailureSummary,
   type MessageFields,
@@ -199,19 +197,12 @@ export type FromFeeder =
       readonly refusals: readonly FailureSummary[];
     };
 
-/** An identifier of the domain's form, or the field it was read from refused. */
-function identifierAt(fields: MessageFields, field: string): string {
-  const value = textAt(fields, field);
-  if (!isWellFormedId(value)) throw new Malformed(field, 'an identifier');
-  return value;
-}
-
 function parameterChangeFrom(fields: MessageFields): ParameterChange {
   const value = numberAt(fields, 'value');
   return {
     stream: countAt(fields, 'stream'),
-    processor: unsafeBrandId<'ProcessorId'>(identifierAt(fields, 'processor')),
-    parameter: unsafeBrandId<'ParameterId'>(identifierAt(fields, 'parameter')),
+    processor: identifierAt<'ProcessorId'>(fields, 'processor'),
+    parameter: identifierAt<'ParameterId'>(fields, 'parameter'),
     value,
   };
 }

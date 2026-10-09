@@ -43,6 +43,7 @@ function subject(identity: string, changes: Partial<DetectionSubject> = {}): Det
     quality: MAXIMUM_QUALITY,
     range: { start: derivedSampleCount(0), end: derivedSampleCount(FAULTY_LENGTH) },
     assistants: ['repair'],
+    detectors: {},
     ...changes,
   };
 }
@@ -76,6 +77,20 @@ describe('the detection host', { timeout: 30_000 }, () => {
       }),
     );
     await host.detect(subject('plan A', { assistants: ['restoration'] }));
+    // The same assistants judging by other values find other things.
+    await host.detect(subject('plan A', { detectors: { clicks: {} } }));
+    await host.detect(
+      subject('plan A', {
+        assistants: ['repair', 'silence'],
+        detectors: { silence: { threshold: -40 } },
+      }),
+    );
+    await host.detect(
+      subject('plan A', {
+        assistants: ['repair', 'silence'],
+        detectors: { silence: { threshold: -41 } },
+      }),
+    );
     // The same audio heard, its steps learning from audio before a rack.
     await host.detect(
       subject('plan A', {
@@ -84,7 +99,23 @@ describe('the detection host', { timeout: 30_000 }, () => {
     );
 
     expect(edited).toMatchObject({ kind: 'done', kept: false });
-    expect(detections()).toBe(6);
+    expect(detections()).toBe(9);
+    // Values set in another order are the same values.
+    const same = await host.detect(
+      subject('plan A', {
+        assistants: ['repair', 'silence'],
+        detectors: { silence: { threshold: -41 }, clicks: {} },
+      }),
+    );
+    expect(detections()).toBe(10);
+    const again = await host.detect(
+      subject('plan A', {
+        assistants: ['repair', 'silence'],
+        detectors: { clicks: {}, silence: { threshold: -41 } },
+      }),
+    );
+    expect(same.kind).toBe('done');
+    expect(again).toMatchObject({ kind: 'done', kept: true });
   });
 
   it('reports progress in frames as the worker reads', async () => {

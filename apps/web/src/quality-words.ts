@@ -7,7 +7,6 @@
  */
 
 import {
-  InferencePath,
   QualityLevel,
   ResamplingGrade,
   type QualitySettingKey,
@@ -28,7 +27,6 @@ export const QUALITY_SETTING_NAMES: Readonly<Record<QualitySettingKey, string>> 
   resampling: 'Resampling',
   oversampling: 'Oversampling',
   spectralOverlap: 'Spectral overlap',
-  inference: 'Inference path',
 };
 
 /** The settings in the order they are read out. */
@@ -36,7 +34,6 @@ export const QUALITY_SETTING_KEYS: readonly QualitySettingKey[] = [
   'resampling',
   'oversampling',
   'spectralOverlap',
-  'inference',
 ];
 
 /** What each resampling grade is called. */
@@ -44,12 +41,6 @@ export const RESAMPLING_NAMES: Readonly<Record<ResamplingGrade, string>> = {
   [ResamplingGrade.Draft]: 'Draft',
   [ResamplingGrade.High]: 'High',
   [ResamplingGrade.Maximum]: 'Maximum',
-};
-
-/** What each inference path is called. */
-export const INFERENCE_NAMES: Readonly<Record<InferencePath, string>> = {
-  [InferencePath.Pinned]: 'Pinned',
-  [InferencePath.Accelerated]: 'Accelerated',
 };
 
 /** What each oversampling factor is called; keyed by every factor, so one added is named here. */
@@ -76,8 +67,6 @@ function qualityValueText(settings: QualitySettings, key: QualitySettingKey): st
       return OVERSAMPLING_NAMES[settings.oversampling];
     case 'spectralOverlap':
       return OVERLAP_NAMES[settings.spectralOverlap];
-    case 'inference':
-      return INFERENCE_NAMES[settings.inference];
   }
 }
 

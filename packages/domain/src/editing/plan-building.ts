@@ -49,7 +49,8 @@ import { pruneStreams, shiftStreams } from './stream-tables.js';
  * What a plan is built with besides its asset: the project's chains, which
  * rack edits and racks name, the processor types this build has, which say
  * what layout a chain makes, and the versions of the engine's algorithms it
- * has, which a stretch or a conversion of rate must have been made by.
+ * has, which a stretch, a conversion of rate or a converted insertion must
+ * have been made by.
  */
 export interface PlanContext {
   readonly chains: ProjectChains;
@@ -73,20 +74,25 @@ interface RangeRacks {
 /**
  * Nothing, where an edit made by version `found` of the engine's `algorithm`
  * is made by the version this build has, `implemented`, or why it is not: an
- * edit another version made would be heard otherwise (REQ-AUDIO-145).
+ * edit another version made would be heard otherwise (REQ-AUDIO-145). An
+ * edit that names no version, `found` absent, is refused the same way.
  */
 function versionKnown(
   algorithm: 'stretch' | 'resampler',
-  found: number,
+  found: number | undefined,
   implemented: number,
 ): DomainResult<void> {
   if (found === implemented) return succeed(undefined);
+  const made =
+    found === undefined
+      ? `The edit names no version of the ${algorithm} it was made with`
+      : `This build does not have version ${String(found)} of the ${algorithm} the edit was made with`;
   return fail(
     failure(
       'edit.algorithm-version-unknown',
       FailureKind.Unrecoverable,
-      `This build does not have version ${String(found)} of the ${algorithm} the edit was made with, but version ${String(implemented)}.`,
-      { details: { algorithm, found, implemented } },
+      `${made}, but version ${String(implemented)}.`,
+      { details: { algorithm, ...(found === undefined ? {} : { found }), implemented } },
     ),
   );
 }
@@ -186,7 +192,7 @@ function foldOperation(
         },
       });
     case 'insert':
-      return succeed(foldInsertion(plan, operation));
+      return foldInsertion(plan, operation, racks.context.engine);
     case 'process':
       return processRange(plan, operation, racks);
     case 'stretch':
@@ -210,17 +216,23 @@ function foldOperation(
 }
 
 /**
- * The plan with a payload spliced in. The payload's streams join the plan's
- * after those already there, renumbered, so a segment still reads only a
- * stream after its own.
+ * The plan with a payload spliced in, or why it cannot be: a payload at
+ * another rate converted by a version of the resampler this build does not
+ * have. The payload's streams join the plan's after those already there,
+ * renumbered, so a segment still reads only a stream after its own.
  */
 function foldInsertion(
   plan: Folding,
   operation: Extract<EditOperation, { readonly kind: 'insert' }>,
-): Folding {
+  engine: EngineVersions,
+): DomainResult<Folding> {
   const { stream } = plan;
   const total = lengthOf(stream.segments);
   const converted = operation.payload.streams[0].sampleRate !== stream.sampleRate;
+  if (converted) {
+    const known = versionKnown('resampler', operation.resampler, engine.resampler);
+    if (!known.ok) return known;
+  }
   // Converted, the payload's first stream becomes a stream of the plan, read
   // by one segment; otherwise its segments are spliced in and only the rest
   // join. Either way each keeps its place relative to the others.
@@ -237,7 +249,7 @@ function foldInsertion(
         },
       ]
     : first.segments;
-  return {
+  return succeed({
     stream: {
       ...stream,
       segments: [
@@ -247,7 +259,7 @@ function foldInsertion(
       ],
     },
     others: converted ? [...plan.others, first, ...rest] : [...plan.others, ...rest],
-  };
+  });
 }
 
 /** `processing` by the basis it is placed at, each basis's in the order given. */

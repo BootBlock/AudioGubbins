@@ -29,7 +29,8 @@ import { FeederCore } from '../feeder/feeder-core.js';
 import { PreviewWorkerCore } from '../preview/preview-worker-core.js';
 import { RenderWorkerCore } from '../render/render-worker-core.js';
 import type { RenderWorkerEvents } from '../render/worker-render.js';
-import { cloneAcross, fakeChannel } from './fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { fakeChannel } from './fake-message-channel.js';
 
 /** How a thread makes its processor types from its model services. */
 export type TypesWith = (services: ModelServices) => ReadonlyMap<string, ProcessorType>;
@@ -69,7 +70,7 @@ export class LocalChainWorker {
   }
 
   postMessage(message: unknown, transfer: readonly unknown[] = []): void {
-    const data = cloneAcross(message, transfer);
+    const data = crossingThreads(message, transfer);
     setTimeout(() => {
       if (this.terminated) return;
       if (!this.#models.receive(data)) this.#core.receive(data);
@@ -96,7 +97,7 @@ export class LocalChainWorker {
   }
 
   #toPage(message: unknown, transfer: readonly unknown[]): void {
-    const data = cloneAcross(message, transfer);
+    const data = crossingThreads(message, transfer);
     setTimeout(() => {
       if (this.terminated) return;
       const event = new MessageEvent('message', { data });

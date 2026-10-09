@@ -23,7 +23,7 @@
     "below": "1.31.0",
     "capabilities": ["webassembly-simd"]
   },
-  "tiers": ["draft", "standard", "high", "maximum"],
+  "tier": "balanced",
   "serves": { "processors": ["spleeter-4-stems"], "detectors": [] },
   "sources": [
     {

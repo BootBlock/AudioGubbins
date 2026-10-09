@@ -187,6 +187,5 @@ function qualityOf(
     resampling: pick('resampling', ['draft', 'high', 'maximum']),
     oversampling: pick('oversampling', [1, 2, 4, 8]),
     spectralOverlap: pick('spectralOverlap', [2, 4, 8]),
-    inference: pick('inference', ['pinned', 'accelerated']),
   };
 }

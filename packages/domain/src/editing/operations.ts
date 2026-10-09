@@ -91,15 +91,17 @@ export type EditOperation =
   /**
    * Inserts a copied slice of a plan at a boundary. It names immutable
    * sources only, so it sounds the same whatever later happens to the asset
-   * it came from (ADR-0053). A payload at another rate is converted by the
-   * canonical resampler, and only when `convertRate` says so (REQ-ARCH-085).
+   * it came from (ADR-0053). A payload at another rate is converted only
+   * where the person asked for it (REQ-ARCH-085), by version `resampler` of
+   * the canonical resampler, which is present exactly then; a payload at the
+   * asset's rate is inserted as it is.
    */
   | {
       readonly id: EditOperationId;
       readonly kind: 'insert';
       readonly at: SampleCount;
       readonly payload: EditPlan;
-      readonly convertRate: boolean;
+      readonly resampler?: number;
     }
   /** Plays the range backwards. */
   | { readonly id: EditOperationId; readonly kind: 'reverse'; readonly range: EditRange }
@@ -154,10 +156,10 @@ export type EditOperation =
 /**
  * The versions of the engine's algorithms this build makes edits with, which
  * the engine owns (REQ-AUDIO-145, ADR-0061): its stretch's, and its canonical
- * resampler's. A stretch and a conversion of rate are made by, and persist,
- * the version of theirs; one made by a version this build does not have is
- * refused where its plan is built, rather than heard as another algorithm
- * makes it.
+ * resampler's. A stretch, a conversion of rate and an insertion converted to
+ * the asset's rate are made by, and persist, the version of theirs; one made
+ * by a version this build does not have is refused where its plan is built,
+ * rather than heard as another algorithm makes it.
  */
 export interface EngineVersions {
   readonly stretch: number;

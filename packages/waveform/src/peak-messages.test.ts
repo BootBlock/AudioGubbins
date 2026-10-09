@@ -123,7 +123,7 @@ describe('the messages to the peak worker', () => {
     expect(fieldOf(readToPeakWorker({ ...OPEN, job: 7 }))).toBe('job');
     expect(fieldOf(readToPeakWorker({ ...OPEN, channels: -1 }))).toBe('channels');
     expect(fieldOf(readToPeakWorker({ ...OPEN, description: { kind: 'file' } }))).toBe(
-      'description',
+      'description.sampleRate',
     );
     expect(fieldOf(readToPeakWorker({ ...OPEN, quality: { level: 'draft' } }))).toBe('quality');
     expect(fieldOf(readToPeakWorker({ ...OPEN, cached: [1, 2] }))).toBe('cached');

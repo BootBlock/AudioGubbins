@@ -58,6 +58,13 @@ const NO_MODELS: ModelServices = {
     },
   },
   models: {
+    available: (pack, version) =>
+      Promise.resolve(
+        modelUnavailable(ModelUnavailability.RequiredUnavailable, 'No pack is kept here.', {
+          pack,
+          version,
+        }),
+      ),
     file: (pack, version) =>
       Promise.resolve(
         modelUnavailable(ModelUnavailability.RequiredUnavailable, 'No pack is kept here.', {

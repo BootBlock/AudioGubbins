@@ -7,6 +7,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { manifestJson, readModelPackManifest, readPackCatalogue } from '@audiogubbins/model-packs';
 
+import { packFilePathProblem } from '../packages/model-packs/src/pack-path.js';
+import { PACK_CAPABILITIES } from '../packages/model-packs/src/pack-capability.js';
+import { LONGEST_FILE_BYTES } from '../packages/model-packs/src/pack-limits.js';
+import { PACK_TIERS } from '../packages/model-packs/src/pack-tier.js';
+
 import {
   catalogueText,
   loadPackDefinitions,
@@ -162,16 +167,70 @@ describe('a pack definition is refused', () => {
   ])('where a file path is %s, as the package refuses it', (_case, path) => {
     const reading = readPackDefinition(withFirstPath(path));
     expect(reading.ok).toBe(false);
-    if (!reading.ok) expect(reading.problems.join('\n')).toContain('files[0].path');
+    // Refused by the package's own grammar, so for its reason, not a copy's.
+    const reason = packFilePathProblem(path);
+    expect(reason).toBeDefined();
+    if (!reading.ok) expect(reading.problems).toContain(`files[0].path: ${String(reason)}`);
     // The two readers agree: a path the build would write is one the
     // application would install, and the other way about.
     expect(readModelPackManifest(manifestWithPath(path)).ok).toBe(false);
+  });
+
+  it.each([
+    ['a render quality level', 'high'],
+    ['the render quality levels it once listed', ['draft', 'standard']],
+    ['a word no tier is', 'fastest'],
+  ])('where its tier is %s, not the model’s own tier', (_case, tier) => {
+    const document = definitionDocument('deepfilternet-3');
+    document['tier'] = tier;
+    const reading = readPackDefinition(document);
+    expect(reading).toEqual({
+      ok: false,
+      problems: [`tier: is not one of ${PACK_TIERS.join(', ')}`],
+    });
   });
 
   it("where a file would take the pack's manifest's name", () => {
     const reading = readPackDefinition(withFirstPath('Manifest.json'));
     expect(reading.ok).toBe(false);
     if (!reading.ok) expect(reading.problems.join('\n')).toContain('manifest');
+  });
+
+  it('where a file is the folder of a later one, at the file the package names', () => {
+    // The package's one rule: the file another lies inside is refused, not
+    // the one inside it, whichever comes first.
+    const document = definitionDocument('deepfilternet-3');
+    const files = document['files'] as Record<string, unknown>[];
+    files[0] = { ...files[0], path: 'models' };
+    files[1] = { ...files[1], path: 'models/erb_dec.onnx' };
+    const reading = readPackDefinition(document);
+    expect(reading.ok).toBe(false);
+    if (!reading.ok) {
+      expect(reading.problems.filter((problem) => problem.startsWith('files['))).toEqual([
+        'files[0].path: is the path of a file before it, in any case, or holds another file',
+      ]);
+    }
+  });
+
+  it.each(['webgpu', 'shared-array-buffer'])(
+    'where its runtime needs %s, a capability no build of the runtime uses',
+    (capability) => {
+      const document = definitionDocument('deepfilternet-3');
+      document['runtime'] = { ...(document['runtime'] as object), capabilities: [capability] };
+      expect(readPackDefinition(document)).toEqual({
+        ok: false,
+        problems: [`runtime.capabilities[0]: is not one of ${PACK_CAPABILITIES.join(', ')}`],
+      });
+    },
+  );
+
+  it('where a file is longer than the package lets a pack file be', () => {
+    const document = definitionDocument('deepfilternet-3');
+    const files = document['files'] as Record<string, unknown>[];
+    files[0] = { ...files[0], bytes: LONGEST_FILE_BYTES + 1 };
+    const reading = readPackDefinition(document);
+    expect(reading.ok).toBe(false);
+    if (!reading.ok) expect(reading.problems.join(' ')).toContain(String(LONGEST_FILE_BYTES));
   });
 
   it('where two files collide in a case-insensitive file system', () => {
@@ -293,7 +352,7 @@ describe('the pack build', () => {
         below: '1.31.0',
         capabilities: ['webassembly-simd'],
       },
-      tiers: ['standard'],
+      tier: 'light',
       serves: { processors: ['test-denoise'], detectors: [] },
       sources: [
         {

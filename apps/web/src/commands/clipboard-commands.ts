@@ -13,6 +13,7 @@
  * names.
  */
 
+import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
 import {
   CommandCategory,
   unchanged,
@@ -174,7 +175,10 @@ function heldAudio(
   return { audio: copied, description };
 }
 
-/** A paste, converting audio at another rate to the asset's where `convertRate`. */
+/**
+ * A paste, converting audio at another rate to the asset's by the engine's
+ * canonical resampler where `convertRate`.
+ */
 function pasteCommand(
   id: string,
   label: string,
@@ -193,7 +197,12 @@ function pasteCommand(
       if (typeof stores === 'string') return stores;
       const { owner, state, session } = found.project;
       const place = pastedAt(context, found.view, owner);
-      const request = { payload: held.audio, asset: owner.asset.id, place, convertRate };
+      const request = {
+        payload: held.audio,
+        asset: owner.asset.id,
+        place,
+        convertWith: convertRate ? ENGINE_VERSIONS.resampler : undefined,
+      };
       const planned = planPaste(state, request, context.ids);
       if (!planned.ok) {
         const [failure] = planned.failures;

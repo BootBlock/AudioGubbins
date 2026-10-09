@@ -32,13 +32,16 @@ const ALLOCATION_TESTS = '**/*allocation.test.ts';
 const ML_GOLDEN_TESTS = '**/*.ml-golden.test.ts';
 
 /**
- * Whether the command names the `ml-golden` project. Its tests read model
- * packs from a cache outside the repository (REQ-REPO-191) and run the real
- * inference runtime, so it is defined only where it is asked for by name
- * (`pnpm test:ml-golden`), and `pnpm test`, which runs every project defined,
- * never runs it.
+ * Whether the command names the `ml-golden` project, or asks for every golden
+ * render by the filter `golden`, as the golden gate does
+ * (`pnpm test:audio-golden`). Its tests read model packs from a cache outside
+ * the repository (REQ-REPO-191) and run the real inference runtime, so it is
+ * defined only where it is asked for (`pnpm test:ml-golden` too), and
+ * `pnpm test`, which runs every project defined, never runs it.
  */
-const ML_GOLDEN_NAMED = process.argv.some((argument) => argument.includes('ml-golden'));
+const ML_GOLDEN_NAMED = process.argv.some(
+  (argument) => argument.includes('ml-golden') || argument === 'golden',
+);
 
 /**
  * The generated projects that run in a group of their own, after the rest. A

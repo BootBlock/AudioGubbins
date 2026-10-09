@@ -5,13 +5,15 @@
  *
  * A thread's request for a connection to the inference worker is handed to the
  * inference host with the end the thread made, so the thread then talks to the
- * worker directly. A request for a file is read through the page's model
- * library, which reads it from the storage and takes its SHA-256 as it reads,
- * and answered with the bytes transferred; a call the thread cancels is
- * cancelled. When the worker the thread is connected to fails, the thread is
- * told why. Once the thread has gone, its connection is let go: its calls are
- * cancelled and the inference worker lets its sessions go, since a terminated
- * thread closes no channel.
+ * worker directly. A question whether a pack version can be read is answered
+ * from what the page keeps of the installed packs, reading no file, so a thread
+ * whose model's pack is missing learns so before it starts any inference. A
+ * request for a file is read through the page's model library, which reads it
+ * from the storage and takes its SHA-256 as it reads, and answered with the
+ * bytes transferred; a call the thread cancels is cancelled. When the worker
+ * the thread is connected to fails, the thread is told why. Once the thread has
+ * gone, its connection is let go: its calls are cancelled and the inference
+ * worker lets its sessions go, since a terminated thread closes no channel.
  */
 
 import {
@@ -31,7 +33,6 @@ import {
   FromModelThreadKind,
   MODEL_CHANNEL,
   ToModelChannelKind,
-  type FromModelThread,
   type ToModelChannel,
   type ToModelThread,
 } from './protocol/model-channel-messages.js';
@@ -45,6 +46,17 @@ export type ModelFileReader = (
   signal: CancellationSignal,
 ) => Promise<DomainResult<ModelFileRead>>;
 
+/**
+ * Whether version `version` of the installed pack `pack` can be read now, or
+ * why not, decided from what the page keeps of the installed packs without
+ * reading a file.
+ */
+export type ModelVersionCheck = (
+  pack: string,
+  version: string,
+  signal: CancellationSignal,
+) => Promise<DomainResult<void>>;
+
 /** What the page's end is made with. */
 export interface ModelThreadsOptions {
   /**
@@ -54,6 +66,7 @@ export interface ModelThreadsOptions {
   readonly inference: () => Promise<InferenceHost>;
   /** What the device offers the runtime, as the host starts its workers with it. */
   readonly capabilities: InferenceCapabilities;
+  readonly versions: ModelVersionCheck;
   readonly files: ModelFileReader;
   /** Makes a channel between the page and a thread: a `MessageChannel`. */
   readonly createChannel: () => ChannelPair;
@@ -127,12 +140,29 @@ class ThreadConnection {
       case FromModelThreadKind.Inference:
         this.#connectInference(message.port);
         return;
+      case FromModelThreadKind.Version:
+        this.#answer(
+          message.call,
+          (signal) => this.#options.versions(message.pack, message.version, signal),
+          () => [{ kind: ToModelChannelKind.VersionReady, call: message.call }, []],
+        );
+        return;
       case FromModelThreadKind.Cancel:
         this.#calls.get(message.call)?.cancel();
         this.#calls.delete(message.call);
         return;
       case FromModelThreadKind.File:
-        this.#readFile(message);
+        this.#answer(
+          message.call,
+          (signal) => this.#options.files(message.pack, message.version, message.path, signal),
+          (read) => {
+            const bytes = movableBytes(read.bytes);
+            return [
+              { kind: ToModelChannelKind.File, call: message.call, bytes, sha256: read.sha256 },
+              [bytes.buffer],
+            ];
+          },
+        );
         return;
     }
   }
@@ -167,13 +197,15 @@ class ThreadConnection {
     );
   }
 
-  /** Reads a file through the page's library and answers the call, unless it was cancelled. */
-  #readFile({
-    call,
-    pack,
-    version,
-    path,
-  }: Extract<FromModelThread, { kind: typeof FromModelThreadKind.File }>): void {
+  /**
+   * Answers call `call` with what `work` finds, as `answered` writes it, or
+   * with why it found nothing, unless the thread cancelled the call.
+   */
+  #answer<TValue>(
+    call: number,
+    work: (signal: CancellationSignal) => Promise<DomainResult<TValue>>,
+    answered: (value: TValue) => readonly [ToModelChannel, readonly object[]],
+  ): void {
     const source = createCancellationSource();
     this.#calls.set(call, source);
     const answer = (message: ToModelChannel, transfer: readonly object[]): void => {
@@ -181,29 +213,23 @@ class ThreadConnection {
       this.#calls.delete(call);
       this.#post(message, transfer);
     };
-    this.#options.files(pack, version, path, source.signal).then(
-      (read) => {
-        if (!read.ok) {
-          answer({ kind: ToModelChannelKind.FileFailed, call, failures: read.failures }, []);
-          return;
-        }
-        const bytes = movableBytes(read.value.bytes);
-        answer({ kind: ToModelChannelKind.File, call, bytes, sha256: read.value.sha256 }, [
-          bytes.buffer,
-        ]);
+    work(source.signal).then(
+      (found) => {
+        if (found.ok) answer(...answered(found.value));
+        else answer({ kind: ToModelChannelKind.CallFailed, call, failures: found.failures }, []);
       },
       (error: unknown) => {
-        // The reader's contract is to answer, never to throw; the thread
-        // would otherwise wait on the call for ever.
+        // The page's readers answer, never throw; the thread would otherwise
+        // wait on the call for ever.
         answer(
           {
-            kind: ToModelChannelKind.FileFailed,
+            kind: ToModelChannelKind.CallFailed,
             call,
             failures: [
               failure(
-                'inference.file-read-failed',
+                'inference.pack-read-failed',
                 FailureKind.Unrecoverable,
-                `The model file could not be read: ${messageOf(error)}`,
+                `The installed model packs could not be read: ${messageOf(error)}`,
               ),
             ],
           },

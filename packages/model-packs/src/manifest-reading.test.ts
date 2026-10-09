@@ -26,7 +26,7 @@ interface Editable {
   files: { path: JsonValue; bytes: JsonValue; sha256: JsonValue }[];
   licence?: JsonValue;
   runtime: { name: JsonValue; minimum: JsonValue; below: JsonValue; capabilities: JsonValue };
-  tiers?: JsonValue;
+  tier?: JsonValue;
   serves?: JsonValue;
   uploadTo?: JsonValue;
 }
@@ -45,7 +45,7 @@ function edited(change: (document: Editable) => void): string {
     files: manifest.files.map((file) => ({ ...file })),
     licence: { ...manifest.licence },
     runtime: { ...manifest.runtime, capabilities: [...manifest.runtime.capabilities] },
-    tiers: [...manifest.tiers],
+    tier: manifest.tier,
     serves: {
       processors: [...manifest.serves.processors],
       detectors: [...manifest.serves.detectors],
@@ -241,21 +241,55 @@ describe('reading a manifest', () => {
     }
   });
 
-  it('refuses a capability it does not know, and one named twice', () => {
+  it('refuses a capability it does not know, and more than there are', () => {
     const unknown = readModelPackManifest(
       edited((document) => (document.runtime.capabilities = ['quantum-cores'])),
     );
     expect(codes(unknown)).toEqual(['schema.unknown-value']);
     const twice = readModelPackManifest(
-      edited((document) => (document.runtime.capabilities = ['webgpu', 'webgpu'])),
+      edited(
+        (document) => (document.runtime.capabilities = ['webassembly-simd', 'webassembly-simd']),
+      ),
     );
-    expect(codes(twice)).toEqual(['model-pack.repeated']);
+    // One capability is all there is, so a second, the same named again, is
+    // one too many.
+    expect(codes(twice)).toEqual(['schema.too-many-items']);
   });
 
-  it('refuses a tier it does not know, none, and one named twice', () => {
-    for (const tiers of [['custom'], [], ['high', 'high']]) {
-      expect(readModelPackManifest(edited((document) => (document.tiers = tiers))).ok).toBe(false);
+  it('refuses a capability no build of the runtime uses: WebGPU and shared memory', () => {
+    // The runtime runs one build on one thread, so a pack listing either
+    // would claim a need nothing here meets.
+    for (const capability of ['webgpu', 'shared-array-buffer']) {
+      const read = readModelPackManifest(
+        edited((document) => (document.runtime.capabilities = [capability])),
+      );
+      expect(codes(read), capability).toEqual(['schema.unknown-value']);
     }
+  });
+
+  it('reads the model’s own tier, one of the pack tiers', () => {
+    for (const tier of ['light', 'balanced', 'thorough']) {
+      const read = readModelPackManifest(edited((document) => (document.tier = tier)));
+      expect(read.ok && read.value.tier).toBe(tier);
+    }
+  });
+
+  it('refuses a render quality level for a tier, a list of tiers, another word, or none', () => {
+    // A tier describes the model, not a render mode: the quality levels the
+    // manifest once listed as the tiers a pack served are no tier.
+    for (const tier of ['high', 'standard', ['light'], 'custom']) {
+      const read = readModelPackManifest(edited((document) => (document.tier = tier)));
+      expect(codes(read), JSON.stringify(tier)).toEqual(['schema.unknown-value']);
+    }
+    const none = readModelPackManifest(edited((document) => delete document.tier));
+    expect(none.ok).toBe(false);
+    const listed = readModelPackManifest(
+      edited((document) => {
+        delete document.tier;
+        Object.assign(document, { tiers: ['standard', 'high'] });
+      }),
+    );
+    expect(listed.ok).toBe(false);
   });
 
   it('refuses a pack that serves nothing, or a type key of another shape', () => {

@@ -14,8 +14,15 @@ import { OTHER_RATE, frames } from '../testing/editing-fixtures.js';
 import { TEST_DENOISER, TEST_UPMIXER } from '../testing/test-processors.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
 import { FadeShape } from './fades.js';
-import { editPlanFrom } from './plan-decoding.js';
+import { readValue } from '../messages/message-fields.js';
+import type { DomainResult } from '../result.js';
+import { editPlanOf } from './plan-decoding.js';
 import type { EditPlan, PlanSegment } from './plan.js';
+
+/** The plan `value` holds, read as a message carrying it reads it, or why it holds none. */
+function editPlanFrom(value: unknown): DomainResult<EditPlan> {
+  return readValue(value, 'editing.plan-unreadable', (one) => editPlanOf(one, 'plan'));
+}
 
 const ASSET = unsafeBrandId<'AssetId'>('0000bbbb-0001');
 

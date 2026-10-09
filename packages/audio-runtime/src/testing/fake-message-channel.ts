@@ -15,6 +15,8 @@
  * and a browser transfers it.
  */
 
+import { crossingThreads } from '@audiogubbins/domain/testing';
+
 /** A message event as a port dispatches it. */
 type PortListener = ((this: MessagePort, event: MessageEvent) => unknown) | null;
 
@@ -43,7 +45,7 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
 
   postMessage(message: unknown, transfer?: Transferable[] | StructuredSerializeOptions): void {
     const list = Array.isArray(transfer) ? transfer : (transfer?.transfer ?? []);
-    const data = cloneAcross(message, list);
+    const data = crossingThreads(message, list);
     this.posted.push(data);
     const other = this.#other;
     if (this.closed || other === undefined) return;
@@ -101,22 +103,4 @@ export class FakeMessagePort extends EventTarget implements MessagePort {
 /** Two joined ends. */
 export function fakeChannel(): { readonly port1: MessagePort; readonly port2: MessagePort } {
   return FakeMessagePort.pair();
-}
-
-/**
- * `message` as a structured clone arrives, with `transfer` transferred, and
- * each fake end among the message's fields carried across as itself.
- */
-export function cloneAcross(message: unknown, transfer: readonly unknown[]): unknown {
-  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
-  if (typeof message !== 'object' || message === null) {
-    return structuredClone(message, { transfer: buffers });
-  }
-  const ports = Object.entries(message).filter(
-    (entry): entry is [string, FakeMessagePort] => entry[1] instanceof FakeMessagePort,
-  );
-  const bare = Object.fromEntries(
-    Object.entries(message).filter(([, value]) => !(value instanceof FakeMessagePort)),
-  );
-  return { ...structuredClone(bare, { transfer: buffers }), ...Object.fromEntries(ports) };
 }

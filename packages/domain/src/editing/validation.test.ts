@@ -96,12 +96,17 @@ describe('validating an edit operation where it stands', () => {
     const payload = expectSuccess(
       slicePlan(expectSuccess(assetPlan(other, PLAN_WITHOUT_CHAINS)), 0, 441),
     );
-    const paste = { id, kind: 'insert', at: frames(0), payload, convertRate: false } as const;
+    const paste = { id, kind: 'insert', at: frames(0), payload } as const;
     expect(
       expectFailureCode(validateOperation(paste, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains)),
     ).toBe('editing.payload-rate');
     expectSuccess(
-      validateOperation({ ...paste, convertRate: true }, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains),
+      validateOperation(
+        { ...paste, resampler: TEST_ENGINE.resampler },
+        SHAPE,
+        assets,
+        PLAN_WITHOUT_CHAINS.chains,
+      ),
     );
     const same = expectSuccess(
       slicePlan(expectSuccess(assetPlan(ASSET, PLAN_WITHOUT_CHAINS)), 0, 10),
@@ -109,13 +114,20 @@ describe('validating an edit operation where it stands', () => {
     expect(
       expectFailureCode(
         validateOperation(
-          { ...paste, payload: same, convertRate: true },
+          { ...paste, payload: same, resampler: TEST_ENGINE.resampler },
           SHAPE,
           ASSETS,
           PLAN_WITHOUT_CHAINS.chains,
         ),
       ),
     ).toBe('editing.payload-rate');
+    for (const resampler of [0, 1.5, -1]) {
+      expect(
+        expectFailureCode(
+          validateOperation({ ...paste, resampler }, SHAPE, assets, PLAN_WITHOUT_CHAINS.chains),
+        ),
+      ).toBe('editing.conversion-version');
+    }
   });
 
   it('refuses a paste with other channels than the audio has', () => {
@@ -125,7 +137,7 @@ describe('validating an edit operation where it stands', () => {
     expect(
       expectFailureCode(
         validateOperation(
-          { id, kind: 'insert', at: frames(0), payload, convertRate: false },
+          { id, kind: 'insert', at: frames(0), payload },
           SHAPE,
           ASSETS,
           PLAN_WITHOUT_CHAINS.chains,

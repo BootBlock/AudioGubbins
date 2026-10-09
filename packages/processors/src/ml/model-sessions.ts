@@ -86,13 +86,14 @@ export class ModelSessions {
 
 /**
  * The model `definition` names, opened in a session for each of its files, or
- * why it cannot be: a file the library cannot give or that is not the one the
- * build runs, a session the runtime refuses, or a runtime that is not the build
- * the model is pinned to. Each file is named to the port by the SHA-256 the
- * definition pins, and read and checked only where the port has no session on
- * it to share; files are opened one at a time, so a pass holds one file's bytes
- * at once beside the sessions. A cancellation throws, as every cancelled pass
- * does.
+ * why it cannot be: a pack version the library cannot give, asked before any
+ * session is opened so that a missing pack starts no inference, a file the
+ * library cannot give or that is not the one the build runs, a session the
+ * runtime refuses, or a runtime that is not the build the model is pinned to.
+ * Each file is named to the port by the SHA-256 the definition pins, and read
+ * and checked only where the port has no session on it to share; files are
+ * opened one at a time, so a pass holds one file's bytes at once beside the
+ * sessions. A cancellation throws, as every cancelled pass does.
  */
 export async function openModel(
   definition: ModelDefinition,
@@ -100,6 +101,9 @@ export async function openModel(
   signal: CancellationSignal | undefined,
 ): Promise<DomainResult<ModelSessions>> {
   const { pack, version } = definition.identity;
+  const ready = await services.models.available(pack, version, signal);
+  throwIfCancelled(signal);
+  if (!ready.ok) return ready;
   const opened = new Map<string, InferenceSession>();
   let kept = false;
   try {

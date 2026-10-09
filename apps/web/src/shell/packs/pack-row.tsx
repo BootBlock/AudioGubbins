@@ -1,7 +1,7 @@
 /**
  * One pack version in the Model packs panel (REQ-AUDIO-139): its explicit name
  * and purpose, version, download and installed sizes, the integrity check, its
- * licences, what it needs to run, its quality tiers, the state of its
+ * licences, what it needs to run, its model's tier, the state of its
  * installation with the progress of a download, which of the requirement's
  * conditions holds for it, and the steps its state allows, each a pack
  * command. A version a project needs, whose removal was refused for that, says
@@ -16,11 +16,11 @@ import type {
   ModelPackManifest,
   PackCapability,
   PackRef,
+  PackTier,
   PackVersionCondition,
 } from '@audiogubbins/model-packs';
 
 import { CONDITION_NAMES, packTitle, progressWords, stateWords } from '../../ml/pack-words.js';
-import { QUALITY_LEVEL_NAMES } from '../../quality-words.js';
 import { describeBytes } from '../../wording.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
 import { SharedReasonNotes } from '../settings/reasoned-button.js';
@@ -28,9 +28,22 @@ import { SharedReasonNotes } from '../settings/reasoned-button.js';
 /** What each capability a pack may need is called. */
 const CAPABILITY_NAMES: Readonly<Record<PackCapability, string>> = {
   'webassembly-simd': 'WebAssembly SIMD',
-  'shared-array-buffer': 'memory shared between threads',
-  webgpu: 'WebGPU',
 };
+
+/**
+ * What each tier says of a pack's model: how quick it is to run against how
+ * thorough its result is. Worded for the model alone, since every render and
+ * preview quality runs a model the same way, and with none of the quality
+ * levels' names, so no reader takes a tier for a quality to choose.
+ */
+const TIER_WORDS: Readonly<Record<PackTier, string>> = {
+  light: 'Light: quick to run, with a lighter result',
+  balanced: 'Balanced: between speed and the most thorough result',
+  thorough: 'Thorough: the slowest to run, with the most thorough result',
+};
+
+/** Said under the tier, so it is read as the model's and not as a quality setting. */
+const TIER_NOTE = 'The model’s own; it is the same at every render and preview quality.';
 
 /** One version as the panel lists it: what the installer and the catalogue know of it. */
 export interface PackVersion {
@@ -177,8 +190,10 @@ function PackFacts({
           <dd>{compatibilityWords(manifest)}</dd>
         </div>
         <div>
-          <dt>Quality tiers</dt>
-          <dd>{manifest.tiers.map((tier) => QUALITY_LEVEL_NAMES[tier]).join(', ')}</dd>
+          <dt>Model tier</dt>
+          <dd>
+            {TIER_WORDS[manifest.tier]}. {TIER_NOTE}
+          </dd>
         </div>
       </dl>
     </>

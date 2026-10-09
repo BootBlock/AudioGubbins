@@ -194,6 +194,7 @@ describe.each([false, true])('with poisoned input %s, the two paths agree on', (
       multiplier: 2,
       offset: 0.05,
     },
+    { ...basis, kind: DetectorKind.Silence, block: 700, threshold: 0.2 },
   ])('every $kind record', (settings) => {
     const planar = signal(settings.kind.length, 2, 30_000, poisoned);
     agree((dsp) => {

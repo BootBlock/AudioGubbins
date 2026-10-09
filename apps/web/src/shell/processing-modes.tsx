@@ -15,7 +15,7 @@
 import { useSyncExternalStore, type ReactNode } from 'react';
 
 import { OptionSelect } from '@audiogubbins/design-system';
-import { finalRenderSettings, type QualitySettings } from '@audiogubbins/domain';
+import type { QualitySettings } from '@audiogubbins/domain';
 import {
   CachePurpose,
   JobPriority,
@@ -219,7 +219,7 @@ function QualityReading({
 
 /** The quality a render and playback run at, and where what plays is not what a render makes. */
 function Quality({ settings }: { readonly settings: AudioSettings }): ReactNode {
-  const render = finalRenderSettings(settings.renderQuality);
+  const render = settings.renderQuality.settings;
   const preview = previewQualityOf(settings);
   return (
     <>

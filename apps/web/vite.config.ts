@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 import { buildDspModule } from '../../tools/build-wasm.mjs';
-import { inferenceRuntime } from './inference-runtime.js';
+import { inferenceRuntime, runtimeBundleReferences } from './inference-runtime.js';
 import { modelPackServing } from './model-pack-serving.js';
 import { previewRequestLog } from './preview-request-log.js';
 
@@ -265,6 +265,9 @@ export default defineConfig(({ command }) => ({
    */
   worker: {
     format: 'es' as const,
+    // The inference worker's build carries the runtime's bundle, whose
+    // reference to its file beside it would copy that file into the assets.
+    plugins: () => [runtimeBundleReferences()],
     rollupOptions: {
       output: {
         entryFileNames: 'assets/[name]-[hash].js',

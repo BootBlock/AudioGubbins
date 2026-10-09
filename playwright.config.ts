@@ -252,6 +252,29 @@ export default defineConfig<SuiteOptions>({
       testMatch: /projects\.spec\.ts/,
     },
     {
+      // The machine-learning goldens in every engine: each pack's pinned
+      // render through the real inference worker, held to the digests the
+      // Node goldens hold (ADR-0062). The harness reads the built packs the
+      // cache AUDIOGUBBINS_PACK_CACHE names, from its own server below, so
+      // WebKit, which keeps no installed pack here, runs them too.
+      name: 'chromium-ml-golden',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /ml-golden\.spec\.ts/,
+    },
+    {
+      name: 'firefox-ml-golden',
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { ...FIREFOX_MOUSE, 'ui.textScaleFactor': 100 } },
+      },
+      testMatch: /ml-golden\.spec\.ts/,
+    },
+    {
+      name: 'webkit-ml-golden',
+      use: { ...devices['Desktop Safari'] },
+      testMatch: /ml-golden\.spec\.ts/,
+    },
+    {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
       testMatch: /(smoke|accessibility)\.spec\.ts/,
@@ -373,6 +396,20 @@ export default defineConfig<SuiteOptions>({
       // Playwright gives the server its own environment with these added,
       // each one here taking the place of the same name there.
       env: { AUDIOGUBBINS_BASE: PAGES_BASE, ...requestLog(4174) },
+      reuseExistingServer: false,
+      timeout: 120_000,
+    },
+    {
+      // The machine-learning goldens' harness (`tests/e2e/ml-golden/`), on a
+      // development server of its own, which builds nothing and serves the
+      // runtime and the packs as the application's own plugins do, the packs
+      // from the cache AUDIOGUBBINS_PACK_CACHE names in this environment.
+      command:
+        'pnpm --filter @audiogubbins/web exec vite --config ml-golden.vite.config.ts --host 127.0.0.1 --port 4175 --strictPort',
+      url: 'http://127.0.0.1:4175/',
+      name: 'ml golden harness',
+      stdout: 'pipe',
+      stderr: 'pipe',
       reuseExistingServer: false,
       timeout: 120_000,
     },

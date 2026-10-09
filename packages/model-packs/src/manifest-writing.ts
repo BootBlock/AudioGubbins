@@ -32,7 +32,7 @@ export function manifestJson(manifest: ModelPackManifest): JsonObject {
       below: manifest.runtime.below,
       capabilities: [...manifest.runtime.capabilities],
     },
-    tiers: [...manifest.tiers],
+    tier: manifest.tier,
     serves: {
       processors: [...manifest.serves.processors],
       detectors: [...manifest.serves.detectors],

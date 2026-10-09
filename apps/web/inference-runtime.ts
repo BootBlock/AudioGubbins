@@ -103,6 +103,56 @@ function runtimeMiddleware(runtime: ShippedRuntime, base: string): Connect.NextH
   };
 }
 
+/**
+ * The runtime bundle's references to its file beside it, each a URL of the
+ * file's name against `import.meta.url`, which a bundler takes for an asset
+ * and copies into the output under a hashed name. The quote may be any of the
+ * three.
+ */
+function bundleReferences(name: string): RegExp {
+  const escaped = name.replaceAll('.', '\\.');
+  return new RegExp(`new URL\\((["'\`])${escaped}\\1\\s*,\\s*import\\.meta\\.url\\)`, 'gu');
+}
+
+/**
+ * The runtime bundle's text with each reference to its file beside it made a
+ * reference to the copy the build serves, at `served` from the origin's root.
+ * The worker gives the runtime the bytes, so the runtime fetches neither; the
+ * reference only has to name no file the bundler would copy. The module's own
+ * URL is added to an empty string so the bundler does not read the new
+ * reference as an asset either: it supplies only the origin, since a worker's
+ * own location is the `blob:` module it was started from.
+ */
+function servedRuntimeReferences(code: string, name: string, served: string): string {
+  return code.replace(
+    bundleReferences(name),
+    `new URL(${JSON.stringify(served)}, "" + import.meta.url)`,
+  );
+}
+
+/**
+ * The plugin that keeps the runtime's bundle from carrying a second copy of
+ * the file (see {@link servedRuntimeReferences}), for the build of the worker
+ * that runs the runtime, whose plugins are its own.
+ */
+export function runtimeBundleReferences(folder: () => string = installedRuntimeFolder): Plugin {
+  let runtime: ShippedRuntime | undefined;
+  let base = '/';
+  return {
+    name: 'audiogubbins:inference-runtime-references',
+    enforce: 'pre',
+    configResolved(resolved) {
+      base = resolved.base;
+    },
+    transform(code, id) {
+      if (!id.replaceAll('\\', '/').includes('/onnxruntime-web/dist/')) return undefined;
+      runtime ??= shippedRuntime(folder());
+      const { path, file } = runtime;
+      return servedRuntimeReferences(code, file.name, `${base}${path}${file.name}`);
+    },
+  };
+}
+
 /** The plugin (see the module comment), over the runtime installed for the inference package. */
 export function inferenceRuntime(folder: () => string = installedRuntimeFolder): Plugin {
   let runtime: ShippedRuntime | undefined;

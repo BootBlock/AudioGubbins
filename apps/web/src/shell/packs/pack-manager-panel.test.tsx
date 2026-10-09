@@ -49,11 +49,11 @@ const FULL: LocalInferenceSupport = {
   missingPreferred: [],
 };
 
-const NO_WEBGPU: LocalInferenceSupport = {
+const NO_SIMD_PREFERRED: LocalInferenceSupport = {
   status: 'reduced',
   explanation: 'Previews run on one thread.',
   missingRequired: [],
-  missingPreferred: [{ key: 'webgpu', reason: 'This browser has no WebGPU adapter.' }],
+  missingPreferred: [{ key: 'webassembly-simd', reason: 'This browser has no fixed-width SIMD.' }],
 };
 
 function pack(
@@ -69,7 +69,9 @@ const DENOISER_NEXT = pack('denoiser', 'Denoiser', { version: '1.1.0' });
 const SEPARATOR = pack('separator', 'Separator');
 const SEPARATOR_NEXT = pack('separator', 'Separator', { version: '1.1.0' });
 const SPLITTER = pack('splitter', 'Splitter');
-const GPU_ONLY = pack('gpu-pack', 'Fast enhancer', { runtime: { capabilities: ['webgpu'] } });
+const SIMD_ONLY = pack('gpu-pack', 'Fast enhancer', {
+  runtime: { capabilities: ['webassembly-simd'] },
+});
 const LATER_RUNTIME = pack('later', 'Later model', {
   runtime: { minimum: '2.0.0', below: '3.0.0' },
 });
@@ -147,7 +149,7 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     >();
   });
 
-  it('shows each pack offered or kept with its name, purpose, version, sizes, integrity, licence, compatibility and tiers', () => {
+  it('shows each pack offered or kept with its name, purpose, version, sizes, integrity, licence, compatibility and tier', () => {
     panelOver(stateOf([DENOISER, SEPARATOR], [[DENOISER, { kind: 'installed' }]]));
 
     const denoiser = row('Denoiser 1.0.0');
@@ -161,15 +163,34 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     expect(denoiser).toHaveTextContent(
       'Compatibilityonnxruntime-web from 1.30.0, below 2.0.0, with WebAssembly SIMD',
     );
-    expect(denoiser).toHaveTextContent('Quality tiersStandard, High');
+    expect(denoiser).toHaveTextContent(
+      'Model tierBalanced: between speed and the most thorough result. The model’s own; it is the same at every render and preview quality.',
+    );
     expect(denoiser).toHaveTextContent('Installed, every file checked against its SHA-256');
     expect(row('Separator 1.0.0')).toHaveTextContent('Not installed');
+  });
+
+  it('says each tier as the model’s speed and result, in no quality level’s words', () => {
+    const tiers = [
+      ['light', 'Light: quick to run, with a lighter result'],
+      ['balanced', 'Balanced: between speed and the most thorough result'],
+      ['thorough', 'Thorough: the slowest to run, with the most thorough result'],
+    ] as const;
+    const packs = tiers.map(([tier]) => pack(tier, `Pack ${tier}`, { tier }));
+    panelOver(stateOf(packs, []));
+
+    for (const [tier, words] of tiers) {
+      const facts = row(`Pack ${tier} 1.0.0`);
+      expect(facts).toHaveTextContent(`Model tier${words}.`);
+      // A tier is no render mode, so none is shown as a quality a person sets.
+      expect(facts).not.toHaveTextContent(/Quality tiers|\b(Draft|Standard|High|Maximum)\b/u);
+    }
   });
 
   it('offers each step its state allows, with a download’s progress, each running its command', async () => {
     const { ran } = panelOver(
       stateOf(
-        [DENOISER, SEPARATOR, SPLITTER, GPU_ONLY],
+        [DENOISER, SEPARATOR, SPLITTER, SIMD_ONLY],
         [
           [DENOISER, { kind: 'downloading', received: 3, total: 8 }],
           [SEPARATOR, { kind: 'paused', received: 5, total: 8 }],
@@ -214,12 +235,21 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
   });
 
   it('names REQ-AUDIO-139’s conditions as the requirement names them', () => {
+    // On a device that lacks SIMD, only the pack that needs it is refused.
+    const needingNothing = (one: ModelPackManifest): ModelPackManifest => ({
+      ...one,
+      runtime: { ...one.runtime, capabilities: [] },
+    });
     panelOver(
       stateOf(
-        [DENOISER, DENOISER_NEXT, SEPARATOR, SEPARATOR_NEXT, GPU_ONLY, LATER_RUNTIME],
-        [[DENOISER, { kind: 'installed' }]],
+        [
+          ...[DENOISER, DENOISER_NEXT, SEPARATOR, SEPARATOR_NEXT].map(needingNothing),
+          SIMD_ONLY,
+          needingNothing(LATER_RUNTIME),
+        ],
+        [[needingNothing(DENOISER), { kind: 'installed' }]],
       ),
-      { availability: known(NO_WEBGPU) },
+      { availability: known(NO_SIMD_PREFERRED) },
     );
 
     expect(row('Denoiser 1.0.0')).toHaveTextContent('Model update available: version 1.1.0.');
@@ -227,7 +257,7 @@ describe('the Model packs panel', { timeout: 30_000 }, () => {
     // Only a version kept is out of date: one merely offered is not.
     expect(row('Separator 1.0.0')).not.toHaveTextContent('Model update available');
     expect(row('Fast enhancer 1.0.0')).toHaveTextContent(
-      'Model unavailable because of browser/device capability. This browser has no WebGPU adapter.',
+      'Model unavailable because of browser/device capability. This browser has no fixed-width SIMD.',
     );
     expect(row('Later model 1.0.0')).toHaveTextContent(
       'Model incompatible with current runtime. Later model 1.0.0 runs on onnxruntime-web from 2.0.0 below 3.0.0, not on onnxruntime-web 1.30.0.',

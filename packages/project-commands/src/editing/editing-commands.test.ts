@@ -277,7 +277,6 @@ describe('project.add-asset and project.remove-asset with edits', () => {
       kind: 'insert',
       at: at(0),
       payload,
-      convertRate: false,
     };
     const pasted = bus.execute(after(state, applyInvocation(rain, paste)), removeForest);
     expect(pasted.kind === 'refused' ? pasted.failures[0].summary : '').toBe(

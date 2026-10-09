@@ -1,5 +1,6 @@
-//! The feature extractors restoration's detectors read (ADR-0062): clicks,
-//! hum, noise floor, clipping, DC offset and transients.
+//! The feature extractors the detectors read (ADR-0062): clicks, hum, noise
+//! floor, clipping, DC offset and transients for restoration, and silence for
+//! trimming it.
 //!
 //! Each reads planar samples and writes a stated series of records, one per
 //! frame or one per event, each `record_width` values, enough for a detector
@@ -12,6 +13,7 @@ mod clipping;
 mod dc_offset;
 mod hum;
 mod noise_floor;
+mod silence;
 mod transients;
 
 use crate::error::AnalysisError;
@@ -21,6 +23,7 @@ pub use clipping::ClippingFeatures;
 pub use dc_offset::DcOffsetFeatures;
 pub use hum::{HUM_FREQUENCIES, HumFeatures};
 pub use noise_floor::NoiseFloorFeatures;
+pub use silence::SilenceFeatures;
 pub use transients::TransientFeatures;
 
 /// What a detector looks for; the codes are the ABI's.
@@ -38,6 +41,8 @@ pub enum DetectorKind {
     DcOffset,
     /// Code 5: [`TransientFeatures`].
     Transients,
+    /// Code 6: [`SilenceFeatures`].
+    Silence,
 }
 
 impl DetectorKind {
@@ -51,6 +56,7 @@ impl DetectorKind {
             3 => Some(Self::Clipping),
             4 => Some(Self::DcOffset),
             5 => Some(Self::Transients),
+            6 => Some(Self::Silence),
             _ => None,
         }
     }
@@ -99,6 +105,9 @@ pub enum DetectorSettings {
         multiplier: f64,
         offset: f64,
     },
+    /// Blocks of `block` samples; a frame quiet where every channel's
+    /// magnitude is at most `threshold`, zero or more.
+    Silence { block: usize, threshold: f64 },
 }
 
 impl DetectorSettings {
@@ -146,6 +155,10 @@ impl DetectorSettings {
                     offset: *offset,
                 }
             }
+            (DetectorKind::Silence, [block, threshold]) => Self::Silence {
+                block: whole(*block)?,
+                threshold: *threshold,
+            },
             _ => return Err(refused),
         })
     }
@@ -186,6 +199,7 @@ pub enum DetectorFeatures {
     Clipping(ClippingFeatures),
     DcOffset(DcOffsetFeatures),
     Transients(TransientFeatures),
+    Silence(SilenceFeatures),
 }
 
 impl DetectorFeatures {
@@ -260,6 +274,9 @@ impl DetectorFeatures {
                 history,
                 (multiplier, offset),
             )?),
+            DetectorSettings::Silence { block, threshold } => {
+                Self::Silence(SilenceFeatures::new(channels, block, threshold)?)
+            }
         })
     }
 
@@ -273,6 +290,7 @@ impl DetectorFeatures {
             Self::Clipping(features) => features.channels(),
             Self::DcOffset(features) => features.channels(),
             Self::Transients(features) => features.channels(),
+            Self::Silence(features) => features.channels(),
         }
     }
 
@@ -280,7 +298,7 @@ impl DetectorFeatures {
     #[must_use]
     pub fn record_width(&self) -> usize {
         match self {
-            Self::Clicks(_) | Self::Clipping(_) => 4,
+            Self::Clicks(_) | Self::Clipping(_) | Self::Silence(_) => 4,
             Self::Hum(features) => features.channels() * 3 * HUM_FREQUENCIES.len(),
             Self::NoiseFloor(features) => 2 * features.channels(),
             Self::DcOffset(features) => features.channels(),
@@ -303,6 +321,7 @@ impl DetectorFeatures {
             Self::Clipping(features) => features.push(planar, frames),
             Self::DcOffset(features) => features.push(planar, frames),
             Self::Transients(features) => features.push(planar, frames),
+            Self::Silence(features) => features.push(planar, frames),
         }
     }
 
@@ -316,6 +335,7 @@ impl DetectorFeatures {
             Self::Clipping(features) => features.pull(records),
             Self::DcOffset(features) => features.pull(records),
             Self::Transients(features) => features.pull(records),
+            Self::Silence(features) => features.pull(records),
         }
     }
 }

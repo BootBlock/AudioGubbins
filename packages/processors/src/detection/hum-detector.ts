@@ -184,6 +184,8 @@ function sizeAt(rate: number): number {
 export const HUM_DETECTOR: AudioDetector = {
   identity: { key: 'hum', label: 'Mains hum', version: 1 },
   finds: [FindingKind.Hum],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const size = sizeAt(sampleRate);
     return openPass(

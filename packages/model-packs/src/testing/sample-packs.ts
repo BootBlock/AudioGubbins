@@ -3,9 +3,8 @@
  * and named files.
  */
 
-import { QualityLevel } from '@audiogubbins/domain';
-
 import type { ModelPackManifest, PackFile } from '../manifest.js';
+import { PackTier } from '../pack-tier.js';
 
 /** A pack's manifest and its files' bytes, by path. */
 export interface TestPack {
@@ -24,12 +23,14 @@ export interface SampleOptions {
   readonly processors?: readonly string[];
   readonly detectors?: readonly string[];
   readonly runtime?: Partial<ModelPackManifest['runtime']>;
+  readonly tier?: PackTier;
 }
 
 /**
  * A manifest of `options`, by default `sample-pack` 1.0.0 serving the processor
  * `sample-denoise` on ONNX Runtime Web 1.30 and on, below 2.0, with two files
- * whose hashes no test checks. Its download size is its files' sum.
+ * whose hashes no test checks, its model of the balanced tier. Its download
+ * size is its files' sum.
  */
 export function sampleManifest(options: SampleOptions = {}): ModelPackManifest {
   const files = options.files ?? [
@@ -53,7 +54,7 @@ export function sampleManifest(options: SampleOptions = {}): ModelPackManifest {
       capabilities: ['webassembly-simd'],
       ...options.runtime,
     },
-    tiers: [QualityLevel.Standard, QualityLevel.High],
+    tier: options.tier ?? PackTier.Balanced,
     serves: {
       processors: options.processors ?? ['sample-denoise'],
       detectors: options.detectors ?? [],

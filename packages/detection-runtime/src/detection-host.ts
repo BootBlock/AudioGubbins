@@ -12,11 +12,11 @@
  * waiting with the reason, never silently, and the next is given a new worker.
  */
 
-import {
-  finalRenderSettings,
-  type CancellationSignal,
-  type EditRange,
-  type QualityMode,
+import type {
+  CancellationSignal,
+  DetectorValues,
+  EditRange,
+  QualityMode,
 } from '@audiogubbins/domain';
 import { describedBuffers, type PcmDescription } from '@audiogubbins/audio-engine';
 
@@ -64,6 +64,8 @@ export interface DetectionSubject {
   readonly range: EditRange;
   /** The keys of the assistants to run, in the order their reports are answered. */
   readonly assistants: readonly string[];
+  /** What a person set of how their detectors judge, which changes what they find. */
+  readonly detectors: DetectorValues;
 }
 
 /** How a detection ended. */
@@ -105,12 +107,20 @@ function keyOf(subject: DetectionSubject): string {
   return [
     subject.identity,
     subject.learning?.identity ?? '',
-    JSON.stringify(finalRenderSettings(subject.quality)),
+    JSON.stringify(subject.quality.settings),
     String(subject.channels),
     String(subject.range.start),
     String(subject.range.end),
     subject.assistants.join(','),
+    valuesKey(subject.detectors),
   ].join('\u0000');
+}
+
+/** `values` as text, the same however their keys were ordered. */
+function valuesKey(values: DetectorValues): string {
+  const sorted = <T>(record: Readonly<Record<string, T>>): [string, T][] =>
+    Object.entries(record).toSorted(([one], [other]) => (one < other ? -1 : one > other ? 1 : 0));
+  return JSON.stringify(sorted(values).map(([detector, set]) => [detector, sorted(set)]));
 }
 
 /** Detections on one worker, and the results it answered. */
@@ -169,6 +179,7 @@ export class DetectionHost {
           quality: subject.quality,
           range: subject.range,
           assistants: subject.assistants,
+          detectors: subject.detectors,
         },
         describedBuffers(
           learning === undefined ? [description] : [description, learning.description],

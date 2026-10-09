@@ -36,15 +36,6 @@ export const ResamplingGrade = { Draft: 'draft', High: 'high', Maximum: 'maximum
 export type ResamplingGrade = (typeof ResamplingGrade)[keyof typeof ResamplingGrade];
 
 /**
- * Which inference path a preview may take. A final render always takes the
- * pinned path (ADR-0062), whatever this says.
- */
-export const InferencePath = { Pinned: 'pinned', Accelerated: 'accelerated' } as const;
-
-/** Which inference path a preview may take. */
-export type InferencePath = (typeof InferencePath)[keyof typeof InferencePath];
-
-/**
  * The values a quality level sets.
  *
  * - `resampling`: the grade of every conversion of rate.
@@ -52,13 +43,15 @@ export type InferencePath = (typeof InferencePath)[keyof typeof InferencePath];
  *   (a true-peak limiter) or bends a waveform runs above its rate.
  * - `spectralOverlap`: how many analysis frames of a spectral processor cover
  *   each sample, which trades time smearing for cost.
- * - `inference`: the path a preview of a model may take.
+ *
+ * A model's inference has no setting: every level runs it on the one pinned
+ * path (ADR-0062), and no faster path is built until a processor can choose
+ * one through a setting here.
  */
 export interface QualitySettings {
   readonly resampling: ResamplingGrade;
   readonly oversampling: 1 | 2 | 4 | 8;
   readonly spectralOverlap: 2 | 4 | 8;
-  readonly inference: InferencePath;
 }
 
 /** The name of one quality setting, as a processor's descriptor names those it reads. */
@@ -76,25 +69,21 @@ const LEVELS: Readonly<Record<NamedQualityLevel, QualitySettings>> = {
     resampling: ResamplingGrade.Draft,
     oversampling: 1,
     spectralOverlap: 2,
-    inference: InferencePath.Accelerated,
   },
   standard: {
     resampling: ResamplingGrade.High,
     oversampling: 2,
     spectralOverlap: 4,
-    inference: InferencePath.Pinned,
   },
   high: {
     resampling: ResamplingGrade.High,
     oversampling: 4,
     spectralOverlap: 4,
-    inference: InferencePath.Pinned,
   },
   maximum: {
     resampling: ResamplingGrade.Maximum,
     oversampling: 8,
     spectralOverlap: 8,
-    inference: InferencePath.Pinned,
   },
 };
 
@@ -117,14 +106,12 @@ export const MAXIMUM_QUALITY: QualityMode = namedQualityMode(QualityLevel.Maximu
 const OVERSAMPLING: ReadonlySet<unknown> = new Set([1, 2, 4, 8]);
 const OVERLAP: ReadonlySet<unknown> = new Set([2, 4, 8]);
 const GRADES: ReadonlySet<unknown> = new Set(Object.values(ResamplingGrade));
-const PATHS: ReadonlySet<unknown> = new Set(Object.values(InferencePath));
 
 const isGrade = (value: unknown): value is ResamplingGrade => GRADES.has(value);
 const isOversampling = (value: unknown): value is QualitySettings['oversampling'] =>
   OVERSAMPLING.has(value);
 const isOverlap = (value: unknown): value is QualitySettings['spectralOverlap'] =>
   OVERLAP.has(value);
-const isPath = (value: unknown): value is InferencePath => PATHS.has(value);
 
 function settingUnknown(): DomainResult<never> {
   return fail(
@@ -149,21 +136,15 @@ export function qualityModeFrom(value: unknown): DomainResult<QualityMode> {
     value === null ||
     !('resampling' in value) ||
     !('oversampling' in value) ||
-    !('spectralOverlap' in value) ||
-    !('inference' in value)
+    !('spectralOverlap' in value)
   ) {
     return settingUnknown();
   }
-  const { resampling, oversampling, spectralOverlap, inference } = value;
-  if (
-    !isGrade(resampling) ||
-    !isOversampling(oversampling) ||
-    !isOverlap(spectralOverlap) ||
-    !isPath(inference)
-  ) {
+  const { resampling, oversampling, spectralOverlap } = value;
+  if (!isGrade(resampling) || !isOversampling(oversampling) || !isOverlap(spectralOverlap)) {
     return settingUnknown();
   }
-  return succeed(qualityModeOf({ resampling, oversampling, spectralOverlap, inference }));
+  return succeed(qualityModeOf({ resampling, oversampling, spectralOverlap }));
 }
 
 /**
@@ -179,15 +160,6 @@ function sameSettings(left: QualitySettings, right: QualitySettings): boolean {
   return (
     left.resampling === right.resampling &&
     left.oversampling === right.oversampling &&
-    left.spectralOverlap === right.spectralOverlap &&
-    left.inference === right.inference
+    left.spectralOverlap === right.spectralOverlap
   );
-}
-
-/**
- * The settings a final render runs at: the mode's, with inference pinned,
- * since an accelerated path is never a final render's (ADR-0062).
- */
-export function finalRenderSettings(mode: QualityMode): QualitySettings {
-  return { ...mode.settings, inference: InferencePath.Pinned };
 }

@@ -9,9 +9,11 @@
  * problem with a definition is reported at once, each with where it is.
  *
  * The manifest written from a definition is the document
- * `packages/model-packs` reads, member for member, and a file's path is held
- * to the rules that package's reader holds a manifest's to, since the build
- * writes each file under its path; a test holds the two to agreeing. The
+ * `packages/model-packs` reads, member for member, and a definition's pack
+ * name, versions, file paths and tier are held to that package's own
+ * grammars and tier list, loaded from it: the build writes each file under
+ * its path, so a path the application would refuse must never be written.
+ * Those modules are JavaScript, which Node loads with no compiler. The
  * licences are held to the allow-list the third-party notices are, so a pack
  * cannot ship under a licence the repository has not decided on.
  */
@@ -20,7 +22,24 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PACK_CAPABILITIES } from '../../packages/model-packs/src/pack-capability.js';
+import {
+  LONGEST_FILE_BYTES,
+  MOST_FILES,
+  MOST_PACK_BYTES,
+  SHA256_HEX,
+} from '../../packages/model-packs/src/pack-limits.js';
+import {
+  CATALOGUE_FILE,
+  PACK_ID,
+  collidingPaths,
+  packFilePathProblem,
+} from '../../packages/model-packs/src/pack-path.js';
+import { PACK_TIERS } from '../../packages/model-packs/src/pack-tier.js';
+import { PACK_VERSION, compareVersions } from '../../packages/model-packs/src/pack-version.js';
 import { decideLicence } from '../sync-third-party-notices.mjs';
+
+export { CATALOGUE_FILE };
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -32,9 +51,6 @@ export const MANIFEST_FORMAT = 1;
 
 /** The name of a pack's manifest beside its files, which no file may take. */
 export const MANIFEST_FILE = 'manifest.json';
-
-/** The name of the catalogue at the top of the output. */
-export const CATALOGUE_FILE = 'catalogue.json';
 
 /**
  * @typedef {object} LicenceEvidence
@@ -50,9 +66,11 @@ export const CATALOGUE_FILE = 'catalogue.json';
  * @property {string} name
  * @property {string} minimum
  * @property {string} below
- * @property {readonly string[]} capabilities
+ * @property {readonly PackCapability[]} capabilities
  *
  * @typedef {import('./source-cache.mjs').PackSourceFile} PackSourceFile
+ * @import { PackTier } from '../../packages/model-packs/src/pack-tier.js'
+ * @typedef {(typeof PACK_CAPABILITIES)[number]} PackCapability
  *
  * @typedef {object} Extract
  * @property {string} source
@@ -85,7 +103,7 @@ export const CATALOGUE_FILE = 'catalogue.json';
  * @property {string} purpose
  * @property {DefinitionLicence} licence
  * @property {DefinitionRuntime} runtime
- * @property {readonly string[]} tiers
+ * @property {PackTier} tier
  * @property {Serves} serves
  * @property {readonly PackSourceFile[]} sources
  * @property {readonly DefinitionFile[]} files
@@ -104,55 +122,14 @@ export const CATALOGUE_FILE = 'catalogue.json';
  * @typedef {Accepted | Refused} DefinitionReading
  */
 
-const PACK_ID = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u;
-const PACK_VERSION = /^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})$/u;
 const NAME = /^(?!\s)[^\p{Cc}]{1,80}(?<!\s)$/u;
 const PROSE = /^(?!\s)[^\p{Cc}]{1,500}(?<!\s)$/u;
 const RUNTIME_NAME = /^[a-z0-9][a-z0-9.-]{0,63}$/u;
 const TYPE_KEY = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 const SOURCE_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
-const SHA256_HEX = /^[0-9a-f]{64}$/u;
 const NOTICE_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*\.txt$/u;
 const SCRIPT_NAME = /^[a-z0-9_]+\.py$/u;
 const PLACEHOLDER = /\{([^{}]*)\}/gu;
-
-const CAPABILITIES = ['webassembly-simd', 'shared-array-buffer', 'webgpu'];
-const TIERS = ['draft', 'standard', 'high', 'maximum'];
-
-/** The most a pack may take installed, and a file be, as the reader bounds them. */
-const MOST_PACK_BYTES = 2 ** 34;
-const LONGEST_FILE_BYTES = 2 ** 31;
-const MOST_FILES = 64;
-
-/** A file path's bounds and its segments, as the package's reader holds them. */
-const LONGEST_PATH = 255;
-const MOST_SEGMENTS = 8;
-const PATH_SEGMENT = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/u;
-const ABSOLUTE_PATH = /^(?:\/|[A-Za-z]:)/u;
-
-/**
- * Why a path is not one a file of a pack may have, or `undefined` where it
- * may: the rules of `packages/model-packs/src/pack-files.ts`.
- *
- * @param {string} path
- * @returns {string | undefined}
- */
-export function pathProblem(path) {
-  if (path.includes('\\')) return 'uses a backslash, where segments are joined by /';
-  if (ABSOLUTE_PATH.test(path)) return 'is absolute, where it is relative to its pack';
-  if (path.length > LONGEST_PATH) return `is longer than ${String(LONGEST_PATH)} characters`;
-  const segments = path.split('/');
-  if (segments.length > MOST_SEGMENTS) {
-    return `has more than ${String(MOST_SEGMENTS)} segments`;
-  }
-  if (segments.some((segment) => segment === '..')) return 'climbs out of its pack with ..';
-  if (segments.some((segment) => segment === '' || segment === '.')) {
-    return 'has an empty or . segment';
-  }
-  return segments.every((segment) => PATH_SEGMENT.test(segment))
-    ? undefined
-    : 'has a segment of other than letters, digits, ., _ and -, or one starting with a dot';
-}
 
 /** The problems found so far, each with where it is. */
 class Problems {
@@ -338,22 +315,6 @@ function readLicence(problems, value, at) {
 }
 
 /**
- * Compares two versions part by part, as `pack-version.ts` does.
- *
- * @param {string} one
- * @param {string} other
- */
-function compareVersions(one, other) {
-  const left = one.split('.').map(Number);
-  const right = other.split('.').map(Number);
-  for (let index = 0; index < 3; index += 1) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference !== 0) return difference;
-  }
-  return 0;
-}
-
-/**
  * @param {Problems} problems
  * @param {unknown} value
  * @param {string} at
@@ -370,11 +331,11 @@ function readRuntime(problems, value, at) {
     problems,
     object['capabilities'],
     `${at}.capabilities`,
-    (item) => CAPABILITIES.includes(item),
-    `one of ${CAPABILITIES.join(', ')}`,
+    (item) => PACK_CAPABILITIES.some((one) => one === item),
+    `one of ${PACK_CAPABILITIES.join(', ')}`,
     0,
-  );
-  if (minimum !== undefined && below !== undefined && compareVersions(minimum, below) >= 0) {
+  )?.flatMap((item) => PACK_CAPABILITIES.filter((one) => one === item));
+  if (minimum !== undefined && below !== undefined && (compareVersions(minimum, below) ?? 0) >= 0) {
     problems.add(`${at}.below`, 'is not above the minimum');
     return undefined;
   }
@@ -527,7 +488,7 @@ function readExport(problems, value, at, sources) {
       const input = objectOf(problems, item, where, ['path', kind]);
       if (input === undefined) continue;
       const path = input['path'];
-      const problem = typeof path === 'string' ? pathProblem(path) : 'is not text';
+      const problem = typeof path === 'string' ? packFilePathProblem(path) : 'is not text';
       if (problem !== undefined || typeof path !== 'string') {
         problems.add(`${where}.path`, problem ?? 'is not text');
         continue;
@@ -624,28 +585,13 @@ function readFiles(problems, value, at, sources) {
     if (typeof path !== 'string') {
       problems.add(`${where}.path`, 'is not text');
     } else {
-      const problem = pathProblem(path);
+      const problem = packFilePathProblem(path);
       const folded = path.toLowerCase();
       if (problem !== undefined) {
         problems.add(`${where}.path`, problem);
         clearPath = false;
       } else if (folded === MANIFEST_FILE) {
         problems.add(`${where}.path`, `is ${MANIFEST_FILE}, which the pack's manifest takes`);
-        clearPath = false;
-      } else if (
-        files.some((other) => {
-          const otherFolded = other.path.toLowerCase();
-          return (
-            otherFolded === folded ||
-            otherFolded.startsWith(`${folded}/`) ||
-            folded.startsWith(`${otherFolded}/`)
-          );
-        })
-      ) {
-        problems.add(
-          `${where}.path`,
-          'is, or holds, or lies in another file of the pack, in any case',
-        );
         clearPath = false;
       }
     }
@@ -663,11 +609,33 @@ function readFiles(problems, value, at, sources) {
     }
   }
   if (files.length !== value.length) return undefined;
+  const colliding = collidingPaths(files.map((file) => file.path));
+  for (const index of colliding) {
+    problems.add(
+      `${at}[${String(index)}].path`,
+      'is the path of a file before it, in any case, or holds another file',
+    );
+  }
+  if (colliding.length > 0) return undefined;
   if (files.reduce((total, file) => total + file.bytes, 0) > MOST_PACK_BYTES) {
     problems.add(at, `add up to more than ${String(MOST_PACK_BYTES)} bytes`);
     return undefined;
   }
   return files;
+}
+
+/**
+ * The model's tier, one of the package's tiers: how quick it is to run
+ * against how thorough its result is, never a render quality.
+ *
+ * @param {Problems} problems
+ * @param {unknown} value
+ * @returns {PackTier | undefined}
+ */
+function tierOf(problems, value) {
+  const tier = PACK_TIERS.find((one) => one === value);
+  if (tier === undefined) problems.add('tier', `is not one of ${PACK_TIERS.join(', ')}`);
+  return tier;
 }
 
 const DEFINITION_MEMBERS = [
@@ -677,7 +645,7 @@ const DEFINITION_MEMBERS = [
   'purpose',
   'licence',
   'runtime',
-  'tiers',
+  'tier',
   'serves',
   'sources',
   'files',
@@ -718,14 +686,7 @@ export function readPackDefinition(value) {
   );
   const licence = readLicence(problems, object['licence'], 'licence');
   const runtime = readRuntime(problems, object['runtime'], 'runtime');
-  const tiers = distinctTexts(
-    problems,
-    object['tiers'],
-    'tiers',
-    (item) => TIERS.includes(item),
-    `one of ${TIERS.join(', ')}`,
-    1,
-  );
+  const tier = tierOf(problems, object['tier']);
   const serves = readServes(problems, object['serves'], 'serves');
   const sources = readSources(problems, object['sources'], 'sources');
   const files =
@@ -737,7 +698,7 @@ export function readPackDefinition(value) {
     purpose === undefined ||
     licence === undefined ||
     runtime === undefined ||
-    tiers === undefined ||
+    tier === undefined ||
     serves === undefined ||
     sources === undefined ||
     files === undefined ||
@@ -747,7 +708,7 @@ export function readPackDefinition(value) {
   }
   return {
     ok: true,
-    definition: { id, version, name, purpose, licence, runtime, tiers, serves, sources, files },
+    definition: { id, version, name, purpose, licence, runtime, tier, serves, sources, files },
   };
 }
 
@@ -823,7 +784,7 @@ export function manifestOf(definition) {
       below: definition.runtime.below,
       capabilities: [...definition.runtime.capabilities],
     },
-    tiers: [...definition.tiers],
+    tier: definition.tier,
     serves: {
       processors: [...definition.serves.processors],
       detectors: [...definition.serves.detectors],

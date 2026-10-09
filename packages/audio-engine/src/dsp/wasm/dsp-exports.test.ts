@@ -20,7 +20,7 @@ import { wasmDsp } from './wasm-dsp.js';
  * The ABI version the engine speaks, written here rather than read from the
  * binding, so a change of version is a change this test is made to agree to.
  */
-const DSP_ABI_VERSION = 5;
+const DSP_ABI_VERSION = 6;
 
 /** Every function the engine calls, each answering 0 unless a test says otherwise. */
 const FUNCTIONS = [

@@ -22,7 +22,6 @@ import { Blob as PlatformBlob } from 'node:buffer';
 
 import {
   MAXIMUM_QUALITY,
-  finalRenderSettings,
   fail,
   instantiateProcessor,
   sampleRate,
@@ -149,6 +148,7 @@ function previewWorker(files: ModelFileReader, runtime: RuntimeIdentity) {
   const threads = new ModelThreads({
     inference: () => Promise.resolve(host),
     capabilities: testSetup().capabilities,
+    versions: () => Promise.resolve(succeed(undefined)),
     files,
     createChannel: fakeChannel,
     reportFault: (summary) => {
@@ -196,7 +196,7 @@ async function rendered(reader: PreviewClient): Promise<DomainResult<Float32Arra
     plan: rackedPlan(CHAIN, LENGTH, RATE),
     place: 0,
     media: [rackedMedia(SAMPLES, RATE, 'memory:racked', (bytes) => new PlatformBlob([bytes]))],
-    quality: finalRenderSettings(MAXIMUM_QUALITY),
+    quality: MAXIMUM_QUALITY.settings,
   });
   const ready = await stream.ready;
   if (!ready.ok) return ready;

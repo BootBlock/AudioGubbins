@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -44,6 +45,7 @@ interface InferenceRuntimeModule {
     readonly configResolved?: unknown;
     readonly generateBundle?: unknown;
   };
+  readonly runtimeBundleReferences?: unknown;
 }
 
 function isModule(value: unknown): value is InferenceRuntimeModule {
@@ -63,6 +65,32 @@ if (!isModule(loaded)) {
   throw new Error('apps/web/inference-runtime.ts no longer exports what the build calls.');
 }
 const { inferenceRuntime, runtimeModule, shippedRuntime } = loaded;
+
+/** Stands in for a plugin the module does not make, so the case that calls it fails alone. */
+function noPlugin(): never {
+  throw new Error('apps/web/inference-runtime.ts makes no plugin for the runtime’s references.');
+}
+
+/** The hooks of the references plugin a case calls, typed by what they do. */
+function pluginHooks(plugin: unknown): {
+  readonly configResolved: (resolved: { readonly base: string }) => void;
+  readonly transform: (code: string, id: string) => string;
+} {
+  const configResolved: unknown = Reflect.get(Object(plugin), 'configResolved');
+  const transform: unknown = Reflect.get(Object(plugin), 'transform');
+  if (typeof configResolved !== 'function' || typeof transform !== 'function') {
+    throw new Error('The references plugin has no configResolved or transform hook.');
+  }
+  return {
+    configResolved: (resolved) => {
+      Reflect.apply(configResolved, {}, [resolved]);
+    },
+    transform: (code, id) => {
+      const result: unknown = Reflect.apply(transform, {}, [code, id]);
+      return typeof result === 'string' ? result : code;
+    },
+  };
+}
 
 let folder: string;
 
@@ -140,6 +168,36 @@ describe('the inference runtime a build serves', () => {
       'inference/onnxruntime-web-9.8.7/ort-wasm-simd-threaded.wasm',
     ]);
     expect(emitted.map(({ source }) => source)).toEqual([CPU_BYTES]);
+  });
+
+  it('names the served file where the runtime’s bundle named its own copy, so none is copied', () => {
+    // The installed bundle, whose references to the file beside it the bundler
+    // took for an asset: the build copied the 14 MB file into its assets. It is
+    // found from the inference package, the one that depends on the runtime.
+    const fromInference = createRequire(inRepository('packages', 'ml-runtime', 'package.json'));
+    const bundle = readFileSync(
+      join(dirname(fromInference.resolve('onnxruntime-web/wasm')), 'ort.wasm.bundle.min.mjs'),
+      'utf8',
+    );
+    const asset = /new URL\((["'`])ort-wasm-simd-threaded\.wasm\1\s*,\s*import\.meta\.url\)/gu;
+    expect(bundle.match(asset)?.length).toBeGreaterThan(0);
+
+    const make = loaded.runtimeBundleReferences;
+    const plugin: unknown =
+      typeof make === 'function' ? Reflect.apply(make, undefined, [() => folder]) : noPlugin();
+    const { configResolved, transform } = pluginHooks(plugin);
+    configResolved({ base: '/sub/' });
+    const served = transform(
+      bundle,
+      '/x/node_modules/onnxruntime-web/dist/ort.wasm.bundle.min.mjs',
+    );
+
+    expect(served.match(asset)).toBeNull();
+    expect(served).toContain(
+      'new URL("/sub/inference/onnxruntime-web-9.8.7/ort-wasm-simd-threaded.wasm", "" + import.meta.url)',
+    );
+    // Any other module is left as it is.
+    expect(transform(bundle, '/x/src/other.ts')).toBe(bundle);
   });
 
   it('refuses a runtime that states no version, rather than serve it under a guessed path', () => {

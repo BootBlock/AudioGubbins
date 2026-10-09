@@ -162,6 +162,8 @@ function geometryAt(rate: number): StretchGeometry {
 export const NOISE_FLOOR_DETECTOR: AudioDetector = {
   identity: { key: 'noise-floor', label: 'Noise floor', version: 1 },
   finds: [FindingKind.Noise],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const geometry = geometryAt(sampleRate);
     return openPass(

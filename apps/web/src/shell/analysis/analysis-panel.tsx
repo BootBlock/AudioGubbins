@@ -3,8 +3,9 @@
  * the editor in use, and what each recommends. Each finding is shown with its
  * kind, its range, which a person can select on the timeline, its channels
  * and its size in words; each recommendation with its steps in order and what
- * each would add. Nothing is applied by being shown: Apply runs the command
- * of that name, which makes the change through the project's commands.
+ * each would add, and the silence it would take out, at the edges and within.
+ * Nothing is applied by being shown: Apply and Remove run the commands of
+ * those names, which make the change through the project's commands.
  *
  * The findings of a report are listed by `analysis-findings.tsx`. It reads the
  * stores and runs commands; it writes nothing itself (`CLAUDE.md` G2), and it
@@ -29,6 +30,8 @@ import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { Findings, positionOf, type Shown } from './analysis-findings.js';
+import { DetectorSettings } from './detector-settings.js';
+import { Removals } from './silence-removals.js';
 
 /** What the Analysis panel reads. */
 export interface AnalysisParts {
@@ -72,8 +75,57 @@ function refusalOf(report: AssistantReport, current: boolean): string | undefine
   return report.learned.find((learned) => learned.kind === 'refused')?.reason;
 }
 
-/** One assistant's report: what it found, what it recommends, and Apply. */
+/** One assistant's report: what it found, what it recommends, and Apply or Remove. */
 function Report({
+  report,
+  detection,
+  shown,
+  current,
+  commands,
+}: {
+  readonly report: AssistantReport;
+  readonly detection: Detection;
+  readonly shown: Shown;
+  readonly current: boolean;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  const heading = useId();
+  const { findings, steps, removals } = report.recommendation;
+  const { found } = report;
+  // An assistant that would take frames out, as the silence assistant does,
+  // recommends no processor: what it offers is what it would take out.
+  const removes = removals.length > 0;
+  return (
+    <section className="ag-analysis-report" aria-labelledby={heading}>
+      <h3 className="ag-analysis-heading" id={heading}>
+        {report.label}
+      </h3>
+      <Findings findings={findings} found={found} shown={shown} commands={commands} />
+      <DetectorSettings
+        report={report}
+        detection={detection}
+        panel={shown.panel}
+        commands={commands}
+      />
+      {removes ? (
+        <Removals
+          report={report}
+          scope={detection.scope}
+          shown={shown}
+          refusal={refusalOf(report, current)}
+          commands={commands}
+        />
+      ) : steps.length === 0 ? (
+        <p className="ag-panel-note">It recommends nothing.</p>
+      ) : (
+        <Steps report={report} shown={shown} current={current} commands={commands} />
+      )}
+    </section>
+  );
+}
+
+/** The processors a report recommends, in order, each with what it adds, and Apply. */
+function Steps({
   report,
   shown,
   current,
@@ -84,38 +136,26 @@ function Report({
   readonly current: boolean;
   readonly commands: PanelCommands;
 }): ReactNode {
-  const heading = useId();
-  const { findings, steps } = report.recommendation;
-  const { found, treated } = report;
+  const { steps } = report.recommendation;
   return (
-    <section className="ag-analysis-report" aria-labelledby={heading}>
-      <h3 className="ag-analysis-heading" id={heading}>
-        {report.label}
-      </h3>
-      <Findings findings={findings} found={found} shown={shown} commands={commands} />
-      {steps.length === 0 ? (
-        <p className="ag-panel-note">It recommends nothing.</p>
-      ) : (
-        <>
-          <h4 className="ag-analysis-heading">It recommends, in this order</h4>
-          <ol className="ag-analysis-steps">
-            {steps.map((step, index) => (
-              <li key={step.typeKey}>
-                <span className="ag-analysis-step-name">{stepName(step)}</span>
-                {` ${stepWords(step, treated[index] ?? [], positionOf(shown))}`}
-              </li>
-            ))}
-          </ol>
-          <CommandButton
-            id="analysis.apply"
-            label={`Apply the ${report.label} recommendation`}
-            commands={commands}
-            args={{ view: shown.panel, assistant: report.recommendation.assistant }}
-            refusal={refusalOf(report, current)}
-          />
-        </>
-      )}
-    </section>
+    <>
+      <h4 className="ag-analysis-heading">It recommends, in this order</h4>
+      <ol className="ag-analysis-steps">
+        {steps.map((step, index) => (
+          <li key={step.typeKey}>
+            <span className="ag-analysis-step-name">{stepName(step)}</span>
+            {` ${stepWords(step, report.treated[index] ?? [], positionOf(shown))}`}
+          </li>
+        ))}
+      </ol>
+      <CommandButton
+        id="analysis.apply"
+        label={`Apply the ${report.label} recommendation`}
+        commands={commands}
+        args={{ view: shown.panel, assistant: report.recommendation.assistant }}
+        refusal={refusalOf(report, current)}
+      />
+    </>
   );
 }
 
@@ -198,6 +238,7 @@ function DetectionState({
             <Report
               key={report.recommendation.assistant}
               report={report}
+              detection={detection}
               shown={shown}
               current={current}
               commands={commands}

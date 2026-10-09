@@ -21,7 +21,6 @@ import {
 import {
   NAMED_QUALITY_LEVELS,
   QualityLevel,
-  finalRenderSettings,
   qualityModeFrom,
   type NamedQualityLevel,
   type QualityMode,
@@ -82,7 +81,6 @@ const SETTING_FORMS: Readonly<Record<QualitySettingKey, string>> = {
   resampling: 'A resampling grade is draft, high or maximum.',
   oversampling: 'Oversampling is 1, 2, 4 or 8 times.',
   spectralOverlap: 'A spectral overlap is 2, 4 or 8 frames.',
-  inference: 'An inference path is pinned or accelerated.',
 };
 
 /**
@@ -110,7 +108,7 @@ function requestedQuality(
 }
 
 /** The keywords every quality command is found by. */
-const KEYWORDS = ['quality', 'resampling', 'oversampling', 'spectral', 'overlap', 'inference'];
+const KEYWORDS = ['quality', 'resampling', 'oversampling', 'spectral', 'overlap'];
 
 function renderQualityCommands(): readonly Command<ShellContext>[] {
   return NAMED_QUALITY_LEVELS.map((level) => {
@@ -125,7 +123,7 @@ function renderQualityCommands(): readonly Command<ShellContext>[] {
       },
       {
         keywords: ['render', 'final', 'export', ...KEYWORDS],
-        description: `Renders, and draws waveforms, at ${name} quality. ${qualitySentence(finalRenderSettings(namedMode(level)))}`,
+        description: `Renders, and draws waveforms, at ${name} quality. ${qualitySentence(namedMode(level).settings)}`,
         availability: (context) =>
           context.audioSettings.get().renderQuality.level === level
             ? unavailable(`${name} is already the render quality.`)

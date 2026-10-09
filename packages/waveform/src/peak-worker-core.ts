@@ -30,12 +30,7 @@ import {
   type PcmSource,
   type ToPreview,
 } from '@audiogubbins/audio-engine';
-import {
-  discreteLayout,
-  finalRenderSettings,
-  sampleCount,
-  type DomainResult,
-} from '@audiogubbins/domain';
+import { discreteLayout, sampleCount, type DomainResult } from '@audiogubbins/domain';
 
 import { PeakBuilder } from './peak-builder.js';
 import { decodePeaks, encodePeaks } from './peak-codec.js';
@@ -179,7 +174,7 @@ export class PeakWorkerCore {
     const source = layout.ok
       ? describedSource(message.description, layout.value, this.#host.dsp, {
           processing: this.#host.processing,
-          quality: finalRenderSettings(message.quality),
+          quality: message.quality.settings,
           start: ProcessedStart.Canonical,
           ...(this.#previews === undefined ? {} : { cached: this.#previews }),
         })

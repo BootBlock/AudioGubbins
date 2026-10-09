@@ -10,7 +10,7 @@
  * worker once, which a racked sound is read from a render through (ADR-0061).
  */
 
-import type { EditRange, QualityMode } from '@audiogubbins/domain';
+import type { DetectorValues, EditRange, QualityMode } from '@audiogubbins/domain';
 import type { MessagePortLike, PcmDescription } from '@audiogubbins/audio-engine';
 
 import type { DetectionResult } from './detection-result.js';
@@ -52,6 +52,8 @@ export interface DetectRequest {
   readonly range: EditRange;
   /** The keys of the assistants to run, in the order their reports are answered. */
   readonly assistants: readonly string[];
+  /** What a person set of how their detectors judge; anything not set is a default. */
+  readonly detectors: DetectorValues;
 }
 
 export type ToDetectionWorker =

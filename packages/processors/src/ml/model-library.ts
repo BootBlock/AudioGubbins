@@ -58,6 +58,18 @@ const CONDITION_WORDS: Readonly<Record<ModelUnavailability, string>> = {
 /** Reads the files of installed model packs. */
 export interface ModelLibrary {
   /**
+   * Whether version `version` of the pack `pack` can be read now, or why not,
+   * as a failure {@link modelUnavailable} makes; decided without reading a
+   * file, so a pass asks it before it opens the model and a processor whose
+   * pack is missing starts no inference.
+   */
+  available(
+    pack: string,
+    version: string,
+    signal?: CancellationSignal,
+  ): Promise<DomainResult<void>>;
+
+  /**
    * The file at `path` within version `version` of the pack `pack`, or why it
    * cannot be had, as a failure {@link modelUnavailable} makes.
    */

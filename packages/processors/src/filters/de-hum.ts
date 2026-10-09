@@ -32,13 +32,8 @@ import {
 import { decibelsToGain, type NodeKernel } from '@audiogubbins/audio-engine';
 
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
-import {
-  BiquadCascade,
-  BiquadShape,
-  HIGHEST_DESIGN_FRACTION,
-  SectionSetting,
-  poleDecayFrames,
-} from './biquad.js';
+import { BiquadCascade, poleDecayFrames } from './biquad.js';
+import { BiquadShape, HIGHEST_DESIGN_FRACTION, SectionSetting } from './biquad-shape.js';
 import { CascadeKernel, type CascadeDesigner } from './cascade-kernel.js';
 import { choiceOf, numberOf } from './parameter-values.js';
 import { RampedParameter } from './ramped-parameter.js';

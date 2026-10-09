@@ -26,7 +26,6 @@ const insertion: EditOperation = {
   kind: 'insert',
   at: frames(300),
   payload: TEN_FRAMES,
-  convertRate: false,
 };
 const reversal: EditOperation = {
   id: operationId('reverse'),
@@ -163,7 +162,9 @@ describe('resolving a position stated at a basis', () => {
     const payload = expectSuccess(
       slicePlan(expectSuccess(assetPlan(source, PLAN_WITHOUT_CHAINS)), 0, 441),
     );
-    const converted = assetOf('converted', 1_000, [{ ...insertion, payload, convertRate: true }]);
+    const converted = assetOf('converted', 1_000, [
+      { ...insertion, payload, resampler: TEST_ENGINE.resampler },
+    ]);
     expect(anchorResolver(converted).position(0, 500, Affinity.After)).toBe(980);
   });
 });

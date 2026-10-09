@@ -48,8 +48,10 @@ use table::{Pair, Table};
 /// the peak meter (`ag_peak_meter_create`, `_push`, `_read`, `_release`), the
 /// loudness meter (`ag_loudness_meter_create`, `_push`, `_pull_series`,
 /// `_read`, `_release`) and the detector feature extractors
-/// (`ag_detector_create`, `_record_width`, `_push`, `_pull`, `_release`).
-pub const ABI_VERSION: u32 = 5;
+/// (`ag_detector_create`, `_record_width`, `_push`, `_pull`, `_release`). 6
+/// added the silence extractor, code 6 of `ag_detector_create`, which a module
+/// of 5 refuses as an unknown kind.
+pub const ABI_VERSION: u32 = 6;
 
 /// The call did what it was asked.
 pub const STATUS_DONE: u32 = 0;

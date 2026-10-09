@@ -284,19 +284,34 @@ module.exports = {
       from: { path: '^apps/web/[^/]+[.][cm]?ts$' },
       to: {
         path: '^packages/',
-        pathNot: '^packages/model-packs/src/pack-path[.]ts$',
+        pathNot: '^packages/model-packs/src/pack-path[.]js$',
         dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
+      name: 'tools-load-only-javascript-grammars',
+      severity: 'error',
+      comment:
+        'A tool runs in Node with no compiler, and a workspace package is TypeScript source, so ' +
+        "a tool imports only the model packs' path, version, tier, capability and limit " +
+        'grammars, which are JavaScript for that reason: the pack build holds a definition to ' +
+        'the package’s own.',
+      from: { path: '^tools/' },
+      to: {
+        path: '^packages/',
+        pathNot: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$',
       },
     },
     {
       name: 'vite-bundled-grammar-imports-nothing-else',
       severity: 'error',
       comment:
-        "The model packs' path grammar is bundled into Vite's configuration by its path, so it " +
-        'imports only the version grammar, and that nothing: a package it named would be loaded ' +
-        'through Node with no compiler.',
-      from: { path: '^packages/model-packs/src/pack-(path|version)[.]ts$' },
-      to: { pathNot: '^packages/model-packs/src/pack-(path|version)[.]ts$' },
+        "The model packs' path, version, tier, capability and limit grammars are loaded by the " +
+        "pack build tool in Node and bundled into Vite's configuration by their paths, so they " +
+        'import only one another: a package they named would be loaded through Node with no ' +
+        'compiler.',
+      from: { path: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$' },
+      to: { pathNot: '^packages/model-packs/src/pack-(path|version|tier|capability|limits)[.]js$' },
     },
     {
       name: 'rack-made-only-in-thread-entries',
@@ -305,9 +320,10 @@ module.exports = {
         'A worker that reads edited sound is given the effect rack as a port (ADR-0060): only the ' +
         'module that starts the thread, and the test support that composes it as that module ' +
         'does, make it, so the cores that render, feed and summarise depend on the port and run ' +
-        'in tests with any processing.',
+        'in tests with any processing. The same modules give the thread its model channel ' +
+        '(ADR-0062), so no core imports the inference runtime (ADR-0030, ADR-0040).',
       from: { path: '^packages/(audio-runtime|waveform)/src/', pathNot: '/src/(threads|testing)/' },
-      to: { path: '^packages/(effect-rack|processors)/' },
+      to: { path: '^packages/(effect-rack|processors|ml-runtime)/' },
     },
     {
       name: 'codecs-owns-nothing-else',
@@ -375,9 +391,10 @@ module.exports = {
       comment:
         'The detection core is given the effect rack as a port (ADR-0060): only the module that ' +
         'starts the worker, and the test support that composes it as that module does, make it, ' +
-        'so the core runs in tests with any processing.',
+        'so the core runs in tests with any processing. The same modules give the worker its ' +
+        'model channel (ADR-0062), so the core imports no inference runtime (ADR-0061).',
       from: { path: '^packages/detection-runtime/src/', pathNot: '/src/(threads|testing)/' },
-      to: { path: '^packages/effect-rack/' },
+      to: { path: '^packages/(effect-rack|ml-runtime)/' },
     },
     {
       name: 'renderer-owns-nothing-else',
@@ -617,7 +634,7 @@ module.exports = {
 
           // The model packs' path grammar, which the build's configuration
           // bundles by its path (rule vite-configuration-loads-in-node).
-          '^packages/model-packs/src/pack-path\\.ts$',
+          '^packages/model-packs/src/pack-path\\.js$',
         ],
       },
     },

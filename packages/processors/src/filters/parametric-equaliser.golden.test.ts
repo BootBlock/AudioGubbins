@@ -5,7 +5,8 @@ import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { noise } from '@audiogubbins/test-fixtures';
 
 import { TEST_RATE, runProcessor } from '../testing/processor-run.js';
-import { BiquadCascade, BiquadShape } from './biquad.js';
+import { BiquadCascade } from './biquad.js';
+import { BiquadShape } from './biquad-shape.js';
 import { PARAMETRIC_EQUALISER } from './parametric-equaliser.js';
 import { analyticMagnitude, binMagnitudes, decibels } from '../testing/filter-measures.js';
 

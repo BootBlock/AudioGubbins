@@ -45,13 +45,13 @@ export function writeEditOperation(operation: EditOperation): JsonObject {
     case 'reverse':
       return { id: operation.id, kind: operation.kind, range: writeEditRange(operation.range) };
     case 'insert':
-      return {
+      return presentMembers({
         id: operation.id,
         kind: operation.kind,
         at: operation.at,
         payload: writeEditPlan(operation.payload),
-        convertRate: operation.convertRate,
-      };
+        resampler: operation.resampler,
+      });
     case 'process':
       return presentMembers({
         id: operation.id,

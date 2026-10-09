@@ -15,7 +15,7 @@
  */
 
 import { REFERENCE_DSP, PcmDescriptionKind, type PcmDescription } from '@audiogubbins/audio-engine';
-import { crossingThreads } from '@audiogubbins/audio-engine/testing';
+import { crossingThreads } from '@audiogubbins/domain/testing';
 import { MAXIMUM_QUALITY, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { chainProcessing } from '@audiogubbins/effect-rack';

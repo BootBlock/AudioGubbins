@@ -297,7 +297,9 @@ function proposePaste(
     kind: 'insert',
     at: randomCount(random, shape.length),
     payload: payload.value,
-    convertRate: payload.value.streams[0].sampleRate !== shape.sampleRate,
+    ...(payload.value.streams[0].sampleRate === shape.sampleRate
+      ? {}
+      : { resampler: context.engine.resampler }),
   };
 }
 

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import { unsafeBrandId, type EffectChainId, type ParameterId } from '../identity/branded-id.js';
 import { TEST_FILTER, TEST_LIMITER } from '../testing/test-processors.js';
+import { readValue } from '../messages/message-fields.js';
+import type { DomainResult } from '../result.js';
 import { expectFailureCode, expectSuccess } from '../testing/unwrap.js';
-import { effectChainFrom } from './chain-decoding.js';
+import { effectChainOf } from './chain-decoding.js';
 import type { ParameterValue } from './parameter.js';
 import { MAXIMUM_CHAIN_SLOTS, MAXIMUM_GROUP_DEPTH } from './chain-validation.js';
 import {
@@ -16,6 +18,12 @@ import {
 } from './effect-chain.js';
 
 const CHAIN_ID: EffectChainId = unsafeBrandId<'EffectChainId'>('33333333-aaaa');
+
+/** The chain `value` holds, read as a message carrying it reads it, or why it holds none. */
+function effectChainFrom(value: unknown): DomainResult<EffectChain> {
+  const read = readValue(value, 'effect-chain.unreadable', (one) => effectChainOf(one, 'chain'));
+  return read.ok ? read.value : read;
+}
 
 // The test processors' own parameter identifiers are readable names rather
 // than well-formed identifiers, which a reader rightly refuses, so the values

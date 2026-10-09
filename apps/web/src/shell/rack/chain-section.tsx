@@ -14,7 +14,6 @@ import { Button } from '@audiogubbins/design-system';
 import {
   appliedProcessors,
   chainListening,
-  finalRenderSettings,
   type EffectChain,
   type EffectChainId,
   type QualitySettingKey,
@@ -67,7 +66,7 @@ function ListeningLines({
       <p className="ag-panel-note">{listeningText(listening)}</p>
       {read.size > 0 && (
         <p className="ag-panel-note">
-          {previewDifferenceText(preview, finalRenderSettings(settings.renderQuality), read)}
+          {previewDifferenceText(preview, settings.renderQuality.settings, read)}
         </p>
       )}
     </>

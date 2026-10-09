@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
 import { sampleRate, type EditOperation, type Region } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { sine } from '@audiogubbins/test-fixtures';
@@ -273,7 +274,7 @@ describe('the clipboard (ADR-0053)', () => {
     await ran(audio, 'edit.paste-converting-rate');
 
     expect(chainOf(audio)).toEqual([
-      expect.objectContaining({ kind: 'insert', at: 0, convertRate: true }),
+      expect.objectContaining({ kind: 'insert', at: 0, resampler: ENGINE_VERSIONS.resampler }),
     ]);
     // The asset reopens once the page holds every file it reads, the pasted media's among them.
     expect((await audio.changed(before)).length).toBe(LENGTH + 4800);

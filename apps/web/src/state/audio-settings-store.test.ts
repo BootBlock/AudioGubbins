@@ -8,7 +8,6 @@ import {
   SchedulingPolicy,
 } from '@audiogubbins/audio-engine';
 import {
-  InferencePath,
   MAXIMUM_QUALITY,
   QualityLevel,
   ResamplingGrade,
@@ -88,13 +87,14 @@ describe('reading stored audio settings', () => {
     const read = readAudioSettings(
       stored({
         profile: 'low-latency',
+        // A setting no build reads any longer is left aside, not a spoiled record.
         renderQuality: {
           resampling: ResamplingGrade.Draft,
           oversampling: 3,
           spectralOverlap: 2,
-          inference: InferencePath.Pinned,
+          inference: 'pinned',
         },
-        previewQuality: { ...HIGH.settings, spectralOverlap: 'many', inference: 'fast' },
+        previewQuality: { ...HIGH.settings, spectralOverlap: 'many' },
       }),
     );
     // The render's spoiled oversampling is the highest quality's, and the
@@ -105,12 +105,11 @@ describe('reading stored audio settings', () => {
         resampling: ResamplingGrade.Draft,
         oversampling: 8,
         spectralOverlap: 2,
-        inference: InferencePath.Pinned,
       },
     });
     expect(read.previewQuality).toEqual({
       level: QualityLevel.Custom,
-      settings: { ...HIGH.settings, spectralOverlap: 2, inference: InferencePath.Accelerated },
+      settings: { ...HIGH.settings, spectralOverlap: 2 },
     });
   });
 
@@ -192,7 +191,7 @@ describe('the audio settings store', () => {
     expect(again.renderQuality).toEqual(DRAFT);
     expect(again.previewQuality).toEqual(custom);
     expect(raw.read(AUDIO_SETTINGS_KEY)).toContain(
-      '"previewQuality":{"resampling":"high","oversampling":8,"spectralOverlap":4,"inference":"pinned"}',
+      '"previewQuality":{"resampling":"high","oversampling":8,"spectralOverlap":4}',
     );
     expect(raw.read(AUDIO_SETTINGS_KEY)).toContain(
       `"schemaVersion":${String(SCHEMA_VERSIONS.audioSettings)}`,

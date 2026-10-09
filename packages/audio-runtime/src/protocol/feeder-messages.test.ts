@@ -28,7 +28,8 @@ import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
-import { FakeMessagePort, cloneAcross } from '../testing/fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import {
   FromFeederKind,
   ToFeederKind,
@@ -221,9 +222,11 @@ function comparable(message: ToFeeder): unknown {
   };
 }
 
-/** A message as it arrives, the processor's end of the channel transferred with it. */
+/** A message as it arrives, the end of a channel it gives transferred with it. */
 function crossed(message: ToFeeder): unknown {
-  return cloneAcross(message, message.kind === ToFeederKind.Bind ? [message.processor] : []);
+  if (message.kind === ToFeederKind.Bind) return crossingThreads(message, [message.processor]);
+  if (message.kind === ToFeederKind.Previews) return crossingThreads(message, [message.port]);
+  return crossingThreads(message, []);
 }
 
 /** The summary a malformed message is refused with. */
@@ -255,7 +258,7 @@ describe('the feeder protocol', () => {
     [
       'a source of an unknown kind',
       { kind: 'sources', request: 1, graph: GRAPH, sources: [{ node: 'in', kind: 'radio' }] },
-      'sampleRate',
+      'sources[0].sampleRate',
     ],
     [
       'a module that is not compiled',

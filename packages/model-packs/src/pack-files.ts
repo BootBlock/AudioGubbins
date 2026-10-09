@@ -3,9 +3,9 @@
  * stays inside its pack, a length and a SHA-256, and no two that one file
  * system would keep as one (ADR-0062).
  *
- * A path is held to the grammar of `pack-path.ts`, which the development
- * server serves files by too; one outside it is refused with the reason,
- * never with the path.
+ * A path is held to the grammar of `pack-path.js`, which the development
+ * server serves files by and the pack build writes them by too; one outside
+ * it is refused with the reason, never with the path.
  */
 
 import {
@@ -19,18 +19,8 @@ import {
 } from '@audiogubbins/project-format';
 
 import type { PackFile } from './manifest.js';
-import { packFilePathProblem } from './pack-path.js';
-
-/** The most files a pack may name. */
-const MOST_FILES = 64;
-
-/**
- * The longest file a pack may hold: 2 GiB. A model is read whole into memory
- * for the runtime to load, and no browser gives one buffer much more.
- */
-const LONGEST_FILE_BYTES = 2 ** 31;
-
-const SHA256_HEX = /^[0-9a-f]{64}$/u;
+import { LONGEST_FILE_BYTES, MOST_FILES, SHA256_HEX } from './pack-limits.js';
+import { collidingPaths, packFilePathProblem } from './pack-path.js';
 
 const FILE_MEMBERS: ReadonlySet<string> = new Set(['path', 'bytes', 'sha256']);
 
@@ -75,24 +65,15 @@ const readFile: Converter<PackFile> = (reading, value, parent, key) => {
  * keep beside it.
  */
 function refuseCollidingPaths(reading: Reading, files: readonly PackFile[], at: string): boolean {
-  const folded = files.map((file) => file.path.toLowerCase());
-  let clear = true;
-  for (const [index, path] of folded.entries()) {
-    const collides = folded.some(
-      (other, otherIndex) =>
-        otherIndex !== index &&
-        ((otherIndex < index && other === path) || other.startsWith(`${path}/`)),
+  const colliding = collidingPaths(files.map((file) => file.path));
+  for (const index of colliding) {
+    reading.refuse(
+      'model-pack.path-collides',
+      'Another file of the pack has this path, in any case, or lies inside it.',
+      pathOf(pathOf(at, index), 'path'),
     );
-    if (collides) {
-      reading.refuse(
-        'model-pack.path-collides',
-        'Another file of the pack has this path, in any case, or lies inside it.',
-        pathOf(pathOf(at, index), 'path'),
-      );
-      clear = false;
-    }
   }
-  return clear;
+  return colliding.length === 0;
 }
 
 /** Reads the files of a pack: one at least, no two colliding. */

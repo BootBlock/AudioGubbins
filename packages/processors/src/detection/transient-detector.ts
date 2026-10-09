@@ -142,6 +142,8 @@ function sizeAt(rate: number): number {
 export const TRANSIENT_DETECTOR: AudioDetector = {
   identity: { key: 'transients', label: 'Transients', version: 1 },
   finds: [FindingKind.Transient],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const size = sizeAt(sampleRate);
     const hop = size / 4;

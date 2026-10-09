@@ -18,11 +18,11 @@ const FULL: LocalInferenceSupport = {
   missingPreferred: [],
 };
 
-const NO_WEBGPU: LocalInferenceSupport = {
+const NO_SIMD_PREFERRED: LocalInferenceSupport = {
   status: 'reduced',
   explanation: 'Previews run on one thread.',
   missingRequired: [],
-  missingPreferred: [{ key: 'webgpu', reason: 'This browser has no WebGPU adapter.' }],
+  missingPreferred: [{ key: 'webassembly-simd', reason: 'This browser has no fixed-width SIMD.' }],
 };
 
 const NO_INFERENCE: LocalInferenceSupport = {
@@ -42,7 +42,10 @@ const V1_3_NEEDS_RUNTIME_2 = sampleManifest({
   version: '1.3.0',
   runtime: { minimum: '2.0.0', below: '3.0.0' },
 });
-const NEEDS_WEBGPU = sampleManifest({ id: 'gpu-pack', runtime: { capabilities: ['webgpu'] } });
+const NEEDS_SIMD = sampleManifest({
+  id: 'gpu-pack',
+  runtime: { capabilities: ['webassembly-simd'] },
+});
 
 function context(
   packs: readonly (readonly [ModelPackManifest, InstallState])[],
@@ -99,7 +102,7 @@ describe('the condition of one pack version', () => {
   });
 
   it('says this browser or device cannot run a version it lacks a capability for', () => {
-    expect(summary(packVersionCondition(NEEDS_WEBGPU, context([], [], NO_WEBGPU)))).toEqual([
+    expect(summary(packVersionCondition(NEEDS_SIMD, context([], [], NO_SIMD_PREFERRED)))).toEqual([
       'device-unavailable',
       'model-pack.device-unsupported',
     ]);

@@ -20,7 +20,6 @@ import {
   FailureKind,
   fail,
   failure,
-  finalRenderSettings,
   succeed,
   throwIfCancelled,
   type DomainFailure,
@@ -126,7 +125,7 @@ function prepareSources(job: RenderJob, dsp: CanonicalDsp): DomainResult<Prepare
   const feeds = new Map<NodeId, StagedFeed>();
   const made: PcmSource[] = [];
   const conversions: RenderConversion[] = [];
-  const quality = resamplingQualityOf(finalRenderSettings(job.quality).resampling);
+  const quality = resamplingQualityOf(job.quality.settings.resampling);
   for (const [node, source] of job.sources) {
     let read = source;
     if (source.sampleRate !== job.sampleRate) {

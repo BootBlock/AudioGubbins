@@ -31,20 +31,21 @@ export {
 } from './result.js';
 
 export {
-  type FailureSummary,
   Malformed,
   type MessageFields,
+  boundedItemsOf,
   bytesAt,
   countAt,
+  countOf,
   countsAt,
-  domainFailuresAt,
-  failureSummaryAt,
-  failureSummaryOf,
   fieldsAt,
   fieldsOf,
   flagAt,
+  flagOf,
   floatsAt,
   frameRangeAt,
+  identifierAt,
+  identifierOf,
   isTagged,
   itemsAt,
   itemsOf,
@@ -54,18 +55,30 @@ export {
   numbersAt,
   objectsAt,
   oneOf,
+  oneOfValues,
   optionalBytesAt,
   optionalCountAt,
-  optionalFailureSummaryAt,
   optionalTextAt,
   qualityModeAt,
   rateAt,
+  rateOf,
   readMessage,
+  readValue,
   sampleArraysAt,
+  sampleArraysOf,
   sampleCountAt,
+  sampleCountOf,
   textAt,
+  textOf,
   textsAt,
 } from './messages/message-fields.js';
+export {
+  type FailureSummary,
+  domainFailuresAt,
+  failureSummaryAt,
+  failureSummaryOf,
+  optionalFailureSummaryAt,
+} from './messages/failure-fields.js';
 
 export {
   type CancellationSignal,
@@ -212,8 +225,9 @@ export {
 export { type BlockPlace, applyStages, placeOf } from './editing/stage-arithmetic.js';
 export { sliceSegment } from './editing/segment-list.js';
 export { slicePlan } from './editing/plan-slicing.js';
+export { type RemovalEdit, removalEdits } from './editing/removal-operations.js';
 export { type MediaShape, MAXIMUM_STRETCH_RATIO, validatePlan } from './editing/plan-validation.js';
-export { editPlanFrom } from './editing/plan-decoding.js';
+export { editPlanOf } from './editing/plan-decoding.js';
 export {
   type ProjectChains,
   validateChain,
@@ -292,7 +306,6 @@ export {
 } from './processing/processor-version.js';
 
 export {
-  InferencePath,
   MAXIMUM_QUALITY,
   NAMED_QUALITY_LEVELS,
   type NamedQualityLevel,
@@ -303,7 +316,6 @@ export {
   ResamplingGrade,
   qualityModeFrom,
   qualityModeOf,
-  finalRenderSettings,
   namedQualityMode,
 } from './processing/quality-mode.js';
 
@@ -340,8 +352,6 @@ export {
 
 export { controlPosition, parameterAtPosition } from './processing/parameter-control.js';
 
-export { effectChainFrom } from './processing/chain-decoding.js';
-
 export { treatmentChain, treatmentValues } from './processing/treatment-chain.js';
 
 export {
@@ -357,6 +367,7 @@ export { type ProcessorLatency } from './processing/processor-latency.js';
 export {
   type DetectorFinding,
   type DetectorIdentity,
+  type DetectorValues,
   FindingKind,
   type FindingMeasure,
   MeasureUnit,

@@ -3,14 +3,26 @@
  *
  * A processed stream carries its chain to the feeder, render and peak workers
  * as a structured clone (ADR-0052, ADR-0060), and a worker trusts no message,
- * so each member's type is checked here before the chain's shape is checked
- * by `validateChainShape`. The project document reads chains from its own
- * JSON with its own reader; this one reads the in-memory form a clone gives,
- * whose parameter values are still a `Map`.
+ * so each member's type is checked here, by the one reader of a message's
+ * fields, before the chain's shape is checked by `validateChainShape`. The
+ * project document reads chains from its own JSON with its own reader; this
+ * one reads the in-memory form a clone gives, whose parameter values are
+ * still a `Map`.
  */
 
-import { isWellFormedId, unsafeBrandId, type ParameterId } from '../identity/branded-id.js';
-import { FailureKind, fail, failure, type DomainResult } from '../result.js';
+import type { ParameterId } from '../identity/branded-id.js';
+import {
+  Malformed,
+  boundedItemsOf,
+  countOf,
+  fieldsOf,
+  flagOf,
+  identifierOf,
+  itemsOf,
+  numberOf,
+  textOf,
+} from '../messages/message-fields.js';
+import type { DomainResult } from '../result.js';
 import {
   MAXIMUM_CHAIN_SLOTS,
   MAXIMUM_GROUP_DEPTH,
@@ -26,171 +38,135 @@ import {
 import type { ParameterValue } from './parameter.js';
 import type { ModelIdentity, ProcessorState, ProcessorStateVersion } from './processor-version.js';
 
-type Fields = Readonly<Record<string, unknown>>;
-
-/** Why a value is not a chain: the first thing found wrong. */
-class Unreadable extends Error {}
-
 const LAWS: ReadonlySet<string> = new Set(Object.values(SummingLaw));
 
 /** The most parameter values one processor may hold. */
 const MAXIMUM_VALUES = 1_024;
 
-function fields(value: unknown, what: string): Fields {
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-    return Object.fromEntries(Object.entries(value));
+/** The longest name a chain holds: a type key, a state's kind, a pack, a version or a hash. */
+const MAXIMUM_NAME = 256;
+
+/** The value, named `field`, as text of one to {@link MAXIMUM_NAME} characters. */
+function nameOf(value: unknown, field: string): string {
+  const text = textOf(value, field);
+  if (text.length === 0 || text.length > MAXIMUM_NAME) {
+    throw new Malformed(field, `text of 1 to ${String(MAXIMUM_NAME)} characters`);
   }
-  throw new Unreadable(what);
+  return text;
 }
 
-function list(value: unknown, what: string): readonly unknown[] {
-  if (Array.isArray(value)) return value.map((item: unknown) => item);
-  throw new Unreadable(what);
-}
-
-function text(value: unknown, what: string): string {
-  if (typeof value === 'string' && value.length > 0 && value.length <= 256) return value;
-  throw new Unreadable(what);
-}
-
-function flag(value: unknown, what: string): boolean {
-  if (typeof value === 'boolean') return value;
-  throw new Unreadable(what);
-}
-
-function finite(value: unknown, what: string): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  throw new Unreadable(what);
-}
-
-function whole(value: unknown, what: string): number {
-  if (typeof value === 'number' && Number.isSafeInteger(value) && value >= 0) return value;
-  throw new Unreadable(what);
-}
-
-function identifier<T extends string>(
-  value: unknown,
-  what: string,
-): ReturnType<typeof unsafeBrandId<T>> {
-  if (typeof value === 'string' && isWellFormedId(value)) return unsafeBrandId<T>(value);
-  throw new Unreadable(what);
-}
-
-function modelOf(value: unknown): ModelIdentity {
-  const read = fields(value, 'a model');
+function modelOf(value: unknown, field: string): ModelIdentity {
+  const read = fieldsOf(value, field);
   return {
-    pack: text(read['pack'], 'a model’s pack'),
-    version: text(read['version'], 'a model’s version'),
-    modelHash: text(read['modelHash'], 'a model’s hash'),
-    runtimeHash: text(read['runtimeHash'], 'a runtime’s hash'),
+    pack: nameOf(read['pack'], `${field}.pack`),
+    version: nameOf(read['version'], `${field}.version`),
+    modelHash: nameOf(read['modelHash'], `${field}.modelHash`),
+    runtimeHash: nameOf(read['runtimeHash'], `${field}.runtimeHash`),
   };
 }
 
-function versionOf(value: unknown): ProcessorStateVersion {
-  const read = fields(value, 'a processor’s version');
+function versionOf(value: unknown, field: string): ProcessorStateVersion {
+  const read = fieldsOf(value, field);
+  const { resampler, model } = read;
   return {
-    implementation: whole(read['implementation'], 'an implementation version'),
-    parameters: whole(read['parameters'], 'a parameter schema version'),
-    ...(read['resampler'] === undefined
-      ? {}
-      : { resampler: whole(read['resampler'], 'a resampler version') }),
-    ...(read['model'] === undefined ? {} : { model: modelOf(read['model']) }),
+    implementation: countOf(read['implementation'], `${field}.implementation`),
+    parameters: countOf(read['parameters'], `${field}.parameters`),
+    ...(resampler === undefined ? {} : { resampler: countOf(resampler, `${field}.resampler`) }),
+    ...(model === undefined ? {} : { model: modelOf(model, `${field}.model`) }),
   };
 }
 
-function isParameterValue(value: unknown): value is ParameterValue {
-  return typeof value === 'number'
-    ? Number.isFinite(value)
-    : typeof value === 'string' || typeof value === 'boolean';
+function parameterValueOf(value: unknown, field: string): ParameterValue {
+  if (typeof value === 'string' || typeof value === 'boolean') return value;
+  return numberOf(value, field);
 }
 
-function valuesOf(value: unknown): ReadonlyMap<ParameterId, ParameterValue> {
-  if (!(value instanceof Map) || value.size > MAXIMUM_VALUES) {
-    throw new Unreadable('a processor’s values');
+function valuesOf(value: unknown, field: string): ReadonlyMap<ParameterId, ParameterValue> {
+  if (!(value instanceof Map)) throw new Malformed(field, 'a map of parameter values');
+  if (value.size > MAXIMUM_VALUES) {
+    throw new Malformed(field, `a map of at most ${String(MAXIMUM_VALUES)} values`);
   }
   const values = new Map<ParameterId, ParameterValue>();
   for (const [key, entry] of value.entries()) {
-    if (!isParameterValue(entry)) throw new Unreadable('a parameter value');
-    values.set(identifier<'ParameterId'>(key, 'a parameter'), entry);
+    const name = `${field}.${String(key)}`;
+    values.set(identifierOf<'ParameterId'>(key, name), parameterValueOf(entry, name));
   }
   return values;
 }
 
-function stateOf(value: unknown): ProcessorState {
-  const read = fields(value, 'a processor’s state');
+function stateOf(value: unknown, field: string): ProcessorState {
+  const read = fieldsOf(value, field);
   return {
-    kind: text(read['kind'], 'a state’s kind'),
-    values: list(read['values'], 'a state’s values').map((entry) => finite(entry, 'a state value')),
+    kind: nameOf(read['kind'], `${field}.kind`),
+    values: itemsOf(read['values'], `${field}.values`, numberOf),
   };
 }
 
-function processorOf(read: Fields): ProcessorInstance {
-  const state = read['state'] === undefined ? undefined : stateOf(read['state']);
+function processorOf(read: Readonly<Record<string, unknown>>, field: string): ProcessorInstance {
+  const { state } = read;
   return {
     kind: 'processor',
-    id: identifier<'ProcessorId'>(read['id'], 'a processor’s identifier'),
-    typeKey: text(read['typeKey'], 'a processor’s type'),
-    enabled: flag(read['enabled'], 'a slot’s bypass'),
-    soloed: flag(read['soloed'], 'a slot’s solo'),
-    mix: finite(read['mix'], 'a slot’s mix'),
-    version: versionOf(read['version']),
-    values: valuesOf(read['values']),
-    ...(state === undefined ? {} : { state }),
+    id: identifierOf<'ProcessorId'>(read['id'], `${field}.id`),
+    typeKey: nameOf(read['typeKey'], `${field}.typeKey`),
+    enabled: flagOf(read['enabled'], `${field}.enabled`),
+    soloed: flagOf(read['soloed'], `${field}.soloed`),
+    mix: numberOf(read['mix'], `${field}.mix`),
+    version: versionOf(read['version'], `${field}.version`),
+    values: valuesOf(read['values'], `${field}.values`),
+    ...(state === undefined ? {} : { state: stateOf(state, `${field}.state`) }),
   };
 }
 
-function isSummingLaw(value: unknown): value is SummingLaw {
-  return typeof value === 'string' && LAWS.has(value);
+function lawOf(value: unknown, field: string): SummingLaw {
+  const isLaw = (one: unknown): one is SummingLaw => typeof one === 'string' && LAWS.has(one);
+  if (!isLaw(value)) throw new Malformed(field, `one of ${[...LAWS].join(', ')}`);
+  return value;
 }
 
 /** Reads slots no deeper than groups may nest and no more than a chain holds. */
 class SlotReader {
   #slots = 0;
 
-  slots(value: unknown, depth: number): readonly ChainSlot[] {
-    return list(value, 'a list of slots').map((slot) => this.#slot(slot, depth));
+  slots(value: unknown, field: string, depth: number): readonly ChainSlot[] {
+    return boundedItemsOf(value, field, MAXIMUM_CHAIN_SLOTS, (slot, name) =>
+      this.#slot(slot, name, depth),
+    );
   }
 
-  #slot(value: unknown, depth: number): ChainSlot {
+  #slot(value: unknown, field: string, depth: number): ChainSlot {
     this.#slots += 1;
-    if (this.#slots > MAXIMUM_CHAIN_SLOTS) throw new Unreadable('a chain of a size any chain has');
-    const read = fields(value, 'a slot');
-    if (read['kind'] === 'processor') return processorOf(read);
-    const summing = read['summing'];
-    if (read['kind'] !== 'group' || !isSummingLaw(summing)) throw new Unreadable('a slot');
-    if (depth >= MAXIMUM_GROUP_DEPTH)
-      throw new Unreadable('a chain whose groups nest within bounds');
+    if (this.#slots > MAXIMUM_CHAIN_SLOTS) {
+      throw new Malformed(field, `in a chain of at most ${String(MAXIMUM_CHAIN_SLOTS)} slots`);
+    }
+    const read = fieldsOf(value, field);
+    if (read['kind'] === 'processor') return processorOf(read, field);
+    if (read['kind'] !== 'group') throw new Malformed(`${field}.kind`, 'processor or group');
+    if (depth >= MAXIMUM_GROUP_DEPTH) {
+      throw new Malformed(field, `a group nested at most ${String(MAXIMUM_GROUP_DEPTH)} deep`);
+    }
     return {
       kind: 'group',
-      id: identifier<'ProcessorGroupId'>(read['id'], 'a group’s identifier'),
-      enabled: flag(read['enabled'], 'a slot’s bypass'),
-      soloed: flag(read['soloed'], 'a slot’s solo'),
-      mix: finite(read['mix'], 'a slot’s mix'),
-      summing,
-      branches: list(read['branches'], 'a group’s branches').map((branch): ChainBranch => ({
-        slots: this.slots(fields(branch, 'a branch')['slots'], depth + 1),
+      id: identifierOf<'ProcessorGroupId'>(read['id'], `${field}.id`),
+      enabled: flagOf(read['enabled'], `${field}.enabled`),
+      soloed: flagOf(read['soloed'], `${field}.soloed`),
+      mix: numberOf(read['mix'], `${field}.mix`),
+      summing: lawOf(read['summing'], `${field}.summing`),
+      branches: itemsOf(read['branches'], `${field}.branches`, (branch, name): ChainBranch => ({
+        slots: this.slots(fieldsOf(branch, name)['slots'], `${name}.slots`, depth + 1),
       })),
     };
   }
 }
 
-/** The chain `value` holds, whole, or why it holds none. */
-export function effectChainFrom(value: unknown): DomainResult<EffectChain> {
-  try {
-    const read = fields(value, 'a chain');
-    return validateChainShape({
-      id: identifier<'EffectChainId'>(read['id'], 'a chain’s identifier'),
-      slots: new SlotReader().slots(read['slots'], 0),
-    });
-  } catch (problem) {
-    // Only the reader's own refusal is expected here; anything else is a fault.
-    if (!(problem instanceof Unreadable)) throw problem;
-    return fail(
-      failure(
-        'effect-chain.unreadable',
-        FailureKind.Rejected,
-        `A chain that crossed a thread is not ${problem.message}.`,
-      ),
-    );
-  }
+/**
+ * The chain `value` holds, named `field`, read member by member; a value that
+ * is no chain throws {@link Malformed} at its first wrong member, and one
+ * whose shape is wrong answers why.
+ */
+export function effectChainOf(value: unknown, field: string): DomainResult<EffectChain> {
+  const read = fieldsOf(value, field);
+  return validateChainShape({
+    id: identifierOf<'EffectChainId'>(read['id'], `${field}.id`),
+    slots: new SlotReader().slots(read['slots'], `${field}.slots`, 0),
+  });
 }

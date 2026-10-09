@@ -133,6 +133,7 @@ export const DetectorKind = {
   Clipping: 'clipping',
   DcOffset: 'dc-offset',
   Transients: 'transients',
+  Silence: 'silence',
 } as const;
 
 /** What a detector looks for. */
@@ -224,6 +225,18 @@ export interface TransientSettings extends DetectorBasis {
   readonly offset: number;
 }
 
+/**
+ * Silence (`silence.rs`): blocks of `block` samples, 1 to 2²⁰; an event of
+ * `[first sample, length, peak, energy]` for each run of frames within a
+ * block whose every channel's magnitude is at most `threshold`, zero or more:
+ * the run's largest magnitude, and the sum of the squares of its samples.
+ */
+export interface SilenceSettings extends DetectorBasis {
+  readonly kind: typeof DetectorKind.Silence;
+  readonly block: number;
+  readonly threshold: number;
+}
+
 /** How to make a detector's feature extractor, by what it looks for. */
 export type DetectorSettings =
   | ClickSettings
@@ -231,7 +244,8 @@ export type DetectorSettings =
   | NoiseFloorSettings
   | ClippingSettings
   | DcOffsetSettings
-  | TransientSettings;
+  | TransientSettings
+  | SilenceSettings;
 
 /**
  * A detector's feature extractor (`detectors/`): samples pushed in any

@@ -33,11 +33,11 @@ const NO_SIMD: LocalInferenceSupport = {
   missingPreferred: [],
 };
 
-const NO_WEBGPU: LocalInferenceSupport = {
+const NO_SIMD_PREFERRED: LocalInferenceSupport = {
   status: 'reduced',
   explanation: 'Previews run on one thread.',
   missingRequired: [],
-  missingPreferred: [{ key: 'webgpu', reason: 'This browser has no WebGPU adapter.' }],
+  missingPreferred: [{ key: 'webassembly-simd', reason: 'This browser has no fixed-width SIMD.' }],
 };
 
 /** The runtime in use, the build every instance below was pinned to but where a test says. */
@@ -170,17 +170,20 @@ describe('which condition holds for a processor or detector a project names (REQ
   });
 
   it('says the device cannot run a pack that needs a capability it lacks, and runs one that does not', () => {
-    const gpu = sampleManifest({ runtime: { capabilities: ['webgpu'] } });
-    const availability = availabilityOf(REQUIRED, context([[gpu, INSTALLED]], [], NO_WEBGPU));
+    const gpu = sampleManifest({ runtime: { capabilities: ['webassembly-simd'] } });
+    const availability = availabilityOf(
+      REQUIRED,
+      context([[gpu, INSTALLED]], [], NO_SIMD_PREFERRED),
+    );
     expect(summary(availability)).toEqual(['device-unavailable', 'model-pack.device-unsupported']);
     expect(availability.condition === 'device-unavailable' && availability.reason.details).toEqual({
       pack: 'sample-pack',
-      capability: 'webgpu',
+      capability: 'webassembly-simd',
     });
-    expect(summary(availabilityOf(REQUIRED, context([[V1, INSTALLED]], [], NO_WEBGPU)))).toEqual([
-      'available',
-      '1.0.0',
-    ]);
+    const plain = sampleManifest({ runtime: { capabilities: [] } });
+    expect(
+      summary(availabilityOf(REQUIRED, context([[plain, INSTALLED]], [], NO_SIMD_PREFERRED))),
+    ).toEqual(['available', '1.0.0']);
   });
 
   it('makes a damaged or unfinished pack unavailable with that reason', () => {

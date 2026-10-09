@@ -46,6 +46,13 @@ function fromThreadFrom(fields: MessageFields): FromModelThread {
   switch (kind) {
     case FromModelThreadKind.Inference:
       return { kind, port: portAt(fields) };
+    case FromModelThreadKind.Version:
+      return {
+        kind,
+        call: countAt(fields, 'call'),
+        pack: textAt(fields, 'pack'),
+        version: textAt(fields, 'version'),
+      };
     case FromModelThreadKind.File:
       return {
         kind,
@@ -62,6 +69,8 @@ function fromThreadFrom(fields: MessageFields): FromModelThread {
 function toChannelFrom(fields: MessageFields): ToModelChannel {
   const kind = oneOf(fields, 'kind', ToModelChannelKind);
   switch (kind) {
+    case ToModelChannelKind.VersionReady:
+      return { kind, call: countAt(fields, 'call') };
     case ToModelChannelKind.File:
       return {
         kind,
@@ -69,7 +78,7 @@ function toChannelFrom(fields: MessageFields): ToModelChannel {
         bytes: bytesAt(fields, 'bytes'),
         sha256: digestAt(fields, 'sha256'),
       };
-    case ToModelChannelKind.FileFailed:
+    case ToModelChannelKind.CallFailed:
       return {
         kind,
         call: countAt(fields, 'call'),

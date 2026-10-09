@@ -44,7 +44,6 @@ import {
   StandardLayouts,
   assetPlan,
   derivedSampleCount,
-  finalRenderSettings,
   sampleRate,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
@@ -103,7 +102,7 @@ import { LocalPeakWorker, MemoryPeakCache } from '@audiogubbins/waveform/testing
 import { TEST_CATALOGUE } from '../testing/pack-managers.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
-import { installedModelFiles } from './installed-model-files.js';
+import { installedModelFiles, installedModelVersions } from './installed-model-files.js';
 import { createModelAvailabilityStore } from './model-availability.js';
 
 holdPlatformFiles();
@@ -378,6 +377,7 @@ function chainThreads(window: ProjectWindow) {
       throw new Error(`Which model packs can run could not be read: ${reason}`);
     },
   });
+  const installed = { files: window.services.client.packs, context: availability.current };
   // A gain and a tap of a half: the model's work is heard, and is not silence.
   const inference = new StandInInference(deepFilterNetGraphs(0.5, 0.5), PINNED_RUNTIME);
   const host = new InferenceHost({
@@ -387,10 +387,8 @@ function chainThreads(window: ProjectWindow) {
   const threads = new ModelThreads({
     inference: () => Promise.resolve(host),
     capabilities: testSetup().capabilities,
-    files: installedModelFiles({
-      files: window.services.client.packs,
-      context: availability.current,
-    }),
+    versions: installedModelVersions(installed),
+    files: installedModelFiles(installed),
     createChannel: fakeChannel,
     reportFault: (summary) => {
       throw new Error(summary);
@@ -428,13 +426,8 @@ function chainThreads(window: ProjectWindow) {
         createChannel: fakeChannel,
       });
       threads.connect(worker);
-      worker.post(
-        {
-          kind: ToDetectionWorkerKind.Previews,
-          port: previews.connect(CachePurpose.Analysis).port,
-        },
-        [],
-      );
+      const port = previews.connect(CachePurpose.Analysis).port;
+      worker.postMessage({ kind: ToDetectionWorkerKind.Previews, port }, [port]);
       return worker;
     },
   });
@@ -451,10 +444,8 @@ function chainThreads(window: ProjectWindow) {
     createWorker: () => {
       const worker = new LocalPeakWorker({ types: STAND_IN_TYPES, createChannel: fakeChannel });
       threads.connect(worker);
-      worker.post(
-        { kind: ToPeakWorkerKind.Previews, port: previews.connect(CachePurpose.Waveform).port },
-        [],
-      );
+      const port = previews.connect(CachePurpose.Waveform).port;
+      worker.postMessage({ kind: ToPeakWorkerKind.Previews, port }, [port]);
       return worker;
     },
     cache: new MemoryPeakCache(),
@@ -515,7 +506,7 @@ async function previewed(previews: PreviewHost, described: PcmDescription): Prom
     plan: described.plan,
     place: 0,
     media: described.media,
-    quality: finalRenderSettings(MAXIMUM_QUALITY),
+    quality: MAXIMUM_QUALITY.settings,
   });
   expectSuccess(await stream.ready);
   const into = [new Float32Array(LENGTH)];
@@ -681,6 +672,7 @@ describe(
         quality: MAXIMUM_QUALITY,
         range: { start: derivedSampleCount(0), end: derivedSampleCount(LENGTH) },
         assistants: ['classification', 'repair', 'restoration'],
+        detectors: {},
       });
 
       expect(since(from)).toEqual([]);

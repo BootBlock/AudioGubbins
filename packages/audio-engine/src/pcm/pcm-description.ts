@@ -11,24 +11,25 @@
  * of them: the receiving thread knows the layout it reads in, and a description
  * whose channels do not fit it is refused when the source is made.
  *
- * One reader, {@link pcmDescription}, validates a description that crossed a
- * thread, whoever sent it.
+ * One reader, {@link pcmDescriptionOf}, validates a description that crossed
+ * a thread, whoever sent it, as a field of the message that carried it.
  */
 
 import {
-  FailureKind,
   MAXIMUM_CHANNEL_COUNT,
-  editPlanFrom,
-  fail,
-  failure,
+  Malformed,
+  countOf,
+  editPlanOf,
+  fieldsOf,
   flatMapResult,
-  isWellFormedId,
-  sampleCount,
-  sampleRate,
-  succeed,
-  unsafeBrandId,
+  identifierOf,
+  itemsOf,
+  oneOfValues,
+  rateOf,
+  sampleArraysOf,
+  sampleCountOf,
+  textOf,
   type ChannelLayout,
-  type DomainFailure,
   type DomainResult,
   type EditPlan,
   type SampleRate,
@@ -39,10 +40,10 @@ import type { PlanProcessing } from './processed-content.js';
 import { editedSource } from './edited-source.js';
 import type { MediaEntry } from './plan-content.js';
 import { frameBlock } from './frame-block.js';
-import { isMediaFile } from './media-file.js';
+import { isMediaFile, type MediaFile } from './media-file.js';
 import { memorySource } from './memory-source.js';
 import type { PcmSource } from './pcm-source.js';
-import { signalRecipe, type SignalRecipe } from './signal-recipe.js';
+import { signalRecipeOf, type SignalRecipe } from './signal-recipe.js';
 import { signalSource } from './signal-source.js';
 
 /** How audio is described. */
@@ -83,107 +84,74 @@ export type PcmDescription =
       readonly media: readonly MediaEntry[];
     };
 
-/** A description that could not be read: the part that was wrong, and what it should be. */
-function unreadable(part: string, expected: string): DomainFailure {
-  return failure(
-    'pcm.description-unreadable',
-    FailureKind.Rejected,
-    `The description's ${part} is not ${expected}.`,
-    { details: { part, expected } },
-  );
-}
-
-type Fields = Readonly<Record<string, unknown>>;
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
- * Whether a value is a `Float32Array`, by its tag: a structured clone is made
- * in the receiving realm, whose class `instanceof` would not recognise.
- */
-function isSamples(value: unknown): value is Float32Array {
-  return Object.prototype.toString.call(value) === '[object Float32Array]';
-}
-
-function channelsOf(value: unknown): DomainResult<readonly Float32Array[]> {
-  if (!Array.isArray(value) || !value.every(isSamples)) {
-    return fail(unreadable('channels', 'a list of sample arrays'));
+/** A description's channels: sample arrays, all of one length. */
+function channelsOf(value: unknown, field: string): readonly Float32Array[] {
+  const channels = sampleArraysOf(value, field);
+  const [first] = channels;
+  if (first !== undefined && channels.some((channel) => channel.length !== first.length)) {
+    throw new Malformed(field, 'a list of sample arrays of one length');
   }
-  const [first] = value;
-  if (first !== undefined && value.some((channel) => channel.length !== first.length)) {
-    return fail(unreadable('channels', 'a list of sample arrays of one length'));
-  }
-  return succeed(value);
+  return channels;
 }
 
-/** One asset an edited sound reads, as it crossed a thread, or `undefined` where it is not one. */
-export function mediaEntryFrom(value: unknown): MediaEntry | undefined {
-  if (!isFields(value)) return undefined;
-  const { asset, identity, file } = value;
-  const rate =
-    typeof value['sampleRate'] === 'number' ? sampleRate(value['sampleRate']) : undefined;
-  const length = typeof value['length'] === 'number' ? sampleCount(value['length']) : undefined;
-  const channels = value['channels'];
-  if (
-    typeof asset !== 'string' ||
-    !isWellFormedId(asset) ||
-    typeof identity !== 'string' ||
-    rate?.ok !== true ||
-    length?.ok !== true ||
-    typeof channels !== 'number' ||
-    !Number.isInteger(channels) ||
-    channels < 1 ||
-    channels > MAXIMUM_CHANNEL_COUNT ||
-    !isMediaFile(file)
-  ) {
-    return undefined;
+/** The file behind an asset, which crosses a thread as itself. */
+function mediaFileOf(value: unknown, field: string): MediaFile {
+  if (!isMediaFile(value)) throw new Malformed(field, 'a file whose ranges can be read');
+  return value;
+}
+
+/** One asset an edited sound reads, named `field`, as it crossed a thread. */
+function mediaEntryOf(value: unknown, field: string): MediaEntry {
+  const fields = fieldsOf(value, field);
+  const channels = countOf(fields['channels'], `${field}.channels`);
+  if (channels < 1 || channels > MAXIMUM_CHANNEL_COUNT) {
+    throw new Malformed(`${field}.channels`, `a count from 1 to ${String(MAXIMUM_CHANNEL_COUNT)}`);
   }
   return {
-    asset: unsafeBrandId<'AssetId'>(asset),
-    identity,
-    sampleRate: rate.value,
+    asset: identifierOf<'AssetId'>(fields['asset'], `${field}.asset`),
+    identity: textOf(fields['identity'], `${field}.identity`),
+    sampleRate: rateOf(fields['sampleRate'], `${field}.sampleRate`),
     channels,
-    length: length.value,
-    file,
+    length: sampleCountOf(fields['length'], `${field}.length`),
+    file: mediaFileOf(fields['file'], `${field}.file`),
   };
 }
 
-/** An edited description's plan and media, read from what crossed the thread. */
-function editedOf(value: Fields, rate: SampleRate): DomainResult<PcmDescription> {
-  const plan = editPlanFrom(value['plan']);
-  if (!plan.ok) return fail(unreadable('plan', `an edit plan (${plan.failures[0].summary})`));
-  if (plan.value.streams[0].sampleRate !== rate)
-    return fail(unreadable('plan', 'a plan at the description’s rate'));
-  const listed = value['media'];
-  const media = Array.isArray(listed) ? listed.map(mediaEntryFrom) : [undefined];
-  return media.every((entry) => entry !== undefined)
-    ? succeed({ kind: PcmDescriptionKind.Edited, sampleRate: rate, plan: plan.value, media })
-    : fail(unreadable('media', 'a list of the files an edited sound reads'));
+/** The assets a plan reads, named `field`, each with the file behind it. */
+export function mediaEntriesOf(value: unknown, field: string): readonly MediaEntry[] {
+  return itemsOf(value, field, mediaEntryOf);
 }
 
-/** A description read from a value of any shape, or the part of it that is wrong. */
-export function pcmDescription(value: unknown): DomainResult<PcmDescription> {
-  if (!isFields(value)) return fail(unreadable('description', 'an object with named fields'));
-  const rate =
-    typeof value['sampleRate'] === 'number' ? sampleRate(value['sampleRate']) : undefined;
-  if (rate?.ok !== true) return fail(unreadable('sampleRate', 'a sample rate'));
-  switch (value['kind']) {
+/** An edited description's plan, which must start at the description's rate. */
+function planOf(value: unknown, field: string, rate: SampleRate): EditPlan {
+  const plan = editPlanOf(value, field);
+  if (plan.streams[0].sampleRate !== rate) {
+    throw new Malformed(field, 'a plan at the description’s rate');
+  }
+  return plan;
+}
+
+/**
+ * The description `value` holds, named `field`, read field by field by the
+ * one reader of a message's fields; a field reader for a message that
+ * carries one.
+ */
+export function pcmDescriptionOf(value: unknown, field: string): PcmDescription {
+  const fields = fieldsOf(value, field);
+  const sampleRate = rateOf(fields['sampleRate'], `${field}.sampleRate`);
+  const kind = oneOfValues(fields['kind'], `${field}.kind`, PcmDescriptionKind);
+  switch (kind) {
     case PcmDescriptionKind.Pcm:
-      return flatMapResult(channelsOf(value['channels']), (channels) =>
-        succeed({ kind: PcmDescriptionKind.Pcm, sampleRate: rate.value, channels }),
-      );
-    case PcmDescriptionKind.Signal: {
-      const recipe = signalRecipe(value['recipe']);
-      return recipe.ok
-        ? succeed({ kind: PcmDescriptionKind.Signal, sampleRate: rate.value, recipe: recipe.value })
-        : fail(unreadable('recipe', `a signal recipe (${recipe.failures[0].summary})`));
-    }
+      return { kind, sampleRate, channels: channelsOf(fields['channels'], `${field}.channels`) };
+    case PcmDescriptionKind.Signal:
+      return { kind, sampleRate, recipe: signalRecipeOf(fields['recipe'], `${field}.recipe`) };
     case PcmDescriptionKind.Edited:
-      return editedOf(value, rate.value);
-    default:
-      return fail(unreadable('kind', `one of ${Object.values(PcmDescriptionKind).join(', ')}`));
+      return {
+        kind,
+        sampleRate,
+        plan: planOf(fields['plan'], `${field}.plan`, sampleRate),
+        media: mediaEntriesOf(fields['media'], `${field}.media`),
+      };
   }
 }
 

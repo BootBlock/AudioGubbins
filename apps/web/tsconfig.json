@@ -10,7 +10,8 @@
     "rootDir": "./src",
     "tsBuildInfoFile": "./build/tsconfig.tsbuildinfo",
     "emitDeclarationOnly": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "allowJs": true
   },
   "include": [
     "src/**/*.ts",

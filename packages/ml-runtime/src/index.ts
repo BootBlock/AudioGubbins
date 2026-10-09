@@ -52,4 +52,5 @@ export {
   type ModelThread,
   ModelThreads,
   type ModelThreadsOptions,
+  type ModelVersionCheck,
 } from './model-threads.js';

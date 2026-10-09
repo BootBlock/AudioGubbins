@@ -18,15 +18,16 @@
  * missing until the person installs it.
  */
 
-import { FailureKind, failure, type CancellationSignal } from '@audiogubbins/domain';
+import { FailureKind, failure, succeed, type CancellationSignal } from '@audiogubbins/domain';
 import {
   versionAvailability,
   type AvailabilityContext,
   type KeptFile,
+  type ModelPackManifest,
   type PackRef,
 } from '@audiogubbins/model-packs';
 import type { DomainResult } from '@audiogubbins/domain';
-import type { ModelFileReader } from '@audiogubbins/ml-runtime';
+import type { ModelFileReader, ModelVersionCheck } from '@audiogubbins/ml-runtime';
 import { ModelUnavailability, modelUnavailable } from '@audiogubbins/processors';
 
 import { NO_PACK_STORAGE } from './model-availability.js';
@@ -67,38 +68,65 @@ const NO_PACKS = failure(
   NO_PACK_STORAGE.explanation,
 );
 
+/**
+ * The installed pack version `pack` and `version` name, whose files can be
+ * read through `files`, or which condition keeps it from a model, `path`
+ * naming the file asked for where one was.
+ */
+async function installedVersion(
+  parts: InstalledModelParts,
+  where: { readonly pack: string; readonly version: string; readonly path?: string },
+  signal: AbortSignal,
+): Promise<DomainResult<{ readonly files: PackFiles; readonly pack: ModelPackManifest }>> {
+  const { pack, version } = where;
+  if (parts.files === undefined) {
+    return modelUnavailable(
+      ModelUnavailability.DeviceUnavailable,
+      NO_PACKS.summary,
+      where,
+      NO_PACKS,
+    );
+  }
+  const context = await parts.context(signal);
+  if (!context.ok) {
+    return modelUnavailable(
+      ModelUnavailability.RequiredUnavailable,
+      `What is installed of ${pack} ${version} could not be read.`,
+      where,
+      context.failures[0],
+    );
+  }
+  const decided = versionAvailability({ id: pack, version }, context.value);
+  if (decided.condition !== 'available') {
+    return modelUnavailable(decided.condition, decided.reason.summary, where, decided.reason);
+  }
+  return succeed({ files: parts.files, pack: decided.pack });
+}
+
+/**
+ * The page's check that an installed pack version can be read, which a thread
+ * asks before it opens any of the version's models; it reads no file.
+ */
+export function installedModelVersions(parts: InstalledModelParts): ModelVersionCheck {
+  return async (pack, version, cancellation) => {
+    const found = await installedVersion(parts, { pack, version }, abortSignalOf(cancellation));
+    return found.ok ? succeed(undefined) : found;
+  };
+}
+
 /** The page's reader of installed packs' files (see the module comment). */
 export function installedModelFiles(parts: InstalledModelParts): ModelFileReader {
   return async (pack, version, path, cancellation) => {
     const where = { pack, version, path };
     const signal = abortSignalOf(cancellation);
-    if (parts.files === undefined) {
-      return modelUnavailable(
-        ModelUnavailability.DeviceUnavailable,
-        NO_PACKS.summary,
-        where,
-        NO_PACKS,
-      );
-    }
-    const context = await parts.context(signal);
-    if (!context.ok) {
-      return modelUnavailable(
-        ModelUnavailability.RequiredUnavailable,
-        `What is installed of ${pack} ${version} could not be read.`,
-        where,
-        context.failures[0],
-      );
-    }
+    const found = await installedVersion(parts, where, signal);
+    if (!found.ok) return found;
     const ref = { id: pack, version };
-    const decided = versionAvailability(ref, context.value);
-    if (decided.condition !== 'available') {
-      return modelUnavailable(decided.condition, decided.reason.summary, where, decided.reason);
-    }
-    const read = await parts.files.read(ref, path, signal);
+    const read = await found.value.files.read(ref, path, signal);
     if (read.ok) return read;
     return modelUnavailable(
       ModelUnavailability.RequiredUnavailable,
-      `The file ${path} of ${decided.pack.name} ${version} could not be read, so the model is not run.`,
+      `The file ${path} of ${found.value.pack.name} ${version} could not be read, so the model is not run.`,
       where,
       read.failures[0],
     );

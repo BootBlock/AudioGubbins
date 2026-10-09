@@ -26,6 +26,7 @@ import { ReferenceHum } from './hum.js';
 import { ReferenceLoudnessMeter } from './loudness-meter.js';
 import { ReferenceNoiseFloor } from './noise-floor.js';
 import { ReferencePeakMeter } from './peak-meter.js';
+import { ReferenceSilence } from './silence.js';
 import { ReferenceStft } from './stft.js';
 import { ReferenceTransients } from './transients.js';
 
@@ -118,6 +119,8 @@ function extractorOf(settings: DetectorSettings): FeatureExtractor {
       return new ReferenceDcOffset(channels, settings.window, settings.hop);
     case DetectorKind.Transients:
       return new ReferenceTransients(channels, settings.size, settings.hop, settings);
+    case DetectorKind.Silence:
+      return new ReferenceSilence(channels, settings.block, settings.threshold);
   }
 }
 

@@ -14,7 +14,7 @@
 import { useState, type ReactNode } from 'react';
 
 import { Button, OptionSelect, TextField } from '@audiogubbins/design-system';
-import { NAMED_QUALITY_LEVELS, type QualitySettingKey } from '@audiogubbins/domain';
+import { NAMED_QUALITY_LEVELS } from '@audiogubbins/domain';
 import {
   LATENCY_CATEGORIES,
   PerformanceProfile,
@@ -41,7 +41,7 @@ import {
   previewQualitySetting,
   renderQualityCommandId,
 } from '../../commands/quality-commands.js';
-import { QUALITY_LEVEL_NAMES, QUALITY_SETTING_KEYS } from '../../quality-words.js';
+import { QUALITY_LEVEL_NAMES } from '../../quality-words.js';
 import { previewQualityOf, type AudioSettings } from '../../state/audio-settings-store.js';
 import { PerformanceChoice } from '../performance-choice.js';
 import { QualityChoice, type QualityOption } from './quality-choice.js';
@@ -238,11 +238,6 @@ const PREVIEW_QUALITY_OPTIONS: readonly QualityOption[] = PREVIEW_QUALITY_SETTIN
   }),
 );
 
-/** A render always takes the pinned inference path (ADR-0062), so it offers no choice of one. */
-const RENDER_SETTINGS: readonly QualitySettingKey[] = QUALITY_SETTING_KEYS.filter(
-  (key) => key !== 'inference',
-);
-
 /** The quality a render and playback run at. */
 function QualitySettings({ settings, run }: AudioProps): ReactNode {
   return (
@@ -253,8 +248,7 @@ function QualitySettings({ settings, run }: AudioProps): ReactNode {
         options={RENDER_QUALITY_OPTIONS}
         mode={settings.renderQuality}
         customCommand={SET_CUSTOM_RENDER_QUALITY}
-        settings={RENDER_SETTINGS}
-        note="What a render is processed at, and what the waveforms draw. A render always takes the pinned inference path, so it sounds the same on every machine."
+        note="What a render is processed at, and what the waveforms draw. A model runs the same pinned way at every level, so a render sounds the same on every machine."
         run={run}
       />
       <QualityChoice
@@ -263,7 +257,6 @@ function QualitySettings({ settings, run }: AudioProps): ReactNode {
         options={PREVIEW_QUALITY_OPTIONS}
         mode={previewQualityOf(settings)}
         customCommand={SET_CUSTOM_PREVIEW_QUALITY}
-        settings={QUALITY_SETTING_KEYS}
         note="What playback is processed at. Automatic follows the performance profile, lower where it trades margin for latency; a change is heard at once."
         run={run}
       />

@@ -12,9 +12,8 @@
  */
 
 import {
-  Malformed,
   countAt,
-  editPlanFrom,
+  editPlanOf,
   oneOf,
   optionalFailureSummaryAt,
   failureSummaryAt,
@@ -29,7 +28,7 @@ import {
   type QualityMode,
 } from '@audiogubbins/domain';
 
-import { mediaEntryFrom } from '../pcm/pcm-description.js';
+import { mediaEntriesOf } from '../pcm/pcm-description.js';
 import type { MediaEntry } from '../pcm/plan-content.js';
 
 /** The kinds of message a reader sends the preview worker. */
@@ -100,21 +99,6 @@ export type FromPreview =
       readonly failure: FailureSummary;
     };
 
-function planAt(fields: MessageFields): EditPlan {
-  const plan = editPlanFrom(fields['plan']);
-  if (!plan.ok) throw new Malformed('plan', `an edit plan (${plan.failures[0].summary})`);
-  return plan.value;
-}
-
-function mediaAt(fields: MessageFields): readonly MediaEntry[] {
-  const listed = fields['media'];
-  const media = Array.isArray(listed) ? listed.map(mediaEntryFrom) : [undefined];
-  if (!media.every((entry) => entry !== undefined)) {
-    throw new Malformed('media', 'a list of the files a plan reads');
-  }
-  return media;
-}
-
 function toPreviewFrom(fields: MessageFields): ToPreview {
   const kind = oneOf(fields, 'kind', ToPreviewKind);
   switch (kind) {
@@ -122,9 +106,9 @@ function toPreviewFrom(fields: MessageFields): ToPreview {
       return {
         kind,
         stream: countAt(fields, 'stream'),
-        plan: planAt(fields),
+        plan: editPlanOf(fields['plan'], 'plan'),
         place: countAt(fields, 'place'),
-        media: mediaAt(fields),
+        media: mediaEntriesOf(fields['media'], 'media'),
         quality: qualityModeAt(fields, 'quality'),
         reason: optionalTextAt(fields, 'reason'),
       };

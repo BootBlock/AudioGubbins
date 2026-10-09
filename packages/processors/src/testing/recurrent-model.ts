@@ -156,6 +156,16 @@ export function recurrentProcessor(definition: ModelDefinition): ModelProcessor 
 
 /** A library that holds the model's one file, and no other. */
 const RECURRENT_LIBRARY: ModelLibrary = {
+  available: (pack, version) =>
+    Promise.resolve(
+      pack === RECURRENT_PACK && version === RECURRENT_VERSION
+        ? succeed(undefined)
+        : modelUnavailable(
+            ModelUnavailability.RequiredUnavailable,
+            `No installed pack is ${pack} ${version}.`,
+            { pack, version },
+          ),
+    ),
   file: (pack, version, path) =>
     Promise.resolve(
       pack === RECURRENT_PACK && version === RECURRENT_VERSION && path === RECURRENT_MODEL_PATH

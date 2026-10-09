@@ -15,17 +15,13 @@
  * It lives here, below every package that runs a thread, since each of them
  * may depend on the domain and no other package sits below them all; the
  * domain's own values, a quality mode among them, are read here in the one
- * form they cross a thread in.
+ * form they cross a thread in. A value that crosses inside many messages, a
+ * plan, a chain or a description of audio, is read by a field reader of its
+ * own built on these, and {@link readValue} answers it alone.
  */
 
-import {
-  FailureKind,
-  fail,
-  failure,
-  succeed,
-  type DomainFailure,
-  type DomainResult,
-} from '../result.js';
+import { isWellFormedId, unsafeBrandId, type Branded } from '../identity/branded-id.js';
+import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
 import { qualityModeFrom, type QualityMode } from '../processing/quality-mode.js';
 import { sampleCount, sampleRate, type SampleCount, type SampleRate } from '../time/sample-time.js';
 
@@ -43,15 +39,6 @@ export class Malformed extends Error {
 
 /** A received value, read one field at a time. */
 export type MessageFields = Readonly<Record<string, unknown>>;
-
-/**
- * A failure as a message carries it where the receiver shows it and acts on
- * nothing else: its code and summary.
- */
-export interface FailureSummary {
-  readonly code: string;
-  readonly summary: string;
-}
 
 function isFields(value: unknown): value is MessageFields {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,10 +64,14 @@ export function fieldsAt(fields: MessageFields, field: string): MessageFields {
   return fieldsOf(fields[field], field);
 }
 
-export function textAt(fields: MessageFields, field: string): string {
-  const value = fields[field];
+/** The value, named `field`, as text. */
+export function textOf(value: unknown, field: string): string {
   if (typeof value !== 'string') throw new Malformed(field, 'text');
   return value;
+}
+
+export function textAt(fields: MessageFields, field: string): string {
+  return textOf(fields[field], field);
 }
 
 /** Text, or `undefined` where the field is absent. */
@@ -88,10 +79,14 @@ export function optionalTextAt(fields: MessageFields, field: string): string | u
   return fields[field] === undefined ? undefined : textAt(fields, field);
 }
 
-export function flagAt(fields: MessageFields, field: string): boolean {
-  const value = fields[field];
+/** The value, named `field`, as true or false. */
+export function flagOf(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') throw new Malformed(field, 'true or false');
   return value;
+}
+
+export function flagAt(fields: MessageFields, field: string): boolean {
+  return flagOf(fields[field], field);
 }
 
 /** The value, named `field`, as a finite number. */
@@ -107,18 +102,35 @@ export function numberAt(fields: MessageFields, field: string): number {
   return numberOf(fields[field], field);
 }
 
-/** A whole number, zero or more. */
-export function countAt(fields: MessageFields, field: string): number {
-  const value = fields[field];
+/** The value, named `field`, as a whole number, zero or more. */
+export function countOf(value: unknown, field: string): number {
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     throw new Malformed(field, 'a whole number, zero or more');
   }
   return value;
 }
 
+/** A whole number, zero or more. */
+export function countAt(fields: MessageFields, field: string): number {
+  return countOf(fields[field], field);
+}
+
 /** A whole number, zero or more, or `undefined` where the field is absent. */
 export function optionalCountAt(fields: MessageFields, field: string): number | undefined {
   return fields[field] === undefined ? undefined : countAt(fields, field);
+}
+
+/** The value, named `field`, as one of the values of a const object. */
+export function oneOfValues<TValue extends string | number>(
+  value: unknown,
+  field: string,
+  values: Readonly<Record<string, TValue>>,
+): TValue {
+  const found = Object.values(values).find((one) => one === value);
+  if (found === undefined) {
+    throw new Malformed(field, `one of ${Object.values(values).join(', ')}`);
+  }
+  return found;
 }
 
 /** One of the values of a const object, such as a message's `kind` or a numbered quality. */
@@ -127,12 +139,7 @@ export function oneOf<TValue extends string | number>(
   field: string,
   values: Readonly<Record<string, TValue>>,
 ): TValue {
-  const value = fields[field];
-  const found = Object.values(values).find((one) => one === value);
-  if (found === undefined) {
-    throw new Malformed(field, `one of ${Object.values(values).join(', ')}`);
-  }
-  return found;
+  return oneOfValues(fields[field], field, values);
 }
 
 /** The value, named `field`, as a list, each element read by `read` with the name of its place. */
@@ -143,6 +150,23 @@ export function itemsOf<TItem>(
 ): readonly TItem[] {
   if (!Array.isArray(value)) throw new Malformed(field, 'a list');
   return value.map((item: unknown, index) => read(item, `${field}[${String(index)}]`));
+}
+
+/**
+ * The value, named `field`, as a list of at most `most` elements, each read
+ * as {@link itemsOf} reads them. The length is checked before any element is
+ * read, so a value cannot ask its reader for unbounded work.
+ */
+export function boundedItemsOf<TItem>(
+  value: unknown,
+  field: string,
+  most: number,
+  read: (item: unknown, name: string) => TItem,
+): readonly TItem[] {
+  if (Array.isArray(value) && value.length > most) {
+    throw new Malformed(field, `a list of at most ${String(most)}`);
+  }
+  return itemsOf(value, field, read);
 }
 
 /** The elements of a list, each read by `read` with the name of its place. */
@@ -241,9 +265,8 @@ export function optionalBytesAt(
   return fields[field] === undefined ? undefined : bytesAt(fields, field);
 }
 
-/** Samples, one `Float32Array` per channel. */
-export function sampleArraysAt(fields: MessageFields, field: string): readonly Float32Array[] {
-  const value: unknown = fields[field];
+/** The value, named `field`, as samples, one `Float32Array` per channel. */
+export function sampleArraysOf(value: unknown, field: string): readonly Float32Array[] {
   const isSamples = (one: unknown): one is Float32Array => isTagged(one, 'Float32Array');
   if (!Array.isArray(value) || !value.every(isSamples)) {
     throw new Malformed(field, 'a list of sample arrays');
@@ -251,18 +274,52 @@ export function sampleArraysAt(fields: MessageFields, field: string): readonly F
   return value;
 }
 
+/** Samples, one `Float32Array` per channel. */
+export function sampleArraysAt(fields: MessageFields, field: string): readonly Float32Array[] {
+  return sampleArraysOf(fields[field], field);
+}
+
+/** The value, named `field`, as an identifier of the domain's form, branded `TBrand`. */
+export function identifierOf<TBrand extends string>(
+  value: unknown,
+  field: string,
+): Branded<TBrand> {
+  if (typeof value !== 'string' || !isWellFormedId(value)) {
+    throw new Malformed(field, 'an identifier');
+  }
+  return unsafeBrandId<TBrand>(value);
+}
+
+/** An identifier of the domain's form, branded `TBrand`. */
+export function identifierAt<TBrand extends string>(
+  fields: MessageFields,
+  field: string,
+): Branded<TBrand> {
+  return identifierOf<TBrand>(fields[field], field);
+}
+
+/** The value, named `field`, as a sample rate. */
+export function rateOf(value: unknown, field: string): SampleRate {
+  const read = sampleRate(numberOf(value, field));
+  if (!read.ok) throw new Malformed(field, 'a sample rate');
+  return read.value;
+}
+
 /** A sample rate. */
 export function rateAt(fields: MessageFields, field: string): SampleRate {
-  const read = sampleRate(numberAt(fields, field));
-  if (!read.ok) throw new Malformed(field, 'a sample rate');
+  return rateOf(fields[field], field);
+}
+
+/** The value, named `field`, as a count of samples. */
+export function sampleCountOf(value: unknown, field: string): SampleCount {
+  const read = sampleCount(countOf(value, field));
+  if (!read.ok) throw new Malformed(field, 'a count of samples');
   return read.value;
 }
 
 /** A count of samples. */
 export function sampleCountAt(fields: MessageFields, field: string): SampleCount {
-  const read = sampleCount(countAt(fields, field));
-  if (!read.ok) throw new Malformed(field, 'a count of samples');
-  return read.value;
+  return sampleCountOf(fields[field], field);
 }
 
 /** Frames from `start` up to `end`, which is not before it. */
@@ -289,81 +346,31 @@ export function qualityModeAt(fields: MessageFields, field: string): QualityMode
   return mode.value;
 }
 
-/** The code and summary of the failure `fields` holds. */
-export function failureSummaryOf(fields: MessageFields): FailureSummary {
-  return { code: textAt(fields, 'code'), summary: textAt(fields, 'summary') };
-}
-
-/** A failure's code and summary. */
-export function failureSummaryAt(fields: MessageFields, field: string): FailureSummary {
-  return failureSummaryOf(fieldsAt(fields, field));
-}
-
-/** A failure's code and summary, or `undefined` where the field is absent. */
-export function optionalFailureSummaryAt(
-  fields: MessageFields,
-  field: string,
-): FailureSummary | undefined {
-  return fields[field] === undefined ? undefined : failureSummaryAt(fields, field);
-}
-
-/** A failure's details: named text, numbers and flags. */
-function detailsOf(fields: MessageFields, name: string): DomainFailure['details'] {
-  if (fields['details'] === undefined) return undefined;
-  const details = fieldsOf(fields['details'], `${name}.details`);
-  const read: Record<string, string | number | boolean> = {};
-  for (const [key, one] of Object.entries(details)) {
-    if (typeof one !== 'string' && typeof one !== 'number' && typeof one !== 'boolean') {
-      throw new Malformed(`${name}.details.${key}`, 'text, a number or a flag');
-    }
-    read[key] = one;
-  }
-  return read;
-}
-
-/** A whole failure as the domain states it, with the failure it arose from, if any. */
-function domainFailureOf(value: unknown, name: string): DomainFailure {
-  const fields = fieldsOf(value, name);
-  const details = detailsOf(fields, name);
-  const cause =
-    fields['cause'] === undefined ? undefined : domainFailureOf(fields['cause'], `${name}.cause`);
-  return failure(
-    textAt(fields, 'code'),
-    oneOf(fields, 'kind', FailureKind),
-    textAt(fields, 'summary'),
-    {
-      ...(details === undefined ? {} : { details }),
-      ...(cause === undefined ? {} : { cause }),
-    },
-  );
-}
-
-/** Whole failures, at least one. */
-export function domainFailuresAt(
-  fields: MessageFields,
-  field: string,
-): readonly [DomainFailure, ...DomainFailure[]] {
-  const [first, ...rest] = itemsAt(fields, field, domainFailureOf);
-  if (first === undefined) throw new Malformed(field, 'a list of at least one');
-  return [first, ...rest];
-}
-
 /**
- * Reads a message with `read`, answering the refusal of a malformed one as a
- * failure under `code` that names the field. Anything else thrown is a fault
- * in the reader and propagates.
+ * Reads a value of any shape with `read`, answering the refusal of a
+ * malformed one as a failure under `code` that names the field. Anything else
+ * thrown is a fault in the reader and propagates.
  */
-export function readMessage<TMessage>(
+export function readValue<TValue>(
   value: unknown,
   code: string,
-  read: (fields: MessageFields) => TMessage,
-): DomainResult<TMessage> {
+  read: (value: unknown) => TValue,
+): DomainResult<TValue> {
   try {
-    return succeed(read(fieldsOf(value, 'body')));
+    return succeed(read(value));
   } catch (error) {
     if (!(error instanceof Malformed)) throw error;
     return fail(
       failure(code, FailureKind.Rejected, error.message, { details: { field: error.field } }),
     );
   }
+}
+
+/** Reads a message with `read`, as {@link readValue} reads a value, its body named `body`. */
+export function readMessage<TMessage>(
+  value: unknown,
+  code: string,
+  read: (fields: MessageFields) => TMessage,
+): DomainResult<TMessage> {
+  return readValue(value, code, (body) => read(fieldsOf(body, 'body')));
 }

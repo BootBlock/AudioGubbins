@@ -21,6 +21,7 @@ import { noise } from '@audiogubbins/test-fixtures';
 
 import type { AudioDetector } from '../detection/audio-detector.js';
 import { TEST_RATE } from './processor-run.js';
+import { settledValues } from '../detection/detector-values.js';
 
 /** The layout of `channels` channels the tests use: mono, stereo or 5.1. */
 function layoutOf(channels: number): ChannelLayout {
@@ -57,16 +58,23 @@ export function countingDsp(): { readonly dsp: CanonicalDsp; readonly live: () =
 
 /**
  * The findings of `detector` over `channels`, all of one length, given in
- * chunks of `chunk` frames at the test rate.
+ * chunks of `chunk` frames at the test rate, judged by `values` and the
+ * defaults of what they do not set.
  */
 export async function detect(
   detector: AudioDetector,
   channels: readonly Float32Array[],
   chunk = 4_096,
   dsp: CanonicalDsp = REFERENCE_DSP,
+  values: Readonly<Record<string, number>> = {},
 ): Promise<readonly DetectorFinding[]> {
   const detection = expectSuccess(
-    detector.open({ input: layoutOf(channels.length), sampleRate: TEST_RATE, dsp }),
+    detector.open({
+      input: layoutOf(channels.length),
+      sampleRate: TEST_RATE,
+      dsp,
+      values: expectSuccess(settledValues(detector, values)),
+    }),
   );
   const length = channels[0]?.length ?? 0;
   for (let start = 0; start < length; start += chunk) {

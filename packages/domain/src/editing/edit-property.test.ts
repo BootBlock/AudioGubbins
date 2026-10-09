@@ -117,7 +117,7 @@ function step(
     if (copied.end > copied.start) {
       const payload = expectSuccess(slicePlan(plan, copied.start, copied.end));
       return {
-        operation: { id, kind: 'insert', at: derivedSampleCount(at), payload, convertRate: false },
+        operation: { id, kind: 'insert', at: derivedSampleCount(at), payload },
         inserted: samples.map((channel) => channel.slice(copied.start, copied.end)),
       };
     }

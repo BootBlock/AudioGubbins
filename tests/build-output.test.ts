@@ -191,6 +191,19 @@ describe("the build-output gate's hold on the inference runtime (ADR-0062)", () 
     ]);
   });
 
+  it('fails a copy of the runtime’s WebAssembly among the assets, as the bundler emitted one', () => {
+    const copy = `assets/${RUNTIME_WEBASSEMBLY_FILE.replace('.wasm', '-DcHrbrbl.wasm')}`;
+    artefact(copy, 'not read');
+
+    expect(problems()).toEqual([
+      expect.objectContaining({
+        file: copy,
+        reason: 'is WebAssembly outside the inference runtime’s folder, which no session loads',
+      }),
+    ]);
+    expect(check(output).status).toBe(1);
+  });
+
   it('fails a runtime missing its file, or none at all, and fails the build that made it', () => {
     rmSync(join(output, RUNTIME_FOLDER, RUNTIME_WEBASSEMBLY_FILE));
     writeFileSync(join(output, RUNTIME_FOLDER, 'placeholder.txt'), '');

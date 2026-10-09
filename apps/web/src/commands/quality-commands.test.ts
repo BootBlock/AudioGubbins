@@ -9,7 +9,6 @@ import {
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 import {
-  InferencePath,
   MAXIMUM_QUALITY,
   QualityLevel,
   ResamplingGrade,
@@ -84,7 +83,7 @@ describe('the quality commands', () => {
       (command) => command.id === 'transport.render-quality-draft',
     );
     expect(draft?.description).toBe(
-      'Renders, and draws waveforms, at Draft quality. Resampling draft, oversampling none, spectral overlap 2 frames, inference path pinned.',
+      'Renders, and draws waveforms, at Draft quality. Resampling draft, oversampling none, spectral overlap 2 frames.',
     );
   });
 });
@@ -128,14 +127,12 @@ describe('choosing the render quality', () => {
       resampling: 'best',
       oversampling: 3,
       spectralOverlap: '4',
-      inference: 'quick',
     });
 
     expect(refusals(outcome)).toEqual([
       'A resampling grade is draft, high or maximum.',
       'Oversampling is 1, 2, 4 or 8 times.',
       'A spectral overlap is 2, 4 or 8 frames.',
-      'An inference path is pinned or accelerated.',
     ]);
     expect(context.audioSettings.get().renderQuality).toBe(MAXIMUM_QUALITY);
   });
@@ -168,16 +165,14 @@ describe('choosing the preview quality', () => {
   });
 
   it('sets the values given over those it previews at, and stops following the profile', () => {
-    const outcome = run('transport.set-custom-preview-quality', {
-      inference: InferencePath.Accelerated,
-    });
+    const outcome = run('transport.set-custom-preview-quality', { oversampling: 8 });
 
     expect(outcome.kind).toBe('applied');
     expect(context.audioSettings.get().previewQuality).toEqual({
       level: QualityLevel.Custom,
       settings: {
         ...namedQualityMode(QualityLevel.Standard).settings,
-        inference: InferencePath.Accelerated,
+        oversampling: 8,
       },
     });
     expect(said()).toBe('Preview quality: Custom.');

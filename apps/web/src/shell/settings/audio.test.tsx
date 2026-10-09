@@ -121,7 +121,7 @@ describe('the audio settings', () => {
 });
 
 describe('the quality settings', () => {
-  it('shows the render quality, every value it sets, and no inference path, which a render pins', () => {
+  it('shows the render quality and every value it sets', () => {
     const { context } = buildShellContext();
     render(<Section context={context} />);
 
@@ -129,11 +129,6 @@ describe('the quality settings', () => {
     expect(select('Render quality', 'Resampling')).toHaveTextContent('Maximum');
     expect(select('Render quality', 'Oversampling')).toHaveTextContent('8 times');
     expect(select('Render quality', 'Spectral overlap')).toHaveTextContent('8 frames');
-    expect(
-      within(screen.getByRole('group', { name: 'Render quality' })).queryByRole('combobox', {
-        name: 'Inference path',
-      }),
-    ).toBeNull();
   });
 
   it('shows the preview following the profile, with the values the profile previews at', () => {
@@ -144,7 +139,6 @@ describe('the quality settings', () => {
     expect(select('Preview quality', 'Preview quality level')).toHaveTextContent('Automatic');
     expect(select('Preview quality', 'Resampling')).toHaveTextContent('Draft');
     expect(select('Preview quality', 'Oversampling')).toHaveTextContent('None');
-    expect(select('Preview quality', 'Inference path')).toHaveTextContent('Accelerated');
   });
 
   it('chooses a level through its command', async () => {

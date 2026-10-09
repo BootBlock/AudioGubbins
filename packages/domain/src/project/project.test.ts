@@ -388,7 +388,6 @@ describe('projectChains', () => {
         kind: 'insert',
         at: 0 as SampleCount,
         payload,
-        convertRate: false,
       },
     ]);
     const project: Project = {

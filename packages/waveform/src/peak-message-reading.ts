@@ -22,7 +22,11 @@ import {
   type DomainResult,
   type MessageFields,
 } from '@audiogubbins/domain';
-import { isMessagePortLike, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import {
+  isMessagePortLike,
+  pcmDescriptionOf,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
 
 import {
   FromPeakWorkerKind,
@@ -71,9 +75,7 @@ function runOf(value: unknown, field: string): PeakRun {
 }
 
 function descriptionAt(fields: MessageFields, field: string): PcmDescription {
-  const read = pcmDescription(fields[field]);
-  if (!read.ok) throw new Malformed(field, `a description of audio (${read.failures[0].summary})`);
-  return read.value;
+  return pcmDescriptionOf(fields[field], field);
 }
 
 /** The port to the preview worker, the one message that names no job. */

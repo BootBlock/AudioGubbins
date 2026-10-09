@@ -39,6 +39,8 @@ function packFolder({ pack, version }: ModelIdentity): string {
 export function packCacheLibrary(identity: ModelIdentity): ModelLibrary {
   const folder = packFolder(identity);
   return {
+    // The folder was found as the library was made, or it throws.
+    available: () => Promise.resolve(succeed(undefined)),
     file: (_pack, _version, path) => {
       const bytes = new Uint8Array(readFileSync(join(folder, path)));
       return Promise.resolve(succeed({ bytes, sha256: sha256Of(bytes) }));

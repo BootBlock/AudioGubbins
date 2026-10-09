@@ -1,7 +1,6 @@
-> **Status:** In progress. 2026-10-07: the sixth session committed the
-> chain depth bounds, the ML wiring, the ADR amendments, the views, the
-> phase's scripts and its browser test, each with `verify:commit` green.
-> Next is the one review pass.
+> **Status:** In progress. 2026-10-09: the seventh session fixed the one
+> review pass's findings in four batches, each with `verify:commit` green.
+> Next is the replay check, the evidence, the ledger and landing.
 
 # Phase 06 — Effect Rack and Core DSP
 
@@ -86,8 +85,8 @@ the package dependencies in ADR-0030 and ADR-0040).
 9. **Persisted form.** A chain is written by `chain-writing.ts` and read by
    `chain-reading.ts` (project-format), the one form for a project, a plan's
    processed stream, the library and the clipboard. Schema versions:
-   `projectDocument` 4, `projectStorage` 8 (4 and 8 since stretch and rate
-   conversion carry the engine's algorithm version).
+   `projectDocument` 5, `projectStorage` 9 (stretch, rate conversion and a
+   converted paste carry the engine's algorithm version).
 10. **Processor node encoding.** A processor runs as node type
     `processor.<typeKey>` with ports `input`, optional `side-chain`, and
     `output`; settings `parameter.<key>`, `quality.<setting>`, `state.kind`,
@@ -134,10 +133,14 @@ the package dependencies in ADR-0030 and ADR-0040).
     types and values by key (and, for state, the range it is learned
     from), never instances, so nothing holds an identifier until a person
     applies it. `packages/processors/src/detection/` holds `AudioDetector`
-    (open, and a `Detection` that is a `WholePass`: add, result, release), the six canonical
-    detectors on `crates/analysis`'s features and the three assistants
-    (classification, restoration, repair), which recommend steps in one
-    order and apply nothing. Running a detection over a stream is the
+    (open, and a `Detection` that is a `WholePass`: add, result, release), the seven canonical
+    detectors on `crates/analysis`'s features and the four assistants
+    (classification, restoration, repair, silence; `CANONICAL_ASSISTANTS`),
+    which recommend steps in one order and apply nothing. A detector
+    declares the settings a person may set (`parameters`) and its own
+    `refusal` of a combination; a request carries the values, checked by
+    the worker and by every command through that one check, and they are
+    part of the result's key. Running a detection over a stream is the
     application's, in a worker.
 17. **Local inference.** `packages/ml-runtime` holds the inference port
     (no browser global), `InferenceOptions` (pinned: WebAssembly, fixed
@@ -589,6 +592,34 @@ batches, each fix with a test seen to fail against the old code.
   (`domain/src/messages/message-fields.ts`) and one `QualityMode` wire
   form; algorithm versions on stretch and rate conversion; the feeder and
   peak workers in the locality test; the unused `packsToFetch` removed.
+- Batch D: each pack's pinned final render runs in Chromium, Firefox and
+  WebKit through the real inference worker (`tests/e2e/ml-golden.spec.ts`,
+  `pnpm test:e2e:ml-golden`), each giving the Node hash, from one table
+  (`processors/src/testing/ml-goldens.ts`); `test:audio-golden` takes the
+  ML goldens too and so needs `AUDIOGUBBINS_PACK_CACHE`, while `pnpm test`
+  still never runs them. Silence trimming (REQ-AUDIO-018): a silence
+  extractor in `crates/analysis` and its reference (DSP ABI 6), the silence
+  detector and assistant, `removalEdits` turning findings into the
+  existing deletes and trim in one history step (`analysis.remove-silence`,
+  `analysis.analyse-again` over the shown analysis's scope), with four
+  settings a person sets (threshold, shortest edge silence, shortest
+  pause, pause kept). A pack's tier is its model's own speed against
+  thoroughness (light, balanced, thorough), never a render quality; the
+  pack path, version, tier, capability and size grammars are JavaScript
+  modules of `model-packs`, which the pack build tool loads (no copies);
+  the capabilities are fixed-width SIMD alone. The build ships the
+  runtime's `.wasm` once, and the output check refuses any other. A filter
+  or EQ section above 0.49 x rate is fitted to its analogue magnitude
+  (`magnitude-fit.ts`), and between 0.45 and 0.49 x rate each coefficient
+  moves linearly from the cookbook's design to the fit, so a frequency
+  swept across the hand-over moves at most 0.017 dB (the old switch
+  jumped up to 40 dB). A converted paste carries the resampler's version;
+  `QualitySettings.inference` is removed; one thread-crossing test helper
+  (`domain/testing`); the PCM description, signal recipe, chain and plan
+  readers read through the one field reader; a model whose pack is missing
+  opens no session and starts no worker (`ModelLibrary.available`). The
+  cruise rules keep the effect rack, the processors and the model channel
+  to thread entries and test support.
 
 Open points from `ml-runtime`:
 
@@ -684,17 +715,20 @@ Open points from `model-packs`:
 - The dereverberation allocation tests failed once under the whole
   suite's load and passed on the next run; watch for a repeat.
 
-Next, in order (2026-10-07):
+Next, in order (2026-10-09):
 
-1. ONE review pass with the packet's seven lenses
-   after committing; evidence, review, ledger PASS, handoff
-   `traceability/handoffs/phase-06.md`, README readiness; land (merge main
-   into the branch, `verify:commit`, `merge --no-ff` from the primary
-   checkout, push, remove the worktree, `git branch -d`, delete the briefs
-   folder); `gambit_record_change` for the user-visible changes (quality
-   settings and the transport's quality lines, the Analysis panel, the
-   storage panel's pack rows and cleanup, the cached preview in the
-   processing modes, and the views).
+1. Check the replay defect above in a browser; fix it with a test if it
+   still happens.
+2. Evidence (`reviews/phase-06-evidence.md`), the review record's last
+   commit, ledger PASS, handoff `traceability/handoffs/phase-06.md`, README
+   readiness; land (merge main into the branch, `verify:commit`,
+   `merge --no-ff` from the primary checkout, push, remove the worktree,
+   `git branch -d`, delete the briefs folder); `gambit_record_change` for
+   the user-visible changes (quality settings and the transport's quality
+   lines, the Analysis panel and its silence removal, the storage panel's
+   pack rows and cleanup, the cached preview in the processing modes, the
+   Effects rack panel, the Inspector's rack and processor controls, Hear
+   the original, the Library panel, the Model packs panel).
 
 Known limits of the ML packs: Spleeter's butted segments leave a
 measurable seam at each join (RMS difference 0.016 near joins against

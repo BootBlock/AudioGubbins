@@ -176,7 +176,6 @@ describe('what a region sounds like', () => {
           kind: 'insert',
           at: frames(4),
           payload: pasted,
-          convertRate: false,
         },
       ],
     ];

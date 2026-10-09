@@ -199,7 +199,6 @@ function deepestAsset(): Asset {
     kind: 'insert',
     at: derivedSampleCount(0),
     payload,
-    convertRate: false,
   };
   const asset = { ...base, edits: [conversion, paste] };
   expectSuccess(validateChain(asset, new Map([[asset.id, asset]]), context.chains));
@@ -269,6 +268,32 @@ describe('an edit-model value read alone refuses', () => {
       { id: '0000aaaa', kind: 'convert-rate', sampleRate: 44_100, version: 0 },
       'schema.number-out-of-range',
       'value.version',
+    ],
+    [
+      'a paste converted by version 0 of the resampler, which no build has',
+      readEditOperation,
+      {
+        id: '0000aaaa',
+        kind: 'insert',
+        at: 0,
+        payload: planWithStage({ kind: 'matrix', matrix: [[1]] }),
+        resampler: 0,
+      },
+      'schema.number-out-of-range',
+      'value.resampler',
+    ],
+    [
+      'a paste that says it converts without naming the resampler that does',
+      readEditOperation,
+      {
+        id: '0000aaaa',
+        kind: 'insert',
+        at: 0,
+        payload: planWithStage({ kind: 'matrix', matrix: [[1]] }),
+        convertRate: true,
+      },
+      'schema.unknown-member',
+      'value',
     ],
     [
       'a kind the domain does not name',

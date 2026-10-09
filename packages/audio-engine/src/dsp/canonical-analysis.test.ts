@@ -109,6 +109,8 @@ describe.each([
       { ...basis, kind: DetectorKind.NoiseFloor, frame: 256, hop: 128, percentile: 2, history: 8 },
       { ...basis, kind: DetectorKind.Clipping, block: 256, epsilon: -1, minimumRun: 2 },
       { ...basis, kind: DetectorKind.DcOffset, window: 100, hop: 101 },
+      { ...basis, kind: DetectorKind.Silence, block: 0, threshold: 0.001 },
+      { ...basis, kind: DetectorKind.Silence, block: 256, threshold: Number.NaN },
     ] satisfies DetectorSettings[]) {
       expect(expectFailureCode(dsp.createDetectorFeatures(settings))).toBe(
         'dsp.detector-settings-invalid',

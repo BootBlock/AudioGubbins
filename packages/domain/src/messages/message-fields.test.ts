@@ -5,7 +5,6 @@ import { QualityLevel, namedQualityMode } from '../processing/quality-mode.js';
 import {
   bytesAt,
   countAt,
-  domainFailuresAt,
   floatsAt,
   frameRangeAt,
   itemsAt,
@@ -15,6 +14,7 @@ import {
   readMessage,
   type MessageFields,
 } from './message-fields.js';
+import { domainFailuresAt } from './failure-fields.js';
 
 /** The failure a malformed message is read as, or nothing where it was read. */
 function refusalOf(value: unknown, read: (fields: MessageFields) => unknown) {

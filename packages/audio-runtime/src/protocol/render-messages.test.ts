@@ -203,11 +203,14 @@ describe('the messages a render worker is sent', () => {
     ['quality', { quality: { level: 'high', settings: { resampling: 'best' } } }],
     ['sources', { sources: 'in' }],
     ['sources[0]', { sources: [null] }],
-    ['kind', { sources: [{ node: 'in', kind: 'file', sampleRate: 48_000 }] }],
+    ['sources[0].kind', { sources: [{ node: 'in', kind: 'file', sampleRate: 48_000 }] }],
     ['node', { sources: [{ node: 'In Put', kind: 'pcm', sampleRate: 48_000, channels: [] }] }],
-    ['channels', { sources: [{ node: 'in', kind: 'pcm', sampleRate: 48_000, channels: [[1]] }] }],
     [
-      'recipe',
+      'sources[0].channels',
+      { sources: [{ node: 'in', kind: 'pcm', sampleRate: 48_000, channels: [[1]] }] },
+    ],
+    [
+      'sources[0].recipe.channels',
       { sources: [{ node: 'in', kind: 'signal', sampleRate: 48_000, recipe: { length: 1 } }] },
     ],
     ['coefficientBudgetBytes', { coefficientBudgetBytes: -1 }],

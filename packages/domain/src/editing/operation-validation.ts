@@ -119,12 +119,19 @@ function insertionProblem(
   if (!layoutsMatch(stream.layout, shape.layout)) {
     return refused('payload-layout', 'The pasted audio does not have this audio’s channels.');
   }
-  if ((stream.sampleRate !== shape.sampleRate) !== operation.convertRate) {
+  const converted = operation.resampler !== undefined;
+  if ((stream.sampleRate !== shape.sampleRate) !== converted) {
     return refused(
       'payload-rate',
-      operation.convertRate
+      converted
         ? 'The pasted audio is already at this audio’s rate, so there is nothing to convert.'
         : 'The pasted audio is at another sample rate, and is converted only when that is asked for.',
+    );
+  }
+  if (operation.resampler !== undefined && !isVersion(operation.resampler)) {
+    return refused(
+      'conversion-version',
+      'A conversion of the pasted audio names the version of the resampler it is made by.',
     );
   }
   return succeed(undefined);

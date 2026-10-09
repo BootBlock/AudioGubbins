@@ -1,6 +1,6 @@
-import { QualityLevel } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { generatedSource } from '@audiogubbins/media-store/testing';
+import { PackTier } from '@audiogubbins/model-packs';
 import type { ModelPackStore } from '@audiogubbins/storage';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 import { describe, expect, it } from 'vitest';
@@ -26,7 +26,7 @@ const PACK: Parameters<ModelPackStore['stage']>[0] = {
     below: '2.0.0',
     capabilities: ['webassembly-simd'],
   },
-  tiers: [QualityLevel.Standard],
+  tier: PackTier.Balanced,
   serves: { processors: ['sample-denoise'], detectors: [] },
 };
 const PACK_REF = { id: PACK.id, version: PACK.version };

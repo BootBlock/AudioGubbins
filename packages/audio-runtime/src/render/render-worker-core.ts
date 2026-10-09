@@ -19,7 +19,6 @@ import {
   FailureKind,
   createCancellationSource,
   failure,
-  finalRenderSettings,
   type CancellationSource,
 } from '@audiogubbins/domain';
 import type { NodeId } from '@audiogubbins/audio-graph';
@@ -234,7 +233,7 @@ export class RenderWorkerCore {
     }
     const sources = makeSources(message.sources, endpoints.value.inputs, scoped.dsp, {
       processing: this.#host.processing,
-      quality: finalRenderSettings(message.quality),
+      quality: message.quality.settings,
       start: ProcessedStart.Canonical,
     });
     if (!sources.ok) {

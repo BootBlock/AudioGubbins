@@ -4,20 +4,27 @@ import { describe, expect, it } from 'vitest';
 
 import {
   FailureKind,
-  QualityLevel,
   createCancellationSource,
   fail,
   failure,
   type DomainResult,
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import type { LocalInferenceSupport, ModelPackManifest } from '@audiogubbins/model-packs';
+import {
+  PackTier,
+  type LocalInferenceSupport,
+  type ModelPackManifest,
+} from '@audiogubbins/model-packs';
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 import type { ModelFileRead } from '@audiogubbins/ml-runtime';
 
 import { buildShellContext } from '../testing/shell-context.js';
 import { projectWorld } from '../testing/project-context.js';
-import { installedModelFiles } from './installed-model-files.js';
+import {
+  installedModelFiles,
+  installedModelVersions,
+  type InstalledModelParts,
+} from './installed-model-files.js';
 import { createModelAvailabilityStore } from './model-availability.js';
 
 /**
@@ -70,7 +77,7 @@ function manifest(id: string, options: { readonly runtimeBelow?: string } = {}):
       below: options.runtimeBelow ?? '2.0.0',
       capabilities: ['webassembly-simd'],
     },
-    tiers: [QualityLevel.Standard],
+    tier: PackTier.Balanced,
     serves: { processors: [id], detectors: [] },
   };
 }
@@ -79,18 +86,18 @@ function manifest(id: string, options: { readonly runtimeBelow?: string } = {}):
 type Kept = 'installed' | 'paused' | 'altered';
 
 /**
- * A page's library over a storage worker whose store keeps `packs`, as the
- * installer learns them on the page's first question, on a device `device`
- * describes; `context` stands in for the availability store's own reading
- * where a test makes it fail.
+ * What a page's library reads through, over a storage worker whose store keeps
+ * `packs`, as the installer learns them on the page's first question, on a
+ * device `device` describes; `context` stands in for the availability store's
+ * own reading where a test makes it fail.
  */
-async function library(
+async function installedParts(
   packs: readonly (readonly [ModelPackManifest, Kept])[],
   options: {
     readonly device?: LocalInferenceSupport;
     readonly context?: 'unreadable';
   } = {},
-) {
+): Promise<InstalledModelParts> {
   const world = projectWorld();
   for (const [pack, kept] of packs) {
     const ref = { id: pack.id, version: pack.version };
@@ -108,7 +115,7 @@ async function library(
     device: () => options.device ?? CAPABLE_DEVICE,
     unknown: () => undefined,
   });
-  return installedModelFiles({
+  return {
     files: client.packs,
     context:
       options.context === 'unreadable'
@@ -117,7 +124,12 @@ async function library(
               fail(failure('test.unreadable', FailureKind.Retryable, 'The worker did not answer.')),
             )
         : availability.current,
-  });
+  };
+}
+
+/** The page's library over {@link installedParts}. */
+async function library(...over: Parameters<typeof installedParts>) {
+  return installedModelFiles(await installedParts(...over));
 }
 
 /** Asks `read` for the model file of version 1.0.0 of `pack`. */
@@ -129,7 +141,7 @@ async function asked(
 }
 
 /** The condition a refusal names, its code, and the code of the reason beneath it. */
-function refusal(read: DomainResult<ModelFileRead>) {
+function refusal(read: DomainResult<unknown>) {
   if (read.ok) return 'read';
   const [first] = read.failures;
   return {
@@ -140,6 +152,37 @@ function refusal(read: DomainResult<ModelFileRead>) {
 }
 
 describe('the model library on the installed packs (REQ-AUDIO-139)', () => {
+  it('says whether a version can be read by the conditions a file is refused by, reading no file', async () => {
+    const parts = await installedParts([
+      [manifest('denoise'), 'installed'],
+      [manifest('separate'), 'paused'],
+    ]);
+    const files = parts.files;
+    if (files === undefined) throw new Error('The test keeps packs.');
+    let reads = 0;
+    const versions = installedModelVersions({
+      ...parts,
+      files: {
+        read: (...call) => {
+          reads += 1;
+          return files.read(...call);
+        },
+      },
+    });
+    const signal = createCancellationSource().signal;
+
+    expect(await versions('denoise', '1.0.0', signal)).toEqual({ ok: true, value: undefined });
+    expect(refusal(await versions('separate', '1.0.0', signal))).toMatchObject({
+      condition: 'required-unavailable',
+      cause: 'model-pack.not-ready',
+    });
+    expect(refusal(await versions('enhance', '1.0.0', signal))).toMatchObject({
+      condition: 'required-unavailable',
+      cause: 'model-pack.not-installed',
+    });
+    expect(reads).toBe(0);
+  });
+
   it('gives an installed file its bytes, with the SHA-256 taken as they were read', async () => {
     const read = await library([[manifest('denoise'), 'installed']]);
 

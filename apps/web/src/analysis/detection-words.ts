@@ -14,6 +14,7 @@ import {
   type TreatmentStep,
 } from '@audiogubbins/domain';
 import type { DetectionResult, KindCount } from '@audiogubbins/detection-runtime';
+import { gainToDecibels } from '@audiogubbins/audio-engine';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { counted } from '@audiogubbins/text';
 
@@ -45,12 +46,17 @@ const KIND_WORDS: Readonly<Record<FindingKind, { readonly one: string; readonly 
   [FindingKind.Clipping]: { one: 'clipped stretch', many: 'clipped stretches' },
   [FindingKind.DcOffset]: { one: 'DC offset', many: 'DC offsets' },
   [FindingKind.Transient]: { one: 'onset', many: 'onsets' },
+  [FindingKind.Silence]: { one: 'silent stretch', many: 'silent stretches' },
 };
+
+/** `text` with its first letter a capital. */
+function capitalised(text: string): string {
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+}
 
 /** What a finding of `kind` is called at the head of a list of them. */
 export function kindHeading(kind: FindingKind): string {
-  const { many } = KIND_WORDS[kind];
-  return `${many.charAt(0).toUpperCase()}${many.slice(1)}`;
+  return capitalised(KIND_WORDS[kind].many);
 }
 
 /** How many findings of `kind` there are, in words: `3 clicks`. */
@@ -80,6 +86,10 @@ export function measureWords(finding: DetectorFinding): string {
       return `the mean is ${signed(OFFSET.format(value))} of full scale`;
     case FindingKind.Transient:
       return `${decibels(value, 'dB')} above the threshold`;
+    case FindingKind.Silence:
+      return value === 0
+        ? 'digital silence'
+        : `its loudest sample at ${decibels(gainToDecibels(value), 'dBFS')}`;
   }
 }
 
@@ -147,11 +157,21 @@ export function detectionSummary(result: DetectionResult, name: string): string 
     (total, report) => total + report.recommendation.steps.length,
     0,
   );
+  const removals = result.reports.reduce(
+    (total, report) => total + report.recommendation.removals.length,
+    0,
+  );
   const found =
     counts.size === 0
       ? `Found nothing to report in ${name}.`
       : `Found ${LIST.format([...counts].map(([kind, count]) => kindCount(kind, count)))} in ${name}.`;
-  return steps === 0
+  const offered = [
+    ...(steps === 0 ? [] : [`${counted(steps, 'step is', 'steps are')} recommended`]),
+    ...(removals === 0
+      ? []
+      : [`${counted(removals, 'silent stretch', 'silent stretches')} can be taken out`]),
+  ];
+  return offered.length === 0
     ? `${found} Nothing is recommended.`
-    : `${found} ${counted(steps, 'step is', 'steps are')} recommended in the Analysis panel.`;
+    : `${found} ${capitalised(LIST.format(offered))} in the Analysis panel.`;
 }

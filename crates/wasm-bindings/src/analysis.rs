@@ -483,6 +483,19 @@ mod tests {
             COUNT_BAD_HANDLE
         );
         assert_eq!(ag_detector_release(detector), STATUS_DONE);
+        // Code 6, the silence extractor of blocks of 4 quiet at 2⁻¹⁰, which
+        // reads the zeros pushed as one quiet run of the whole block.
+        crate::with_objects(|objects| {
+            if let Some(held) = objects.buffers_f64.get_mut(values) {
+                held.copy_from_slice(&[4.0, 1.0 / 1_024.0]);
+            }
+        });
+        let silence = ag_detector_create(6, 2, 48_000, values, 2);
+        assert_ne!(silence, 0);
+        assert_eq!(ag_detector_record_width(silence), 4);
+        assert_eq!(ag_detector_push(silence, samples, 4), STATUS_DONE);
+        assert_eq!(ag_detector_pull(silence, records, 2), 1);
+        assert_eq!(ag_detector_release(silence), STATUS_DONE);
         for buffer in [settings, records, values] {
             assert_eq!(ag_buffer_f64_release(buffer), STATUS_DONE);
         }

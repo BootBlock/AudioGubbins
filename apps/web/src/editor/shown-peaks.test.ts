@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
-import {
-  InferencePath,
-  MAXIMUM_QUALITY,
-  QualityLevel,
-  namedQualityMode,
-} from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, QualityLevel, namedQualityMode } from '@audiogubbins/domain';
 import {
   PeakHost,
   type PeakCacheStore,
@@ -159,17 +154,8 @@ describe('the peaks at the chosen render quality', () => {
   it('name a revision for each asset revision and each value a final render runs at', () => {
     const { asset } = showing();
     const draft = namedQualityMode(QualityLevel.Draft);
-    // A final render always takes the pinned path, so a mode differing only
-    // in the path makes the same sound and keeps the same peaks.
-    const accelerated = {
-      level: QualityLevel.Custom,
-      settings: { ...MAXIMUM_QUALITY.settings, inference: InferencePath.Accelerated },
-    };
 
     expect(peakSubjectOf(asset, draft).revision).not.toBe(
-      peakSubjectOf(asset, MAXIMUM_QUALITY).revision,
-    );
-    expect(peakSubjectOf(asset, accelerated).revision).toBe(
       peakSubjectOf(asset, MAXIMUM_QUALITY).revision,
     );
     expect(peakSubjectOf({ ...asset, revision: 'another' }, draft).revision).not.toBe(

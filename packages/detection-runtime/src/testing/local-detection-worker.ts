@@ -15,14 +15,12 @@
  */
 
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
-import { crossingThreads } from '@audiogubbins/audio-engine/testing';
+import { crossingThreads } from '@audiogubbins/domain/testing';
 import { chainProcessing } from '@audiogubbins/effect-rack';
 import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
 import { inProcessChannel } from '@audiogubbins/ml-runtime/testing';
 import {
-  CLASSIFICATION_ASSISTANT,
-  REPAIR_ASSISTANT,
-  RESTORATION_ASSISTANT,
+  CANONICAL_ASSISTANTS,
   processorTypesWith,
   type ModelServices,
   type ProcessorType,
@@ -77,7 +75,7 @@ export class LocalDetectionWorker implements DetectionWorkerPort {
       yieldToHost: turn,
       dsp: REFERENCE_DSP,
       processing: chainProcessing(types),
-      assistants: [CLASSIFICATION_ASSISTANT, REPAIR_ASSISTANT, RESTORATION_ASSISTANT],
+      assistants: CANONICAL_ASSISTANTS,
       types,
       reportFault: (error) => {
         throw error;

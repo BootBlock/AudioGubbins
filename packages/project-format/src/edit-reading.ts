@@ -40,7 +40,7 @@ import {
   asLevelGain,
 } from './edit-value-reading.js';
 import { WRITTEN_PLAN_DEPTH, readEditPlan } from './plan-reading.js';
-import { asBoolean, asId, integerConverter, oneOfConverter } from './scalar-reading.js';
+import { asId, integerConverter, oneOfConverter } from './scalar-reading.js';
 import { asChannelLayout, asSampleCount, asSampleRate } from './value-reading.js';
 
 /**
@@ -75,7 +75,7 @@ const OPERATION_MEMBERS: Readonly<Record<EditOperation['kind'], ReadonlySet<stri
   delete: new Set(['id', 'kind', 'range']),
   trim: new Set(['id', 'kind', 'range']),
   reverse: new Set(['id', 'kind', 'range']),
-  insert: new Set(['id', 'kind', 'at', 'payload', 'convertRate']),
+  insert: new Set(['id', 'kind', 'at', 'payload', 'resampler']),
   process: new Set(['id', 'kind', 'range', 'channels', 'edit']),
   'convert-layout': new Set(['id', 'kind', 'layout', 'matrix']),
   stretch: new Set(['id', 'kind', 'range', 'length', 'version']),
@@ -192,10 +192,10 @@ function operationBody(
     case 'insert': {
       const position = required(reading, object, at, 'at', asSampleCount);
       const payload = required(reading, object, at, 'payload', readEditPlan);
-      const convertRate = required(reading, object, at, 'convertRate', asBoolean);
-      return position === undefined || payload === undefined || convertRate === undefined
+      const resampler = optional(reading, object, at, 'resampler', asAlgorithmVersion);
+      return position === undefined || payload === undefined
         ? undefined
-        : { kind, at: position, payload, convertRate };
+        : { kind, at: position, payload, ...(resampler === undefined ? {} : { resampler }) };
     }
     case 'process': {
       const range = required(reading, object, at, 'range', readEditRange);

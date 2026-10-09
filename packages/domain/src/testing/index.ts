@@ -29,4 +29,5 @@ export {
   TEST_UPMIXER,
 } from './test-processors.js';
 export { renderPlan } from './plan-render.js';
+export { crossingThreads } from './thread-crossing.js';
 export { sourceShape } from '../editing/edit-shape.js';

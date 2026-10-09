@@ -152,6 +152,8 @@ class ClickJudge implements RecordJudge {
 export const CLICK_DETECTOR: AudioDetector = {
   identity: { key: 'clicks', label: 'Clicks', version: 1 },
   finds: [FindingKind.Click],
+  parameters: [],
+  refusal: () => undefined,
   open: ({ input, sampleRate, dsp }) => {
     const geometry = clickGeometry(sampleRate, LONGEST_CLICK.defaultValue);
     const { block } = geometry;

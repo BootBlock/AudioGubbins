@@ -42,13 +42,8 @@ import {
 
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
 import { finiteSample, flushSubnormal } from '../framework/sample-safety.js';
-import {
-  BiquadCascade,
-  BiquadShape,
-  SectionSetting,
-  sectionDecayFrames,
-  silenceFrames,
-} from './biquad.js';
+import { BiquadCascade, sectionDecayFrames, silenceFrames } from './biquad.js';
+import { BiquadShape, SectionSetting } from './biquad-shape.js';
 import { DESIGN_INTERVAL, DesignClock } from './cascade-kernel.js';
 import { numberOf } from './parameter-values.js';
 import { RampedParameter } from './ramped-parameter.js';

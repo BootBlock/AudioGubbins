@@ -67,7 +67,6 @@ describe('what a project needs of the model packs (REQ-AUDIO-139)', () => {
           kind: 'insert',
           at: derivedSampleCount(0),
           payload,
-          convertRate: false,
         },
       ],
     };

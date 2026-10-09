@@ -13,6 +13,7 @@ import {
   countAt,
   countsAt,
   derivedSampleCount,
+  fieldsAt,
   fieldsOf,
   itemsAt,
   itemsOf,
@@ -26,6 +27,7 @@ import {
   textsAt,
   type DetectorFinding,
   type DetectorIdentity,
+  type DetectorValues,
   type DomainResult,
   type EditRange,
   type FindingMeasure,
@@ -36,7 +38,11 @@ import {
   type Treatment,
   type TreatmentStep,
 } from '@audiogubbins/domain';
-import { isMessagePortLike, pcmDescription, type PcmDescription } from '@audiogubbins/audio-engine';
+import {
+  isMessagePortLike,
+  pcmDescriptionOf,
+  type PcmDescription,
+} from '@audiogubbins/audio-engine';
 
 import {
   FromDetectionWorkerKind,
@@ -62,9 +68,7 @@ function rangeOf(value: unknown, field: string): EditRange {
 }
 
 function descriptionAt(fields: MessageFields, field: string): PcmDescription {
-  const read = pcmDescription(fields[field]);
-  if (!read.ok) throw new Malformed(field, `a description of audio (${read.failures[0].summary})`);
-  return read.value;
+  return pcmDescriptionOf(fields[field], field);
 }
 
 /** A quality mode, its level taken from its settings as the domain reads them. */
@@ -96,10 +100,12 @@ function treatmentOf(value: unknown, field: string): Treatment {
   switch (treatment['kind']) {
     case 'steps':
       return { kind: 'steps', steps: itemsAt(treatment, 'steps', stepOf) };
+    case 'removal':
+      return { kind: 'removal' };
     case 'none':
       return { kind: 'none', reason: textAt(treatment, 'reason') };
     default:
-      throw new Malformed(`${field}.kind`, 'steps or none');
+      throw new Malformed(`${field}.kind`, 'steps, removal or none');
   }
 }
 
@@ -135,6 +141,7 @@ function recommendationOf(value: unknown, field: string): Recommendation {
     detectors: itemsAt(recommendation, 'detectors', identityOf),
     findings: itemsAt(recommendation, 'findings', findingOf),
     steps: itemsAt(recommendation, 'steps', stepOf),
+    removals: itemsAt(recommendation, 'removals', rangeOf),
   };
 }
 
@@ -194,6 +201,20 @@ function resultOf(value: unknown, field: string): DetectionResult {
   return { frames: countAt(result, 'frames'), reports: itemsAt(result, 'reports', reportOf) };
 }
 
+/** What a person set of how each detector judges: finite numbers, by detector and parameter key. */
+function detectorValuesAt(fields: MessageFields, field: string): DetectorValues {
+  const values: Record<string, Readonly<Record<string, number>>> = {};
+  for (const [detector, set] of Object.entries(fieldsAt(fields, field))) {
+    const name = `${field}.${detector}`;
+    const read: Record<string, number> = {};
+    for (const [key, one] of Object.entries(fieldsOf(set, name))) {
+      read[key] = numberOf(one, `${name}.${key}`);
+    }
+    values[detector] = read;
+  }
+  return values;
+}
+
 function learningOf(value: unknown): DescribedAudio {
   const learning = fieldsOf(value, 'learning');
   return {
@@ -221,6 +242,7 @@ function readToWorker(fields: MessageFields): ToDetectionWorker {
     quality: qualityModeAt(fields, 'quality'),
     range: rangeOf(fields['range'], 'range'),
     assistants: textsAt(fields, 'assistants'),
+    detectors: detectorValuesAt(fields, 'detectors'),
   };
 }
 

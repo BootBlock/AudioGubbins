@@ -14,7 +14,6 @@ import { OptionSelect } from '@audiogubbins/design-system';
 import { QualityLevel, type QualityMode, type QualitySettingKey } from '@audiogubbins/domain';
 
 import {
-  INFERENCE_NAMES,
   OVERLAP_NAMES,
   OVERSAMPLING_NAMES,
   QUALITY_LEVEL_NAMES,
@@ -41,8 +40,6 @@ export interface QualityChoiceProps {
   readonly mode: QualityMode;
   /** The command that sets one value apart from the levels. */
   readonly customCommand: string;
-  /** The settings this choice may set; a render never takes an inference path but the pinned one. */
-  readonly settings: readonly QualitySettingKey[];
   /** What is said of the choice beneath its legend. */
   readonly note: string;
   readonly run: RunCommand;
@@ -53,7 +50,6 @@ const SETTING_VALUES: Readonly<Record<QualitySettingKey, Readonly<Record<string,
   resampling: RESAMPLING_NAMES,
   oversampling: OVERSAMPLING_NAMES,
   spectralOverlap: OVERLAP_NAMES,
-  inference: INFERENCE_NAMES,
 };
 
 /** The settings given as numbers, whose select values are their text. */
@@ -80,7 +76,7 @@ export function QualityChoice(props: QualityChoiceProps): ReactNode {
           if (option !== undefined && option.value !== props.chosen) props.run(option.command);
         }}
       />
-      {QUALITY_SETTING_KEYS.filter((key) => props.settings.includes(key)).map((key) => (
+      {QUALITY_SETTING_KEYS.map((key) => (
         <OptionSelect
           key={key}
           label={QUALITY_SETTING_NAMES[key]}

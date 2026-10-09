@@ -23,7 +23,7 @@
     "below": "1.31.0",
     "capabilities": ["webassembly-simd"]
   },
-  "tiers": ["standard", "high"],
+  "tier": "light",
   "serves": { "processors": ["deepfilternet-3"], "detectors": [] },
   "sources": [
     {

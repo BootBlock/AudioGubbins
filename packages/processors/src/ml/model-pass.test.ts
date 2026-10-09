@@ -203,14 +203,30 @@ describe('a model pass refuses, with the reason, and lets its sessions go', () =
     expect(services.inference.openSessions).toBe(0);
   });
 
-  it('a pack the library does not hold, saying which condition holds', async () => {
-    const services = { inference: runtime(), models: new MemoryModelLibrary([]) };
-    const answer = await passOver(modelPassOf(typeOver(services), { layout: MONO }), stream(500));
+  it('a pack the library does not hold, saying which condition holds, having opened nothing', async () => {
+    // Asked of the runtime at all, a session starts the inference worker,
+    // which a pack that is not there must never cost.
+    const inner = runtime();
+    let asked = 0;
+    const inference: InferencePort = {
+      open: (...call) => {
+        asked += 1;
+        return inner.open(...call);
+      },
+    };
+    const models = new MemoryModelLibrary([]);
+    const answer = await passOver(
+      modelPassOf(typeOver({ inference, models }), { layout: MONO }),
+      stream(500),
+    );
     expect(codesOf(answer)).toEqual(['model.unavailable']);
     expect(answer.ok ? {} : answer.failures[0].details).toMatchObject({
       condition: 'required-unavailable',
       pack: RECURRENT_PACK,
     });
+    expect(asked).toBe(0);
+    expect(models.asked).toEqual([]);
+    expect(models.askedVersions).toEqual([`${RECURRENT_PACK}/${RECURRENT_VERSION}`]);
   });
 
   it('a stream whose output would pass the bound, before it runs anything past it', async () => {

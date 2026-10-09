@@ -28,7 +28,6 @@ import {
   mapResult,
   succeed,
   discreteLayout,
-  finalRenderSettings,
   type CancellationSource,
   type DomainResult,
   type QualityMode,
@@ -190,20 +189,26 @@ export class DetectionWorkerCore {
       return;
     }
     try {
-      const result = await runDetection(audio.value, request.range, assistants.value, {
-        dsp: this.#host.dsp,
-        types: this.#host.types,
-        signal,
-        yieldToHost: this.#host.yieldToHost,
-        onProgress: (framesRead, framesTotal) => {
-          this.#host.post({
-            kind: FromDetectionWorkerKind.Progress,
-            job: name,
-            framesRead,
-            framesTotal,
-          });
+      const result = await runDetection(
+        audio.value,
+        request.range,
+        assistants.value,
+        request.detectors,
+        {
+          dsp: this.#host.dsp,
+          types: this.#host.types,
+          signal,
+          yieldToHost: this.#host.yieldToHost,
+          onProgress: (framesRead, framesTotal) => {
+            this.#host.post({
+              kind: FromDetectionWorkerKind.Progress,
+              job: name,
+              framesRead,
+              framesTotal,
+            });
+          },
         },
-      });
+      );
       this.#post(name, result);
     } catch (error) {
       this.#postStopped(job, error);
@@ -266,7 +271,7 @@ export class DetectionWorkerCore {
     if (!layout.ok) return layout;
     return describedSource(audio.description, layout.value, this.#host.dsp, {
       processing: this.#host.processing,
-      quality: finalRenderSettings(quality),
+      quality: quality.settings,
       start: ProcessedStart.Canonical,
       ...(this.#previews === undefined ? {} : { cached: this.#previews }),
     });

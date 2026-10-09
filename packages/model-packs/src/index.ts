@@ -17,7 +17,6 @@
 
 export {
   type ModelPackManifest,
-  PackCapability,
   type PackFile,
   type PackLicence,
   type PackRef,
@@ -26,6 +25,8 @@ export {
   packKey,
   refOf,
 } from './manifest.js';
+export { PackCapability } from './pack-capability.js';
+export { PackTier } from './pack-tier.js';
 export { manifestConverter, readModelPackManifest } from './manifest-reading.js';
 export { readPackCatalogue } from './catalogue-reading.js';
 export { manifestJson } from './manifest-writing.js';

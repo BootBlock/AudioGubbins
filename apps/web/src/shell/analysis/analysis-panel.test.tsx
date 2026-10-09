@@ -49,6 +49,7 @@ const RESULT: DetectionResult = {
         detectors: [{ key: 'clicks', label: 'Clicks', version: 1 }],
         findings: [click(12_000), click(36_000)],
         steps: [{ typeKey: 'de-click', values: { sensitivity: 8 } }],
+        removals: [],
       },
       learned: [{ kind: 'none' }],
       found: [{ kind: FindingKind.Click, count: 2 }],
@@ -61,6 +62,7 @@ const RESULT: DetectionResult = {
         detectors: [{ key: 'transients', label: 'Transients', version: 1 }],
         findings: [],
         steps: [],
+        removals: [],
       },
       learned: [],
       found: [],
@@ -87,6 +89,7 @@ function detectionOf(context: ShellContext, asset: EditorAsset): Omit<Detection,
     scope: { range: range(0, asset.length), whole: true },
     identity: detectionIdentity(asset, context.audioSettings.get().renderQuality),
     assistants: ['repair', 'classification'],
+    detectors: {},
   };
 }
 
@@ -204,6 +207,108 @@ describe('the Analysis panel', () => {
       ['analysis.detect', { view: 'editor' }],
     ]);
     expect(detections.get()).toBe(before);
+  });
+
+  it('offers the silence found at the edges and within, each removed by its command', async () => {
+    const { context, asset } = session();
+    const quiet = (start: number, end: number): DetectorFinding => ({
+      kind: FindingKind.Silence,
+      range: range(start, end),
+      channels: [0, 1],
+      measure: { value: 0, unit: MeasureUnit.Linear },
+      treatment: { kind: 'removal' },
+    });
+    const findings = [
+      quiet(0, 2_000),
+      quiet(20_000, 30_000),
+      quiet(asset.length - 900, asset.length),
+    ];
+    const silence: DetectionResult = {
+      frames: asset.length,
+      reports: [
+        {
+          label: 'Silence',
+          recommendation: {
+            assistant: 'silence',
+            detectors: [{ key: 'silence', label: 'Silence', version: 1 }],
+            findings,
+            steps: [],
+            removals: findings.map((finding) => finding.range),
+          },
+          learned: [],
+          found: [{ kind: FindingKind.Silence, count: 3 }],
+          treated: [],
+        },
+      ],
+    };
+    const done: Detection = { ...detectionOf(context, asset), kind: 'done', result: silence };
+    const { ran } = panelOver(context, observable<Detections>(new Map([[asset.id, done]])));
+
+    const region = screen.getByRole('region', { name: 'Silence' });
+    expect(within(region).getByText(/^2 silent stretches at the edges\./u)).toBeInTheDocument();
+    expect(
+      within(region).getByText(/^1 long pause, shortened to the pause kept\./u),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText('It recommends nothing.')).not.toBeInTheDocument();
+    await userEvent.click(
+      within(region).getByRole('button', { name: 'Trim the silence at the edges' }),
+    );
+    await userEvent.click(within(region).getByRole('button', { name: 'Shorten the long pauses' }));
+
+    expect(ran).toEqual([
+      ['analysis.remove-silence', { view: 'editor', part: 'edges' }],
+      ['analysis.remove-silence', { view: 'editor', part: 'within' }],
+    ]);
+  });
+
+  it('shows the silence settings the analysis used, and analyses again with a value typed', async () => {
+    const { context, asset } = session();
+    const silence: DetectionResult = {
+      frames: asset.length,
+      reports: [
+        {
+          label: 'Silence',
+          recommendation: {
+            assistant: 'silence',
+            detectors: [{ key: 'silence', label: 'Silence', version: 1 }],
+            findings: [],
+            steps: [],
+            removals: [],
+          },
+          learned: [],
+          found: [],
+          treated: [],
+        },
+      ],
+    };
+    const done: Detection = {
+      ...detectionOf(context, asset),
+      assistants: ['silence'],
+      detectors: { silence: { threshold: -45, 'pause-kept': 0.1 } },
+      kind: 'done',
+      result: silence,
+    };
+    const { ran } = panelOver(context, observable<Detections>(new Map([[asset.id, done]])));
+
+    const region = screen.getByRole('region', { name: 'Silence' });
+    expect(within(region).getByRole('textbox', { name: 'Threshold in dBFS' })).toHaveValue('-45');
+    expect(within(region).getByRole('textbox', { name: 'Shortest pause in s' })).toHaveValue('0.5');
+    const shortest = within(region).getByRole('textbox', { name: 'Shortest edge silence in s' });
+    await userEvent.clear(shortest);
+    await userEvent.type(shortest, '0,2{Enter}');
+
+    expect(ran).toEqual([
+      ['analysis.analyse-again', { view: 'editor', 'silence-shortest-edge': 0.2 }],
+    ]);
+    expect(within(region).queryByRole('status')).not.toBeInTheDocument();
+
+    // A pause kept as long as the shortest pause is said beside it, as the command refuses it.
+    const kept = within(region).getByRole('textbox', { name: 'Pause kept in s' });
+    await userEvent.clear(kept);
+    await userEvent.type(kept, '0.5{Enter}');
+    expect(within(region).getByRole('status')).toHaveTextContent(
+      'The pause kept must be shorter than the shortest pause, or no pause would be shortened.',
+    );
   });
 
   it('says when the audio has changed since, and refuses to apply what was found in it', async () => {

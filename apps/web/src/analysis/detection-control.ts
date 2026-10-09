@@ -13,16 +13,18 @@
  */
 
 import {
-  finalRenderSettings,
   createCancellationSource,
   type CancellationSource,
+  type DetectorValues,
   type EditRange,
   type QualityMode,
 } from '@audiogubbins/domain';
 import type {
+  AssistantReport,
   DetectionHost,
   DetectionOutcome,
   DetectionResult,
+  DetectionSubject,
 } from '@audiogubbins/detection-runtime';
 
 import type { EditorAsset } from '../assets/editor-asset.js';
@@ -46,6 +48,29 @@ export function treatmentPlacement(scope: DetectionScope): 'range' | 'rack' {
   return scope.whole ? 'rack' : 'range';
 }
 
+/** Which of the silence found is taken out: at the edges of what was analysed, within it, or both. */
+export const SILENCE_PARTS = ['edges', 'within', 'both'] as const;
+
+/** Which of the silence found is taken out. */
+export type SilencePart = (typeof SILENCE_PARTS)[number];
+
+/**
+ * The stretches `report` would take out over `scope` that are `part` of the
+ * silence: one at the start or end of what was analysed is at an edge, and
+ * any other within, the one rule the panel and the command both follow.
+ */
+export function silenceRemovals(
+  report: AssistantReport,
+  scope: DetectionScope,
+  part: SilencePart,
+): readonly EditRange[] {
+  const atAnEdge = (range: EditRange): boolean =>
+    range.start === scope.range.start || range.end === scope.range.end;
+  return report.recommendation.removals.filter(
+    (range) => part === 'both' || atAnEdge(range) === (part === 'edges'),
+  );
+}
+
 /** What a detection is of: the asset or region, its name, its scope and its audio's identity. */
 interface Asked {
   readonly target: string;
@@ -55,6 +80,8 @@ interface Asked {
   readonly identity: string;
   /** The keys of the assistants it runs, in the order their reports are shown. */
   readonly assistants: readonly string[];
+  /** What the person set of how its detectors judge; a value not set is a default. */
+  readonly detectors: DetectorValues;
 }
 
 /** A detection of the session. */
@@ -71,7 +98,12 @@ export type Detection =
 export type Detections = ReadonlyMap<string, Detection>;
 
 /** The assistants a detection runs unless it names others, in the order their reports are shown. */
-export const EVERY_ASSISTANT: readonly string[] = ['repair', 'restoration', 'classification'];
+export const EVERY_ASSISTANT: readonly string[] = [
+  'repair',
+  'restoration',
+  'classification',
+  'silence',
+];
 
 /**
  * What `asset`'s audio is, for a detection: its content and the values a
@@ -79,7 +111,34 @@ export const EVERY_ASSISTANT: readonly string[] = ['repair', 'restoration', 'cla
  * detection hears.
  */
 export function detectionIdentity(asset: EditorAsset, quality: QualityMode): string {
-  return `${JSON.stringify(finalRenderSettings(quality))}\u0000${asset.content}`;
+  return `${JSON.stringify(quality.settings)}\u0000${asset.content}`;
+}
+
+/** What the host is asked to detect in `asset` for `asked`, at `quality`. */
+function subjectOf(asset: EditorAsset, asked: Asked, quality: QualityMode): DetectionSubject {
+  // Its steps learn from the audio the recommendation is applied to.
+  const learning = treatmentPlacement(asked.scope) === 'rack' ? undefined : asset.unracked;
+  return {
+    target: asset.id,
+    // The host keys what it keeps by the quality as well, so the content
+    // alone is the identity it is given.
+    identity: asset.content,
+    channels: asset.layout.roles.length,
+    describe: asset.describe,
+    ...(learning === undefined
+      ? {}
+      : {
+          learning: {
+            identity: learning.content,
+            channels: learning.layout.roles.length,
+            describe: learning.describe,
+          },
+        }),
+    quality,
+    range: asked.scope.range,
+    assistants: asked.assistants,
+    detectors: asked.detectors,
+  };
 }
 
 /** The session's detections, started and stopped on `host`. */
@@ -109,14 +168,15 @@ export class DetectionControl implements Observable<Detections> {
 
   /**
    * Analyses `scope` of `asset`'s audio, as a final render at `quality` makes
-   * it, with `assistants`. A detection of the same asset still running is
-   * stopped, and what it was is replaced.
+   * it, with `assistants`, their detectors judging by `detectors`. A detection
+   * of the same asset still running is stopped, and what it was is replaced.
    */
   detect(
     asset: EditorAsset,
     scope: DetectionScope,
     quality: QualityMode,
     assistants: readonly string[] = EVERY_ASSISTANT,
+    detectors: DetectorValues = {},
   ): void {
     this.#running.get(asset.id)?.cancel();
     const cancellation = createCancellationSource();
@@ -127,41 +187,18 @@ export class DetectionControl implements Observable<Detections> {
       scope,
       identity: detectionIdentity(asset, quality),
       assistants,
+      detectors,
     };
     const total = scope.range.end - scope.range.start;
     this.#put({ ...asked, kind: 'running', framesRead: 0, framesTotal: total });
-    // Its steps learn from the audio the recommendation is applied to.
-    const learning = treatmentPlacement(scope) === 'rack' ? undefined : asset.unracked;
     const current = (): boolean => this.#running.get(asset.id) === cancellation;
     void this.#host
-      .detect(
-        {
-          target: asset.id,
-          // The host keys what it keeps by the quality as well, so the
-          // content alone is the identity it is given.
-          identity: asset.content,
-          channels: asset.layout.roles.length,
-          describe: asset.describe,
-          ...(learning === undefined
-            ? {}
-            : {
-                learning: {
-                  identity: learning.content,
-                  channels: learning.layout.roles.length,
-                  describe: learning.describe,
-                },
-              }),
-          quality,
-          range: scope.range,
-          assistants,
+      .detect(subjectOf(asset, asked, quality), {
+        signal: cancellation.signal,
+        onProgress: (framesRead, framesTotal) => {
+          if (current()) this.#put({ ...asked, kind: 'running', framesRead, framesTotal });
         },
-        {
-          signal: cancellation.signal,
-          onProgress: (framesRead, framesTotal) => {
-            if (current()) this.#put({ ...asked, kind: 'running', framesRead, framesTotal });
-          },
-        },
-      )
+      })
       .then((outcome) => {
         if (!current()) return;
         this.#running.delete(asset.id);

@@ -14,7 +14,8 @@ import type {
   PackNeed,
 } from './availability-context.js';
 import type { InstallState } from './install-state.js';
-import type { ModelPackManifest, PackCapability } from './manifest.js';
+import type { ModelPackManifest } from './manifest.js';
+import type { PackCapability } from './pack-capability.js';
 import { versionWithin } from './pack-version.js';
 
 /** Why a pack does not run on this build's runtime, or `undefined` where it does. */

@@ -218,7 +218,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'MAXIMUM_STRETCH_RATIO',
         'chainOutputLayout',
         'checkStateVersion',
-        'effectChainFrom',
         'segmentsLayout',
         'segmentsLength',
         'withRack',

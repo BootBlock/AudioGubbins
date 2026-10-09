@@ -94,6 +94,7 @@ const DETECTORS: readonly DetectorSettings[] = [
     multiplier: 1.5,
     offset: 0.01,
   },
+  { kind: DetectorKind.Silence, channels: 2, sampleRate: RATE, block: 480, threshold: 0.01 },
 ];
 
 /**

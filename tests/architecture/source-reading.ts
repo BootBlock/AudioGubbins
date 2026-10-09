@@ -48,7 +48,9 @@ export function productionSources(pattern: string): readonly string[] {
 
 /**
  * The compiler options a rule reads the source under: the base's, with the
- * DOM and JSX the widest package compiles with, and nothing written.
+ * DOM and JSX the widest package compiles with, JavaScript modules read by
+ * their JSDoc types as a package that holds them compiles them, and nothing
+ * written.
  */
 export function browserCompilerOptions(): ts.CompilerOptions {
   const base = ts.readConfigFile(inRepository('tsconfig.base.json'), (path) =>
@@ -59,6 +61,7 @@ export function browserCompilerOptions(): ts.CompilerOptions {
       ...(base.config as { compilerOptions: object }).compilerOptions,
       lib: ['ES2023', 'DOM', 'DOM.Iterable'],
       jsx: 'react-jsx',
+      allowJs: true,
       noEmit: true,
       composite: false,
       declaration: false,
@@ -90,16 +93,23 @@ export function parse(path: string): ts.SourceFile {
       read(path),
       ts.ScriptTarget.Latest,
       true,
-      path.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+      path.endsWith('.tsx')
+        ? ts.ScriptKind.TSX
+        : path.endsWith('.js')
+          ? ts.ScriptKind.JS
+          : ts.ScriptKind.TS,
     );
     PARSED.set(path, file);
   }
   return file;
 }
 
-/** Every production source file, written with forward slashes. */
+/**
+ * Every production source file, written with forward slashes: the modules a
+ * package writes in JavaScript, with their types in JSDoc, among them.
+ */
 export const PRODUCTION_FILES: readonly string[] = sourcesMatching(
-  '{apps,packages}/*/src/**/*.{ts,tsx}',
+  '{apps,packages}/*/src/**/*.{ts,tsx,js}',
 ).filter((path) => !onlyForTests(path));
 
 /**
@@ -137,17 +147,20 @@ export const TEST_CODE_FILES: readonly string[] = [
  * the root either.
  */
 export const EVERY_WRITTEN_FILE: readonly string[] = [
-  ...sourcesMatching('{apps,packages}/*/src/**/*.{ts,tsx,css}'),
+  ...sourcesMatching('{apps,packages}/*/src/**/*.{ts,tsx,js,css}'),
   ...sourcesMatching('tests/**/*.{ts,tsx}'),
   ...sourcesMatching('tools/**/*.{mjs,mts,js,ts}'),
   ...sourcesMatching('{.,}*.{ts,tsx,mjs,cjs,js}'),
   ...sourcesMatching('{apps,packages}/*/*.{ts,tsx,mjs,cjs,js}'),
 ];
 
-/** The source a specifier written as `./x.js` names, as a `.ts` or a `.tsx` file, where one exists. */
+/**
+ * The source a specifier written as `./x.js` names, as a `.ts` or a `.tsx`
+ * file, or the JavaScript module itself, where one exists.
+ */
 export function sourceOf(module: string): string | undefined {
-  return [module.replace(/\.js$/, '.ts'), module.replace(/\.js$/, '.tsx')].find((candidate) =>
-    existsSync(join(REPOSITORY_ROOT, candidate)),
+  return [module.replace(/\.js$/, '.ts'), module.replace(/\.js$/, '.tsx'), module].find(
+    (candidate) => existsSync(join(REPOSITORY_ROOT, candidate)),
   );
 }
 

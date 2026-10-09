@@ -46,6 +46,9 @@ const PRODUCT_VERSION = JSON.parse(readFileSync(join(REPO_ROOT, 'version.json'),
  *   compiled a second time with no host's globals at all
  * @property {Record<string, ThreadScope>} [threads] the global scope each
  *   module under `src/threads/` runs in, by file name
+ * @property {boolean} [javascript] holds modules written in JavaScript with
+ *   their types in JSDoc, which the package's compiler checks: a grammar a
+ *   tool loads in Node, which runs no compiler, as well as the package
  */
 
 /**
@@ -626,6 +629,9 @@ const PACKAGES = [
     // hashes only a whole buffer. Pinned exactly, as every dependency is.
     external: { '@noble/hashes': '2.4.0' },
     externalDev: {},
+    // The pack path, version, tier, capability and limit grammars, which the
+    // pack build tool loads in Node and the build's configuration bundles.
+    javascript: true,
   },
   {
     // Keeping projects: the journal, snapshots, sessions, leases, backups and
@@ -768,6 +774,30 @@ const PACKAGES = [
 ];
 
 const DIR_BY_NAME = new Map(PACKAGES.map((p) => [p.name, p.dir]));
+
+const SPEC_BY_NAME = new Map(PACKAGES.map((p) => [p.name, p]));
+
+/**
+ * Whether a package's own modules, or a package it reaches through its
+ * dependencies, are written in JavaScript. A dependency's types reach an
+ * editor and the type-aware linter through its source, which they read with
+ * the dependent's own options, so a dependent that did not allow JavaScript
+ * would read those modules' JSDoc types as nothing and every value they type
+ * as one it cannot resolve.
+ *
+ * @param {PackageSpec} spec
+ * @param {Set<string>} [seen]
+ * @returns {boolean}
+ */
+function readsJavaScript(spec, seen = new Set()) {
+  if (spec.javascript === true) return true;
+  return [...spec.deps, ...spec.devDeps].some((name) => {
+    if (seen.has(name)) return false;
+    seen.add(name);
+    const dependency = SPEC_BY_NAME.get(name);
+    return dependency !== undefined && readsJavaScript(dependency, seen);
+  });
+}
 
 /**
  * Tooling every package needs to typecheck and test itself. REQ-REPO-186
@@ -939,7 +969,11 @@ function tsconfigFor(spec) {
       tsBuildInfoFile: `${output}/tsconfig.tsbuildinfo`,
       emitDeclarationOnly: true,
     },
-    include: ['src/**/*.ts', ...(spec.jsx ? ['src/**/*.tsx'] : [])],
+    include: [
+      'src/**/*.ts',
+      ...(spec.jsx ? ['src/**/*.tsx'] : []),
+      ...(spec.javascript === true ? ['src/**/*.js'] : []),
+    ],
     exclude: ['dist', ...(spec.bundled ? ['build'] : [])],
     references: [...spec.deps, ...spec.devDeps].map((name) => ({
       path: `${toRoot}${DIR_BY_NAME.get(name)}`,
@@ -949,6 +983,9 @@ function tsconfigFor(spec) {
   if (spec.jsx) {
     config.compilerOptions.jsx = 'react-jsx';
   }
+  if (readsJavaScript(spec)) config.compilerOptions.allowJs = true;
+  // Checked where they are written; a dependent reads them as checked.
+  if (spec.javascript === true) config.compilerOptions.checkJs = true;
   if (config.references.length === 0) delete config.references;
 
   return config;

@@ -824,9 +824,13 @@ describe('finding the shell commands in the palette', () => {
     ]
       .map((command): string => command.id)
       .filter((id) => id !== 'edit.copy' && id !== 'region.open')
-      // Applying a recommendation changes the project, which settles after it
-      // returns; it is run twice, its change awaited, in its own tests.
-      .concat('picture.mark-frame', 'analysis.apply')
+      // Applying a recommendation and removing the silence found change the
+      // project, which settles after they return; each is run twice, its
+      // change awaited, in its own tests.
+      .concat('picture.mark-frame', 'analysis.apply', 'analysis.remove-silence')
+      // Analysing again needs an analysis to run again, which settles in a
+      // worker; it is run twice, the second unchanged, in its own tests.
+      .concat('analysis.analyse-again')
       // Each needs a rack of the project, which the loop here has none of and
       // a rack command makes only once it settles; each is run twice over a
       // rack in `rack-commands.test.ts`.

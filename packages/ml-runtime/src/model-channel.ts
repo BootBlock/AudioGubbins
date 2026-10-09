@@ -8,10 +8,12 @@
  * sends the thread's scope (`MODEL_CHANNEL`), which the thread hands here
  * before its own protocol reads anything. Inference runs through a
  * `WorkerInference` whose connection to the worker is a channel this thread
- * makes and the page hands on, so tensors go straight to the worker; a file is
- * asked of the page, which reads it from the storage and answers with its bytes
- * and their SHA-256, transferred. Until the page connects it, and after the
- * channel fails, every call is answered with why.
+ * makes and the page hands on, so tensors go straight to the worker; whether a
+ * pack version can be read is asked of the page before any of its models is
+ * opened, so a missing pack starts no inference; a file is asked of the page,
+ * which reads it from the storage and answers with its bytes and their
+ * SHA-256, transferred. Until the page connects it, and after the channel
+ * fails, every call is answered with why.
  */
 
 import {
@@ -38,6 +40,7 @@ import {
   FromModelThreadKind,
   ToModelChannelKind,
   type FromModelThread,
+  type ToModelChannel,
 } from './protocol/model-channel-messages.js';
 import {
   isModelChannelMessage,
@@ -66,8 +69,19 @@ const NOT_CONNECTED = channelFailed(
   'This thread was given no channel to the inference workers and the installed model packs.',
 );
 
-/** A call waiting for the page's answer. */
-type Settle = (result: DomainResult<ModelFileRead>) => void;
+/** The page's answer to a call. */
+type CallAnswer = Exclude<
+  ToModelChannel,
+  { readonly kind: typeof ToModelChannelKind.InferenceFailed }
+>;
+
+/** A call waiting for the page's answer, or for why the channel can give none. */
+type Settle = (answer: CallAnswer | DomainFailureResult) => void;
+
+/** An answer of the kind `kind` the page sent to a call that asked for another. */
+function unexpected(kind: string): DomainFailureResult {
+  return channelFailed(`The page answered a call with ${kind}, which it did not ask for.`);
+}
 
 /** A thread's end of its model channel (see the module comment). */
 export class ModelChannel implements InferencePort {
@@ -133,6 +147,26 @@ export class ModelChannel implements InferencePort {
   }
 
   /**
+   * Whether version `version` of the installed pack `pack` can be read now, or
+   * why not, as the page decides from what it keeps of the installed packs
+   * without reading a file.
+   */
+  available(
+    pack: string,
+    version: string,
+    signal?: CancellationSignal,
+  ): Promise<DomainResult<void>> {
+    return this.#ask(
+      (call) => ({ kind: FromModelThreadKind.Version, call, pack, version }),
+      signal,
+      (answer) =>
+        answer.kind === ToModelChannelKind.VersionReady
+          ? succeed(undefined)
+          : unexpected(answer.kind),
+    );
+  }
+
+  /**
    * The file at `path` within version `version` of the installed pack `pack`,
    * with the SHA-256 of its bytes taken as they were read, or why it cannot be
    * had, as the page's model library answers.
@@ -143,6 +177,27 @@ export class ModelChannel implements InferencePort {
     path: string,
     signal?: CancellationSignal,
   ): Promise<DomainResult<ModelFileRead>> {
+    return this.#ask(
+      (call) => ({ kind: FromModelThreadKind.File, call, pack, version, path }),
+      signal,
+      (answer) =>
+        answer.kind === ToModelChannelKind.File
+          ? succeed({ bytes: answer.bytes, sha256: answer.sha256 })
+          : unexpected(answer.kind),
+    );
+  }
+
+  /**
+   * Asks the page by call what `message` asks, answered as `read` reads the
+   * answer, with the page's refusal as it is, or cancelled as `signal` says.
+   */
+  #ask<TValue>(
+    message: (call: number) => FromModelThread,
+    signal: CancellationSignal | undefined,
+    read: (
+      answer: Exclude<CallAnswer, { kind: typeof ToModelChannelKind.CallFailed }>,
+    ) => DomainResult<TValue>,
+  ): Promise<DomainResult<TValue>> {
     if (this.#failure !== undefined) return Promise.resolve(this.#failure);
     if (this.#end === undefined) return Promise.resolve(NOT_CONNECTED);
     if (signal?.aborted === true) return Promise.resolve(cancelled());
@@ -154,12 +209,14 @@ export class ModelChannel implements InferencePort {
         this.#post({ kind: FromModelThreadKind.Cancel, call }, []);
         resolve(cancelled());
       };
-      this.#pending.set(call, (result) => {
+      this.#pending.set(call, (answer) => {
         signal?.removeEventListener('abort', abort);
-        resolve(result);
+        if ('ok' in answer) resolve(answer);
+        else if (answer.kind === ToModelChannelKind.CallFailed) resolve(fail(...answer.failures));
+        else resolve(read(answer));
       });
       signal?.addEventListener('abort', abort, { once: true });
-      this.#post({ kind: FromModelThreadKind.File, call, pack, version, path }, []);
+      this.#post(message(call), []);
     });
   }
 
@@ -178,11 +235,7 @@ export class ModelChannel implements InferencePort {
     // A call answered here already, as cancelled.
     if (settle === undefined) return;
     this.#pending.delete(message.call);
-    settle(
-      message.kind === ToModelChannelKind.File
-        ? succeed({ bytes: message.bytes, sha256: message.sha256 })
-        : fail(...message.failures),
-    );
+    settle(message);
   }
 
   #post(message: FromModelThread, transfer: readonly object[]): void {

@@ -8,7 +8,8 @@ import { dspModuleBytes } from '@audiogubbins/audio-engine/testing';
 
 import { DspDeliveryKind } from '../dsp/dsp-delivery.js';
 import { createSampleRing } from '../feed/sample-ring.js';
-import { FakeMessagePort, cloneAcross } from '../testing/fake-message-channel.js';
+import { crossingThreads } from '@audiogubbins/domain/testing';
+import { FakeMessagePort } from '../testing/fake-message-channel.js';
 import {
   FeedTransport,
   FromProcessorKind,
@@ -141,7 +142,7 @@ function comparable(message: ToProcessor): unknown {
 function crossed(message: ToProcessor): unknown {
   const transfer =
     message.kind === ToProcessorKind.Load && message.feeder !== undefined ? [message.feeder] : [];
-  return cloneAcross(message, transfer);
+  return crossingThreads(message, transfer);
 }
 
 /** The summary a malformed message is refused with. */

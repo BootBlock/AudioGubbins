@@ -331,7 +331,7 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
  */
 const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
   "The model packs' reading of a path under the catalogue, which the development server's pack serving (`apps/web/model-pack-serving.ts`) holds every request to, by the module's path, before it touches the file system.":
-    ['packages/model-packs/src/pack-path.ts: cataloguePathProblem'],
+    ['packages/model-packs/src/pack-path.js: cataloguePathProblem'],
 };
 
 /**

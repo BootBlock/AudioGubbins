@@ -5,13 +5,13 @@
  * A pack is a manifest and the files it names. The manifest says what the pack
  * is for and who may redistribute it, how large it is to download and to keep,
  * the size and SHA-256 of every file, the runtime and the device capabilities
- * it needs, the quality tiers it serves and the processors and detectors it
- * serves, by type key. A manifest is read only through `manifest-reading.ts`,
- * which refuses anything it does not hold to, so every value here has been
- * checked.
+ * it needs, its model's tier and the processors and detectors it serves, by
+ * type key. A manifest is read only through `manifest-reading.ts`, which
+ * refuses anything it does not hold to, so every value here has been checked.
  */
 
-import type { NamedQualityLevel } from '@audiogubbins/domain';
+import type { PackCapability } from './pack-capability.js';
+import type { PackTier } from './pack-tier.js';
 
 /** A pack and one version of it: what the store keeps and the installer tracks. */
 export interface PackRef {
@@ -43,18 +43,6 @@ export interface PackLicence {
   readonly code: string;
   readonly weights: string;
 }
-
-/**
- * A capability of the device a pack's model needs beyond the runtime's own,
- * named as the capabilities package names it.
- */
-export const PackCapability = {
-  WebAssemblySimd: 'webassembly-simd',
-  SharedArrayBuffer: 'shared-array-buffer',
-  WebGpu: 'webgpu',
-} as const;
-
-export type PackCapability = (typeof PackCapability)[keyof typeof PackCapability];
 
 /**
  * The runtime a pack's models run on: its name, the versions it was checked
@@ -89,8 +77,11 @@ export interface ModelPackManifest {
   readonly files: readonly PackFile[];
   readonly licence: PackLicence;
   readonly runtime: PackRuntime;
-  /** The quality tiers it serves, as `QualityMode` names them. */
-  readonly tiers: readonly NamedQualityLevel[];
+  /**
+   * How quick its model is to run against how thorough its result is: the
+   * model's own, which no render or preview quality changes.
+   */
+  readonly tier: PackTier;
   readonly serves: PackServes;
 }
 

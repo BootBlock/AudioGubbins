@@ -34,7 +34,7 @@ import inferenceWorkerUrl from '@audiogubbins/ml-runtime/threads/inference-worke
 import type { StorageClient } from '@audiogubbins/storage-runtime';
 
 import { moduleWorkerClass } from '../module-worker.js';
-import { installedModelFiles } from './installed-model-files.js';
+import { installedModelFiles, installedModelVersions } from './installed-model-files.js';
 import { createModelAvailabilityStore, type ModelAvailabilityStore } from './model-availability.js';
 
 /** The runtime this build ships, as the composition root loads it. */
@@ -167,10 +167,12 @@ export function startModels(
   const inferenceCapabilities = localInferenceCapabilities(capabilities);
   const availability = availabilityOn(capabilities, storage, logger);
   const inference = inferenceHostOnce(inferenceCapabilities);
+  const installed = { files: storage?.packs, context: availability.current };
   const threads = new ModelThreads({
     inference: inference.host,
     capabilities: inferenceCapabilities,
-    files: installedModelFiles({ files: storage?.packs, context: availability.current }),
+    versions: installedModelVersions(installed),
+    files: installedModelFiles(installed),
     createChannel: () => new MessageChannel(),
     reportFault: (summary) => {
       logger.error('A thread that runs models sent what cannot be read.', { reason: summary });

@@ -28,13 +28,8 @@ import {
 import type { NodeKernel } from '@audiogubbins/audio-engine';
 
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
-import {
-  BiquadCascade,
-  BiquadShape,
-  SectionSetting,
-  butterworthQ,
-  sectionDecayFrames,
-} from './biquad.js';
+import { BiquadCascade, butterworthQ, sectionDecayFrames } from './biquad.js';
+import { BiquadShape, SectionSetting } from './biquad-shape.js';
 import { CascadeKernel, type CascadeDesigner } from './cascade-kernel.js';
 import { choiceOf, numberOf } from './parameter-values.js';
 import { RampedParameter } from './ramped-parameter.js';

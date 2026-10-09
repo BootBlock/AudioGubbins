@@ -12,7 +12,7 @@ import {
 
 import { InferenceHost } from './inference-host.js';
 import { ModelChannel, type ModelFileRead } from './model-channel.js';
-import { ModelThreads, type ModelFileReader } from './model-threads.js';
+import { ModelThreads, type ModelFileReader, type ModelVersionCheck } from './model-threads.js';
 import type { ToModelThread } from './protocol/model-channel-messages.js';
 import { FAKE_ADD, addModel } from './testing/add-model.js';
 import { FakeInference } from './testing/fake-inference.js';
@@ -35,6 +35,7 @@ const SHA = 'c'.repeat(64);
 /** The page's end over workers played here, a thread's channel connected to it, and what each saw. */
 function connectedThread(
   files: ModelFileReader = () => Promise.resolve(succeed({ bytes: BYTES.slice(), sha256: SHA })),
+  versions: ModelVersionCheck = () => Promise.resolve(succeed(undefined)),
 ) {
   const fake = new FakeInference(FAKE_ADD);
   const workers: InProcessThread[] = [];
@@ -50,6 +51,7 @@ function connectedThread(
   const threads = new ModelThreads({
     inference: () => Promise.resolve(host),
     capabilities: testSetup().capabilities,
+    versions,
     files,
     createChannel: pair,
     reportFault: (summary) => faults.push(summary),
@@ -113,6 +115,27 @@ describe("a thread's model channel", () => {
     const read = await channel.file('deepfilternet-3', '1.0.0', 'enc.onnx');
 
     expect(read.ok ? [] : read.failures).toEqual([unavailable]);
+  });
+
+  it('asks the page whether a pack version can be read, answered without a file read or a worker started', async () => {
+    const asked: string[] = [];
+    const unavailable = failure('model.unavailable', FailureKind.Unrecoverable, 'Not installed.', {
+      details: { condition: 'required-unavailable', pack: 'deepfilternet-3' },
+    });
+    const { channel, workers } = connectedThread(
+      () => Promise.reject(new Error('No file is read to answer whether a version can be.')),
+      (pack, version) => {
+        asked.push(`${pack} ${version}`);
+        return Promise.resolve(pack === 'deepfilternet-3' ? succeed(undefined) : fail(unavailable));
+      },
+    );
+
+    expect(await channel.available('deepfilternet-3', '1.0.0')).toEqual(succeed(undefined));
+    const refused = await channel.available('spleeter-2stems', '1.0.0');
+
+    expect(asked).toEqual(['deepfilternet-3 1.0.0', 'spleeter-2stems 1.0.0']);
+    expect(refused.ok ? [] : refused.failures).toEqual([unavailable]);
+    expect(workers).toHaveLength(0);
   });
 
   it("cancels the page's read when the thread cancels, answering at once", async () => {

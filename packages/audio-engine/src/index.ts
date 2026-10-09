@@ -45,7 +45,7 @@ export {
   PcmDescriptionKind,
   describedBuffers,
   describedSource,
-  pcmDescription,
+  pcmDescriptionOf,
 } from './pcm/pcm-description.js';
 export { type PlanProcessing, ProcessedStart } from './pcm/processed-content.js';
 export {
@@ -115,6 +115,7 @@ export {
   type LoudnessReading,
   type NoiseFloorSettings,
   type PeakMeterSettings,
+  type SilenceSettings,
   type StftSettings,
   type TransientSettings,
 } from './dsp/canonical-analysis.js';

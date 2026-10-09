@@ -12,10 +12,8 @@ import {
 } from '@audiogubbins/domain';
 import {
   type Assistant,
-  CLASSIFICATION_ASSISTANT,
+  CANONICAL_ASSISTANTS,
   PROCESSOR_TYPES_BY_KEY,
-  REPAIR_ASSISTANT,
-  RESTORATION_ASSISTANT,
 } from '@audiogubbins/processors';
 import { TEST_RATE } from '@audiogubbins/processors/testing';
 
@@ -77,11 +75,7 @@ function countingDsp(): {
 /** The core, with what it posts kept, and a wait for a job's last answer. */
 function rig(
   dsp: CanonicalDsp = REFERENCE_DSP,
-  assistants: readonly Assistant[] = [
-    CLASSIFICATION_ASSISTANT,
-    REPAIR_ASSISTANT,
-    RESTORATION_ASSISTANT,
-  ],
+  assistants: readonly Assistant[] = CANONICAL_ASSISTANTS,
 ) {
   const posted: FromDetectionWorker[] = [];
   const waiting = new Map<string, (message: FromDetectionWorker) => void>();
@@ -115,6 +109,7 @@ function detect(
     readonly start?: number;
     readonly end?: number;
     readonly assistants?: readonly string[];
+    readonly detectors?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   } = {},
 ) {
   return {
@@ -129,6 +124,7 @@ function detect(
       end: derivedSampleCount(options.end ?? FAULTY_LENGTH),
     },
     assistants: options.assistants ?? ['repair', 'restoration', 'classification'],
+    detectors: options.detectors ?? {},
   };
 }
 
@@ -145,7 +141,8 @@ function findingEverything(count: number): Assistant {
     treatment: { kind: 'none', reason: 'A stand-in finds what it is told to.' },
   };
   const findings: readonly DetectorFinding[] = Array.from({ length: count }, () => finding);
-  const [clicks] = REPAIR_ASSISTANT.detectors;
+  const repair = CANONICAL_ASSISTANTS.find((assistant) => assistant.key === 'repair');
+  const [clicks] = repair?.detectors ?? [];
   if (clicks === undefined) throw new Error('The repair assistant runs no detector.');
   return {
     key: 'everything',
@@ -153,6 +150,8 @@ function findingEverything(count: number): Assistant {
     detectors: [
       {
         identity: clicks.identity,
+        parameters: [],
+        refusal: () => undefined,
         finds: [FindingKind.Click],
         open: () =>
           succeed({
@@ -409,6 +408,43 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
     });
   });
 
+  it('judges by the values a request sets, and refuses one out of range, for a detector it does not run, or that is no number', async () => {
+    const { core, answer } = rig();
+    const set = answer('set');
+    const loud = answer('loud');
+    const stranger = answer('stranger');
+    // The faulty signal's hiss is under −20 dBFS: at that threshold it is all quiet.
+    core.receive(
+      detect('set', { assistants: ['silence'], detectors: { silence: { threshold: -20 } } }),
+    );
+    core.receive(
+      detect('loud', {
+        target: 'asset:loud',
+        assistants: ['silence'],
+        detectors: { silence: { threshold: -5 } },
+      }),
+    );
+    core.receive(
+      detect('stranger', { target: 'asset:stranger', detectors: { silence: { threshold: -60 } } }),
+    );
+
+    const found = await set;
+    expect(found.kind).toBe(FromDetectionWorkerKind.Done);
+    if (found.kind === FromDetectionWorkerKind.Done) {
+      expect(found.result.reports[0]?.found).toEqual([{ kind: 'silence', count: 1 }]);
+    }
+    expect(await loud).toEqual({
+      kind: FromDetectionWorkerKind.Failed,
+      job: 'loud',
+      reason: "The Silence detector's threshold is from -120 to -20 dBFS.",
+    });
+    expect(await stranger).toEqual({
+      kind: FromDetectionWorkerKind.Failed,
+      job: 'stranger',
+      reason: 'The detection runs no detector "silence" to give settings to.',
+    });
+  });
+
   it('takes the port to the preview worker, and refuses anything else in its place', () => {
     const { core, posted } = rig();
     const { port1, port2 } = new MessageChannel();
@@ -427,6 +463,7 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
   it('refuses a message it cannot read, naming the field', () => {
     const { core, posted } = rig();
     core.receive({ ...detect('one'), channels: -1 });
+    core.receive({ ...detect('three'), detectors: { silence: { threshold: 'quiet' } } });
     core.receive({
       ...detect('two'),
       description: { kind: PcmDescriptionKind.Pcm, sampleRate: TEST_RATE },
@@ -435,7 +472,12 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
     expect(posted.map((message) => message.kind)).toEqual([
       FromDetectionWorkerKind.Refused,
       FromDetectionWorkerKind.Refused,
+      FromDetectionWorkerKind.Refused,
     ]);
+    expect(posted[1]).toEqual({
+      kind: FromDetectionWorkerKind.Refused,
+      reason: "The message's detectors.silence.threshold is not a finite number.",
+    });
     expect(posted[0]).toEqual({
       kind: FromDetectionWorkerKind.Refused,
       reason: "The message's channels is not a whole number, zero or more.",
