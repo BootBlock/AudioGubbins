@@ -279,7 +279,7 @@
     "07": {
       "phase": 7,
       "name": "Recording",
-      "status": "NOT_READY",
+      "status": "READY",
       "hard_dependencies": [
         2,
         3,

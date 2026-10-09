@@ -66,7 +66,7 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 
 ## Owned Modules / Packages
 
-- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; this phase adds its registry, decoders and writers, `ADR-0050`)
+- `packages/codecs` (created by Phase 05 with the read contract and the uncompressed PCM readers; Phase 07 adds the recorded-media WAV writer, 32-bit float PCM and RF64, `ADR-0071`; this phase adds its registry, decoders and every other writer, building its WAV writing on Phase 07's, `ADR-0050` amended)
 - `packages/import-export`
 - `packages/export-recipes core`
 - `crates/codec-* as selected`
@@ -110,7 +110,7 @@ Reading uncompressed WAV and AIFF at the native rate was split from `REQ-AUDIO-0
 ### WU-09.A — Codec contracts and WAV
 
 - [ ] Implement the registry and capability descriptors over Phase 05's read contract, and the streaming write interface
-- [ ] Implement comprehensive WAV writing, the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
+- [ ] Implement comprehensive WAV writing on Phase 07's recorded-media writer (`ADR-0071`), the compressed encodings WAV can carry, and WAV metadata and loop metadata on read and write
 
 ### WU-09.B — Common codecs
 

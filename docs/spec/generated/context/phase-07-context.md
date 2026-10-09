@@ -112,15 +112,15 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`NOT_READY` — blocked by Phase(s) 02, 03, 05, 06 reaching `PASS`.
+`READY` — its hard dependencies, Phases 02, 03, 05 and 06, are `PASS`, and its readiness review on 2026-10-09 settled its scope in `ADR-0070`, `ADR-0071` and `ADR-0072`.
 
 ## Objective
 
-Implement advanced, resilient recording and audio-I/O workflows using dry authoritative capture, take stacks, non-destructive punch recording, retrospective buffer, monitoring safety, latency calibration, and capability diagnostics.
+Implement advanced, resilient recording and audio-I/O workflows using dry authoritative capture, take stacks, non-destructive punch recording, retrospective buffer, monitoring safety, latency calibration, and capability diagnostics. The dry input is captured on the audio thread and committed in chunks by the storage worker as it is made (`ADR-0070`, `ADR-0071`); every recording is a new asset, and a punch is an edit that reads a take stack's chosen take, so no recording overwrites audio (`ADR-0072`).
 
 ## User-Visible Outcome
 
-Users can record professionally with device selection/meters/monitoring/effects/pre-roll/punch/take stacks and recover interrupted captures without destructive overwrite.
+Users can record professionally with device selection/meters/monitoring/effects/pre-roll/punch/take stacks and recover interrupted captures without destructive overwrite. They choose an input and a capture profile, see what the browser actually granted, monitor safely, calibrate latency, keep the seconds before they pressed Record, name, compare and choose takes, punch in over a range and change their mind, and find every take, and any recording a crash interrupted, after a reload.
 
 ## Hard Dependencies
 
@@ -142,6 +142,36 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - `REQ-REC-096` — Recording Resilience (`CURRENT`)
 - `REQ-REC-097` — Recording Capability Transparency (`CURRENT`)
 
+### Requirements Consumed From Other Phases
+
+Owned elsewhere; this phase delivers the part named, or keeps what it asks.
+
+- `REQ-ARCH-004` — Core Architectural Principles (Phase 01): a recorded source is immutable; takes and punches are project state changed by commands.
+- `REQ-ARCH-085` — Native Asset Sample Rates and Future Session Rate (Phase 03): a recording keeps the rate it was captured at; a mismatch with the input's rate is disclosed, never hidden.
+- `REQ-ARCH-087` — Resource-Aware Operation Without Artificial Limits (Phase 03): no limit on a recording's length beyond storage, which is watched and stated.
+- `REQ-ARCH-144` — Processor Latency and Automatic Delay Compensation (Phase 03): monitoring latency, the live rack's included, is reported.
+- `REQ-ARCH-153` — State Ownership and Workflow State (Phase 01): the recording session is an explicit state machine, and monitoring a second one.
+- `REQ-ARCH-157` — Multichannel, Surround, and Ambisonic Audio (Phase 03): a recording has the input's granted channel count, mono to N channels.
+- `REQ-AUDIO-156` — Video Reference and Sound-to-Picture Workflows (Phase 04): capture, pre-roll and punch-in share the one media clock.
+- `REQ-AUDIO-220` — Native-Rate Reading of Uncompressed Audio (Phase 05): a recorded asset and a torn chunk are read to their last whole frame.
+- `REQ-EDIT-012` — Timeline and Editing Requirements (Phase 04): punch-in over the selected range.
+- `REQ-EDIT-072` — Contextual Inspector (Phase 01): the Inspector shows the recording configuration, a take and a take stack.
+- `REQ-STOR-021` — Undo, Redo, Autosave, and Recovery (Phase 02): take and punch changes are undoable, and interrupted recordings are recovered.
+- `REQ-STOR-052` — Project Schema Compatibility Policy (Phase 02): the raised schema versions are refused, never migrated, before 1.0.
+- `REQ-STOR-098` — Concurrent Project Access and Single-Writer Ownership (Phase 02): only the tab that holds the write lease arms or records.
+- `REQ-STOR-099` — Content-Addressed Media Storage and Deduplication (Phase 02): recorded media enters the content-addressed store; recording sessions are reachable state.
+- `REQ-STOR-102` — Deleted Media Retention and Explicit Purge (Phase 02): a removed or rejected take's media stays while any state reaches it.
+- `REQ-STOR-106` — Storage Cleanup Priority (Phase 02): no cleanup removes a recording in progress or an interrupted one.
+- `REQ-STOR-166` — Asset Provenance and Traceability (Phase 02): a recorded asset's provenance states its device, profile, granted settings, time and whether it ended unexpectedly.
+- `REQ-STOR-195` — Whole-Project A/B State Comparison (Phase 02): take stacks are compared between states.
+- `REQ-PRIV-161` — Diagnostic Submission and Consent Policy (Phase 01): no recorded audio and no device label in a diagnostic bundle by default.
+- `REQ-PRIV-165` — Structured Diagnostic Logging (Phase 01): no device label and no audio in a log.
+- `REQ-UX-005` — User Experience Goals (Phase 01): meters, the armed, buffering, recording and monitoring states, and every recording control have keyboard and non-visual forms.
+- `REQ-UX-058` — Workspace Presets (Phase 01): the Recording preset gains the Recording panel.
+- `REQ-PWA-028` — Platform Support (Phase 12): capture features are capability-gated.
+- `REQ-PWA-077` — Capability Degradation Transparency (Phase 12): a degraded recording capability is disclosed in the recording diagnostics and the capabilities panel.
+- `REQ-PROD-009` — Audio Duration and Scale (Phase 03): recordings lasting tens of minutes, never held whole in memory.
+
 ## Referenced Global Execution Requirements
 
 - `REQ-EXEC-136`
@@ -161,54 +191,85 @@ Users can record professionally with device selection/meters/monitoring/effects/
 
 ## In Scope
 
-- [ ] Device enumeration/selection
-- [ ] Raw/Studio default capture profile
-- [ ] Input meters
-- [ ] Safe software monitoring and effect monitoring
-- [ ] Pre-roll/punch-in
-- [ ] Take stacks
-- [ ] Retrospective recording buffer
-- [ ] Latency calibration/compensation metadata
-- [ ] Bluetooth/high-latency warnings
-- [ ] Incremental crash-resilient capture
-- [ ] Scheduled/controlled recording where platform permits
+- [ ] Device enumeration/selection: input devices, permission state and its revocation, device changes, and remembering a device by identifier, then group and label (`ADR-0070`)
+- [ ] Raw/Studio default capture profile, with Voice and Custom; the requested and the granted settings compared and disclosed, with progressive disclosure and per-constraint override (`REQ-REC-092`)
+- [ ] Input meters, with a non-visual form, and input gain monitoring
+- [ ] Mono to N-channel recording at the input's granted channel count, into a new project asset of origin `recorded` (`ADR-0071`)
+- [ ] Safe software monitoring and effect monitoring: monitoring off by default, one command to turn it on or off, a persistent visible state apart from recording, a feedback warning, preferences per device and profile, and automatic monitoring only for a profile the person marks as for headphones; monitoring through a live chain on the audio thread, refused with its reason for a chain that cannot run live (`ADR-0070`)
+- [ ] Pre-roll/punch-in, with post-roll and boundary crossfades, as a punch edit that reads a take stack's chosen take (`ADR-0072`)
+- [ ] Take stacks: successive takes, naming and notes, quick audition, promotion, rejection, duplication, branching, removal that keeps the take recoverable, and consolidation that keeps history, each a command with its inverse (`ADR-0072`)
+- [ ] Retrospective recording buffer of 5 to 60 seconds while armed, local and transient, overwritten with zeros when no longer needed, with the device, armed, buffering, duration and recording states shown in the status bar for as long as an input is open (`ADR-0070`)
+- [ ] Latency calibration/compensation metadata: output, input and round-trip latency, guided loopback calibration, a manual offset, values per device pair and rate, recalibration prompts, and compensation applied as a take's placement, never to samples (`ADR-0070`)
+- [ ] Bluetooth/high-latency warnings, as estimates, and sample-rate mismatch, device change and channel-limit diagnostics, with recording kept available (`REQ-REC-094`)
+- [ ] Incremental crash-resilient capture: one-second chunks committed by the storage worker, recording sessions as reachable state, recovery offered when the project opens and before any cleanup, recovered assets marked as ended unexpectedly, and quota watched before and during recording (`ADR-0071`)
+- [ ] Scheduled/controlled recording where platform permits: count-in or pre-roll, a timed stop, and a start at a set time while the page stays open, armed and visible, with background and screen-lock suspension detected and explained (`ADR-0070`)
+- [ ] A recording diagnostics surface that explains the effective capabilities of the browser and hardware, what a degradation affects, why, its impact and what would improve it, without obstructing work (`REQ-REC-097`)
+- [ ] The recorded-media WAV writer in `packages/codecs`: 32-bit float PCM, RF64 past four gibibytes (`ADR-0071`)
+- [ ] Recording views: a Recording panel, the status bar's input state, the Inspector's recording configuration, take and take stack, the Audio settings' input section, and the Recording preset; every view invokes only commands
 
 ## Explicitly Out of Scope
 
-- Full multitrack comping
-- MIDI control
-- Native-driver-only features
+- Full multitrack comping: `REQ-REC-089` defers it to the future multitrack and clip architecture, which no phase of this specification builds; a stack chooses one take for its range (`ADR-0072`)
+- MIDI control (`REQ-PROD-158`, excluded, Phase 00)
+- Native-driver-only features, lower-latency native audio I/O and system or loopback capture (`REQ-PWA-159`, deferred to a future native host)
+- Measuring a live chain's cost and moving a too-costly monitoring chain to a render (Phase 14, as the Phase 06 handoff records)
+- Output device selection, whose capability and port exist from Phase 03 (Phase 14's device hardening)
+- Every audio writer other than the recorded-media WAV writer, and every export (Phase 09, `ADR-0050` amended)
 
 ## Owned Modules / Packages
 
-- `packages/recording`
-- `packages/audio-io`
-- `packages/domain/takes`
-- `apps/web recording workspace`
+- `packages/recording` (new and portable: the session state machine, capture profiles, the calibration's analysis and controlled recording, `ADR-0070`)
+- `packages/capabilities` (Phase 01's; this phase adds the media input adapter, the only place the browser's input is reached)
+- `packages/audio-runtime` (Phase 03's; this phase adds the input side of its context port and the capture worklet)
+- `packages/effect-rack` (Phase 06's; this phase adds its live form for monitoring)
+- `packages/codecs` (Phase 05's; this phase adds the recorded-media WAV writer)
+- `packages/storage` and `packages/storage-runtime` (Phase 02's; this phase adds the recording area, the recovery of sessions, the quota watch, and runs the media store's recovery)
+- `packages/domain/project` and `packages/domain/editing` (take stacks and the punch edit, `ADR-0072`)
+- `packages/project-format` take stacks, the punch edit, recorded provenance and `RecoveryChunkManifest`
+- `packages/project-commands` take and punch commands
+- `packages/history` take-stack differences
+- `packages/workspace` (the Recording preset's panel)
+- `apps/web recording workspace`: the Recording panel, the status bar's input state, the Inspector's recording views, the Audio settings' input section and the recording commands
 
 ## Cross-Package Dependency Rules
 
 - Recording uses audio-engine and project/media-store public APIs.
 - Device/browser adapters do not become the take/project domain model.
+- Only `packages/capabilities` reads a browser global; it gives the media input adapter to the application, which gives what it opens to the runtime (`ADR-0030`, `ADR-0040`, `ADR-0070`).
+- `packages/recording` depends on the domain and `packages/text` only; it knows no browser global, no React, no storage and no audio host.
+- `packages/audio-runtime` alone makes audio nodes; its capture worklet loads `packages/effect-rack` and `packages/processors` in its thread entry only (`ADR-0030` amended).
+- Only the storage worker writes recorded media; the page reaches it through `StorageClient`, and the capture worklet sends it the samples (`ADR-0022`, `ADR-0071`).
+- The interface changes takes, stacks, punches, profiles, monitoring and calibration only through project and application commands.
 
 ## Required Public Contracts
 
-- RecordingSession
-- CaptureProfile
-- InputDeviceDescriptor
-- TakeStack
-- PunchRange
-- LatencyCalibration
-- RecoveryChunkManifest
+- RecordingSession (`packages/recording`, `ADR-0070`)
+- CaptureProfile (`packages/recording`, `ADR-0070`)
+- InputDeviceDescriptor (`packages/capabilities`, `ADR-0070`)
+- TakeStack (`packages/domain`, `ADR-0072`)
+- PunchRange (`packages/domain`, `ADR-0072`)
+- LatencyCalibration (`packages/recording`, `ADR-0070`)
+- RecoveryChunkManifest (`packages/project-format`, `ADR-0071`)
+- The media input adapter (`packages/capabilities`, `ADR-0070`)
+- The capture worklet and its capture channel (`packages/audio-runtime`, `ADR-0070`)
+- The effect rack's live form (`packages/effect-rack`, `ADR-0070`)
+- The punch edit (`packages/domain`, `ADR-0072`)
+- The storage worker's recording operations (`packages/storage-runtime`, `ADR-0071`)
+- The recorded-media WAV writer (`packages/codecs`, `ADR-0071`)
 
 ## Data / Schema Changes
 
 - Introduces recording-session metadata, take-stack records, punch ranges, latency calibration profiles and incremental recovery-chunk manifests.
+- The project document gains take stacks, the punch edit and recorded provenance, raising `projectDocument`; project storage gains recording sessions, raising `projectStorage`; the person's audio settings gain capture profiles, monitoring preferences and calibrations, raising `audioSettings`. Before 1.0 nothing migrates (`REQ-STOR-052`).
+- Settled by this phase's readiness review (`ADR-0070`, `ADR-0071`, `ADR-0072`): where capture, monitoring and latency live, how a recording is made durable and recovered, and where takes and punches sit in the edit model.
 
 ## Browser / Platform Considerations
 
 - Microphone permissions, device IDs, browser capture processing controls and Bluetooth behaviour vary by platform.
 - Mobile background/screen-lock capture restrictions must be detected and explained.
+- Assumed nowhere (`REQ-EXEC-216`): that a microphone, a permission or a given device exists; that a device identifier lasts; that requested constraints were granted; that the input's rate is the context's; that storage quota suffices; that a browser reports input latency; that a device is Bluetooth or headphones. Each is probed, measured or asked, and its absence has stated behaviour.
+- Capture works without cross-origin isolation, by posted blocks, as playback feeds do (`ADR-0007`).
+- Recording needs a secure context; the capabilities panel says so where it is missing.
 
 ## Architectural Invariants
 
@@ -216,30 +277,47 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - Monitoring effects are non-destructive.
 - Punch-in creates a new take rather than overwriting prior audio.
 - Microphone/retrospective buffering has persistent visible privacy/status indication.
+- Every recording is a new asset; no source is ever changed (`ADR-0072`).
+- Latency compensation is a take's placement, never a change to its samples.
+- Every chunk committed before a crash, a reload, a lost device or a refused write is recoverable, and nothing removes it until the person recovers or discards it (`ADR-0071`).
+- No input is opened, and nothing is buffered, unless the person arms or records.
+- Monitoring is never turned on by arming.
+- Only the write-lease holder records into a project.
 
 ## Internal Work Units
 
 ### WU-07.A — Device/capture state machine
 
-- [ ] Implement device enumeration/change handling
-- [ ] Implement Raw/Studio, Voice and Custom capture profiles
-- [ ] Implement meters and explicit browser-processing controls
+- [ ] Implement the media input adapter in `packages/capabilities`: permission state and changes, input devices, supported constraints, opening an input, and the granted settings
+- [ ] Implement device enumeration/change handling, and finding a remembered device again
+- [ ] Implement Raw/Studio, Voice and Custom capture profiles, and the comparison of requested and granted settings
+- [ ] Implement the recording session's state machine in `packages/recording`
+- [ ] Implement the capture worklet and the input side of the context port, with input meters and explicit browser-processing controls
 
 ### WU-07.B — Monitoring and latency
 
-- [ ] Implement monitoring-off default with feedback warning
-- [ ] Implement effects monitoring path
-- [ ] Implement latency measurement/calibration and Bluetooth diagnostics
+- [ ] Implement monitoring-off default with feedback warning, one-command toggling, per-device and per-profile preferences, and headphone profiles
+- [ ] Implement effects monitoring path: the effect rack's live form in the capture worklet, refusing a chain that cannot run live
+- [ ] Implement latency measurement/calibration and Bluetooth diagnostics, sample-rate mismatch and device-change diagnostics
+- [ ] Implement the recording diagnostics surface
 
 ### WU-07.C — Takes and punch
 
-- [ ] Implement take stacks and audition/promote operations
-- [ ] Implement pre-roll and non-destructive punch-in
+- [ ] Implement take stacks and audition/promote operations, with naming, notes, rejection, duplication, branching, removal and consolidation, their commands, inverses, persisted form and history differences
+- [ ] Implement pre-roll and non-destructive punch-in: the punch edit, its crossfades and its validation, folded by the plan
 
 ### WU-07.D — Retrospective/resilience
 
 - [ ] Implement configurable armed rolling buffer with privacy indicator
-- [ ] Persist recording incrementally so process/tab failure can recover completed chunks
+- [ ] Persist recording incrementally so process/tab failure can recover completed chunks: the storage worker's recording area, the manifest, one-second chunks, and recording sessions as reachable state
+- [ ] Implement the recorded-media WAV writer and the path from a whole recording to an asset with its provenance
+- [ ] Offer interrupted sessions for recovery when a project opens, before cleanup, and run the media store's recovery after them
+- [ ] Watch the storage estimate before and during recording, and stop and keep what is committed when a write is refused
+
+### WU-07.E — Views and controlled recording
+
+- [ ] Implement the Recording panel, the status bar's input state, the Inspector's recording views, the Audio settings' input section and the Recording preset's panel
+- [ ] Implement count-in, timed stop and scheduled start, with background and screen-lock detection
 
 ## Failure and Recovery Behaviour
 
@@ -247,13 +325,24 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - Permission denial/revocation must not corrupt project state.
 - Quota pressure during recording must surface early and recover all committed capture.
 - Monitoring feedback-risk state must be visible.
+- A crash, a reload or a closed tab keeps every committed chunk; the next opening of the project offers the session for recovery before any cleanup, and a recovered asset says capture ended unexpectedly.
+- A torn last chunk is read to its last whole frame.
+- A take shorter than its punch range is refused for it, with the reason; nothing else changes.
+- A chain that cannot run live is refused for monitoring with its reason; recording continues.
+- A capture that a browser suspends in the background stops and keeps what it has, and says why.
+- A tab without the write lease is told why it cannot arm or record.
 
 ## Required Verification Commands / Suites
 
-- `pnpm test --filter recording`
-- `pnpm test:recording-state-machine`
-- `pnpm test:recording-recovery`
-- `pnpm test:e2e:recording`
+- `pnpm --filter @audiogubbins/recording --filter @audiogubbins/capabilities --filter @audiogubbins/audio-runtime --filter @audiogubbins/codecs test`
+- `pnpm test:recovery`
+- `pnpm test:storage-quota`
+- `pnpm test:project-roundtrip`
+- `pnpm test:editing-property`
+- `pnpm test:audio-latency`
+- `pnpm test:architecture`
+- `pnpm test:recording-recovery`, which this phase adds: the recording session's recovery tests, which stop the writer at every step, tear a chunk, refuse a write for quota and lose a device
+- `pnpm test:e2e:recording`, which this phase adds: a Chromium project with a fake input device and a granted microphone permission
 
 ## Acceptance Criteria
 
@@ -262,6 +351,11 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - [ ] Retrospective capture recovers the configured pre-record interval while armed.
 - [ ] Browser AGC/echo/noise processing is disabled in Raw/Studio where the platform permits and any inability is disclosed.
 - [ ] Input monitoring starts disabled by default and warnings/preferences work as specified.
+- [ ] The recorded asset's samples are the dry input's, bit for bit, whatever monitoring, effects or compensation was on.
+- [ ] Choosing another take in a punch stack changes what the punch plays, one undo restores the choice, and no take's media is lost while any state names it.
+- [ ] Latency compensation is applied as a take's placement, and the take's samples are unchanged.
+- [ ] No input is open, and no audio is buffered, unless an input is armed or recording, and the status bar says which.
+- [ ] A browser test records with a fake input, punches in over a range, chooses another take, reloads, and hears the same project; another reloads mid-recording and recovers the committed chunks.
 
 ## Forbidden Shortcuts
 
@@ -274,15 +368,22 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - No hidden microphone buffering when not armed.
 - No assumption that device IDs remain stable forever.
 - No browser speech-processing defaults silently applied in Raw/Studio.
+- No browser global read outside `packages/capabilities`, and no second audio context for capture.
+- No recording held whole in memory until stop; no recorded samples passed through the page.
+- No second take or timeline model beside the edit model; no take that edits another take's source.
+- No compensation, gain or monitoring effect applied to recorded samples.
 
 ## Required Review Lenses
 
+- Architecture
 - Audio / DSP Correctness
-- Privacy / Permissions
+- Security / Privacy
 - Data Integrity / Recovery
-- UX / Accessibility
-- Browser Compatibility
+- Performance / Scalability
+- UX / Accessibility / Input
+- Browser / PWA Compatibility
 - Testing / Regression
+- Code Quality / Maintainability
 - Adversarial Agent-Quality
 
 ## Evidence Package
@@ -293,6 +394,15 @@ Users can record professionally with device selection/meters/monitoring/effects/
 - ADRs created/changed and evidence that public contracts match them.
 - Verified review findings, remediation commits, and re-review disposition.
 - Screenshots/video/interaction evidence only where automated evidence cannot sufficiently demonstrate the UX behaviour.
+
+## Inherited Debt
+
+Assigned to this phase by the Phase 06 handoff and by this phase's readiness review:
+
+- Monitoring through effects while recording (Phase 06 handoff), listed under In Scope.
+- The media store's recovery of an incomplete store, `MediaObjectStore.recoverIncomplete`, is run by no production path (Phase 02, found by this review): this phase runs it at the storage worker's start, after recording sessions are listed (`ADR-0071`).
+- The storage estimate the capabilities package reads has no consumer, so nothing warns before storage runs out (Phase 02, found by this review): this phase's quota watch reads it (`ADR-0071`).
+- The audio runtime's context port and worklet have no input, and its fakes none either (Phase 03, found by this review): this phase adds the input side and its fakes (`ADR-0070`).
 
 ## Handoff Capsule
 
@@ -543,6 +653,826 @@ Where functionality is degraded, unavailable, emulated, or operating through a f
 - Whether changing browser, device, permission, deployment runtime, or settings can improve it
 
 Capability transparency must be informative rather than alarmist and should not obstruct normal workflows unless user action is genuinely required.
+
+---
+
+## REQ-ARCH-004 — Core Architectural Principles
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 4 of the pre-hardening baseline
+
+#### 4.1 Local-First
+
+The editor must function primarily on the user's local machine.
+
+Core editing functionality must not depend on:
+
+- A user account
+- A remote application server
+- Cloud storage
+- External processing
+- Mandatory telemetry
+- Uploading audio to third parties
+
+Audio should remain local unless the user explicitly invokes a future online integration.
+
+Future user-configured cloud integrations should be possible through provider-neutral abstractions, but the local project model must never depend on a cloud provider.
+
+---
+
+#### 4.2 Non-Destructive Editing
+
+Non-destructive editing is mandatory.
+
+Original source audio must remain unchanged unless the user explicitly requests a destructive export or replacement workflow.
+
+Edits must be represented as operations and parameters rather than repeatedly rewriting the source audio.
+
+---
+
+#### 4.3 Parametric Editing
+
+The editing architecture shall use a parametric model wherever practical.
+
+Examples include:
+
+- Gain changes
+- Normalisation
+- Equalisation
+- Compression
+- Filters
+- Fades
+- Time ranges
+- Noise-reduction parameters
+- Pitch processing
+- Time stretching
+- Spectral operations
+- Loop definitions
+- Region boundaries
+
+The authoritative project state should be composed of:
+
+- Immutable source assets or source references
+- Parametric edit operations
+- Effect chains
+- Region and marker data
+- Project metadata
+- User configuration
+
+Rendered intermediates, waveform peaks, spectrogram tiles, preview renders, proxies, and other derived data should be treated as disposable caches.
+
+---
+
+#### 4.4 Future Multitrack Readiness
+
+Initial releases shall focus on high-quality single-file and region-based waveform editing.
+
+True multitrack editing is deferred to a later approved phase/specification, but the architecture SHALL remain multitrack-ready from the first production phase.
+
+The initial internal model must therefore avoid assumptions such as:
+
+> one project = one waveform
+
+The domain model should already support concepts such as:
+
+- Projects
+- Assets
+- Clips
+- Regions
+- Tracks
+- Processors
+- Effect chains
+- Buses
+- Routing
+- Automation-ready parameters
+
+Even if some of those concepts are not exposed in the first UI.
+
+---
+
+## REQ-ARCH-085 — Native Asset Sample Rates and Future Session Rate
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 85 of the pre-hardening baseline
+
+During single-asset editing, source assets should retain their native sample rates internally wherever practical.
+
+AudioGubbins must avoid unnecessary resampling merely to conform to a global project rate.
+
+When multitrack sessions are introduced, a session or mix sample rate may be defined while preserving original source assets at their native rates.
+
+Resampling must remain explicit, deterministic, and high quality.
+
+---
+
+## REQ-ARCH-087 — Resource-Aware Operation Without Artificial Limits
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 87 of the pre-hardening baseline
+
+AudioGubbins must not impose arbitrary fixed limits on:
+
+- Audio duration
+- Region count
+- Marker count
+- Undo/redo depth
+- Project asset count
+- Batch size
+- Analysis duration
+- Other scalable project structures
+
+Instead, the application should measure available resources and estimate workload requirements.
+
+When an operation may exhaust memory, storage, compute capacity, or browser limits, the application should:
+
+1. Warn the user clearly.
+2. Explain the limiting resource.
+3. Offer safer execution strategies where possible.
+4. Prefer streaming, chunked, tiled, paged, or incremental processing over outright refusal.
+5. Allow knowledgeable users to proceed where doing so is technically safe.
+
+---
+
+## REQ-ARCH-144 — Processor Latency and Automatic Delay Compensation
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 144 of the pre-hardening baseline
+
+Processor latency must be a first-class engine concept from the initial DSP architecture.
+
+Processors that introduce latency must report it accurately or expose sufficient information for the engine to calculate it.
+
+Examples include:
+
+- Look-ahead dynamics
+- Linear-phase filtering
+- Convolution
+- Spectral processing
+- ML inference
+- Oversampled processors
+- Time-domain buffering
+
+The processing graph must propagate latency information and provide automatic delay compensation where required so that:
+
+- Parallel processing paths remain phase/time aligned
+- Future multitrack playback remains aligned
+- Side chains remain coherent
+- Offline renders remain sample-correct
+- Monitoring latency can be reported accurately
+
+Latency compensation must not be retrofitted as a future multitrack-only concern.
+
+---
+
+## REQ-ARCH-153 — State Ownership and Workflow State
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 153 of the pre-hardening baseline
+
+AudioGubbins must not create a single global application store containing all project, UI, renderer, audio, and job state.
+
+State shall be partitioned according to ownership and lifetime, including at least:
+
+- Authoritative project/domain state
+- Persisted command journal/history state
+- User preferences
+- Workspace/layout state
+- Per-editor-view state
+- Ephemeral interaction state
+- Audio-engine runtime state
+- Renderer runtime state
+- Background job state
+- Capability/runtime diagnostics
+
+The typed command/domain layer remains authoritative for meaningful project mutations.
+
+React-facing state libraries may be used for UI-oriented state, but they must not become an alternative domain model or bypass command validation, transactions, undo/redo, persistence, or architectural boundaries.
+
+Explicit state machines should be used where workflows have meaningful lifecycle rules, failure/recovery states, or concurrency constraints—for example recording, export jobs, schema reset/backup flows, project ownership transfer, PWA updates, and long-running model installation—rather than representing complex lifecycle behaviour through scattered booleans.
+
+---
+
+## REQ-ARCH-157 — Multichannel, Surround, and Ambisonic Audio
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 157 of the pre-hardening baseline
+
+AudioGubbins shall support professional multichannel authoring beyond mono and stereo.
+
+The channel model must be layout-aware rather than relying only on channel count. It should be capable of representing, validating, displaying, processing, and exporting layouts such as:
+
+- Mono
+- Stereo
+- LCR
+- Quadraphonic layouts
+- 5.1
+- 7.1
+- Other discrete-channel layouts supported by relevant formats
+- Ambisonic channel sets and ordering/normalisation conventions where supported
+- Custom labelled channel maps
+
+The architecture shall include explicit channel-layout metadata and channel-role identity. Channel order must not be inferred from array position alone when a format or workflow requires semantic channel identity.
+
+Waveform, metering, selection, processor, routing, analysis, export, and future multitrack contracts must all be designed for N-channel operation.
+
+Where a processor cannot support an input layout, it must declare that limitation explicitly and provide a well-defined adaptation policy where one is acoustically valid. Silent downmixing or accidental channel truncation is prohibited.
+
+AudioGubbins should support professional channel-layout operations, including:
+
+- Remapping
+- Reordering
+- Extraction
+- Duplication
+- Downmixing
+- Upmix-assist workflows where appropriate
+- Per-channel gain/polarity/delay
+- Linked and unlinked processing
+- Mid/side and other matrix operations
+- Surround metering
+- Phase/correlation analysis
+- Ambisonic encode/decode/rotate/normalisation utilities where supported
+
+Export recipes must preserve or intentionally transform channel-layout metadata according to explicit user configuration.
+
+---
+
+## REQ-AUDIO-156 — Video Reference and Sound-to-Picture Workflows
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 156 of the pre-hardening baseline
+
+AudioGubbins shall support opening video and gameplay-reference media alongside audio for sound-design-to-picture workflows without attempting to become a general-purpose video editor.
+
+The video-reference subsystem should support, where technically available:
+
+- Synchronised audio/video transport
+- Frame-accurate or best-available frame-aware scrubbing
+- Timecode and frame display
+- Configurable frame-rate interpretation
+- Timeline markers and regions aligned to picture
+- Waveform/spectrogram editing while picture remains synchronised
+- Video thumbnails or filmstrip views where useful
+- Detachable/dockable video preview panel
+- Full-screen or enlarged picture preview
+- Offset/calibration controls for externally prepared reference media
+- Import of common browser-decodable video formats with capability-based fallback handling
+- Extraction or reference of embedded audio tracks where legally and technically practical
+- Export of edited audio independently from the reference video
+
+The authoritative AudioGubbins project must treat video as reference media unless a later specification explicitly introduces video-editing capabilities. Video-reference support must not cause the project architecture to become coupled to a non-existent video-editing model.
+
+The transport and timeline abstractions must therefore support a shared media clock suitable for future multitrack, picture sync, recording, and external-reference use.
+
+---
+
+## REQ-AUDIO-220 — Native-Rate Reading of Uncompressed Audio
+
+- **Owner:** Phase 05 — Core Non-Destructive Editing
+- **Scope:** `CURRENT`
+- **Legacy source:** none; split from `REQ-AUDIO-010` by `ADR-0050`
+
+AudioGubbins must import a WAV or AIFF file that holds uncompressed PCM into the open project as an asset of that project, read by its own readers at the sample rate the file was recorded at. The browser's audio decoder must not read these files, because it resamples to its own rate and does not report the file's.
+
+Reading must cover:
+
+- WAV: integer PCM of 8 to 32 bits and IEEE floating-point PCM of 32 and 64 bits, in the plain and `WAVE_FORMAT_EXTENSIBLE` forms, and RF64 and BW64 for files larger than 4 GiB
+- AIFF: integer PCM of 8 to 32 bits
+- AIFF-C without compression: integer PCM of 8 to 32 bits in either byte order, and floating-point PCM of 32 and 64 bits
+- Any sample rate and any channel count the file declares, with the channel layout its header states, or no stated layout where it states none
+
+The format must be recognised from the file's contents, never from its name alone.
+
+Reading must not resample. Each sample is converted to the engine's representation by one stated rule that gives the same result on every machine.
+
+A file must be read in chunks, on demand and off the UI thread, and never held whole in memory to be imported, played or drawn. Every read must be cancellable.
+
+The asset must record the file's sample rate, bit depth, sample encoding, channel layout and duration in its provenance.
+
+A file in a format this requirement does not cover must be refused before anything is stored, with a message naming its format and the formats that can be read. A malformed file must fail without changing the project. A file whose audio data ends before the length it declares, as a recording cut off by a crash does, must be read to its last whole frame, and the shortfall reported.
+
+The source file's bytes must not change, whether it is copied into the project or linked where it lies.
+
+---
+
+## REQ-EDIT-012 — Timeline and Editing Requirements
+
+- **Owner:** Phase 04 — Waveform and Timeline Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 12 of the pre-hardening baseline
+
+The editor shall support:
+
+- Sample-accurate editing
+- Movement down to individual samples
+- Time display
+- Millisecond display
+- Sample display
+- Future-ready musical time display
+- Playhead
+- Selection ranges
+- Markers
+- Named regions
+- Loop boundaries
+- Zoom
+- Pan/scroll
+- Channel-separated waveform display
+
+Processing behaviour:
+
+- If a selection exists, processing applies to the selection.
+- If no selection exists, processing applies to the entire target asset or region.
+
+---
+
+## REQ-EDIT-072 — Contextual Inspector
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 72 of the pre-hardening baseline
+
+A contextual Inspector shall be a core workspace concept.
+
+Depending on selection, it may expose properties for:
+
+- Assets
+- Regions
+- Clips
+- Markers
+- Loop definitions
+- Channels
+- Processors
+- Effect racks
+- Recording configuration
+- Export jobs
+- Future tracks/buses/automation objects
+
+Direct manipulation in the editor and property editing in the Inspector must update the same underlying domain state.
+
+---
+
+## REQ-STOR-021 — Undo, Redo, Autosave, and Recovery
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 21 of the pre-hardening baseline
+
+Undo/redo should be effectively unlimited subject to available storage and practical performance.
+
+Avoid arbitrary small undo limits.
+
+Project history should be persisted where practical.
+
+The application shall support:
+
+- Continuous autosave
+- Crash recovery
+- Tab/process termination recovery
+- Restoration of recent working state
+- Transaction-safe project updates where practical
+
+---
+
+## REQ-STOR-052 — Project Schema Compatibility Policy
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 52 of the pre-hardening baseline
+
+#### Pre-1.0.0
+
+Before version 1.0.0, the project and storage schemas are explicitly allowed to break.
+
+The application must not accumulate backwards-compatibility shims or migration code during this period.
+
+When a breaking schema change is detected, the application shall present a blocking compatibility screen that clearly explains that the current stored data is incompatible with the new schema.
+
+The user must be able to choose, where technically possible, to:
+
+- Back up/export current data before proceeding
+- Cancel and remain on the current state
+- Proceed and wipe incompatible local application data
+
+After wipe, the application shall initialise storage using the current schema.
+
+#### Version 1.0.0 and Later
+
+From 1.0.0 onward, backwards-compatible project/schema migration becomes a supported product responsibility.
+
+Migration infrastructure should then include:
+
+- Versioned schemas
+- Explicit migration steps
+- Validation
+- Recovery/failure handling
+- Migration tests
+- Preservation of user project data wherever technically possible
+
+---
+
+## REQ-STOR-098 — Concurrent Project Access and Single-Writer Ownership
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 98 of the pre-hardening baseline
+
+AudioGubbins shall use a single-writer ownership model for any one project within a browser/profile storage context.
+
+At most one application instance may hold authoritative write ownership for a project at a time.
+
+Other tabs or windows attempting to open the same project should be able to:
+
+- Open the project read-only where safe
+- See which instance currently owns write access where identifiable
+- Request ownership transfer
+- Take ownership after an explicit user decision where the existing owner is unavailable or stale
+- Refresh into the latest authoritative state after ownership changes
+
+Write ownership must use robust coordination primitives available to the platform and must fail safely when coordination is unavailable.
+
+The application must not attempt implicit same-project collaborative editing between browser tabs as part of the initial architecture.
+
+Future collaborative or multi-writer editing, if ever implemented, shall be treated as a distinct feature with an explicit conflict/merge model rather than being layered accidentally onto the local persistence mechanism.
+
+---
+
+## REQ-STOR-099 — Content-Addressed Media Storage and Deduplication
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 99 of the pre-hardening baseline
+
+AudioGubbins should support internal content-addressed media storage so that byte-identical imported source media can be shared across multiple local projects without unnecessary duplication.
+
+The deduplication system should:
+
+- Identify identical media by cryptographic content identity rather than filename
+- Preserve logical project ownership/reference metadata independently of physical storage
+- Maintain reference counts or equivalent reachability information
+- Never remove media that is still reachable from an active project, retained history, backup, recovery state, or protected snapshot
+- Support deterministic garbage collection
+- Remain transparent to ordinary project editing workflows
+
+Deduplication is an internal storage optimisation and must not prevent projects from being exported as fully self-contained portable bundles.
+
+Users should be able to request project consolidation/materialisation when they want all linked/shared media copied into a self-contained project representation.
+
+---
+
+## REQ-STOR-102 — Deleted Media Retention and Explicit Purge
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 102 of the pre-hardening baseline
+
+Removing an asset or media object from the current project state shall not immediately make the underlying source bytes unrecoverable if they are still referenced by undo history, recovery snapshots, backup generations, or other retained project state.
+
+Deleted media should remain recoverable until it becomes unreachable under the active retention policy.
+
+AudioGubbins shall provide an explicit purge/cleanup workflow allowing the user to reclaim storage intentionally.
+
+The purge workflow should:
+
+- Show the amount of reclaimable storage
+- Explain which history, recovery, or backup capabilities would be affected
+- Distinguish safe cache deletion from irreversible source/history deletion
+- Allow selective or comprehensive cleanup
+- Require explicit confirmation before irreversible purge
+- Never delete media still required by reachable authoritative state
+
+Automatic storage-pressure cleanup may aggressively remove disposable caches first, but must not silently purge recoverable source media or protected history.
+
+---
+
+## REQ-STOR-106 — Storage Cleanup Priority
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 106 of the pre-hardening baseline
+
+When storage pressure occurs, AudioGubbins should reclaim data in a safety-first order.
+
+The default cleanup priority should be approximately:
+
+1. Regenerable temporary data
+2. Old disposable render/analysis caches
+3. Rebuildable waveform/spectrogram caches
+4. Unprotected redundant intermediates
+5. User-approved expired backup/history data according to retention policy
+6. Explicitly purged deleted media
+
+Authoritative project state and live source media must never be silently sacrificed to free storage.
+
+Before any cleanup that reduces recoverability, AudioGubbins must explain the consequence and require the user or an explicitly configured policy to authorise it.
+
+---
+
+## REQ-STOR-166 — Asset Provenance and Traceability
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 166 of the pre-hardening baseline
+
+AudioGubbins should retain structured provenance for assets and generated outputs so that developers and sound designers can determine how a game-ready audio file was produced.
+
+Provenance may include:
+
+- Original filename
+- Original source reference/handle where appropriate
+- Import date/time
+- Source fingerprint/hash
+- Source size and format
+- Source sample rate, bit depth, channel layout, and duration
+- Originating AudioGubbins project and project identifier
+- Asset/region identifiers
+- Processing graph and processor-version references
+- Relevant render/export recipe identifier
+- Export date/time
+- Destination information
+- Generated Godot resource identifiers
+- Variation-set/event membership
+- Application version used for render
+- Determinism/render-quality mode
+- ML model version where applicable
+
+Provenance must be represented as structured project metadata rather than inferred from filenames.
+
+Users must be able to strip or minimise provenance and embedded metadata during export where privacy, distribution, or file-size requirements make that desirable.
+
+Provenance metadata must not require network services and must remain compatible with local-first operation.
+
+For deterministic or Git-friendly project modes, provenance serialisation should use stable ordering and avoid meaningless timestamp churn where the timestamp itself is not semantically required.
+
+---
+
+## REQ-STOR-195 — Whole-Project A/B State Comparison
+
+- **Owner:** Phase 02 — Project and Storage System
+- **Scope:** `CURRENT`
+- **Legacy source:** section 195 of the pre-hardening baseline
+
+AudioGubbins shall support comparison and auditioning of complete historical project states, not only processor-level A/B comparison.
+
+The user should be able to select two compatible snapshots/history states and:
+
+- Switch rapidly between them.
+- Audition the resulting audio.
+- Compare processor chains and parameters.
+- Compare region/marker/loop state.
+- Inspect meaningful differences where practical.
+- Promote either state to become the current working state without destroying the other.
+
+Comparison state must not mutate either source snapshot merely by auditioning it.
+
+---
+
+## REQ-PRIV-161 — Diagnostic Submission and Consent Policy
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 161 of the pre-hardening baseline
+
+AudioGubbins must never transmit diagnostic information, crash data, logs, capability information, project metadata, file metadata, source media, rendered audio, or any other user/project information without the user's express permission.
+
+There must be no silent crash reporting, background error reporting, or automatic diagnostic upload.
+
+The application may provide an explicit diagnostic-sharing workflow that allows the user to review and submit a sanitised diagnostic bundle. The bundle may include, where useful and non-sensitive:
+
+- AudioGubbins version/build identifier
+- Browser and operating-system information
+- Runtime capability matrix
+- Relevant feature flags and degraded-capability state
+- Sanitised stack traces
+- Structured application logs
+- Performance timings and resource statistics
+- Processor/plugin/model version identifiers
+- Project/schema version numbers without project content
+- Reproduction metadata explicitly selected by the user
+
+By default, diagnostic bundles must exclude:
+
+- Raw or rendered audio
+- Project files or project contents
+- Source filenames where they may reveal sensitive information
+- Full local filesystem paths
+- Credentials, access tokens, API keys, cookies, or authentication data
+- User-entered free-form content unless deliberately included
+- Cloud-provider data
+- Private Godot project contents
+
+The diagnostic-bundle UI must show the user what will be included before submission or export.
+
+A user may explicitly opt into a remembered diagnostic-sharing preference so that AudioGubbins does not repeatedly present the same consent dialogue for equivalent diagnostic submissions. This opt-in must be:
+
+- Explicit
+- Revocable
+- Easy to inspect and change
+- Narrowly scoped to diagnostic sharing
+- Never interpreted as permission to send analytics, audio, project content, or unrelated data
+
+Even with remembered consent, AudioGubbins must not silently expand the categories of information being transmitted. Materially new data categories require renewed explicit consent.
+
+Where automatic submission is later supported after opt-in, the user must be able to disable it immediately and inspect locally retained submission history where practical.
+
+---
+
+## REQ-PRIV-165 — Structured Diagnostic Logging
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 165 of the pre-hardening baseline
+
+AudioGubbins shall provide a configurable structured local logging system suitable for diagnosing complex audio, rendering, storage, browser-capability, PWA, Godot-integration, DSP, and recovery failures.
+
+Supported severity levels should include at least:
+
+- Error
+- Warning
+- Info
+- Debug
+- Trace
+
+Logging should support:
+
+- Subsystem/category filtering
+- Correlation/operation identifiers
+- Typed structured fields where practical
+- Time stamps
+- Bounded retention
+- User-configurable verbosity
+- Temporary diagnostic mode
+- Export/download of logs
+- Redaction/sanitisation before sharing
+- Clear indication when diagnostic mode is active
+- Performance-event logging without behavioural analytics
+
+Diagnostic mode may collect richer execution metadata for a limited period but must not silently collect prohibited sensitive content.
+
+Logs must not contain by default:
+
+- Raw audio samples
+- Encoded audio payloads
+- Entire project documents
+- Credentials or secrets
+- Browser cookies
+- Authentication tokens
+- User passwords
+- Full external file contents
+- Sensitive cloud-provider data
+
+Local file paths and filenames should be sanitised or redacted in shareable diagnostic bundles unless the user deliberately chooses to include them.
+
+Log retention must be bounded and storage-aware. Users must be able to clear logs and inspect approximate log-storage usage.
+
+---
+
+## REQ-UX-005 — User Experience Goals
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 5 of the pre-hardening baseline
+
+The application shall behave as a modern, sleek, visually rich multimedia application rather than a conventional form-based web application.
+
+The UX should support:
+
+- Mouse
+- Keyboard
+- Touch
+- Pen/stylus where available
+- Hybrid devices
+- Surface-class devices
+- Desktop
+- Laptop
+- Tablet
+- Mobile
+
+The interface should support professional desktop-style interaction patterns where appropriate, including:
+
+- Menu systems
+- Toolbars
+- Context menus
+- Dockable or resizable panels
+- Drag and drop
+- Keyboard shortcuts
+- Command palette
+- Status and transport controls
+- Timeline interactions
+- Touch-friendly controls
+- Responsive layout adaptation
+- Smooth animations and transitions
+
+Accessibility must remain a first-class requirement.
+
+Highly visual editing modes may use specialised interactions, but keyboard-operable and semantic alternatives should be provided wherever realistically possible.
+
+---
+
+## REQ-UX-058 — Workspace Presets
+
+- **Owner:** Phase 01 — Application Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 58 of the pre-hardening baseline
+
+AudioGubbins shall provide built-in workspace presets targeted at common tasks.
+
+Initial or planned presets should include:
+
+- Editing
+- Spectral Repair
+- Recording
+- Game Audio
+- Batch Processing
+- Future Multitrack
+
+Users shall be able to:
+
+- Create custom workspaces
+- Save current layouts
+- Duplicate layouts
+- Rename layouts
+- Reset built-in layouts
+- Delete user-created layouts
+- Switch rapidly between layouts
+
+Workspace switching must not alter authoritative project audio state.
+
+---
+
+## REQ-PWA-028 — Platform Support
+
+- **Owner:** Phase 12 — PWA, Offline, and Installation Hardening
+- **Scope:** `CURRENT`
+- **Legacy source:** section 28 of the pre-hardening baseline
+
+First-class desktop operating systems:
+
+- Windows
+- macOS
+- Linux
+
+Browser targets:
+
+- Chrome
+- Edge
+- Firefox
+- Safari
+
+The application should use progressive enhancement.
+
+Core editing functionality should remain portable across modern browsers.
+
+Enhanced browser APIs should be capability-gated rather than assumed.
+
+---
+
+## REQ-PWA-077 — Capability Degradation Transparency
+
+- **Owner:** Phase 12 — PWA, Offline, and Installation Hardening
+- **Scope:** `CURRENT`
+- **Legacy source:** section 77 of the pre-hardening baseline
+
+Where a browser, device, hosting environment, or permission state causes a capability to be reduced, AudioGubbins must communicate that clearly.
+
+The application shall provide an accessible capability/status surface that can explain:
+
+- Which capabilities are fully available
+- Which are degraded
+- Which are unavailable
+- Why the limitation exists
+- Whether the limitation is browser-, device-, permission-, hosting-, or configuration-related
+- What practical effect the limitation has
+- Whether the user can improve the situation through configuration, installation, alternate hosting, or another supported browser/device
+
+Capability degradation must not be hidden or presented as unexplained poor performance.
+
+---
+
+## REQ-PROD-009 — Audio Duration and Scale
+
+- **Owner:** Phase 03 — Audio Engine Foundation
+- **Scope:** `CURRENT`
+- **Legacy source:** section 9 of the pre-hardening baseline
+
+The application must support audio ranging from:
+
+- Very short game sound effects
+- One-shots
+- Loops
+- Dialogue clips
+- Music
+- Ambience
+- Recordings lasting tens of minutes
+
+The application must not impose arbitrary artificial duration limits.
+
+Architecture should avoid requiring entire large assets to remain duplicated in memory.
 
 ---
 
@@ -1199,7 +2129,91 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 
 ---
 
+## REQ-PROD-158 — MIDI Scope Exclusion
+
+- **Owner:** Phase 00 — Requirements and Architectural Baseline
+- **Scope:** `EXCLUDED`
+- **Legacy source:** section 158 of the pre-hardening baseline
+
+> **Execution rule:** This is an explicit exclusion. Do not implement the excluded capability unless a future approved specification change supersedes this requirement.
+
+MIDI input, MIDI sequencing, MIDI controllers, and MIDI control-surface integration are not current AudioGubbins requirements.
+
+The implementation must not add MIDI infrastructure speculatively.
+
+Generic command, automation, parameter, and input-abstraction systems should remain clean enough that MIDI could be considered in a future specification if requirements change, but no present phase should include MIDI work merely for hypothetical extensibility.
+
+---
+
+## REQ-PWA-159 — Future Native Host or Local Bridge
+
+- **Owner:** Phase 12 — PWA, Offline, and Installation Hardening
+- **Scope:** `DEFERRED`
+- **Legacy source:** section 159 of the pre-hardening baseline
+
+> **Execution rule:** Do not implement the deferred user-facing capability in the current roadmap phase. Preserve the architectural extension point only to the extent explicitly required below.
+
+AudioGubbins remains a browser-first, installable PWA and must not require a native executable, daemon, local server, or companion process for its core functionality.
+
+A future optional native host or local bridge may be considered if it unlocks material capabilities that browsers cannot expose reliably, such as:
+
+- Deeper filesystem integration
+- Lower-latency or more controllable audio I/O
+- System/loopback audio capture
+- Native codec or DSP acceleration
+- OS-level file associations
+- Native drag/drop or shell integration
+- Richer communication with running game/editor processes
+- Expanded local-device discovery
+
+A future native host should preferentially reuse the same AudioGubbins web UI, domain contracts, project formats, DSP contracts, and test fixtures rather than creating a divergent second application. Technologies such as Tauri may be evaluated at that time, but no native-host framework is selected by this specification.
+
+Native enhancements must remain optional unless a future requirement explicitly changes the browser-first product model.
+
+---
+
 # Relevant Accepted ADRs
+
+<!-- adr/ADR-0001-web-stack.md -->
+
+# ADR-0001 — Web Application Stack
+
+- **Status:** Accepted
+- **Decision:** Use React 19.x + TypeScript + Vite 8.x for the web shell, Radix Primitives for accessible low-level controls, Dockview behind an AudioGubbins-owned workspace abstraction, and Motion for React for application-shell animation.
+- **Drivers:** rich professional UI, accessibility, mature ecosystem, dockable workspaces, strong animation, static/PWA deployment.
+- **Constraints:** React must not own high-frequency audio/render state or authoritative project state. Domain packages remain framework-agnostic.
+- **Related requirements:** `REQ-ARCH-151`, `REQ-ARCH-153`, `REQ-UX-057`, `REQ-EDIT-073`.
+- **Superseded in part:** the animation clause, by `ADR-0014`. Motion for React is not installed until a component imports it.
+
+<!-- adr/ADR-0002-project-persistence.md -->
+
+# ADR-0002 — Local-First Project Persistence
+
+- **Status:** Accepted
+- **Decision:** Use an application-owned versioned project model with browser-managed persistent storage (OPFS where available), content-addressed media storage, external-source adapters, a command journal, immutable snapshots, portable bundles, and deterministic unpacked/Git-friendly projects.
+- **Drivers:** local-first operation, recoverability, unlimited/branching history, large media, project portability, developer workflows.
+- **Constraints:** caches are disposable; one project has one writer per storage context; external changes are detected; encryption is out of scope.
+- **Related requirements:** `REQ-STOR-025`, `REQ-STOR-026`, `REQ-STOR-098` through `REQ-STOR-106`, `REQ-STOR-193` through `REQ-STOR-200`.
+
+<!-- adr/ADR-0003-audio-engine-wasm.md -->
+
+# ADR-0003 — Canonical Audio Engine and WASM Strategy
+
+- **Status:** Accepted
+- **Decision:** Use Web Audio/AudioWorklet for real-time browser I/O and a typed processing graph, with Rust as the default language for new performance/safety-critical canonical DSP compiled to WebAssembly. Mature C/C++/other libraries may be used when objectively superior and licence-compatible.
+- **Drivers:** deterministic rendering, performance, numerical correctness, local processing, portability.
+- **Constraints:** SharedArrayBuffer/threaded WASM is an enhancement, not a GitHub Pages hard dependency. Final render defaults to maximum quality.
+- **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-049`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`.
+
+<!-- adr/ADR-0007-runtime-capability-tiers.md -->
+
+# ADR-0007 — Browser Runtime Capability Tiers
+
+- **Status:** Accepted
+- **Decision:** Maintain one application codebase with a Standard Web Runtime that works on GitHub Pages and an Enhanced Web Runtime that opportunistically uses capabilities such as cross-origin-isolated shared memory/threaded WASM when hosting/browser support permits.
+- **Drivers:** GitHub Pages deployment, broad browser support, maximum capability without lowest-common-denominator architecture.
+- **Constraints:** degradation is transparent and should affect performance/integration convenience rather than core feature availability when a viable fallback exists.
+- **Related requirements:** `REQ-PWA-076`, `REQ-PWA-077`, `REQ-PWA-078`.
 
 <!-- adr/ADR-0009-design-system-boundary.md -->
 
@@ -1230,6 +2244,39 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** state partitioned by ownership; a store testable without React; a composition root that is the only place knowing what the real clock, storage and capability probes are.
 - **Constraints:** a store exposes its members as properties rather than methods, so a reader cannot capture an unbound method. Authoritative project and audio state does not live here, and React never owns high-frequency state.
 - **Related requirements:** `REQ-ARCH-153`, `REQ-EXEC-136.4`, `REQ-EDIT-073`.
+
+<!-- adr/ADR-0012-perceptual-colour-tokens.md -->
+
+# ADR-0012 — Perceptual Colour Tokens with Computed Contrast
+
+- **Status:** Accepted
+- **Decision:** Every chrome colour is derived in OKLCH from one base surface lightness, and the text, border and accent tokens are solved by binary search against a WCAG contrast target rather than chosen by hand. Brightness moves the single base number within a safe band; the derived tokens are recomputed.
+- **Drivers:** a theme whose contrast holds across the whole brightness range, both themes, every accent and both contrast levels, rather than at the settings the designer happened to try.
+- **Constraints:** a component may not hard-code a colour or bypass the semantic tokens. A uniform lightness offset is not acceptable: it flattens the palette and collapses the surfaces at the ends of the range. The tests assert the computed ratio across the whole matrix of theme, accent, brightness step and contrast level, and an accessibility audit checks the rendered result.
+- **Related requirements:** `REQ-UX-070`, `REQ-UX-005`, `REQ-UX-071`.
+
+<!-- adr/ADR-0013-command-first-shell.md -->
+
+# ADR-0013 — Command-First Shell Surfaces
+
+- **Status:** Accepted
+- **Decision:** Every meaningful shell action is a registered command with a label, a category, an availability answer and a reason when it is unavailable. Menus, the command palette and the keyboard bindings are views onto the same registry, and a surface that cannot offer an action as a command does not offer it at all. Closing a panel is a command rather than a control on the docking tab.
+- **Drivers:** one definition per action; a palette and a menu that cannot disagree; an action reachable by pointer, keyboard and touch alike; rebindable shortcuts; an unavailable action that says why instead of vanishing.
+- **Constraints:** the engine's own tab close control nests an interactive element inside the element carrying `role="tab"` and is not reachable from the keyboard, so the tab renders its title only. A refused command announces its reason, because a shortcut that appears to do nothing reads as an unreliable application.
+- **Related requirements:** `REQ-EDIT-073`, `REQ-UX-005`, `REQ-UX-066`, `REQ-UX-067`.
+
+<!-- adr/ADR-0015-phase-01-owns-domain-value-model.md -->
+
+# ADR-0015 — Phase 01 Owns the Non-Authoritative Domain Value Model
+
+- **Status:** Accepted. Approved by the project owner on 2026-09-18, as the disposition of Phase 01 review finding F-24.
+- **Supersedes:** the `packages/domain/project` entry in Phase 02's owned modules. Phase 02 keeps everything else it owns, including the authoritative project schema.
+- **Decision:** Phase 01 owns the domain value model in `packages/domain`: the result and failure model, branded identifiers and their generator, sample time, channel layout, and the project, asset, timeline, routing, processing-parameter, effect-chain and selection value types. These are in-memory values that nothing persists. Phase 02 owns the authoritative, versioned, persisted project format built on them, in `packages/project-format` and the storage packages, and extends these types where the format needs it rather than owning a second copy of them. Phase 01's statement that it owns no authoritative audio-project schema stands, because this model is not one: it has no schema version, no serialisation and no storage path.
+- **Drivers:** `REQ-REPO-191` makes Phase 01 own deterministic fixtures and example projects, and a fixture project needs a project type to be built from; `REQ-ARCH-151` requires core editing logic and project state to be testable without rendering a component, which is what the package's dependency-free compilation provides; the review found the model present in Phase 01's tree against the packet's wording, and the two ways to reconcile them were to move the code or to state the ownership. The owner chose to state it.
+- **Constraints:** no Phase 01 module persists these types or treats them as a format. A later phase that needs a persisted shape defines it in its own format package and converts, so a change to an in-memory value type is never silently a change to users' stored projects (`REQ-STOR-052`). Two phases do not claim one module: the Phase 02 packet no longer lists `packages/domain/project`.
+- **Change record:** affected requirements `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`; affected phases 01 and 02; compatibility impact none, because nothing has been persisted in this format and Phase 02 has not started; already-passed phase remediation none; verification unchanged, because the package's existing tests and the architecture rule that it depends on no other package already cover it.
+- **Related requirements:** `REQ-REPO-191`, `REQ-ARCH-151`, `REQ-REPO-154`, `REQ-STOR-026`, `REQ-STOR-052`.
+- **Amended by:** `ADR-0051` (2026-10-02), in the timeline values: the project-timeline `Region` and `Marker`, which no phase had built on and nothing stored, are restated as values of one asset, anchored to its content, and the editor draws them as `PlacedRegion` and `PlacedMarker`. Every other clause stands.
 
 <!-- adr/ADR-0016-version-registry-package.md -->
 
@@ -1295,6 +2342,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** `REQ-STOR-101` requires a command journal with periodic immutable snapshots and recovery from a torn tail; `REQ-STOR-098` requires one writer per project in a storage context, with transfer and a safe failure where coordination is absent; `REQ-STOR-099` requires cryptographic content identity; `REQ-EXEC-136.4` and the packet keep the project domain off the origin-private file system and the File System Access API; `REQ-EXEC-216` forbids assuming a file fits in memory; `CLAUDE.md` G1 requires one responsibility per module and I/O through injected ports.
 - **Constraints:** only `packages/browser-storage` and the application touch a browser storage API. The five other packages compile without the DOM library and are framework-free under the architecture rules. Nothing in them persists the domain's in-memory values directly: the document is converted field by field and validated when read (`REQ-EXEC-136.12`). Before 1.0 a stored document of another schema version is refused and reported, never migrated (`REQ-STOR-052`).
 - **Change record:** affected requirements are the Phase 02 owned set; affected phase 02 only; the packet's owned module `packages/commands/project` is realised as `packages/project-commands`, and `packages/browser-storage` is added beneath the ports; compatibility impact none, because nothing is yet persisted in these formats; already-passed phase remediation none; verification by the architecture rules, which name each package, and the packages' own suites.
+- **Amended by:** `ADR-0071` (2026-10-09), in the project's storage: a project's directory gains its recording sessions, each a manifest and its chunks, which are reachable state until the person recovers or discards them. Every other clause stands.
 - **Related requirements:** `REQ-STOR-021`, `REQ-STOR-025`, `REQ-STOR-026`, `REQ-STOR-052`, `REQ-STOR-098` through `REQ-STOR-106`, `REQ-STOR-193` through `REQ-STOR-200`, `REQ-EXEC-136`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0021-annotations-move-with-native-rate-import.md -->
@@ -1318,6 +2366,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Drivers:** the architecture invariants keep heavy work, import, export and batch work off the UI thread. Before this decision the page built every storage service and only file reads and writes crossed to the worker, so canonical text, parsing, fingerprints, usage and roots scans, backups and ZIP checksums ran on the page: a project of 16,000 changes took 331 ms to write and 483 ms to read one checkpoint there. `REQ-STOR-021` asks for effectively unlimited undo, so a history long enough to make the page stall is a supported project, not an edge case.
 - **Constraints:** the storage core's packages stay framework-free and take every platform object through their ports, so the worker is only a new composition root; no rule moves. One operation table names each operation with its argument and answer types, and both ends compile from it, so no payload is described twice; the envelopes are read field by field, as the tree's messages were. A failure crosses as the `DomainResult` it is, and a refused tree operation as its kind. The page's mirror of an open project publishes a new snapshot value only when the worker publishes, so identity still marks a change for `useSyncExternalStore`. Tests run the worker's real composition over an in-process pair that structured-clones every message, and a dependency rule keeps the page to the storage package's types.
 - **Change record:** affected requirements `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`; affected phase 02, whose review found the page doing the storage work, and whose owner ruled that it is fixed in Phase 02 rather than Phase 14; compatibility impact none, because nothing persisted changes; verification by the history delta's tests, the port's tests over a structured clone, the application's tests through the client, the dependency rule, cancellation and yield tests for each long path, and a measurement of the page's time for a change and an open at 16,000 changes.
+- **Amended by:** `ADR-0071` (2026-10-09): the storage worker gains the recording area, which receives a capture channel from the capture worklet, writes its chunks, makes a whole recording an asset, and lists interrupted sessions when a project opens. Every other clause stands.
 - **Related requirements:** `REQ-STOR-021`, `REQ-STOR-098`, `REQ-STOR-193`, `REQ-EXEC-216`, `REQ-EXEC-136`.
 
 <!-- adr/ADR-0030-audio-engine-package-topology.md -->
@@ -1336,6 +2385,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amended:** on 2026-10-05, by Phase 06's readiness review, on the maintainer's decision on the Phase 05 review's F-07 remnants: `packages/audio-graph` and `packages/audio-engine` may also depend on `packages/text` (`ADR-0018`), a leaf with no dependencies that is compiled without the browser's type definitions, so each words a count with its one `counted` rather than writing its own. Neither gains a browser global, a thread or React, and every other reason this record gives stands.
 - **Amended by:** `ADR-0061` and `ADR-0062` (2026-10-05), which name the packages that build on these three: `packages/processors`, `packages/effect-rack` and `crates/analysis` (`ADR-0061`), and `packages/ml-runtime` and `packages/model-packs` (`ADR-0062`). Every other clause stands.
 - **Amended:** on 2026-10-09, by Phase 06's build: `packages/audio-runtime` also depends on `packages/effect-rack`, `packages/processors` and `packages/ml-runtime`, but only in the modules that start its threads and in its test support, which make the effect rack over the processor catalogue and give each thread its model channel (`ADR-0060`, `ADR-0062`). The cores that render and feed are given the rack as a port and import none of the three, which the dependency cruise checks, so the runtime still runs in tests with any processing. Every other clause stands.
+- **Amended by:** `ADR-0070` (2026-10-09): `packages/audio-runtime`'s context port gains a media stream source and a worklet node with an input, and its thread entries gain the capture worklet, which loads the effect rack and the processors in its thread entry only, for monitoring through a live chain. Every other clause stands.
 - **Related requirements:** `REQ-ARCH-036`, `REQ-ARCH-140`, `REQ-REPO-154`, `REQ-EXEC-136`, `REQ-EXEC-184`.
 
 <!-- adr/ADR-0031-narrow-wasm-boundary.md -->
@@ -1436,6 +2486,17 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-ARCH-157`, `REQ-EXEC-216`; affected phases 03 (whose tone description this generalises) and 04; compatibility impact none, because a description is never persisted, and the test signal's golden render is unchanged; verification by the recipe source's tests, the unchanged golden render and the runtime's protocol tests.
 - **Related requirements:** `REQ-ARCH-157`, `REQ-EXEC-216`, `REQ-ARCH-081`.
 
+<!-- adr/ADR-0046-video-reference-binding.md -->
+
+# ADR-0046 — Picture Follows The Media Clock Through A Binding, Within One Frame While Playing And Exactly While Parked
+
+- **Status:** Accepted
+- **Decision:** Reference picture is bound to the transport's media clock, never the reverse. A binding holds the timeline's sample rate, the frame-rate interpretation as a ratio of integers with drop-frame where it applies, and an offset in samples (the timeline boundary at which the picture's first frame shows), which the person calibrates. From a timeline boundary it gives the picture time to show and the frame number; from a frame it gives the boundary where that frame starts, which is where a picture-aligned marker is placed and what frame snapping offers. While the transport plays, the picture is corrected with a seek when it drifts from the audible position by more than one frame period. While parked or scrubbed, the picture shows the frame containing the position. A browser that cannot decode the file, or has no frame callback, is reported with what it costs, and the audio project is untouched.
+- **Drivers:** `REQ-AUDIO-156` (synchronised transport, frame-aware scrubbing, timecode and frame display, configurable frame-rate interpretation, picture-aligned markers, offset calibration, capability-based fallback) and the packet's acceptance criterion of a defined synchronisation tolerance.
+- **Constraints:** video is reference media: the project holds no video model. The binding's arithmetic is exact in integers, so a frame's boundary does not drift over hours. The tolerance is one frame period because a browser's video element offers no finer control of presentation than a seek.
+- **Change record:** affected requirements `REQ-AUDIO-156`; affected phase 04; compatibility impact none; verification by the binding's tests and the `test:video-reference` browser suite.
+- **Related requirements:** `REQ-AUDIO-156`, `REQ-EDIT-013`.
+
 <!-- adr/ADR-0047-session-annotations.md -->
 
 # ADR-0047 — Phase 04's Markers Are Held Per Asset For The Session Until A Project Holds Them
@@ -1459,6 +2520,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** the readers are the first implementations of the read contract in `packages/codecs`: the format recognised from the file's bytes, never its name alone; an `AudioFormatDescriptor` of its rate, bit depth, sample encoding, channel count, layout and length in frames; and frames read on demand, in chunks, at the native rate, off the UI thread, with every read taking an `AbortSignal`. A file is never read whole into memory to import, play or draw it. Phase 09 extends this contract with its registry, capability descriptors, decoders and writers, and does not introduce a second one. Samples are converted to the engine's representation by one stated rule, giving the same bits on every machine (`ADR-0032`), and nothing is resampled. A file in a format Phase 05 does not read is refused before anything is stored, with a sentence naming the format and the formats that can be read. A malformed or hostile file fails without changing the project. A file whose data runs short of its declared length, as a recording cut off by a crash does, is read to its last whole frame and the shortfall said, never refused whole. The source bytes stay unchanged, copied into the media store or linked as the person chose (`REQ-STOR-025`, `REQ-STOR-104`). The markers and regions become project state through project commands with the same inverses, a region carries its edit operations, and the project's history undoes and redoes all of them (`REQ-STOR-021`); persisting them raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`). The in-memory holder (`apps/web/src/state/session-content.ts`) is removed, with the interface's sentence that markers are not kept. Audio that is not an asset of the project, the deterministic test assets and the sound of a reference picture, carries no markers or regions, and the marker and region tools say why on it. The picture's sound is still decoded by the browser, so the bound on its channels that Phase 04 left stays Phase 09's. Of the Phase 02 review's tracked findings, F-42 (the peak cache's readiness wiring) and the reserved-key half of F-53 pass to Phase 05, the first phase to open the project's own assets in the editor and to bring linked files in from the interface; F-51 stays Phase 09's.
 - **Change record:** affected requirements `REQ-AUDIO-010` (its uncompressed PCM reading split out), `REQ-AUDIO-220` (new, owner Phase 05), `REQ-ARCH-085`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-STOR-025`, `REQ-STOR-166` and `REQ-STOR-195`; affected phases 05, which becomes `READY` with this scope, and 09, which loses the import at the native rate of uncompressed PCM and the move of the markers and keeps the rest; Phases 02, 03 and 04, already passed, need no remediation, since what they deferred to the import is now Phase 05's and their handoffs stand as records. Compatibility impact: the project's format gains regions, edit operations and markers, raising its schema version; no build has shipped, so no stored project is affected. Public API: `packages/codecs` is created by Phase 05, with the read contract and `AudioFormatDescriptor`. Godot interchange and runtime: none. PWA and browser: none, since no browser codec is used for these formats. Verification: codec fixtures for every encoding, depth, byte order and form named above, checked sample for sample; malformed and truncated files; a project round trip of imported assets with their markers, regions and edit operations through save, reload and undo, redo and branch traversal; source hashes unchanged after import and editing; and the browser test that imports a file and finds its markers after a reload.
 - **Amends:** `ADR-0021`, in its clause that Phase 09 owns importing at the native rate and the move with it. Its other clauses stand.
+- **Amended by:** `ADR-0071` (2026-10-09), in its clause that every writer is Phase 09's: Phase 07 adds to `packages/codecs` the one writer recorded media needs, a 32-bit float PCM WAV header, RF64 past four gibibytes; Phase 09 builds its WAV writing on it and owns every other writer. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-010`, `REQ-AUDIO-220`, `REQ-ARCH-085`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-STOR-025`, `REQ-STOR-052`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-STOR-195`, `REQ-EXEC-181`.
 
 <!-- adr/ADR-0051-edit-model.md -->
@@ -1478,6 +2540,7 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Constraints:** arithmetic follows `ADR-0032`: a ramp's shape uses only addition, multiplication, division and square root in a stated order (linear, equal-power as the square root, an S-curve and a square law), and a gain is stored as a linear factor, so a stage gives the same bits on every machine. A sample rate is never changed implicitly: a payload pasted into an asset of another rate is converted by the canonical resampler only when the command says so, and the conversion is part of the plan (`REQ-ARCH-085`). Every operation is validated against the chain it joins by the same domain function, when a command makes it and when the project document is read, so a replayed or imported journal cannot hold an operation that reaches outside its asset. An asset that a region, a marker or a payload names cannot be removed until they are. A layout conversion keeps the new layout's roles, and every per-channel operation keeps the roles it found (`REQ-EDIT-015`).
 - **Change record:** affected requirements `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-STOR-021`, `REQ-ARCH-004`; affected phases 01 (whose project-timeline `Region` and `Marker` are restated as asset values, amending `ADR-0015`), 04 (whose editor view draws placed values) and 05; compatibility impact: the project document's schema version is raised, with no migration before 1.0 (`REQ-STOR-052`); verification by the domain's property tests of the chain, the anchors and the plan, the project round trip, and the commands' selection tests.
 - **Amended by:** `ADR-0060` (2026-10-05), in the plan and the regions: a processing operation may apply a chain of processors to its range, an asset and a region may each name a rack that processes the whole of it, and the plan realises both by a stream that reads a range of an earlier stream processed by a chain, rendered from its own start. A region's audio is the asset's chain, with each region's processing folded in at its basis, then the asset's rack, then the region's span of that, then the region's rack. Time stretching and the sample-rate conversion of an asset are operations in the chain that carry positions by their ratio. The plan is still the only description of an edited sound. Every other clause stands.
+- **Amended by:** `ADR-0072` (2026-10-09): an asset's chain gains the punch edit, a range edit that replaces its range with the chosen take of the take stack it names, without changing time; an asset a take stack names cannot be removed. Every other clause stands.
 - **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-EDIT-061`, `REQ-EDIT-063`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-ARCH-004`, `REQ-ARCH-085`, `REQ-EXEC-136`.
 
 <!-- adr/ADR-0052-read-contract-and-media-threads.md -->
@@ -1498,6 +2561,44 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Change record:** affected requirements `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`; affected phases 03 (whose source description gains a kind), 04 (whose peak worker reads it) and 09 (which extends this package); compatibility impact none beyond `ADR-0051`'s schema change; verification by the codec fixtures, written by a test writer for every encoding, depth, byte order and form and compared sample for sample, the malformed-media suite, and the import's tests.
 - **Related requirements:** `REQ-AUDIO-220`, `REQ-AUDIO-010`, `REQ-ARCH-085`, `REQ-STOR-025`, `REQ-STOR-104`, `REQ-STOR-166`, `REQ-EXEC-216`.
 
+<!-- adr/ADR-0053-clipboard-and-quick-edit.md -->
+
+# ADR-0053 — The Clipboard Holds A Payload Of Plan Segments, And Quick Edit Is A Project The Shell Makes
+
+- **Status:** Accepted
+- **Decision:** `packages/clipboard` (`@audiogubbins/clipboard`) owns what copying and pasting mean.
+  - **The payload.** `ClipboardPayload` is a slice of an edit plan (`ADR-0051`): its streams, rate and layout, and the asset records of the media its segments read. It names immutable sources only, never an operation, so what was copied sounds the same whatever later happens to the asset it came from.
+  - **Copy and cut.** Copying takes the resolved target's range and channels from the plan of the asset or region shown; a cut is a copy and a deletion, recorded as one change.
+  - **Paste.** Pasting inserts the payload at the target's position, or replaces the target's range. A payload whose layout differs is mapped by the conversion matrix the domain states for the two layouts, and refused with the reason when it states none. A payload at another rate is pasted only when the person asks for it to be converted. A payload copied from another project brings the asset records it reads, which the storage worker adds only after it has checked that the stored or linked media is there, so a missing or changed source refuses the paste and leaves the destination unchanged. A payload too large for one recorded change is inserted as consecutive insertions in one change.
+  - **The holder.** The clipboard is held by the page for its session, replaced by each copy, and never persisted or sent anywhere.
+  - **Quick Edit.** `REQ-EDIT-008`'s Quick Edit is a facade over the project model: choosing a file makes a project named after it, imports the file with the person's copy-or-link setting and opens it in the editor, with no project dialogue. The `QuickEditSession` the shell holds names that project and asset, and every edit is the same project command Project Mode runs, so the two make the same structures. Exporting is Phase 09's.
+- **Drivers:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, the packet's failure rule that clipboard data from missing or relinked media must not corrupt the destination, `REQ-ARCH-085`.
+- **Constraints:** a paste is a project command and undoes with the project's history; the clipboard itself is not project state and is not undone.
+- **Change record:** affected requirements `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`; affected phase 05; compatibility impact none beyond `ADR-0051`; verification by the clipboard's tests, the commands' tests and the browser test of the core edits.
+- **Amended by:** `ADR-0060` (2026-10-05): the payload has a second kind, a processor, a slot, a group or a chain in the chain's persisted form, which a rack pastes as a copy under new identifiers. Every other clause stands.
+- **Related requirements:** `REQ-EDIT-008`, `REQ-EDIT-014`, `REQ-EDIT-015`, `REQ-ARCH-085`.
+
+<!-- adr/ADR-0060-effect-racks-in-the-edit-model.md -->
+
+# ADR-0060 — An Effect Rack Is A Shared Chain That The Edit Plan Runs, On A Range Or On A Whole Target
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review places the effect rack inside the edit model of `ADR-0051` rather than beside it, so the edit plan stays the only description of an edited sound.
+  - **The chain is the domain's.** A rack's persisted form is the domain's `EffectChain` (`packages/domain/src/processing/effect-chain.ts`, Phase 01), held in the project's `effectChains` map and changed only by project commands with inverses. Phase 06 extends that value and introduces no second one: a chain is an ordered list of slots, each holding a processor instance or a parallel group whose branches are chains of their own, summed by a stated law; each slot has a wet/dry mix, and the chain keeps the enable and solo rules it has: a slot or a group is bypassed by the `enabled` flag a processor instance already has, extended to slots and groups, not by a second flag. `ProcessorInstance` keeps its parameter values and gains its versioned state (`ADR-0061`).
+  - **Two placements, one mechanism.** A chain reaches audio in exactly two ways, and the plan realises both by the same kind of stream: a stream that reads a range of an earlier stream processed by a chain, as a rate-converted stream reads one converted.
+    - *Processing a range.* Selection-first, as every edit is (`REQ-EDIT-012`): applying a chain to a selection is a processing operation whose edit is a rack edit naming a chain, anchored and folded like the gains and fades of `ADR-0051`. It is made on an asset's chain, or, in a region's view, on the region's own processing. It changes no time and carries every position unchanged: the processed range keeps its length, and what a processor would add past the range's end (a reverb's or a delay's tail) is not added.
+    - *A target's rack.* An asset and a region each name at most one rack, a chain that processes the whole target as it stands after every operation on it, so it follows the target through later edits. The order is fixed: the asset's chain, with each region's processing folded in at its basis; the asset's rack over the whole edited asset; the region's span of that; the region's rack over the whole region.
+  - **Sharing is naming one chain.** A rack edit and a target's rack name a chain by its `EffectChainId`. A chain several operations or targets name is shared: a change to it reaches all of them, which is the shared processing chain of `REQ-EDIT-014`. Making one independent copies the chain under a new identifier. A chain that something names cannot be removed until nothing does, as an asset cannot (`ADR-0051`).
+  - **Saved chains and presets.** A saved chain and a processor preset are the same values kept outside any project, in the person's library, read and written by the project format's chain reader, so a chain has one persisted form. Applying a saved chain copies it into the project; applying it to several selected targets is one command and one history step. A preset names explicit parameter values (`REQ-AUDIO-086`).
+  - **Copy and paste.** A processor, a slot, a group or a whole chain is copied to the clipboard of `ADR-0053` as a payload of its own kind, the chain's persisted form, and pasted into any rack as a copy under new identifiers; there is no second clipboard (`REQ-AUDIO-017`).
+  - **Canonical rendering of a processed stream.** A processed stream is rendered from its own start, so the audio a region's rack reads is exactly that span of its asset's processed audio, and a render of either is one answer. Real-time playback, which `ADR-0032` already keeps out of the canonical path, may start a stateful processor part way through with the lead-in its descriptor declares, and says it is a preview; an expensive chain is played from a cached render, which is derived data (`REQ-STOR-027`) and never authoritative.
+  - **Racks elsewhere.** `Track.effectChainId` and `Bus.effectChainId` stay as Phase 01 made them. No track, bus or master exists to process yet; when one does, its rack is a chain named the same way and run the same way (`REQ-AUDIO-017`, its future racks).
+- **Drivers:** `REQ-AUDIO-017` asks for stacking, reordering, bypass, presets, A/B, copy and paste, saved chains and batch reuse. `REQ-EDIT-014` asks for shared processing chains, which the Phase 05 handoff gave to Phase 06. `REQ-ARCH-004` makes effect chains part of authoritative state, and `ADR-0051` makes the plan the only description of an edited sound, so a rack that rendered outside the plan would be a second description that playback, the render worker, the peak worker and the clipboard each had to learn. Phase 01 already persists `EffectChain`, and the history already compares chains and processors (`packages/history/src/state-diff.ts`), so a new rack model would leave two. A rack that only processed whole targets would break the selection-first invariant of Phase 05, and one that only processed ranges fixed at their basis would not follow a target through later edits, which is what a rack in an audio editor does.
+- **Constraints:** the time-changing processors of `REQ-AUDIO-018`, time stretching and sample-rate conversion of an asset, are operations in the asset's chain, not rack slots, because they move every later position; each states how it carries a position, as `ADR-0051` requires, and acts on every channel. Pitch shifting that keeps the length is a processor. Fades, polarity inversion, reversal, silence, per-channel gains, channel swap and copy, and layout conversion stay the edit operations Phase 05 made, and are not written again as processors; a rack's gain is the engine's existing gain node. Every operation that names a chain is validated against the project's chains when a command makes it and when the project is read. Persisting racks raises the project's schema version, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-AUDIO-017`, `REQ-AUDIO-019`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`; affected phases 06, which becomes `READY` with this placement, and 05, whose edit model this extends (`ADR-0051` amended) and whose handoff gave it the shared chains; Phases 01 to 05, already passed, need no remediation. Compatibility impact: the project's format gains rack edits and the racks of assets and regions, raising its schema version; no build has shipped, so no stored project is affected. Public API: `EffectChain` and `ProcessorInstance` in `@audiogubbins/domain` gain slots, parallel groups, bypass, wet/dry and state; the plan gains the processed stream. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with rack edits and racks against the domain's oracle, a project round trip of chains with identical parameter state, the commands' selection tests, and golden renders of a processed range and of a region's span against its asset.
+- **Amends:** `ADR-0051`, in its clauses on the plan and on regions, and `ADR-0053`, whose payload gains the chain kind. Their other clauses stand.
+- **Related requirements:** `REQ-AUDIO-017`, `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-086`, `REQ-EDIT-012`, `REQ-EDIT-014`, `REQ-ARCH-004`, `REQ-ARCH-140`, `REQ-STOR-021`, `REQ-STOR-027`, `REQ-STOR-052`, `REQ-STOR-195`.
+
 <!-- adr/ADR-0061-processors-quality-and-reproducibility.md -->
 
 # ADR-0061 — A Processor Is One Object That States Its Descriptor And Makes Its Kernel, Canonical And Versioned
@@ -1517,6 +2618,89 @@ Capability-sensitive assumptions require explicit fallback/error behaviour.
 - **Amended:** on 2026-10-07, by Phase 06's build, in the clause on preview and the cached producer: the cached render is made by the preview worker, not the render worker. The render worker is a pool thread that lives for one job, while the cache outlives jobs and serves three readers, the feeder, the peak worker and the detection worker, each through a channel of its own. Renders are held in memory within a stated bound, least recently used first and never while one is read, at most two made at once; a render that cannot fit is declined before it takes memory, and the reader then runs the chain itself. A read past a render's progress waits and never answers silence. Every other clause stands.
 - **Amended:** on 2026-10-09, by Phase 06's build: running the detectors and assistants over a target's processed audio is a package of its own, `packages/detection-runtime`, the detection worker's core, protocol and thread entry. It depends on `packages/domain`, `packages/audio-engine` and `packages/processors`, whose detectors and learners it runs, and, in its thread entry and test support only, on `packages/effect-rack` and `packages/ml-runtime`; it knows no interface, storage or command package. The application starts it and keeps its results. Every other clause stands.
 - **Related requirements:** `REQ-AUDIO-018`, `REQ-AUDIO-019`, `REQ-AUDIO-080`, `REQ-AUDIO-086`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-AUDIO-146`, `REQ-ARCH-081`, `REQ-ARCH-140`, `REQ-ARCH-141`, `REQ-ARCH-144`, `REQ-ARCH-157`, `REQ-REPO-187`, `REQ-EXEC-180`.
+
+<!-- adr/ADR-0062-local-inference-and-model-packs.md -->
+
+# ADR-0062 — Local Inference Runs ONNX Runtime Web In A Worker, Pinned For Final Renders, From Model Packs Kept On The Device
+
+- **Status:** Accepted
+- **Decision:** Phase 06's readiness review settles the runtime, the determinism rule and the first model packs that the packet left as "agreed".
+  - **The runtime.** Inference runs ONNX Runtime Web (MIT licence), self-hosted with the application's own files and loaded only when an ML processor first runs, so the base bundle carries none of it (`REQ-AUDIO-139`). It runs in a dedicated worker, never on the UI thread or in the worklet. `packages/ml-runtime` holds the inference port the ML processors call, its adapter over ONNX Runtime Web and the worker that hosts it; the port knows no browser global, only the adapter knows the runtime, and the port is the seam the tests run a fake runtime through. The runtime's capabilities (WebAssembly SIMD, threads, WebGPU) are probed by `packages/capabilities`, never by the runtime itself (`ADR-0030`).
+  - **Determinism.** An ML processor is a processor of `ADR-0061`, whose determinism class is *pinned*: its final render runs the WebAssembly CPU backend with fixed-width SIMD, one thread, no reduced precision and a stated graph optimisation level, a fixed chunk length and overlap, and the runtime build and model identified by their hashes. Those are persisted with the instance (`REQ-AUDIO-138`, `REQ-AUDIO-145`), so the same project renders the same bits with the same pack and runtime. Golden tests hold each pack's final render to one hash in every browser the tests run; where a browser cannot meet it, the cause and the tolerance are documented and tested (`REQ-ARCH-081`). A faster path, more threads or WebGPU, may serve preview, and the interface says it is a preview (`REQ-AUDIO-080`); it never replaces the pinned path for a final render (`REQ-AUDIO-143`). A model's rate is converted to and from by the canonical resampler, stated in the instance.
+  - **Model packs.** A pack is a manifest (`ModelPackManifest`) and the files it names: its name and purpose, version, download and installed sizes, the hash of every file, the licence of its code and of its weights, the runtime versions and capabilities it needs, its quality tier, and the processors and detectors it serves. `packages/model-packs` holds the manifest, the pack's install state machine (`REQ-ARCH-153`: available, downloading with its progress in bytes, paused, verifying, installed, failed, removing, with update available and incompatible as stated conditions) and the integrity check, and stores packs through the storage package's public client, never through OPFS directly. A pack is installed by download from the catalogue the build configures, which the application's own origin serves by default, or imported from a file the person has; both verify every hash before anything is used. Download sends a request for the pack and nothing else: no audio, no project data and nothing derived from either leaves the device (`REQ-AUDIO-138`). A pack is never fetched because a project was opened, unless it is required and the person has chosen automatic download (`REQ-AUDIO-139`). A version a post-1.0 project needs is retained until the person removes it knowingly.
+  - **The first packs.** Each was chosen because its code and weights are licensed for redistribution, which is recorded in its manifest and checked again when the pack is built:
+    - DeepFilterNet 3 (MIT or Apache-2.0): broadband noise removal and speech enhancement at 48 kHz, the Standard and High tiers.
+    - MossFormer2 SE 48K (Apache-2.0): speech and dialogue enhancement, the Maximum tier.
+    - Spleeter, two and four stems (MIT): source separation and stem isolation.
+  - **Excluded until their weights are licensed for redistribution:** HTDemucs and its variants, whose author states the weights are for research; Open-Unmix's published weights, non-commercial or trained on research-only data; and the UVR, MDX and RoFormer families, whose weights carry no licence or a non-commercial one. The infrastructure admits any of them as a pack, without change, once one is.
+  - **What is not ML.** Dereverberation (weighted prediction error) and click and pop detection and repair are canonical DSP processors (`ADR-0061`), because no model with redistributable weights does them better and the canonical path is reproducible to the bit. The other candidate families of `REQ-AUDIO-138`, transient and noise classification, restoration assistance, repair suggestions and analysis that recommends processing, have no model licensed for redistribution today, so Phase 06 delivers them on `crates/analysis`'s detectors (clicks, hum, noise floor, clipping, DC offset, transients): an assistant reports what it found and recommends a chain, which the person applies or not; none applies processing itself. Each detector is an `AudioDetector` (`ADR-0061`), the contract a model pack's detector also implements, so a pack licensed for redistribution replaces or joins it without change.
+- **Drivers:** `REQ-AUDIO-138` and `REQ-AUDIO-139` put local ML and model packs in Phase 06's scope and forbid sending audio anywhere. `REQ-ARCH-081` asks for reproducible renders, and `REQ-AUDIO-145` for the model's identity and version in project state. ONNX Runtime Web is maintained, runs in a worker, and has a WebAssembly CPU backend whose arithmetic is the same on every machine when pinned: fixed-width SIMD is deterministic, while relaxed SIMD, thread scheduling and GPU drivers are not. TensorFlow.js has had no release since 2024, LiteRT has almost no audio models, and the Rust runtimes that compile into the existing module cover too few operators for the first packs. A model's weights are distributed with the application's packs, so their licence decides whether a pack can exist at all.
+- **Constraints:** missing, corrupt or incompatible packs make the processor that needs them unavailable, saying which of `REQ-AUDIO-139`'s five conditions holds, and never make a project invalid; a project that names a pack keeps its instances and renders nothing in their place until the pack is present, saying so. No ML path calls a remote service, and the ML locality test asserts no request carrying audio, project data or derived content. Model weights and large test media are not committed to the repository (`REQ-REPO-191`); the golden tests fetch pinned fixtures by hash. ML results are stored as the inputs, model identity, settings, masks and regions that reproduce them; a cached inference output is derived data and never the only record (`REQ-AUDIO-138`).
+- **Change record:** affected requirements `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-REPO-191`; affected phases 06, and 08, whose spectral editing integrates ML processors on this infrastructure; no passed phase needs remediation. Compatibility impact: the project format gains ML processor state, under `ADR-0061`'s schema change. Public API: `ModelPackManifest`, `MLProcessorCapability`, the inference port, and packs serving `AudioDetector` (`ADR-0061`). Godot interchange and runtime: none. PWA and browser: the runtime's WebAssembly files are served by the application, and Phase 12 caches them for offline use with the rest. Verification: `pnpm test:ml-locality`, the pack manifest and integrity tests, the install state machine tests, and each pack's pinned golden render.
+- **Amends:** `ADR-0032`, by stating that inference is outside its two-implementation rule and held to this record's pinned determinism instead, and `ADR-0030`, by naming `packages/ml-runtime` and `packages/model-packs` among the packages that build on its three. Their other clauses stand.
+- **Amended:** on 2026-10-07, by Phase 06's build, in two clauses. The install state machine gains `queued`: one download runs at a time per installer, and a pack waiting for it is queued, which the person may pause or cancel like a download (`REQ-ARCH-153`); removal, the storage cleanup's included, goes through the installer, so no installer is left holding a state the storage no longer has. The runtime's WebAssembly is read from the application's own origin through a port of its own, the second network exception beside the pack download, checked against the SHA-256 the build states from the bytes it ships, and given to the runtime as bytes, so the runtime itself requests nothing; a page the host does not isolate across origins offers one thread, and a threaded preview is refused there with its reason. Every other clause stands.
+- **Amended:** on 2026-10-09, by Phase 06's build, in the clause on model packs: `packages/model-packs` defines a `PackStore` port and the storage package implements it (`ModelPackStore`), so the dependency runs from `packages/storage` to `packages/model-packs` and model-packs imports no storage package, the port inverted so that the pack's state machine and installer run in tests without storage. Packs are still kept only through storage, never through OPFS directly. In the clause on determinism: no faster preview path is built. Every inference, a preview's included, runs the pinned WebAssembly path, one runtime build and one WebAssembly file, so the 2026-10-07 amendment's threaded preview and the WebGPU probe are withdrawn; a faster path returns only when a processor can choose it through the quality mode, and the interface then says it is a preview. In the clause on the runtime: every worker is started from a same-origin `blob:` module that imports its script, so the page's Content-Security-Policy governs its requests; the inference worker reads a model's bytes only when a session needs them, keyed by the model's SHA-256, and shares one session per model among its clients, keeping idle sessions up to a stated bound. In the clauses on model packs and the first packs: a pack's quality tier describes its model's own speed against thoroughness, one of light, balanced and thorough (`REQ-AUDIO-139`'s quality/performance tier), and is never a render quality; the same pack runs at every render and preview quality. DeepFilterNet 3 and Spleeter two stems are light, Spleeter four stems balanced, and MossFormer2 SE 48K thorough, in place of the render-quality names the first-packs clause gives. Every other clause stands.
+- **Related requirements:** `REQ-AUDIO-138`, `REQ-AUDIO-139`, `REQ-AUDIO-080`, `REQ-AUDIO-143`, `REQ-AUDIO-145`, `REQ-ARCH-081`, `REQ-ARCH-088`, `REQ-ARCH-153`, `REQ-PRIV-161`, `REQ-REPO-191`.
+
+<!-- adr/ADR-0070-recording-capture-monitoring-and-latency.md -->
+
+# ADR-0070 — Recording Captures The Dry Input On The Audio Thread, Monitors Apart From It, And Measures Its Latency
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review places capture, monitoring and latency in the packages that already own the browser, the audio thread and the person's settings, so recording adds no second audio host and no browser access outside `packages/capabilities`.
+  - **The browser's input is reached through `packages/capabilities`.** Only that package reads browser globals (`ADR-0030`, `ADR-0040`, the Phase 03 handoff), and the architecture test holds it. It gains the media input adapter beside `watchAudioDevices`: the microphone permission's state and its changes, the input devices as `InputDeviceDescriptor` values (identifier, group, label where the permission allows one, channel counts and rates where reported), the constraints the browser supports, opening an input with a capture profile's constraints, and the settings the browser actually granted, read from the track rather than assumed (`REQ-REC-092`). A `RECORDING` feature and the `MediaDevices` capability already exist (Phase 01) and gain this adapter; no `packages/audio-io` is made, because its one responsibility is this adapter. A device identifier is not taken to last: a remembered device is found again by its identifier, then by its group and label, and is otherwise asked for again.
+  - **The capture is dry, on the audio thread, in the existing host.** `packages/audio-runtime` gains the input side its context port lacks: a media stream source, and a capture worklet (`src/threads/`) with one input and one output. The worklet copies the input, before anything else touches it, to the capture channel, so the dry input is the recording (`REQ-REC-020`). Over a ring of shared memory where the page is cross-origin isolated, and over posted blocks otherwise, as playback feeds already do (`ADR-0007`), the capture channel goes straight to the storage worker, so the page never holds the recorded samples (`ADR-0071`). Input meters are the engine's meter node on the same input, reported as playback meters are.
+  - **One clock.** Capture runs in the playback context, so recording while playing, pre-roll and punch-in share the media clock of `REQ-AUDIO-156`, and a capture's first frame is a known frame of the transport. A recording is taken at the context's rate. Where the input reports another rate, the browser resamples, and the diagnostics say so (`REQ-REC-094`) and offer to restart the context at the input's rate, which `ContextLifecycle` already accepts; the person decides. The channel count is the input's granted count, mono to N channels, in the layout `REQ-ARCH-157` gives that count.
+  - **Monitoring is a separate path from the recording.** The worklet's output is the monitored signal: silent unless monitoring is on, which it is not by default, and never because an input is armed (`REQ-REC-091`). One command turns it on or off; its state is shown wherever the input is. Monitoring through effects runs a rack on the audio thread, in the capture worklet, through the effect rack's live form: the rack's `ChainRun`, prepared for an unbounded live input with no measuring pass. Only a chain whose listening is live (`ADR-0061`) may monitor: one with a whole-pass, a model-based or a state-requiring processor is refused with its reason, which is the "where feasible" of `REQ-REC-020`. The monitoring rack is a preview and never touches the capture; the rack the person monitors through is a chain of the project, and applying it to the take afterwards is an ordinary rack edit (`ADR-0060`). The live rack's latency is shown with the monitoring path's. Monitoring preferences are remembered per device and profile, in the person's audio settings. A profile the person marks as for headphones may turn monitoring on by itself; no browser can tell headphones, so the app never guesses it. Where the input and the output appear to be one device's microphone and speakers, monitoring warns of feedback before it starts.
+  - **Capture profiles.** Raw/Studio is the default: it asks the browser for no echo cancellation, no noise suppression, no automatic gain and no other voice processing. Voice asks for them; Custom sets each supported constraint. The profile's details are disclosed progressively, and every difference between what was asked and what was granted is shown and kept in the take's provenance (`ADR-0071`).
+  - **Latency is observed, measured and applied as placement, never to samples.** Output latency is the context's base and output latency (`REQ-ARCH-144`); input latency is the track's reported latency where a browser reports one; the round trip is measured by a guided loopback calibration that plays a known signal (`ADR-0045`), captures it, and finds its delay by correlation, and the input share is then the round trip less the output. Calibrations, and a manual offset, are kept per input device, output device and rate in the person's audio settings, and a change of either device or of the rate asks for a new one. The compensation applied to a take is a stated number of frames on the take (`ADR-0072`); the recorded PCM is never moved or altered (`REQ-REC-095`). A path whose latency is high, or whose label names Bluetooth, is said to be unsuitable for monitoring, punch-in and overdub, as an estimate, and recording stays available (`REQ-REC-094`).
+  - **The session is an explicit state machine.** `packages/recording`, new and portable, holds the recording session's states (closed, asking for permission, ready, armed, counting in, recording, stopping, failed), the capture profiles and their comparison with the granted settings, the calibration's analysis, and the scheduling of a controlled recording; monitoring is a second state, apart from the session's (`REQ-ARCH-153`, `REQ-REC-091`). It knows no browser global, no React and no storage; the application composes it with the adapter, the runtime and the storage client.
+  - **Controlled recording.** A count-in or pre-roll, a timed stop after a set length, and a start at a set time while the page stays open, armed and visible. Where a browser may suspend capture in the background or under a screen lock, the app says so before it schedules, watches the page's visibility and the track's mute and end events while recording, and stops and keeps what it has when capture stops (`REQ-REC-020`, `REQ-REC-097`).
+  - **Retrospective buffering is local and transient.** While an input is armed with retrospective recording on, the capture worklet keeps the last configured interval, 5 to 60 seconds, in its own memory. Nothing of it is written or sent until the person records: then the interval becomes the take's first frames. On disarming, on a change of device and when the buffer is turned off, the buffer is overwritten with zeros and released. The status bar shows, for as long as any input is open, the device, whether it is armed, whether it is buffering and for how long, and whether it is recording, as distinct states announced to assistive technology (`REQ-REC-090`).
+  - **One writer records.** Only the tab that holds the project's write lease (`REQ-STOR-098`) may arm or record into it; another tab is told why.
+- **Drivers:** `REQ-REC-020`, `REQ-REC-090` to `REQ-REC-095` and `REQ-REC-097` ask for device choice, meters, safe monitoring, effects monitoring where feasible, profiles that keep the source faithful, observed and calibrated latency, retrospective capture with clear privacy state, and controlled recording. The architecture test refuses a browser read outside `packages/capabilities`, so the draft packet's `packages/audio-io` could not hold device access. Phase 03 left `InputFeed` and the shared media clock for input, and its audio host is the only one; a second context for capture would give recording and playback two clocks. The effect rack runs only in the feeder today, which is 50 to 1000 ms ahead of the audio thread, too late for monitoring.
+- **Constraints:** no browser global outside `packages/capabilities`; no AudioContext outside `packages/audio-runtime`; no monitoring effect, gain or compensation is applied to the recorded samples; the capture worklet loads the effect rack and the processors only in its thread entry, as `ADR-0030` amended allows; no input is opened, and nothing is buffered, unless the person arms or records; device labels are personal data and never enter a log or a diagnostic bundle by default (`REQ-PRIV-161`, `REQ-PRIV-165`).
+- **Change record:** affected requirements `REQ-REC-020`, `REQ-REC-090` to `REQ-REC-095`, `REQ-REC-097`, `REQ-ARCH-144`, `REQ-ARCH-153`, `REQ-ARCH-157`, `REQ-AUDIO-156`, `REQ-STOR-098`, `REQ-PRIV-161`, `REQ-PRIV-165`, `REQ-EXEC-216`; affected phases 07, which becomes `READY` with these placements, 03, whose context port and worklet gain an input (`ADR-0030` amended), 06, whose effect rack gains its live form, and 01, whose capabilities package gains the media input adapter; Phases 01, 03 and 06, already passed, need no remediation. Compatibility impact: the person's audio settings gain capture profiles, monitoring preferences and calibrations, raising their schema version, with no migration before 1.0 (`REQ-STOR-052`). Public API: the media input adapter and `InputDeviceDescriptor` in `@audiogubbins/capabilities`; the capture worklet and the input side of the context port in `@audiogubbins/audio-runtime`; the effect rack's live form in `@audiogubbins/effect-rack`; `RecordingSession`, `CaptureProfile` and `LatencyCalibration` in the new `@audiogubbins/recording`. Godot interchange and runtime: none. PWA and browser: microphone permission and its revocation, capture constraints and the granted settings, background suspension and device changes are probed and disclosed, never assumed. Verification: the session state machine's tests, the capture worklet's tests over the runtime's fakes, the profile comparison's tests, the calibration's tests over a delayed known signal, and a Chromium test with a fake input device.
+- **Amends:** `ADR-0030`, whose `packages/audio-runtime` gains the input side of its context port and the capture worklet. Its other clauses stand.
+- **Related requirements:** `REQ-REC-020`, `REQ-REC-090`, `REQ-REC-091`, `REQ-REC-092`, `REQ-REC-094`, `REQ-REC-095`, `REQ-REC-097`, `REQ-ARCH-144`, `REQ-ARCH-153`, `REQ-ARCH-157`, `REQ-AUDIO-156`, `REQ-STOR-098`, `REQ-PRIV-161`, `REQ-PRIV-165`, `REQ-EXEC-216`.
+
+<!-- adr/ADR-0071-recorded-media-persistence-and-recovery.md -->
+
+# ADR-0071 — A Recording Is Committed In Chunks By The Storage Worker, And Becomes An Asset Only When It Is Whole
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review makes a recording durable as it is made, in the storage worker that already owns every write (`ADR-0022`), so a crash, a reload, a lost device or a full disk keeps every chunk already committed.
+  - **Chunks, each a file.** The storage worker receives the capture channel (`ADR-0070`) and writes the dry input in chunks of at most one second, each a file of its own written whole and flushed, named by its first frame, under the project's `recordings/<session>/` directory, beside the session's manifest. A storage sink is durable only when it closes, and the storage tree has no append, so a growing file would not be: a chunk per file is. The `RecoveryChunkManifest`, written when the session starts and rewritten only when it ends, states the session, the project, the sample format (32-bit float), the rate, the channel layout, the capture profile and the granted settings, the device's descriptor, the start's frame on the transport, and the take or punch the recording is for; the chunks themselves say how far it reached. A torn last chunk is read to its last whole frame (`REQ-AUDIO-220`).
+  - **A whole recording becomes an asset through the import path.** When recording stops, the worker writes the chunks out as one 32-bit float WAV file, RF64 past four gibibytes, into the content-addressed media store (`ADR-0020`): it hashes the header and the chunks first, so the store writes the file once under its known identity, then reads it back through the read contract (`ADR-0052`) before anything names it, as an import does. The asset's origin is `recorded`; its provenance states when it was recorded, the device's descriptor, the profile, the requested and the granted settings, the rate, the layout, its length, and whether capture ended unexpectedly (`REQ-STOR-166`). The session's chunks are removed only once the project's journal holds the asset, as an import's hold is released (`media-holds.ts`).
+  - **The one writer for recorded media is the codecs package's.** Recording needs a container its own reader opens, and `ADR-0050` gives every writer to Phase 09. Phase 07 adds to `packages/codecs` the one writer recorded media needs: a 32-bit float PCM WAV header, RF64 past four gibibytes, for a stream whose length is known when it is written. Phase 09's WAV writing builds on that writer and owns every other depth, format, encoding, metadata and export.
+  - **A recording in progress is a root.** A session's chunks and manifest are reachable state: no cleanup, cache relief or storage-pressure step removes them (`REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`). Only the person ends an interrupted session, by recovering it or by discarding it.
+  - **Recovery is offered before anything else is cleaned.** When the project opens, the storage worker lists every session that has a manifest and no completed asset, before media recovery and before cleanup run; the project's recovery report offers each, with its length, device and start (`REQ-REC-096`). Recovering one writes its chunks out as an asset as a stop does, with its provenance marked as ended unexpectedly, and the interface says it may need review. The media store's own recovery of an incomplete store (`recoverIncomplete`), which no production path runs today, runs at the storage worker's start, after the recording sessions are listed and never over them.
+  - **Quota is watched before and during recording.** Before arming and while recording, the worker reads the storage estimate through the capabilities package and states the recording time left at the session's data rate; below a stated margin it warns, and when a write is refused for quota it stops recording, keeps every committed chunk, and offers recovery as for a crash (`REQ-REC-096`, `REQ-STOR-106`). Finishing a recording needs about its own size again, for the WAV file, and the warning counts that.
+  - **A device lost mid-recording ends the session, not the take.** A track that ends or a device that disappears stops the session the way stop does, with the chunks committed so far, and the session says why.
+  - **Nothing recorded leaves the device.** Chunks, manifests and recorded assets stay in the browser's private storage; the retrospective buffer is never written (`ADR-0070`).
+- **Drivers:** `REQ-REC-096` asks for incremental, crash-resilient persistence and recovery offered before cleanup; `REQ-REC-020` for recording into a new project asset and safe recovery; `REQ-STOR-099`, `REQ-STOR-102` and `REQ-STOR-106` forbid removing recoverable or authoritative media; `REQ-STOR-166` asks for provenance. The storage tree has no append and a sink is durable only when closed; `MediaObjectStore.put` copies its bytes twice and `putNamed` once; the codecs package reads truncated WAV files to their last whole frame; the model-pack store already keeps a file as runs named by offset. Nothing writes a WAV file today, and the media store's recovery is never run.
+- **Constraints:** only the storage worker writes; the page sends no recorded samples to it, the capture worklet does. A recorded asset is an ordinary asset once whole: it is read, edited, copied and exported as any other. The recording session's layout is under the project's directory and is part of the project's storage format, raising `projectStorage`, with no migration before 1.0 (`REQ-STOR-052`). Chunk files are 32-bit float, little-endian, interleaved, in the asset's channel order.
+- **Change record:** affected requirements `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`; affected phases 07, which becomes `READY` with this persistence, 02, whose storage worker gains the recording area and whose media recovery is finally run (a Phase 02 gap this review found, given to Phase 07 as inherited debt), 05, whose codecs package gains the recorded-media writer (`ADR-0050` amended), and 09, which keeps every other writer; Phases 02 and 05, already passed, need no remediation beyond that inherited debt. Compatibility impact: the project's storage gains recording sessions and its document gains recorded provenance, raising `projectStorage` and `projectDocument`; no build has shipped. Public API: the storage worker's recording operations in `@audiogubbins/storage-runtime`, the recording area in `@audiogubbins/storage`, `RecoveryChunkManifest` and the recorded provenance in `@audiogubbins/project-format`, and the recorded-media WAV writer in `@audiogubbins/codecs`. Godot interchange and runtime: none. PWA and browser: the storage estimate is read through the capabilities package and never assumed. Verification: recovery tests that stop the writer at every step of a session, a torn chunk, a refused write for quota and a lost device; a round trip of a recorded asset's provenance; the WAV writer's tests against the read contract; and a browser test that reloads mid-recording and recovers.
+- **Amends:** `ADR-0050`, in its clause that every writer is Phase 09's: the recorded-media writer is Phase 07's. `ADR-0020` and `ADR-0022`, whose storage worker gains the recording area. Their other clauses stand.
+- **Related requirements:** `REQ-REC-020`, `REQ-REC-096`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-099`, `REQ-STOR-102`, `REQ-STOR-106`, `REQ-STOR-166`, `REQ-AUDIO-220`, `REQ-PRIV-161`.
+
+<!-- adr/ADR-0072-take-stacks-and-punch-recording-in-the-edit-model.md -->
+
+# ADR-0072 — A Take Is A Recorded Asset In A Stack, And A Punch Is An Edit That Reads The Stack's Chosen Take
+
+- **Status:** Accepted
+- **Decision:** Phase 07's readiness review places take stacks and punch recording in the edit model of `ADR-0051`, as `ADR-0060` placed racks, so no recording ever overwrites audio and every change to a take is a project command with its inverse.
+  - **A take is a whole recorded asset.** Every recording, a punch's included, makes a new asset of origin `recorded` (`ADR-0071`); an asset's source never changes (`REQ-ARCH-004`), so no take can overwrite another.
+  - **A take stack groups takes.** `TakeStack` is a project entity, held in the project's `takeStacks` map: an identifier, a name, its takes in the order they were made, the chosen take, and, for a punch, its `PunchRange`. Each `Take` names its recorded asset, and carries its own name and note, whether it is kept, rejected or removed from the active stack, and the latency compensation applied to it in frames (`ADR-0070`). Successive recordings of the same material go into the stack that is armed (`REQ-REC-089`).
+  - **Choosing, rejecting and removing keep everything.** Promoting a take makes it the stack's chosen take. Rejecting keeps it in the stack, marked. Removing takes it from the active stack, and it stays recoverable through the stack's removed takes, the history and project recovery: an asset a take stack names cannot be removed, as one a region names cannot (`ADR-0051`), and storage keeps its media while any state reaches it (`REQ-STOR-102`). Duplicating a take adds a take that names the same recorded asset under its own name and note; branching starts a new stack from a take. Each is a project command with its inverse and a history description, and the history compares take stacks as it compares other entities (`REQ-STOR-195`).
+  - **A punch is an edit naming a stack.** Punch-in records over a range of a target asset. The range, its pre-roll and post-roll, and the crossfade at each boundary are the stack's `PunchRange`; the recording runs through the pre-roll and the post-roll, so the take holds them, and the punch reads only its range. The target asset's chain gains a punch edit: a range edit, anchored and folded as `ADR-0051` folds a gain, that replaces the range with the stack's chosen take, read from the pre-roll's end and shifted by the take's compensation, with the stated crossfade, default 10 ms, at each boundary. It changes no time: the range keeps its length, and a take shorter than the range is refused for it, with the reason. The punch edit names the stack by its identifier, as a rack edit names a chain (`ADR-0060`), so choosing another take changes what the punch plays without a new edit, and undoing the punch leaves the earlier audio as it was.
+  - **Consolidation keeps the history.** Keeping only the chosen take marks the stack's other takes removed; nothing is deleted, and every step is undone by one undo (`REQ-REC-093`).
+  - **Comping is not built here.** Choosing parts of several takes over one range is deferred by `REQ-REC-089` to the multitrack and clip architecture, and no phase of this specification builds that; a stack chooses one take for its range.
+- **Drivers:** `REQ-REC-089` asks for take stacks that never overwrite, with naming, notes, audition, promotion, rejection, duplication and removal that keeps history; `REQ-REC-093` for punch-in that makes new material and keeps the previous recoverable, with pre-roll and post-roll; `REQ-ARCH-004` keeps sources immutable. The edit model already folds anchored range edits and names shared entities by identifier; the timeline has no clip or track commands, and regions and markers belong to assets, so a take placed on a timeline would need a multitrack model that does not exist.
+- **Constraints:** a punch edit is validated against the project's take stacks when a command makes it and when the project is read; a stack that a punch edit names cannot be removed while the edit does. A take's audition plays its asset, or, for a punch stack, the target with that take chosen, without changing the project. Persisting take stacks and the punch edit raises `projectDocument`, with no migration before 1.0 (`REQ-STOR-052`).
+- **Change record:** affected requirements `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`; affected phases 07, which becomes `READY` with this placement, and 05, whose edit model gains the punch edit (`ADR-0051` amended); Phase 05, already passed, needs no remediation. Compatibility impact: the project document gains take stacks and the punch edit, raising its schema version; no build has shipped. Public API: `TakeStack`, `Take` and `PunchRange` in `@audiogubbins/domain`, their persisted form in `@audiogubbins/project-format`, the take commands in `@audiogubbins/project-commands`, and their differences in `@audiogubbins/history`. Godot interchange and runtime: none. PWA and browser: none. Verification: property tests of the plan with punch edits against the domain's oracle, the take commands' inverse tests and the random command walk, a project round trip of take stacks, and a browser test that punches in, chooses another take, undoes, and reloads.
+- **Amends:** `ADR-0051`, whose chain gains the punch edit and whose assets cannot be removed while a take stack names them. Its other clauses stand.
+- **Related requirements:** `REQ-REC-089`, `REQ-REC-093`, `REQ-ARCH-004`, `REQ-EDIT-012`, `REQ-STOR-021`, `REQ-STOR-052`, `REQ-STOR-102`, `REQ-STOR-195`.
 
 # Passed Dependency Handoffs
 
@@ -2364,7 +3548,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 7,
   "name": "Recording",
-  "status": "NOT_READY",
+  "status": "READY",
   "hard_dependencies": [
     2,
     3,
