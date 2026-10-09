@@ -27,7 +27,6 @@ import {
   type ProjectSession,
   type RecordingProgress,
   type RecordingFiles,
-  type TakeRequest,
 } from '@audiogubbins/storage';
 
 import type { RecordingStatus } from '../protocol/recording-operations.js';
@@ -39,7 +38,6 @@ export interface RecordingParts {
   readonly session: ProjectSession;
   readonly started: RecordingFiles;
   readonly input: CaptureInput;
-  readonly take: TakeRequest;
   readonly services: FinishingServices;
   readonly estimate: () => Promise<StorageEstimate | undefined>;
 
@@ -98,13 +96,7 @@ export class RunningRecording {
       named: input.pageNames,
     });
     const finalEnding = input.pageNames ? await this.#said : ending;
-    const finished = await finishRecording(
-      session,
-      started,
-      finalEnding,
-      parts.take,
-      parts.services,
-    );
+    const finished = await finishRecording(session, started, finalEnding, parts.services);
     emit(
       finished.ok
         ? { kind: 'finished', recording: finished.value }

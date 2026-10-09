@@ -24,13 +24,13 @@ import {
   type RecordingPurpose,
   type RecordingStart,
   type StorageTree,
+  type TakeRequest,
 } from '@audiogubbins/project-format';
 
 import type { CaptureStream, CapturedEvent } from '../capture-stream.js';
 import type { ProjectSession } from '../project-session.js';
 import type { RecordingSetUp } from '../recording-capture.js';
 import type { FinishingServices } from '../recording-finishing.js';
-import type { TakeRequest } from '../recording-takes.js';
 import { storageOf, type TestStorage } from './memory-ports.js';
 import { harness } from './node-services.js';
 import { madeProject, openToWrite, type Harness } from './storage-harness.js';
@@ -40,10 +40,24 @@ import { addRecord } from './test-commands.js';
 /** A low rate, so a chunk, a second, is a few thousand frames and a sweep stays short. */
 export const RECORDED_RATE: SampleRate = expectSuccess(sampleRate(8_000));
 
-/** What a recording is set up as in these tests: a new stack of a stereo input. */
+/** What the take is called and placed by in these tests, unless one says otherwise. */
+const TAKE: TakeRequest = { name: 'Take 1', stackName: 'Verse', compensation: 0 };
+
+/**
+ * A take named and placed as no default would name and place it, later as
+ * well as earlier, so a recording recovered as something else is seen.
+ */
+export const PLACED_TAKE: TakeRequest = {
+  name: 'Take 7',
+  stackName: 'Second verse',
+  compensation: -1_212,
+};
+
+/** What a recording is set up as in these tests: by default, a new stack of a stereo input. */
 export function setUpOf(
   purpose: RecordingPurpose = { kind: 'stack' },
   layout: ChannelLayout = StandardLayouts.stereo,
+  take: TakeRequest = TAKE,
 ): RecordingSetUp {
   const start: RecordingStart = {
     recordedAt: 1_790_000_000_000,
@@ -54,11 +68,8 @@ export function setUpOf(
     sampleRate: RECORDED_RATE,
     layout,
   };
-  return { start, transportFrame: derivedSampleCount(0), purpose };
+  return { start, transportFrame: derivedSampleCount(0), purpose, take };
 }
-
-/** What the take is called and placed by in these tests. */
-export const TAKE: TakeRequest = { name: 'Take 1', stackName: 'Verse', compensation: 0 };
 
 /**
  * A dry input of `frames` frames over `channels` channels, every sample a

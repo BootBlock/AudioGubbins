@@ -10,6 +10,12 @@ import { everythingQueued } from '../testing/waiting.js';
 /** The rate the fake input records at. */
 const RATE = 48_000;
 
+/**
+ * What a take is placed by in the fake world, uncalibrated, in frames at
+ * `RATE`: the context's base and output latency and the input's own.
+ */
+const PLACEMENT = Math.round((0.005 + 0.02 + 0.004) * RATE);
+
 const windows: ProjectWindow[] = [];
 afterEach(() => {
   for (const window of windows.splice(0)) window.takeDown();
@@ -58,7 +64,7 @@ async function cutShort(): Promise<ProjectWindow> {
 }
 
 describe('a recording cut short', () => {
-  it('is offered when its project opens, with its length, and recovered as a take that ended unexpectedly', async () => {
+  it('is offered when its project opens, with its length, and recovered as the take it began as, which ended unexpectedly', async () => {
     const window = await cutShort();
     await vi.waitFor(() => {
       expect(window.projects.interrupted.get().recordings).toHaveLength(1);
@@ -66,6 +72,13 @@ describe('a recording cut short', () => {
     const [offered] = window.projects.interrupted.get().recordings;
     // Every frame that reached storage before the project closed is kept.
     expect(offered?.frames).toBe(RATE * 1.5);
+    // The take is named and placed as it was when Record was pressed: the
+    // input's latency, which a recovery cannot know, not none.
+    expect(offered?.take).toEqual({
+      name: 'Take 1',
+      stackName: 'Recording 1',
+      compensation: PLACEMENT,
+    });
 
     const said = await window.runAndHear('recording.recover-interrupted', {
       session: offered?.session ?? '',
@@ -76,6 +89,8 @@ describe('a recording cut short', () => {
     if (open.kind !== 'open') throw new Error('No project is open.');
     const recorded = firstRecorded(open.snapshot.model.state);
     expect(recorded.asset.length).toBe(RATE * 1.5);
+    expect(recorded.take).toMatchObject({ name: 'Take 1', compensation: PLACEMENT });
+    expect(recorded.stack.name).toBe('Recording 1');
     expect(recorded.ending).not.toBe(RecordingEnding.Stopped);
   });
 
@@ -85,8 +100,8 @@ describe('a recording cut short', () => {
       expect(window.projects.interrupted.get().recordings).toHaveLength(1);
     });
     const session = window.projects.interrupted.get().recordings[0]?.session ?? '';
-    expect(await window.runAndHear('recording.discard-interrupted', { session })).toContain(
-      'for good?',
+    expect(await window.runAndHear('recording.discard-interrupted', { session })).toMatch(
+      /^Discard “Take 1”, the recording of 1\.5 s started .* for good\?/u,
     );
     expect(window.projects.interrupted.get().confirming).toBe(session);
     window.run('recording.keep-interrupted');

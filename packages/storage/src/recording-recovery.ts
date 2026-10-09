@@ -26,7 +26,6 @@ import {
   type InterruptedRecording,
 } from './recording-sessions.js';
 import type { RecordingServices } from './recording-capture.js';
-import type { TakeRequest } from './recording-takes.js';
 import { refusalsReported } from './storage-failures.js';
 
 /**
@@ -61,18 +60,20 @@ async function found(
   );
 }
 
-/** Makes the interrupted session `id` the asset and take it was for, named and placed as `request` says. */
+/**
+ * Makes the interrupted session `id` the asset and take it was for, named and
+ * placed as its manifest says, as they were when the recording began.
+ */
 export async function recoverRecording(
   session: ProjectSession,
   id: RecordingSessionId,
-  request: TakeRequest,
   services: FinishingServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<FinishedRecording>> {
   const interrupted = await found(session, id, services, signal);
   if (!interrupted.ok) return interrupted;
   const { kept, ending } = interrupted.value;
-  return await finishRecording(session, kept, ending, request, services, signal);
+  return await finishRecording(session, kept, ending, services, signal);
 }
 
 /** Removes the interrupted session `id`, on the person's word alone. */

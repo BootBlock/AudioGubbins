@@ -1,6 +1,8 @@
 /**
  * What the storage worker is told of a take as it begins (`ADR-0071`,
- * `ADR-0072`): the manifest's set-up, and the take's name and placement.
+ * `ADR-0072`): the manifest's set-up, with the take's name and placement, which
+ * the manifest keeps so a recording recovered after a crash is named and placed
+ * as a stopped one is.
  *
  * The take's first frame is the one the capture says it began on, which a
  * retrospective buffer puts before Record and a take begun ahead of a punch's
@@ -15,15 +17,9 @@
 import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
 import { defaultPunchCrossfade, derivedSampleCount, type SampleRate } from '@audiogubbins/domain';
 import type { RecordingPurpose, RecordingStart } from '@audiogubbins/project-format';
-import type { RecordingSetUp, TakeRequest } from '@audiogubbins/storage';
+import type { RecordingSetUp } from '@audiogubbins/storage';
 
 import type { PunchPlace, TakeTarget } from './take-target.js';
-
-/** The set-up and the take a recording for `target` begins with. */
-export interface TakeSetUp {
-  readonly setUp: RecordingSetUp;
-  readonly take: TakeRequest;
-}
 
 /** Where a take's first frame was captured, and the latency of the path it came by. */
 export interface TakeTiming {
@@ -72,23 +68,21 @@ function purposeOf(target: TakeTarget, rate: SampleRate): RecordingPurpose {
   }
 }
 
-/** The set-up and the take of a recording for `target` that began as `timing` says. */
+/** The set-up of a recording for `target` that began as `timing` says, with its take. */
 export function takeSetUp(
   target: TakeTarget,
   start: RecordingStart,
   timing: TakeTiming,
-): TakeSetUp {
+): RecordingSetUp {
   const place =
     target.kind === 'punch' ? target.place : target.kind === 'take' ? target.punch : undefined;
   const shift = place === undefined ? 0 : preRollShift(place, timing.transportFrame);
   return {
-    setUp: {
-      start,
-      // A frame before the transport's start is placed at it: what the
-      // take holds before the range is its placement's, stated above.
-      transportFrame: derivedSampleCount(Math.max(0, Math.round(timing.transportFrame))),
-      purpose: purposeOf(target, start.sampleRate),
-    },
+    start,
+    // A frame before the transport's start is placed at it: what the
+    // take holds before the range is its placement's, stated above.
+    transportFrame: derivedSampleCount(Math.max(0, Math.round(timing.transportFrame))),
+    purpose: purposeOf(target, start.sampleRate),
     take: {
       name: target.takeName,
       ...(target.kind === 'take' ? {} : { stackName: target.stackName }),

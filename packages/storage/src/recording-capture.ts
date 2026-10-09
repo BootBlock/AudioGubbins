@@ -38,12 +38,13 @@ import {
   type RecordingStart,
   type RecoveryChunkManifest,
   type StorageTree,
+  type TakeRequest,
 } from '@audiogubbins/project-format';
 
 import type { CaptureStream } from './capture-stream.js';
 import { CheckedRecords } from './checked-records.js';
 import { ChunkWriter } from './recording-chunks.js';
-import { recordingNotWritable, recordingTaken } from './recording-failures.js';
+import { recordingNotWritable, recordingTaken, stackUnnamed } from './recording-failures.js';
 import { writeManifest, type RecordingFiles } from './recording-manifests.js';
 import type { ProjectSession } from './project-session.js';
 import { refusalsReported, storageRefused } from './storage-failures.js';
@@ -56,6 +57,13 @@ export interface RecordingSetUp {
   /** Where its first frame lies on the transport, at its rate. */
   readonly transportFrame: SampleCount;
   readonly purpose: RecordingPurpose;
+
+  /**
+   * What the take it becomes is called and placed by, which only the page
+   * knows as it begins, kept so a recovered recording is named and placed as
+   * a stopped one is.
+   */
+  readonly take: TakeRequest;
 }
 
 /** What recording works with, each made once by the composition root. */
@@ -90,8 +98,9 @@ export interface CaptureEnded {
 /**
  * Starts recording into the project `session` writes, as session `id`, as
  * `setUp` says, or says why it cannot: this window does not hold the project
- * to change it, no WAV file can hold the recording, the project has a session
- * of that name already, or its manifest could not be written.
+ * to change it, no WAV file can hold the recording, a recording that starts a
+ * stack gives the stack no name, the project has a session of that name
+ * already, or its manifest could not be written.
  */
 export async function startRecording(
   session: ProjectSession,
@@ -105,6 +114,11 @@ export async function startRecording(
   const { sampleRate, layout } = setUp.start;
   const writable = recordedWavLength({ sampleRate, layout }, derivedSampleCount(0));
   if (!writable.ok) return writable;
+  // Refused now, not when it ends: its manifest is all a recovery reads, so a
+  // recording kept without the name could never be made into its take.
+  if (setUp.purpose.kind !== 'take' && setUp.take.stackName === undefined) {
+    return fail(stackUnnamed(id));
+  }
   const manifest: RecoveryChunkManifest = {
     session: id,
     project: session.project,

@@ -4,6 +4,7 @@ import { recordedWavHeader } from '@audiogubbins/codecs';
 import {
   AmbisonicNormalisation,
   AmbisonicOrdering,
+  StandardLayouts,
   ambisonicLayout,
   derivedSampleCount,
 } from '@audiogubbins/domain';
@@ -26,7 +27,6 @@ import { captureInto, startRecording } from './recording-capture.js';
 import { finishRecording } from './recording-finishing.js';
 import {
   RECORDED_RATE,
-  TAKE,
   blocksOf,
   dryInput,
   framesOf,
@@ -103,13 +103,7 @@ async function recorded(
     ),
   );
   const ended = await captureInto(started, streamOf(events), () => undefined);
-  const finished = await finishRecording(
-    scene.session,
-    started,
-    ended.ending,
-    TAKE,
-    scene.services,
-  );
+  const finished = await finishRecording(scene.session, started, ended.ending, scene.services);
   return { started, ended, finished };
 }
 
@@ -272,9 +266,7 @@ describe('a recording’s chunks', () => {
       memory.paths().some((path) => path.startsWith(`${started.paths.directory}/`));
 
     tree.refusing = true;
-    const finished = expectSuccess(
-      await finishRecording(session, started, ended.ending, TAKE, services),
-    );
+    const finished = expectSuccess(await finishRecording(session, started, ended.ending, services));
     expect(finished.outcome).toMatchObject({ kind: 'applied', saved: { kind: 'not-saved' } });
     expect(session.getSnapshot().model.state.project.assets.has(finished.asset.id)).toBe(true);
     expect(holds()).toBe(true);
@@ -340,6 +332,20 @@ describe('recording is refused, with the reason, before anything is written', ()
       scene.services,
     );
     expect(refused.ok).toBe(false);
+    expect(tree.paths()).toEqual(before);
+  });
+
+  it('that starts a stack without naming it, which no recovery could then name', async () => {
+    const tree = new MemoryStorageTree();
+    const scene = await recordingScene(tree);
+    const before = tree.paths();
+    const refused = await startRecording(
+      scene.session,
+      scene.services.ids.next<'RecordingSessionId'>(),
+      setUpOf({ kind: 'stack' }, StandardLayouts.stereo, { name: 'Take 1', compensation: 0 }),
+      scene.services,
+    );
+    expect(expectFailureCode(refused)).toBe('recording.stack-unnamed');
     expect(tree.paths()).toEqual(before);
   });
 });

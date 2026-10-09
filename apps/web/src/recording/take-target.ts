@@ -28,9 +28,7 @@ import {
   type SampleRate,
   type TakeStack,
 } from '@audiogubbins/domain';
-import type { RecordingPurpose } from '@audiogubbins/project-format';
 import type { ArmedPurpose } from '@audiogubbins/recording';
-import type { TakeRequest } from '@audiogubbins/storage';
 import { quoted } from '@audiogubbins/text';
 
 /** Where a punch's take is recorded on the asset it punches, as it stands now. */
@@ -201,31 +199,5 @@ export function takeTargetOf(
       return nextTake(purpose, project, rate);
     case 'punch':
       return newPunch(purpose, project, rate);
-  }
-}
-
-/**
- * What an interrupted recording made for `purpose` is called as it is recovered
- * into `project`. The latency it would have been placed by is not kept with a
- * recording, so it is placed by none; its take says so, and its placement can
- * be set once it is recovered.
- */
-export function recoveredTakeRequest(purpose: RecordingPurpose, project: Project): TakeRequest {
-  switch (purpose.kind) {
-    case 'take':
-      return {
-        name: takeNameAfter(project.takeStacks.get(purpose.stack)?.takes.length ?? 0),
-        compensation: 0,
-      };
-    case 'stack':
-      return { name: takeNameAfter(0), stackName: newStackName(project), compensation: 0 };
-    case 'punch': {
-      const asset = project.assets.get(purpose.asset);
-      return {
-        name: takeNameAfter(0),
-        stackName: asset === undefined ? newStackName(project) : punchStackName(project, asset),
-        compensation: 0,
-      };
-    }
   }
 }

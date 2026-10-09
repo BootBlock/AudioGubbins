@@ -59,7 +59,7 @@ const asNote = textConverter({ maximumLength: LONGEST_TAKE_NOTE });
 const asTakeState = oneOfConverter(Object.values(TakeState));
 
 /** A take's compensation: a signed whole number of frames, whose bounds the domain sets. */
-const asCompensation = integerConverter(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
+export const asCompensation = integerConverter(Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER);
 
 /** The version of the resampler a punch converts a take by, as any algorithm's is read. */
 const asResamplerVersion = integerConverter(1, 1_000_000);

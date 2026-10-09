@@ -175,6 +175,11 @@ test.describe('recording', () => {
     const offer = banner(page).getByRole('group', { name: 'Recordings cut short' });
     await expect(offer).toContainText('A recording was cut short');
     await expect(offer).toContainText('It ended because');
+    // The take is offered as it was named and placed when Record was pressed.
+    await expect(offer).toContainText('“Take 1”, the recording of');
+    await expect(offer).toContainText(
+      /placed [\d.]+ ms (?:earlier|later) \([\d,]+ frames\)|placed not moved/u,
+    );
     await offer.getByRole('button', { name: 'Recover', exact: true }).click();
     await expect(offer).toBeHidden();
 

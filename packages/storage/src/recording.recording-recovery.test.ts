@@ -3,14 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import { RecordingEnding, endedUnexpectedly } from '@audiogubbins/project-format';
-import { AssetOrigin, unsafeBrandId, type ProjectId } from '@audiogubbins/domain';
+import { AssetOrigin, StandardLayouts, unsafeBrandId, type ProjectId } from '@audiogubbins/domain';
 
 import { planCleanup } from './cleanup-planning.js';
 import { runCleanup } from './cleanup-running.js';
 import { openProject } from './project-opening.js';
 import { captureInto, startRecording } from './recording-capture.js';
 import type { RecordingFiles } from './recording-manifests.js';
-import { finishRecording } from './recording-finishing.js';
+import { finishRecording, type FinishedRecording } from './recording-finishing.js';
+import type { ProjectSession } from './project-session.js';
 import { discardRecording, recoverRecording } from './recording-recovery.js';
 import { relieveStoragePressure } from './storage-pressure.js';
 import { sweepCrashes } from './testing/crash-sweep.js';
@@ -18,7 +19,7 @@ import { measureUsage } from './usage-measurement.js';
 import { storageOf } from './testing/memory-ports.js';
 import { harness } from './testing/node-services.js';
 import {
-  TAKE,
+  PLACED_TAKE,
   blocksOf,
   dryInput,
   framesOf,
@@ -40,6 +41,23 @@ import { madeProject, writable, type Harness } from './testing/storage-harness.j
  */
 
 const INPUT = dryInput(20_000);
+
+/** A new stack's recording, its take named and placed as no default would. */
+const PLACED_SET_UP = setUpOf({ kind: 'stack' }, StandardLayouts.stereo, PLACED_TAKE);
+
+/**
+ * Checks `finished` became the take its recording began as: named, placed and
+ * in a stack named as it was set up, not as a recovery would name it afresh.
+ */
+function expectTakeAsSetUp(session: ProjectSession, finished: FinishedRecording): void {
+  const { project } = session.getSnapshot().model.state;
+  expect(finished.take).toMatchObject({
+    name: PLACED_TAKE.name,
+    compensation: PLACED_TAKE.compensation,
+  });
+  expect(finished.asset.displayName).toBe(PLACED_TAKE.name);
+  expect(project.takeStacks.get(finished.stack)?.name).toBe(PLACED_TAKE.stackName);
+}
 
 /**
  * Opens `project` on `tree` to write, from a window of `test`, with its report,
@@ -63,7 +81,12 @@ async function cutShort(
   const { session } = await opened(test, tree, project);
   const services = recordingServices(test, storageOf(test, tree));
   const started = expectSuccess(
-    await startRecording(session, services.ids.next<'RecordingSessionId'>(), setUpOf(), services),
+    await startRecording(
+      session,
+      services.ids.next<'RecordingSessionId'>(),
+      PLACED_SET_UP,
+      services,
+    ),
   );
   await captureInto(started, streamOf(events), () => undefined);
   return started;
@@ -86,10 +109,10 @@ async function recoveredAs(
   if (interrupted === undefined) throw new Error('The opening offered no recording.');
   expect(report.interruptedRecordings).toHaveLength(1);
   expect(interrupted.frames).toBe(expected[0]?.length);
+  expect(interrupted.take).toEqual(PLACED_TAKE);
   const services = recordingServices(test, storageOf(test, tree));
-  const recovered = expectSuccess(
-    await recoverRecording(session, interrupted.session, TAKE, services),
-  );
+  const recovered = expectSuccess(await recoverRecording(session, interrupted.session, services));
+  expectTakeAsSetUp(session, recovered);
   const state = session.getSnapshot().model.state;
   expect(await recordedSamples(services.store, state, recovered.asset.id)).toEqual(expected);
   return { interrupted, recovered, session };
@@ -97,7 +120,7 @@ async function recoveredAs(
 
 describe('a crash at any step of a recording session', () => {
   it.each(['short', 'full-length'] as const)(
-    'keeps every chunk committed before it, recovered bit for bit, or the asset made whole, a write torn %s',
+    'keeps every chunk committed before it, recovered bit for bit as the take it began as, or the asset made whole, a write torn %s',
     async (torn) => {
       const test = harness(31);
       const from = new MemoryStorageTree();
@@ -115,7 +138,7 @@ describe('a crash at any step of a recording session', () => {
             await startRecording(
               session,
               services.ids.next<'RecordingSessionId'>(),
-              setUpOf(),
+              PLACED_SET_UP,
               services,
             ),
           );
@@ -128,7 +151,7 @@ describe('a crash at any step of a recording session', () => {
             },
           );
           whole = false;
-          return await finishRecording(session, started, ended.ending, TAKE, services);
+          return await finishRecording(session, started, ended.ending, services);
         },
         check: async (found, crash) => {
           const { session, report } = await opened(test, found, project);
@@ -157,12 +180,14 @@ describe('a crash at any step of a recording session', () => {
             return;
           }
           expect(interrupted.frames).toBeGreaterThanOrEqual(kept);
+          expect(interrupted.take).toEqual(PLACED_TAKE);
           const services = recordingServices(test, storageOf(test, found));
-          const recovered = await recoverRecording(session, interrupted.session, TAKE, services);
+          const recovered = await recoverRecording(session, interrupted.session, services);
           if (interrupted.frames === 0) {
             expect(expectFailureCode(recovered)).toBe('recording.nothing-recorded');
           } else {
             const { asset, recording } = expectSuccess(recovered);
+            expectTakeAsSetUp(session, expectSuccess(recovered));
             const samples = await recordedSamples(
               services.store,
               session.getSnapshot().model.state,
@@ -250,7 +275,7 @@ describe('a recording whose device went away', () => {
     });
     expect(stream.closed()).toBe(true);
     const finished = expectSuccess(
-      await finishRecording(scene.session, started, ended.ending, TAKE, scene.services),
+      await finishRecording(scene.session, started, ended.ending, scene.services),
     );
     const state = scene.session.getSnapshot().model.state;
     expect(await recordedSamples(scene.storage.store, state, finished.asset.id)).toEqual(arrived);
@@ -325,7 +350,12 @@ describe('an interrupted recording', () => {
     const { session } = await opened(test, tree, project);
     const services = recordingServices(test, storageOf(test, tree));
     const started = expectSuccess(
-      await startRecording(session, services.ids.next<'RecordingSessionId'>(), setUpOf(), services),
+      await startRecording(
+        session,
+        services.ids.next<'RecordingSessionId'>(),
+        PLACED_SET_UP,
+        services,
+      ),
     );
     await captureInto(
       started,
@@ -337,9 +367,9 @@ describe('an interrupted recording', () => {
       ...services,
       store: storageOf(test, new MemoryStorageTree({ quotaBytes: 0 })).store,
     };
-    expect(
-      (await finishRecording(session, started, RecordingEnding.StorageFull, TAKE, failing)).ok,
-    ).toBe(false);
+    expect((await finishRecording(session, started, RecordingEnding.StorageFull, failing)).ok).toBe(
+      false,
+    );
     expectSuccess(await session.close());
 
     const { interrupted, recovered } = await recoveredAs(test, tree, project, INPUT);

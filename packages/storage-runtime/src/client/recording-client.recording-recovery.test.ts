@@ -14,9 +14,10 @@ import {
   RecordingEnding,
   type ProjectState,
   type RecordingSessionId,
+  type TakeRequest,
 } from '@audiogubbins/project-format';
 import { storageTimeLeft } from '@audiogubbins/recording';
-import type { RecordingSetUp, TakeRequest } from '@audiogubbins/storage';
+import type { RecordingSetUp } from '@audiogubbins/storage';
 import { MemoryLeaseCoordinator } from '@audiogubbins/storage/testing';
 
 import type { RecordingStatus } from '../protocol/recording-operations.js';
@@ -34,7 +35,8 @@ import type { RemoteProjectSession } from './remote-project.js';
  */
 
 const RATE = expectSuccess(sampleRate(48_000));
-const TAKE: TakeRequest = { name: 'Take 1', stackName: 'Verse', compensation: 0 };
+/** A take named and placed as no default would, so one recovered as anything else is seen. */
+const TAKE: TakeRequest = { name: 'Take 3', stackName: 'Bridge', compensation: 1_440 };
 
 /** The context frame the capture began at, which the recording counts from. */
 const BEGUN_AT = 96_000;
@@ -51,6 +53,7 @@ const setUp: RecordingSetUp = {
   },
   transportFrame: derivedSampleCount(0),
   purpose: { kind: 'stack' },
+  take: TAKE,
 };
 
 /** `frames` frames of two channels, every sample a value a 32-bit float holds exactly. */
@@ -141,7 +144,6 @@ async function begun(
     session: id,
     capture: capture.channel.port2,
     setUp,
-    take: TAKE,
   });
   return { capture, statuses, answer };
 }
@@ -191,6 +193,7 @@ describe('a recording through the storage worker', () => {
     const finished = expectSuccess(await stopping);
 
     expect(finished.recording).toMatchObject({ length: 110_000, ending: RecordingEnding.Stopped });
+    expect(finished.take).toMatchObject({ name: TAKE.name, compensation: TAKE.compensation });
     const state = session.getSnapshot().model.state;
     expect(state.project.assets.get(finished.asset.id)).toEqual(finished.asset);
     expect(await dataOf(storage, state, finished.asset.id)).toEqual(interleaved(audio));
@@ -303,7 +306,7 @@ describe('a recording through the storage worker', () => {
 });
 
 describe('a recording in a window that loses the project', () => {
-  it('is refused to begin, and one in progress is kept for the window that took it to recover', async () => {
+  it('is refused to begin, and one in progress is kept for the window that took it to recover, as the take it began as', async () => {
     const tree = new MemoryStorageTree();
     const coordinator = new MemoryLeaseCoordinator();
     const first = memoryStorage({ tree, coordinator, tab: { name: 'first', seed: 3 } });
@@ -335,9 +338,12 @@ describe('a recording in a window that loses the project', () => {
     const [interrupted] = expectSuccess(await second.client.recording.interrupted(taken));
     if (interrupted === undefined) throw new Error('The recording was not offered.');
     expect(interrupted.session).toBe(SESSION);
-    const recovered = expectSuccess(await second.client.recording.recover(taken, SESSION, TAKE));
+    expect(interrupted.take).toEqual(TAKE);
+    const recovered = expectSuccess(await second.client.recording.recover(taken, SESSION));
     expect(recovered.recording.ending).toBe(RecordingEnding.Interrupted);
     const state = taken.getSnapshot().model.state;
+    expect(recovered.take).toMatchObject({ name: TAKE.name, compensation: TAKE.compensation });
+    expect(state.project.takeStacks.get(recovered.stack)?.name).toBe(TAKE.stackName);
     expect(await dataOf(second, state, recovered.asset.id)).toEqual(
       interleaved(audio.map((channel) => channel.slice(0, recovered.recording.length))),
     );

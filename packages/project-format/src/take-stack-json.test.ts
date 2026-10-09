@@ -221,6 +221,11 @@ describe('a recording session’s manifest', () => {
     start: randomRecordingStart(random, footstep),
     transportFrame: footstep.length,
     purpose,
+    // A take placed later as well as earlier, so the sign is kept.
+    take:
+      purpose.kind === 'take'
+        ? { name: 'Take 4', compensation: -37 }
+        : { name: 'Take 1', stackName: 'Verse', compensation: 1_212 },
   });
   const punch = STACK.punch;
   if (punch === undefined) throw new Error('The stack is a punch’s.');
@@ -236,7 +241,7 @@ describe('a recording session’s manifest', () => {
     },
   ];
 
-  it('reads back as itself, for every purpose a recording has, before and after it ends', () => {
+  it('reads back as itself, with its take’s name and placement, for every purpose, before and after it ends', () => {
     for (const purpose of purposes) {
       const started = manifest(purpose);
       const ended = {
@@ -262,6 +267,18 @@ describe('a recording session’s manifest', () => {
     );
     const unended = { ...written, end: { ending: 'paused', asset: STACK.takes[0]?.asset ?? '' } };
     expect(codesOf(readRecoveryManifest(unended))).toContain('schema.unknown-value');
+  });
+
+  it('refuses one that does not say what its take is called and placed by', () => {
+    const written = writeRecoveryManifest(manifest({ kind: 'stack' }));
+    const { take: _take, ...untaken } = written;
+    expect(codesOf(readRecoveryManifest(untaken))).toContain('schema.missing-member');
+    const unplaced = { ...written, take: { name: 'Take 1', stackName: 'Verse' } };
+    expect(codesOf(readRecoveryManifest(unplaced))).toContain('schema.missing-member');
+    const fractional = { ...written, take: { name: 'Take 1', compensation: 0.5 } };
+    expect(readRecoveryManifest(fractional).ok).toBe(false);
+    const unnamed = { ...written, take: { name: '', compensation: 0 } };
+    expect(readRecoveryManifest(unnamed).ok).toBe(false);
   });
 });
 

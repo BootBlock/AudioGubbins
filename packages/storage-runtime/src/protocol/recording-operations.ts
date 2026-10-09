@@ -20,7 +20,6 @@ import type {
   InterruptedRecording,
   LostFrames,
   RecordingSetUp,
-  TakeRequest,
 } from '@audiogubbins/storage';
 
 import type { Operation } from './operations.js';
@@ -75,10 +74,11 @@ export type RecordingOperations = {
 
   /**
    * Starts recording `session` into the project open under `handle`, from the
-   * capture channel `capture`, transferred, as `setUp` says, to become the take
-   * `take` names: refused, with the reason, where this window does not hold the
-   * project to change it or no WAV file can hold the recording. It records
-   * until capture ends, then makes the recording its asset.
+   * capture channel `capture`, transferred, as `setUp` says, which names and
+   * places the take it becomes: refused, with the reason, where this window
+   * does not hold the project to change it, no WAV file can hold the recording
+   * or a recording that starts a stack does not name it. It records until
+   * capture ends, then makes the recording its asset.
    */
   'recording.begin': Operation<
     {
@@ -86,7 +86,6 @@ export type RecordingOperations = {
       readonly session: RecordingSessionId;
       readonly capture: MessagePort;
       readonly setUp: RecordingSetUp;
-      readonly take: TakeRequest;
     },
     DomainResult<void>
   >;
@@ -109,13 +108,12 @@ export type RecordingOperations = {
     DomainResult<readonly InterruptedRecording[]>
   >;
 
-  /** Makes an interrupted recording the asset and take it was for, as `take` names it. */
+  /**
+   * Makes an interrupted recording the asset and take it was for, named and
+   * placed as when it began.
+   */
   'recording.recover': Operation<
-    {
-      readonly handle: ProjectHandle;
-      readonly session: RecordingSessionId;
-      readonly take: TakeRequest;
-    },
+    { readonly handle: ProjectHandle; readonly session: RecordingSessionId },
     DomainResult<FinishedRecording>
   >;
 

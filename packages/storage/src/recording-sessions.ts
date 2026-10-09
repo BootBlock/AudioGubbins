@@ -38,6 +38,7 @@ import {
   type RecordingSessionId,
   type RecoveryChunkManifest,
   type StorageTree,
+  type TakeRequest,
 } from '@audiogubbins/project-format';
 
 import type { CheckedRecords } from './checked-records.js';
@@ -59,6 +60,9 @@ export interface InterruptedRecording {
   readonly channels: number;
   readonly device: RecordedDevice;
   readonly purpose: RecordingPurpose;
+
+  /** What the take it becomes is called and placed by, as when it began. */
+  readonly take: TakeRequest;
 
   /** Why its capture ended, where it ended; `interrupted` where it never did. */
   readonly ending: RecordingEnding;
@@ -115,6 +119,7 @@ export async function listRecordings(
       channels: start.layout.roles.length,
       device: start.device,
       purpose: manifest.purpose,
+      take: manifest.take,
       ending: recoveredEnding(manifest),
       ...(audio.gaps === undefined ? {} : { gaps: audio.gaps }),
       missing: audio.missing,

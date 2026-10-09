@@ -57,7 +57,7 @@ const PUNCH: TakeTarget = {
 
 describe('what a take begins with', () => {
   it('places a take by the latency alone where it holds the pre-roll exactly', () => {
-    const { setUp, take } = takeSetUp(PUNCH, START, { transportFrame: 0, latency: 1_200 });
+    const { take, ...setUp } = takeSetUp(PUNCH, START, { transportFrame: 0, latency: 1_200 });
     expect(take).toEqual({ name: 'Take 1', stackName: 'Punch over “Vocal”', compensation: 1_200 });
     expect(setUp.transportFrame).toBe(0);
     expect(setUp.purpose).toMatchObject({
@@ -71,7 +71,7 @@ describe('what a take begins with', () => {
     // The retrospective buffer gave 24 000 frames from before Record: the
     // take's first frame was captured 24 000 frames before the transport's
     // start, so the range begins that much further into it.
-    const { setUp, take } = takeSetUp(PUNCH, START, { transportFrame: -24_000, latency: 1_200 });
+    const { take, ...setUp } = takeSetUp(PUNCH, START, { transportFrame: -24_000, latency: 1_200 });
     expect(take.compensation).toBe(25_200);
     expect(setUp.transportFrame).toBe(0);
   });
@@ -87,7 +87,7 @@ describe('what a take begins with', () => {
       name: 'Punch over “Vocal”',
       takes: [],
     };
-    const { setUp, take } = takeSetUp(
+    const { take, ...setUp } = takeSetUp(
       { kind: 'take', stack, takeName: 'Take 2', punch: PLACE },
       START,
       { transportFrame: 1_000, latency: 500 },
@@ -97,7 +97,7 @@ describe('what a take begins with', () => {
   });
 
   it('places a take of no punch by its latency, at the transport frame it began on', () => {
-    const { setUp, take } = takeSetUp(
+    const { take, ...setUp } = takeSetUp(
       { kind: 'new-stack', takeName: 'Take 1', stackName: 'Recording 1' },
       START,
       { transportFrame: 12_345, latency: 700 },

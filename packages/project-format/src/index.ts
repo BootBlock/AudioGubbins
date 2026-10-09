@@ -124,6 +124,7 @@ export {
   type RecordingPurpose,
   type RecordingSessionId,
   type RecoveryChunkManifest,
+  type TakeRequest,
   readRecoveryManifest,
   writeRecoveryManifest,
 } from './recovery-manifest.js';

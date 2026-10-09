@@ -110,7 +110,7 @@ class RunningRecordings {
     request: Omit<Begin, 'handle'>,
     signal: AbortSignal,
   ): Promise<DomainResult<void>> {
-    const { session: id, capture, setUp, take } = request;
+    const { session: id, capture, setUp } = request;
     const free = this.idle(id);
     const started = free.ok
       ? await startRecording(session, id, setUp, this.#services, signal)
@@ -124,7 +124,6 @@ class RunningRecordings {
       session,
       started: started.value,
       input: new CaptureInput(capture, setUp),
-      take,
       services: this.#finishing,
       estimate: this.#services.estimate,
       emit: (status) => {
@@ -170,10 +169,10 @@ export function recordingHandlers(
         ? succeed(listed.value.filter(({ session }) => !running.has(session)))
         : listed;
     },
-    'recording.recover': async ({ handle, session, take }, { signal }) => {
+    'recording.recover': async ({ handle, session }, { signal }) => {
       const free = running.idle(session);
       return free.ok
-        ? await recoverRecording(projects.session(handle), session, take, running.finishing, signal)
+        ? await recoverRecording(projects.session(handle), session, running.finishing, signal)
         : free;
     },
     'recording.discard': async ({ handle, session }) => {

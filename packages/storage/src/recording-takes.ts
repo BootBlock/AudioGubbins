@@ -58,18 +58,6 @@ export interface RecordingCommands {
   ) => CommandInvocation;
 }
 
-/** What the take a recording becomes is called and placed by, as the person's settings give it. */
-export interface TakeRequest {
-  /** The take's name, which its asset takes too. */
-  readonly name: string;
-
-  /** The name of the stack the recording starts, where its purpose starts one. */
-  readonly stackName?: string;
-
-  /** The latency the take is placed by, in frames at its rate (ADR-0070). */
-  readonly compensation: number;
-}
-
 /** A recorded asset and its source, as a finished recording adds them. */
 export interface RecordedAsset {
   readonly asset: Asset;
@@ -85,30 +73,31 @@ export interface TakeChange {
 }
 
 /**
- * The change that adds `recorded` and the take `manifest`'s purpose names, in
- * the project as `state` holds it, or why that take cannot be made.
+ * The change that adds `recorded` and the take `manifest`'s purpose names,
+ * called and placed as the manifest says, in the project as `state` holds it,
+ * or why that take cannot be made.
  */
 export function takeChange(
   state: ProjectState,
   manifest: RecoveryChunkManifest,
   recorded: RecordedAsset,
-  request: TakeRequest,
   ids: IdGenerator,
   commands: RecordingCommands,
 ): DomainResult<TakeChange> {
   const { asset, source } = recorded;
+  const { name, compensation } = manifest.take;
   const take: Take = {
     id: ids.next<'TakeId'>(),
     asset: asset.id,
-    name: request.name,
+    name,
     note: '',
     state: TakeState.Kept,
-    compensation: request.compensation,
+    compensation,
   };
-  const step = takeStep(state, manifest, take, request, ids, commands);
+  const step = takeStep(state, manifest, take, ids, commands);
   if (!step.ok) return step;
   return succeed({
-    description: `Record ${quoted(request.name)}`,
+    description: `Record ${quoted(name)}`,
     invocations: [commands.addAsset(asset, source), step.value.invocation],
     take,
     stack: step.value.stack,
@@ -120,19 +109,19 @@ function takeStep(
   state: ProjectState,
   manifest: RecoveryChunkManifest,
   take: Take,
-  request: TakeRequest,
   ids: IdGenerator,
   commands: RecordingCommands,
 ): DomainResult<{ readonly invocation: CommandInvocation; readonly stack: TakeStackId }> {
   const { purpose } = manifest;
+  const { stackName } = manifest.take;
   if (purpose.kind === 'take') {
     const invocation = commands.addTake({ id: purpose.stack }, take, true);
     return succeed({ invocation, stack: purpose.stack });
   }
-  if (request.stackName === undefined) return fail(stackUnnamed(manifest.session));
+  if (stackName === undefined) return fail(stackUnnamed(manifest.session));
   const stack: TakeStack = {
     id: ids.next<'TakeStackId'>(),
-    name: request.stackName,
+    name: stackName,
     takes: [take],
     chosen: take.id,
   };

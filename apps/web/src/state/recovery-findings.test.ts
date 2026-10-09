@@ -40,6 +40,7 @@ const INTERRUPTED: InterruptedRecording = {
   channels: 2,
   device: { channelCount: 2 },
   purpose: { kind: 'stack' },
+  take: { name: 'Take 1', stackName: 'Recording 1', compensation: 1_200 },
   ending: RecordingEnding.Interrupted,
   missing: 0,
 };

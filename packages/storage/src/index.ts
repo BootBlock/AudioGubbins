@@ -247,7 +247,7 @@ export {
   type FinishingServices,
   finishRecording,
 } from './recording-finishing.js';
-export { type RecordingCommands, type TakeRequest } from './recording-takes.js';
+export { type RecordingCommands } from './recording-takes.js';
 export { type InterruptedRecording } from './recording-sessions.js';
 export { recordingInProgress } from './recording-failures.js';
 export { discardRecording, interruptedRecordings, recoverRecording } from './recording-recovery.js';

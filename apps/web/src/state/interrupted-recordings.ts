@@ -21,7 +21,7 @@ import {
 } from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { RecordingSessionId } from '@audiogubbins/project-format';
-import type { FinishedRecording, InterruptedRecording, TakeRequest } from '@audiogubbins/storage';
+import type { FinishedRecording, InterruptedRecording } from '@audiogubbins/storage';
 import type { RecordingClient, RemoteProjectSession } from '@audiogubbins/storage-runtime';
 
 import { isAbandoned } from './abandoning.js';
@@ -88,15 +88,15 @@ export class InterruptedRecordings implements Observable<InterruptedOffers> {
     }, this.#fault('The interrupted recordings could not be listed.'));
   }
 
-  /** Makes interrupted recording `session` the asset and take it was for, as `take` names it. */
-  async recover(
-    session: RecordingSessionId,
-    take: TakeRequest,
-  ): Promise<DomainResult<FinishedRecording>> {
+  /**
+   * Makes interrupted recording `session` the asset and take it was for, named
+   * and placed as when it began.
+   */
+  async recover(session: RecordingSessionId): Promise<DomainResult<FinishedRecording>> {
     const project = this.#project.session();
     if (project === undefined || this.offered(session) === undefined) return notOffered();
     return await this.#settling(session, () =>
-      this.#client.recover(project, session, take, this.#project.scope()),
+      this.#client.recover(project, session, this.#project.scope()),
     );
   }
 

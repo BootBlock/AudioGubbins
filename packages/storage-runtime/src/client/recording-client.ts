@@ -15,7 +15,6 @@ import type {
   FinishedRecording,
   InterruptedRecording,
   RecordingSetUp,
-  TakeRequest,
 } from '@audiogubbins/storage';
 
 import { recordingStream, type RecordingStatus } from '../protocol/recording-operations.js';
@@ -29,10 +28,9 @@ export interface RecordingBegin {
 
   /** The storage worker's end of the take's capture channel, which the call transfers. */
   readonly capture: MessagePort;
-  readonly setUp: RecordingSetUp;
 
-  /** What the take the recording becomes is called and placed by. */
-  readonly take: TakeRequest;
+  /** What the recording is set up as, which names and places the take it becomes. */
+  readonly setUp: RecordingSetUp;
 }
 
 /** Recording into a project, and what was cut short. */
@@ -76,11 +74,13 @@ export interface RecordingClient {
     signal?: AbortSignal,
   ): Promise<DomainResult<readonly InterruptedRecording[]>>;
 
-  /** Makes an interrupted recording the asset and take it was for, as `take` names it. */
+  /**
+   * Makes an interrupted recording the asset and take it was for, named and
+   * placed as when it began.
+   */
   recover(
     project: RemoteProjectSession,
     session: RecordingSessionId,
-    take: TakeRequest,
     signal?: AbortSignal,
   ): Promise<DomainResult<FinishedRecording>>;
 
@@ -108,8 +108,8 @@ export function recordingClient(channel: ClientChannel): RecordingClient {
       channel.call('recording.stop', { session, ending }, { signal }),
     interrupted: (project, signal) =>
       channel.call('recording.interrupted', { handle: project.handle }, { signal }),
-    recover: (project, session, take, signal) =>
-      channel.call('recording.recover', { handle: project.handle, session, take }, { signal }),
+    recover: (project, session, signal) =>
+      channel.call('recording.recover', { handle: project.handle, session }, { signal }),
     discard: (project, session, signal) =>
       channel.call('recording.discard', { handle: project.handle, session }, { signal }),
   };

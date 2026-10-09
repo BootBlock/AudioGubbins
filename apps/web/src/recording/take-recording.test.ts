@@ -8,30 +8,28 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { CaptureProfileKind, RecordingEnding } from '@audiogubbins/project-format';
+import type { RecordingSetUp } from '@audiogubbins/storage';
 import type { RecordingClient, RemoteProjectSession } from '@audiogubbins/storage-runtime';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
 
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { everythingQueued } from '../testing/waiting.js';
 import { TakeRecording } from './take-recording.js';
-import type { TakeSetUp } from './take-set-up.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 
-const SET_UP: TakeSetUp = {
-  setUp: {
-    start: {
-      recordedAt: 1_790_000_000_000,
-      device: { channelCount: 2 },
-      profile: { kind: CaptureProfileKind.RawStudio, name: 'Raw/Studio' },
-      requested: {},
-      granted: {},
-      sampleRate: RATE,
-      layout: StandardLayouts.stereo,
-    },
-    transportFrame: derivedSampleCount(0),
-    purpose: { kind: 'stack' },
+const SET_UP: RecordingSetUp = {
+  start: {
+    recordedAt: 1_790_000_000_000,
+    device: { channelCount: 2 },
+    profile: { kind: CaptureProfileKind.RawStudio, name: 'Raw/Studio' },
+    requested: {},
+    granted: {},
+    sampleRate: RATE,
+    layout: StandardLayouts.stereo,
   },
+  transportFrame: derivedSampleCount(0),
+  purpose: { kind: 'stack' },
   take: { name: 'Take 1', stackName: 'Recording 1', compensation: 0 },
 };
 

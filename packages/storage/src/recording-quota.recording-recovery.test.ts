@@ -12,7 +12,6 @@ import { FillableTree } from './testing/fillable-tree.js';
 import { storageOf } from './testing/memory-ports.js';
 import { harness } from './testing/node-services.js';
 import {
-  TAKE,
   dryInput,
   framesOf,
   recordedSamples,
@@ -50,7 +49,7 @@ async function filledAt(fullAt: number) {
   tree.fullAtWrite = tree.writes + fullAt;
   const stream = streamOf(recordingOf(INPUT, 2_500));
   const ended = await captureInto(started, stream, () => undefined);
-  const finishing = await finishRecording(session, started, ended.ending, TAKE, services);
+  const finishing = await finishRecording(session, started, ended.ending, services);
   return { test, memory, tree, project, session, started, ended, stream, finishing };
 }
 
@@ -82,7 +81,7 @@ describe('storage that fills while recording', () => {
       const session = writable(reopened);
       const services = recordingServices(test, storageOf(test, memory));
       const recovered = expectSuccess(
-        await recoverRecording(session, interrupted.session, TAKE, services),
+        await recoverRecording(session, interrupted.session, services),
       );
       expect(
         await recordedSamples(

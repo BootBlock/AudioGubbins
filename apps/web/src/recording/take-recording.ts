@@ -23,7 +23,7 @@ import {
   type DomainResult,
 } from '@audiogubbins/domain';
 import type { RecordingEnding, RecordingSessionId } from '@audiogubbins/project-format';
-import type { FinishedRecording } from '@audiogubbins/storage';
+import type { FinishedRecording, RecordingSetUp } from '@audiogubbins/storage';
 import type {
   RecordingClient,
   RecordingStatus,
@@ -31,7 +31,6 @@ import type {
 } from '@audiogubbins/storage-runtime';
 
 import type { Programme } from '../audio/programme.js';
-import type { TakeSetUp } from './take-set-up.js';
 
 /** What a take is recorded into: the storage worker's recordings and the project it writes. */
 export interface RecordingWhere {
@@ -113,10 +112,10 @@ export class TakeRecording {
   }
 
   /** The capture began the take: the worker is told how, and begins it. */
-  begin(setUp: TakeSetUp): void {
+  begin(setUp: RecordingSetUp): void {
     if (this.#stage.kind !== 'waiting') return;
     const { client, project, session, port } = this.#options;
-    const begun = client.begin(project, { session, capture: port, ...setUp });
+    const begun = client.begin(project, { session, capture: port, setUp });
     this.#stage = { kind: 'beginning', begun };
     void begun.then(
       (result) => {

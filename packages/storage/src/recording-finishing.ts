@@ -53,7 +53,7 @@ import {
   recordingReadBackDiffers,
 } from './recording-failures.js';
 import { writeManifest, type RecordingFiles } from './recording-manifests.js';
-import { takeChange, type RecordingCommands, type TakeRequest } from './recording-takes.js';
+import { takeChange, type RecordingCommands } from './recording-takes.js';
 import type { ChangeOutcome } from './session-contracts.js';
 import { refusalsReported } from './storage-failures.js';
 
@@ -78,8 +78,8 @@ export interface FinishedRecording {
 
 /**
  * Makes the recording `kept`, whose capture ended as `ending`, into the asset
- * and take its purpose names in the project `session` writes, as `request`
- * names and places it (see the module comment). A window that does not hold
+ * and take its purpose names in the project `session` writes, named and placed
+ * as its manifest says (see the module comment). A window that does not hold
  * the project to change it writes nothing, and a session that committed no
  * frame is removed, and refused as nothing recorded.
  */
@@ -87,7 +87,6 @@ export async function finishRecording(
   session: ProjectSession,
   kept: RecordingFiles,
   ending: RecordingEnding,
-  request: TakeRequest,
   services: FinishingServices,
   signal?: AbortSignal,
 ): Promise<DomainResult<FinishedRecording>> {
@@ -122,7 +121,7 @@ export async function finishRecording(
     };
     const stored = await storedFile(kept, audio, services, signal);
     if (!stored.ok) return stored;
-    return await added(session, kept, asset, stored.value, recording, request, services);
+    return await added(session, kept, asset, stored.value, recording, services);
   });
 }
 
@@ -192,14 +191,13 @@ async function added(
   id: AssetId,
   stored: StoredFile,
   recording: RecordedProvenance,
-  request: TakeRequest,
   services: FinishingServices,
 ): Promise<DomainResult<FinishedRecording>> {
   const { contentId, byteLength } = stored.identity;
   const media = { kind: 'managed', contentId, byteLength, mediaType: RECORDED_MEDIA_TYPE } as const;
   const asset: Asset = {
     id,
-    displayName: request.name,
+    displayName: kept.manifest.take.name,
     origin: AssetOrigin.Recorded,
     sampleRate: recording.sampleRate,
     channelLayout: recording.layout,
@@ -222,7 +220,6 @@ async function added(
     session.getSnapshot().model.state,
     kept.manifest,
     { asset, source },
-    request,
     services.ids,
     services.commands,
   );

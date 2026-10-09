@@ -84,9 +84,12 @@ These settle what the ADRs leave to the implementation.
 5. **The recovery manifest.** `RecoveryChunkManifest` in `project-format`:
    format, schema version, session id, project id, sample format `f32le`,
    rate, layout, the recorded provenance as at the start, the transport frame
-   of the first frame, and the purpose: a new take in a stack, a new stack, or
-   a punch over a range of an asset. It is a checked record of project
-   storage. Chunks are files named by their first frame (twelve digits) under
+   of the first frame, the purpose (a new take in a stack, a new stack, or a
+   punch over a range of an asset) and the take it is begun for (its name,
+   the new stack's name and its compensation), so a finished and a recovered
+   take are named and placed alike. It is a checked record of project
+   storage, kept as a pair of files so a torn rewrite loses neither. Chunks
+   are files named by their first frame (twelve digits) under
    `projects/<id>/recordings/<session>/chunks/`.
 6. **The capture channel (`ADR-0070`).** Owned by `packages/audio-runtime`
    (`src/capture/`): a `MessagePort` the capture worklet writes and the storage
@@ -122,9 +125,10 @@ Every slice (A, B1, B2, C, D, E1, F, E2) is built and committed, ending at
 `chromium-recording` browser project passes. Slice F identified the playing
 output (`ADR-0070` amended). In order:
 
-1. Keep a take's intended name and compensation in the recovery manifest, so
-   a recovered take keeps its placement instead of 0 (`recovery-manifest.ts`,
-   `packages/storage/src/recording-*.ts`, the recovery offer).
+1. Land the scope audit's fixes (a separate agent): the sample-rate
+   restart offer, device labels kept out of logs and bundles, the quota read
+   before arming, the secure-context entry without a context, a device-change
+   diagnostic, two view tests, the real lease flag and one wording fix.
 2. Run the packet's commands: the four-package filter test,
    `test:recovery`, `test:storage-quota`, `test:project-roundtrip`,
    `test:editing-property`, `test:audio-latency`, `test:architecture`,

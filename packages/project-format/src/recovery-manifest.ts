@@ -7,14 +7,17 @@
  * It states the session, the project, the chunks' sample format (32-bit
  * float, little-endian, interleaved, in the recording's channel order), what
  * is known of the recording as it starts, where its first frame lies on the
- * transport, and what the recording is for: a new take in a stack, a new
- * stack, or a punch over a range of an asset. The chunks themselves say how
- * far it reached. Once capture ends the manifest is rewritten, once, with how
- * it ended and the asset its recording is being made into, so a session cut
- * short while it was being made into one keeps why it ended, and one whose
- * asset the project already holds is known to be finished. A manifest is part
- * of project storage, so one of another `projectStorage` schema version is
- * refused, never migrated, before 1.0.
+ * transport, what the recording is for (a new take in a stack, a new stack,
+ * or a punch over a range of an asset), and what the take it becomes is
+ * called and placed by. The take is named and placed as things stood when the
+ * recording began (ADR-0070, ADR-0072), which only the page knew then, so a
+ * recording recovered after a crash becomes the take a stop would have made.
+ * The chunks themselves say how far it reached. Once capture ends the
+ * manifest is rewritten, once, with how it ended and the asset its recording
+ * is being made into, so a session cut short while it was being made into one
+ * keeps why it ended, and one whose asset the project already holds is known
+ * to be finished. A manifest is part of project storage, so one of another
+ * `projectStorage` schema version is refused, never migrated, before 1.0.
  */
 
 import {
@@ -47,8 +50,9 @@ import { readEditRange } from './edit-reading.js';
 import { asBasis } from './edit-value-reading.js';
 import { readRecordingStart, writeRecordingStart } from './recorded-provenance-json.js';
 import { RecordingEnding, type RecordingStart } from './recorded-provenance.js';
+import { asTakeName, asTakeStackName } from './given-names.js';
 import { asId, oneOfConverter } from './scalar-reading.js';
-import { readPunchRange } from './take-stack-reading.js';
+import { asCompensation, readPunchRange } from './take-stack-reading.js';
 import { writePunchRange } from './take-stack-writing.js';
 import { asSampleCount } from './value-reading.js';
 
@@ -78,6 +82,18 @@ export type RecordingPurpose =
       readonly punch: PunchRange;
     };
 
+/** What the take a recording becomes is called and placed by, as the recording begins. */
+export interface TakeRequest {
+  /** The take's name, which its asset takes too. */
+  readonly name: string;
+
+  /** The name of the stack the recording starts, where its purpose starts one. */
+  readonly stackName?: string;
+
+  /** The latency the take is placed by, in frames at its rate (ADR-0070). */
+  readonly compensation: number;
+}
+
 /**
  * How a session's capture ended, and the asset its recording is being made
  * into, which the project holds once the session is finished.
@@ -97,6 +113,7 @@ export interface RecoveryChunkManifest {
   /** Where the first recorded frame lies on the transport, at the recording's rate. */
   readonly transportFrame: SampleCount;
   readonly purpose: RecordingPurpose;
+  readonly take: TakeRequest;
 
   /** How capture ended, once it has. */
   readonly end?: RecordingEnd;
@@ -111,8 +128,10 @@ const MANIFEST_MEMBERS: ReadonlySet<string> = new Set([
   'start',
   'transportFrame',
   'purpose',
+  'take',
   'end',
 ]);
+const TAKE_MEMBERS: ReadonlySet<string> = new Set(['name', 'stackName', 'compensation']);
 const END_MEMBERS: ReadonlySet<string> = new Set(['ending', 'asset']);
 const TAKE_PURPOSE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'stack']);
 const STACK_PURPOSE_MEMBERS: ReadonlySet<string> = new Set(['kind']);
@@ -146,6 +165,15 @@ function writePurpose(purpose: RecordingPurpose): JsonObject {
   }
 }
 
+/** Writes what the take a recording becomes is called and placed by. */
+function writeTake(take: TakeRequest): JsonObject {
+  return {
+    name: take.name,
+    ...(take.stackName === undefined ? {} : { stackName: take.stackName }),
+    compensation: take.compensation,
+  };
+}
+
 /** Writes a recording session's manifest, with the schema this build writes. */
 export function writeRecoveryManifest(manifest: RecoveryChunkManifest): JsonObject {
   return {
@@ -157,11 +185,24 @@ export function writeRecoveryManifest(manifest: RecoveryChunkManifest): JsonObje
     start: writeRecordingStart(manifest.start),
     transportFrame: manifest.transportFrame,
     purpose: writePurpose(manifest.purpose),
+    take: writeTake(manifest.take),
     ...(manifest.end === undefined
       ? {}
       : { end: { ending: manifest.end.ending, asset: manifest.end.asset } }),
   };
 }
+
+const readTake: Converter<TakeRequest> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, TAKE_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const name = required(reading, object, at, 'name', asTakeName);
+  const stackName = optional(reading, object, at, 'stackName', asTakeStackName);
+  const compensation = required(reading, object, at, 'compensation', asCompensation);
+  return name === undefined || compensation === undefined
+    ? undefined
+    : { name, ...(stackName === undefined ? {} : { stackName }), compensation };
+};
 
 const readEnd: Converter<RecordingEnd> = (reading, value, parent, key) => {
   const object = objectOf(reading, value, parent, key, END_MEMBERS);
@@ -226,6 +267,7 @@ export function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChu
       const start = required(reading, object, '', 'start', readRecordingStart);
       const transportFrame = required(reading, object, '', 'transportFrame', asSampleCount);
       const purpose = required(reading, object, '', 'purpose', readPurpose);
+      const take = required(reading, object, '', 'take', readTake);
       const end = optional(reading, object, '', 'end', readEnd);
       return reading.outcome(
         session === undefined ||
@@ -233,7 +275,8 @@ export function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChu
           sampleFormat === undefined ||
           start === undefined ||
           transportFrame === undefined ||
-          purpose === undefined
+          purpose === undefined ||
+          take === undefined
           ? undefined
           : {
               session,
@@ -242,6 +285,7 @@ export function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChu
               start,
               transportFrame,
               purpose,
+              take,
               ...(end === undefined ? {} : { end }),
             },
       );
