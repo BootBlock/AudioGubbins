@@ -23,6 +23,7 @@ import {
   RecordingEnding,
   type CaptureSettings,
   type RecordedDevice,
+  type RecordedGaps,
   type RecordedProfile,
   type RecordedProvenance,
   type RecordingStart,
@@ -53,7 +54,13 @@ const START_MEMBERS = [
   'layout',
 ] as const;
 const START_MEMBER_SET: ReadonlySet<string> = new Set(START_MEMBERS);
-const RECORDING_MEMBERS: ReadonlySet<string> = new Set([...START_MEMBERS, 'length', 'ending']);
+const RECORDING_MEMBERS: ReadonlySet<string> = new Set([
+  ...START_MEMBERS,
+  'length',
+  'ending',
+  'gaps',
+]);
+const GAPS_MEMBERS: ReadonlySet<string> = new Set(['count', 'frames']);
 const DEVICE_MEMBERS: ReadonlySet<string> = new Set(['label', 'group', 'channelCount']);
 const PROFILE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'name']);
 const SETTINGS_MEMBERS: ReadonlySet<string> = new Set([
@@ -76,6 +83,9 @@ const asSampleSize = integerConverter(1, 64);
 const asLatency = numberConverter(0, 60);
 const asProfileKind = oneOfConverter(Object.values(CaptureProfileKind));
 const asEnding = oneOfConverter(Object.values(RecordingEnding));
+
+/** How many runs of frames were lost: one at least, since none is written as no gaps. */
+const asGapCount = integerConverter(1, Number.MAX_SAFE_INTEGER);
 
 /** Writes capture settings, each where it is present. */
 function writeSettings(settings: CaptureSettings): JsonObject {
@@ -110,7 +120,13 @@ export function writeRecordingStart(start: RecordingStart): JsonObject {
 
 /** Writes how an asset was recorded. */
 export function writeRecordedProvenance(recording: RecordedProvenance): JsonObject {
-  return { ...writeRecordingStart(recording), length: recording.length, ending: recording.ending };
+  const { gaps } = recording;
+  return {
+    ...writeRecordingStart(recording),
+    length: recording.length,
+    ending: recording.ending,
+    ...(gaps === undefined ? {} : { gaps: { count: gaps.count, frames: gaps.frames } }),
+  };
 }
 
 const readDevice: Converter<RecordedDevice> = (reading, value, parent, key) => {
@@ -125,6 +141,25 @@ const readDevice: Converter<RecordedDevice> = (reading, value, parent, key) => {
     ...(group === undefined ? {} : { group }),
     ...(channelCount === undefined ? {} : { channelCount }),
   };
+};
+
+/** Reads the frames lost, which a run of them is at least one of. */
+const readGaps: Converter<RecordedGaps> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, GAPS_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const count = required(reading, object, at, 'count', asGapCount);
+  const frames = required(reading, object, at, 'frames', asSampleCount);
+  if (count === undefined || frames === undefined) return undefined;
+  if (frames < count) {
+    reading.refuse(
+      'source.recording-gaps-empty',
+      'Every gap in a recording is at least one frame long.',
+      pathOf(at, 'frames'),
+    );
+    return undefined;
+  }
+  return { count, frames };
 };
 
 const readProfile: Converter<RecordedProfile> = (reading, value, parent, key) => {
@@ -204,15 +239,16 @@ export const readRecordedProvenance: Converter<RecordedProvenance> = (
   const start = startMembers(reading, object, at);
   const length = required(reading, object, at, 'length', asSampleCount);
   const ending = required(reading, object, at, 'ending', asEnding);
+  const gaps = optional(reading, object, at, 'gaps', readGaps);
   return start === undefined || length === undefined || ending === undefined
     ? undefined
-    : { ...start, length, ending };
+    : { ...start, length, ending, ...(gaps === undefined ? {} : { gaps }) };
 };
 
 /**
  * Checks how an asset was recorded, at `at`, against the asset: it must be a
  * recorded asset, at the rate and in the layout it was recorded in, as long
- * as the recording. True where it agrees.
+ * as the recording, which holds every frame it lost. True where it agrees.
  */
 export function checkRecordingAgainstAsset(
   reading: Reading,
@@ -245,11 +281,18 @@ export function checkRecordingAgainstAsset(
       'layout',
     );
   }
-  return recording.length === asset.length
+  if (recording.length !== asset.length) {
+    return refuse(
+      'source.recording-length-mismatch',
+      'The asset is not as long as its recording.',
+      'length',
+    );
+  }
+  return (recording.gaps?.frames ?? 0) <= recording.length
     ? true
     : refuse(
-        'source.recording-length-mismatch',
-        'The asset is not as long as its recording.',
-        'length',
+        'source.recording-gaps-beyond-length',
+        'A recording lost more frames than it holds.',
+        'gaps',
       );
 }

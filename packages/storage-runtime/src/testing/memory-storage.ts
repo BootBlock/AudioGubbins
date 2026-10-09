@@ -104,6 +104,9 @@ export interface MemoryStorageOptions {
    * reaches the network by forgetting to say.
    */
   readonly packSource?: CatalogueSource;
+
+  /** The storage estimate the worker reads: none where not given, as a browser may give none. */
+  readonly estimate?: HostParts['estimate'];
 }
 
 /** Why a catalogue cannot be read in a worker in memory that was given none. */
@@ -135,10 +138,11 @@ function partsOf(
   owner: HostParts['owner'],
   seed: number,
   shared: Pick<HostParts, 'tree' | 'clock' | 'coordinator' | 'yieldToHost' | 'logs'> &
-    Partial<Pick<HostParts, 'packSource'>>,
+    Partial<Pick<HostParts, 'packSource' | 'estimate'>>,
 ): HostParts {
   return {
     packSource: NO_PACK_SOURCE,
+    estimate: () => Promise.resolve(undefined),
     ...shared,
     digest: webDigest(crypto.subtle),
     ids: createDeterministicIdGenerator(seed),
@@ -173,6 +177,7 @@ export function serveMemoryStorage(
       yieldToHost,
       logs,
       ...(options.packSource === undefined ? {} : { packSource: options.packSource }),
+      ...(options.estimate === undefined ? {} : { estimate: options.estimate }),
     });
   });
   if (hostLogs === undefined) throw new Error('The worker made its services without loggers.');

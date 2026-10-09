@@ -227,7 +227,11 @@ describe('usage by category (REQ-STOR-200)', () => {
       elsewhere: 0,
     });
     expect(
-      usage.journal + usage.namedSnapshots + usage.alternativeBranches + usage.recoveryCheckpoints,
+      usage.journal +
+        usage.namedSnapshots +
+        usage.alternativeBranches +
+        usage.recoveryCheckpoints +
+        usage.recordings,
     ).toBe(sizeUnder(tree, 'projects/'));
   });
 });

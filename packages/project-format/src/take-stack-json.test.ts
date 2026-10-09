@@ -169,6 +169,24 @@ describe('how a recorded asset was recorded', () => {
     expect(codesOf(readProjectDocument(imported))).toContain('source.recording-not-recorded');
   });
 
+  it('keeps the frames it lost, which are at least one a gap and no more than it holds', () => {
+    const gapsAt = [...recordingAt, 'gaps'] as const;
+    const lost = withValue(DOCUMENT, gapsAt, { count: 2, frames: 480 });
+    const read = expectSuccess(readProjectDocument(lost));
+    const recording = read.sources.get(recordedId as Asset['id'])?.provenance?.recording;
+    expect(recording?.gaps).toEqual({ count: 2, frames: 480 });
+    expect(writeProjectDocument(read)).toEqual(lost);
+
+    const length = valueAt(DOCUMENT, [...recordingAt, 'length']);
+    if (typeof length !== 'number') throw new Error('A recording has a length.');
+    const beyond = withValue(DOCUMENT, gapsAt, { count: 1, frames: length + 1 });
+    expect(codesOf(readProjectDocument(beyond))).toContain('source.recording-gaps-beyond-length');
+    const empty = withValue(DOCUMENT, gapsAt, { count: 3, frames: 2 });
+    expect(codesOf(readProjectDocument(empty))).toContain('source.recording-gaps-empty');
+    const none = withValue(DOCUMENT, gapsAt, { count: 0, frames: 0 });
+    expect(readProjectDocument(none).ok).toBe(false);
+  });
+
   it('loses the device’s label and group below full provenance, and nothing else of it', () => {
     const recording = (state: typeof STATE, level: ProvenanceLevel) =>
       stripAssetProvenance(state, level).sources.get(recordedId as Asset['id'])?.provenance
@@ -218,11 +236,17 @@ describe('a recording session’s manifest', () => {
     },
   ];
 
-  it('reads back as itself, for every purpose a recording has', () => {
+  it('reads back as itself, for every purpose a recording has, before and after it ends', () => {
     for (const purpose of purposes) {
-      const written = manifest(purpose);
-      const text = canonicalJson(writeRecoveryManifest(written));
-      expect(expectSuccess(readRecoveryManifest(JSON.parse(text) as JsonValue))).toEqual(written);
+      const started = manifest(purpose);
+      const ended = {
+        ...started,
+        end: { ending: RecordingEnding.StorageFull, asset: FIXTURE.ids.next<'AssetId'>() },
+      };
+      for (const written of [started, ended]) {
+        const text = canonicalJson(writeRecoveryManifest(written));
+        expect(expectSuccess(readRecoveryManifest(JSON.parse(text) as JsonValue))).toEqual(written);
+      }
     }
   });
 
@@ -236,6 +260,8 @@ describe('a recording session’s manifest', () => {
     expect(codesOf(readRecoveryManifest({ ...written, purpose: { kind: 'take' } }))).toContain(
       'schema.missing-member',
     );
+    const unended = { ...written, end: { ending: 'paused', asset: STACK.takes[0]?.asset ?? '' } };
+    expect(codesOf(readRecoveryManifest(unended))).toContain('schema.unknown-value');
   });
 });
 

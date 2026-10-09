@@ -4,8 +4,8 @@
  *
  * The parts are what differ between the browser and a test: the tree, the
  * digest, the clock, identifiers and tokens, the window as others are told of
- * it, the leases, the turns, the loggers and where a catalogue's packs are
- * downloaded from. Everything made from them is made here alone, for both, so
+ * it, the leases, the turns, the loggers, where a catalogue's packs are
+ * downloaded from and the storage estimate. Everything made from them is made here alone, for both, so
  * a test runs the worker's own composition over parts in memory. Every storage
  * path works through a tree that takes turns (`host-turns.ts`).
  */
@@ -16,6 +16,7 @@ import type { Clock, Logger } from '@audiogubbins/diagnostics';
 import type { IdGenerator } from '@audiogubbins/domain';
 import { MediaObjectStore } from '@audiogubbins/media-store';
 import { commandProvenance, projectCommands } from '@audiogubbins/project-commands';
+import type { StorageEstimate } from '@audiogubbins/recording';
 import type {
   Digest,
   InvocationProvenance,
@@ -70,6 +71,13 @@ export interface HostParts {
 
   /** Where a catalogue's packs are downloaded from: over HTTP in the browser. */
   readonly packSource: CatalogueSource;
+
+  /**
+   * The browser's estimate of the storage it lets this origin keep and has
+   * kept, `undefined` where it gives none: what the recording time left is
+   * read from (ADR-0071).
+   */
+  readonly estimate: () => Promise<StorageEstimate | undefined>;
 }
 
 /** Everything the areas serving the page work with, each made once. */
@@ -88,6 +96,9 @@ export interface HostServices extends OpeningServices, CleanupRunServices, PackS
 
   /** The person's library of saved chains and presets. */
   readonly processingLibrary: ProcessingLibraryStore;
+
+  /** The storage estimate (see {@link HostParts.estimate}). */
+  readonly estimate: HostParts['estimate'];
 }
 
 /** The services made from their parts (see the module comment). */
@@ -127,6 +138,7 @@ export function hostServices(parts: HostParts): HostServices {
     }),
     yieldToHost: parts.yieldToHost,
     fileAt: parts.fileAt,
+    estimate: parts.estimate,
     processingLibrary: new ProcessingLibraryStore({
       tree,
       digest,

@@ -110,9 +110,26 @@ export interface RecordingStart {
   readonly layout: ChannelLayout;
 }
 
+/**
+ * The frames of a recording that were captured and lost before they could be
+ * kept, as the capture channel said (ADR-0070): each run was written as
+ * silence, so the take's timing holds, and is counted here so the person can
+ * tell the take is not whole.
+ */
+export interface RecordedGaps {
+  /** The runs of lost frames, at least one. */
+  readonly count: number;
+
+  /** The frames written as silence over every run, at least one a run. */
+  readonly frames: SampleCount;
+}
+
 /** How a recorded asset was recorded: its start, its length, and how it ended. */
 export interface RecordedProvenance extends RecordingStart {
   /** The whole frames recorded, which its asset holds. */
   readonly length: SampleCount;
   readonly ending: RecordingEnding;
+
+  /** The frames lost and written as silence, absent where none were. */
+  readonly gaps?: RecordedGaps;
 }

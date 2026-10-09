@@ -17,8 +17,10 @@
  * Nothing is repaired silently (REQ-STOR-101). Every head passed over, the
  * records replayed, the break and every record discarded past it, the fenced
  * records, a rebuilt cursor state and every kept state missing are in the
- * report. Recovery reads and never writes: sealing and setting aside are done
- * by the writer that opens the project, and a reader changes nothing.
+ * report, and so is every recording a crash cut short (`recording-sessions.ts`),
+ * which the person is offered before anything is cleaned. Recovery reads and
+ * never writes: sealing and setting aside are done by the writer that opens
+ * the project, and a reader changes nothing.
  */
 
 import type { CommandBus } from '@audiogubbins/commands';
@@ -47,6 +49,11 @@ import { readHeads, type ProjectHead } from './project-heads.js';
 import type { ProjectModel } from './project-model.js';
 import { replayInvocations } from './history-moves.js';
 import { replayDiverged } from './storage-failures.js';
+import {
+  listRecordings,
+  type InterruptedRecording,
+  type RecordingListing,
+} from './recording-sessions.js';
 
 /** Why a head was passed over. */
 export type HeadFallbackReason =
@@ -83,6 +90,12 @@ export interface ProjectRecoveryReport {
 
   /** States the history keeps that storage does not hold. */
   readonly missingStates: readonly StateFingerprint[];
+
+  /**
+   * Recordings cut short before they became assets, each offered to be
+   * recovered or discarded before anything is cleaned (ADR-0071).
+   */
+  readonly interruptedRecordings: readonly InterruptedRecording[];
 }
 
 /** A project rebuilt from storage. */
@@ -103,6 +116,9 @@ export interface RecoveredProject {
 
   /** The segments of history the checkpoint recovered from names. */
   readonly segments: SegmentLedger;
+
+  /** The project's recording sessions that are not yet assets. */
+  readonly recordings: RecordingListing;
   readonly report: ProjectRecoveryReport;
 }
 
@@ -273,6 +289,7 @@ async function replayAfter(
   const missingStates = [...retainedStates(replay.model.history)].filter(
     (state) => !held.has(state) && !context.unwritten.has(state),
   );
+  const recordings = await listRecordings(files.records, files.project, replay.model.state, signal);
   return {
     model: replay.model,
     position: replay.position,
@@ -280,6 +297,7 @@ async function replayAfter(
     keptStates: context.kept,
     segments: checkpoint.segments,
     unwritten: context.unwritten,
+    recordings,
     report: {
       head: { epoch: head.epoch, generation: head.generation },
       fallbacks,
@@ -288,6 +306,7 @@ async function replayAfter(
       fenced: replay.fenced,
       ...(start.rebuilt === undefined ? {} : { rebuiltCursorState: start.rebuilt }),
       missingStates,
+      interruptedRecordings: recordings.interrupted,
     },
   };
 }

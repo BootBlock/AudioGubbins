@@ -20,6 +20,15 @@
  *   seals.
  * - `projects/<project>/unfinished`: present while a project is being made,
  *   until its header is written.
+ * - `projects/<project>/recordings/<session>/manifest-0.json` and
+ *   `manifest-1.json`: a recording session's manifest, a pair written when the
+ *   session starts and rewritten once when its capture ends
+ *   (`recording-manifests.ts`).
+ * - `projects/<project>/recordings/<session>/chunks/<frame>`: a second at most
+ *   of the session's audio, named by the frame of the recording it starts at
+ *   (`recording-chunks.ts`).
+ * - `projects/<project>/recordings/<session>/gaps/<frame>-<frames>`: an empty
+ *   file saying the frames from `frame` on were lost and written as silence.
  * - `backups/<project>/<generation>/`: a backup generation
  *   (`backup-generations.ts`).
  * - `cache/<category>/<scope>/<name>`: a disposable cache (`cache-store.ts`).
@@ -36,7 +45,7 @@
  */
 
 import type { Branded, ProjectId } from '@audiogubbins/domain';
-import type { HistorySegmentReference } from '@audiogubbins/project-format';
+import type { HistorySegmentReference, RecordingSessionId } from '@audiogubbins/project-format';
 
 /** The storage root's file. */
 export const STORAGE_ROOT_FILE = 'storage.json';
@@ -73,6 +82,8 @@ const HEAD_FILE = /^([0-9]{12})-([0-9]{12})\.json$/u;
 /** A checkpoint's or a segment's file: the epoch it was written under, then its id. */
 const EPOCH_NAMED_FILE = /^([0-9]{12})-(.+)\.json$/u;
 const GENERATION_DIRECTORY = /^([0-9]{12})$/u;
+const CHUNK_FILE = /^([0-9]{12})$/u;
+const GAP_FILE = /^([0-9]{12})-([0-9]{12})$/u;
 const QUARANTINE_DIRECTORY = 'quarantine';
 
 /** A whole number as the fixed-width digits a numbered name is written in. */
@@ -136,6 +147,23 @@ export function numberOfGeneration(name: string): number | undefined {
   return numberIn(GENERATION_DIRECTORY.exec(name));
 }
 
+/** The first frame a recording's chunk starts at, or `undefined` for a name that is no chunk's. */
+export function frameOfChunk(name: string): number | undefined {
+  return numberIn(CHUNK_FILE.exec(name));
+}
+
+/** The frames a gap marker's name says were lost, or `undefined` for another name. */
+export function gapOfName(
+  name: string,
+): { readonly frame: number; readonly frames: number } | undefined {
+  const match = GAP_FILE.exec(name);
+  const frame = match?.[1];
+  const frames = match?.[2];
+  return frame === undefined || frames === undefined
+    ? undefined
+    : { frame: Number(frame), frames: Number(frames) };
+}
+
 /** The paths of one project's files. */
 export class ProjectPaths {
   readonly directory: string;
@@ -150,6 +178,9 @@ export class ProjectPaths {
   /** Present while the project is being made, until its header is written. */
   readonly unfinished: string;
 
+  /** Every recording session the project has that is not yet an asset. */
+  readonly recordings: string;
+
   constructor(project: ProjectId) {
     this.directory = `${PROJECTS_DIRECTORY}/${project}`;
     this.heads = `${this.directory}/heads`;
@@ -160,6 +191,7 @@ export class ProjectPaths {
     this.quarantine = `${this.journal}/${QUARANTINE_DIRECTORY}`;
     this.leases = `${this.directory}/leases`;
     this.unfinished = `${this.directory}/unfinished`;
+    this.recordings = `${this.directory}/recordings`;
   }
 
   header(slot: PairSlot): string {
@@ -192,6 +224,33 @@ export class ProjectPaths {
 
   lease(epoch: number): string {
     return `${this.leases}/${digits(epoch)}.json`;
+  }
+}
+
+/** The paths of one recording session's files. */
+export class RecordingPaths {
+  readonly directory: string;
+  readonly chunks: string;
+  readonly gaps: string;
+
+  constructor(paths: ProjectPaths, session: RecordingSessionId) {
+    this.directory = `${paths.recordings}/${session}`;
+    this.chunks = `${this.directory}/chunks`;
+    this.gaps = `${this.directory}/gaps`;
+  }
+
+  manifest(slot: PairSlot): string {
+    return `${this.directory}/manifest-${String(slot)}.json`;
+  }
+
+  /** The chunk that starts at frame `frame` of the recording. */
+  chunk(frame: number): string {
+    return `${this.chunks}/${digits(frame)}`;
+  }
+
+  /** The marker of `frames` frames lost from frame `frame` of the recording on. */
+  gap(frame: number, frames: number): string {
+    return `${this.gaps}/${digits(frame)}-${digits(frames)}`;
   }
 }
 

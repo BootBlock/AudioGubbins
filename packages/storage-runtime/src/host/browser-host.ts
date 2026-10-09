@@ -94,6 +94,29 @@ function partsOf(
     logs,
     fileAt: originPrivateFile(platform.readRoot),
     packSource: (catalogue) => new HttpPackSource(catalogue),
+    estimate: estimateOf(storage.estimate),
+  };
+}
+
+/**
+ * The storage estimate from the browser's, where it gives both its numbers.
+ * A browser that refuses to estimate, as one may in a context it does not
+ * trust, has given no estimate, and the time left is then unknown rather than
+ * assumed (REQ-EXEC-216).
+ */
+function estimateOf(read: StoragePlatform['estimate']): HostParts['estimate'] {
+  return async () => {
+    if (read === undefined) return undefined;
+    let given: StorageEstimate;
+    try {
+      given = await read();
+    } catch (error) {
+      // The browser rejects with its own error, a DOMException as a rule.
+      if (error instanceof Error) return undefined;
+      throw error;
+    }
+    const { quota, usage } = given;
+    return quota === undefined || usage === undefined ? undefined : { quota, usage };
   };
 }
 

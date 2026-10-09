@@ -16,6 +16,7 @@ import {
   AssetOrigin,
   StandardLayouts,
   ambisonicLayout,
+  derivedSampleCount,
   discreteLayout,
   labelledLayout,
   sampleCount,
@@ -368,11 +369,20 @@ export function randomRecordingStart(
   };
 }
 
-/** How `asset` was recorded: at its rate and in its layout, as long as it is. */
+/**
+ * How `asset` was recorded: at its rate and in its layout, as long as it is,
+ * now and then with frames lost, as many as it is long at most.
+ */
 export function randomRecording(random: Random, asset: Asset): RecordedProvenance {
+  const count = asset.length > 0 && random.chance(0.3) ? 1 + random.below(asset.length) : 0;
+  const gaps =
+    count === 0
+      ? undefined
+      : { count, frames: derivedSampleCount(count + random.below(asset.length - count + 1)) };
   return {
     ...randomRecordingStart(random, asset),
     length: asset.length,
     ending: random.pick(Object.values(RecordingEnding)),
+    ...(gaps === undefined ? {} : { gaps }),
   };
 }

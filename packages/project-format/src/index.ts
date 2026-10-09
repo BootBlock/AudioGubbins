@@ -111,6 +111,7 @@ export {
   type CaptureSettings,
   CaptureProfileKind,
   type RecordedDevice,
+  type RecordedGaps,
   type RecordedProfile,
   type RecordedProvenance,
   RecordingEnding,
@@ -119,6 +120,7 @@ export {
 } from './recorded-provenance.js';
 export {
   CHUNK_SAMPLE_FORMAT,
+  type RecordingEnd,
   type RecordingPurpose,
   type RecordingSessionId,
   type RecoveryChunkManifest,

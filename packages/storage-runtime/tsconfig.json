@@ -57,6 +57,12 @@
     },
     {
       "path": "../../packages/text"
+    },
+    {
+      "path": "../../packages/recording"
+    },
+    {
+      "path": "../../packages/audio-runtime"
     }
   ]
 }

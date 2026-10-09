@@ -38,6 +38,7 @@ import {
   type JsonValue,
   type MediaSource,
   type RecordedDevice,
+  type RecordedGaps,
   type RecordedProfile,
   type RecordedProvenance,
   type SourceAudioShape,
@@ -192,6 +193,7 @@ const sameRecording = whole<RecordedProvenance>({
   layout: sameLayout,
   length: same,
   ending: same,
+  gaps: optionally(whole<RecordedGaps>({ count: same, frames: same })),
 });
 
 const sameProvenance = whole<AssetProvenance>({

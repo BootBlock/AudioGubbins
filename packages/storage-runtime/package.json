@@ -41,7 +41,9 @@
     "@audiogubbins/browser-storage": "workspace:*",
     "@audiogubbins/processors": "workspace:*",
     "@audiogubbins/model-packs": "workspace:*",
-    "@audiogubbins/text": "workspace:*"
+    "@audiogubbins/text": "workspace:*",
+    "@audiogubbins/recording": "workspace:*",
+    "@audiogubbins/audio-runtime": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.1"

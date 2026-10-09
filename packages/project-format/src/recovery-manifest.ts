@@ -9,8 +9,12 @@
  * is known of the recording as it starts, where its first frame lies on the
  * transport, and what the recording is for: a new take in a stack, a new
  * stack, or a punch over a range of an asset. The chunks themselves say how
- * far it reached. A manifest is part of project storage, so one of another
- * `projectStorage` schema version is refused, never migrated, before 1.0.
+ * far it reached. Once capture ends the manifest is rewritten, once, with how
+ * it ended and the asset its recording is being made into, so a session cut
+ * short while it was being made into one keeps why it ended, and one whose
+ * asset the project already holds is known to be finished. A manifest is part
+ * of project storage, so one of another `projectStorage` schema version is
+ * refused, never migrated, before 1.0.
  */
 
 import {
@@ -32,6 +36,7 @@ import {
   anyObjectOf,
   checkMembers,
   objectOf,
+  optional,
   pathOf,
   required,
   startReading,
@@ -41,7 +46,7 @@ import {
 import { readEditRange } from './edit-reading.js';
 import { asBasis } from './edit-value-reading.js';
 import { readRecordingStart, writeRecordingStart } from './recorded-provenance-json.js';
-import type { RecordingStart } from './recorded-provenance.js';
+import { RecordingEnding, type RecordingStart } from './recorded-provenance.js';
 import { asId, oneOfConverter } from './scalar-reading.js';
 import { readPunchRange } from './take-stack-reading.js';
 import { writePunchRange } from './take-stack-writing.js';
@@ -73,6 +78,15 @@ export type RecordingPurpose =
       readonly punch: PunchRange;
     };
 
+/**
+ * How a session's capture ended, and the asset its recording is being made
+ * into, which the project holds once the session is finished.
+ */
+export interface RecordingEnd {
+  readonly ending: RecordingEnding;
+  readonly asset: AssetId;
+}
+
 /** A recording session's manifest (see the module comment). */
 export interface RecoveryChunkManifest {
   readonly session: RecordingSessionId;
@@ -83,6 +97,9 @@ export interface RecoveryChunkManifest {
   /** Where the first recorded frame lies on the transport, at the recording's rate. */
   readonly transportFrame: SampleCount;
   readonly purpose: RecordingPurpose;
+
+  /** How capture ended, once it has. */
+  readonly end?: RecordingEnd;
 }
 
 const MANIFEST_MEMBERS: ReadonlySet<string> = new Set([
@@ -94,7 +111,9 @@ const MANIFEST_MEMBERS: ReadonlySet<string> = new Set([
   'start',
   'transportFrame',
   'purpose',
+  'end',
 ]);
+const END_MEMBERS: ReadonlySet<string> = new Set(['ending', 'asset']);
 const TAKE_PURPOSE_MEMBERS: ReadonlySet<string> = new Set(['kind', 'stack']);
 const STACK_PURPOSE_MEMBERS: ReadonlySet<string> = new Set(['kind']);
 const PUNCH_PURPOSE_MEMBERS: ReadonlySet<string> = new Set([
@@ -107,6 +126,7 @@ const PUNCH_PURPOSE_MEMBERS: ReadonlySet<string> = new Set([
 
 const asPurposeKind = oneOfConverter(['take', 'stack', 'punch'] as const);
 const asSampleFormat = oneOfConverter([CHUNK_SAMPLE_FORMAT] as const);
+const asEnding = oneOfConverter(Object.values(RecordingEnding));
 
 /** Writes what a recording is for. */
 function writePurpose(purpose: RecordingPurpose): JsonObject {
@@ -137,8 +157,20 @@ export function writeRecoveryManifest(manifest: RecoveryChunkManifest): JsonObje
     start: writeRecordingStart(manifest.start),
     transportFrame: manifest.transportFrame,
     purpose: writePurpose(manifest.purpose),
+    ...(manifest.end === undefined
+      ? {}
+      : { end: { ending: manifest.end.ending, asset: manifest.end.asset } }),
   };
 }
+
+const readEnd: Converter<RecordingEnd> = (reading, value, parent, key) => {
+  const object = objectOf(reading, value, parent, key, END_MEMBERS);
+  if (object === undefined) return undefined;
+  const at = pathOf(parent, key);
+  const ending = required(reading, object, at, 'ending', asEnding);
+  const asset = required(reading, object, at, 'asset', asId<'AssetId'>);
+  return ending === undefined || asset === undefined ? undefined : { ending, asset };
+};
 
 /** Reads a punch's purpose: the asset, the range at its basis, and the punch. */
 function punchPurpose(
@@ -194,6 +226,7 @@ export function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChu
       const start = required(reading, object, '', 'start', readRecordingStart);
       const transportFrame = required(reading, object, '', 'transportFrame', asSampleCount);
       const purpose = required(reading, object, '', 'purpose', readPurpose);
+      const end = optional(reading, object, '', 'end', readEnd);
       return reading.outcome(
         session === undefined ||
           project === undefined ||
@@ -202,7 +235,15 @@ export function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChu
           transportFrame === undefined ||
           purpose === undefined
           ? undefined
-          : { session, project, sampleFormat, start, transportFrame, purpose },
+          : {
+              session,
+              project,
+              sampleFormat,
+              start,
+              transportFrame,
+              purpose,
+              ...(end === undefined ? {} : { end }),
+            },
       );
     },
   );
