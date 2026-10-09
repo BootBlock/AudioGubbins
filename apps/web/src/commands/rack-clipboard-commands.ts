@@ -14,20 +14,16 @@ import {
   type Command,
   type CommandInvocation,
 } from '@audiogubbins/commands';
-import { findSlot, type ChainSlot, type SlotPlace } from '@audiogubbins/domain';
+import { findSlot, withSlotAt, type ChainSlot, type SlotPlace } from '@audiogubbins/domain';
 import {
   chainFromProcessing,
   copyProcessing,
-  pasteProcessing,
+  pastedSlots,
   type ClipboardPayload,
   type ProcessingPayload,
 } from '@audiogubbins/clipboard';
 import { canonicalJson, writeSlot } from '@audiogubbins/project-format';
-import {
-  addChainInvocation,
-  setChainInvocation,
-  setRackInvocation,
-} from '@audiogubbins/project-commands';
+import { addSlotInvocation, setRackInvocation } from '@audiogubbins/project-commands';
 import { counted } from '@audiogubbins/text';
 
 import { needsProjectAsset } from './project-edits.js';
@@ -157,21 +153,26 @@ function pasteCommand(): Command<ShellContext> {
       const named = targetChain(scope, invocation);
       const name = targetName(scope.target);
       if (named === undefined) {
-        const chain = chainFromProcessing(held.payload, context.ids);
         return changeRacks(context, {
           description: `Give ${name} a rack`,
-          invocations: [addChainInvocation(chain), setRackInvocation(scope.target, chain.id)],
+          invocations: [
+            setRackInvocation(scope.target, chainFromProcessing(held.payload, context.ids)),
+          ],
           said: `Pasted ${held.words} into a new rack of ${name}.`,
         });
       }
       if ('refused' in named) return named.refused;
       const place = pasteAt(context, invocation, scope, named);
       if (typeof place === 'string') return place;
-      const pasted = pasteProcessing(held.payload, named.chain, place, context.ids);
-      if (!pasted.ok) return pasted.failures[0].summary;
+      if (withSlotAt(named.chain, place, held.payload.slots[0]) === undefined) {
+        return 'That is not a place in the rack.';
+      }
+      // Each after the one before.
       return changeRacks(context, {
         description: `Paste ${held.words} into a rack`,
-        invocations: [setChainInvocation(pasted.value)],
+        invocations: pastedSlots(held.payload, context.ids).map((slot, offset) =>
+          addSlotInvocation(named.id, { ...place, index: place.index + offset }, slot),
+        ),
         said: `Pasted ${held.words} into the rack of ${name}.`,
       });
     },

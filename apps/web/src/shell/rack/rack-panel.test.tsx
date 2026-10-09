@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   SummingLaw,
+  derivedSampleCount,
   instantiateProcessor,
   parameterAtPosition,
   type ChainSlot,
@@ -13,8 +14,8 @@ import {
 } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import {
-  addChainInvocation,
-  setChainInvocation,
+  rackRangeInvocation,
+  removeSlotsInvocations,
   setRackInvocation,
 } from '@audiogubbins/project-commands';
 
@@ -28,6 +29,8 @@ import {
 import { RackPanel } from './rack-panel.js';
 
 holdPlatformFiles();
+
+const at = derivedSampleCount;
 
 type Ran = (readonly [string, CommandInvocation['arguments']])[];
 
@@ -49,8 +52,7 @@ async function racked(
   const asset = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
   if (asset === undefined) throw new Error('The asset is in the project.');
   const changed = audio.changed(audio.asset());
-  await audio.session.run(addChainInvocation(rack));
-  await audio.session.run(setRackInvocation({ kind: 'asset', asset }, rack.id));
+  await audio.session.run(setRackInvocation({ kind: 'asset', asset }, rack));
   await changed;
   return { audio, rack };
 }
@@ -261,7 +263,7 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
     if (region === undefined) throw new Error('A region.');
     const asset = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
     if (asset === undefined) throw new Error('An asset.');
-    await audio.session.run(setRackInvocation({ kind: 'region', region, asset }, rack.id));
+    await audio.session.run(setRackInvocation({ kind: 'region', region, asset }, rack));
     const ran = panelOver(audio);
 
     expect(
@@ -273,13 +275,41 @@ describe('the Effects rack panel', { timeout: 30_000 }, () => {
     expect(ran).toEqual([['rack.make-independent', { view: 'editor', chainId: rack.id }]]);
   });
 
+  it('offers to remove the processing of each range a chain processes, naming its edit', async () => {
+    const { audio } = await racked((made) => [processor(made, 'gain')]);
+    const asset = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
+    if (asset === undefined) throw new Error('An asset.');
+    const chain: EffectChain = {
+      id: audio.window.context.ids.next<'EffectChainId'>(),
+      slots: [processor(audio, 'reverb')],
+    };
+    const operation = audio.window.context.ids.next<'EditOperationId'>();
+    await audio.session.run(
+      rackRangeInvocation(
+        { kind: 'asset', asset: asset.id, range: { start: at(0), end: at(4_800) } },
+        operation,
+        chain,
+      ),
+    );
+    const ran = panelOver(audio);
+
+    const ranges = screen.getByRole('region', { name: 'Ranges a chain processes' });
+    await userEvent.click(within(ranges).getByRole('button', { name: 'Remove this processing' }));
+
+    expect(ran).toEqual([['rack.remove-range', { view: 'editor', operationId: operation }]]);
+  });
+
   it('says why a processor cannot run where its model is missing, and follows a change', async () => {
     const { audio, rack } = await racked((made) => [processor(made, 'gain')]);
     panelOver(audio, () => 'Its model pack is not installed.');
 
     expect(screen.getByText('It cannot run: Its model pack is not installed.')).toBeInTheDocument();
     await act(async () => {
-      await audio.session.run(setChainInvocation({ ...rack, slots: [] }));
+      const [first, ...rest] = removeSlotsInvocations(
+        audio.session.getSnapshot().model.state,
+        rack.slots.map((slot) => slot.id),
+      );
+      if (first !== undefined) await audio.session.runGroup('Empty the rack', [first, ...rest]);
     });
     expect(await screen.findByText('It runs no processor yet: add one.')).toBeInTheDocument();
   });

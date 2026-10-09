@@ -18,8 +18,8 @@ describe('the reverb, held to a recorded render', () => {
     );
     const output = runProcessor(REVERB, { layout: StandardLayouts.stereo, values: GOLDEN }, input);
     expect(output.map((channel) => fingerprint(channel))).toEqual([
-      14508525366751316401n,
-      13825250203912241396n,
+      14060748851153799805n,
+      8695316810759271896n,
     ]);
   });
 

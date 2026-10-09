@@ -69,6 +69,40 @@ describe(
       expect(audio.window.packs.get().catalogue).toEqual({ kind: 'unasked' });
     });
 
+    it('fetches nothing as a project naming the pack is opened again, and says the sound cannot be heard', async () => {
+      const offered = new MemorySource([
+        { manifest: sampleManifest({ id: 'deepfilternet-3' }), files: new Map() },
+      ]);
+      const audio = await windowWithAudio({
+        world: projectWorld(undefined, () => offered),
+        fixture: sine(440, { length: 48_000 }),
+        name: 'Voice',
+      });
+      audio.window.packs.subscribe(() => undefined);
+      const rack = await rackedWithDeepFilterNet(audio);
+      const { window } = audio;
+      const project = window.projects.project.session()?.project ?? '';
+      await window.runAndHear('file.close-project');
+      // Recorded from before the project is opened, which reads its chains.
+      const requests: unknown[] = [];
+      vi.stubGlobal('fetch', (...asked: unknown[]) => {
+        requests.push(asked);
+        return Promise.reject(new TypeError('No request may be made.'));
+      });
+
+      await window.runAndHear('file.open', { project });
+
+      const catalogue = window.context.assets;
+      await expect
+        .poll(() => catalogue.get().unopened.get(audio.entry)?.reason, { timeout: 5000 })
+        .toMatch(/^DeepFilterNet 3 cannot run because the model it needs is not available\. /);
+      const state = window.projects.project.session()?.getSnapshot().model.state;
+      expect(state?.project.effectChains.get(rack.id)).toEqual(rack);
+      expect(requests).toEqual([]);
+      expect(offered.catalogues).toBe(0);
+      expect(offered.reads).toEqual([]);
+    });
+
     it('opens a sound whose rack bypasses the processor, since a processor that does not run needs no model', async () => {
       const audio = await windowWithAudio({
         fixture: sine(440, { length: 48_000 }),

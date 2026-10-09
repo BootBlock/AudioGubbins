@@ -36,6 +36,16 @@ export interface DetectionScope {
   readonly whole: boolean;
 }
 
+/**
+ * How a recommendation found over `scope` is applied, the one rule both what
+ * its steps learn from and how it is applied follow: over a range, as a rack
+ * edit, which reads the target before its racks; over the whole target, as
+ * its rack, after a copy of the rack it has, so it hears the audio heard.
+ */
+export function treatmentPlacement(scope: DetectionScope): 'range' | 'rack' {
+  return scope.whole ? 'rack' : 'range';
+}
+
 /** What a detection is of: the asset or region, its name, its scope and its audio's identity. */
 interface Asked {
   readonly target: string;
@@ -120,11 +130,8 @@ export class DetectionControl implements Observable<Detections> {
     };
     const total = scope.range.end - scope.range.start;
     this.#put({ ...asked, kind: 'running', framesRead: 0, framesTotal: total });
-    // A recommendation over a range is applied as a rack edit, which reads
-    // the asset before its racks, so its steps learn from that; one over the
-    // whole asset follows its rack, so they learn from the audio heard
-    // (`analysis-commands.ts`).
-    const learning = scope.whole ? undefined : asset.unracked;
+    // Its steps learn from the audio the recommendation is applied to.
+    const learning = treatmentPlacement(scope) === 'rack' ? undefined : asset.unracked;
     const current = (): boolean => this.#running.get(asset.id) === cancellation;
     void this.#host
       .detect(

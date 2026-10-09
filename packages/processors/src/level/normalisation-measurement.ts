@@ -4,12 +4,15 @@
  *
  * A measurement opens with the rate and the channel count it was made at, then
  * the processor's own values. A kernel reads it only where both match its own
- * run and it holds exactly the values it expects, every one finite: a
- * measurement made of another stream, or of another shape than this version
- * makes, is stale, and a stale or a missing one passes the input through
- * unchanged, as the rack's measuring pass needs (ADR-0060). The peaks a
- * measurement holds are linked over every channel: the largest of any, so one
- * gain serves the whole signal and keeps the balance between its channels.
+ * run and it holds exactly the values it expects, every one finite. A missing
+ * one passes the input through unchanged, as the rack's measuring pass needs
+ * (ADR-0060). One made of another stream, or of another shape than this version
+ * makes, is stale, and is refused with the reason: the rack measures the stream
+ * a node runs over, so its node was built wrongly, and played as though
+ * unmeasured it would give the input unchanged where the processor was asked
+ * for. The peaks a measurement holds are linked over every channel: the largest
+ * of any, so one gain serves the whole signal and keeps the balance between its
+ * channels.
  */
 
 import {
@@ -23,7 +26,7 @@ import {
 } from '@audiogubbins/domain';
 
 import type { MeasuringRun, ProcessorRun } from '../framework/processor-type.js';
-import { finiteSample } from '../framework/sample-safety.js';
+import { finiteSample, flushSubnormal } from '../framework/sample-safety.js';
 import type { Measurement, Measurer } from '../framework/whole-pass.js';
 
 /** The values a measurement opens with: the rate, then the channel count. */
@@ -41,9 +44,9 @@ function measurementOf(run: MeasuringRun, values: readonly number[]): readonly n
 
 /**
  * The `count` values of `run`'s measurement after its header, nothing where
- * it has none or it is stale, or why the kernel `label` names cannot run:
- * samples are another processor's kind of measurement, so a node holding
- * them was built wrongly, which no pass over the stream again would mend.
+ * it has none, or why the kernel `label` names cannot run: samples are
+ * another processor's kind of measurement, and a measurement of another
+ * stream or shape is stale, so a node holding either was built wrongly.
  */
 export function measuredValues(
   run: ProcessorRun,
@@ -60,12 +63,25 @@ export function measuredValues(
       ),
     );
   }
-  if (measured?.length !== HEADER + count) return succeed(undefined);
-  if (measured[0] !== run.sampleRate || measured[1] !== run.input.roles.length) {
-    return succeed(undefined);
-  }
+  if (measured === undefined) return succeed(undefined);
+  const channels = run.input.roles.length;
   const values = measured.slice(HEADER);
-  return succeed(values.every((value) => Number.isFinite(value)) ? values : undefined);
+  const why =
+    measured.length !== HEADER + count
+      ? `holds ${String(measured.length - HEADER)} values where this version makes ${String(count)}`
+      : measured[0] !== run.sampleRate || measured[1] !== channels
+        ? `was made at ${String(measured[0])} Hz over ${String(measured[1])} channels, and this run is at ${String(run.sampleRate)} Hz over ${String(channels)}`
+        : values.every((value) => Number.isFinite(value))
+          ? undefined
+          : 'holds a value that is not a finite number';
+  if (why === undefined) return succeed(values);
+  return fail(
+    failure(
+      'processor.measurement-stale',
+      FailureKind.Unrecoverable,
+      `A ${label}'s measurement ${why}, so it was made of another stream or by another version.`,
+    ),
+  );
 }
 
 /** The largest of the value at `offset` of each channel's four in a peak meter's `reading`. */
@@ -83,7 +99,9 @@ const FEED_FRAMES = 4_096;
 /**
  * The input a measurer is given, read through `finiteSample` into arrays of
  * its own and handed on a chunk at a time, so a NaN or an infinity is heard
- * as the silence the kernel hears it as and cannot spoil a meter's reading.
+ * as the silence the kernel hears it as and cannot spoil a meter's reading;
+ * and through `flushSubnormal`, so a level below silence, a subnormal among
+ * them, measures as none and is never raised to the target as a level.
  */
 class FiniteFeed {
   readonly #chunk: readonly Float32Array[];
@@ -105,7 +123,7 @@ class FiniteFeed {
         const into = this.#chunk[channel];
         if (into === undefined) continue;
         for (let frame = 0; frame < length; frame += 1) {
-          into[frame] = finiteSample(from?.[start + frame] ?? 0);
+          into[frame] = flushSubnormal(finiteSample(from?.[start + frame] ?? 0));
         }
       }
       // A meter takes whole arrays, so a short chunk is a view of the start

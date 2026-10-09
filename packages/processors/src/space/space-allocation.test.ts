@@ -41,6 +41,8 @@ const CASES: readonly (readonly [
   [DELAY, StandardLayouts.stereo, {}, 'damping'],
   [REVERB, StandardLayouts.surround5_1, {}, 'decay'],
   [REVERB, StandardLayouts.stereo, {}, 'pre-delay'],
+  [REVERB, setLayout(3, 'fuma'), {}, 'width'],
+  [REVERB, setLayout(1, 'sn3d'), {}, 'decay'],
   [AMBISONIC_ENCODER, StandardLayouts.mono, { order: 'third', normalisation: 'fuma' }, 'azimuth'],
   [AMBISONIC_ROTATION, setLayout(3, 'fuma'), {}, 'yaw'],
   [AMBISONIC_ROTATION, setLayout(2, 'sn3d'), {}, 'roll'],

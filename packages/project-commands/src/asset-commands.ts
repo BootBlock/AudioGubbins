@@ -2,12 +2,14 @@
  * Adding, removing and naming a project's assets (REQ-STOR-026, REQ-STOR-102,
  * REQ-PROD-056, REQ-EDIT-073).
  *
- * An asset comes with its source, so the two are added and removed together
- * and the aggregate never holds one without the other. Removing an asset takes
- * it out of the current state and nothing more: its bytes stay in the media
- * store while any retained state, the history among them, still reaches them,
- * and only an explicit purge reclaims them (REQ-STOR-102). The inverse of a
- * removal carries the whole record, so undo needs nothing the history lacks.
+ * An asset comes with its source, so the two are added and removed together and
+ * the aggregate never holds one without the other. Removing an asset takes it
+ * out of the current state and nothing more: its bytes stay in the media store
+ * while any retained state, the history among them, still reaches them, and
+ * only an explicit purge reclaims them (REQ-STOR-102). The inverse of a removal
+ * carries the whole record, so undo needs nothing the history lacks: with the
+ * chain of the asset's rack, where nothing else names it and it went with the
+ * asset (`chain-naming.ts`).
  */
 
 import {
@@ -20,10 +22,8 @@ import {
 import { assetUsers, type Asset } from '@audiogubbins/domain';
 import {
   ProvenanceArgument,
-  canonicalJson,
   givenName,
   readAssetRecord,
-  writeAssetRecord,
   writtenName,
   type ProjectState,
 } from '@audiogubbins/project-format';
@@ -44,6 +44,8 @@ import {
   projectCommand,
   type ProjectCommand,
 } from './project-command.js';
+import { stateNaming, withoutUnnamed } from './processing/chain-naming.js';
+import { addAssetInvocation } from './project-invocations.js';
 import { withAsset, withAssetName, withoutAsset } from './state-edits.js';
 
 /** The commands that add, remove and name an asset. */
@@ -113,8 +115,16 @@ function addAsset(
       'An asset is added unedited, and its edits are applied after it.',
     );
   }
+  const naming = stateNaming(state, invocation, asset.rack);
+  if (!naming.ok) return refusedBy(naming);
+  if (asset.rack !== undefined && !naming.value.project.effectChains.has(asset.rack)) {
+    return refusal(
+      'asset.rack-unknown',
+      'The asset’s rack names a chain the project does not have.',
+    );
+  }
   return applied(
-    withAsset(state, asset, source),
+    withAsset(naming.value, asset, source),
     { commandId: ProjectCommandId.RemoveAsset, arguments: { assetId: asset.id } },
     `Add asset ${quoted(asset.displayName)}`,
   );
@@ -135,12 +145,10 @@ function removeAsset(
       `${quoted(asset.displayName)} still has ${users}. Remove them first.`,
     );
   }
+  const next = withoutUnnamed(withoutAsset(state, asset.id), asset.rack);
   return applied(
-    withoutAsset(state, asset.id),
-    {
-      commandId: ProjectCommandId.AddAsset,
-      arguments: { asset: canonicalJson(writeAssetRecord({ asset, source })) },
-    },
+    next.state,
+    addAssetInvocation(asset, source, next.removed),
     `Remove asset ${quoted(asset.displayName)}`,
   );
 }
@@ -172,7 +180,7 @@ function renameAsset(
 /**
  * What still names the asset or rests on it, as a sentence lists it, or
  * `undefined` where nothing does. Its edits count: an asset is removed
- * unedited, so its inverse never carries a whole chain (ADR-0051).
+ * unedited, so its inverse never carries its edits (ADR-0051).
  */
 function usersOf(state: ProjectState, asset: Asset): string | undefined {
   const users = assetUsers(state.project, asset.id);

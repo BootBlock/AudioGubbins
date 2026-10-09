@@ -170,7 +170,7 @@ describe('a numeric parameter changed while its chain plays', () => {
     const preview = previewOf(chain, processing, parameters);
     const before = await readFrom(preview, 0, CHANGED_AT);
 
-    expectSuccess(parameters.apply({ processor, parameter: LEVEL.id, value: 0 }));
+    expectSuccess(parameters.apply({ stream: 1, processor, parameter: LEVEL.id, value: 0 }));
     const after = await readFrom(preview, CHANGED_AT, LENGTH - CHANGED_AT);
     preview.release();
 
@@ -195,7 +195,7 @@ describe('a numeric parameter changed while its chain plays', () => {
     const parameters = new RunningParameters();
     const preview = previewOf(gainChain(-6, processor), processing, parameters);
     await readFrom(preview, 0, 4_096);
-    expectSuccess(parameters.apply({ processor, parameter: LEVEL.id, value: 0 }));
+    expectSuccess(parameters.apply({ stream: 1, processor, parameter: LEVEL.id, value: 0 }));
     const sought = await readFrom(preview, 30_000, 4_096);
     preview.release();
     expect(prepared()).toBe(2);
@@ -219,12 +219,17 @@ describe('a numeric parameter changed while its chain plays', () => {
     };
     const parameters = new RunningParameters();
     const preview = previewOf(chain, chainProcessing(types), parameters);
-    expect(expectFailureCode(parameters.apply({ processor, parameter: LEVEL.id, value: 0 }))).toBe(
-      'playback.parameter-rendered',
-    );
+    expect(
+      expectFailureCode(parameters.apply({ stream: 1, processor, parameter: LEVEL.id, value: 0 })),
+    ).toBe('playback.parameter-rendered');
     expect(
       expectFailureCode(
-        parameters.apply({ processor: ids.next<'ProcessorId'>(), parameter: LEVEL.id, value: 0 }),
+        parameters.apply({
+          stream: 1,
+          processor: ids.next<'ProcessorId'>(),
+          parameter: LEVEL.id,
+          value: 0,
+        }),
       ),
     ).toBe('playback.parameter-not-heard');
     preview.release();

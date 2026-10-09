@@ -13,6 +13,8 @@
 
 import {
   appliedSlots,
+  measureSlots,
+  type ChainMeasure,
   type ChainSettings,
   type ChainSlot,
   type EffectChain,
@@ -22,7 +24,11 @@ import type { ProcessorDescriptor } from './processor-descriptor.js';
 
 /** How a run of a chain may start part way through a stream, for a preview. */
 export interface PartWayStart {
-  /** Frames it needs to settle: the longest lead-in of any processor it runs. */
+  /**
+   * Frames it needs to settle: the lead-ins of the processors it runs, added
+   * along each path, since each settles only once what feeds it has, and the
+   * longest path's (`leadInMeasure`).
+   */
   readonly leadIn: number;
 
   /**
@@ -75,6 +81,28 @@ export function unheardLive(descriptor: ProcessorDescriptor): string | undefined
   return undefined;
 }
 
+/**
+ * A chain's lead-in at `settings`, walked as its latency is: each processor
+ * settles over its own lead-in only once its input has, so lead-ins add along
+ * a list, and a group settles with its slowest branch. A processor's latency
+ * adds nothing more: a run is read from where its latency is run off, and a
+ * processor's lead-in is counted in its own input's frames, which are the
+ * stream's once aligned. A type `descriptors` lacks is passed over, as
+ * {@link chainListening} says.
+ */
+function leadInMeasure(
+  descriptors: ReadonlyMap<string, ProcessorDescriptor>,
+  settings: ChainSettings,
+): ChainMeasure<number> {
+  return {
+    processor: (processor) =>
+      descriptors.get(processor.typeKey)?.leadIn({ ...settings, values: processor.values }) ?? 0,
+    none: 0,
+    series: (first, second) => first + second,
+    parallel: (one, other) => Math.max(one, other),
+  };
+}
+
 function greatestCommonDivisor(left: number, right: number): number {
   let [a, b] = [left, right];
   while (b !== 0) [a, b] = [b, a % b];
@@ -84,30 +112,31 @@ function greatestCommonDivisor(left: number, right: number): number {
 /**
  * How playback hears `chain` at `settings`: from a render where a processor
  * it applies cannot run as audio is heard, each reason said once, and run as
- * it plays otherwise; either way with the longest lead-in of the processors
- * it applies and the least common multiple of their frame grids, for a
- * part-way start. A processor of a type `descriptors` lacks is passed over:
- * a chain holding one cannot be built, which its builder refuses first.
+ * it plays otherwise; either way with the chain's lead-in and the least
+ * common multiple of its processors' frame grids, for a part-way start. A
+ * processor of a type `descriptors` lacks is passed over: a chain holding one
+ * cannot be built, which its builder refuses first.
  */
 export function chainListening(
   chain: Pick<EffectChain, 'slots'>,
   descriptors: ReadonlyMap<string, ProcessorDescriptor>,
   settings: ChainSettings,
 ): ChainListening {
-  let leadIn = 0;
   let frameGrid = 1;
   const reasons: string[] = [];
   for (const processor of appliedProcessors(chain.slots)) {
     const descriptor = descriptors.get(processor.typeKey);
     if (descriptor === undefined) continue;
     const own = { ...settings, values: processor.values };
-    leadIn = Math.max(leadIn, descriptor.leadIn(own));
     const grid = descriptor.frameGrid(own);
     frameGrid = (frameGrid / greatestCommonDivisor(frameGrid, grid)) * grid;
     const unheard = unheardLive(descriptor);
     if (unheard !== undefined && !reasons.includes(unheard)) reasons.push(unheard);
   }
-  const partWay: PartWayStart = { leadIn, frameGrid };
+  const partWay: PartWayStart = {
+    leadIn: measureSlots(chain.slots, leadInMeasure(descriptors, settings)),
+    frameGrid,
+  };
   return reasons.length === 0
     ? { kind: 'live', partWay }
     : { kind: 'rendered', partWay, reason: reasons.join(' ') };

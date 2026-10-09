@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { StandardLayouts, type ChannelLayout, type DomainResult } from '@audiogubbins/domain';
 import { expectFailureCode, expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
-import type { Tensor } from '@audiogubbins/ml-runtime';
 import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { Measurement } from '../../framework/whole-pass.js';
 import { standInModel, standInServices } from '../../testing/model-services.js';
+import { mossFormer2Graph } from '../../testing/mossformer2-stand-in.js';
 import { toneMixture } from '../../testing/model-signals.js';
 import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
@@ -34,30 +34,7 @@ const SEGMENT = 192_000;
 const STRIDE = 144_000;
 const JOINS = [168_000, 312_000];
 
-/** A stand-in graph whose mask, for each run, is `gain` of its features, frame and bin. */
-function graph(
-  gain: (features: Float32Array, frames: number, frame: number, bin: number) => number,
-  declared: number = FEATURES,
-): FakeModel {
-  return {
-    inputs: [{ name: 'fbanks', dims: [1, 'T', declared] }],
-    outputs: [],
-    run: (inputs) => {
-      const fbanks = inputs.get('fbanks');
-      const frames = fbanks?.dims[1] ?? 0;
-      const features = fbanks?.data ?? new Float32Array(0);
-      const mask = new Float32Array(frames * BINS);
-      for (let frame = 0; frame < frames; frame += 1) {
-        for (let bin = 0; bin < BINS; bin += 1) {
-          mask[frame * BINS + bin] = gain(features, frames, frame, bin);
-        }
-      }
-      return new Map<string, Tensor>([['mask', { data: mask, dims: [1, frames, BINS] }]]);
-    },
-  };
-}
-
-const UNITY = graph(() => 1);
+const UNITY = mossFormer2Graph(() => 1);
 
 /**
  * A mask that, like the network, hears the whole run: each bin's gain
@@ -74,7 +51,7 @@ const ATTENDING: FakeModel = {
     for (const [at, value] of features.entries()) {
       means[at % FEATURES] = (means[at % FEATURES] ?? 0) + value / frames;
     }
-    return graph((_, _frames, frame, bin) => {
+    return mossFormer2Graph((_, _frames, frame, bin) => {
       const own = features[frame * FEATURES + (bin % FEATURES)] ?? 0;
       return 1 / (1 + Math.abs(own) / 40 + Math.abs(means[bin % FEATURES] ?? 0) / 40);
     }).run(inputs);
@@ -174,7 +151,7 @@ describe('MossFormer2 SE 48K, around a stand-in graph', { timeout: 60_000 }, () 
       run: (inputs) => {
         const gain = gains[runs] ?? 0;
         runs += 1;
-        return graph(() => gain).run(inputs);
+        return mossFormer2Graph(() => gain).run(inputs);
       },
     };
     const [input = new Float32Array(0)] = toneMixture(length, 1);
@@ -238,7 +215,7 @@ describe('MossFormer2 SE 48K, around a stand-in graph', { timeout: 60_000 }, () 
   });
 
   it('refuses with the runtime’s reason where the graph takes other features', async () => {
-    const other = graph(() => 1, FEATURES - 1);
+    const other = mossFormer2Graph(() => 1, FEATURES - 1);
     const { answer, open } = await measuredBy(other, toneMixture(length, 1), StandardLayouts.mono);
     expect(expectFailureCode(answer)).toBe('inference.input-mismatch');
     expect(open).toBe(0);

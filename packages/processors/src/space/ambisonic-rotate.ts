@@ -37,7 +37,7 @@ import {
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
 import { DesignClock } from '../filters/cascade-kernel.js';
 import { RampedParameter } from '../filters/ramped-parameter.js';
-import { ambisonicSetOf, conversionKernel, copyFinite, sn3dLayout } from './ambisonic-sets.js';
+import { ambisonicSetOf, copyFinite, inSn3d, sn3dLayout } from './ambisonic-sets.js';
 import { SphereRotation } from './sphere-rotation.js';
 
 const TYPE = 'ambisonic rotation';
@@ -73,24 +73,8 @@ interface RotationParts {
   readonly yaw: RampedParameter;
   readonly pitch: RampedParameter;
   readonly roll: RampedParameter;
-  /** The field in ACN with SN3D, which it is turned in. */
+  /** The field in ACN with SN3D read through `finiteSample`, which it is turned from. */
   readonly sn3d: AudioFrameBlock;
-  /**
-   * `sn3d` as the one-port list the engine's kernels take, made once
-   * rather than every quantum.
-   */
-  readonly sn3dBlocks: readonly AudioFrameBlock[];
-  /**
-   * Where the input is of another convention, the input read through
-   * `finiteSample`, and the kernels that move the field in and back out.
-   */
-  readonly conversion?: {
-    readonly finite: AudioFrameBlock;
-    /** `finite` as a one-port list, made once. */
-    readonly finiteBlocks: readonly AudioFrameBlock[];
-    readonly into: NodeKernel;
-    readonly out: NodeKernel;
-  };
 }
 
 class RotationKernel implements NodeKernel {
@@ -110,17 +94,10 @@ class RotationKernel implements NodeKernel {
     outputs: readonly AudioFrameBlock[],
     frames: number,
   ): void {
-    const { sn3d, sn3dBlocks, conversion, rotation } = this.#parts;
-    const input = portAt(inputs, 0);
-    const output = portAt(outputs, 0);
-    if (conversion === undefined) {
-      copyFinite(input, sn3d, frames);
-    } else {
-      copyFinite(input, conversion.finite, frames);
-      conversion.into.process(conversion.finiteBlocks, sn3dBlocks, frames);
-    }
+    const { sn3d, rotation } = this.#parts;
+    const turned = portAt(outputs, 0).channels;
+    copyFinite(portAt(inputs, 0), sn3d, frames);
     for (const ramp of this.#ramps) ramp.fill(frames);
-    const turned = conversion === undefined ? output.channels : sn3d.channels;
     for (let frame = 0; frame < frames;) {
       if (this.#clock.due) this.#design(frame);
       const count = this.#clock.span(frames - frame);
@@ -128,7 +105,6 @@ class RotationKernel implements NodeKernel {
       this.#clock.advance(count);
       frame += count;
     }
-    conversion?.out.process(sn3dBlocks, outputs, frames);
   }
 
   setParameter(name: string, value: number): DomainResult<void> {
@@ -137,8 +113,7 @@ class RotationKernel implements NodeKernel {
   }
 
   release(): void {
-    this.#parts.conversion?.into.release();
-    this.#parts.conversion?.out.release();
+    // Holds only its own matrices and block, which are collected with it.
   }
 
   /** The matrices of the angles the ramps reach at `frame`, where any moved. */
@@ -161,10 +136,6 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
   if (!set.ok) return set;
   const sn3d = sn3dLayout(set.value.order);
   if (!sn3d.ok) return sn3d;
-  const into = conversionKernel(run.input, sn3d.value, run);
-  if (!into.ok) return into;
-  const out = conversionKernel(sn3d.value, run.input, run);
-  if (!out.ok) return out;
   const ramp = (parameter: NumericParameterDescriptor) =>
     new RampedParameter(
       parameter,
@@ -172,24 +143,15 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
       run.sampleRate,
       run.blockFrames,
     );
-  const finite =
-    into.value === undefined
-      ? undefined
-      : allocateBlock(run.input, run.sampleRate, run.blockFrames);
-  const conversion =
-    finite === undefined || into.value === undefined || out.value === undefined
-      ? undefined
-      : { finite, finiteBlocks: [finite], into: into.value, out: out.value };
-  const sn3dBlock = allocateBlock(sn3d.value, run.sampleRate, run.blockFrames);
-  return succeed(
+  return inSn3d(
+    run,
+    set.value.order,
     new RotationKernel({
       rotation: new SphereRotation(set.value.order),
       yaw: ramp(yaw),
       pitch: ramp(pitch),
       roll: ramp(roll),
-      sn3d: sn3dBlock,
-      sn3dBlocks: [sn3dBlock],
-      ...(conversion === undefined ? {} : { conversion }),
+      sn3d: allocateBlock(sn3d.value, run.sampleRate, run.blockFrames),
     }),
   );
 }

@@ -3,7 +3,10 @@
  * an impulse, full scale, subnormals, NaN and infinity with recovery, programme
  * material, the same bits however the audio is cut into blocks, the same bits
  * from the WebAssembly DSP as from the reference, every quality level running,
- * and, for settings that pass the signal through, the latency it declares. Each
+ * and, for settings that pass the signal through, the latency it declares, and
+ * for a kernel with feedback, a tail that falls to exact zero. A whole-pass
+ * processor is run as the rack runs it: its pass over the input first, in the
+ * blocks the kernel is given, and its kernel given what the pass answered. Each
  * processor's own `<name>.properties.test.ts` runs them for the layouts and
  * settings it names, and registers nothing else, so `pnpm test:dsp-property`
  * selects them by that name and `catalogue-properties.test.ts` counts the types
@@ -23,10 +26,11 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { dspModuleExports, fingerprint } from '@audiogubbins/audio-engine/testing';
-import { wasmDsp } from '@audiogubbins/audio-engine';
+import { REFERENCE_DSP, wasmDsp, type CanonicalDsp } from '@audiogubbins/audio-engine';
 import { chirp, noisySine, sine } from '@audiogubbins/test-fixtures';
 
 import type { ProcessorType } from '../framework/processor-type.js';
+import { modelPassOf, passOver } from './model-runs.js';
 import { TEST_RATE, processorValues, runProcessor, type RunSettings } from './processor-run.js';
 
 /** What a processor's property tests are run over. */
@@ -36,6 +40,12 @@ export interface PropertyCases {
   readonly settings?: readonly Readonly<Record<string, ParameterValue>>[];
   /** The largest magnitude its output may reach from a full-scale input. */
   readonly bound?: number;
+  /**
+   * Whether its runs reach the canonical DSP, so the WebAssembly module's bits
+   * are held to the reference path's; a type that does not is held to reaching
+   * none, so the declaration cannot be wrong either way.
+   */
+  readonly readsDsp?: boolean;
   /** Whether silence in is silence out, as it is for all but a generator. */
   readonly silenceStays?: boolean;
   /**
@@ -46,8 +56,15 @@ export interface PropertyCases {
     readonly values: Readonly<Record<string, ParameterValue>>;
     readonly tolerance: number;
   };
-  /** A measurement to give a whole-pass processor's kernel. */
-  readonly measured?: readonly number[];
+  /**
+   * For a kernel whose output carries its feedback, parameter values at which
+   * an impulse's tail has fallen to exact zero by `frames`, worked out from
+   * the slowest decay of its output by `framesToSilence` (`tail-measures.ts`).
+   */
+  readonly fallsSilent?: {
+    readonly values: Readonly<Record<string, ParameterValue>>;
+    readonly frames: number;
+  };
   /**
    * The state an instance holds for a layout and parameter values, such as a
    * noise profile learned for them; made once for each, when first run.
@@ -57,6 +74,9 @@ export interface PropertyCases {
     values: Readonly<Record<string, ParameterValue>>,
   ) => ProcessorState;
 }
+
+/** The frames after {@link PropertyCases.fallsSilent}'s that must all be zero. */
+const SILENT_FRAMES = 4_096;
 
 /** One second of each channel of `layout` from `make`, each channel distinct. */
 function signalOf(layout: ChannelLayout, make: (channel: number) => Float32Array): Float32Array[] {
@@ -105,6 +125,43 @@ function sameBits(left: readonly Float32Array[], right: readonly Float32Array[])
   );
 }
 
+/**
+ * The output of `type` for `input` at `settings`, in blocks whose sizes
+ * cycle through `blocks`: for a whole-pass type, its pass over the input
+ * first, its kernel given what the pass answered, as the rack runs it.
+ */
+async function runCase(
+  type: ProcessorType,
+  settings: RunSettings,
+  input: readonly Float32Array[],
+  blocks?: readonly number[],
+): Promise<Float32Array[]> {
+  if (type.measurer === undefined) return runProcessor(type, settings, input, blocks);
+  const measured = await passOver(modelPassOf(type, settings), input, blocks);
+  return runProcessor(type, { ...settings, measured: expectSuccess(measured) }, input, blocks);
+}
+
+/** The reference DSP, and whether any of its functions was called through it. */
+function recordingDsp(): { readonly dsp: CanonicalDsp; reached(): boolean } {
+  let reached = false;
+  const mark = <T>(answer: T): T => {
+    reached = true;
+    return answer;
+  };
+  const dsp: CanonicalDsp = {
+    implementation: REFERENCE_DSP.implementation,
+    sineOfTurns: (turns) => mark(REFERENCE_DSP.sineOfTurns(turns)),
+    createOscillator: (settings) => mark(REFERENCE_DSP.createOscillator(settings)),
+    createResampler: (settings) => mark(REFERENCE_DSP.createResampler(settings)),
+    createFft: (size) => mark(REFERENCE_DSP.createFft(size)),
+    createStft: (settings) => mark(REFERENCE_DSP.createStft(settings)),
+    createPeakMeter: (settings) => mark(REFERENCE_DSP.createPeakMeter(settings)),
+    createLoudnessMeter: (settings) => mark(REFERENCE_DSP.createLoudnessMeter(settings)),
+    createDetectorFeatures: (settings) => mark(REFERENCE_DSP.createDetectorFeatures(settings)),
+  };
+  return { dsp, reached: () => reached };
+}
+
 /** The settings `cases` give a run of `layout` at `values`, its state made once. */
 function caseSettings(
   cases: PropertyCases,
@@ -116,7 +173,6 @@ function caseSettings(
     settings ??= {
       layout,
       values,
-      ...(cases.measured === undefined ? {} : { measured: cases.measured }),
       ...(cases.state === undefined ? {} : { state: cases.state(layout, values) }),
     };
     return settings;
@@ -130,113 +186,149 @@ export function processorProperties(type: ProcessorType, cases: PropertyCases): 
   // A type held both without state and with it would otherwise give two
   // groups of the same tests the same names.
   const holding = cases.state === undefined ? '' : ' with the state it holds';
-  describe(`${type.descriptor.label}${holding}, held to every processor's properties`, () => {
-    for (const layout of cases.layouts) {
-      const width = String(channelCount(layout));
-      for (const [index, values] of settingsList.entries()) {
-        const settings = caseSettings(cases, layout, values);
-        const run = (
-          input: readonly Float32Array[],
-          extra: Partial<RunSettings> = {},
-          blocks?: readonly number[],
-        ) => runProcessor(type, { ...settings(), ...extra }, input, blocks);
-        const label = `${width} channels, settings ${String(index)}`;
+  // A whole pass that runs a model's transforms in TypeScript takes seconds
+  // a run over several channels, and several times as long under the whole
+  // suite's load, so it is given a budget of its own rather than Vitest's
+  // five-second default.
+  const budget = type.measurer === undefined ? {} : { timeout: 60_000 };
+  describe(
+    `${type.descriptor.label}${holding}, held to every processor's properties`,
+    budget,
+    () => {
+      for (const layout of cases.layouts) {
+        const width = String(channelCount(layout));
+        for (const [index, values] of settingsList.entries()) {
+          const settings = caseSettings(cases, layout, values);
+          const run = (
+            input: readonly Float32Array[],
+            extra: Partial<RunSettings> = {},
+            blocks?: readonly number[],
+          ) => runCase(type, { ...settings(), ...extra }, input, blocks);
+          const label = `${width} channels, settings ${String(index)}`;
 
-        it(`gives silence for silence (${label})`, () => {
-          const out = run(signalOf(layout, () => new Float32Array(LENGTH)));
-          expect(everyFinite(out)).toBe(true);
-          if (cases.silenceStays !== false) expect(largest(out)).toBeLessThanOrEqual(1e-12);
-        });
-
-        it(`stays finite and bounded for an impulse, full scale and programme (${label})`, () => {
-          const impulse = signalOf(layout, () => {
-            const one = new Float32Array(LENGTH);
-            one[1_000] = 1;
-            return one;
-          });
-          for (const input of [impulse, fullScale(layout), programme(layout)]) {
-            const out = run(input);
+          it(`gives silence for silence (${label})`, async () => {
+            const out = await run(signalOf(layout, () => new Float32Array(LENGTH)));
             expect(everyFinite(out)).toBe(true);
-            expect(largest(out)).toBeLessThanOrEqual(bound);
-          }
-        });
+            if (cases.silenceStays !== false) expect(largest(out)).toBeLessThanOrEqual(1e-12);
+          });
 
-        it(`hears subnormals as the silence they are (${label})`, () => {
-          const out = run(signalOf(layout, () => new Float32Array(LENGTH).fill(1e-41)));
-          expect(everyFinite(out)).toBe(true);
-          expect(largest(out)).toBeLessThan(1e-6);
-        });
-
-        it(`hears NaN and infinity as silence and goes on as if it had (${label})`, () => {
-          const clean = programme(layout);
-          const spoiled = clean.map((channel) => channel.slice());
-          const silenced = clean.map((channel) => channel.slice());
-          for (const [channel, samples] of spoiled.entries()) {
-            for (let frame = 4_000; frame < 4_100; frame += 1) {
-              samples[frame] =
-                frame % 3 === 0 ? Number.NaN : frame % 3 === 1 ? Infinity : -Infinity;
-              const quiet = silenced[channel];
-              if (quiet !== undefined) quiet[frame] = 0;
+          it(`stays finite and bounded for an impulse, full scale and programme (${label})`, async () => {
+            const impulse = signalOf(layout, () => {
+              const one = new Float32Array(LENGTH);
+              one[1_000] = 1;
+              return one;
+            });
+            for (const input of [impulse, fullScale(layout), programme(layout)]) {
+              const out = await run(input);
+              expect(everyFinite(out)).toBe(true);
+              expect(largest(out)).toBeLessThanOrEqual(bound);
             }
-          }
-          const out = run(spoiled);
-          expect(everyFinite(out)).toBe(true);
-          expect(sameBits(out, run(silenced))).toBe(true);
-        });
+          });
 
-        it(`gives the same bits however the audio is cut into blocks (${label})`, () => {
-          const input = programme(layout);
-          const whole = run(input, {}, [4_096]);
-          expect(sameBits(run(input, {}, [1, 7, 128, 333, 4_096]), whole)).toBe(true);
-          expect(sameBits(run(input, {}, [64]), whole)).toBe(true);
-        });
+          it(`hears subnormals as the silence they are (${label})`, async () => {
+            const out = await run(signalOf(layout, () => new Float32Array(LENGTH).fill(1e-41)));
+            expect(everyFinite(out)).toBe(true);
+            expect(largest(out)).toBeLessThan(1e-6);
+          });
 
-        it(`gives the WebAssembly DSP's bits from the reference DSP (${label})`, async () => {
-          const input = programme(layout);
-          const wasm = expectSuccess(wasmDsp(await dspModuleExports()));
-          expect(sameBits(run(input, { dsp: wasm }), run(input))).toBe(true);
-        });
+          it(`hears NaN and infinity as silence and goes on as if it had (${label})`, async () => {
+            const clean = programme(layout);
+            const spoiled = clean.map((channel) => channel.slice());
+            const silenced = clean.map((channel) => channel.slice());
+            for (const [channel, samples] of spoiled.entries()) {
+              for (let frame = 4_000; frame < 4_100; frame += 1) {
+                samples[frame] =
+                  frame % 3 === 0 ? Number.NaN : frame % 3 === 1 ? Infinity : -Infinity;
+                const quiet = silenced[channel];
+                if (quiet !== undefined) quiet[frame] = 0;
+              }
+            }
+            const out = await run(spoiled);
+            expect(everyFinite(out)).toBe(true);
+            expect(sameBits(out, await run(silenced))).toBe(true);
+          });
 
-        if (cases.state !== undefined) {
-          it(`runs by the state it holds, which changes what it writes (${label})`, () => {
+          it(`gives the same bits however the audio is cut into blocks (${label})`, async () => {
             const input = programme(layout);
-            const { state: _held, ...without } = settings();
-            expect(sameBits(run(input), runProcessor(type, without, input))).toBe(false);
+            const whole = await run(input, {}, [4_096]);
+            expect(sameBits(await run(input, {}, [1, 7, 128, 333, 4_096]), whole)).toBe(true);
+            expect(sameBits(await run(input, {}, [64]), whole)).toBe(true);
+          });
+
+          if (cases.readsDsp === true) {
+            it(`gives the WebAssembly DSP's bits from the reference DSP (${label})`, async () => {
+              const input = programme(layout);
+              const recording = recordingDsp();
+              const reference = await run(input, { dsp: recording.dsp });
+              expect(recording.reached()).toBe(true);
+              const wasm = expectSuccess(wasmDsp(await dspModuleExports()));
+              expect(sameBits(await run(input, { dsp: wasm }), reference)).toBe(true);
+            });
+          } else {
+            it(`reaches no canonical DSP, so no DSP can change its bits (${label})`, async () => {
+              const recording = recordingDsp();
+              await run(programme(layout), { dsp: recording.dsp });
+              expect(recording.reached()).toBe(false);
+            });
+          }
+
+          if (cases.state !== undefined) {
+            it(`runs by the state it holds, which changes what it writes (${label})`, async () => {
+              const input = programme(layout);
+              const { state: _held, ...without } = settings();
+              expect(sameBits(await run(input), await runCase(type, without, input))).toBe(false);
+            });
+          }
+
+          it(`runs at every quality level (${label})`, async () => {
+            for (const level of NAMED_QUALITY_LEVELS) {
+              const quality = namedQualityMode(level).settings;
+              expect(everyFinite(await run(programme(layout), { quality }))).toBe(true);
+            }
           });
         }
 
-        it(`runs at every quality level (${label})`, () => {
-          for (const level of NAMED_QUALITY_LEVELS) {
-            expect(
-              everyFinite(run(programme(layout), { quality: namedQualityMode(level).settings })),
-            ).toBe(true);
-          }
-        });
-      }
-
-      const through = cases.passThrough;
-      if (through !== undefined) {
-        it(`passes its input through, delayed by the latency it declares (${width} channels)`, () => {
-          const input = programme(layout);
-          const out = runProcessor(type, { layout, values: through.values }, input);
-          const latency = type.descriptor.latency({
-            values: processorValues(type, through.values),
-            sampleRate: TEST_RATE,
-            quality: MAXIMUM_QUALITY.settings,
-          });
-          if (latency.kind !== 'known') throw new Error('A processor states its latency.');
-          const delay = latency.frames;
-          for (const [channel, samples] of out.entries()) {
-            const source = input[channel] ?? new Float32Array(0);
-            let worst = 0;
-            for (let frame = 0; frame < samples.length; frame += 1) {
-              const expected = frame < delay ? 0 : (source[frame - delay] ?? 0);
-              worst = Math.max(worst, Math.abs((samples[frame] ?? 0) - expected));
+        const silent = cases.fallsSilent;
+        if (silent !== undefined) {
+          it(`falls to exact zero once its tail has decayed below silence (${width} channels)`, async () => {
+            const impulse = signalOf(layout, () => {
+              const one = new Float32Array(silent.frames + SILENT_FRAMES);
+              one[0] = 1;
+              return one;
+            });
+            const out = await runCase(type, { layout, values: silent.values }, impulse, [4_096]);
+            for (const samples of out) {
+              const last = samples.findLastIndex((sample) => sample !== 0);
+              expect(last).toBeGreaterThan(0);
+              expect(last).toBeLessThan(silent.frames);
             }
-            expect(worst).toBeLessThanOrEqual(through.tolerance);
-          }
-        });
+          });
+        }
+
+        const through = cases.passThrough;
+        if (through !== undefined) {
+          it(`passes its input through, delayed by the latency it declares (${width} channels)`, () => {
+            const input = programme(layout);
+            const out = runProcessor(type, { layout, values: through.values }, input);
+            const latency = type.descriptor.latency({
+              values: processorValues(type, through.values),
+              sampleRate: TEST_RATE,
+              quality: MAXIMUM_QUALITY.settings,
+            });
+            if (latency.kind !== 'known') throw new Error('A processor states its latency.');
+            const delay = latency.frames;
+            for (const [channel, samples] of out.entries()) {
+              const source = input[channel] ?? new Float32Array(0);
+              let worst = 0;
+              for (let frame = 0; frame < samples.length; frame += 1) {
+                const expected = frame < delay ? 0 : (source[frame - delay] ?? 0);
+                worst = Math.max(worst, Math.abs((samples[frame] ?? 0) - expected));
+              }
+              expect(worst).toBeLessThanOrEqual(through.tolerance);
+            }
+          });
+        }
       }
-    }
-  });
+    },
+  );
 }

@@ -146,6 +146,46 @@ export function summingFactor(law: SummingLaw, count: number): number {
 /** What the running of a chain is answered for: its rate and quality, each processor's values its own. */
 export type ChainSettings = Omit<ProcessorSettings, 'values'>;
 
+/**
+ * How a measure of a chain is made from its processors': each applied
+ * processor's own, added along a list, and across a group's branches the
+ * largest, since the graph delays the shorter branches to meet the longest.
+ * A bypassed slot adds nothing, and nor does mixing in a slot's dry input,
+ * which is delayed to its output.
+ */
+export interface ChainMeasure<T> {
+  /** The measure of one applied processor. */
+  readonly processor: (processor: ProcessorInstance) => T;
+  /** The measure of a list with nothing applied in it. */
+  readonly none: T;
+  /** Two measures one after the other. */
+  readonly series: (first: T, second: T) => T;
+  /** Two measures side by side, as branches of a group. */
+  readonly parallel: (one: T, other: T) => T;
+}
+
+/**
+ * The measure of a list of slots in series (see {@link ChainMeasure}): the
+ * one walk a chain's latency and its lead-in are both found by, so the two
+ * cannot disagree about which processors a path runs.
+ */
+export function measureSlots<T>(slots: readonly ChainSlot[], measure: ChainMeasure<T>): T {
+  let total = measure.none;
+  for (const slot of appliedSlots(slots)) total = measure.series(total, measureSlot(slot, measure));
+  return total;
+}
+
+/** The measure of one applied slot: its processor's, or its group's branches' together. */
+function measureSlot<T>(slot: ChainSlot, measure: ChainMeasure<T>): T {
+  if (slot.kind === 'processor') return measure.processor(slot);
+  let widest: T | undefined;
+  for (const branch of slot.branches) {
+    const own = measureSlots(branch.slots, measure);
+    widest = widest === undefined ? own : measure.parallel(widest, own);
+  }
+  return widest ?? measure.none;
+}
+
 /** Latencies added up, or every reason one is not known. */
 interface LatencyTally {
   readonly frames: number;
@@ -163,57 +203,48 @@ function unknownType(processor: ProcessorInstance): DomainResult<never> {
   );
 }
 
-/** The latency of a list of slots in series. */
-function seriesLatency(
-  slots: readonly ChainSlot[],
-  descriptors: ReadonlyMap<string, ProcessorDescriptor>,
-  settings: ChainSettings,
+/** Two tallies as `join` joins them, or the first refusal of either. */
+function joined(
+  one: DomainResult<LatencyTally>,
+  other: DomainResult<LatencyTally>,
+  join: (one: number, other: number) => number,
 ): DomainResult<LatencyTally> {
-  let frames = 0;
-  const unknown: string[] = [];
-  for (const slot of appliedSlots(slots)) {
-    const latency = slotLatency(slot, descriptors, settings);
-    if (!latency.ok) return latency;
-    frames += latency.value.frames;
-    unknown.push(...latency.value.unknown);
-  }
-  return succeed({ frames, unknown });
+  if (!one.ok) return one;
+  if (!other.ok) return other;
+  return succeed({
+    frames: join(one.value.frames, other.value.frames),
+    unknown: [...one.value.unknown, ...other.value.unknown],
+  });
 }
 
 /**
- * The latency of one applied slot: its processor's, or the longest of its
- * group's branches, since the shorter are delayed to meet it. Mixing in the
- * dry input adds none: the input is delayed to the output's latency.
+ * A chain's latency at `settings`, as {@link measureSlots} finds it, or why
+ * it cannot be told: a processor of a type `descriptors` lacks.
  */
-function slotLatency(
-  slot: ChainSlot,
+function latencyMeasure(
   descriptors: ReadonlyMap<string, ProcessorDescriptor>,
   settings: ChainSettings,
-): DomainResult<LatencyTally> {
-  if (slot.kind === 'processor') {
-    const descriptor = descriptors.get(slot.typeKey);
-    if (descriptor === undefined) return unknownType(slot);
-    const latency = descriptor.latency({ ...settings, values: slot.values });
-    return succeed(
-      latency.kind === 'known'
-        ? { frames: latency.frames, unknown: [] }
-        : {
-            frames: 0,
-            unknown: [
-              `the latency of processor ${slot.id} (${slot.typeKey}) is not known: ${latency.reason}`,
-            ],
-          },
-    );
-  }
-  let frames = 0;
-  const unknown: string[] = [];
-  for (const branch of slot.branches) {
-    const latency = seriesLatency(branch.slots, descriptors, settings);
-    if (!latency.ok) return latency;
-    frames = Math.max(frames, latency.value.frames);
-    unknown.push(...latency.value.unknown);
-  }
-  return succeed({ frames, unknown });
+): ChainMeasure<DomainResult<LatencyTally>> {
+  return {
+    processor: (processor) => {
+      const descriptor = descriptors.get(processor.typeKey);
+      if (descriptor === undefined) return unknownType(processor);
+      const latency = descriptor.latency({ ...settings, values: processor.values });
+      return succeed(
+        latency.kind === 'known'
+          ? { frames: latency.frames, unknown: [] }
+          : {
+              frames: 0,
+              unknown: [
+                `the latency of processor ${processor.id} (${processor.typeKey}) is not known: ${latency.reason}`,
+              ],
+            },
+      );
+    },
+    none: succeed({ frames: 0, unknown: [] }),
+    series: (first, second) => joined(first, second, (one, other) => one + other),
+    parallel: (one, other) => joined(one, other, Math.max),
+  };
 }
 
 /**
@@ -229,7 +260,7 @@ export function chainLatency(
   descriptors: ReadonlyMap<string, ProcessorDescriptor>,
   settings: ChainSettings,
 ): DomainResult<ProcessorLatency> {
-  const tally = seriesLatency(chain.slots, descriptors, settings);
+  const tally = measureSlots(chain.slots, latencyMeasure(descriptors, settings));
   if (!tally.ok) return tally;
   if (tally.value.unknown.length > 0) {
     return succeed({ kind: 'unknown', reason: tally.value.unknown.join('; ') });

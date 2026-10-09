@@ -17,6 +17,6 @@ export {
   type ProcessingPayload,
   chainFromProcessing,
   copyProcessing,
-  pasteProcessing,
+  pastedSlots,
 } from './processing-payload.js';
 export { type PasteRequest, type PlannedPaste, planPaste } from './paste-planning.js';

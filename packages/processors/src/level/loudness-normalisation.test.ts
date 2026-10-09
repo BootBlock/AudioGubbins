@@ -89,16 +89,19 @@ describe('loudness normalisation', () => {
     expect(peaksOf(output).truePeak).toBeLessThanOrEqual(-6 + 0.05);
   });
 
-  it('passes its input through for a measurement that is stale or of another shape', () => {
+  it('refuses a measurement that is stale or of another shape, passing its input through only where it has none', () => {
     const input = tone(1, -30, 2);
     for (const measured of [
       [44_100, 2, 1, -30, 0.1],
       [TEST_RATE, 1, 1, -30, 0.1],
       [TEST_RATE, 2, 1, -30],
+      [TEST_RATE, 2, 1, Number.NaN, 0.1],
     ]) {
-      const output = runProcessor(LOUDNESS_NORMALISATION, { layout: STEREO, measured }, input);
-      expect(firstDifference(output, input)).toBeUndefined();
+      const made = processorKernelOf(LOUDNESS_NORMALISATION, { layout: STEREO, measured });
+      expect(expectFailureCode(made)).toBe('processor.measurement-stale');
     }
+    const unmeasured = runProcessor(LOUDNESS_NORMALISATION, { layout: STEREO }, input);
+    expect(firstDifference(unmeasured, input)).toBeUndefined();
     const moved = runProcessor(
       LOUDNESS_NORMALISATION,
       { layout: STEREO, measured: [TEST_RATE, 2, 1, -30, 0.1] },

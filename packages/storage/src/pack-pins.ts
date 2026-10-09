@@ -6,8 +6,9 @@
  * A project needs every pack version a processor instance names, by its
  * `ModelIdentity`, in its current state, its history, its snapshots or its
  * backups, since an undo or a restore brings the instance back. That is what
- * `project-roots.ts` walks: a state names its models by the processors of its
- * chains, and the rest is searched for a model identity's shape anywhere,
+ * `project-roots.ts` walks: a state names its models by the processors of every
+ * chain it runs (`projectChains`: its own and those audio pasted into it
+ * carries), and the rest is searched for a model identity's shape anywhere,
  * nested JSON text among it (`nested-values.ts`), as a command's arguments
  * carry a chain, which errs, as it must, on the side of keeping.
  *
@@ -23,6 +24,7 @@ import {
   failure,
   isModelIdentity,
   processorsOf,
+  projectChains,
   succeed,
   type DomainResult,
 } from '@audiogubbins/domain';
@@ -67,9 +69,9 @@ function* modelsIn(value: JsonValue): Generator<PackRef, void, undefined> {
   }
 }
 
-/** Every pack version a processor of `state`'s chains names; one may be given twice. */
-function* modelsNamedBy(state: ProjectState): Generator<PackRef, void, undefined> {
-  for (const chain of state.project.effectChains.values()) {
+/** Every pack version a processor of a chain `state` runs names; one may be given twice. */
+export function* modelsNamedBy(state: ProjectState): Generator<PackRef, void, undefined> {
+  for (const chain of projectChains(state.project)) {
     for (const processor of processorsOf(chain.slots)) {
       const model = processor.version.model;
       if (model !== undefined) yield { id: model.pack, version: model.version };

@@ -1,11 +1,14 @@
 /**
  * The commands that name a chain from an asset or a region (ADR-0060): giving
- * a target a rack, taking it away, and pointing a range's rack edit at
- * another chain, which is how a shared chain is made independent for one of
- * the things that name it, after the copy is added.
+ * a target a rack, replacing it or taking it away, and pointing a range's rack
+ * edit at another chain, which is how a shared chain is made independent for
+ * one of the things that name it.
  *
- * A rack edit changes no time, so pointing it at another chain moves nothing
- * placed on the asset, and the edit stays where it is in the chain of edits.
+ * Each names a chain by its identifier or gives it whole, and removes a chain
+ * it leaves nothing naming, as `chain-naming.ts` says, so one undo restores
+ * the chain with the naming. A rack edit changes no time, so pointing it at
+ * another chain moves nothing placed on the asset, and the edit stays where it
+ * is in the chain of edits.
  */
 
 import {
@@ -15,20 +18,23 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import {
-  FailureKind,
-  fail,
-  failure,
+  assetChains,
+  copyChain,
   isWellFormedId,
-  succeed,
-  type DomainResult,
+  regionChains,
   unsafeBrandId,
   type Asset,
   type EditOperation,
+  type EffectChain,
   type EffectChainId,
+  type IdGenerator,
+  type Project,
   type Region,
   type RegionOperation,
+  type TargetChains,
 } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
+import { quoted } from '@audiogubbins/text';
 
 import { optionalTextArgument, refusedBy, textArgument } from '../invocation-arguments.js';
 import {
@@ -39,12 +45,22 @@ import {
   type ProjectCommand,
 } from '../project-command.js';
 import { withAssetEdits, withRegion } from '../editing/editing-state.js';
-import { quoted } from '@audiogubbins/text';
+import { chainToName, namingArguments, withoutUnnamed } from './chain-naming.js';
 
 /** What a rack command acts on: an asset, or a region and its asset. */
 export type RackTarget =
   | { readonly kind: 'asset'; readonly asset: Asset }
   | { readonly kind: 'region'; readonly region: Region; readonly asset: Asset };
+
+/** The chains `target` names, by the domain's one account of them. */
+export function targetChains(target: RackTarget): TargetChains {
+  return target.kind === 'asset' ? assetChains(target.asset) : regionChains(target.region);
+}
+
+/** What `target` is called in an undo description, quoted. */
+function targetName(target: RackTarget): string {
+  return quoted(target.kind === 'asset' ? target.asset.displayName : target.region.displayName);
+}
 
 /** The asset or region the arguments `assetId` or `regionId` name. */
 function rackTarget(state: ProjectState, invocation: CommandInvocation): RackTarget | string {
@@ -70,55 +86,100 @@ function rackTarget(state: ProjectState, invocation: CommandInvocation): RackTar
     : { kind: 'region', region, asset };
 }
 
-/**
- * The chain the argument `chainId` names, `undefined` where it is absent, or
- * why it is no chain of the project.
- */
-function chainNamed(
-  state: ProjectState,
-  invocation: CommandInvocation,
-): DomainResult<EffectChainId | undefined> {
-  const text = optionalTextArgument(invocation, 'chainId');
-  if (!text.ok) return text;
-  if (text.value === undefined) return succeed(undefined);
-  const id = unsafeBrandId<'EffectChainId'>(text.value);
-  return isWellFormedId(text.value) && state.project.effectChains.has(id)
-    ? succeed(id)
-    : fail(
-        failure(
-          'rack.chain-unknown',
-          FailureKind.Rejected,
-          'The project has no chain with that identifier.',
-        ),
-      );
-}
-
 /** The arguments that name `target`. */
 function targetArguments(target: RackTarget): Readonly<Record<string, string>> {
   return target.kind === 'asset' ? { assetId: target.asset.id } : { regionId: target.region.id };
 }
 
-/** The invocation that gives `target` the rack `chain`, or takes its rack away where it is absent. */
+/**
+ * The invocation that gives `target` the rack `chain`, named by its
+ * identifier or given whole to be added with it, or takes its rack away where
+ * it is absent.
+ */
 export function setRackInvocation(
   target: RackTarget,
-  chain: EffectChainId | undefined,
+  chain: EffectChainId | EffectChain | undefined,
 ): CommandInvocation {
   return {
     commandId: ProjectCommandId.SetRack,
-    arguments: { ...targetArguments(target), ...(chain === undefined ? {} : { chainId: chain }) },
+    arguments: { ...targetArguments(target), ...namingArguments(chain) },
   };
 }
 
-/** The invocation that points the rack edit `operation` of `target` at `chain`. */
+/**
+ * The invocation that points the rack edit `operation` of `target` at
+ * `chain`, named by its identifier or given whole to be added with it.
+ */
 export function setEditChainInvocation(
   target: RackTarget,
   operation: EditOperation['id'],
-  chain: EffectChainId,
+  chain: EffectChainId | EffectChain,
 ): CommandInvocation {
   return {
     commandId: ProjectCommandId.SetEditChain,
-    arguments: { ...targetArguments(target), operationId: operation, chainId: chain },
+    arguments: { ...targetArguments(target), operationId: operation, ...namingArguments(chain) },
   };
+}
+
+/**
+ * The invocations that make `target`'s every naming of the shared chain
+ * `chain`, its rack and each range it processes, name `copy` instead, the
+ * first giving the copy whole; none where `target` does not name `chain`.
+ */
+export function independentChainInvocations(
+  target: RackTarget,
+  chain: EffectChainId,
+  copy: EffectChain,
+): readonly CommandInvocation[] {
+  const { rack, ranges } = targetChains(target);
+  let given = false;
+  const naming = (): EffectChainId | EffectChain => {
+    if (given) return copy.id;
+    given = true;
+    return copy;
+  };
+  return [
+    ...(rack === chain ? [setRackInvocation(target, naming())] : []),
+    ...ranges
+      .filter((range) => range.chain === chain)
+      .map((range) => setEditChainInvocation(target, range.operation, naming())),
+  ];
+}
+
+/**
+ * The invocations that make a copy of `chain` the rack of every one of
+ * `targets`, in place of any rack each has: a copy of its own each, or one
+ * copy they all name where `share` asks, the shared chain of REQ-EDIT-014. A
+ * rack replaced goes with the last of them to name it.
+ */
+export function rackEachInvocations(
+  targets: readonly RackTarget[],
+  chain: EffectChain,
+  share: boolean,
+  ids: IdGenerator,
+): readonly CommandInvocation[] {
+  if (!share) return targets.map((target) => setRackInvocation(target, copyChain(chain, ids)));
+  const shared = copyChain(chain, ids);
+  return targets.map((target, index) =>
+    setRackInvocation(target, index === 0 ? shared : shared.id),
+  );
+}
+
+/**
+ * The invocation that gives `target` a rack of its own of `chain`'s slots
+ * after a copy of its rack's, where it has one, so it hears what it heard
+ * and then `chain`, and another target sharing that rack hears no change.
+ */
+export function extendedRackInvocation(
+  project: Project,
+  target: RackTarget,
+  chain: EffectChain,
+  ids: IdGenerator,
+): CommandInvocation {
+  const { rack } = targetChains(target);
+  const kept = rack === undefined ? undefined : project.effectChains.get(rack);
+  const before = kept === undefined ? [] : copyChain(kept, ids).slots;
+  return setRackInvocation(target, { id: chain.id, slots: [...before, ...chain.slots] });
 }
 
 /** The state with `asset` given the rack `rack`, or none where it is absent. */
@@ -144,21 +205,22 @@ function regionWithRack(region: Region, rack: EffectChainId | undefined): Region
 function setRack(state: ProjectState, invocation: CommandInvocation) {
   const target = rackTarget(state, invocation);
   if (typeof target === 'string') return refusal('rack.target-unknown', target);
-  const named = chainNamed(state, invocation);
+  const named = chainToName(state, invocation);
   if (!named.ok) return refusedBy(named);
-  const chain = named.value;
+  const chain = named.value?.chain;
   const before = target.kind === 'asset' ? target.asset.rack : target.region.rack;
   if (before === chain) return unchanged('rack.unchanged', 'The rack is already as asked.');
-  const next =
+  const naming = named.value?.state ?? state;
+  const next = withoutUnnamed(
     target.kind === 'asset'
-      ? withAssetRack(state, target.asset, chain)
-      : withRegion(state, regionWithRack(target.region, chain));
-  const name = quoted(
-    target.kind === 'asset' ? target.asset.displayName : target.region.displayName,
+      ? withAssetRack(naming, target.asset, chain)
+      : withRegion(naming, regionWithRack(target.region, chain)),
+    before,
   );
+  const name = targetName(target);
   return applied(
-    next,
-    setRackInvocation(target, before),
+    next.state,
+    setRackInvocation(target, next.removed ?? before),
     chain === undefined ? `Take away the rack of ${name}` : `Give ${name} a rack`,
   );
 }
@@ -166,11 +228,11 @@ function setRack(state: ProjectState, invocation: CommandInvocation) {
 function setEditChain(state: ProjectState, invocation: CommandInvocation) {
   const target = rackTarget(state, invocation);
   if (typeof target === 'string') return refusal('rack.target-unknown', target);
-  const named = chainNamed(state, invocation);
+  const named = chainToName(state, invocation);
   if (!named.ok) return refusedBy(named);
-  const chain = named.value;
-  if (chain === undefined)
+  if (named.value === undefined)
     return refusal('rack.chain-unknown', 'The command names the chain to use.');
+  const { chain, state: naming } = named.value;
   const operationId = textArgument(invocation, 'operationId');
   if (!operationId.ok) return refusedBy(operationId);
   const pointed = <T extends EditOperation | RegionOperation>(operation: T): T | undefined =>
@@ -189,24 +251,23 @@ function setEditChain(state: ProjectState, invocation: CommandInvocation) {
   }
   if (old.edit.chain === chain)
     return unchanged('rack.unchanged', 'The range already uses that chain.');
-  const next =
+  const next = withoutUnnamed(
     target.kind === 'asset'
       ? withAssetEdits(
-          state,
+          naming,
           target.asset,
           target.asset.edits.map((one) => pointed(one) ?? one),
         )
-      : withRegion(state, {
+      : withRegion(naming, {
           ...target.region,
           operations: target.region.operations.map((one) => pointed(one) ?? one),
-        });
-  const name = quoted(
-    target.kind === 'asset' ? target.asset.displayName : target.region.displayName,
+        }),
+    old.edit.chain,
   );
   return applied(
-    next,
-    setEditChainInvocation(target, old.id, old.edit.chain),
-    `Change the chain a range of ${name} is processed by`,
+    next.state,
+    setEditChainInvocation(target, old.id, next.removed ?? old.edit.chain),
+    `Change the chain a range of ${targetName(target)} is processed by`,
   );
 }
 
@@ -226,7 +287,7 @@ export function rackCommands(): readonly ProjectCommand[] {
       id: ProjectCommandId.SetEditChain,
       label: 'Change the chain a range is processed by',
       category: CommandCategory.Edit,
-      description: 'Points a range processed by a chain at another chain of the project.',
+      description: 'Points a range processed by a chain at another chain.',
       provenance: NO_PROVENANCE,
       run: (state, invocation) => setEditChain(state, invocation),
     }),

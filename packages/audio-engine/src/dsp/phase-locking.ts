@@ -25,20 +25,27 @@ export function vocoderWindow(size: number): Float64Array {
 /**
  * Writes to `peaks` the bins of `magnitude`, `bins` long, louder than the two
  * on each side, a tie with a later bin counting for the earlier, in order;
- * returns their count. A frame with no partial, such as silence, has none.
+ * returns their count. A bin has only the neighbours the frame holds, and a
+ * peak must be louder than one of them, so a frame with no partial, silence
+ * or a flat spectrum such as a click's, has none, rather than one at bin 0.
  */
 export function findPeaks(magnitude: Float64Array, bins: number, peaks: Int32Array): number {
   let count = 0;
   for (let k = 0; k < bins; k += 1) {
     const level = magnitude[k] ?? 0;
-    // A neighbour past either end is quieter than any bin. Each is tested
-    // rather than read out of bounds, which V8 answers on its slow path,
-    // allocating as it goes.
+    // A neighbour past either end is none: it passes every test but the
+    // last, which a bin with an earlier neighbour has passed already. Each
+    // is tested rather than read out of bounds, which V8 answers on its slow
+    // path, allocating as it goes.
+    const quieterBefore =
+      (k < 1 || level > (magnitude[k - 1] ?? 0)) && (k < 2 || level > (magnitude[k - 2] ?? 0));
+    const louderAfter = k + 1 < bins && level > (magnitude[k + 1] ?? 0);
+    const furtherAfter = k + 2 < bins && level > (magnitude[k + 2] ?? 0);
     if (
-      level > (k >= 1 ? (magnitude[k - 1] ?? 0) : -1) &&
-      level > (k >= 2 ? (magnitude[k - 2] ?? 0) : -1) &&
-      level >= (k + 1 < bins ? (magnitude[k + 1] ?? 0) : -1) &&
-      level >= (k + 2 < bins ? (magnitude[k + 2] ?? 0) : -1)
+      quieterBefore &&
+      (k + 1 >= bins || level >= (magnitude[k + 1] ?? 0)) &&
+      (k + 2 >= bins || level >= (magnitude[k + 2] ?? 0)) &&
+      (k >= 1 || louderAfter || furtherAfter)
     ) {
       peaks[count] = k;
       count += 1;

@@ -172,8 +172,8 @@ describe.each([
   });
 
   it.each([
-    [44_100, 0x52e5c81c11e25745n],
-    [96_000, 0xb81b26b6cb19511an],
+    [44_100, 0x4e775d9b0dd1f486n],
+    [96_000, 0x33446b5091b097fcn],
   ])('give the golden peaks at %s Hz', (hertz, expected) => {
     const planar = golden(3, 1_000);
     const meter = expectSuccess(dspOf().createPeakMeter({ channels: 3, sampleRate: rate(hertz) }));

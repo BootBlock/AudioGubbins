@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MAXIMUM_QUALITY,
+  NAMED_QUALITY_LEVELS,
   QualityLevel,
   StandardLayouts,
   namedQualityMode,
@@ -13,7 +14,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { REFERENCE_DSP } from '../dsp/reference/reference-dsp.js';
 import { sineOfTurns } from '../dsp/reference/primitives.js';
 import { ProcessedStart } from './processed-content.js';
-import { StretchedContent, stretchWindow } from './stretched-content.js';
+import { StretchedContent, stretchCentre, stretchWindow } from './stretched-content.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 const STREAM = { sampleRate: RATE, layout: StandardLayouts.stereo };
@@ -108,6 +109,35 @@ describe('StretchedContent', () => {
     expect(rms(middle)).toBeCloseTo(0.5 / Math.SQRT2, 2);
     const rightMiddle = (right ?? new Float32Array()).subarray(4_096, length - 4_096);
     expect(rms(rightMiddle)).toBeCloseTo(0.25 / Math.SQRT2, 2);
+  });
+
+  it('starts at its full level, rather than fading in over its first half window', async () => {
+    // Lengths near the stream's, whose windows line up with the input's as an
+    // unchanged stream's would: a ratio far from one smears the stream's own
+    // first frame, which the analysis hears start from silence.
+    for (const level of NAMED_QUALITY_LEVELS) {
+      for (const length of [48_480, 47_520]) {
+        const { content } = stretched(48_000, length, namedQualityMode(level).settings);
+        const [left] = await readAll(content, length, length);
+        const opening = (left ?? new Float32Array()).subarray(0, 512);
+        expect(Math.abs(20 * Math.log10(rms(opening) / (0.5 / Math.SQRT2)))).toBeLessThan(0.25);
+      }
+    }
+  });
+
+  it('centres each frame on the input frame nearest its place scaled, rounding half up, before the stream too', () => {
+    for (const [inputLength, length] of [
+      [48_000, 48_480],
+      [48_000, 47_520],
+      [9_600, 19_200],
+      [7, 3],
+    ] as const) {
+      for (let m = -3; m <= 3; m += 1) {
+        // Whole numbers far inside what a double holds exactly.
+        const twice = 2 * m * 1_024 * inputLength + length;
+        expect(stretchCentre(m, 1_024, inputLength, length)).toBe(Math.floor(twice / (2 * length)));
+      }
+    }
   });
 
   it('gives the same bits however its reads are cut, and from its start after a read behind', async () => {

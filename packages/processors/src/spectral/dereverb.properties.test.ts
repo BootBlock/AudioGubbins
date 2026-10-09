@@ -6,6 +6,7 @@ import { DEREVERBERATION } from './dereverb.js';
 
 const FIRST_ORDER = setLayout(1, 'sn3d');
 processorProperties(DEREVERBERATION, {
+  readsDsp: true,
   layouts: [StandardLayouts.mono, StandardLayouts.stereo],
   settings: [
     { strength: 50, delay: 3, order: 12, adaptation: 0.5 },
@@ -18,6 +19,7 @@ processorProperties(DEREVERBERATION, {
 // cube of their frames, so the wider layouts are run at lower orders beside
 // the default.
 processorProperties(DEREVERBERATION, {
+  readsDsp: true,
   layouts: [StandardLayouts.surround5_1, FIRST_ORDER],
   settings: [
     { strength: 50, order: 2, adaptation: 0.5 },

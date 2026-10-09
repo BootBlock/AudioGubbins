@@ -19,8 +19,11 @@
 import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
 import {
   ZERO_SAMPLES,
+  assetChains,
+  chainIdsOf,
   channelCount,
   isWellFormedId,
+  regionChains,
   sampleCount,
   findSlot,
   unsafeBrandId,
@@ -50,7 +53,6 @@ import {
 } from './editor-target.js';
 import type { EditorAsset } from '../assets/editor-asset.js';
 import { projectTarget } from './project-edits.js';
-import { chainsOfTarget } from './rack-target.js';
 import { shellCommand, textArgument, type ShellCommandOptions } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -173,14 +175,14 @@ function processorOf(
   const asset = state.assets.get(project.owner.asset.id);
   if (asset === undefined) return 'That asset is no longer in the project.';
   const targets = [
-    chainsOfTarget({ kind: 'asset', asset }),
+    assetChains(asset),
     ...[...state.regions.values()]
       .filter((region) => region.assetId === asset.id)
-      .map((region) => chainsOfTarget({ kind: 'region', region, asset })),
+      .map(regionChains),
   ];
-  for (const { rack, ranges } of targets) {
-    for (const id of [rack, ...ranges.map((range) => range.chain)]) {
-      const chain = id === undefined ? undefined : state.effectChains.get(id);
+  for (const chains of targets) {
+    for (const id of chainIdsOf(chains)) {
+      const chain = state.effectChains.get(id);
       const found = chain === undefined || named === undefined ? undefined : findSlot(chain, named);
       if (found?.slot.kind === 'processor') return { id: found.slot.id };
     }

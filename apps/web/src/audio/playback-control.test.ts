@@ -449,7 +449,7 @@ describe('following a programme the project changed while it plays', () => {
     await Promise.resolve();
 
     expect(parts.latest().changes).toEqual([
-      [{ processor: PROCESSOR, parameter: LEVEL, value: -3 }],
+      [{ stream: 1, processor: PROCESSOR, parameter: LEVEL, value: -3 }],
     ]);
     expect(parts.latest().loads).toHaveLength(1);
     // The next Play of the changed programme plays what is loaded.

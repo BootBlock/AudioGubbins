@@ -5,11 +5,11 @@
  * The change is the project's first: a command sets the value, and the page
  * hands playback the value the command left, so playback follows the project
  * and never the other way round. Each edited source a reading makes registers
- * here, and a change reaches every one of them, since a shared chain is heard
- * in each stream that names it. A chain heard from a render cannot take a
- * change running, as the render was made with the old value: the change is
- * refused with the reason, and the page loads the sound again, which makes
- * the render again with the new one.
+ * here, and a change reaches the stream it names in every one of them; a shared
+ * chain is heard in each stream that names it, each changed by a change of its
+ * own. A chain heard from a render cannot take a change running, as the render
+ * was made with the old value: the change is refused with the reason, and the
+ * page loads the sound again, which makes the render again with the new one.
  */
 
 import {
@@ -25,6 +25,12 @@ import {
 
 /** A numeric parameter of one processor instance, and its new value. */
 export interface ParameterChange {
+  /**
+   * The place in the plan of the stream whose chain runs the processor: a
+   * chain a paste carries keeps the identifiers of the chain it was copied
+   * from, which may be playing beside it, so a processor is one stream's.
+   */
+  readonly stream: number;
   readonly processor: ProcessorId;
   readonly parameter: ParameterId;
   readonly value: number;

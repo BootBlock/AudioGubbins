@@ -14,7 +14,7 @@
 
 import { cosineOfTurns, decibelsToGain, sineOfTurns } from '@audiogubbins/audio-engine';
 
-import { finiteSample, flushSubnormal } from '../framework/sample-safety.js';
+import { belowSilence, finiteSample } from '../framework/sample-safety.js';
 
 /** The shapes a section can take, each a design of the cookbook. */
 export const BiquadShape = {
@@ -259,10 +259,13 @@ export function sectionDecayFrames(
 }
 
 /**
- * A cascade of sections run over each channel alike, each channel with its
- * own state. A sample passes every section in order in f64, each in
- * transposed direct form II: `y = b0·x + s1`, then `s1 = (b1·x − a1·y) + s2`
- * and `s2 = b2·x − a2·y`, each state through `flushSubnormal`.
+ * A cascade of sections run over each channel alike, each channel with its own
+ * state. A sample passes every section in order in f64, each in transposed
+ * direct form II: `y = b0·x + s1`, then `s1 = (b1·x − a1·y) + s2` and
+ * `s2 = b2·x − a2·y`. A section's two states are flushed to zero together, once
+ * both are below silence: one flushed alone is an error put into the other,
+ * which a narrow resonance near DC raised back above the floor every time, so
+ * its tail never fell silent.
  */
 export class BiquadCascade {
   readonly sections: number;
@@ -329,8 +332,11 @@ export class BiquadCascade {
         const k = section * COEFFICIENTS_PER_SECTION;
         const s = base + section * 2;
         const y = (c[k] ?? 0) * x + (state[s] ?? 0);
-        state[s] = flushSubnormal((c[k + 1] ?? 0) * x - (c[k + 3] ?? 0) * y + (state[s + 1] ?? 0));
-        state[s + 1] = flushSubnormal((c[k + 2] ?? 0) * x - (c[k + 4] ?? 0) * y);
+        const first = (c[k + 1] ?? 0) * x - (c[k + 3] ?? 0) * y + (state[s + 1] ?? 0);
+        const second = (c[k + 2] ?? 0) * x - (c[k + 4] ?? 0) * y;
+        const silent = belowSilence(first) && belowSilence(second);
+        state[s] = silent ? 0 : first;
+        state[s + 1] = silent ? 0 : second;
         x = y;
       }
       output[at + frame] = x;

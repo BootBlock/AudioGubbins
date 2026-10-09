@@ -51,7 +51,12 @@ export {
 export { createSnapshot, deleteSnapshot } from './snapshots.js';
 
 export { type FieldOf } from './entity-fields.js';
-export { type ChainOwner, type DifferenceNames, differenceNames } from './difference-names.js';
+export {
+  type ChainOwner,
+  type DifferenceNames,
+  chainOwner,
+  differenceNames,
+} from './difference-names.js';
 
 export {
   type EntityChange,

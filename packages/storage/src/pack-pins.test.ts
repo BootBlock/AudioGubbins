@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  AssetOrigin,
+  StandardLayouts,
   SummingLaw,
+  createProject,
+  derivedSampleCount,
+  sampleRate,
+  type Asset,
+  type EditPlan,
   type EffectChain,
   type IdGenerator,
   type ModelIdentity,
@@ -10,10 +17,10 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { MemoryStorageTree } from '@audiogubbins/media-store/testing';
 import type { PackRef } from '@audiogubbins/model-packs';
-import type { BackupPolicy, StorageTree } from '@audiogubbins/project-format';
+import type { BackupPolicy, ProjectState, StorageTree } from '@audiogubbins/project-format';
 
 import { BackupScheduler } from './backup-scheduler.js';
-import { projectPackPins } from './pack-pins.js';
+import { modelsNamedBy, projectPackPins } from './pack-pins.js';
 import { ProjectPaths } from './storage-layout.js';
 import { storageOf } from './testing/memory-ports.js';
 import { addChain, setName } from './testing/test-commands.js';
@@ -147,6 +154,51 @@ describe('the model packs the projects need', () => {
     await tree.writeFile(record, new TextEncoder().encode(JSON.stringify(body)));
 
     expect(await pinsOf(tree)).toEqual(['ten@1.0.0']);
+  });
+
+  it('names a version a chain carried by pasted audio runs, as a state’s own chains are read', () => {
+    const test = harness(67);
+    const rate = expectSuccess(sampleRate(48_000));
+    const layout = StandardLayouts.mono;
+    const chain = chainRunning(test.ids, modelOf('spleeter-4-stems'));
+    const payload: EditPlan = {
+      streams: [
+        {
+          sampleRate: rate,
+          layout,
+          segments: [],
+          processing: { kind: 'chain', chain, input: layout },
+        },
+      ],
+    };
+    const asset: Asset = {
+      id: test.ids.next<'AssetId'>(),
+      displayName: 'Pasted into',
+      origin: AssetOrigin.Imported,
+      sampleRate: rate,
+      channelLayout: layout,
+      length: derivedSampleCount(100),
+      storageKey: 'pasted',
+      edits: [
+        {
+          id: test.ids.next<'EditOperationId'>(),
+          kind: 'insert',
+          at: derivedSampleCount(0),
+          payload,
+          convertRate: false,
+        },
+      ],
+    };
+    const project = createProject(test.ids.next<'ProjectId'>(), 'Pasted', {
+      sampleRate: rate,
+      channelLayout: layout,
+    });
+    const state: ProjectState = {
+      project: { ...project, assets: new Map([[asset.id, asset]]) },
+      sources: new Map(),
+    };
+
+    expect([...modelsNamedBy(state)]).toEqual([{ id: 'spleeter-4-stems', version: '1.0.0' }]);
   });
 
   it('cannot be told, keeping everything with the reason, where a project cannot be read', async () => {

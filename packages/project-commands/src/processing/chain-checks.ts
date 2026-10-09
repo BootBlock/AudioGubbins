@@ -15,7 +15,10 @@ import type { EffectChain } from '@audiogubbins/domain';
 import type { ProjectState } from '@audiogubbins/project-format';
 
 /** The identifier of every slot of `slots`, processors and groups, however deep. */
-function slotIdentifiers(slots: EffectChain['slots'], into = new Set<string>()): Set<string> {
+export function slotIdentifiers(
+  slots: EffectChain['slots'],
+  into = new Set<string>(),
+): Set<string> {
   for (const slot of slots) {
     into.add(slot.id);
     if (slot.kind === 'group')

@@ -10,5 +10,7 @@ processorProperties(AMBISONIC_ENCODER, {
     { azimuth: -90, elevation: -30, order: 'second', normalisation: 'n3d' },
     { azimuth: 180, elevation: 90, order: 'third', normalisation: 'sn3d' },
   ],
-  bound: 4,
+  // The largest harmonic of any normalisation to the third order: N3D's
+  // `√(2l + 1)` times SN3D's peak of one, at `l = 3`.
+  bound: Math.sqrt(7),
 });

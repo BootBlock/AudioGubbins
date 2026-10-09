@@ -46,8 +46,11 @@ describe('the limiter', () => {
     // 5 ms at 44.1 kHz is 220.5 frames.
     expect(at(44_100, 5, 1)).toEqual({ kind: 'known', frames: 221 });
     expect(at(48_000, 5, 1)).toEqual({ kind: 'known', frames: 240 });
-    // Above one rate the detector adds 36 frames ahead and 37 held on each side.
-    expect(at(48_000, 5, 8)).toEqual({ kind: 'known', frames: 313 });
+    // Above one rate the detector adds the 6 frames the meter's filter reads
+    // ahead and 6 held on each side, and nothing from 192 kHz, where the meter
+    // reads no points between frames.
+    expect(at(48_000, 5, 8)).toEqual({ kind: 'known', frames: 252 });
+    expect(at(192_000, 5, 8)).toEqual({ kind: 'known', frames: 960 });
   });
 
   it('moves its ceiling while it plays, and refuses to move its look-ahead', () => {

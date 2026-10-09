@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { CommandInvocation } from '@audiogubbins/commands';
 import { instantiateProcessor, type EffectChain } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import { addChainInvocation, setRackInvocation } from '@audiogubbins/project-commands';
+import { setRackInvocation } from '@audiogubbins/project-commands';
 
 import { regionEntryId } from '../../assets/project-entry.js';
 import { shellCommands } from '../../commands/shell-commands.js';
@@ -298,8 +298,7 @@ describe('the Inspector panel (WU-05.D)', () => {
       if (held === undefined) throw new Error('The asset is in the project.');
       return held;
     };
-    await audio.session.run(addChainInvocation(rack));
-    await audio.session.run(setRackInvocation({ kind: 'asset', asset: asset() }, rack.id));
+    await audio.session.run(setRackInvocation({ kind: 'asset', asset: asset() }, rack));
     audio.window.run('editor.select-time', { start: 0, end: 4_800 });
     await audio.window.runAndHear('rack.add-processor', {
       typeKey: 'parametric-equaliser',

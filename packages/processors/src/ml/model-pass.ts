@@ -16,7 +16,10 @@
  * the pass ends however it ends: answered, refused, cancelled or released.
  * A refusal, the model's or the bound's, is the answer from then on and the
  * rest of the stream is not run; a cancellation throws, as every cancelled
- * pass does.
+ * pass does. A model that answers a sample that is not finite has failed on
+ * this audio: the pass is refused with where, rather than its samples made
+ * finite, since a render made of cleaned samples would claim an output the
+ * model did not give.
  *
  * The output is held in memory until the kernel has it, so a stream whose
  * output would pass {@link MOST_OUTPUT_SAMPLES} is refused with the reason
@@ -105,6 +108,12 @@ export class ModelPass implements Measurer {
   /** The frames of the stream heard. */
   #heard = 0;
   #answer: DomainResult<Measurement> | undefined;
+  /**
+   * The refusal of an output that is not finite, kept until the model
+   * stream's call that gave it returns, since the stream may not be let go
+   * while it runs.
+   */
+  #unusable: DomainFailureResult | undefined;
   #released = false;
 
   constructor(
@@ -171,12 +180,10 @@ export class ModelPass implements Measurer {
       await toModel.finish((chunk, ready) => this.#hear(opened, chunk, ready, signal));
       if (!this.#answered()) this.#check(await opened.stream.end(signal), signal);
       if (!this.#answered()) {
-        await fromModel.finish((chunk, ready) => {
-          this.#output.write(chunk, ready);
-          return Promise.resolve();
-        });
-        this.#answer = succeed(this.#output.planar(this.#heard));
+        await fromModel.finish((chunk, ready) => this.#gather(chunk, ready));
+        this.#check(succeed(undefined), signal);
       }
+      if (!this.#answered()) this.#answer = succeed(this.#output.planar(this.#heard));
     }
     this.#close();
     return this.#answer ?? this.#refusalOfNothing();
@@ -217,10 +224,7 @@ export class ModelPass implements Measurer {
       return undefined;
     }
     const stream = this.#streamOf(sessions.value, this.#run, (output, frames) =>
-      fromModel.push(output, frames, (chunk, ready) => {
-        this.#output.write(chunk, ready);
-        return Promise.resolve();
-      }),
+      fromModel.push(output, frames, (chunk, ready) => this.#gather(chunk, ready)),
     );
     this.#opened = { sessions: sessions.value, stream };
     return this.#opened;
@@ -237,11 +241,44 @@ export class ModelPass implements Measurer {
     this.#check(await opened.stream.hear(chunk, frames, signal), signal);
   }
 
-  /** Takes a model stream's refusal as the answer; a cancellation throws instead. */
+  /**
+   * Takes an output that was not finite, or else a model stream's refusal,
+   * as the answer; a cancellation throws instead.
+   */
   #check(heard: DomainResult<void>, signal: CancellationSignal | undefined): void {
-    if (heard.ok) return;
-    throwIfCancelled(signal);
-    this.#refuse(heard);
+    if (!heard.ok) throwIfCancelled(signal);
+    const refusal = this.#unusable ?? (heard.ok ? undefined : heard);
+    if (refusal !== undefined) this.#refuse(refusal);
+  }
+
+  /**
+   * Keeps the first `frames` frames of `chunk`, the model's output at the
+   * stream's rate, or, at its first sample that is not finite, keeps its
+   * refusal instead and nothing more.
+   */
+  #gather(chunk: readonly Float32Array[], frames: number): Promise<void> {
+    if (this.#unusable !== undefined) return Promise.resolve();
+    for (const [channel, samples] of chunk.entries()) {
+      for (let frame = 0; frame < frames; frame += 1) {
+        if (Number.isFinite(samples[frame])) continue;
+        this.#unusable = this.#notFinite(channel, this.#output.frames + frame);
+        return Promise.resolve();
+      }
+    }
+    this.#output.write(chunk, frames);
+    return Promise.resolve();
+  }
+
+  #notFinite(channel: number, frame: number): DomainFailureResult {
+    const { pack } = this.#definition.identity;
+    return fail(
+      failure(
+        'processor.model-output-not-finite',
+        FailureKind.Unrecoverable,
+        `${pack} gave a sample that is not a finite number, at frame ${String(frame)} of channel ${String(channel + 1)}, so its output cannot be used.`,
+        { details: { pack, channel, frame } },
+      ),
+    );
   }
 
   /** The stage, or nothing once its refusal has been made the answer. */

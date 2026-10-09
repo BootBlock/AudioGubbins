@@ -1,12 +1,13 @@
 /**
  * What a project needs of the model packs (REQ-AUDIO-139): each
- * machine-learning processor its chains hold, as the need its model makes, once
- * for each model, and which of the requirement's conditions holds for it with
- * the catalogue as last read, so the pack manager can say what the open project
- * is missing and offer the version that would bring it.
+ * machine-learning processor of a chain it runs (`projectChains`: its own and
+ * those audio pasted into it carries), as the need its model makes, once for
+ * each model, and which of the requirement's conditions holds for it with the
+ * catalogue as last read, so the pack manager can say what the open project is
+ * missing and offer the version that would bring it.
  */
 
-import { processorsOf } from '@audiogubbins/domain';
+import { processorsOf, projectChains } from '@audiogubbins/domain';
 import type { AvailabilityContext, PackAvailability } from '@audiogubbins/model-packs';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -23,7 +24,7 @@ export interface ProjectNeed {
 }
 
 /**
- * Every model the chains of `state` name, once each, in the order the chains
+ * Every model the chains `state` runs name, once each, in the order the chains
  * hold them, and which condition holds for each in `context`.
  */
 export function projectNeeds(
@@ -31,7 +32,7 @@ export function projectNeeds(
   context: AvailabilityContext,
 ): readonly ProjectNeed[] {
   const needs = new Map<string, ProjectNeed>();
-  for (const chain of state.project.effectChains.values()) {
+  for (const chain of projectChains(state.project)) {
     for (const processor of processorsOf(chain.slots)) {
       const { model } = processor.version;
       if (model === undefined) continue;

@@ -71,21 +71,28 @@ describe('peak normalisation', () => {
     expect(firstDifference([output ?? new Float32Array(0)], input)).toBeUndefined();
   });
 
-  it('passes its input through for a measurement that is stale or of another shape', () => {
+  it('refuses a measurement that is stale or of another shape, passing its input through only where it has none', () => {
     const input = [noisySine(440).channels[0]?.slice(0, LENGTH) ?? new Float32Array(LENGTH)];
     for (const measured of [
       [44_100, 1, 0.5, 0.5],
       [TEST_RATE, 2, 0.5, 0.5],
       [TEST_RATE, 1, 0.5],
       [TEST_RATE, 1, 0.5, 0.5, 0.5],
+      [TEST_RATE, 1, Number.POSITIVE_INFINITY, 0.5],
     ]) {
-      const [output] = runProcessor(
-        PEAK_NORMALISATION,
-        { layout: StandardLayouts.mono, values: { target: -20 }, measured },
-        input,
-      );
-      expect(firstDifference([output ?? new Float32Array(0)], input)).toBeUndefined();
+      const made = processorKernelOf(PEAK_NORMALISATION, {
+        layout: StandardLayouts.mono,
+        values: { target: -20 },
+        measured,
+      });
+      expect(expectFailureCode(made)).toBe('processor.measurement-stale');
     }
+    const [unmeasured] = runProcessor(
+      PEAK_NORMALISATION,
+      { layout: StandardLayouts.mono, values: { target: -20 } },
+      input,
+    );
+    expect(firstDifference([unmeasured ?? new Float32Array(0)], input)).toBeUndefined();
     // And the same measurement, current, moves it.
     const [moved] = runProcessor(
       PEAK_NORMALISATION,

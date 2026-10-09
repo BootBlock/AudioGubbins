@@ -18,7 +18,7 @@ import { processorType, type ProcessorType } from '../framework/processor-type.j
 export function delayingProcessor(frames: number): ProcessorType {
   return processorType({
     descriptor: {
-      typeKey: 'test-delay',
+      typeKey: `test-delay-${String(frames)}`,
       label: 'Test delay',
       category: ProcessorCategory.Level,
       version: { implementation: 1, parameters: 1 },

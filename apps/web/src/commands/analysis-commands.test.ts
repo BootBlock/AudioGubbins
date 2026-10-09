@@ -13,7 +13,7 @@ import type { LearnedState } from '@audiogubbins/detection-runtime';
 import { FAULTY_LENGTH, faultySignal } from '@audiogubbins/detection-runtime/testing';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { TEST_RATE } from '@audiogubbins/processors/testing';
-import { addChainInvocation, setRackInvocation } from '@audiogubbins/project-commands';
+import { setRackInvocation } from '@audiogubbins/project-commands';
 import type { SignalFixture } from '@audiogubbins/test-fixtures';
 
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
@@ -167,8 +167,7 @@ describe('applying what the assistants recommend', { timeout: 60_000 }, () => {
     const asset = stateOf(audio).state.project.assets.get(audio.assetId);
     if (asset === undefined) throw new Error('The asset is in the project.');
     const changed = audio.changed(audio.asset());
-    expectSuccess(await audio.session.run(addChainInvocation(quieter)));
-    expectSuccess(await audio.session.run(setRackInvocation({ kind: 'asset', asset }, quieter.id)));
+    expectSuccess(await audio.session.run(setRackInvocation({ kind: 'asset', asset }, quieter)));
     await changed;
     const racked = await noiseStep();
 

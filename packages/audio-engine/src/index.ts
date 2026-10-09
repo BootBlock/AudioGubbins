@@ -124,8 +124,12 @@ export { decibelsToGain, gainToDecibels } from './dsp/reference/decibels.js';
 export { exp } from './dsp/reference/exponential.js';
 export { ln, log10, log2 } from './dsp/reference/logarithm.js';
 export { pow } from './dsp/reference/power.js';
-export { besselI0, sineOfTurns } from './dsp/reference/primitives.js';
+export { sineOfTurns } from './dsp/reference/primitives.js';
 export { arctangentTurns, cosineOfTurns, tangentOfTurns } from './dsp/reference/trigonometry.js';
+
+// The phases of the true-peak filter of ITU-R BS.1770-4 Annex 2, the one table
+// of dBTP, which the canonical peak meter and the limiter both read.
+export { TRUE_PEAK_TAPS, truePeakPhases } from './dsp/reference/analysis/peak-meter.js';
 
 // The pieces of identity phase locking (Laroche and Dolson) the stretch's
 // vocoder is built from, which a pitch shift locks its phases by too, and the

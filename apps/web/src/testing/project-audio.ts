@@ -24,7 +24,6 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { SourceHandling } from '@audiogubbins/media-store';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import {
-  addChainInvocation,
   addMarkerInvocation,
   addRegionInvocation,
   setRackInvocation,
@@ -183,9 +182,8 @@ export async function rackedWithDeepFilterNet(
       },
     ],
   };
-  await audio.session.run(addChainInvocation(rack));
   const asset = audio.session.getSnapshot().model.state.project.assets.get(audio.assetId);
   if (asset === undefined) throw new Error('The sound is in the project.');
-  await audio.session.run(setRackInvocation({ kind: 'asset', asset }, rack.id));
+  await audio.session.run(setRackInvocation({ kind: 'asset', asset }, rack));
   return rack;
 }

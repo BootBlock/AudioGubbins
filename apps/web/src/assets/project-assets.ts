@@ -23,13 +23,16 @@
 
 import {
   anchorResolver,
+  assetChains,
   assetPlan,
   bypassedAssetPlan,
+  chainIdsOf,
   derivedSampleCount,
   unrackedAssetPlan,
   placeMarkers,
   placeRegions,
   planReadsAsset,
+  regionChains,
   type AnchorResolver,
   type Asset,
   type AssetId,
@@ -41,7 +44,6 @@ import {
   type PlacedMarker,
   type PlanContext,
   type Project,
-  type RangeEdit,
   type Region,
 } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
@@ -195,16 +197,9 @@ function chainsNamed(
   own: Owned,
   chains: PlanContext['chains'],
 ): readonly (EffectChain | undefined)[] {
-  const named = new Set<EffectChainId>();
-  const name = (edit: RangeEdit): void => {
-    if (edit.kind === 'rack') named.add(edit.chain);
-  };
-  if (own.asset.rack !== undefined) named.add(own.asset.rack);
-  for (const operation of own.asset.edits) if (operation.kind === 'process') name(operation.edit);
-  for (const region of own.regions) {
-    if (region.rack !== undefined) named.add(region.rack);
-    for (const operation of region.operations) name(operation.edit);
-  }
+  const named = new Set<EffectChainId>(chainIdsOf(assetChains(own.asset)));
+  for (const region of own.regions)
+    for (const id of chainIdsOf(regionChains(region))) named.add(id);
   return [...named].sort().map((id) => chains.get(id));
 }
 

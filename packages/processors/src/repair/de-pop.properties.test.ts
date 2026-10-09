@@ -4,6 +4,8 @@ import { DE_POP } from './de-pop.js';
 
 processorProperties(DE_POP, {
   layouts: EVERY_LAYOUT,
+  // It takes a pop's low-passed part away: bounded as the cut-only filters are.
+  bound: 4,
   settings: [
     { sensitivity: 6, frequency: 20, 'maximum-length': 50 },
     { frequency: 300, 'maximum-length': 5 },

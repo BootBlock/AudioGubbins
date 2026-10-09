@@ -14,11 +14,12 @@
  * DeepFilterNet 3 over its own model channel, its model on the fake runtime of
  * the inference workers the page starts.
  *
- * Opening a project that names a pack, applying a chain that runs a model,
- * previewing, rendering and analysing it make no request at all. Installing the
- * pack makes only the requests the download is for: a bodiless `GET` of the
- * catalogue and of each of the pack's files, with no credentials, no referrer
- * and no header, at a URL that is the catalogue's and the pack's alone.
+ * Opening a project, opening again one that names a pack, held or not with the
+ * catalogue served, applying a chain that runs a model, previewing, rendering
+ * and analysing it make no request at all. Installing the pack makes only the
+ * requests the download is for: a bodiless `GET` of the catalogue and of each
+ * of the pack's files, with no credentials, no referrer and no header, at a URL
+ * that is the catalogue's and the pack's alone.
  *
  * What the stand-ins change. The pack's files are stand-ins whose manifest
  * states their own hashes, so the installer's integrity check passes them, and
@@ -268,25 +269,43 @@ const CAPABLE_DEVICE: LocalInferenceSupport = {
 };
 
 /**
- * A window whose storage worker downloads packs by HTTP from the catalogue,
- * with the tone imported into a project, which is closed and opened again,
- * and its sound open in an editor in use.
+ * The project of `audio` closed and opened again, once `opened` holds of the
+ * page: what opening reads the project for has been made.
  */
-async function openedProject(): Promise<AudioWindow> {
-  const world = projectWorld(undefined, (catalogue) => new HttpPackSource(catalogue));
-  const audio = await windowWithAudio({ world, fixture: TONE, name: 'Quay' });
+async function reopened(
+  audio: AudioWindow,
+  opened: (window: ProjectWindow) => unknown,
+): Promise<AudioWindow> {
   const { window } = audio;
   const project = window.projects.project.session()?.project ?? '';
   await window.runAndHear('file.close-project');
   await window.runAndHear('file.open', { project });
   const session = window.projects.project.session();
   if (session === undefined) throw new Error('The project did not open again to change.');
-  await expect.poll(() => window.context.assets.find(audio.entry), { timeout: 5000 }).toBeDefined();
+  await expect.poll(() => opened(window), { timeout: 5000 }).toBeTruthy();
+  return { ...audio, session };
+}
+
+/** Why the page leaves the sound of `audio` unopened, once it has said. */
+function unopenedReason(audio: AudioWindow): (window: ProjectWindow) => string | undefined {
+  return (window) => window.context.assets.get().unopened.get(audio.entry)?.reason;
+}
+
+/**
+ * A window whose storage worker downloads packs by HTTP from the catalogue,
+ * with the tone imported into a project, which is closed and opened again,
+ * and its sound open in an editor in use.
+ */
+async function openedProject(): Promise<AudioWindow> {
+  const world = projectWorld(undefined, (catalogue) => new HttpPackSource(catalogue));
+  const imported = await windowWithAudio({ world, fixture: TONE, name: 'Quay' });
+  const audio = await reopened(imported, (window) => window.context.assets.find(imported.entry));
+  const { window } = audio;
   const asset = audio.asset();
   window.context.editorViews.open('editor', asset);
   window.context.editorViews.measured('editor', 1000, asset.length);
   window.context.editorViews.focus('editor');
-  return { ...audio, session };
+  return audio;
 }
 
 /**
@@ -480,6 +499,39 @@ describe(
       await racked(await openedProject());
 
       expect(since(from)).toEqual([]);
+    });
+
+    it('opens again a project that names a pack this device does not hold, the catalogue served, making no request', async () => {
+      serveCatalogue();
+      const audio = await openedProject();
+      await racked(audio);
+      const from = recorded.length;
+
+      const again = await reopened(audio, unopenedReason(audio));
+
+      expect(since(from)).toEqual([]);
+      expect(unopenedReason(audio)(again.window)).toMatch(
+        /^DeepFilterNet 3 cannot run because the model it needs is not available\. /,
+      );
+    });
+
+    it('opens again a project that names a pack this device holds, making no request', async () => {
+      serveCatalogue();
+      const audio = await openedProject();
+      await racked(audio);
+      await installed(audio.window);
+      const from = recorded.length;
+
+      // The page refuses the stand-ins as not the model the instance was made
+      // with, which it can say only once it has read the installed pack.
+      const again = await reopened(audio, (window) =>
+        unopenedReason(audio)(window)?.includes('is not the model'),
+      );
+
+      expect(since(from)).toEqual([]);
+      expect(unopenedReason(audio)(again.window)).toMatch(
+        /The installed DeepFilterNet 3 1\.0\.0 is not the model this instance was made with\.$/,
+      );
     });
 
     it('installs the pack by bodiless GETs of its catalogue and files alone, carrying nothing of the person or the project', async () => {

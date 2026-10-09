@@ -10,14 +10,16 @@
  * every event it has found is pulled. A detector block ends on a chunk's last
  * frame, so the frame its events arrive at, and the sensitivity they are judged
  * by there, are the same however the stream is cut. At the end of each block
- * every channel's flags, now known to that frame, are read in order: flags
- * fewer than `MERGE_GAP` frames apart are one span, widened by `SPAN_GUARD`
- * frames either side, and a span is decided once `MERGE_GAP` unflagged frames
- * follow it and the context after it has arrived. A span no longer than the
- * longest click is replaced by its interpolation, its removed part kept for the
- * auditioning output; a longer one is a sound, and left. Every frame is written
- * to the output `latency` frames after it arrived, by when any repair of it is
- * made (`click-geometry.ts` states why).
+ * every channel's flags, now known to that frame, are read in order: flags with
+ * no more than `MERGE_GAP` unflagged frames between them are one click
+ * (`joinsClick`), repaired with `SPAN_GUARD` frames either side, and a click is
+ * decided once more unflagged frames follow it and the context after it has
+ * arrived. A click no longer than the longest, its guards counted
+ * (`repairsClick`), is replaced by its interpolation, its removed part kept for
+ * the auditioning output; a longer one is a sound, and left. The click detector
+ * reports by the same rules. Every frame is written to the output `latency`
+ * frames after it arrived, by when any repair of it is made
+ * (`click-geometry.ts` states why).
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -35,9 +37,10 @@ import type { RampedParameter } from '../filters/ramped-parameter.js';
 import { GapInterpolator } from './autoregressive.js';
 import {
   CHUNK_FRAMES,
-  MERGE_GAP,
   MODEL_ORDER,
   SPAN_GUARD,
+  joinsClick,
+  repairsClick,
   type ClickGeometry,
 } from './click-geometry.js';
 
@@ -188,9 +191,9 @@ export class ClickKernel implements NodeKernel {
     const context = this.#parts.geometry.context;
     while (state.scanned <= known) {
       const frame = state.scanned;
-      if (state.first >= 0 && frame - state.last > MERGE_GAP) {
+      if (state.first >= 0 && !joinsClick(state.last, frame)) {
         if (state.last + SPAN_GUARD + context > known) return;
-        this.#repair(state, state.first - SPAN_GUARD, state.last + SPAN_GUARD);
+        this.#repair(state, state.first, state.last);
         state.first = -1;
       }
       if (state.flags[this.#index(frame)] === 1) {
@@ -201,10 +204,15 @@ export class ClickKernel implements NodeKernel {
     }
   }
 
-  /** Replaces the span from `first` to `last` by its interpolation, where it is a click. */
-  #repair(state: ClickChannel, first: number, last: number): void {
+  /**
+   * Replaces the click flagged from `flaggedFirst` to `flaggedLast`, its
+   * guards with it, by its interpolation, where it is one it repairs.
+   */
+  #repair(state: ClickChannel, flaggedFirst: number, flaggedLast: number): void {
+    if (!repairsClick(this.#parts.geometry, flaggedFirst, flaggedLast)) return;
+    const first = flaggedFirst - SPAN_GUARD;
+    const last = flaggedLast + SPAN_GUARD;
     const gap = last - first + 1;
-    if (gap > this.#parts.geometry.longest) return;
     const interpolator = this.#interpolator;
     const { context, surround, solution, order, contextLength } = interpolator;
     const ring = state.ring;

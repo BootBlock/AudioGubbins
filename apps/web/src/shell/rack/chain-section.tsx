@@ -4,7 +4,8 @@
  * (`chainListening`), how its preview differs from a render where its
  * processors read a quality setting, whether it is shared and with what, its
  * slots (`chain-view.tsx`), and what adds to it; and the ranges of the target
- * a chain processes, each opened to show its chain the same way.
+ * a chain processes, each opened to show its chain the same way, and each
+ * removed by the command that withdraws its rack edit.
  */
 
 import { useId, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -17,11 +18,12 @@ import {
   type EffectChain,
   type EffectChainId,
   type QualitySettingKey,
+  type RangeRack,
 } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { formatPosition } from '@audiogubbins/timeline';
 
-import { otherUsers, type RangeRack } from '../../commands/rack-target.js';
+import { otherUsers } from '../../commands/rack-target.js';
 import { chainWords, listeningText } from '../../commands/rack-words.js';
 import { previewDifferenceText } from '../../quality-words.js';
 import { previewQualityOf } from '../../state/audio-settings-store.js';
@@ -160,7 +162,10 @@ export function ChainSection({
   );
 }
 
-/** A range of the target a chain processes, opened to show its chain as the rack is shown. */
+/**
+ * A range of the target a chain processes, opened to show its chain as the
+ * rack is shown, with the command that removes that processing.
+ */
 function RangeRow({
   range,
   shown,
@@ -189,6 +194,13 @@ function RangeRow({
       >
         {`From ${at(range.range.start)} to ${at(range.range.end)}: ${runs}`}
       </Button>
+      <CommandButton
+        id="rack.remove-range"
+        label="Remove this processing"
+        commands={context}
+        args={{ view: shown.panel, operationId: range.operation }}
+        compact
+      />
       <div id={contentId} hidden={!opened}>
         {opened && chain !== undefined && (
           <ChainSection id={range.chain} chain={chain} shown={shown} context={context} />

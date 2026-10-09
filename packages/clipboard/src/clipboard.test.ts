@@ -29,10 +29,10 @@ import {
   canonicalJson,
   parseJson,
   readEditOperation,
-  readEffectChain,
+  readSlotAlone,
   startReading,
   writeEditOperation,
-  writeEffectChain,
+  writeSlot,
   type Converter,
   type JsonValue,
   type ProjectState,
@@ -42,7 +42,7 @@ import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { copyAudio, type AudioPayload } from './clipboard-payload.js';
 import { planPaste, type PasteRequest } from './paste-planning.js';
-import { copyProcessing, pasteProcessing } from './processing-payload.js';
+import { copyProcessing, pastedSlots } from './processing-payload.js';
 
 /**
  * Copying and pasting (ADR-0053), checked by what the result sounds like: each
@@ -435,12 +435,11 @@ describe('a copy of a chain whose groups nest as deep as the domain allows', () 
     }
   });
 
-  it('pastes the chain’s deepest group into another rack, which its change carries whole', () => {
+  it('pastes the chain’s deepest group as a slot its change carries whole', () => {
     const payload = expectSuccess(copyProcessing(deepestChain(ids).slots, false));
-    const target = { id: ids.next<'EffectChainId'>(), slots: [] };
 
-    const pasted = expectSuccess(pasteProcessing(payload, target, { index: 0 }, ids));
+    const [pasted] = pastedSlots(payload, ids);
 
-    expect(throughArgument(readEffectChain, writeEffectChain(pasted))).toEqual(pasted);
+    expect(throughArgument(readSlotAlone, writeSlot(pasted))).toEqual(pasted);
   });
 });

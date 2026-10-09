@@ -20,19 +20,12 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import {
-  chainUseCount,
-  chainUsers,
-  copyChain,
   treatmentChain,
   type EditTarget,
   type EffectChain,
   type ProcessorState,
 } from '@audiogubbins/domain';
-import {
-  addChainInvocation,
-  removeChainInvocation,
-  setRackInvocation,
-} from '@audiogubbins/project-commands';
+import { extendedRackInvocation, rackRangeInvocation } from '@audiogubbins/project-commands';
 import type { AssistantReport } from '@audiogubbins/detection-runtime';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { formatPosition } from '@audiogubbins/timeline';
@@ -40,11 +33,11 @@ import { formatPosition } from '@audiogubbins/timeline';
 import {
   EVERY_ASSISTANT,
   detectionIdentity,
+  treatmentPlacement,
   type Detection,
   type DetectionScope,
 } from '../analysis/detection-control.js';
 import { stepName } from '../analysis/detection-words.js';
-import { rackTargetOf, rangeRackInvocations } from './chain-placement.js';
 import { RANGE_OR_WHOLE, editedView } from './edit-target.js';
 import {
   editorTarget,
@@ -53,13 +46,9 @@ import {
   selectedTarget,
   type EditorTarget,
 } from './editor-target.js';
-import {
-  changeProject,
-  currentBasis,
-  needsProjectAsset,
-  onAsset,
-  type ProjectTarget,
-} from './project-edits.js';
+import { currentBasis, needsProjectAsset, onAsset, type ProjectTarget } from './project-edits.js';
+import { changeRacks } from './rack-changes.js';
+import { rackTargetOf } from './rack-target.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -207,41 +196,13 @@ function learnedStates(report: AssistantReport): readonly (ProcessorState | unde
   return states;
 }
 
-/** The invocations that give the whole target `chain` as its rack, after any rack it has. */
-function rackInvocations(
-  context: ShellContext,
-  project: ProjectTarget,
-  chain: EffectChain,
-): readonly CommandInvocation[] | string {
-  const target = rackTargetOf(project.owner);
-  const existing = target.kind === 'asset' ? target.asset.rack : target.region.rack;
-  if (existing === undefined) {
-    return [addChainInvocation(chain), setRackInvocation(target, chain.id)];
-  }
-  const { project: state } = project.state;
-  const rack = state.effectChains.get(existing);
-  if (rack === undefined) return 'Its rack names a chain the project does not hold.';
-  const extended: EffectChain = {
-    id: chain.id,
-    slots: [...copyChain(rack, context.ids).slots, ...chain.slots],
-  };
-  // The rack it had is taken out only where nothing else names it, as a chain
-  // something names cannot be removed.
-  const unnamed = chainUseCount(chainUsers(state, existing)) === 1;
-  return [
-    addChainInvocation(extended),
-    setRackInvocation(target, extended.id),
-    ...(unnamed ? [removeChainInvocation(existing)] : []),
-  ];
-}
-
-/** The invocations that process the range analysed, on the asset's timeline, with `chain`. */
-function rangeInvocations(
+/** The invocation that processes the range analysed, on the asset's timeline, with `chain`. */
+function rangeInvocation(
   context: ShellContext,
   project: ProjectTarget,
   scope: DetectionScope,
   chain: EffectChain,
-): readonly CommandInvocation[] {
+): CommandInvocation {
   const { owner } = project;
   const range = { start: onAsset(owner, scope.range.start), end: onAsset(owner, scope.range.end) };
   const target: EditTarget =
@@ -254,7 +215,7 @@ function rangeInvocations(
           basis: currentBasis(owner),
           range,
         };
-  return rangeRackInvocations(context, target, chain);
+  return rackRangeInvocation(target, context.ids.next<'EditOperationId'>(), chain);
 }
 
 function applyCommand(): Command<ShellContext> {
@@ -277,19 +238,21 @@ function applyCommand(): Command<ShellContext> {
       if (typeof states === 'string') return states;
       const chain = treatmentChain(steps, states, PROCESSOR_CATALOGUE, context.ids);
       if (!chain.ok) return chain.failures[0].summary;
-      const invocations = detection.scope.whole
-        ? rackInvocations(context, project, chain.value)
-        : rangeInvocations(context, project, detection.scope, chain.value);
-      if (typeof invocations === 'string') return invocations;
-      const [first, ...rest] = invocations;
-      if (first === undefined) return 'There is nothing to apply.';
+      const change =
+        treatmentPlacement(detection.scope) === 'rack'
+          ? extendedRackInvocation(
+              project.state.project,
+              rackTargetOf(project.owner),
+              chain.value,
+              context.ids,
+            )
+          : rangeInvocation(context, project, detection.scope, chain.value);
       const names = steps.map((step) => stepName(step).toLowerCase());
-      changeProject(context, project.session, {
+      return changeRacks(context, {
         description: `Apply the ${report.label} recommendation`,
-        invocations: [first, ...rest],
+        invocations: [change],
         said: `Applied the ${report.label} recommendation to ${scopeWords(view, detection.scope)}: ${names.join(', ')}.`,
       });
-      return undefined;
     },
     {
       availability: needsProjectAsset,

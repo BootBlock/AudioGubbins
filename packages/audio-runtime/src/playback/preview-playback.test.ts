@@ -177,7 +177,9 @@ describe('a racked sound played through the session', () => {
     await rig.render(20);
 
     expectSuccess(
-      await rig.session.changeParameters([{ processor: PROCESSOR, parameter: LEVEL, value: 3 }]),
+      await rig.session.changeParameters([
+        { stream: 1, processor: PROCESSOR, parameter: LEVEL, value: 3 },
+      ]),
     );
     // Well within the sound's 48,000 frames, so what is heard last is the
     // stream and not the silence after it.
@@ -203,7 +205,9 @@ describe('a racked sound played through the session', () => {
     );
     expect(
       expectFailureCode(
-        await rig.session.changeParameters([{ processor: PROCESSOR, parameter: LEVEL, value: 3 }]),
+        await rig.session.changeParameters([
+          { stream: 1, processor: PROCESSOR, parameter: LEVEL, value: 3 },
+        ]),
       ),
     ).toBe('playback.parameter-rendered');
   });

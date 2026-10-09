@@ -9,8 +9,8 @@
  * one a preview cannot run as it is heard (`cached-streams.ts`), and through
  * a run of its own otherwise (`processed-content.ts`). The chains are kept
  * as they stand, so a numeric parameter changed while the sound plays
- * reaches the run of each chain that holds the processor, and every run made
- * after it (`running-parameters.ts`).
+ * reaches the run of the stream it names, and every run made after it
+ * (`running-parameters.ts`).
  */
 
 import {
@@ -167,30 +167,28 @@ export class PlanReaders implements ParameterTarget {
   }
 
   /**
-   * Takes a parameter changed while the sound plays into every chain that
-   * runs the processor, or refuses it where a chain is heard from a render,
-   * which was made with the value it had.
+   * Takes a parameter changed while the sound plays into the chain of the
+   * stream it names, where that chain runs the processor, or refuses it where
+   * the chain is heard from a render, which was made with the value it had.
    */
   setParameter(change: ParameterChange): DomainResult<boolean> {
-    let held = false;
-    for (const [place, chain] of this.#chains) {
-      if (!runs(chain, change)) continue;
-      held = true;
-      if (this.#rendered(place, chain).kind === 'rendered') {
-        return fail(
-          failure(
-            'playback.parameter-rendered',
-            FailureKind.Rejected,
-            'That processor is heard from a render made with the value it had, so the render must be made again.',
-          ),
-        );
-      }
-      const changed = withChange(chain, change);
-      const taken = this.#runs.get(place)?.setParameter(changed, change) ?? succeed(undefined);
-      if (!taken.ok) return taken;
-      this.#chains.set(place, changed);
+    const place = change.stream;
+    const chain = this.#chains.get(place);
+    if (chain === undefined || !runs(chain, change)) return succeed(false);
+    if (this.#rendered(place, chain).kind === 'rendered') {
+      return fail(
+        failure(
+          'playback.parameter-rendered',
+          FailureKind.Rejected,
+          'That processor is heard from a render made with the value it had, so the render must be made again.',
+        ),
+      );
     }
-    return succeed(held);
+    const changed = withChange(chain, change);
+    const taken = this.#runs.get(place)?.setParameter(changed, change) ?? succeed(undefined);
+    if (!taken.ok) return taken;
+    this.#chains.set(place, changed);
+    return succeed(true);
   }
 
   release(): void {

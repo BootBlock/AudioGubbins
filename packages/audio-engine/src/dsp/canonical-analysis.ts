@@ -64,9 +64,12 @@ export interface PeakMeterSettings {
 }
 
 /**
- * Sample peak and true peak per channel (`peak.rs`). Below 96 kHz the true peak
- * oversamples by four with the recommendation's 48-tap filter, from 96 kHz by
- * two with half its phases, and from 192 kHz it is the sample peak.
+ * Sample peak and true peak per channel (`peak.rs`). The true peak is the
+ * larger of the sample peak and the peak of the signal oversampled: below 96
+ * kHz by four with the recommendation's 48-tap filter, from 96 kHz by two with
+ * half its phases, and from 192 kHz not at all. The filter passes a sample at
+ * 0.972 of itself, so oversampled alone a full-scale impulse would read 0.245
+ * dB under its sample peak.
  */
 export interface CanonicalPeakMeter {
   readonly channels: number;

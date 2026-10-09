@@ -5,6 +5,7 @@ import { setLayout } from '../testing/space-measures.js';
 import { PITCH_SHIFT } from './pitch-shift.js';
 
 processorProperties(PITCH_SHIFT, {
+  readsDsp: true,
   layouts: [
     StandardLayouts.mono,
     StandardLayouts.stereo,

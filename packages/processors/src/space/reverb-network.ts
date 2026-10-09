@@ -5,36 +5,52 @@
  * its own one-pole filter and mixed back into all eight by a Householder
  * matrix.
  *
- * - The lengths are the primes nearest above `size · L_i · rate / 48 000`
- *   for the stated primes `L_i` = 1499, 1889, 2381, 2999, 3371, 3803, 4177,
- *   4523 frames at 48 kHz (31 to 94 ms at the largest size), each above the
- *   one before, so they are distinct primes, mutually prime at every size
- *   and rate, and the echoes of one line never fall on another's.
- * - The feedback matrix is `A = I − (2/8)·𝟏𝟏ᵀ`: line `i` takes its own
- *   damped output less a quarter of the sum of all eight. `A` is orthogonal,
- *   so the mixing loses no energy and every loss is the lines' own.
- * - Line `i`, of `m` frames, is damped by `H(z) = g·(1 − b) / (1 − b·z⁻¹)`.
- *   Its gain at DC, `g = 10^(−3m / (RT60 · rate))`, from `decibelsToGain` of
+ * - The lengths are the primes nearest above `size · L_i · rate / 48 000` for
+ *   the stated primes `L_i` = 1499, 1889, 2381, 2999, 3371, 3803, 4177, 4523
+ *   frames at 48 kHz (31 to 94 ms at the largest size), each above the one
+ *   before, so they are distinct primes, mutually prime at every size and rate,
+ *   and the echoes of one line never fall on another's.
+ * - The feedback matrix is `A = I − (2/8)·𝟏𝟏ᵀ`: line `i` takes its own damped
+ *   output less a quarter of the sum of all eight. `A` is orthogonal, so the
+ *   mixing loses no energy and every loss is the lines' own.
+ * - Line `i`, of `m` frames, is damped by `H(z) = g·(1 − b) / (1 − b·z⁻¹)`. Its
+ *   gain at DC, `g = 10^(−3m / (RT60 · rate))`, from `decibelsToGain` of
  *   `−60m / (RT60 · rate)`, takes 60 dB from a sound every RT60 seconds
  *   whichever lines it passes through; its gain at the Nyquist frequency,
  *   `g·(1 − b)/(1 + b)`, is the `g` of a decay time shorter by the damping,
- *   `RT60 · (1 − damping)`, so `b = (1 − q)/(1 + q)` with `q` the ratio of
- *   the two gains.
- * - Every input channel enters every line alike, at `1 / √C` of `C`
- *   channels, so a sound's tail does not depend on the channel that carries
- *   it; distinct sign patterns would not do, since any two rows of signs
- *   cancel in half their places, and a sound common to two channels would
- *   reach only half the lines.
- * - Output channel `c` is `Σ_i h(c mod 8, i) / √8` of the lines, where
- *   `h(r, i) = (−1)^popcount(r AND i)` is the 8 × 8 Sylvester–Hadamard
- *   matrix. The lines' outputs are the input delayed by different primes,
- *   and the rows are orthogonal, so the outputs of up to eight channels are
- *   mutually decorrelated; a channel `c` past the eighth reads its lines
- *   `⌊c / 8⌋ · ⌊m / G⌋` frames before their ends, of `G` groups of eight,
- *   which decorrelates it from the channel eight before it. A mono input
- *   gives a mono reverb.
- * - The width blends each output channel with their mean: at 0 % every
- *   channel is the mean, at 100 % each is its own.
+ *   `RT60 · (1 − damping)`, so `b = (1 − q)/(1 + q)` with `q` the ratio of the
+ *   two gains.
+ * - Every input channel enters every line alike, at `1 / √C` of `C` channels,
+ *   so a sound's tail does not depend on the channel that carries it; distinct
+ *   sign patterns would not do, since any two rows of signs cancel in half
+ *   their places, and a sound common to two channels would reach only half the
+ *   lines.
+ * - Output channel `c` is row `c mod 8` of `O = (H / √8)·R` applied to the
+ *   lines' ends. `H`, with `h(r, i) = (−1)^popcount(r AND i)`, is the 8 × 8
+ *   Sylvester–Hadamard matrix, and `R` the reflection that takes `𝟏` to
+ *   `v = H·c / √8` with `c = (1, …, 1, −1)`, which is
+ *   `(6, 2, 2, −2, 2, −2, −2, 2) / √8`. The lines' outputs are the input
+ *   delayed by different primes, and `O` is orthogonal, so the outputs of up to
+ *   eight channels are mutually decorrelated; and since `H·H = 8·I`, every row
+ *   of `O` sums to `±1`. That matters because what enters every line alike, a
+ *   low tone that reaches every line in phase, and the sum of two paths through
+ *   the lines of one length (line `i` then `j`, and `j` then `i`) all lie along
+ *   `𝟏`. The rows of `H` alone put all of it in channel 0, the only row that
+ *   does not sum to 0, whose tail then had nearly twice the energy of the
+ *   others' and the only low end; through `O` every channel takes an equal
+ *   share. A channel `c` past the eighth reads its lines `⌊c / 8⌋ · ⌊m / G⌋`
+ *   frames before their ends, of `G` groups of eight, which decorrelates it
+ *   from the channel eight before it. A mono input gives a mono reverb.
+ * - The width blends each output channel with their mean: at 0 % every channel
+ *   is the mean, at 100 % each is its own.
+ * - An ambisonic set, in ACN with SN3D, is a sound field and not a set of
+ *   channels: its directional components sum to nothing for a source behind or
+ *   beside the listener, so the lines take W alone, which carries every source
+ *   at unit gain whatever its direction. The tail is a diffuse field, which in
+ *   SN3D carries `1 / (2l + 1)` of W's energy in each component of degree `l`:
+ *   channel `k` is the `k`th decorrelated tail at its diffuse weight
+ *   (`NetworkParts.diffuse`), and the width scales the directional components,
+ *   so at 0 % the tail is W's alone, heard alike from every direction.
  *
  * The pre-delay delays what enters the lines, read between two frames by
  * linear interpolation as it moves. Each frame is worked out in turn, from
@@ -74,6 +90,36 @@ const HADAMARD = Float64Array.from({ length: LINES * LINES }, (_, at) => {
   return parity === 0 ? 1 : -1;
 });
 
+/**
+ * `O = (H / √8)·R`, row-major, the output matrix: `R = I − 2·w·wᵀ / (wᵀ·w)`
+ * with `w = 𝟏 − v` reflects `𝟏` onto `v = H·c / √8`, `c = (1, …, 1, −1)`, two
+ * vectors of one length, so `O·𝟏 = H·v / √8 = c`.
+ */
+const OUTPUT = (() => {
+  const v = Float64Array.from({ length: LINES }, (_, line) => {
+    let sum = 0;
+    for (let row = 0; row < LINES; row += 1) {
+      sum += (HADAMARD[row * LINES + line] ?? 0) * (row === LINES - 1 ? -1 : 1);
+    }
+    return sum / Math.sqrt(LINES);
+  });
+  const w = Float64Array.from(v, (value) => 1 - value);
+  let norm = 0;
+  for (const value of w) norm += value * value;
+  const output = new Float64Array(LINES * LINES);
+  for (let row = 0; row < LINES; row += 1) {
+    for (let line = 0; line < LINES; line += 1) {
+      let sum = 0;
+      for (let k = 0; k < LINES; k += 1) {
+        const reflection = (k === line ? 1 : 0) - (2 * (w[k] ?? 0) * (w[line] ?? 0)) / norm;
+        sum += (HADAMARD[row * LINES + k] ?? 0) * reflection;
+      }
+      output[row * LINES + line] = sum / Math.sqrt(LINES);
+    }
+  }
+  return output;
+})();
+
 function isPrime(value: number): boolean {
   if (value < 2) return false;
   for (let divisor = 2; divisor * divisor <= value; divisor += 1) {
@@ -108,6 +154,12 @@ export interface NetworkParts {
   readonly damping: RampedParameter;
   readonly preDelay: RampedParameter;
   readonly width: RampedParameter;
+  /**
+   * Where the input and output are an ambisonic set in ACN with SN3D, each
+   * channel's diffuse-field weight against W, `1 / √(2l + 1)` for degree
+   * `l`; absent for a set of channels.
+   */
+  readonly diffuse?: Float64Array;
 }
 
 export class ReverbKernel implements NodeKernel {
@@ -210,12 +262,20 @@ export class ReverbKernel implements NodeKernel {
     }
   }
 
-  /** What enters every line at `frame`: the input's channels summed, pre-delayed. */
+  /**
+   * What enters every line at `frame`, pre-delayed: the input's channels
+   * summed, or a sound field's W alone.
+   */
   #enter(input: AudioFrameBlock, frame: number): void {
-    const { channels, rate, preDelayFrames, preDelay } = this.#parts;
+    const { channels, rate, preDelayFrames, preDelay, diffuse } = this.#parts;
     let sum = 0;
-    for (let channel = 0; channel < channels; channel += 1) {
-      sum += finiteSample(channelAt(input, channel)[frame] ?? 0);
+    if (diffuse === undefined) {
+      for (let channel = 0; channel < channels; channel += 1) {
+        sum += finiteSample(channelAt(input, channel)[frame] ?? 0);
+      }
+      sum /= Math.sqrt(channels);
+    } else {
+      sum = finiteSample(channelAt(input, 0)[frame] ?? 0);
     }
     const delay = ((preDelay.values[frame] ?? 0) * rate) / 1_000;
     const whole = Math.floor(delay);
@@ -224,15 +284,18 @@ export class ReverbKernel implements NodeKernel {
     const newer = position >= whole ? position - whole : position - whole + preDelayFrames;
     const older = newer === 0 ? preDelayFrames - 1 : newer - 1;
     const ring = this.#waiting;
-    ring[position] = flushSubnormal(sum / Math.sqrt(channels));
+    ring[position] = flushSubnormal(sum);
     this.#entering[0] = (ring[newer] ?? 0) * (1 - fraction) + (ring[older] ?? 0) * fraction;
     this.#waitingPosition = position + 1 === preDelayFrames ? 0 : position + 1;
   }
 
-  /** Each output channel at `frame`, from the lines' taps, blended with their mean by the width. */
+  /**
+   * Each output channel at `frame`, from the lines' taps: blended with their
+   * mean by the width, or a sound field's at its diffuse weight, the
+   * directional components scaled by the width.
+   */
   #tap(output: AudioFrameBlock, frame: number): void {
     const out = this.#out;
-    const scale = 1 / Math.sqrt(LINES);
     let mean = 0;
     for (let channel = 0; channel < out.length; channel += 1) {
       const row = (channel % LINES) * LINES;
@@ -243,13 +306,21 @@ export class ReverbKernel implements NodeKernel {
         if (ring === undefined) continue;
         let at = (this.#positions[line] ?? 0) + (this.#tapOffsets[group + line] ?? 0);
         if (at >= ring.length) at -= ring.length;
-        sum += (HADAMARD[row + line] ?? 0) * (ring[at] ?? 0);
+        sum += (OUTPUT[row + line] ?? 0) * (ring[at] ?? 0);
       }
-      out[channel] = sum * scale;
-      mean += sum * scale;
+      out[channel] = sum;
+      mean += sum;
+    }
+    const width = (this.#parts.width.values[frame] ?? 0) / 100;
+    const diffuse = this.#parts.diffuse;
+    if (diffuse !== undefined) {
+      channelAt(output, 0)[frame] = out[0] ?? 0;
+      for (let channel = 1; channel < out.length; channel += 1) {
+        channelAt(output, channel)[frame] = width * (diffuse[channel] ?? 0) * (out[channel] ?? 0);
+      }
+      return;
     }
     mean /= out.length;
-    const width = (this.#parts.width.values[frame] ?? 0) / 100;
     for (let channel = 0; channel < out.length; channel += 1) {
       channelAt(output, channel)[frame] = mean + width * ((out[channel] ?? 0) - mean);
     }

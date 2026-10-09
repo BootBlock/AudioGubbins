@@ -2,13 +2,17 @@
  * A stream of a plan made a stated length without a change of pitch
  * (ADR-0060), by the engine's phase vocoder (`dsp/phase-vocoder.ts`).
  *
- * Output frame `m` is centred at `m · H` of the output, `H` the synthesis
- * hop, and reads the input centred at the same place scaled by the ratio of
- * the lengths, rounded to a whole frame, so the hop the analysis takes is
- * whatever the ratio makes it while the synthesis hop stays fixed. This
- * module schedules the frames: it reads the stream once, in order, keeps the
- * window of input the next frame needs and the overlap-add of the output not
- * yet given, and hands each frame to the vocoder.
+ * Output frame `m` is centred at `m · H` of the output, `H` the synthesis hop,
+ * and reads the input centred at the same place scaled by the ratio of the
+ * lengths, rounded to a whole frame, so the hop the analysis takes is whatever
+ * the ratio makes it while the synthesis hop stays fixed. The first frame is
+ * `m = 1 − O/2`, `O` the overlap, the first whose window reaches past output
+ * frame 0, so every output frame is the sum of `O` windows and the stream
+ * starts at its full level rather than fading in over half a window; what the
+ * first frames read before the stream starts is silence. This module schedules
+ * the frames: it reads the stream once, in order, keeps the window of input the
+ * next frame needs and the overlap-add of the output not yet given, and hands
+ * each frame to the vocoder.
  *
  * Reads are made one at a time, in order, as with a processed stream
  * (`processed-content.ts`): a read behind the last starts again from the
@@ -72,6 +76,20 @@ export function stretchWindow(rate: number): number {
     size *= 2;
   }
   return size;
+}
+
+/**
+ * The input frame that output frame `m`, centred at `m · hop`, is centred on
+ * in a stream of `inputLength` frames made `length` long: `m · hop` scaled by
+ * the ratio of the lengths, rounded half up, exactly, since the product can
+ * pass what a double holds whole. `m` is below 0 for the first frames, and a
+ * BigInt quotient is truncated towards zero, so a negative one is floored.
+ */
+export function stretchCentre(m: number, hop: number, inputLength: number, length: number): number {
+  const scaled = BigInt(m * hop) * BigInt(inputLength) * 2n + BigInt(length);
+  const divisor = 2n * BigInt(length);
+  const quotient = scaled / divisor;
+  return Number(scaled % divisor < 0n ? quotient - 1n : quotient);
 }
 
 /** A stream made `length` frames long without a change of pitch, read in order. */
@@ -191,10 +209,11 @@ export class StretchedContent implements ContentReader {
       this.#vocoder = vocoder;
     }
     const half = this.#size / 2;
+    const earliest = 1 - this.#size / vocoder.hop / 2;
     const first =
       this.#settings.start === ProcessedStart.Preview
-        ? Math.max(0, Math.floor((start + half) / vocoder.hop) - PREVIEW_LEAD_FRAMES)
-        : 0;
+        ? Math.max(earliest, Math.floor((start + half) / vocoder.hop) - PREVIEW_LEAD_FRAMES)
+        : earliest;
     for (const output of this.#outputs) output.fill(0);
     this.#next = first;
     this.#outputBase = first * vocoder.hop - half;
@@ -204,16 +223,6 @@ export class StretchedContent implements ContentReader {
     this.#inputEnd = 0;
     this.#previousCentre = undefined;
     return vocoder;
-  }
-
-  /**
-   * The input frame output frame `m` is centred on: `m · H` scaled by the
-   * ratio of the lengths, rounded half up, exactly, since the product can pass
-   * what a double holds whole.
-   */
-  #centreOf(m: number, hop: number): number {
-    const scaled = BigInt(m * hop) * BigInt(this.#input.length) * 2n + BigInt(this.length);
-    return Number(scaled / (2n * BigInt(this.length)));
   }
 
   /** Adds the next frame to the output, making one more hop of it final. */
@@ -227,7 +236,7 @@ export class StretchedContent implements ContentReader {
       }
       this.#outputBase += hop;
     }
-    const centre = this.#centreOf(this.#next, hop);
+    const centre = stretchCentre(this.#next, hop, this.#input.length, this.length);
     await this.#fillInput(centre - size / 2, signal);
     const previous = this.#previousCentre;
     const analysisHop = previous === undefined ? undefined : centre - previous;

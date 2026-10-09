@@ -12,21 +12,24 @@ import {
   isLevelEdit,
   type EditOperationId,
   type EditTarget,
+  type EffectChain,
   type RangeEdit,
 } from '@audiogubbins/domain';
 
 import { applyInvocation } from './edit-commands.js';
-import { applyRegionEditInvocation } from './region-commands.js';
+import { applyRegionEditInvocation } from './region-invocations.js';
 
 /**
  * The invocation that processes `target`'s range with `edit`, as operation
- * `id`. A level edit acts on the target's channels; a channel edit names its
- * own channels and takes no scope, so the target's are not kept on it.
+ * `id`, a rack edit's chain going with it where `chain` is given whole. A
+ * level edit acts on the target's channels; a channel edit names its own
+ * channels and takes no scope, so the target's are not kept on it.
  */
 export function processTargetInvocation(
   target: EditTarget,
   id: EditOperationId,
   edit: RangeEdit,
+  chain?: EffectChain,
 ): CommandInvocation {
   const { range } = target;
   const channels =
@@ -36,11 +39,25 @@ export function processTargetInvocation(
       return applyRegionEditInvocation(
         { id: target.region },
         { id, basis: target.basis, range, ...channels, edit },
+        chain,
       );
     case 'asset':
       return applyInvocation(
         { id: target.asset },
         { id, kind: 'process', range, ...channels, edit },
+        chain,
       );
   }
+}
+
+/**
+ * The invocation that processes `target`'s range with `chain`, new to the
+ * project and given whole, as a rack edit that is operation `id`.
+ */
+export function rackRangeInvocation(
+  target: EditTarget,
+  id: EditOperationId,
+  chain: EffectChain,
+): CommandInvocation {
+  return processTargetInvocation(target, id, { kind: 'rack', chain: chain.id }, chain);
 }

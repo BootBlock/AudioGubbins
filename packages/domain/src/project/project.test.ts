@@ -10,6 +10,8 @@ import {
   type TrackId,
 } from '../identity/branded-id.js';
 import type { EditOperation, RegionOperation } from '../editing/operations.js';
+import type { EditPlan } from '../editing/plan.js';
+import type { EffectChain } from '../processing/effect-chain.js';
 import { assetOf, operationId, range } from '../testing/editing-fixtures.js';
 import { sampleRate, type SampleCount } from '../time/sample-time.js';
 import { expectSuccess } from '../testing/unwrap.js';
@@ -17,12 +19,16 @@ import type { Clip, Marker, Region } from './timeline.js';
 import { MAIN_OUTPUT, type Bus, type Track } from './routing.js';
 import {
   type Project,
+  assetChains,
+  chainIdsOf,
   chainUseCount,
   chainUsers,
   clipsOnTrack,
   createProject,
   isAssetInUse,
+  projectChains,
   projectLength,
+  regionChains,
   tracksInOrder,
 } from './project.js';
 
@@ -345,5 +351,52 @@ describe('chainUsers', () => {
     expect(
       chainUseCount(chainUsers(project, unsafeBrandId<'EffectChainId'>('33333333-cccc'))),
     ).toBe(0);
+  });
+
+  it('says the chains an asset or a region names, its rack first, then its ranges in order', () => {
+    expect(assetChains(edited)).toEqual({
+      rack: undefined,
+      ranges: [
+        { operation: operationId('first'), range: range(0, 10), chain: shared },
+        { operation: operationId('second'), range: range(0, 10), chain: shared },
+      ],
+    });
+    expect(chainIdsOf(assetChains(racked))).toEqual([shared]);
+    expect(chainIdsOf(regionChains({ ...processedRegion, rack: other }))).toEqual([other, shared]);
+  });
+});
+
+describe('projectChains', () => {
+  it('yields the project’s own chains and each a paste carries in the plan it was pasted as', () => {
+    const own: EffectChain = { id: unsafeBrandId<'EffectChainId'>('33333333-dddd'), slots: [] };
+    const carried: EffectChain = { id: unsafeBrandId<'EffectChainId'>('33333333-eeee'), slots: [] };
+    const layout = StandardLayouts.mono;
+    const payload: EditPlan = {
+      streams: [
+        { sampleRate: settings.sampleRate, layout, segments: [] },
+        {
+          sampleRate: settings.sampleRate,
+          layout,
+          segments: [],
+          processing: { kind: 'chain', chain: carried, input: layout },
+        },
+      ],
+    };
+    const pasted = assetOf('0005', 100, [
+      {
+        id: operationId('paste'),
+        kind: 'insert',
+        at: 0 as SampleCount,
+        payload,
+        convertRate: false,
+      },
+    ]);
+    const project: Project = {
+      ...createProject(projectId, 'Pasted', settings),
+      assets: new Map([[pasted.id, pasted]]),
+      effectChains: new Map([[own.id, own]]),
+    };
+
+    expect([...projectChains(project)]).toEqual([own, carried]);
   });
 });

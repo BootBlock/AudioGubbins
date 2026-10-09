@@ -13,11 +13,7 @@ import {
   type Region,
 } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import {
-  addChainInvocation,
-  setProcessorInvocation,
-  setRackInvocation,
-} from '@audiogubbins/project-commands';
+import { setProcessorInvocation, setRackInvocation } from '@audiogubbins/project-commands';
 import type { ListedEntry } from '@audiogubbins/storage';
 import { sine, type SignalFixture } from '@audiogubbins/test-fixtures';
 
@@ -77,8 +73,7 @@ async function racked(): Promise<{ audio: AudioWindow; rack: EffectChain }> {
     slots: [{ ...processor(audio, 'gain'), mix: 0.5 }, processor(audio, 'compressor')],
   };
   const changed = audio.changed(audio.asset());
-  await audio.session.run(addChainInvocation(rack));
-  await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, rack.id));
+  await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, rack));
   await changed;
   return { audio, rack };
 }
@@ -167,9 +162,8 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
       id: audio.window.context.ids.next<'EffectChainId'>(),
       slots: [processor(audio, 'gain')],
     };
-    await audio.session.run(addChainInvocation(own));
     await audio.session.run(
-      setRackInvocation({ kind: 'region', region: first, asset: assetOf(audio) }, own.id),
+      setRackInvocation({ kind: 'region', region: first, asset: assetOf(audio) }, own),
     );
 
     await audio.window.runAndHear('library.apply-chain', { entry, targets: `region:${first.id}` });
@@ -208,18 +202,18 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
     if (level === undefined) throw new Error('A gain has a level.');
     const louder = { ...gain, values: new Map<ParameterId, ParameterValue>([[level.id, 6]]) };
     await audio.session.run(setProcessorInvocation(louder));
-    const other = { ...processor(audio, 'gain'), enabled: false };
-    const second: EffectChain = {
-      id: audio.window.context.ids.next<'EffectChainId'>(),
-      slots: [other],
-    };
-    await audio.session.run(addChainInvocation(second));
-    await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, second.id));
     const saved = await audio.window.runAndHear('library.save-preset', {
       name: 'Six up',
       processorId: gain.id,
     });
     expect(saved).toBe('Saved the preset “Six up” to your library.');
+    // The rack replaced goes with it, as nothing else names its chain.
+    const other = { ...processor(audio, 'gain'), enabled: false };
+    const second: EffectChain = {
+      id: audio.window.context.ids.next<'EffectChainId'>(),
+      slots: [other],
+    };
+    await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, second));
     const before = stateOf(audio).history.cursor;
 
     const said = await audio.window.runAndHear('library.apply-preset', {
@@ -325,7 +319,7 @@ describe('the library of saved chains and presets (ADR-0060)', { timeout: 30_000
       id: context.ids.next<'EffectChainId'>(),
       slots: [processor(audio, 'gain')],
     };
-    await audio.session.run(addChainInvocation(rack));
+    await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, rack));
     await audio.window.runAndHear('library.save-chain', { name: 'Plain gain', chainId: rack.id });
 
     const other = await world.window();

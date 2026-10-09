@@ -1,7 +1,9 @@
 /**
  * Reverb: a room's tail from a feedback delay network of eight lines
  * (`reverb-network.ts`, which states its lengths, matrix, filters and taps),
- * on any layout, each output channel decorrelated from the others.
+ * on any layout, each output channel decorrelated from the others, and on a
+ * full ambisonic set of any order and convention as a diffuse sound field,
+ * worked in ACN with SN3D (`ambisonic-sets.ts`).
  *
  * The decay is the RT60, the seconds the tail takes to fall 60 dB at low
  * frequencies; the damping shortens it at high frequencies, to
@@ -21,8 +23,10 @@ import {
   ParameterTaper,
   ProcessorCategory,
   ZERO_SAMPLES,
+  ambisonicComponentOf,
   succeed,
   unsafeBrandId,
+  type ChannelLayout,
   type DomainResult,
   type NumericParameterDescriptor,
   type ProcessorSettings,
@@ -32,6 +36,7 @@ import type { NodeKernel } from '@audiogubbins/audio-engine';
 import { processorType, type ProcessorRun } from '../framework/processor-type.js';
 import { numberOf } from '../filters/parameter-values.js';
 import { RampedParameter } from '../filters/ramped-parameter.js';
+import { fullAmbisonicSetOf, inSn3d, sn3dLayout } from './ambisonic-sets.js';
 import { ReverbKernel, lineLengths } from './reverb-network.js';
 
 const TYPE = 'reverb';
@@ -114,6 +119,25 @@ function leadIn({ values, sampleRate }: ProcessorSettings): number {
   return fall + Math.ceil((numberOf(values, preDelay) * sampleRate) / 1_000) + longest;
 }
 
+/**
+ * Any layout of channels is kept as it is; a layout that states an ambisonic
+ * convention must be the full set it describes, since the tail is written by
+ * component.
+ */
+function outputLayout(input: ChannelLayout): DomainResult<ChannelLayout> {
+  if (input.ambisonic === undefined) return succeed(input);
+  const set = fullAmbisonicSetOf(input, 'A reverb');
+  return set.ok ? succeed(input) : set;
+}
+
+/** Each channel's diffuse-field weight against W in `layout`, a set in ACN with SN3D. */
+function diffuseWeights(layout: ChannelLayout): Float64Array {
+  return Float64Array.from(layout.roles, (_, channel) => {
+    const degree = ambisonicComponentOf(layout, channel)?.degree ?? 0;
+    return 1 / Math.sqrt(2 * degree + 1);
+  });
+}
+
 function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
   const ramp = (parameter: NumericParameterDescriptor) =>
     new RampedParameter(
@@ -122,7 +146,7 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
       run.sampleRate,
       run.blockFrames,
     );
-  return succeed(
+  const network = (diffuse?: Float64Array) =>
     new ReverbKernel({
       type: TYPE,
       channels: run.input.roles.length,
@@ -133,8 +157,14 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
       damping: ramp(damping),
       preDelay: ramp(preDelay),
       width: ramp(width),
-    }),
-  );
+      ...(diffuse === undefined ? {} : { diffuse }),
+    });
+  if (run.input.ambisonic === undefined) return succeed(network());
+  const set = fullAmbisonicSetOf(run.input, 'A reverb');
+  if (!set.ok) return set;
+  const sn3d = sn3dLayout(set.value.order);
+  if (!sn3d.ok) return sn3d;
+  return inSn3d(run, set.value.order, network(diffuseWeights(sn3d.value)));
 }
 
 /** Reverb, as a processor of the rack. */
@@ -149,9 +179,7 @@ export const REVERB = processorType({
     determinism: DeterminismClass.Canonical,
     wholePass: false,
     realTime: true,
-    // Every channel feeds the network and every channel takes its own taps,
-    // so any layout is kept as it is.
-    outputLayout: (input) => succeed(input),
+    outputLayout,
     latency: () => ({ kind: 'known', frames: ZERO_SAMPLES }),
     leadIn,
     frameGrid: () => 1,

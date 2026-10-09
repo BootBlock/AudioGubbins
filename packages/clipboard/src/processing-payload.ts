@@ -15,12 +15,10 @@ import {
   fail,
   failure,
   succeed,
-  withSlotAt,
   type ChainSlot,
   type DomainResult,
   type EffectChain,
   type IdGenerator,
-  type SlotPlace,
 } from '@audiogubbins/domain';
 
 /** Slots copied from a rack, in signal order, and whether they were the whole chain. */
@@ -48,32 +46,19 @@ export function copyProcessing(
 }
 
 /**
- * The chain with the copied slots placed at `place`, in their order, each a
- * copy under new identifiers, or why `place` is not a place in the chain.
+ * The copied slots as a paste places them, in their order, each a copy under
+ * new identifiers, so the slots pasted are never the slots copied; where they
+ * go in a rack is the rack's command's to check.
  */
-export function pasteProcessing(
+export function pastedSlots(
   payload: ProcessingPayload,
-  chain: EffectChain,
-  place: SlotPlace,
   ids: IdGenerator,
-): DomainResult<EffectChain> {
-  let pasted = chain;
-  for (const [offset, slot] of payload.slots.entries()) {
-    const next = withSlotAt(pasted, { ...place, index: place.index + offset }, copySlot(slot, ids));
-    if (next === undefined) {
-      return fail(
-        failure('clipboard.paste-place', FailureKind.Rejected, 'That is not a place in the rack.'),
-      );
-    }
-    pasted = next;
-  }
-  return succeed(pasted);
+): readonly [ChainSlot, ...ChainSlot[]] {
+  const [first, ...rest] = payload.slots;
+  return [copySlot(first, ids), ...rest.map((slot) => copySlot(slot, ids))];
 }
 
 /** A new chain of the copied slots, under new identifiers, for a target with no rack yet. */
 export function chainFromProcessing(payload: ProcessingPayload, ids: IdGenerator): EffectChain {
-  return {
-    id: ids.next<'EffectChainId'>(),
-    slots: payload.slots.map((slot) => copySlot(slot, ids)),
-  };
+  return { id: ids.next<'EffectChainId'>(), slots: pastedSlots(payload, ids) };
 }

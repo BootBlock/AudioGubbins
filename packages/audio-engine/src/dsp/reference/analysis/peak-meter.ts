@@ -2,14 +2,15 @@
  * Sample peak and true peak per channel, as `peak.rs` measures them: the
  * interpolating filter of ITU-R BS.1770-4 Annex 2, four phases of 12 taps,
  * each phase's output `Σ P[p][j] · x[n − j]` for `j` from 0 to 11, all four
- * below 96 kHz, phases 0 and 2 from 96 kHz, none from 192 kHz (where the true
- * peak is the sample peak), and a reading including the filter's tail.
+ * below 96 kHz, phases 0 and 2 from 96 kHz, none from 192 kHz, and a reading
+ * including the filter's tail, its true peak never under its sample peak.
  */
 
 import { gainToDecibels } from '../decibels.js';
 
 /** The taps of each phase. */
-const TAPS = 12;
+export const TRUE_PEAK_TAPS = 12;
+const TAPS = TRUE_PEAK_TAPS;
 
 /** ITU-R BS.1770-4 (10/2015), Annex 2, Table 1, as four phases; see `PHASES` in `peak.rs`. */
 const PHASES: readonly (readonly number[])[] = [
@@ -33,8 +34,14 @@ const PHASES: readonly (readonly number[])[] = [
   ],
 ];
 
-/** The phases used at a rate: all four below 96 kHz, two below 192 kHz, and none from there. */
-function phasesAt(rate: number): readonly (readonly number[])[] {
+/**
+ * The phases the true peak is read with at `rate`: all four below 96 kHz, two
+ * below 192 kHz, and none from there. Phase `p`'s tap `j` multiplies the
+ * input `j` frames before the newest, so the 48 taps, symmetric about 23.5,
+ * put phase `p`'s point `5.875 − p/4` frames before it. The one table of
+ * dBTP, which the limiter detects with too.
+ */
+export function truePeakPhases(rate: number): readonly (readonly number[])[] {
   if (rate < 96_000) return PHASES;
   if (rate < 192_000) return [PHASES[0] ?? [], PHASES[2] ?? []];
   return [];
@@ -73,7 +80,7 @@ export class ReferencePeakMeter {
 
   constructor(channels: number, sampleRate: number) {
     this.channels = channels;
-    this.#phases = phasesAt(sampleRate);
+    this.#phases = truePeakPhases(sampleRate);
     this.#history = Array.from({ length: channels }, () => new Float64Array(TAPS));
     this.#samplePeaks = new Float64Array(channels);
     this.#truePeaks = new Float64Array(channels);
@@ -108,7 +115,7 @@ export class ReferencePeakMeter {
       for (let count = 1; count < TAPS; count += 1) {
         truePeak = step(this.#drained, 0, this.#phases, truePeak);
       }
-      if (this.#phases.length === 0) truePeak = samplePeak;
+      truePeak = Math.max(truePeak, samplePeak);
       into[4 * channel] = samplePeak;
       into[4 * channel + 1] = gainToDecibels(samplePeak);
       into[4 * channel + 2] = truePeak;

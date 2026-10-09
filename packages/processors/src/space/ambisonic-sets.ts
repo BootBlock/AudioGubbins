@@ -27,7 +27,9 @@ import { nodeId, type SettingValue } from '@audiogubbins/audio-graph';
 import {
   BUILT_IN_NODES,
   BuiltInNodeType,
+  allocateBlock,
   channelAt,
+  portAt,
   type AudioFrameBlock,
   type NodeKernel,
 } from '@audiogubbins/audio-engine';
@@ -53,10 +55,10 @@ function refused(summary: string): DomainResult<never> {
 }
 
 /**
- * The convention of `input` where it is a full ambisonic set of order 1 to
- * 3 that the domain builds, or why `processor` refuses it.
+ * The convention of `input` where it is a full ambisonic set of any order
+ * that the domain builds, or why `processor` refuses it.
  */
-export function ambisonicSetOf(
+export function fullAmbisonicSetOf(
   input: ChannelLayout,
   processor: string,
 ): DomainResult<AmbisonicConvention> {
@@ -70,6 +72,20 @@ export function ambisonicSetOf(
       `${processor} takes a full ambisonic set, and this input does not have the channels its convention describes.`,
     );
   }
+  return succeed(convention);
+}
+
+/**
+ * The convention of `input` where it is a full ambisonic set of order 1 to
+ * 3 that the domain builds, or why `processor` refuses it.
+ */
+export function ambisonicSetOf(
+  input: ChannelLayout,
+  processor: string,
+): DomainResult<AmbisonicConvention> {
+  const full = fullAmbisonicSetOf(input, processor);
+  if (!full.ok) return full;
+  const convention = full.value;
   if (convention.order < 1 || convention.order > HIGHEST_ORDER) {
     return refused(
       `${processor} takes an ambisonic set of order 1 to ${String(HIGHEST_ORDER)}, and this input is of order ${String(convention.order)}.`,
@@ -125,6 +141,86 @@ export function conversionKernel(
   return layoutsMatch(from, to)
     ? succeed(undefined)
     : matrixKernel(from, to, { named: CONVERSION }, run);
+}
+
+/** What a kernel run in ACN with SN3D over a set of another convention holds. */
+interface Sn3dParts {
+  /** The kernel that works on the set in ACN with SN3D. */
+  readonly inner: NodeKernel;
+  /** The input read through `finiteSample`, as a one-port list made once. */
+  readonly finite: readonly AudioFrameBlock[];
+  /** The set moved into ACN with SN3D, the inner kernel's input. */
+  readonly moved: readonly AudioFrameBlock[];
+  /** The inner kernel's output, still in ACN with SN3D. */
+  readonly worked: readonly AudioFrameBlock[];
+  readonly into: NodeKernel;
+  readonly out: NodeKernel;
+}
+
+/**
+ * Runs a kernel that works in ACN with SN3D over a set of another convention:
+ * the input is read through `finiteSample`, since the engine's matrix node
+ * does not, moved into ACN with SN3D, worked, and moved back.
+ */
+class Sn3dKernel implements NodeKernel {
+  readonly #parts: Sn3dParts;
+
+  constructor(parts: Sn3dParts) {
+    this.#parts = parts;
+  }
+
+  process(
+    inputs: readonly AudioFrameBlock[],
+    outputs: readonly AudioFrameBlock[],
+    frames: number,
+  ): void {
+    const { inner, finite, moved, worked, into, out } = this.#parts;
+    copyFinite(portAt(inputs, 0), portAt(finite, 0), frames);
+    into.process(finite, moved, frames);
+    inner.process(moved, worked, frames);
+    out.process(worked, outputs, frames);
+  }
+
+  setParameter(name: string, value: number): DomainResult<void> {
+    return this.#parts.inner.setParameter(name, value);
+  }
+
+  release(): void {
+    this.#parts.inner.release();
+    this.#parts.into.release();
+    this.#parts.out.release();
+  }
+}
+
+/**
+ * `inner`, a kernel that works on a set of `order` in ACN with SN3D, run over
+ * the run's input set of that order, whatever its convention: as it is over a
+ * set already in ACN with SN3D, and otherwise between the engine's own
+ * conversions in and back out.
+ */
+export function inSn3d(
+  run: ProcessorRun,
+  order: number,
+  inner: NodeKernel,
+): DomainResult<NodeKernel> {
+  const sn3d = sn3dLayout(order);
+  if (!sn3d.ok) return sn3d;
+  const into = conversionKernel(run.input, sn3d.value, run);
+  if (!into.ok) return into;
+  const out = conversionKernel(sn3d.value, run.input, run);
+  if (!out.ok) return out;
+  if (into.value === undefined || out.value === undefined) return succeed(inner);
+  const block = (layout: ChannelLayout) => [allocateBlock(layout, run.sampleRate, run.blockFrames)];
+  return succeed(
+    new Sn3dKernel({
+      inner,
+      finite: block(run.input),
+      moved: block(sn3d.value),
+      worked: block(sn3d.value),
+      into: into.value,
+      out: out.value,
+    }),
+  );
 }
 
 /** Copies the first `frames` frames of `input` into `into`, each sample read by `finiteSample`. */

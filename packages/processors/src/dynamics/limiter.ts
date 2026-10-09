@@ -2,11 +2,13 @@
  * Limiter: a look-ahead brick-wall limiter that keeps every true peak at or
  * under its ceiling.
  *
- * Its look-ahead of `L = floor((ms × fs) ÷ 1000 + 0.5)` frames, a half rounded
- * up, is its latency, with the true-peak detector's own (`true-peak.ts`) at an
- * oversampling above 1: `R − 1` frames the interpolator reads ahead and `R` the
- * gain is held flat on each side of a peak, where `R` is 37, the frames its
- * taps reach. So the latency is `L` at 1 and `L + 2R − 1` above it.
+ * Its true peak is the canonical meter's, read by the meter's own filter
+ * (`true-peak.ts`) at an oversampling above 1, and its sample peak at 1. Its
+ * look-ahead of `L = floor((ms × fs) ÷ 1000 + 0.5)` frames, a half rounded up,
+ * is its latency, with the detector's own where it reads the meter's points:
+ * the 6 frames the filter reads ahead and the 6 each side of a peak over which
+ * the gain is kept at or under the gain the peak needs. So the latency is
+ * `L + 12` below 192 kHz above an oversampling of 1, and `L` otherwise.
  * `limiter-gain.ts` states how the gain is made; `lead-in` adds seven release
  * time constants to the latency.
  */
@@ -70,15 +72,18 @@ const lookAhead: NumericParameterDescriptor = {
   step: 0.1,
 };
 
-/** The latency, in frames, of a look-ahead of `lookAheadFrames` at `oversampling`. */
-function latencyFrames(lookAheadFrames: number, oversampling: number): number {
-  return lookAheadFrames + detectionDelay(oversampling) + interpolationReach(oversampling);
+/** The latency, in frames, of a look-ahead of `lookAheadFrames` at `oversampling` and `rate`. */
+function latencyFrames(lookAheadFrames: number, oversampling: number, rate: number): number {
+  return (
+    lookAheadFrames + detectionDelay(oversampling, rate) + interpolationReach(oversampling, rate)
+  );
 }
 
 function latency(settings: ProcessorSettings): ProcessorLatency {
   const frames = latencyFrames(
     framesOf(numberIn(settings.values, lookAhead), settings.sampleRate),
     settings.quality.oversampling,
+    settings.sampleRate,
   );
   return { kind: 'known', frames: derivedSampleCount(frames) };
 }
@@ -88,6 +93,7 @@ function leadIn(settings: ProcessorSettings): number {
   const delay = latencyFrames(
     framesOf(numberIn(values, lookAhead), sampleRate),
     settings.quality.oversampling,
+    sampleRate,
   );
   return delay + settlingFrames(sampleRate, numberIn(values, release));
 }
@@ -100,7 +106,7 @@ function kernel(run: ProcessorRun): DomainResult<NodeKernel> {
   return succeed(
     new LimiterKernel(parameters, run, {
       lookAheadFrames,
-      latencyFrames: latencyFrames(lookAheadFrames, run.quality.oversampling),
+      latencyFrames: latencyFrames(lookAheadFrames, run.quality.oversampling, run.sampleRate),
       ceiling: parameters.frames(ceiling.key),
       release: parameters.frames(release.key),
     }),

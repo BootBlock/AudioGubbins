@@ -184,15 +184,21 @@ function exportsNoFileTakes(
 const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
   "Recognising a file's format from its content alone, which the fixture and malformed-media tests hold to every form REQ-AUDIO-220 names and refuses; a reader recognises its file through `openAudio`.":
     ['packages/codecs/src/recognition.ts: recogniseAudio'],
+  'The input frame a stretched frame is centred on, which its test holds to rounding half up for the frames before the stream starts, a frame of difference no read of the output can show; the stretch reads it itself.':
+    ['packages/audio-engine/src/pcm/stretched-content.ts: stretchCentre'],
+  'The most unflagged frames inside one click, which the click tests place flags either side of; the de-click and the click detector read it through `joinsClick`.':
+    ['packages/processors/src/repair/click-geometry.ts: MERGE_GAP'],
   "Carrying a position and a span through the operations after their basis, which the anchors' tests hold to the edit model's rules one operation at a time; the domain places markers and regions through the resolver they make.":
     [
       'packages/domain/src/editing/anchors.ts: carryPosition',
       'packages/domain/src/editing/anchors.ts: carrySpan',
     ],
-  "The invocations that withdraw an asset's last operation and a region's, the inverses a change records, which the command tests run on their own; the history applies the inverses it recorded.":
+  "The pack versions the chains a state runs name, which the pins' test reads of a state whose only chain is one pasted audio carries; the pins read every state through the walk of what a project keeps.":
+    ['packages/storage/src/pack-pins.ts: modelsNamedBy'],
+  'The invocations that point one range at another chain and remove one slot, the inverses of changes the rack commands make, which the command tests and the random walk run alone; the application reaches them through `independentChainInvocations` and `removeSlotsInvocations`.':
     [
-      'packages/project-commands/src/editing/edit-commands.ts: withdrawInvocation',
-      'packages/project-commands/src/editing/region-commands.ts: withdrawRegionEditInvocation',
+      'packages/project-commands/src/processing/rack-commands.ts: setEditChainInvocation',
+      'packages/project-commands/src/processing/slot-commands.ts: removeSlotInvocation',
     ],
   "Reading and writing a region's loop on its own, which the document's tests round-trip apart from the region holding it; a document reads and writes a loop with its region.":
     [

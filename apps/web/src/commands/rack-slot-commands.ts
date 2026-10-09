@@ -15,14 +15,18 @@ import {
 } from '@audiogubbins/commands';
 import {
   findSlot,
+  slotsAt,
   withSlotMoved,
   withoutSlot,
   type ChainSlot,
   type EffectChain,
-  type EffectChainId,
   type SlotPlace,
 } from '@audiogubbins/domain';
-import { setChainInvocation } from '@audiogubbins/project-commands';
+import {
+  moveSlotInvocation,
+  removeSlotsInvocations,
+  setSlotControlInvocation,
+} from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { counted } from '@audiogubbins/text';
 import { SelectionFacet, withoutFacet } from '@audiogubbins/timeline';
@@ -33,12 +37,11 @@ import { sessionOf } from './project-access.js';
 import {
   LAW_NAMES,
   lawArgument,
-  listAt,
   placeArgument,
   slotName,
   switchArgument,
 } from './rack-arguments.js';
-import { changeRacks, slotInvocations } from './rack-changes.js';
+import { changeRacks } from './rack-changes.js';
 import { namedSlots, type HeldSlot } from './rack-target.js';
 import { shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
@@ -85,7 +88,7 @@ function switchCommand(
     (context, invocation) => {
       const found = slotsOf(context, invocation);
       if (typeof found === 'string') return found;
-      const { state, held } = found;
+      const { held } = found;
       const [first] = held;
       const value = switchArgument(invocation, control, first.slot[control]);
       if (typeof value === 'object') return value.refused;
@@ -96,9 +99,8 @@ function switchCommand(
       }
       return changeRacks(context, {
         description: `${spoken.step} ${slotsWords(changed)}`,
-        invocations: slotInvocations(
-          state,
-          changed.map(({ slot }): ChainSlot => ({ ...slot, [control]: value })),
+        invocations: changed.map(({ slot }) =>
+          setSlotControlInvocation(slot.id, { control, value }),
         ),
         said: `${spoken.done} ${slotsWords(changed)}.`,
       });
@@ -126,9 +128,8 @@ function setMixCommand(): Command<ShellContext> {
       const percent = `${String(Math.round(mix * 100))}%`;
       return changeRacks(context, {
         description: `Mix ${slotsWords(changed)} at ${percent}`,
-        invocations: slotInvocations(
-          found.state,
-          changed.map(({ slot }): ChainSlot => ({ ...slot, mix })),
+        invocations: changed.map(({ slot }) =>
+          setSlotControlInvocation(slot.id, { control: 'mix', value: mix }),
         ),
         said: `${slotsWords(changed)} is mixed at ${percent} processed.`,
       });
@@ -162,26 +163,14 @@ function setLawCommand(): Command<ShellContext> {
       }
       return changeRacks(context, {
         description: `Add a group’s branches by ${LAW_NAMES[law].toLowerCase()}`,
-        invocations: slotInvocations(
-          found.state,
-          changed.map((group) => ({ ...group, summing: law })),
+        invocations: changed.map((group) =>
+          setSlotControlInvocation(group.id, { control: 'summing', value: law }),
         ),
         said: `The group adds its branches by ${LAW_NAMES[law].toLowerCase()}.`,
       });
     },
     { keywords: ['group', 'parallel', 'sum', 'mean', 'equal power', 'law'], discoverable: false },
   );
-}
-
-/** The chains `held` are in, each with every slot of `held` it holds taken out. */
-function withoutHeld(held: readonly HeldSlot[]): ReadonlyMap<EffectChainId, EffectChain> {
-  const chains = new Map<EffectChainId, EffectChain>();
-  for (const { slot, chain } of held) {
-    const current = chains.get(chain.id) ?? chain;
-    // A slot inside a group taken out with it is gone already.
-    chains.set(chain.id, withoutSlot(current, slot.id) ?? current);
-  }
-  return chains;
 }
 
 function removeCommand(): Command<ShellContext> {
@@ -192,10 +181,12 @@ function removeCommand(): Command<ShellContext> {
     (context, invocation) => {
       const found = slotsOf(context, invocation);
       if (typeof found === 'string') return found;
-      const chains = withoutHeld(found.held);
       const refused = changeRacks(context, {
         description: `Remove ${slotsWords(found.held)} from a rack`,
-        invocations: [...chains.values()].map(setChainInvocation),
+        invocations: removeSlotsInvocations(
+          found.state,
+          found.held.map(({ slot }) => slot.id),
+        ),
         said: `Removed ${slotsWords(found.held)} from the rack.`,
       });
       if (refused !== undefined) return refused;
@@ -237,7 +228,7 @@ function moveTarget(
   }
   if (direction !== 'up' && direction !== 'down') return 'Move it up or down, or to a place.';
   const way: Direction = direction;
-  const length = listAt(chain, found.place.group)?.length ?? 0;
+  const length = slotsAt(chain, found.place.group)?.length ?? 0;
   const index = found.place.index + (way === 'up' ? -1 : 1);
   if (index < 0) return `${slotName(slot)} is first in its list already.`;
   if (index >= length) return `${slotName(slot)} is last in its list already.`;
@@ -267,10 +258,10 @@ function moveCommand(): Command<ShellContext> {
       ) {
         return unchanged('rack.unchanged', `${slotName(slot)} is there already.`);
       }
-      const at = after === undefined ? undefined : listAt(moved, after.group)?.length;
+      const at = after === undefined ? undefined : slotsAt(moved, after.group)?.length;
       return changeRacks(context, {
         description: `Move ${slotName(slot)}`,
-        invocations: [setChainInvocation(moved)],
+        invocations: [moveSlotInvocation(slot.id, place)],
         said: `Moved ${slotName(slot)} to place ${String((after?.index ?? 0) + 1)} of ${String(at ?? 0)}.`,
       });
     },

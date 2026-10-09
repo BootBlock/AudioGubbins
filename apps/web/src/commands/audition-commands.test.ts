@@ -137,7 +137,7 @@ describe('hearing the two states of an A/B comparison (REQ-STOR-195)', () => {
     if (processor === undefined) throw new Error('The rack holds DeepFilterNet 3.');
     // Known once the page has read which packs it holds: none.
     await expect.poll(() => context.modelGate.get()(processor)).toBeDefined();
-    await audio.window.runAndHear('edit.undo');
+    // One step gave the sound its rack, with the chain in it.
     await audio.window.runAndHear('edit.undo');
     await expect.poll(() => context.assets.find(audio.entry)).toBeDefined();
     context.editorViews.open('editor', audio.asset());

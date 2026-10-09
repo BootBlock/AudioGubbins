@@ -209,6 +209,7 @@ function identifierAt(fields: Fields, field: string): string {
 function parameterChangeFrom(fields: Fields): ParameterChange {
   const value = numberAt(fields, 'value');
   return {
+    stream: countAt(fields, 'stream'),
     processor: unsafeBrandId<'ProcessorId'>(identifierAt(fields, 'processor')),
     parameter: unsafeBrandId<'ParameterId'>(identifierAt(fields, 'parameter')),
     value,

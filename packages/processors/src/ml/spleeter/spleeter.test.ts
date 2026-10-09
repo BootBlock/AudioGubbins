@@ -13,6 +13,7 @@ import type { FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { Measurement } from '../../framework/whole-pass.js';
 import { standInModel, standInServices } from '../../testing/model-services.js';
+import { CHANNEL_VALUES, spleeterGainGraph } from '../../testing/spleeter-stand-in.js';
 import { largestDifference } from '../../testing/sample-difference.js';
 import { modelPassOf, passOver, planarChannels } from '../../testing/model-runs.js';
 import { modelProcessorType } from '../model-processor.js';
@@ -23,41 +24,6 @@ import { FRAME, HOP, MODEL_BINS, SEGMENT_FRAMES, SPLEETER_GRAPH } from './spleet
 /** `processor` over a stand-in for its graph's file, on the fake runtime. */
 function standIn(processor: ModelProcessor): ModelProcessor {
   return { ...processor, model: standInModel(processor.model) };
-}
-
-/** The values one channel of one segment holds in the graph's input and outputs. */
-const CHANNEL_VALUES = SEGMENT_FRAMES * MODEL_BINS;
-
-/**
- * A graph that estimates each stem's magnitude as the mixture's times a gain
- * of the stem's and channel's, so each stem's ratio mask is its gain squared
- * over the sum of every stem's; it keeps each input it heard.
- */
-function gainGraph(
-  stems: readonly string[],
-  gain: (stem: number, channel: number) => number,
-  heard: Float32Array[] = [],
-): FakeModel {
-  return {
-    inputs: [{ name: 'x', dims: [2, 'S', SEGMENT_FRAMES, MODEL_BINS] }],
-    outputs: [],
-    run: (inputs) => {
-      const x = inputs.get('x');
-      if (x === undefined) throw new Error('The graph is given x.');
-      heard.push(x.data.slice());
-      return new Map(
-        stems.map((name, stem) => [
-          name,
-          {
-            data: x.data.map(
-              (value, index) => value * gain(stem, Math.floor(index / CHANNEL_VALUES)),
-            ),
-            dims: x.dims,
-          },
-        ]),
-      );
-    },
-  };
 }
 
 function servicesWith(processor: ModelProcessor, graph: FakeModel) {
@@ -159,7 +125,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
     const input = programme(LENGTH, 2);
     const output = await separated(
       SPLEETER_2_STEMS,
-      gainGraph(TWO, (stem) => (stem === 0 ? 1 : 0)),
+      spleeterGainGraph(TWO, (stem) => (stem === 0 ? 1 : 0)),
       input,
       StandardLayouts.stereo,
     );
@@ -168,7 +134,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
 
   it('gives the same bits however the stream is read in chunks', async () => {
     const input = programme(LENGTH, 2);
-    const graph = () => gainGraph(TWO, (stem, channel) => (stem === 0 ? 1 : 0.5 + channel));
+    const graph = () => spleeterGainGraph(TWO, (stem, channel) => (stem === 0 ? 1 : 0.5 + channel));
     const once = await separated(SPLEETER_2_STEMS, graph(), input, StandardLayouts.stereo, {}, [
       LENGTH,
     ]);
@@ -188,7 +154,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
     const heard: Float32Array[] = [];
     await separated(
       SPLEETER_2_STEMS,
-      gainGraph(TWO, () => 1, heard),
+      spleeterGainGraph(TWO, () => 1, heard),
       input,
       StandardLayouts.stereo,
     );
@@ -216,7 +182,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
   it("lays each stem's ratio mask on the mix, by the stem its parameter chooses", async () => {
     const input = programme(LENGTH, 2);
     // Gains 1 to 4: each mask is its gain squared over 30.
-    const graph = gainGraph(FOUR, (stem) => stem + 1);
+    const graph = spleeterGainGraph(FOUR, (stem) => stem + 1);
     for (const [stem, mask] of [
       ['vocals', 1 / 30],
       ['bass', 9 / 30],
@@ -234,7 +200,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
     const input = programme(LENGTH, 2);
     const output = await separated(
       SPLEETER_4_STEMS,
-      gainGraph(FOUR, () => 0),
+      spleeterGainGraph(FOUR, () => 0),
       input,
       StandardLayouts.stereo,
       { stem: 'drums' },
@@ -243,7 +209,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
   });
 
   it('gives no stem anything above the bins the graph hears', async () => {
-    const graph = gainGraph(TWO, (stem) => (stem === 0 ? 1 : 0));
+    const graph = spleeterGainGraph(TWO, (stem) => (stem === 0 ? 1 : 0));
     const low = await separated(
       SPLEETER_2_STEMS,
       graph,
@@ -264,7 +230,7 @@ describe('Spleeter, around stand-in graphs', { timeout: 60_000 }, () => {
 
   it('hears mono as both channels of stereo and gives back the mean of the two', async () => {
     // The left channel's masks are a half, the right's one.
-    const graph = gainGraph(TWO, (stem, channel) => (channel === 0 || stem === 0 ? 1 : 0));
+    const graph = spleeterGainGraph(TWO, (stem, channel) => (channel === 0 || stem === 0 ? 1 : 0));
     const stereo = programme(LENGTH, 2);
     const fromStereo = await separated(SPLEETER_2_STEMS, graph, stereo, StandardLayouts.stereo);
     expect(largestDifference(fromStereo, scaled(stereo, [0.5, 1]))).toBeLessThan(1e-6);
@@ -293,7 +259,7 @@ describe("Spleeter's refusals", () => {
   });
 
   it('refuses a graph that gives no estimate of a stem, letting its session go', async () => {
-    const graph = gainGraph(['vocals', 'drums', 'bass'], () => 1);
+    const graph = spleeterGainGraph(['vocals', 'drums', 'bass'], () => 1);
     const refusal = refusalOf(
       await separation(SPLEETER_4_STEMS, graph, programme(44_100, 2), StandardLayouts.stereo),
     );

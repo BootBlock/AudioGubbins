@@ -16,6 +16,7 @@ import { useId, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 
 import { shapesOf, type EffectChainId, type ProcessorId } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
+import { targetChains } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { formatPosition } from '@audiogubbins/timeline';
 
@@ -25,7 +26,7 @@ import type { AssetCatalogue } from '../../state/asset-catalogue.js';
 import type { ProjectStores } from '../../state/project-stores.js';
 import { processorIn } from '../../commands/library-access.js';
 import { showPanelCommandId } from '../../commands/panel-commands.js';
-import { chainsOfTarget, targetName } from '../../commands/rack-target.js';
+import { targetName } from '../../commands/rack-target.js';
 import { chainWords, processorLabel } from '../../commands/rack-words.js';
 import { EditingPanelKinds } from '../../panel-kinds.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
@@ -143,7 +144,7 @@ function RackSummary({
     subject.region === undefined
       ? ({ kind: 'asset', asset } as const)
       : ({ kind: 'region', region: subject.region.region, asset } as const);
-  const { rack, ranges } = chainsOfTarget(target);
+  const { rack, ranges } = targetChains(target);
   const chain = rack === undefined ? undefined : state.project.effectChains.get(rack);
   const runs =
     chain === undefined

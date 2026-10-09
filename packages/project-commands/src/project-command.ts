@@ -51,11 +51,12 @@ export const ProjectCommandId = {
   SetRegion: commandId('project.set-region'),
   ApplyRegionEdit: commandId('project.apply-region-edit'),
   WithdrawRegionEdit: commandId('project.withdraw-region-edit'),
-  AddChain: commandId('project.add-chain'),
-  SetChain: commandId('project.set-chain'),
-  RemoveChain: commandId('project.remove-chain'),
   SetRack: commandId('project.set-rack'),
   SetEditChain: commandId('project.set-edit-chain'),
+  AddSlot: commandId('project.add-slot'),
+  RemoveSlot: commandId('project.remove-slot'),
+  MoveSlot: commandId('project.move-slot'),
+  SetSlotControl: commandId('project.set-slot-control'),
   SetProcessor: commandId('project.set-processor'),
 } as const;
 

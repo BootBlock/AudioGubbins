@@ -13,7 +13,7 @@ const LAYOUTS = [
   FIRST_ORDER,
 ];
 
-// Without a profile the node writes its input delayed.
+// Without a profile the node writes its input delayed, and reaches no DSP.
 processorProperties(NOISE_REDUCTION, {
   layouts: LAYOUTS,
   settings: [
@@ -26,6 +26,7 @@ processorProperties(NOISE_REDUCTION, {
 
 // With a profile learned from each channel’s own noise.
 processorProperties(NOISE_REDUCTION, {
+  readsDsp: true,
   layouts: LAYOUTS,
   settings: [
     { reduction: 60, sensitivity: 18, smoothing: 0, mode: 'noise', resolution: '8192' },

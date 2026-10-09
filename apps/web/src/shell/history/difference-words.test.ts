@@ -32,7 +32,7 @@ const NAMES: DifferenceNames = {
     [VOX, 'Vocals'],
     [INTRO, 'Intro'],
   ]),
-  chains: new Map([[CHAIN, { kind: 'track', name: 'Drums' }]]),
+  chains: new Map([[CHAIN, { kind: 'track', naming: 'whole', name: 'Drums' }]]),
 };
 
 describe('what differs between two compared states, in words (REQ-STOR-195)', () => {
@@ -73,6 +73,32 @@ describe('what differs between two compared states, in words (REQ-STOR-195)', ()
       'The track “Drums” differs in its gain, mute and pan.',
       'The marker “Intro” is in A only.',
       'The effects of the track “Drums”: “parametric-eq” differs in its place, whether it is on and a setting (0.5 in A, 0.75 in B).',
+    ]);
+  });
+
+  it('says a chain for the rack or range that names it, and one nothing names as a chain', () => {
+    const other = unsafeBrandId<'EffectChainId'>('00000000-0000-4000-8000-000000000009');
+    const loose = unsafeBrandId<'EffectChainId'>('00000000-0000-4000-8000-00000000000a');
+    const difference: StateDifference = {
+      ...SAME,
+      effectChains: [
+        { id: CHAIN, change: 'removed', slots: [] },
+        { id: other, change: 'added', slots: [] },
+        { id: loose, change: 'added', slots: [] },
+      ],
+    };
+    const names: DifferenceNames = {
+      entities: new Map(),
+      chains: new Map([
+        [CHAIN, { kind: 'asset', naming: 'whole', name: 'Quay' }],
+        [other, { kind: 'region', naming: 'range', name: 'Intro' }],
+      ]),
+    };
+
+    expect(differenceLines(difference, names)).toEqual([
+      'The rack of the asset “Quay” is in A only.',
+      'The chain over a range of the region “Intro” is in B only.',
+      'An effect chain is in B only.',
     ]);
   });
 

@@ -1,14 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAXIMUM_QUALITY, StandardLayouts } from '@audiogubbins/domain';
+import { MAXIMUM_QUALITY, StandardLayouts, sampleRate } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
 import { fingerprint } from '@audiogubbins/audio-engine/testing';
 import { chirp, noisySine } from '@audiogubbins/test-fixtures';
 
 import { TEST_RATE, processorValues, runProcessor } from '../testing/processor-run.js';
 import { LIMITER } from './limiter.js';
-import { firstFrame, runMono, tone, truePeakAtEightTimes } from '../testing/dynamics-runs.js';
+import { canonicalTruePeak, firstFrame, runMono, tone } from '../testing/dynamics-runs.js';
 
 const RATE = 48_000;
+
+/**
+ * `channel` followed by more silence than the limiter's latency, as the rack
+ * runs a stream on past its end by its latency: what is heard of the end then
+ * meets the silence after it, which a meter's reading of its tail reads too.
+ */
+function runOn(channel: Float32Array): Float32Array {
+  const padded = new Float32Array(channel.length + 2_048);
+  padded.set(channel);
+  return padded;
+}
 
 const atOversampling = (oversampling: 1 | 2 | 4 | 8) => ({
   ...MAXIMUM_QUALITY.settings,
@@ -25,10 +37,10 @@ function declaredLatency(values: Readonly<Record<string, number>>, oversampling:
   return latency.frames;
 }
 
-// The true-peak checks oversample seconds of programme eight times: about
-// 2 s each alone and more than twice that under the whole suite's load, so
-// they are given a budget of their own rather than Vitest's five-second
-// default.
+// The true-peak checks run the limiter over seconds of programme at several
+// rates and oversamplings: seconds alone and more than twice that under the
+// whole suite's load, so they are given a budget of their own rather than
+// Vitest's five-second default.
 describe('the limiter, against what it states', { timeout: 30_000 }, () => {
   it('renders a fixed programme to the bits recorded for it', () => {
     const input = [
@@ -39,7 +51,7 @@ describe('the limiter, against what it states', { timeout: 30_000 }, () => {
       { layout: StandardLayouts.mono, values: { ceiling: -1, release: 50 } },
       input,
     );
-    expect(fingerprint(out ?? new Float32Array(0))).toBe(4373760609816822602n);
+    expect(fingerprint(out ?? new Float32Array(0))).toBe(11393045454066888444n);
   });
 
   it('delays a sine under its ceiling by exactly its declared latency, at every oversampling', () => {
@@ -56,22 +68,48 @@ describe('the limiter, against what it states', { timeout: 30_000 }, () => {
     }
   });
 
-  it('keeps inter-sample peaks under its ceiling at four times, measured at eight', () => {
+  it('keeps the true peak under its ceiling as the canonical meter reads it, at four and eight times', () => {
     const ceiling = -1;
     const limit = 10 ** (ceiling / 20);
-    const quality = atOversampling(4);
-    // A quarter-rate sine at +6 dBFS whose samples fall 3 dB under its peaks,
-    // one whose peaks fall between the detector's points, and one near the
-    // top of the band the detector is stated for.
-    const signals = [
-      tone(RATE / 4, 2, RATE / 2, 1 / 8),
-      tone(RATE / 4, 2, RATE / 2, 1 / 8 + 1 / 32),
-      tone(0.42 * RATE, 2, RATE / 2, 0.07),
-    ];
-    for (const signal of signals) {
-      expect(truePeakAtEightTimes(signal)).toBeGreaterThan(1.99);
-      const out = runMono(LIMITER, { ceiling }, signal, quality);
-      expect(truePeakAtEightTimes(out)).toBeLessThanOrEqual(limit);
+    let seed = 1;
+    const noise = () => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return (seed / 2_147_483_648) * 2 - 1;
+    };
+    for (const rate of [44_100, 48_000, 96_000]) {
+      const frames = rate / 2;
+      // A quarter-rate sine at +6 dBFS whose samples fall 3 dB under its
+      // peaks, two near the top of the band, where the meter's filter reads a
+      // sine above its own peak, noise over the whole band, and loud bursts of
+      // a tone between quiet ones.
+      const signals = [
+        Float32Array.from({ length: frames }, (_, n) => 2 * Math.sin(Math.PI * (n / 2 + 1 / 4))),
+        Float32Array.from({ length: frames }, (_, n) => 2 * Math.sin(2 * Math.PI * 0.43 * n + 1.1)),
+        Float32Array.from({ length: frames }, (_, n) => 4 * Math.sin(2 * Math.PI * 0.45 * n + 0.3)),
+        Float32Array.from({ length: frames }, () => 3 * noise()),
+        Float32Array.from(
+          { length: frames },
+          (_, n) =>
+            (Math.floor(n / 500) % 2 === 1 ? 4 : 0.05) * Math.sin(2 * Math.PI * 0.23 * n + 0.7),
+        ),
+      ];
+      for (const signal of signals) {
+        expect(canonicalTruePeak([signal], rate)).toBeGreaterThan(1.99);
+        for (const oversampling of [4, 8] as const) {
+          const [out] = runProcessor(
+            LIMITER,
+            {
+              layout: StandardLayouts.mono,
+              values: { ceiling, 'look-ahead': 1, release: 20 },
+              quality: atOversampling(oversampling),
+              sampleRate: expectSuccess(sampleRate(rate)),
+            },
+            [runOn(signal)],
+            [128, 7],
+          );
+          expect(canonicalTruePeak([out ?? new Float32Array(0)], rate)).toBeLessThanOrEqual(limit);
+        }
+      }
     }
   });
 
@@ -88,11 +126,9 @@ describe('the limiter, against what it states', { timeout: 30_000 }, () => {
           values: { ceiling },
           quality: atOversampling(oversampling),
         },
-        programme,
+        programme.map(runOn),
       );
-      for (const channel of out) {
-        expect(truePeakAtEightTimes(channel)).toBeLessThanOrEqual(10 ** (ceiling / 20));
-      }
+      expect(canonicalTruePeak(out, TEST_RATE)).toBeLessThanOrEqual(10 ** (ceiling / 20));
     }
   });
 

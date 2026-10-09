@@ -22,6 +22,18 @@ import { TEST_RATE, runProcessor } from './index.js';
 import type { BiquadCascade } from '../filters/biquad.js';
 
 /**
+ * The radius of the pole pair of an Audio EQ Cookbook section at `frequency`
+ * and `q` at the test rate, whose denominator is `1 + α·k`, `−2·cos ω₀`,
+ * `1 − α·k` with `α = sin ω₀ / 2Q` (`k` 1, or `1/A` for a peaking section): a
+ * pair that rings has the product `a₂`, so the radius `√((1 − α·k)/(1 + α·k))`.
+ * Written from the cookbook, apart from the design code.
+ */
+export function cookbookPoleRadius(frequency: number, q: number, k = 1): number {
+  const alpha = (Math.sin((2 * Math.PI * frequency) / TEST_RATE) / (2 * q)) * k;
+  return Math.sqrt((1 - alpha) / (1 + alpha));
+}
+
+/**
  * The layouts every filter here is run over: each takes any layout and
  * treats every channel alike, a first-order ambisonic set among them.
  */

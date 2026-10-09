@@ -303,6 +303,20 @@ function largestDifference(
   return most;
 }
 
+/**
+ * The largest difference between `heard` and `expected`, frame for frame, in
+ * units of float32 rounding at each expected sample: a sample heard is the
+ * expected value rounded to float32, so no frame differs by more than one.
+ */
+function largestRoundingError(heard: Float32Array, expected: Float32Array): number {
+  let most = 0;
+  for (const [frame, wanted] of expected.entries()) {
+    const unit = Math.max(Math.abs(wanted) * 2 ** -23, 2 ** -149);
+    most = Math.max(most, Math.abs((heard[frame] ?? 0) - wanted) / unit);
+  }
+  return most;
+}
+
 /** Makes a project through the banner's New project button, and waits for it to open. */
 async function makeProject(page: Page, name: string): Promise<void> {
   await banner(page).getByRole('button', { name: 'New project…' }).click();
@@ -452,13 +466,17 @@ test.describe('the effect rack', () => {
       expect(
         largestDifference(heard.processed.left, heard.original.left, processed.end, LENGTH),
       ).toBe(0);
-      // The region heard is its span of the sound, through its rack's gain.
+      // The region heard is its span of the sound, through its rack's gain,
+      // sample for sample: a level alone would not tell another span.
       const span = region.end - region.start;
-      expect(heard.region.left.length).toBe(span);
-      const underneath = heard.original.left.slice(region.start, region.end);
-      expect(
-        levelOf(heard.region.left, 48, span - 48) - levelOf(underneath, 48, span - 48),
-      ).toBeCloseTo(REGION_GAIN, 1);
+      const factor = 10 ** (REGION_GAIN / 20);
+      for (const channel of ['left', 'right'] as const) {
+        expect(heard.region[channel].length).toBe(span);
+        const scaled = heard.original[channel]
+          .slice(region.start, region.end)
+          .map((sample) => sample * factor);
+        expect(largestRoundingError(heard.region[channel], scaled)).toBeLessThanOrEqual(1);
+      }
     });
 
     await page.reload();

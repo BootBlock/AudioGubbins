@@ -12,10 +12,10 @@
  * it as their rack, in place of any rack they had, since a saved chain is a
  * whole rack the person built and applying it to several targets is how they
  * are given the same processing. A rack replaced is removed where nothing else
- * names it, as a chain something names cannot be. Each target gets a chain of
- * its own, so changing one later changes no other; asked to share, every target
- * names one copy, the shared chain of REQ-EDIT-014, so a change to it reaches
- * them all. Both are offered because both are what a person means at different
+ * names it, by the project's rack command. Each target gets a chain of its own,
+ * so changing one later changes no other; asked to share, every target names
+ * one copy, the shared chain of REQ-EDIT-014, so a change to it reaches them
+ * all. Both are offered because both are what a person means at different
  * times: a starting point for each target, or one treatment kept in step across
  * them.
  *
@@ -25,8 +25,6 @@
 
 import { CommandCategory, type Command, type CommandInvocation } from '@audiogubbins/commands';
 import {
-  chainUseCount,
-  chainUsers,
   copyChain,
   isWellFormedId,
   succeed,
@@ -34,15 +32,12 @@ import {
   withPreset,
   type DomainResult,
   type EditTarget,
-  type EffectChain,
-  type EffectChainId,
   type LibraryEntryId,
 } from '@audiogubbins/domain';
 import {
-  addChainInvocation,
-  removeChainInvocation,
+  rackEachInvocations,
+  rackRangeInvocation,
   setProcessorInvocation,
-  setRackInvocation,
   type RackTarget,
 } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
@@ -50,7 +45,6 @@ import type { ChangeOutcome } from '@audiogubbins/storage';
 import { counted, quoted } from '@audiogubbins/text';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
-import { rangeRackInvocations } from './chain-placement.js';
 import { RANGE_ONLY, editScope, editedView } from './edit-target.js';
 import { selectedTarget } from './editor-target.js';
 import {
@@ -169,37 +163,6 @@ function rackTargets(
   return targets;
 }
 
-/**
- * The invocations that make `chain` the rack of every target, a copy each or
- * one copy shared, and remove each rack they had that nothing else names.
- */
-function rackInvocations(
-  context: ShellContext,
-  state: ProjectState,
-  targets: readonly RackTarget[],
-  chain: EffectChain,
-  share: boolean,
-): readonly CommandInvocation[] {
-  const shared = copyChain(chain, context.ids);
-  const invocations: CommandInvocation[] = share ? [addChainInvocation(shared)] : [];
-  const replaced = new Map<EffectChainId, number>();
-  for (const target of targets) {
-    const own = share ? shared : copyChain(chain, context.ids);
-    if (!share) invocations.push(addChainInvocation(own));
-    invocations.push(setRackInvocation(target, own.id));
-    const before = target.kind === 'asset' ? target.asset.rack : target.region.rack;
-    if (before !== undefined) replaced.set(before, (replaced.get(before) ?? 0) + 1);
-  }
-  // A rack these targets alone named is named by nothing once they are given
-  // the new one; one named elsewhere too stays, as it must.
-  for (const [before, named] of replaced) {
-    if (chainUseCount(chainUsers(state.project, before)) === named) {
-      invocations.push(removeChainInvocation(before));
-    }
-  }
-  return invocations;
-}
-
 /** What one or several targets are called in a sentence. */
 function targetWords(targets: readonly RackTarget[]): string {
   const [only] = targets;
@@ -229,12 +192,14 @@ async function applyChain(
   let where: string;
   if (placement.kind === 'range') {
     const copy = copyChain(content.chain, context.ids);
-    invocations = rangeRackInvocations(context, placement.target, copy);
+    invocations = [
+      rackRangeInvocation(placement.target, context.ids.next<'EditOperationId'>(), copy),
+    ];
     where = `a range of ${placement.name}`;
   } else {
     const targets = rackTargets(state, placement.targets);
     if (typeof targets === 'string') return refused(targets);
-    invocations = rackInvocations(context, state, targets, content.chain, share);
+    invocations = rackEachInvocations(targets, content.chain, share, context.ids);
     where = `${targetWords(targets)}${share && targets.length > 1 ? ', one chain shared' : ''}`;
   }
   const [first, ...rest] = invocations;

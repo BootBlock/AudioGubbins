@@ -25,3 +25,13 @@ export function finiteSample(sample: number): number {
 export function flushSubnormal(state: number): number {
   return state > SMALLEST_STATE || state < -SMALLEST_STATE ? state : 0;
 }
+
+/**
+ * Whether a state has decayed below `SMALLEST_STATE`, for a kernel whose
+ * states must be flushed together: one of two flushed alone puts the error of
+ * the flush into the other, which a resonance can raise above the floor again
+ * for ever.
+ */
+export function belowSilence(state: number): boolean {
+  return state <= SMALLEST_STATE && state >= -SMALLEST_STATE;
+}

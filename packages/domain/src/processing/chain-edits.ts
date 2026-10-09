@@ -49,6 +49,23 @@ export function findSlot(chain: Pick<EffectChain, 'slots'>, id: string): FoundSl
   return findIn(chain.slots, id, undefined);
 }
 
+/** The slots of the list at `group` in `chain`, or `undefined` where it has no such list. */
+export function slotsAt(
+  chain: Pick<EffectChain, 'slots'>,
+  group: SlotPlace['group'],
+): readonly ChainSlot[] | undefined {
+  if (group === undefined) return chain.slots;
+  for (const slot of chain.slots) {
+    if (slot.kind !== 'group') continue;
+    if (slot.id === group.id) return slot.branches[group.branch]?.slots;
+    for (const branch of slot.branches) {
+      const found = slotsAt(branch, group);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
 /**
  * The slots with the list at `place`'s level changed by `change`, or
  * `undefined` where `place` names a group or branch the slots do not have.

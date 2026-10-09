@@ -165,6 +165,22 @@ describe.each([
     expect(Math.abs((reading[3] ?? 0) + 6)).toBeLessThan(0.1);
   });
 
+  it('never reads the true peak of a full-scale impulse under its sample peak, at any rate', () => {
+    // The interpolating filter writes a sample at 0.972 of itself at most.
+    for (const hertz of [44_100, 48_000, 96_000, 192_000]) {
+      const impulse = new Float32Array(64);
+      impulse[20] = -1;
+      const meter = expectSuccess(
+        dspOf().createPeakMeter({ channels: 1, sampleRate: expectSuccess(sampleRate(hertz)) }),
+      );
+      meter.push([impulse]);
+      const reading = new Float64Array(4);
+      meter.read(reading);
+      meter.release();
+      expect([...reading]).toEqual([1, 0, 1, 0]);
+    }
+  });
+
   it('measures EBU Tech 3341 case 1 at −23 LUFS within a tenth', () => {
     const { integrated, last } = loudnessOf(dspOf(), StandardLayouts.stereo, [[[-23, -23], 20]]);
     for (const value of [integrated, ...last]) expect(Math.abs(value + 23)).toBeLessThan(0.1);

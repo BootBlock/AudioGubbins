@@ -5,12 +5,14 @@
  *
  * A processor's values are read as values a parameter may hold: a finite
  * number, a choice's key or a toggle. Whether each suits its parameter, and
- * whether this build has the processor type and the versions it was saved
- * with, is the processor catalogue's question, which the project's opening
- * and every command ask (`chainOutputLayout`); descriptors belong to the
- * build, not the file. A value is never clamped or repaired here. The
- * chain's shape, its bounds and the uniqueness of its slots are the domain's
- * `validateChainShape`, run on every chain read.
+ * whether this build has the processor type and the versions it was saved with,
+ * is the processor catalogue's question, which plan building alone asks
+ * (`chainOutputLayout`), making an entry it refuses unavailable with the
+ * reason: opening a project and the commands do not, since a document from
+ * another build may hold such a chain; descriptors belong to the build, not the
+ * file. A value is never clamped or repaired here. The chain's shape, its
+ * bounds and the uniqueness of its slots are the domain's `validateChainShape`,
+ * run on every chain read.
  */
 
 import {

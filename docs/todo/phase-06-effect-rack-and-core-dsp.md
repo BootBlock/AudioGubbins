@@ -26,7 +26,9 @@ fix its findings, land. The packet's commands are root scripts; this phase adds
 
 ## Decisions taken in the build
 
-These settle what the ADRs leave to the implementation. None changes an ADR.
+These settle what the ADRs leave to the implementation. Those that change
+an ADR are recorded by its dated "Amended" line (ADR-0061, ADR-0062, and
+the package dependencies in ADR-0030 and ADR-0040).
 
 1. **The chain.** `EffectChain` holds `slots`, each a `ProcessorInstance` or a
    `ParallelGroup` (`kind`), each with its own `enabled`, `soloed` and `mix`
@@ -76,7 +78,11 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
    what the catalogue refuses (changed 2026-10-05): such a plan is an
    unavailable entry with its reason, a state a document from another build
    may hold, and a command that refused it could not be undone (the random
-   command walk found this).
+   command walk found this). A chain enters the project with what first
+   names it and leaves with what last names it, in the same command, whose
+   inverse gives it back (`project-commands/src/processing/chain-naming.ts`);
+   a chain nothing names cannot be named again by its identifier
+   (`chain.unnamed`), since undoing that would remove it.
 9. **Persisted form.** A chain is written by `chain-writing.ts` and read by
    `chain-reading.ts` (project-format), the one form for a project, a plan's
    processed stream, the library and the clipboard. Schema versions:
@@ -94,11 +100,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
 12. **The engine's port.** `ChainProcessing.prepare(request, read)` in
     `packages/audio-engine/src/pcm/chain-processing.ts` answers a `ChainRun`
     (latency, layout, process, setParameter, release) for a run from
-    `ChainRequest.start`; `partWayStart(request)` answers the lead-in and
-    frame grid before it; the effect rack implements both
-    (`chainProcessing(types)`). A chain of unknown latency is refused.
+    `ChainRequest.start`; `listening(request)` answers how the chain is
+    heard, with its `partWay` (the lead-in and frame grid before a start);
+    the effect rack implements both (`chainProcessing(types)`). A chain of
+    unknown latency is refused. The lead-in is the processors' lead-ins
+    summed along a series path and the largest across a group's branches,
+    over the walk `chainLatency` shares (`measureSlots`); each lead-in is
+    counted in its own input's frames and holds its own latency, so no
+    latency term is added.
 13. **App caches.** An app entry is rebuilt when a chain its plans name
-    changes (`chainsNamed`), its rate is its plan's first stream's, and its
+    changes (`chainsNamed`, built on the domain's `assetChains`,
+    `regionChains` and `chainIdsOf`), its rate is its plan's first stream's, and its
     peak revision is the plan's canonical JSON, so parameter values count.
 14. **Part-way starts.** A descriptor states its `frameGrid`: the frames its
     kernel counts analysis frames or blocks in from its first frame (noise
@@ -218,7 +230,9 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     the lead-in and frame grid: one rule shared with running changes. Peaks
     and detection read every processed stream from a render. A parameter
     change is a project command; playback follows the catalogue
-    (`runningChanges` reach `ChainRun.setParameter`); a rendered chain
+    (`runningChanges`, keyed by stream place and processor, so a pasted
+    copy of a processed stream is never changed with the live rack, reach
+    `ChainRun.setParameter`); a rendered chain
     refuses it and playback reloads where it plays, remaking the render.
 
 27. **ML in the application** (2026-10-07). One inference worker per runtime
@@ -251,12 +265,17 @@ These settle what the ADRs leave to the implementation. None changes an ADR.
     its busy and pinned refusals by code and fails on any other.
 
 28. **The views** (2026-10-07). Every action is a shell command over the
-    project commands, one history step each. `rack.*` commands
+    project commands, one history step each, named for what the person
+    did. The rack edits are typed project commands with inverses
+    (`project.add-slot`, `remove-slot`, `move-slot`, `set-slot-control`,
+    `set-rack`, and the invocation builders for a range, independence and
+    applying to several targets); `rack.*` commands
     (`apps/web/src/commands/rack-*.ts`) add, remove, move, bypass, solo and
     mix processors, set and reset parameters (out of range refused, never
     clamped), add parallel groups and set their law, take a rack away, make a
-    shared chain independent, and copy and paste through the clipboard's
-    chain payload; `editor.select-processor` selects one. The "Effects rack"
+    shared chain independent, remove a range's rack edit
+    (`rack.remove-range`, the latest edit only), and copy and paste through
+    the clipboard's chain payload; `editor.select-processor` selects one. The "Effects rack"
     panel and the Inspector share one processor control (`ValueSlider` with
     the descriptor's taper, `parameter-control.ts` in the domain). No
     mechanism joins a drag into one history step, so a value is committed at
@@ -523,6 +542,34 @@ commits), with `verify:commit` green:
   paused and resumed it, and made no request beyond the app's and the
   pack's files.
 
+Seventh session, 2026-10-09: the one review pass's findings, fixed in
+batches, each fix with a test seen to fail against the old code.
+
+- Batch A (domain, project commands, the app's commands): the chain's
+  lifecycle and the rack edits as project commands (decisions 8 and 28),
+  the lead-in by series sum and branch maximum (decision 12), running
+  changes by stream place (decision 26), every chain a project runs
+  (`projectChains`, which pack pins and pack needs read), history names
+  for every chain owner (`chainOwner` on `chainUsers`), the Library's
+  words, and locality tests that reopen a project naming a pack.
+- Batch B (processors, the engine's DSP, `crates/analysis`): the reverb
+  feeds an ambisonic set's network from W and writes decorrelated tails at
+  the SN3D diffuse-field weights, and every output row of its matrix sums
+  to plus or minus one (stereo's first channel had twice the energy); a
+  model whose output is not finite refuses the render
+  (`processor.model-output-not-finite`); a stale or mis-shaped
+  normalisation measurement is refused (`processor.measurement-stale`);
+  the property harness runs whole passes as the rack does and adds
+  `fallsSilent` and `readsDsp`, with bounds by physics; a biquad cascade
+  zeroes both states together (de-hum stuck near 3e-28 before); a stretch
+  starts its frames at 1 - O/2; true peak is never below the sample peak,
+  in the crate and the reference; the limiter detects with the canonical
+  meter's filter (`truePeakPhases`), latency L + 12; one click rule
+  (`click-geometry.ts`) for the detector and the de-click; `findPeaks`
+  finds no peak in silence; a rack-level latency test the latency gate
+  selects. Goldens re-recorded with independent checks: reverb stereo, the
+  limiter, the peak meter's two hashes.
+
 Open points from `ml-runtime`:
 
 - Closed (decision 20): the adapter reads the runtime's WebAssembly through
@@ -559,9 +606,9 @@ Open points from `model-packs`:
   Spleeter), rendered into `THIRD-PARTY-NOTICES.md` and checked by
   `notices:check` (paths exist, licences on the allow-list).
 - Closed (decision 27): the built packs are served from the application's
-  origin. Left for the pack-manager view: no command installs a pack yet,
-  so `virtual:audiogubbins/model-packs` (`PACK_CATALOGUE`) has no consumer,
-  and the browser run with a request log waits for it.
+  origin. Closed (decision 28): the `packs.*` commands install a pack from
+  `PACK_CATALOGUE`, which the Model packs panel reads, and the browser run
+  with a request log was made.
 - Closed (decisions 24–26): a whole pass runs once per preview render, and
   waveforms of racked audio read a render.
 - Closed (decision 27): the page builds its `AvailabilityContext`.
@@ -582,8 +629,7 @@ Open points from `model-packs`:
   they run. `tests/e2e/core-editing.spec.ts` expects straight quotes where
   the banner now writes curly ones; not run this session.
 - No history mechanism joins a drag's changes into one step, so a dragged
-  parameter is heard at release. No command removes a range rack edit (no
-  edit is removed but by undo). A range's position shows at the asset's
+  parameter is heard at release. A range's position shows at the asset's
   current rate. A processor selection replaces a region selection (one set
   of objects per selection). After a reload no editor is in use until
   clicked. The pack manager says which version a project needs, not which
@@ -596,9 +642,8 @@ Open points from `model-packs`:
   nothing measures live cost, so a too-costly live chain never moves to a
   render. No interface yet makes a whole-pass rack, so the cached mode has
   no browser test.
-- The range-or-whole choice of a recommendation is made in two files
-  (`detection-control.ts`, `analysis-commands.ts`); it should have one
-  authority.
+- Closed: the range-or-whole choice of a recommendation has one
+  authority, `treatmentPlacement` (`analysis/detection-control.ts`).
 - Closed: `nobleSha256` (`@noble/hashes` 2.4.0, MIT; Cure53 audited 1.0.0
   only) implements the `Sha256` port; `LOCAL_INFERENCE` and
   `localInferenceCapabilities` are exported from `packages/capabilities`.

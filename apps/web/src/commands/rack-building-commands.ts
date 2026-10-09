@@ -1,7 +1,8 @@
 /**
  * The commands that build and take apart racks (ADR-0060, REQ-AUDIO-017,
  * REQ-EDIT-012, REQ-EDIT-014): adding a processor or a parallel group, taking
- * a target's rack away, and making a shared chain the target's own.
+ * a target's rack away, removing the processing of a range, and making a
+ * shared chain the target's own.
  *
  * A processor or group goes into the rack of the asset or region shown
  * (`rack-target.ts`), at a place in its chain or at its end, the rack made in
@@ -24,29 +25,24 @@ import {
   type EffectChain,
 } from '@audiogubbins/domain';
 import {
-  addChainInvocation,
-  removeChainInvocation,
-  setChainInvocation,
-  setEditChainInvocation,
+  addSlotInvocation,
+  independentChainInvocations,
+  rackRangeInvocation,
   setRackInvocation,
+  targetChains,
+  withdrawInvocation,
+  withdrawRegionEditInvocation,
   type RackTarget,
 } from '@audiogubbins/project-commands';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { counted } from '@audiogubbins/text';
+import { formatPosition } from '@audiogubbins/timeline';
 
-import { rangeRackInvocations } from './chain-placement.js';
 import { RANGE_ONLY, editScope } from './edit-target.js';
 import { needsProjectAsset } from './project-edits.js';
 import { lawArgument, placeArgument, slotName } from './rack-arguments.js';
 import { changeRacks } from './rack-changes.js';
-import {
-  chainsOfTarget,
-  otherUsers,
-  rackScope,
-  targetChain,
-  targetName,
-  type RackScope,
-} from './rack-target.js';
+import { otherUsers, rackScope, targetChain, targetName, type RackScope } from './rack-target.js';
 import { shellCommand, textArgument, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -68,7 +64,7 @@ function overSelection(
   const chain: EffectChain = { id: context.ids.next<'EffectChainId'>(), slots: [slot] };
   return changeRacks(context, {
     description: `Process a range of ${scope.view.asset.name} with ${slotName(slot)}`,
-    invocations: rangeRackInvocations(context, scope.target, chain),
+    invocations: [rackRangeInvocation(scope.target, context.ids.next<'EditOperationId'>(), chain)],
     said: `Added ${slotName(slot)} over the selection of ${scope.view.asset.name}, in a chain of its own.${told}`,
   });
 }
@@ -88,20 +84,19 @@ function intoRack(
     const chain: EffectChain = { id: context.ids.next<'EffectChainId'>(), slots: [slot] };
     return changeRacks(context, {
       description: `Give ${name} a rack`,
-      invocations: [addChainInvocation(chain), setRackInvocation(scope.target, chain.id)],
+      invocations: [setRackInvocation(scope.target, chain)],
       said: `Gave ${name} a rack, with ${slotName(slot)} in it.${told}`,
     });
   }
   const place = placeArgument(invocation, named.chain);
   if (typeof place === 'string') return place;
-  const placed = withSlotAt(named.chain, place, slot);
-  if (placed === undefined) return 'That is not a place in the rack.';
+  if (withSlotAt(named.chain, place, slot) === undefined) return 'That is not a place in the rack.';
   const others = otherUsers(scope.state.project, named.id, scope.target);
   const shared =
     others.length === 0 ? '' : ` Its chain is shared, so ${others.join(', ')} hear it too.`;
   return changeRacks(context, {
     description: `Add ${slotName(slot)} to a rack`,
-    invocations: [setChainInvocation(placed)],
+    invocations: [addSlotInvocation(named.id, place, slot)],
     said: `Added ${slotName(slot)} to the rack of ${name}.${shared}${told}`,
   });
 }
@@ -209,26 +204,70 @@ function removeRackCommand(): Command<ShellContext> {
       if (typeof scope === 'string') return scope;
       const target = targetNamed(scope, invocation);
       if (typeof target === 'string') return target;
-      const { rack } = chainsOfTarget(target);
+      const { rack } = targetChains(target);
       const name = targetName(target);
       if (rack === undefined) return `${name} has no rack to take away.`;
-      // The chain goes with the rack only where nothing else names it, as a
-      // chain something names cannot be removed.
-      const alone = chainUseCount(chainUsers(scope.state.project, rack)) === 1;
+      // The project command removes the chain where nothing else names it.
+      const kept = chainUseCount(chainUsers(scope.state.project, rack)) > 1;
       return changeRacks(context, {
         description: `Take away the rack of ${name}`,
-        invocations: [
-          setRackInvocation(target, undefined),
-          ...(alone ? [removeChainInvocation(rack)] : []),
-        ],
-        said: alone
-          ? `Took away the rack of ${name}.`
-          : `Took away the rack of ${name}. Its chain is kept, as other things use it.`,
+        invocations: [setRackInvocation(target, undefined)],
+        said: kept
+          ? `Took away the rack of ${name}. Its chain is kept, as other things use it.`
+          : `Took away the rack of ${name}.`,
       });
     },
     {
       availability: needsProjectAsset,
       keywords: ['remove', 'rack', 'chain', 'clear', 'effects'],
+      discoverable: false,
+    },
+  );
+}
+
+/**
+ * The withdrawal of the range rack edit `operation` of `target`, or why it
+ * cannot be withdrawn: a target's edits are a chain read in order, so only the
+ * last is withdrawn, and an earlier one goes by undo or once those after it do.
+ */
+function rangeWithdrawal(target: RackTarget, operation: string): CommandInvocation | string {
+  const notLast = `Only the latest edit of ${targetName(target)} can be removed. Undo it, or remove the edits made after it, first.`;
+  if (target.kind === 'asset') {
+    const last = target.asset.edits.at(-1);
+    return last?.id === operation ? withdrawInvocation(target.asset, last) : notLast;
+  }
+  const last = target.region.operations.at(-1);
+  return last?.id === operation ? withdrawRegionEditInvocation(target.region, last) : notLast;
+}
+
+function removeRangeCommand(): Command<ShellContext> {
+  return shellCommand(
+    'rack.remove-range',
+    'Remove this processing',
+    CommandCategory.Edit,
+    (context, invocation) => {
+      const scope = rackScope(context, invocation);
+      if (typeof scope === 'string') return scope;
+      const operation = textArgument(invocation, 'operationId');
+      const range = targetChains(scope.target).ranges.find((one) => one.operation === operation);
+      const name = targetName(scope.target);
+      if (range === undefined) return `No range of ${name} is processed by that chain.`;
+      const withdrawal = rangeWithdrawal(scope.target, range.operation);
+      if (typeof withdrawal === 'string') return withdrawal;
+      const at = (frames: number): string =>
+        formatPosition(frames, scope.view.asset.sampleRate, scope.view.state.timeFormat);
+      // The project command removes the chain where nothing else names it.
+      return changeRacks(context, {
+        description: `Remove the processing of a range of ${name}`,
+        invocations: [withdrawal],
+        said: `Removed the processing of ${name} from ${at(range.range.start)} to ${at(range.range.end)}.`,
+      });
+    },
+    {
+      availability: needsProjectAsset,
+      keywords: ['remove', 'range', 'processing', 'chain', 'rack', 'selection'],
+      description:
+        'Removes the chain of processors over a range of the asset or region shown, the latest edit made to it.',
       discoverable: false,
     },
   );
@@ -248,17 +287,13 @@ function makeIndependentCommand(): Command<ShellContext> {
       if ('refused' in named) return named.refused;
       const others = otherUsers(scope.state.project, named.id, scope.target);
       if (others.length === 0) return `The chain is ${name}’s alone already; nothing else uses it.`;
-      const own = copyChain(named.chain, context.ids);
-      const { rack, ranges } = chainsOfTarget(scope.target);
-      const pointed =
-        rack === named.id
-          ? [setRackInvocation(scope.target, own.id)]
-          : ranges
-              .filter((range) => range.chain === named.id)
-              .map((range) => setEditChainInvocation(scope.target, range.operation, own.id));
       return changeRacks(context, {
         description: `Make the chain of ${name} its own`,
-        invocations: [addChainInvocation(own), ...pointed],
+        invocations: independentChainInvocations(
+          scope.target,
+          named.id,
+          copyChain(named.chain, context.ids),
+        ),
         said: `${name} has a chain of its own now, a copy; ${counted(others.length, 'other use', 'other uses')} keep the shared one.`,
       });
     },
@@ -272,5 +307,11 @@ function makeIndependentCommand(): Command<ShellContext> {
 
 /** The commands that build and take apart racks. */
 export function rackBuildingCommands(): readonly Command<ShellContext>[] {
-  return [addProcessorCommand(), addGroupCommand(), removeRackCommand(), makeIndependentCommand()];
+  return [
+    addProcessorCommand(),
+    addGroupCommand(),
+    removeRackCommand(),
+    removeRangeCommand(),
+    makeIndependentCommand(),
+  ];
 }

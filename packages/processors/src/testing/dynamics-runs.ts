@@ -1,12 +1,13 @@
 /**
  * What the dynamics processors' tests share: steady and stepped signals, a
- * run keyed from a side-chain, the gain a run applied, and a true-peak
- * measure at eight times the rate made independently of the limiter's own.
+ * run keyed from a side-chain, the gain a run applied, and the true peak as
+ * the canonical meter reads it.
  */
 
 import {
   StandardLayouts,
   ZERO_SAMPLES,
+  sampleRate,
   type ChannelLayout,
   type ParameterValue,
   type QualitySettings,
@@ -167,52 +168,20 @@ export function runKeyed(
   return output;
 }
 
-/** Frames the measuring interpolator reaches each side of a point, and its window's β. */
-const MEASURE_REACH = 96;
-const MEASURE_BETA = 12;
-
-function besselI0(x: number): number {
-  let term = 1;
-  let sum = 1;
-  for (let k = 1; k < 200; k += 1) {
-    term *= (x / (2 * k)) ** 2;
-    sum += term;
-  }
-  return sum;
-}
-
 /**
- * The largest magnitude of `samples` read at eight times the rate, by a
- * Kaiser-windowed sinc of 193 taps a phase with its cut-off at Nyquist,
- * written here with the platform's functions so it shares nothing with the
- * limiter's detector.
+ * The true peak over `channels` at `rate`, linear, as the canonical peak meter
+ * reads it: the one reading of dBTP a ceiling is held to.
  */
-export function truePeakAtEightTimes(samples: Float32Array): number {
-  const phases = 8;
-  const taps: number[][] = [];
-  for (let phase = 1; phase < phases; phase += 1) {
-    const row: number[] = [];
-    for (let offset = -MEASURE_REACH; offset <= MEASURE_REACH; offset += 1) {
-      const t = phase / phases - offset;
-      const sinc = Math.sin(Math.PI * t) / (Math.PI * t);
-      const position = t / (MEASURE_REACH + 1);
-      const window =
-        besselI0(MEASURE_BETA * Math.sqrt(1 - position * position)) / besselI0(MEASURE_BETA);
-      row.push(sinc * window);
-    }
-    taps.push(row);
-  }
-  let largest = 0;
-  for (let frame = 0; frame < samples.length; frame += 1) {
-    largest = Math.max(largest, Math.abs(samples[frame] ?? 0));
-    if (frame < MEASURE_REACH || frame + MEASURE_REACH + 1 >= samples.length) continue;
-    for (const row of taps) {
-      let sum = 0;
-      for (const [index, weight] of row.entries()) {
-        sum += weight * (samples[frame + index - MEASURE_REACH] ?? 0);
-      }
-      largest = Math.max(largest, Math.abs(sum));
-    }
-  }
-  return largest;
+export function canonicalTruePeak(channels: readonly Float32Array[], rate: number): number {
+  const meter = expectSuccess(
+    REFERENCE_DSP.createPeakMeter({
+      channels: channels.length,
+      sampleRate: expectSuccess(sampleRate(rate)),
+    }),
+  );
+  meter.push(channels);
+  const reading = new Float64Array(4 * channels.length);
+  meter.read(reading);
+  meter.release();
+  return Math.max(...channels.map((_, channel) => reading[4 * channel + 2] ?? 0));
 }

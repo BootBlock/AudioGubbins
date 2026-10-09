@@ -168,6 +168,7 @@ function everyToFeeder(): readonly ToFeeder[] {
       change: 3,
       changes: [
         {
+          stream: 1,
           processor: unsafeBrandId<'ProcessorId'>('00000000-0e01'),
           parameter: unsafeBrandId<'ParameterId'>('9a1e0001-0001'),
           value: -3.5,

@@ -8,7 +8,9 @@
  * same rule the project document is read by. One rule needs the rest of the
  * project: an edit is not withdrawn while a marker or a region is placed on the
  * timeline it made, since that would leave them placed on edits the asset no
- * longer has.
+ * longer has. A rack edit names its chain as `chain-naming.ts` says: given
+ * whole where it is new, and removed with the edit where nothing else names it,
+ * its withdrawal's inverse giving it whole again.
  */
 
 import {
@@ -17,7 +19,13 @@ import {
   type CommandInvocation,
   type CommandOutcome,
 } from '@audiogubbins/commands';
-import { shapesOf, validateOperation, type Asset, type EditOperation } from '@audiogubbins/domain';
+import {
+  shapesOf,
+  validateOperation,
+  type Asset,
+  type EditOperation,
+  type EffectChain,
+} from '@audiogubbins/domain';
 import {
   canonicalJson,
   readEditOperation,
@@ -34,6 +42,12 @@ import {
   projectCommand,
   type ProjectCommand,
 } from '../project-command.js';
+import {
+  namingArguments,
+  rackChainOf,
+  stateNaming,
+  withoutUnnamed,
+} from '../processing/chain-naming.js';
 import { idArgument } from './editing-arguments.js';
 import { withAssetEdits } from './editing-state.js';
 import { editDescription } from './edit-descriptions.js';
@@ -99,17 +113,19 @@ function applyEdit(
       `${quoted(asset.displayName)} already has an edit with that identifier.`,
     );
   }
+  const naming = stateNaming(state, invocation, rackChainOf(operation.value));
+  if (!naming.ok) return refusedBy(naming);
   const shape = shapesOf(asset).at(-1);
   if (shape === undefined) throw new Error('A chain always has a shape.');
   const valid = validateOperation(
     operation.value,
     shape,
-    state.project.assets,
-    state.project.effectChains,
+    naming.value.project.assets,
+    naming.value.project.effectChains,
   );
   if (!valid.ok) return refusedBy(valid);
   return applied(
-    withAssetEdits(state, asset, [...asset.edits, operation.value]),
+    withAssetEdits(naming.value, asset, [...asset.edits, operation.value]),
     withdrawInvocation(asset, operation.value),
     editDescription(operation.value, asset.displayName),
   );
@@ -137,21 +153,33 @@ function withdrawEdit(
       `A marker or region of ${quoted(asset.displayName)} was placed after this edit; remove or move it first.`,
     );
   }
-  return applied(
+  const next = withoutUnnamed(
     withAssetEdits(state, asset, asset.edits.slice(0, -1)),
-    applyInvocation(asset, last),
+    rackChainOf(last),
+  );
+  return applied(
+    next.state,
+    applyInvocation(asset, last, next.removed),
     `Withdraw: ${editDescription(last, asset.displayName)}`,
   );
 }
 
-/** Applies `operation` to the end of the asset's chain. */
+/**
+ * Applies `operation` to the end of the asset's chain; a rack edit's chain
+ * goes with it where `chain`, the one it names, is given whole.
+ */
 export function applyInvocation(
   asset: Pick<Asset, 'id'>,
   operation: EditOperation,
+  chain?: EffectChain,
 ): CommandInvocation {
   return {
     commandId: ProjectCommandId.ApplyEdit,
-    arguments: { assetId: asset.id, operation: canonicalJson(writeEditOperation(operation)) },
+    arguments: {
+      assetId: asset.id,
+      operation: canonicalJson(writeEditOperation(operation)),
+      ...namingArguments(chain),
+    },
   };
 }
 

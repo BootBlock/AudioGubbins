@@ -1,7 +1,8 @@
 /**
- * Running a machine-learning processor's whole pass for its tests, as the
- * rack does: its measurer made from the node the rack would make, the input
- * given in chunks of the sizes a test names, each awaited before the next.
+ * Running a whole-pass processor's pass for its tests, a machine-learning
+ * processor's inference among them, as the rack does: its measurer made from
+ * the node the rack would make, the input given in chunks of the sizes a test
+ * names, each awaited before the next.
  */
 
 import type { CancellationSignal, DomainResult } from '@audiogubbins/domain';

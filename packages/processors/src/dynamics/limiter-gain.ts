@@ -5,20 +5,23 @@
  * A block at a time, each stage over its frames in order, keeping its state
  * across blocks. The input is written into each channel's history. The
  * true-peak detector reads, for each frame, the peak `p` of the frame `d`
- * frames back, and the gain that frame needs is `r = T/p` where `p` passes the
- * detection target `T`, else 1. `T` is the ceiling times the oversampling's
- * allowance (`true-peak.ts`) and times `1 − 2⁻²⁰`, so neither the rounding of
- * `T/p` and of the product nor the store to 32 bits takes a peak past the
+ * frames back (`true-peak.ts`), and the gain that frame needs is `r = T/p`
+ * where `p` passes the detection target `T`, else 1. `T` is the ceiling times
+ * `1 − 2⁻²⁰`, so neither the rounding of `T/p` and of the product, the store to
+ * 32 bits, nor the meter's sums over the rounded output take a peak past the
  * ceiling. `r` is rounded down to a whole number of `2⁻³⁶`, so the sums below
  * are exact. A sliding minimum over the `L + 2R + 1` frames from `R` before to
- * `L + R` after the frame about to be written gives `m`, and the mean of the
- * last `L + 1` values of `m` is the gain `s`: the mean reaches each peak's
- * gain as the peak arrives, along a straight line from where it entered the
- * look-ahead, and holds it over the `R` frames each side of it, which are all
- * an interpolated peak's output depends on. Over at most `L + 1` of `2³⁶` the
- * sum stays under `2⁵³`, so it never rounds. The release is a one-pole
- * smoother `s + a × (g − s)` taken only while `s` rises, so it only ever
- * lowers the gain. The output is the input delayed by the latency, times it.
+ * `L + R` after the frame about to be written gives `m`. The release, a
+ * one-pole smoother `q + a × (m − q)` taken only while `m` rises and rounded
+ * down to a whole unit, makes `q ≤ m` of it. The mean of the last `L + 1`
+ * values of `q` is the gain: it reaches each peak's gain as the peak arrives,
+ * along a straight line from where it entered the look-ahead, and stays at or
+ * under it over the `R` frames each side of it, which are all an interpolated
+ * peak's output depends on. Every value it averages there is at most `r`, so
+ * from one frame to the next it moves by at most `r / (L + 1)`, the bound the
+ * detector allows for a gain that is not flat under a point. Over at most
+ * `L + 1` of `2³⁶` the sum stays under `2⁵³`, so it never rounds. The output is
+ * the input delayed by the latency, times the gain.
  */
 
 import type { DomainResult } from '@audiogubbins/domain';
@@ -31,15 +34,10 @@ import {
 } from '@audiogubbins/audio-engine';
 
 import type { ProcessorRun } from '../framework/processor-type.js';
-import { finiteSample, flushSubnormal } from '../framework/sample-safety.js';
+import { finiteSample } from '../framework/sample-safety.js';
 import { SmoothingTime } from './envelope.js';
 import type { RampedParameters } from './ramped-parameters.js';
-import {
-  DETECTOR_HISTORY,
-  TruePeakDetector,
-  interpolationReach,
-  truePeakAllowance,
-} from './true-peak.js';
+import { DETECTOR_HISTORY, TruePeakDetector, interpolationReach } from './true-peak.js';
 
 /** `2³⁶`, the units a gain is counted in. */
 const UNITS = 68_719_476_736;
@@ -59,7 +57,8 @@ export interface LimiterSettings {
 /** Where each running value is kept, so no number lives in a field. */
 const COUNT = 0;
 const SUM = 1;
-const GAIN = 2;
+/** The least gain needed, released, in units. */
+const RELEASED = 2;
 const CEILING = 3;
 const TARGET = 4;
 /** The gain a frame needs, handed to the sliding minimum. */
@@ -77,7 +76,6 @@ export class LimiterKernel implements NodeKernel {
   readonly #parameters: RampedParameters;
   readonly #settings: LimiterSettings;
   readonly #detector: TruePeakDetector;
-  readonly #allowance: number;
   readonly #releaseTime: SmoothingTime;
   /**
    * Each channel's input, in a ring long enough that a block written whole
@@ -106,14 +104,14 @@ export class LimiterKernel implements NodeKernel {
     const oversampling = run.quality.oversampling;
     this.#parameters = parameters;
     this.#settings = settings;
-    this.#detector = new TruePeakDetector(oversampling);
-    this.#allowance = truePeakAllowance(oversampling);
+    this.#detector = new TruePeakDetector(oversampling, run.sampleRate, settings.lookAheadFrames);
     this.#releaseTime = new SmoothingTime(run.sampleRate);
     const reach = Math.max(settings.latencyFrames + 1, DETECTOR_HISTORY);
     const size = ringSize(reach + run.blockFrames);
     this.#histories = run.input.roles.map(() => new Float32Array(size));
     this.#mask = size - 1;
-    this.#window = settings.lookAheadFrames + 2 * interpolationReach(oversampling) + 1;
+    this.#window =
+      settings.lookAheadFrames + 2 * interpolationReach(oversampling, run.sampleRate) + 1;
     this.#windowFrames = new Float64Array(this.#window);
     this.#windowGains = new Float64Array(this.#window);
     this.#recent = new Float64Array(settings.lookAheadFrames + 1).fill(UNITS);
@@ -121,7 +119,7 @@ export class LimiterKernel implements NodeKernel {
     this.#gains = new Float64Array(run.blockFrames);
     this.#releases = new Float64Array(run.blockFrames);
     this.#state[SUM] = UNITS * (settings.lookAheadFrames + 1);
-    this.#state[GAIN] = 1;
+    this.#state[RELEASED] = UNITS;
     this.#state[CEILING] = Number.NaN;
   }
 
@@ -177,22 +175,22 @@ export class LimiterKernel implements NodeKernel {
     state[NEEDED] = peak > target ? Math.floor((target / peak) * UNITS) : UNITS;
     this.#slidingMinimum();
     const least = this.#windowGains[this.#head] ?? UNITS;
-    const recent = this.#recent;
-    const sum = (state[SUM] ?? 0) + least - (recent[this.#recentPosition] ?? 0);
-    recent[this.#recentPosition] = least;
-    this.#recentPosition =
-      this.#recentPosition + 1 === recent.length ? 0 : this.#recentPosition + 1;
-    state[SUM] = sum;
-    const smoothed = sum / recent.length / UNITS;
-    const previous = state[GAIN] ?? 1;
+    const previous = state[RELEASED] ?? UNITS;
     const coefficient = this.#releases[frame] ?? 0;
     // Released on every frame and then chosen, never in a branch: V8 inlines
     // no call that runs rarely, and a number crossing a call it has not
-    // inlined is boxed.
-    const released = smoothed + flushSubnormal(coefficient * (previous - smoothed));
-    const gain = smoothed <= previous ? smoothed : released;
-    state[GAIN] = gain;
-    this.#gains[frame] = gain;
+    // inlined is boxed. Rounded down to a whole unit, which is at least the
+    // last and at most the least, so the sum stays exact.
+    const released = Math.floor(least + coefficient * (previous - least));
+    const held = least <= previous ? least : released;
+    state[RELEASED] = held;
+    const recent = this.#recent;
+    const sum = (state[SUM] ?? 0) + held - (recent[this.#recentPosition] ?? 0);
+    recent[this.#recentPosition] = held;
+    this.#recentPosition =
+      this.#recentPosition + 1 === recent.length ? 0 : this.#recentPosition + 1;
+    state[SUM] = sum;
+    this.#gains[frame] = sum / recent.length / UNITS;
   }
 
   /**
@@ -241,6 +239,6 @@ export class LimiterKernel implements NodeKernel {
    */
   #designTarget(): void {
     const state = this.#state;
-    state[TARGET] = decibelsToGain(state[CEILING] ?? 0) * this.#allowance * ROUNDING_MARGIN;
+    state[TARGET] = decibelsToGain(state[CEILING] ?? 0) * ROUNDING_MARGIN;
   }
 }

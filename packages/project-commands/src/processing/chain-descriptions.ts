@@ -56,6 +56,11 @@ function slotLabel(slot: ChainSlot, catalogue: ProcessorCatalogue): string {
   return quoted(catalogue.get(slot.typeKey)?.label ?? slot.typeKey);
 }
 
+/** What moving `slot` to another place in its chain is called. */
+export function slotMoveDescription(slot: ChainSlot, catalogue: ProcessorCatalogue): string {
+  return `Move ${slotLabel(slot, catalogue)}`;
+}
+
 /** What changing one slot from `before` to `after` is called. */
 function slotChange(
   before: ChainSlot,

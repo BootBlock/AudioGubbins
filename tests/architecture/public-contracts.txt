@@ -305,6 +305,7 @@ Published paths
   readonly OscillatorSettings.amplitude: number
   const PRESET_SETTINGS: Readonly<Record<PresetProfile, PerformanceSettings>>
   interface ParameterChange
+  readonly ParameterChange.stream: number
   readonly ParameterChange.processor: ProcessorId
   readonly ParameterChange.parameter: ParameterId
   readonly ParameterChange.value: number
@@ -548,6 +549,7 @@ Published paths
   readonly StftSettings.hop: number
   type StreamReader = (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
   const TRANSPORT_AT_START: TransportState
+  const TRUE_PEAK_TAPS: 12
   type ToPreview = { readonly kind: typeof ToPreviewKind.Cancel; readonly read: number; } | { readonly kind: typeof ToPreviewKind.Close; readonly stream: number; } | { readonly kind: typeof ToPreviewKind.Open; readonly stream: number; readonly plan: EditPlan; readonly place: number; readonly media: readonly MediaEntry[]; readonly quality: QualitySettings; readonly reason: string | undefined; } | { readonly kind: typeof ToPreviewKind.Read; readonly stream: number; readonly read: number; readonly start: number; readonly frames: number; readonly channels: number; }
   interface TransientSettings extends DetectorBasis
   readonly TransientSettings.kind: "transients"
@@ -594,7 +596,6 @@ Published paths
   function assessStability(history: UnderrunHistory, contextFrame: number, profile: PerformanceProfile, settings: PerformanceSettings): StabilityAssessment
   function audibleFrame(clock: MediaClock, position: SampleCount, outputLatencyContextFrames: number): DomainResult<SampleCount>
   function availableProcessingModes(purpose: ProcessingPurpose): readonly ProcessingMode[]
-  function besselI0(x: number): number
   function blockView(block: AudioFrameBlock, start: number, frames: number): AudioFrameBlock
   function canonicalText(value: unknown): string
   function channelAt(block: AudioFrameBlock, index: number): Float32Array<ArrayBufferLike>
@@ -648,6 +649,7 @@ Published paths
   function timelineFrameAt(clock: MediaClock, anchor: ClockAnchor, contextFrame: number): DomainResult<SampleCount>
   function toneRecipe(channels: number, length: number, frequency: number, amplitude: number): DomainResult<SignalRecipe>
   function transportPosition(state: TransportState, clock: MediaClock, contextFrame: number): DomainResult<SampleCount>
+  function truePeakPhases(rate: number): readonly (readonly number[])[]
   function unknownParameter(type: string, name: string): DomainFailureResult
   function validatePerformanceSettings(settings: PerformanceSettings): DomainResult<PerformanceSettings>
   function vocoderWindow(size: number): Float64Array<ArrayBufferLike>
@@ -1350,7 +1352,7 @@ Published paths
   function chainFromProcessing(payload: ProcessingPayload, ids: IdGenerator): EffectChain
   function copyAudio(state: ProjectState, plan: EditPlan, range: EditRange, channels?: readonly number[] | undefined): DomainResult<AudioPayload>
   function copyProcessing(slots: readonly ChainSlot[], wholeChain: boolean): DomainResult<ProcessingPayload>
-  function pasteProcessing(payload: ProcessingPayload, chain: EffectChain, place: SlotPlace, ids: IdGenerator): DomainResult<EffectChain>
+  function pastedSlots(payload: ProcessingPayload, ids: IdGenerator): readonly [ChainSlot, ...ChainSlot[]]
   function planPaste(state: ProjectState, request: PasteRequest, ids: IdGenerator, longestArgument?: number): DomainResult<PlannedPaste>
 
 @audiogubbins/codecs
@@ -2346,6 +2348,10 @@ Published paths
   readonly RackEdit.kind: "rack"
   readonly RackEdit.chain: EffectChainId
   type RangeEdit = ChannelEdit | LevelEdit | RackEdit
+  interface RangeRack
+  readonly RangeRack.operation: EditOperationId
+  readonly RangeRack.range: EditRange
+  readonly RangeRack.chain: EffectChainId
   interface Recommendation
   readonly Recommendation.assistant: string
   readonly Recommendation.detectors: readonly DetectorIdentity[]
@@ -2390,6 +2396,9 @@ Published paths
   type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
   const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
   type SummingLaw = "equal-power" | "mean" | "sum"
+  interface TargetChains
+  readonly TargetChains.rack: EffectChainId | undefined
+  readonly TargetChains.ranges: readonly RangeRack[]
   type TextSha256 = (text: string) => string
   interface ToggleParameterDescriptor
   readonly ToggleParameterDescriptor.kind: "toggle"
@@ -2423,6 +2432,7 @@ Published paths
   function appliedProcessors(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function appliedSlots(slots: readonly ChainSlot[]): readonly ChainSlot[]
   function applyStages(stages: readonly PlanStage[], place: BlockPlace, channels: readonly Float32Array<ArrayBufferLike>[]): readonly Float32Array<ArrayBufferLike>[]
+  function assetChains(asset: Asset): TargetChains
   function assetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
@@ -2430,6 +2440,7 @@ Published paths
   function bypassedAssetPlan(asset: Asset, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function bypassedRegionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): DomainResult<EditPlan>
   function cancellationReason(signal: CancellationSignal): Error
+  function chainIdsOf(named: TargetChains): readonly EffectChainId[]
   function chainLatency(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): DomainResult<ProcessorLatency>
   function chainListening(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): ChainListening
   function chainOutputLayout(chain: Pick<EffectChain, "slots">, catalogue: ProcessorCatalogue, input: ChannelLayout, sampleRate: SampleRate): DomainResult<ChannelLayout>
@@ -2491,8 +2502,10 @@ Published paths
   function placeRegions(asset: Asset, regions: Iterable<Region>, resolver?: AnchorResolver): readonly PlacedRegion[]
   function planReadsAsset(plan: EditPlan, asset: AssetId): boolean
   function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
+  function projectChains(project: Project): Generator<EffectChain, void, undefined>
   function projectLength(project: Project): number
   function qualityModeFrom(value: unknown): DomainResult<QualityMode>
+  function regionChains(region: Region): TargetChains
   function regionEnd(region: PlacedRegion): number
   function regionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function restateRegion(region: Region, asset: Asset, span: Span): Region
@@ -2508,6 +2521,7 @@ Published paths
   function shapesOf(asset: Asset): readonly EditShape[]
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
+  function slotsAt(chain: Pick<EffectChain, "slots">, group: undefined | { readonly id: ProcessorGroupId; readonly branch: number; }): readonly ChainSlot[] | undefined
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
   function streamLength(stream: PlanStream): number
@@ -2735,7 +2749,8 @@ Published paths
   readonly ChainDifference.change: "added" | "changed" | "removed"
   readonly ChainDifference.slots: readonly SlotDifference[]
   interface ChainOwner
-  readonly ChainOwner.kind: "bus" | "track"
+  readonly ChainOwner.kind: "asset" | "bus" | "region" | "track"
+  readonly ChainOwner.naming: "range" | "whole"
   readonly ChainOwner.name: string
   interface ChangeDraft
   readonly ChangeDraft.id: HistoryNodeId
@@ -2898,6 +2913,7 @@ Published paths
   function affectedEntities(node: HistoryNode): Generator<EntityReference, any, any>
   function applyCompaction(history: History, plan: CompactionPlan): DomainResult<History>
   function applyHistoryDelta(earlier: History | undefined, delta: HistoryDelta): History
+  function chainOwner(project: Project, chain: EffectChainId): ChainOwner | undefined
   function changeNodeOf(history: History, draft: ChangeDraft): ChangeNode
   function comparedDifference(comparison: Comparison, stateA: ProjectState, stateB: ProjectState): DomainResult<StateDifference>
   function comparisonSide(history: History, source: ComparisonSource): DomainResult<ComparisonSide>
@@ -3650,9 +3666,10 @@ Published paths
   readonly PropertyCases.layouts: readonly ChannelLayout[]
   readonly PropertyCases.settings?: readonly Readonly<Record<string, ParameterValue>>[]
   readonly PropertyCases.bound?: number
+  readonly PropertyCases.readsDsp?: boolean
   readonly PropertyCases.silenceStays?: boolean
   readonly PropertyCases.passThrough?: { readonly values: Readonly<Record<string, ParameterValue>>; readonly tolerance: number; }
-  readonly PropertyCases.measured?: readonly number[]
+  readonly PropertyCases.fallsSilent?: { readonly values: Readonly<Record<string, ParameterValue>>; readonly frames: number; }
   readonly PropertyCases.state?: (layout: ChannelLayout, values: Readonly<Record<string, ParameterValue>>) => ProcessorState
   interface RunSettings
   readonly RunSettings.values?: Readonly<Record<string, ParameterValue>>
@@ -3709,30 +3726,38 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly AddChain: CommandId; readonly SetChain: CommandId; readonly RemoveChain: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly SetProcessor: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; }
   type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }
-  function addAssetInvocation(asset: Asset, source: AssetSource): CommandInvocation
-  function addChainInvocation(chain: EffectChain): CommandInvocation
+  type SlotControl = { readonly control: "enabled" | "soloed"; readonly value: boolean; } | { readonly control: "mix"; readonly value: number; } | { readonly control: "summing"; readonly value: SummingLaw; }
+  function addAssetInvocation(asset: Asset, source: AssetSource, chain?: EffectChain | undefined): CommandInvocation
   function addMarkerInvocation(marker: Marker): CommandInvocation
-  function addRegionInvocation(region: Region): CommandInvocation
-  function addRegionWithProcessing(region: Region): readonly [CommandInvocation, ...CommandInvocation[]]
+  function addRegionInvocation(region: Region, chain?: EffectChain | undefined): CommandInvocation
+  function addRegionWithProcessing(region: Region, chains: ProjectChains): readonly [CommandInvocation, ...CommandInvocation[]]
+  function addSlotInvocation(chain: EffectChainId, place: SlotPlace, slot: ChainSlot): CommandInvocation
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
-  function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
-  function changeRegionInvocations(old: Region, next: Region): readonly [CommandInvocation, ...CommandInvocation[]]
+  function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation, chain?: EffectChain | undefined): CommandInvocation
+  function changeRegionInvocations(old: Region, next: Region, chains: ProjectChains): readonly [CommandInvocation, ...CommandInvocation[]]
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
-  function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit): CommandInvocation
+  function extendedRackInvocation(project: Project, target: RackTarget, chain: EffectChain, ids: IdGenerator): CommandInvocation
+  function independentChainInvocations(target: RackTarget, chain: EffectChainId, copy: EffectChain): readonly CommandInvocation[]
+  function moveSlotInvocation(slot: import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId, place: SlotPlace): CommandInvocation
+  function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit, chain?: EffectChain | undefined): CommandInvocation
   function projectCommands(catalogue: ProcessorCatalogue): readonly ProjectCommand[]
+  function rackEachInvocations(targets: readonly RackTarget[], chain: EffectChain, share: boolean, ids: IdGenerator): readonly CommandInvocation[]
+  function rackRangeInvocation(target: EditTarget, id: EditOperationId, chain: EffectChain): CommandInvocation
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
-  function removeChainInvocation(id: EffectChainId): CommandInvocation
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
   function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
+  function removeSlotsInvocations(state: ProjectState, slots: readonly (import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId)[]): readonly CommandInvocation[]
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
-  function setChainInvocation(chain: EffectChain): CommandInvocation
-  function setEditChainInvocation(target: RackTarget, operation: import("packages/domain/src/index").EditOperationId, chain: EffectChainId): CommandInvocation
   function setMarkerInvocation(marker: Marker): CommandInvocation
   function setProcessorInvocation(processor: ProcessorInstance): CommandInvocation
-  function setRackInvocation(target: RackTarget, chain: EffectChainId | undefined): CommandInvocation
+  function setRackInvocation(target: RackTarget, chain: EffectChain | EffectChainId | undefined): CommandInvocation
   function setRegionInvocation(region: Region): CommandInvocation
+  function setSlotControlInvocation(slot: import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId, props: SlotControl): CommandInvocation
+  function targetChains(target: RackTarget): TargetChains
+  function withdrawInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
+  function withdrawRegionEditInvocation(region: Pick<Region, "id">, operation: Pick<RegionOperation, "id">): CommandInvocation
 
 @audiogubbins/project-format
   interface AffectedEntities
@@ -6508,6 +6533,9 @@ packages/processors/src/testing/repair-signals.ts
   readonly Click.width: number
   readonly Click.size: number
   readonly Click.seed?: number
+
+packages/project-commands/src/editing/region-invocations.ts
+  type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>
 
 packages/project-format/src/given-names.ts
   type NamedSubject = "asset" | "project"

@@ -43,7 +43,7 @@ import {
   removeRegionInvocation,
   setRegionInvocation,
   withdrawRegionEditInvocation,
-} from './region-commands.js';
+} from './region-invocations.js';
 
 const bus = projectBus();
 const fixture = sampleProject();
@@ -570,7 +570,11 @@ describe('a change to a region’s processing anywhere in its chain', () => {
     if (old === undefined) throw new Error('The region is in the project.');
     const next = groupAppliedAndUndone(
       processed,
-      changeRegionInvocations(old, { ...old, displayName: 'Walk', operations: [early, late] }),
+      changeRegionInvocations(
+        old,
+        { ...old, displayName: 'Walk', operations: [early, late] },
+        processed.project.effectChains,
+      ),
     );
 
     expect(next.project.regions.get(loop.id)).toEqual({
@@ -582,7 +586,7 @@ describe('a change to a region’s processing anywhere in its chain', () => {
 
   it('adds a region with its processing, each operation a step, removed whole by undo', () => {
     const region = { ...regionOn(footstep, 100, 900), operations: [louder(0, 10), louder(5, 50)] };
-    const invocations = addRegionWithProcessing(region);
+    const invocations = addRegionWithProcessing(region, state.project.effectChains);
     expect(invocations).toHaveLength(3);
 
     const next = groupAppliedAndUndone(state, invocations);

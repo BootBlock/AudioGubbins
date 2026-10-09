@@ -8,11 +8,14 @@
  */
 
 import {
+  assetChains,
   bypassedRegionPlan,
+  chainIdsOf,
   channelCount,
   derivedSampleCount,
   markersInRegion,
   placeRegion,
+  regionChains,
   regionPlan,
   streamLength,
   unrackedRegionPlan,
@@ -121,13 +124,9 @@ export function assetSentence(asset: Asset, plan: EditPlan): string {
  * sound is another than the one heard.
  */
 export function runsChains(asset: Asset, region?: Region): boolean {
-  const racked = (operation: { readonly edit: { readonly kind: string } }): boolean =>
-    operation.edit.kind === 'rack';
   return (
-    asset.rack !== undefined ||
-    asset.edits.some((operation) => operation.kind === 'process' && racked(operation)) ||
-    region?.rack !== undefined ||
-    (region?.operations.some(racked) ?? false)
+    chainIdsOf(assetChains(asset)).length > 0 ||
+    (region !== undefined && chainIdsOf(regionChains(region)).length > 0)
   );
 }
 

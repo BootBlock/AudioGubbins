@@ -1,6 +1,8 @@
 /**
  * The frames a de-click works in at a rate and a longest click, the one
- * authority its descriptor's latency and its kernel's rings are read from.
+ * authority its descriptor's latency and its kernel's rings are read from, and
+ * the rule of which flagged frames are one click and which clicks it repairs,
+ * which the click detector reports by.
  *
  * The detector (`clicks.rs`, the analysis contract) works in blocks of `B`
  * frames, the power of two at or above 20 ms: long enough that a block's median
@@ -8,9 +10,9 @@
  * predictor follows the music. Its events for a block arrive at the block's
  * last frame. A span whose last frame, its guard frames after its last flag
  * among them, is `l` is decided at the first block end at or after `l + C`,
- * when `MERGE_GAP` unflagged frames have shown it is over and its context of
- * `C` frames after it has arrived: at most `l + C + B − 1`. It starts no
- * earlier than `l − M + 1`, `M` the longest click, so a latency of
+ * when more than `MERGE_GAP` unflagged frames have shown it is over and its
+ * context of `C` frames after it has arrived: at most `l + C + B − 1`. It
+ * starts no earlier than `l − M + 1`, `M` the longest click, so a latency of
  * `D = M + C + B − 2` frames is the least by which every frame of every click
  * is repaired before it is given. The ring holds the latency and the context
  * before a span: `D + C + 1` frames.
@@ -52,6 +54,19 @@ const SHORTEST_CONTEXT = 8 * MODEL_ORDER;
 /** The block's least length, in milliseconds. */
 const BLOCK_MILLISECONDS = 20;
 
+/**
+ * Whether a flag at `frame` is part of the click whose last flag is at `last`:
+ * no more than `MERGE_GAP` unflagged frames lie between them.
+ */
+export function joinsClick(last: number, frame: number): boolean {
+  return frame - last - 1 <= MERGE_GAP;
+}
+
+/** The frames a de-click replaces for a click flagged from `first` to `last`, its guards with it. */
+export function repairedFrames(first: number, last: number): number {
+  return last - first + 1 + 2 * SPAN_GUARD;
+}
+
 /** The frames a de-click works in. */
 export interface ClickGeometry {
   /** `M`, the longest span that is repaired. */
@@ -63,6 +78,14 @@ export interface ClickGeometry {
   /** `D = M + C + B − 2`. */
   readonly latency: number;
   readonly ringFrames: number;
+}
+
+/**
+ * Whether a de-click of `geometry` repairs a click flagged from `first` to
+ * `last`: one longer, its guards counted, it leaves as it is.
+ */
+export function repairsClick(geometry: ClickGeometry, first: number, last: number): boolean {
+  return repairedFrames(first, last) <= geometry.longest;
 }
 
 /** The geometry at `rate` for a longest click of `milliseconds`. */

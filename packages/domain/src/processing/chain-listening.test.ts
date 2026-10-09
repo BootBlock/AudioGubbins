@@ -67,7 +67,7 @@ function group(suffix: string, branches: readonly (readonly ChainSlot[])[], enab
 }
 
 describe('how a chain is heard (ADR-0061)', () => {
-  it('runs a chain of real-time processors live, with the longest lead-in and every grid', () => {
+  it('runs a chain of real-time processors live, with every grid', () => {
     const heard = chainListening(
       {
         slots: [
@@ -80,6 +80,29 @@ describe('how a chain is heard (ADR-0061)', () => {
     );
 
     expect(heard).toEqual({ kind: 'live', partWay: { leadIn: 64, frameGrid: 1 } });
+  });
+
+  it('adds lead-ins along a list and takes the slowest of a group’s branches', () => {
+    // Each filter settles over 64 frames only once what feeds it has: two in
+    // series need 128, a branch of two beside a branch of none 128 more.
+    const heard = chainListening(
+      {
+        slots: [
+          processor(TEST_FILTER, '0001'),
+          processor(TEST_FILTER, '0002'),
+          group('0001', [
+            [processor(TEST_FILTER, '0003'), processor(TEST_FILTER, '0004')],
+            [processor(TEST_LIMITER, '0005')],
+            [],
+          ]),
+          processor(TEST_FILTER, '0006', { enabled: false }),
+        ],
+      },
+      DESCRIPTORS,
+      SETTINGS,
+    );
+
+    expect(heard).toEqual({ kind: 'live', partWay: { leadIn: 256, frameGrid: 1 } });
   });
 
   it('hears a chain from a render for each processor that cannot run live, each reason once', () => {
@@ -96,7 +119,7 @@ describe('how a chain is heard (ADR-0061)', () => {
 
     expect(heard).toEqual({
       kind: 'rendered',
-      partWay: { leadIn: 900, frameGrid: 12 },
+      partWay: { leadIn: 64 + 900, frameGrid: 12 },
       reason:
         'Measuring measures the whole of its input before it plays anything. Slow cannot keep up with the audio as it plays.',
     });

@@ -13,20 +13,19 @@
 
 import type { CommandInvocation } from '@audiogubbins/commands';
 import {
+  chainIdsOf,
   chainUsers,
   findSlot,
   isWellFormedId,
   unsafeBrandId,
   type Asset,
   type ChainSlot,
-  type EditOperationId,
-  type EditRange,
   type EffectChain,
   type EffectChainId,
   type Project,
   type Region,
 } from '@audiogubbins/domain';
-import type { RackTarget } from '@audiogubbins/project-commands';
+import { targetChains, type RackTarget } from '@audiogubbins/project-commands';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { quoted } from '@audiogubbins/text';
 import type { SelectionSet } from '@audiogubbins/timeline';
@@ -39,47 +38,17 @@ import { regionsInView } from './region-target.js';
 import { textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
-/** A range of a target processed by a chain: one of its rack edits. */
-export interface RangeRack {
-  readonly operation: EditOperationId;
-  /** Where it lies on the asset's timeline at the place it was made. */
-  readonly range: EditRange;
-  readonly chain: EffectChainId;
-}
-
-/** Every chain `target` names: its rack, and each range of it a chain processes. */
-export interface TargetChains {
-  readonly rack: EffectChainId | undefined;
-  readonly ranges: readonly RangeRack[];
-}
-
-/** The chains `target` names, in the order its edits were made. */
-export function chainsOfTarget(target: RackTarget): TargetChains {
-  if (target.kind === 'asset') {
-    return {
-      rack: target.asset.rack,
-      ranges: target.asset.edits.flatMap((operation) =>
-        operation.kind === 'process' && operation.edit.kind === 'rack'
-          ? [{ operation: operation.id, range: operation.range, chain: operation.edit.chain }]
-          : [],
-      ),
-    };
-  }
-  return {
-    rack: target.region.rack,
-    ranges: target.region.operations.flatMap((operation) =>
-      operation.edit.kind === 'rack'
-        ? [{ operation: operation.id, range: operation.range, chain: operation.edit.chain }]
-        : [],
-    ),
-  };
+/** What a target's rack command names: the asset a view shows, or its region. */
+export function rackTargetOf(owner: ProjectOwner): RackTarget {
+  return owner.region === undefined
+    ? { kind: 'asset', asset: owner.asset }
+    : { kind: 'region', region: owner.region, asset: owner.asset };
 }
 
 /** Whether `target` names the chain that holds the slot `slot`. */
 function runs(target: RackTarget, project: Project, slot: string): boolean {
-  const { rack, ranges } = chainsOfTarget(target);
-  return [rack, ...ranges.map((range) => range.chain)].some((id) => {
-    const chain = id === undefined ? undefined : project.effectChains.get(id);
+  return chainIdsOf(targetChains(target)).some((id) => {
+    const chain = project.effectChains.get(id);
     return chain !== undefined && findSlot(chain, slot) !== undefined;
   });
 }
@@ -191,12 +160,9 @@ export function targetChain(
   scope: RackScope,
   invocation: CommandInvocation,
 ): NamedChain | undefined | { readonly refused: string } {
-  const { rack, ranges } = chainsOfTarget(scope.target);
+  const chains = targetChains(scope.target);
   const named = textArgument(invocation, 'chainId');
-  const id =
-    named === undefined
-      ? rack
-      : [rack, ...ranges.map((range) => range.chain)].find((one) => one === named);
+  const id = named === undefined ? chains.rack : chainIdsOf(chains).find((one) => one === named);
   if (named !== undefined && id === undefined) {
     return { refused: `${targetName(scope.target)} does not use that chain.` };
   }

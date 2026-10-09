@@ -226,6 +226,32 @@ describe('a model pass refuses, with the reason, and lets its sessions go', () =
     expect(codesOf(answer)).toEqual(['processor.model-output-too-long']);
   });
 
+  it('a model that gives samples that are not finite, at the first of them, running nothing more', async () => {
+    for (const [layout, spoilt, value, at] of [
+      // The second run of the one channel: its kept chunk starts at 256.
+      [MONO, 2, Number.NaN, { channel: 0, frame: 256 }],
+      // The first run of the second channel.
+      [STEREO, 2, Number.POSITIVE_INFINITY, { channel: 1, frame: 0 }],
+      [STEREO, 3, Number.NEGATIVE_INFINITY, { channel: 0, frame: 256 }],
+    ] as const) {
+      const model = spoiling(spoilt, value);
+      const services = {
+        inference: new FakeModels(new Map([[sha256Of(RECURRENT_MODEL_BYTES), model]])),
+        models: library(),
+      };
+      const answer = await passOver(
+        modelPassOf(typeOver(services), { layout }),
+        stream(3_000, layout.roles.length),
+        [256],
+      );
+      expect(codesOf(answer)).toEqual(['processor.model-output-not-finite']);
+      expect(answer.ok ? {} : answer.failures[0].details).toMatchObject(at);
+      // Twelve runs a channel make the stream; the pass stops at the run after.
+      expect(model.calls).toBeLessThanOrEqual(spoilt + layout.roles.length);
+      expect(services.inference.openSessions).toBe(0);
+    }
+  });
+
   it('a run the runtime fails', async () => {
     const services = { inference: failingRun(runtime(), 2), models: library() };
     const answer = await passOver(modelPassOf(typeOver(services), { layout: MONO }), stream(3_000));
@@ -267,6 +293,24 @@ describe('a cancelled model pass', () => {
     expect(services.inference.inner.openSessions).toBe(0);
   });
 });
+
+/**
+ * The recurrent model, whose `spoilt`th call answers `value` in every sample,
+ * counting its calls.
+ */
+function spoiling(spoilt: number, value: number) {
+  const model = {
+    ...RECURRENT_MODEL,
+    calls: 0,
+    run: (inputs: ReadonlyMap<string, Tensor>) => {
+      model.calls += 1;
+      const answer = RECURRENT_MODEL.run(inputs);
+      if (model.calls === spoilt) answer.get('y')?.data.fill(value);
+      return answer;
+    },
+  };
+  return model;
+}
 
 /**
  * The port `inner` is, whose sessions' runs fail from the `failAt`th on and

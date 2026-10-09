@@ -14,7 +14,9 @@
 
 import { useId, type ReactNode } from 'react';
 
-import { chainsOfTarget, targetName } from '../../commands/rack-target.js';
+import { targetChains } from '@audiogubbins/project-commands';
+
+import { targetName } from '../../commands/rack-target.js';
 import { CommandButton, useCommandReasons } from '../command-button.js';
 import { SharedReasonNotes } from '../settings/reasoned-button.js';
 import { AddProcessorMenu } from './add-processor-menu.js';
@@ -71,7 +73,7 @@ function ProjectRack({
   readonly context: RackContext;
 }): ReactNode {
   const heading = useId();
-  const { rack, ranges } = chainsOfTarget(shown.target);
+  const { rack, ranges } = targetChains(shown.target);
   const chain = rack === undefined ? undefined : shown.state.project.effectChains.get(rack);
   const args = { view: shown.panel };
   return (

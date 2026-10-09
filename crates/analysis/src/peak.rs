@@ -1,8 +1,12 @@
 //! Sample peak and true peak per channel, by ITU-R BS.1770-4 Annex 2.
 //!
 //! The sample peak is the largest magnitude of any sample pushed. The true
-//! peak is the largest magnitude of the signal oversampled by the
-//! recommendation's interpolating filter: 48 taps, used as four phases of 12,
+//! peak is the larger of the sample peak and the largest magnitude of the
+//! signal oversampled by the recommendation's interpolating filter, which
+//! passes a sample through its phase 0 at 0.972 of itself, not whole, so the
+//! oversampled signal alone read a full-scale impulse 0.245 dB under its own
+//! sample peak; a true peak is the peak of the signal, samples included. The
+//! filter is 48 taps, used as four phases of 12,
 //! phase `p` writing the sample a quarter `p` of the way from one input sample
 //! to the next. Each phase's output at input sample `n` is
 //! `Σ P[p][j] · x[n − j]` for `j` from 0 to 11 in that order, in `f64`, with
@@ -13,8 +17,8 @@
 //! below 96 kHz all four phases are used (44.1 kHz goes to 176.4 kHz, the
 //! filter's band scaled with it); from 96 kHz to below 192 kHz phases 0 and 2
 //! alone oversample by two, the sample halfway along; and from 192 kHz the
-//! signal is already at the oversampled rate and the true peak is the sample
-//! peak. Each reaches at least the 4 × 48 kHz the recommendation's design
+//! signal is already at the oversampled rate, nothing is oversampled, and the
+//! true peak is the sample peak. Each reaches at least the 4 × 48 kHz the recommendation's design
 //! oversamples to, or the scaled band of it.
 //!
 //! A reading includes the filter's tail, as if the stream ended in silence
@@ -196,9 +200,7 @@ impl PeakMeter {
         for _ in 1..TAPS {
             true_peak = step(&mut drained, 0.0, self.phases, true_peak);
         }
-        if self.phases.is_empty() {
-            true_peak = sample_peak;
-        }
+        true_peak = true_peak.max(sample_peak);
         Some(PeakReading {
             sample_peak,
             sample_peak_decibels: gain_to_decibels(sample_peak),
@@ -301,18 +303,49 @@ mod tests {
     }
 
     #[test]
-    fn oversamples_by_the_rate_and_drains_its_tail() {
-        // One full-scale sample at the very end: its interpolated neighbours
-        // are written only as the filter drains, which a reading includes.
-        let mut impulse = vec![0.0_f32; 32];
-        impulse[31] = 1.0;
+    fn never_reads_the_true_peak_under_the_sample_peak() {
+        // A full-scale impulse: phase 0 writes it at 0.972 of itself and the
+        // other phases less, so the oversampled signal alone peaks under it.
+        let mut impulse = vec![0.0_f32; 64];
+        impulse[20] = -1.0;
         for rate in [44_100, 48_000, 96_000, 192_000] {
             let mut meter = PeakMeter::new(1, rate).expect("valid");
-            meter.push(&impulse, 32).expect("one channel");
+            meter.push(&impulse, 64).expect("one channel");
             let reading = meter.reading(0).expect("one channel");
             assert_eq!(reading.sample_peak, 1.0);
-            let expected = if rate < 192_000 { PHASES[0][6] } else { 1.0 };
-            assert_eq!(reading.true_peak, expected, "{rate}");
+            assert_eq!(reading.true_peak, 1.0, "{rate}");
+            assert_eq!(reading.true_peak_decibels, 0.0, "{rate}");
+        }
+    }
+
+    #[test]
+    fn oversamples_by_the_rate_and_drains_its_tail() {
+        // Two full-scale samples at the very end: the peak between them is
+        // written only as the filter drains, which a reading includes. Each
+        // phase writes it as the sum of two neighbouring taps.
+        let mut pair = vec![0.0_f32; 32];
+        pair[30] = 1.0;
+        pair[31] = 1.0;
+        for rate in [44_100, 48_000, 96_000, 192_000] {
+            let mut meter = PeakMeter::new(1, rate).expect("valid");
+            meter.push(&pair, 32).expect("one channel");
+            let reading = meter.reading(0).expect("one channel");
+            assert_eq!(reading.sample_peak, 1.0);
+            let phases: &[usize] = match rate {
+                ..96_000 => &[0, 1, 2, 3],
+                96_000..192_000 => &[0, 2],
+                _ => &[],
+            };
+            let between = phases
+                .iter()
+                .flat_map(|phase| {
+                    PHASES[*phase]
+                        .windows(2)
+                        .map(|taps| (taps[0] + taps[1]).abs())
+                })
+                .fold(1.0, f64::max);
+            assert_eq!(reading.true_peak, between, "{rate}");
+            assert_eq!(reading.true_peak > 1.0, rate < 192_000, "{rate}");
         }
         let silent = PeakMeter::new(1, 48_000).expect("valid");
         assert_eq!(
@@ -354,5 +387,5 @@ mod tests {
     }
 
     /// [`golden_run`] at 44.1 kHz and at 96 kHz.
-    const GOLDEN_PEAKS: [u64; 2] = [0x52e5_c81c_11e2_5745, 0xb81b_26b6_cb19_511a];
+    const GOLDEN_PEAKS: [u64; 2] = [0x4e77_5d9b_0dd1_f486, 0x3344_6b50_91b0_97fc];
 }

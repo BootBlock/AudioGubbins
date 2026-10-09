@@ -12,5 +12,7 @@ processorProperties(EXPANDER, {
     { threshold: 0, ratio: 10, range: 80, knee: 0, attack: 0.1, release: 5 },
     { threshold: -20, ratio: 1.5, range: 6, knee: 24, attack: 200, release: 2_000 },
   ],
+  // Downward expansion: its gain is at most 1.
+  bound: 1,
   passThrough: { values: { ratio: 1 }, tolerance: 0 },
 });

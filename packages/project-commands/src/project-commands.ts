@@ -19,9 +19,9 @@ import { assetCommands } from './asset-commands.js';
 import { editCommands } from './editing/edit-commands.js';
 import { markerCommands } from './editing/marker-commands.js';
 import { regionCommands } from './editing/region-commands.js';
-import { chainCommands } from './processing/chain-commands.js';
 import { processorCommands } from './processing/processor-commands.js';
 import { rackCommands } from './processing/rack-commands.js';
+import { slotCommands } from './processing/slot-commands.js';
 import type { ProjectCommand } from './project-command.js';
 import { projectNameCommands } from './project-name-commands.js';
 import { sourceCommands } from './source-commands.js';
@@ -38,9 +38,9 @@ export function projectCommands(catalogue: ProcessorCatalogue): readonly Project
     ...editCommands(),
     ...markerCommands(),
     ...regionCommands(),
-    ...chainCommands(catalogue),
-    ...processorCommands(catalogue),
     ...rackCommands(),
+    ...slotCommands(catalogue),
+    ...processorCommands(catalogue),
   ];
 }
 

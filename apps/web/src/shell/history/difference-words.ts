@@ -23,6 +23,7 @@ import type {
 } from '@audiogubbins/domain';
 import type {
   ChainDifference,
+  ChainOwner,
   DifferenceNames,
   EntityDifferences,
   FieldOf,
@@ -203,15 +204,24 @@ function slotClause(slot: SlotDifference): string {
   return `${called} differs in ${listed(parts)}`;
 }
 
+/** What an effect chain is called for what names it, and the verb it takes. */
+function chainCalled(owner: ChainOwner | undefined): {
+  readonly called: string;
+  readonly is: string;
+} {
+  if (owner === undefined) return { called: 'An effect chain', is: 'is' };
+  const of = `the ${owner.kind} ${quoted(owner.name)}`;
+  if (owner.naming === 'range') return { called: `The chain over a range of ${of}`, is: 'is' };
+  return owner.kind === 'track' || owner.kind === 'bus'
+    ? { called: `The effects of ${of}`, is: 'are' }
+    : { called: `The rack of ${of}`, is: 'is' };
+}
+
 /** What differs of one effect chain, in a line. */
 function chainLine(chain: ChainDifference, names: DifferenceNames): string {
-  const owner = names.chains.get(chain.id);
-  const called =
-    owner === undefined
-      ? 'An effect chain'
-      : `The effects of the ${owner.kind} ${quoted(owner.name)}`;
-  if (chain.change === 'added') return `${called} are in B only.`;
-  if (chain.change === 'removed') return `${called} are in A only.`;
+  const { called, is } = chainCalled(names.chains.get(chain.id));
+  if (chain.change === 'added') return `${called} ${is} in B only.`;
+  if (chain.change === 'removed') return `${called} ${is} in A only.`;
   return `${called}: ${chain.slots.map(slotClause).join('; ')}.`;
 }
 

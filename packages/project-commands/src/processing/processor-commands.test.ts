@@ -21,12 +21,12 @@ import {
   unchangedCodeOf,
 } from '../testing/bus-runs.js';
 import { referenceState } from '../testing/reference-state.js';
-import { addChainInvocation } from './chain-commands.js';
 import { setProcessorInvocation } from './processor-commands.js';
+import { setRackInvocation } from './rack-commands.js';
 
 const bus = projectBus();
 const fixture = sampleProject();
-const { state } = referenceState(fixture);
+const { state, assets } = referenceState(fixture);
 const ids = fixture.ids;
 
 const filter = instantiateProcessor(ids.next<'ProcessorId'>(), TEST_FILTER);
@@ -41,7 +41,9 @@ const group = {
   branches: [{ slots: [filter] }],
 } as const;
 const chain: EffectChain = { id: ids.next<'EffectChainId'>(), slots: [group, limiter] };
-const withChain: ProjectState = appliedOf(bus.execute(state, addChainInvocation(chain))).next;
+const withChain: ProjectState = appliedOf(
+  bus.execute(state, setRackInvocation({ kind: 'asset', asset: assets.footstep }, chain)),
+).next;
 
 describe('setting one processor (ADR-0060, REQ-AUDIO-086)', () => {
   it('sets a processor inside a group as one step, which one undo restores exactly', () => {

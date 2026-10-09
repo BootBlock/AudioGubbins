@@ -12,7 +12,7 @@ import {
   type Region,
 } from '@audiogubbins/domain';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
-import { addChainInvocation, setRackInvocation } from '@audiogubbins/project-commands';
+import { setRackInvocation } from '@audiogubbins/project-commands';
 import { sine, type SignalFixture } from '@audiogubbins/test-fixtures';
 
 import { followPlayingAsset } from '../audio/playing-asset.js';
@@ -70,8 +70,7 @@ async function opened(): Promise<AudioWindow> {
 async function racked(audio: AudioWindow, slots: readonly ChainSlot[]): Promise<EffectChain> {
   const rack: EffectChain = { id: audio.window.context.ids.next<'EffectChainId'>(), slots };
   const changed = audio.changed(audio.asset());
-  await audio.session.run(addChainInvocation(rack));
-  await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, rack.id));
+  await audio.session.run(setRackInvocation({ kind: 'asset', asset: assetOf(audio) }, rack));
   await changed;
   return rack;
 }
@@ -159,6 +158,31 @@ describe('the rack commands (ADR-0060)', { timeout: 30_000 }, () => {
     expect(latestStep(audio)[0]).toBe(before);
   });
 
+  it('removes the processing of a range as one step, its chain going with it, the latest edit only', async () => {
+    const audio = await opened();
+    audio.window.run('editor.select-time', { start: 6_000, end: 30_000 });
+    await audio.window.runAndHear('rack.add-processor', { typeKey: 'gain', place: 'selection' });
+    audio.window.run('editor.select-time', { start: 30_000, end: 36_000 });
+    await audio.window.runAndHear('rack.add-processor', { typeKey: 'reverb', place: 'selection' });
+    const [first, second] = assetOf(audio).edits;
+    if (first === undefined || second === undefined) throw new Error('Two ranges are processed.');
+    const before = modelOf(audio).history.cursor;
+
+    expect(refusal(audio, 'rack.remove-range', { operationId: first.id })).toBe(
+      'Only the latest edit of “Tone” can be removed. Undo it, or remove the edits made after it, first.',
+    );
+    const said = await audio.window.runAndHear('rack.remove-range', { operationId: second.id });
+
+    expect(said).toMatch(/^Removed the processing of “Tone” from .+ to .+\.$/u);
+    expect(assetOf(audio).edits).toEqual([first]);
+    const chain = second.kind === 'process' && second.edit.kind === 'rack' ? second.edit.chain : '';
+    expect(chainOf(audio, chain)).toBeUndefined();
+    expect(latestStep(audio)).toEqual([before, 'Remove the processing of a range of “Tone”']);
+    await audio.window.runAndHear('edit.undo');
+    expect(assetOf(audio).edits).toEqual([first, second]);
+    expect(typesOf(chainOf(audio, chain))).toEqual(['reverb']);
+  });
+
   it('refuses each with a reason a person can read', async () => {
     const audio = await opened();
 
@@ -215,10 +239,9 @@ describe('the rack commands (ADR-0060)', { timeout: 30_000 }, () => {
       id: audio.window.context.ids.next<'EffectChainId'>(),
       slots: [gain],
     };
-    await audio.session.run(addChainInvocation(shared));
     for (const region of regionsOf(audio)) {
       await audio.session.run(
-        setRackInvocation({ kind: 'region', region, asset: assetOf(audio) }, shared.id),
+        setRackInvocation({ kind: 'region', region, asset: assetOf(audio) }, shared),
       );
     }
     const before = modelOf(audio).history.cursor;
@@ -244,10 +267,9 @@ describe('the rack commands (ADR-0060)', { timeout: 30_000 }, () => {
       id: audio.window.context.ids.next<'EffectChainId'>(),
       slots: [gain],
     };
-    await audio.session.run(addChainInvocation(shared));
     for (const region of regionsOf(audio)) {
       await audio.session.run(
-        setRackInvocation({ kind: 'region', region, asset: assetOf(audio) }, shared.id),
+        setRackInvocation({ kind: 'region', region, asset: assetOf(audio) }, shared),
       );
     }
     audio.window.run('editor.select-processor', { processorId: gain.id });

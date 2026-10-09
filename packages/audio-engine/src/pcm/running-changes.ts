@@ -62,37 +62,38 @@ function shapeOf(plan: EditPlan): string {
   );
 }
 
-/** Every processor of the plan's chains, by identifier. */
-function processorsIn(plan: EditPlan): ReadonlyMap<ProcessorId, ProcessorInstance> {
+/** Every processor of the chain of the stream at `place` of the plan, by identifier. */
+function processorsAt(plan: EditPlan, place: number): ReadonlyMap<ProcessorId, ProcessorInstance> {
+  const processing = plan.streams[place]?.processing;
   const found = new Map<ProcessorId, ProcessorInstance>();
-  for (const stream of plan.streams) {
-    if (stream.processing?.kind !== 'chain') continue;
-    for (const processor of processorsOf(stream.processing.chain.slots)) {
-      found.set(processor.id, processor);
-    }
-  }
+  if (processing?.kind !== 'chain') return found;
+  for (const processor of processorsOf(processing.chain.slots)) found.set(processor.id, processor);
   return found;
 }
 
 /**
- * The numeric parameter values `after` gives that `before` did not, each
- * once however many streams share its chain, or `undefined` where the plans
- * differ in anything else.
+ * The numeric parameter values `after` gives that `before` did not, each for
+ * the stream whose chain changed, since a chain a paste carries shares its
+ * processors' identifiers with the chain it was copied from; or `undefined`
+ * where the plans differ in anything else. Plans of one shape hold their
+ * streams at the same places.
  */
 export function runningChanges(
   before: EditPlan,
   after: EditPlan,
 ): readonly ParameterChange[] | undefined {
   if (shapeOf(before) !== shapeOf(after)) return undefined;
-  const was = processorsIn(before);
   const changes: ParameterChange[] = [];
-  for (const [id, processor] of processorsIn(after)) {
-    const old = was.get(id);
-    for (const [parameter, value] of processor.values) {
-      if (typeof value === 'number' && old?.values.get(parameter) !== value) {
-        changes.push({ processor: id, parameter, value });
+  after.streams.forEach((_stream, place) => {
+    const was = processorsAt(before, place);
+    for (const [id, processor] of processorsAt(after, place)) {
+      const old = was.get(id);
+      for (const [parameter, value] of processor.values) {
+        if (typeof value === 'number' && old?.values.get(parameter) !== value) {
+          changes.push({ stream: place, processor: id, parameter, value });
+        }
       }
     }
-  }
+  });
   return changes;
 }

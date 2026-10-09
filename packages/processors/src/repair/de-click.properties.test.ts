@@ -3,7 +3,11 @@ import { EVERY_LAYOUT } from '../testing/filter-measures.js';
 import { DE_CLICK } from './de-click.js';
 
 processorProperties(DE_CLICK, {
+  readsDsp: true,
   layouts: EVERY_LAYOUT,
+  // It cuts a click out and fills the gap from the context: bounded as the
+  // cut-only filters are.
+  bound: 4,
   settings: [
     { sensitivity: 4, 'maximum-length': 2 },
     { output: 'clicks', 'maximum-length': 0.1 },

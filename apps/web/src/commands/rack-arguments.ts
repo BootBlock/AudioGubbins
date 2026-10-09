@@ -12,6 +12,7 @@ import type { CommandInvocation } from '@audiogubbins/commands';
 import {
   SummingLaw,
   isWellFormedId,
+  slotsAt,
   unsafeBrandId,
   type ChainSlot,
   type EffectChain,
@@ -21,26 +22,6 @@ import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { quoted } from '@audiogubbins/text';
 
 import { textArgument } from './shell-command.js';
-
-/** The slots of the list `place` names in `chain`, or `undefined` where it has no such list. */
-export function listAt(
-  chain: Pick<EffectChain, 'slots'>,
-  group: SlotPlace['group'],
-): readonly ChainSlot[] | undefined {
-  if (group === undefined) return chain.slots;
-  const search = (slots: readonly ChainSlot[]): readonly ChainSlot[] | undefined => {
-    for (const slot of slots) {
-      if (slot.kind !== 'group') continue;
-      if (slot.id === group.id) return slot.branches[group.branch]?.slots;
-      for (const branch of slot.branches) {
-        const found = search(branch.slots);
-        if (found !== undefined) return found;
-      }
-    }
-    return undefined;
-  };
-  return search(chain.slots);
-}
 
 /** A whole number argument at least zero, `undefined` where absent, or why it is not one. */
 function countArgument(
@@ -78,7 +59,7 @@ export function placeArgument(
         ? { id: unsafeBrandId<'ProcessorGroupId'>(groupText), branch }
         : undefined;
   if (groupText !== undefined && group === undefined) return 'There is no such group.';
-  const list = listAt(chain, group);
+  const list = slotsAt(chain, group);
   if (list === undefined) return 'The rack has no such group or branch.';
   const at = index ?? list.length;
   if (at > list.length) return 'That is past the end of the list.';
