@@ -38,6 +38,36 @@ export { type ResourceFigures, readResourceFigures } from './resources.js';
 // When the audio devices change, for the runtime to recover its context.
 export { watchAudioDevices } from './audio-devices.js';
 
+// The browser's audio input, which the application composes with the recording
+// session and hands what it opens to the audio runtime (ADR-0070).
+export {
+  type MediaInput,
+  type MediaInputGlobals,
+  type MediaInputNavigator,
+  readMediaInput,
+} from './media-input.js';
+
+export { type InputDeviceDescriptor, type ValueRange } from './input-devices.js';
+
+export { type OpenedInput } from './opened-input.js';
+
+export {
+  type CaptureConstraintName,
+  type CaptureRequest,
+  type GrantedCaptureSettings,
+  type SupportedCaptureConstraints,
+} from './capture-constraints.js';
+
+export { type MicrophonePermission } from './microphone-permission.js';
+
+// Whether the page can be seen, for a recording a browser may suspend in the background.
+export {
+  type PageVisibility,
+  type VisibilityDocument,
+  readPageVisibility,
+  watchPageVisibility,
+} from './page-visibility.js';
+
 export {
   type AppearanceSettings,
   type AppearanceSettingsWatch,

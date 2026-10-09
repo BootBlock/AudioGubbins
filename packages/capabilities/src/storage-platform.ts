@@ -14,6 +14,8 @@
  * definitions, so they are read through `Reflect` and checked, not trusted.
  */
 
+import { method, offered } from './browser-reads.js';
+
 /** The members of a page's or a worker's navigator that storage reads. */
 export interface StorageNavigator {
   readonly storage?: StorageManager | undefined;
@@ -82,36 +84,6 @@ export interface StoragePlatform {
    */
   readonly randomBytes: ((length: number) => Uint8Array) | undefined;
   readonly hostYielding: HostYielding;
-}
-
-/**
- * Reads a value the browser may refuse to hand over.
- *
- * A sandboxed frame or a hardened browser can throw a `SecurityError` from a
- * read rather than answer `undefined`, and refused is the same as not offered.
- * Anything else is a fault, and is not taken for a refusal.
- */
-function offered<T>(read: () => T | undefined): T | undefined {
-  try {
-    return read();
-  } catch (error) {
-    if (error instanceof DOMException) return undefined;
-    throw error;
-  }
-}
-
-/** A function on a host, bound to it, where the host has one by that name. */
-function method(
-  host: unknown,
-  name: string,
-): ((...args: readonly unknown[]) => unknown) | undefined {
-  if ((typeof host !== 'object' && typeof host !== 'function') || host === null) return undefined;
-  const found: unknown = Reflect.get(host, name);
-  if (typeof found !== 'function') return undefined;
-  return (...args) => {
-    const answer: unknown = Reflect.apply(found, host, args);
-    return answer;
-  };
 }
 
 /**
