@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`READY` — its hard dependencies, Phases 02, 03, 05 and 06, are `PASS`, and its readiness review on 2026-10-09 settled its scope in `ADR-0070`, `ADR-0071` and `ADR-0072`.
+`PASS` — completed on 2026-10-10; see `reviews/phase-07-evidence.md`, `reviews/phase-07-review.md` and `traceability/handoffs/phase-07.md`.
 
 ## Objective
 
@@ -3550,7 +3550,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 7,
   "name": "Recording",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     2,
     3,
@@ -3572,7 +3572,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-07-evidence.md",
+    "reviews/phase-07-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-07.md"
 }
 ```

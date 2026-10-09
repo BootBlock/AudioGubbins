@@ -1,6 +1,8 @@
-> **Status:** In progress. 2026-10-09: every slice is built and committed on
-> `phase-07-recording`; the phase's verification, evidence and landing are
-> left, as "Left to do" lists.
+> **Status:** Done. 2026-10-10: every slice is built, the scope check's and
+> the gate run's findings are fixed and written into
+> `docs/spec/reviews/phase-07-review.md`, with the review lenses deferred by
+> the owner's decision of 2026-10-07. Phase 07 is closed at `PASS` in the
+> ledger, with its evidence and its handoff.
 
 # Phase 07 — Recording
 
