@@ -1,6 +1,8 @@
-> **Status:** In progress. 2026-10-09: the seventh session fixed the one
-> review pass's findings in four batches, each with `verify:commit` green.
-> Next is the replay check, the evidence, the ledger and landing.
+> **Status:** Done. 2026-10-09: every slice is built, the one review pass's
+> forty findings are fixed and written into
+> `docs/spec/reviews/phase-06-review.md`, and the scope gaps found after it
+> are closed. Phase 06 is closed at `PASS` in the ledger, with its evidence
+> and its handoff.
 
 # Phase 06 — Effect Rack and Core DSP
 
@@ -44,7 +46,11 @@ the package dependencies in ADR-0030 and ADR-0040).
    range moves that range's segments into a new stream at place 1, renumbering
    the rest, so a segment still reads only a later stream. The asset's rack
    wraps the whole first stream the same way; a region's plan reads its span
-   of that and its rack wraps the result (`ADR-0060`'s order).
+   of that and its rack wraps the result (`ADR-0060`'s order). A segment
+   reads one of three sources: media, a stream, or silence
+   (`silencePlan`, `planIsSilence`), which reads no asset; every plan
+   reader, the oracle, the preview cache key and the project format read
+   all three.
 3. **Operations.** A rack edit is `{ kind: 'rack', chain }`, a `RangeEdit` of a
    `process` operation or of a region's processing; it acts on every channel.
    `stretch` changes a range to a stated length, and `convert-rate` converts
@@ -85,8 +91,9 @@ the package dependencies in ADR-0030 and ADR-0040).
 9. **Persisted form.** A chain is written by `chain-writing.ts` and read by
    `chain-reading.ts` (project-format), the one form for a project, a plan's
    processed stream, the library and the clipboard. Schema versions:
-   `projectDocument` 5, `projectStorage` 9 (stretch, rate conversion and a
-   converted paste carry the engine's algorithm version).
+   `projectDocument` 6, `projectStorage` 10 (stretch, rate conversion and a
+   converted paste carry the engine's algorithm version; a plan may read
+   generated silence).
 10. **Processor node encoding.** A processor runs as node type
     `processor.<typeKey>` with ports `input`, optional `side-chain`, and
     `output`; settings `parameter.<key>`, `quality.<setting>`, `state.kind`,
@@ -620,6 +627,19 @@ batches, each fix with a test seen to fail against the old code.
   opens no session and starts no worker (`ModelLibrary.available`). The
   cruise rules keep the effect rack, the processors and the model channel
   to thread entries and test support.
+- After batch D (`fbc3eff`, `7c891d1`, `92b1a23`): the rack's fields wrap,
+  a label shrinks and a slider keeps at least 8rem, held by
+  `keepsItsSlidersApart` in the effect-rack browser test (the track was
+  24 px before). WU-06.B's scope gap is closed: `edit.insert-silence`,
+  `edit.stretch` and `edit.convert-rate`
+  (`apps/web/src/commands/time-edit-commands.ts`), an Edit menu "Time and
+  rate" group and the Inspector's time controls
+  (`shell/inspector/time-controls.tsx`); one `insertionPlace` serves a
+  paste and inserted silence, so a paste over a range selected on only
+  some channels is refused; the insertion refusals name any insertion, not
+  a paste; one `sampleRateWords`. Thirty broken TSDoc links are fixed, and
+  `tests/architecture/tsdoc-links.test.ts` (about 5 s) resolves every one in
+  the solution's projects, over a shared `solutionProjects()`.
 
 Open points from `ml-runtime`:
 
@@ -672,11 +692,15 @@ Open points from `model-packs`:
 - Seen in the ML browser run, from before this phase (`bce05a8`): after a
   sound plays to its end, "Move the playhead to the start" then "Play"
   said it was playing and stayed stopped, since Play goes on from where a
-  held programme stopped. The stale-position fix above may cover it; not
-  checked again.
+  held programme stopped. Checked again on 2026-10-09 in a built app in
+  Chromium: a one-second sound played to its end and then from the start
+  three times, played whole each time (about 1.4 s from Play to Stopped),
+  both plain and with a peak normalisation rack heard from a render. It no
+  longer happens; the stale-position fix above most likely covers it, but
+  which change fixed it was not proven.
 - `vitest list` shows no tests in the `*.properties.test.ts` files, though
-  they run. `tests/e2e/core-editing.spec.ts` expects straight quotes where
-  the banner now writes curly ones; not run this session.
+  they run. The core-editing and smoke browser tests expected straight
+  quotes and two placeholder texts; corrected in `956f2f5`.
 - No history mechanism joins a drag's changes into one step, so a dragged
   parameter is heard at release. A range's position shows at the asset's
   current rate. A processor selection replaces a region selection (one set
@@ -712,23 +736,24 @@ Open points from `model-packs`:
   file waits in the same slot; storage-pressure relief does not yet take
   partial downloads; `PackStore.transferring` is not in the store contract
   tests.
-- The dereverberation allocation tests failed once under the whole
-  suite's load and passed on the next run; watch for a repeat.
+- Intermittent, each passing when run again (the evidence has the
+  counts): the dereverberation allocation tests under the whole suite's
+  load (twice now), `integrity.test.ts`'s hand-over test when four
+  packages' suites run at once, and the smoke splitter test of a panel's
+  minimum height, where Transport sometimes starts as a tab beside Editor.
 
 Next, in order (2026-10-09):
 
-1. Check the replay defect above in a browser; fix it with a test if it
-   still happens.
-2. Evidence (`reviews/phase-06-evidence.md`), the review record's last
-   commit, ledger PASS, handoff `traceability/handoffs/phase-06.md`, README
-   readiness; land (merge main into the branch, `verify:commit`,
-   `merge --no-ff` from the primary checkout, push, remove the worktree,
-   `git branch -d`, delete the briefs folder); `gambit_record_change` for
-   the user-visible changes (quality settings and the transport's quality
-   lines, the Analysis panel and its silence removal, the storage panel's
-   pack rows and cleanup, the cached preview in the processing modes, the
-   Effects rack panel, the Inspector's rack and processor controls, Hear
-   the original, the Library panel, the Model packs panel).
+1. Done: the browser runs and the goldens over `956f2f5`, their counts in
+   the evidence and the handoff.
+2. Land (merge main into the branch, `verify:commit`, `merge --no-ff` from
+   the primary checkout, push, remove the worktree, `git branch -d`, delete
+   the briefs folder); `gambit_record_change` for the user-visible changes
+   (quality settings and the transport's quality lines, the Analysis panel
+   and its silence removal, the storage panel's pack rows and cleanup, the
+   cached preview in the processing modes, the Effects rack panel, the
+   Inspector's rack, processor and time controls, Hear the original, the
+   Library panel, the Model packs panel, Edit > Time and rate).
 
 Known limits of the ML packs: Spleeter's butted segments leave a
 measurable seam at each join (RMS difference 0.016 near joins against

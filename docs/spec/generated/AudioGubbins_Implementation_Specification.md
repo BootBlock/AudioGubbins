@@ -9052,7 +9052,7 @@ Create `traceability/handoffs/phase-05.md` from `contracts/handoff-capsule-templ
 
 ## Status
 
-`READY` — its hard dependencies, Phases 03 and 05, are `PASS`, and its readiness review on 2026-10-05 settled its scope in `ADR-0060`, `ADR-0061` and `ADR-0062`.
+`PASS` — completed on 2026-10-09; see `reviews/phase-06-evidence.md`, `reviews/phase-06-review.md` and `traceability/handoffs/phase-06.md`.
 
 ## Objective
 
@@ -11541,7 +11541,7 @@ These identifiers are planning-level verification suites. Implementation phases 
 | 03 — Audio Engine Foundation | `PASS` | 01 | 15 | traceability/handoffs/phase-03.md |
 | 04 — Waveform and Timeline Foundation | `PASS` | 01, 03 | 12 | traceability/handoffs/phase-04.md |
 | 05 — Core Non-Destructive Editing | `PASS` | 02, 03, 04 | 4 | traceability/handoffs/phase-05.md |
-| 06 — Effect Rack and Core DSP | `READY` | 03, 05 | 11 | — |
+| 06 — Effect Rack and Core DSP | `PASS` | 03, 05 | 11 | traceability/handoffs/phase-06.md |
 | 07 — Recording | `NOT_READY` | 02, 03, 05, 06 | 10 | — |
 | 08 — Spectral Editing | `NOT_READY` | 03, 04, 05, 06 | 1 | — |
 | 09 — Import, Export, and Codec System | `NOT_READY` | 02, 03, 05, 06 | 3 | — |
@@ -11600,4 +11600,4 @@ Phase 01 — Application Foundation is `READY`.
 
 ## Generation Fingerprint
 
-`sha256:b94972c6638c1388ad47c6c8e23f9b168c0729093e7891f524a58374bf291e28`
+`sha256:587bc452ad8bd08986c5162206f3541ae77391b19c9d33a672ca7c533adfaa9a`

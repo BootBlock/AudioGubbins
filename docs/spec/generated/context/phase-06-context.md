@@ -112,7 +112,7 @@ These invariants apply to every phase. Violations are gate failures unless an ap
 
 ## Status
 
-`READY` — its hard dependencies, Phases 03 and 05, are `PASS`, and its readiness review on 2026-10-05 settled its scope in `ADR-0060`, `ADR-0061` and `ADR-0062`.
+`PASS` — completed on 2026-10-09; see `reviews/phase-06-evidence.md`, `reviews/phase-06-review.md` and `traceability/handoffs/phase-06.md`.
 
 ## Objective
 
@@ -2764,7 +2764,7 @@ Only items explicitly authorised by the specification:
 {
   "phase": 6,
   "name": "Effect Rack and Core DSP",
-  "status": "READY",
+  "status": "PASS",
   "hard_dependencies": [
     3,
     5
@@ -2785,7 +2785,10 @@ Only items explicitly authorised by the specification:
   ],
   "open_verified_findings": [],
   "commits": [],
-  "evidence": [],
-  "handoff": null
+  "evidence": [
+    "reviews/phase-06-evidence.md",
+    "reviews/phase-06-review.md"
+  ],
+  "handoff": "traceability/handoffs/phase-06.md"
 }
 ```
