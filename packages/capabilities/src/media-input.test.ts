@@ -394,6 +394,103 @@ describe('the input devices', () => {
   });
 });
 
+describe('the output the page plays through', () => {
+  /** The outputs Chromium lists once the microphone is allowed: the roles, then each device. */
+  const chromium = (...devices: readonly MediaDeviceInfo[]) =>
+    new FakeMediaDevices(() =>
+      Promise.resolve([
+        device('audioinput', { deviceId: 'mic', groupId: 'laptop', label: 'Microphone' }),
+        device('audiooutput', {
+          deviceId: 'default',
+          groupId: 'laptop',
+          label: 'Default - Speakers (Realtek Audio)',
+        }),
+        device('audiooutput', {
+          deviceId: 'communications',
+          groupId: 'laptop',
+          label: 'Communications - Speakers (Realtek Audio)',
+        }),
+        ...devices,
+      ]),
+    );
+
+  it('is the device behind the default, by the one output of its group', async () => {
+    const devices = chromium(
+      device('audiooutput', {
+        deviceId: 'spk',
+        groupId: 'laptop',
+        label: 'Speakers (Realtek Audio)',
+      }),
+      device('audiooutput', { deviceId: 'hdmi', groupId: 'monitor', label: 'Monitor (HDMI)' }),
+    );
+    expect(await inputOf({ mediaDevices: devices }).output()).toEqual({
+      deviceId: 'spk',
+      groupId: 'laptop',
+      label: 'Speakers (Realtek Audio)',
+    });
+  });
+
+  it("is the default's group and name alone where its group holds several outputs", async () => {
+    const devices = chromium(
+      device('audiooutput', { deviceId: 'out-1-2', groupId: 'laptop', label: 'Outputs 1/2' }),
+      device('audiooutput', { deviceId: 'out-3-4', groupId: 'laptop', label: 'Outputs 3/4' }),
+    );
+    expect(await inputOf({ mediaDevices: devices }).output()).toEqual({
+      deviceId: undefined,
+      groupId: 'laptop',
+      label: 'Default - Speakers (Realtek Audio)',
+    });
+  });
+
+  it('is not known where the browser lists no default output, as Firefox and Safari do not', async () => {
+    const devices = new FakeMediaDevices(() =>
+      Promise.resolve([
+        device('audioinput', { deviceId: 'mic', groupId: 'laptop', label: 'Microphone' }),
+        device('audiooutput', { deviceId: 'spk', groupId: 'laptop', label: 'Speakers' }),
+      ]),
+    );
+    expect(await inputOf({ mediaDevices: devices }).output()).toBeUndefined();
+  });
+
+  it('is not known where the default names no device, as before the microphone is allowed', async () => {
+    const devices = new FakeMediaDevices(() =>
+      Promise.resolve([device('audiooutput', { deviceId: 'default' })]),
+    );
+    expect(await inputOf({ mediaDevices: devices }).output()).toBeUndefined();
+  });
+
+  it('is not known, and never watched, without media devices or on an insecure page', async () => {
+    const devices = new FakeMediaDevices(unused);
+    const insecure = inputOf({ mediaDevices: devices }, { isSecureContext: false });
+    expect(await insecure.output()).toBeUndefined();
+    expect(await inputOf({}).output()).toBeUndefined();
+    expect(insecure.watchOutput(unused)).toBeTypeOf('function');
+    devices.change();
+    expect(devices.listings).toBe(0);
+  });
+
+  it('is read again whenever the devices change, until the watch stops', async () => {
+    let group = 'laptop';
+    const devices = new FakeMediaDevices(() =>
+      Promise.resolve([
+        device('audiooutput', { deviceId: 'default', groupId: group, label: `Default - ${group}` }),
+      ]),
+    );
+    const heard: (string | undefined)[] = [];
+    const stop = inputOf({ mediaDevices: devices }).watchOutput((output) =>
+      heard.push(output?.groupId),
+    );
+    group = 'headset';
+    devices.change();
+    await settle();
+    stop();
+    group = 'laptop';
+    devices.change();
+    await settle();
+    expect(heard).toEqual(['headset']);
+  });
+});
+
 describe('the supported constraints', () => {
   it('are the capture constraints the browser recognises, and no others', () => {
     const supported: MediaTrackSupportedConstraints = {

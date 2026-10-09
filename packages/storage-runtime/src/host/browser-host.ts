@@ -99,10 +99,10 @@ function partsOf(
 }
 
 /**
- * The storage estimate from the browser's, where it gives both its numbers.
- * A browser that refuses to estimate, as one may in a context it does not
- * trust, has given no estimate, and the time left is then unknown rather than
- * assumed (REQ-EXEC-216).
+ * The storage estimate from the browser's, where it gives both its numbers. A
+ * browser that refuses to estimate, as one may in a context it does not trust,
+ * has given no estimate, and the time left is then unknown rather than assumed
+ * (REQ-EXEC-216).
  */
 function estimateOf(read: StoragePlatform['estimate']): HostParts['estimate'] {
   return async () => {

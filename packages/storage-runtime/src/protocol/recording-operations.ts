@@ -76,8 +76,8 @@ export type RecordingOperations = {
   /**
    * Starts recording `session` into the project open under `handle`, from the
    * capture channel `capture`, transferred, as `setUp` says, to become the take
-   * `take` names: refused, with the reason, where this window does not hold
-   * the project to change it or no WAV file can hold the recording. It records
+   * `take` names: refused, with the reason, where this window does not hold the
+   * project to change it or no WAV file can hold the recording. It records
    * until capture ends, then makes the recording its asset.
    */
   'recording.begin': Operation<

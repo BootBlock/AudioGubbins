@@ -9,7 +9,9 @@
  * does not offer has stated behaviour rather than a stand-in (REQ-EXEC-216):
  * listing and opening fail with the reason, an insecure page's before any
  * other, the supported constraints are `undefined`, the permission is
- * `unknown`, and no device change is ever reported.
+ * `unknown`, the output is `undefined`, and no device change is ever reported.
+ * The output the page plays through is read here too, since monitoring and
+ * calibration judge the input by the output its sound returns through.
  */
 
 import { fail, succeed, type CancellationSignal, type DomainResult } from '@audiogubbins/domain';
@@ -26,6 +28,11 @@ import {
   type InputDeviceDescriptor,
 } from './input-devices.js';
 import { insecureContext, unsupported } from './media-input-failures.js';
+import {
+  readPlayingOutput,
+  watchPlayingOutput,
+  type OutputDeviceDescriptor,
+} from './output-devices.js';
 import {
   readMicrophonePermission,
   watchMicrophonePermission,
@@ -58,6 +65,14 @@ export interface MediaInput {
   /** Hears the audio inputs, listed again, whenever the devices change; answers how to stop. */
   readonly watchDevices: (
     changed: (inputs: readonly InputDeviceDescriptor[]) => void,
+  ) => () => void;
+
+  /** The output the page plays through, or `undefined` where the browser cannot say which it is. */
+  readonly output: () => Promise<OutputDeviceDescriptor | undefined>;
+
+  /** Hears the output the page plays through, read again, whenever the devices change; answers how to stop. */
+  readonly watchOutput: (
+    changed: (output: OutputDeviceDescriptor | undefined) => void,
   ) => () => void;
 
   /** Which capture constraints the browser recognises, or `undefined` where it cannot say. */
@@ -103,6 +118,9 @@ export function readMediaInput(
         : succeed(await listInputDevices(listing)),
     watchDevices: (changed) =>
       listing === undefined ? () => undefined : watchInputDevices(listing, changed),
+    output: async () => (listing === undefined ? undefined : await readPlayingOutput(listing)),
+    watchOutput: (changed) =>
+      listing === undefined ? () => undefined : watchPlayingOutput(listing, changed),
     supportedConstraints: devices === undefined ? undefined : readSupportedConstraints(devices),
     open: async (request, signal) =>
       opening === undefined

@@ -4,17 +4,16 @@
  * interrupted session does.
  *
  * The manifest is rewritten first with how capture ended and the asset the
- * recording is being made into, so a session cut short from here on keeps
- * why it ended, and one whose asset the project holds is known to be
- * finished. The recording's file is a 32-bit float WAV header followed by the
- * chunks as they stand: its identity is hashed over the header and the chunks
- * first, so the media store writes it once, under that identity, then it is
- * read back through the read contract before anything names it, as an import
- * is. The asset and the take its purpose names are added as one change, with
- * the store's hold on the file released as an import's is, and the session's
- * chunks and manifest are removed only once the project's journal holds that
- * change. Until then, and wherever a step fails, the session stays, to be
- * recovered.
+ * recording is being made into, so a session cut short from here on keeps why
+ * it ended, and one whose asset the project holds is known to be finished. The
+ * recording's file is a 32-bit float WAV header followed by the chunks as they
+ * stand: its identity is hashed over the header and the chunks first, so the
+ * media store writes it once, under that identity, then it is read back through
+ * the read contract before anything names it, as an import is. The asset and
+ * the take its purpose names are added as one change, with the store's hold on
+ * the file released as an import's is, and the session's chunks and manifest
+ * are removed only once the project's journal holds that change. Until then,
+ * and wherever a step fails, the session stays, to be recovered.
  */
 
 import { openAudio, recordedWavHeader, type AudioFormatDescriptor } from '@audiogubbins/codecs';

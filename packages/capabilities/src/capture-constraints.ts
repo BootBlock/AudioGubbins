@@ -15,7 +15,7 @@
  * `Reflect` and checked.
  */
 
-import { method } from './browser-reads.js';
+import { given, method } from './browser-reads.js';
 
 /** A constraint a capture profile sets, the only ones this adapter passes or reports. */
 export type CaptureConstraintName =
@@ -115,8 +115,7 @@ export function readSupportedConstraints(devices: object): SupportedCaptureConst
 
 /** A setting's value where it is a non-empty string. */
 function textSetting(settings: object, name: string): string | undefined {
-  const value: unknown = Reflect.get(settings, name);
-  return typeof value === 'string' && value !== '' ? value : undefined;
+  return given(Reflect.get(settings, name));
 }
 
 /**

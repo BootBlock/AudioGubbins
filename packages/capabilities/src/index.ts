@@ -49,6 +49,8 @@ export {
 
 export { type InputDeviceDescriptor, type ValueRange } from './input-devices.js';
 
+export { type OutputDeviceDescriptor } from './output-devices.js';
+
 export { type OpenedInput } from './opened-input.js';
 
 export {

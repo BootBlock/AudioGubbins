@@ -12,9 +12,9 @@
  * (`transfer-operations.ts`), their backup generations
  * (`backup-operations.ts`), audio files (`media-operations.ts`), model packs
  * (`pack-operations.ts`), recordings (`recording-operations.ts`), the storage
- * root, the caches, the usage and its cleanup, who writes each project, and
- * the files linked assets were recorded from. The values all clone: none is a class with behaviour, and a cache's
- * bytes are moved rather than copied.
+ * root, the caches, the usage and its cleanup, who writes each project, and the
+ * files linked assets were recorded from. The values all clone: none is a class
+ * with behaviour, and a cache's bytes are moved rather than copied.
  */
 
 import type { LogRecord, PerformanceRecord } from '@audiogubbins/diagnostics';

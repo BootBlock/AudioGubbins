@@ -12,6 +12,9 @@ import {
   type MonitoringEvent,
   type MonitoringPath,
 } from './monitoring.js';
+import { UNKNOWN_OUTPUT, type DeviceIdentity, type OutputIdentity } from './device-identity.js';
+
+const known = (device: DeviceIdentity): OutputIdentity => ({ kind: 'known', device });
 
 function valueOf<T>(result: DomainResult<T>): T {
   if (!result.ok) throw new Error(result.failures[0].summary);
@@ -38,6 +41,7 @@ const DEAD_CHAIN: MonitoringPath = {
 const SAFE: MonitoringContext = { headphones: false, risk: { kind: 'none' }, path: DIRECT };
 const RISKY: MonitoringContext = { ...SAFE, risk: { kind: 'likely', why: 'same-device' } };
 const HEADPHONES: MonitoringContext = { ...SAFE, headphones: true };
+const UNJUDGED: MonitoringContext = { ...SAFE, risk: { kind: 'unknown' } };
 
 /** The state after `events`, from no input open; throws on a refusal. */
 function after(...events: readonly MonitoringEvent[]): Monitoring {
@@ -96,6 +100,31 @@ describe('input monitoring (REQ-REC-091, ADR-0070)', () => {
 
   it('takes a headphones profile at its word and does not warn', () => {
     expect(after(opened({ ...RISKY, headphones: true }), { kind: 'toggle' }).kind).toBe('on');
+  });
+
+  it('warns before it starts where the output is unknown, unless the profile is for headphones', () => {
+    expect(after(opened(UNJUDGED), { kind: 'toggle' })).toEqual({
+      kind: 'confirming',
+      context: UNJUDGED,
+    });
+    expect(after(opened({ ...UNJUDGED, headphones: true }), { kind: 'toggle' }).kind).toBe('on');
+  });
+
+  it('asks again when an unknown output it was confirmed for turns out to be a likely risk', () => {
+    const confirmed = after(opened(UNJUDGED), { kind: 'toggle' }, { kind: 'confirm' });
+    const named = valueOf(nextMonitoring(confirmed, { kind: 'context-changed', context: RISKY }));
+    expect(named.kind).toBe('confirming');
+
+    const likely = after(opened(RISKY), { kind: 'toggle' }, { kind: 'confirm' });
+    const lost = valueOf(nextMonitoring(likely, { kind: 'context-changed', context: UNJUDGED }));
+    expect(lost.kind).toBe('on');
+  });
+
+  it('stops for confirmation when the headphones mark is taken off a risky profile while on', () => {
+    const on = after(opened({ ...RISKY, headphones: true }), { kind: 'toggle' });
+    expect(valueOf(nextMonitoring(on, { kind: 'context-changed', context: RISKY })).kind).toBe(
+      'confirming',
+    );
   });
 
   it('stops for confirmation when a risk appears while it is on, and not for one already confirmed', () => {
@@ -164,11 +193,13 @@ describe("the monitoring path's latency", () => {
 
 describe('the feedback risk', () => {
   it('is likely for one physical device, by its group', () => {
-    expect(feedbackRisk({ id: 'a', group: 'g' }, { id: 'b', group: 'g' })).toEqual({
+    expect(feedbackRisk({ id: 'a', group: 'g' }, known({ id: 'b', group: 'g' }))).toEqual({
       kind: 'likely',
       why: 'same-device',
     });
-    expect(feedbackRisk({ id: 'a', group: '' }, { id: 'b', group: '' })).toEqual({ kind: 'none' });
+    expect(feedbackRisk({ id: 'a', group: '' }, known({ id: 'b', group: '' }))).toEqual({
+      kind: 'none',
+    });
   });
 
   it.each([
@@ -176,7 +207,7 @@ describe('the feedback risk', () => {
     ['MacBook Pro Microphone', 'MacBook Pro Speakers'],
     ['Default - Microphone Array (Intel SST)', 'Speakers (Intel SST)'],
   ])('is likely for %s and %s, whose names differ only by their roles', (input, output) => {
-    expect(feedbackRisk({ id: 'a', label: input }, { id: 'b', label: output })).toEqual({
+    expect(feedbackRisk({ id: 'a', label: input }, known({ id: 'b', label: output }))).toEqual({
       kind: 'likely',
       why: 'same-name',
     });
@@ -184,16 +215,27 @@ describe('the feedback risk', () => {
 
   it('is none for devices of other names, and for an output worn on the head', () => {
     expect(
-      feedbackRisk({ id: 'a', label: 'USB Microphone' }, { id: 'b', label: 'Speakers (Realtek)' }),
+      feedbackRisk(
+        { id: 'a', label: 'USB Microphone' },
+        known({ id: 'b', label: 'Speakers (Realtek)' }),
+      ),
     ).toEqual({ kind: 'none' });
     expect(
       feedbackRisk(
         { id: 'a', group: 'g', label: 'Headset Microphone (USB)' },
-        { id: 'b', group: 'g', label: 'Headphones (USB)' },
+        known({ id: 'b', group: 'g', label: 'Headphones (USB)' }),
       ),
     ).toEqual({ kind: 'none' });
-    expect(feedbackRisk({ id: 'a', label: 'Microphone' }, { id: 'b', label: 'Speakers' })).toEqual({
+    expect(
+      feedbackRisk({ id: 'a', label: 'Microphone' }, known({ id: 'b', label: 'Speakers' })),
+    ).toEqual({
       kind: 'none',
+    });
+  });
+
+  it('is unknown, a reason of its own, where the browser cannot say which output is playing', () => {
+    expect(feedbackRisk({ id: 'a', group: 'g', label: 'Microphone' }, UNKNOWN_OUTPUT)).toEqual({
+      kind: 'unknown',
     });
   });
 });

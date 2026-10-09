@@ -17,10 +17,10 @@
  * Nothing is repaired silently (REQ-STOR-101). Every head passed over, the
  * records replayed, the break and every record discarded past it, the fenced
  * records, a rebuilt cursor state and every kept state missing are in the
- * report, and so is every recording a crash cut short (`recording-sessions.ts`),
- * which the person is offered before anything is cleaned. Recovery reads and
- * never writes: sealing and setting aside are done by the writer that opens
- * the project, and a reader changes nothing.
+ * report, and so is every recording a crash cut short
+ * (`recording-sessions.ts`), which the person is offered before anything is
+ * cleaned. Recovery reads and never writes: sealing and setting aside are done
+ * by the writer that opens the project, and a reader changes nothing.
  */
 
 import type { CommandBus } from '@audiogubbins/commands';

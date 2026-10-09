@@ -8,6 +8,10 @@
  * measured, split into the output's share the browser reports and the input's
  * share that leaves, and a manual offset the person may add or give alone.
  *
+ * An output the browser cannot name is kept as the unknown output: a
+ * calibration taken there applies wherever the output is still unknown, since
+ * a change between two outputs the browser names neither of cannot be told.
+ *
  * The compensation is a take's placement: the frames its start is moved
  * earlier so it lines up with what the person heard while recording. It is a
  * number on the take (ADR-0072), and the recorded samples are never moved.
@@ -24,13 +28,18 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import { isSameDevice, type DeviceIdentity } from './device-identity.js';
+import {
+  isSameDevice,
+  isSameOutput,
+  type DeviceIdentity,
+  type OutputIdentity,
+} from './device-identity.js';
 import type { LoopbackMeasurement } from './loopback-analysis.js';
 
 /** The input device, output device and rate a calibration is kept for. */
 export interface CalibrationPath {
   readonly input: DeviceIdentity;
-  readonly output: DeviceIdentity;
+  readonly output: OutputIdentity;
   readonly rate: SampleRate;
 }
 
@@ -141,7 +150,7 @@ export function pathChanges(
 ): readonly PathChange[] {
   const changes: PathChange[] = [];
   if (!isSameDevice(calibration.input, current.input)) changes.push('input');
-  if (!isSameDevice(calibration.output, current.output)) changes.push('output');
+  if (!isSameOutput(calibration.output, current.output)) changes.push('output');
   if (calibration.rate !== current.rate) changes.push('rate');
   return changes;
 }

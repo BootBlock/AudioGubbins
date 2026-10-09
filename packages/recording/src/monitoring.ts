@@ -7,7 +7,9 @@
  * person marked as used with headphones turns it on by itself, and only where
  * the person had it on before with that device and profile. Where the input and
  * the output look like one device's microphone and speakers, turning it on asks
- * the person to confirm first, since the speakers would feed the microphone.
+ * the person to confirm first, since the speakers would feed the microphone;
+ * and so it does where the browser cannot say which output is playing, unless
+ * the profile is marked as used with headphones, since nothing rules it out.
  * Monitoring through effects is possible only through a chain whose listening
  * is live; a chain that is not is refused with its reason, and recording goes
  * on regardless.
@@ -23,12 +25,17 @@ import {
   type SampleRate,
 } from '@audiogubbins/domain';
 
-import type { DeviceIdentity } from './device-identity.js';
+import type { DeviceIdentity, OutputIdentity } from './device-identity.js';
 
-/** Whether the speakers may feed the microphone, and why it is thought so. */
+/**
+ * Whether the speakers may feed the microphone, and why it is thought so:
+ * `unknown` where the app cannot tell which output is playing, which is no
+ * judgement of the risk either way.
+ */
 export type FeedbackRisk =
   | { readonly kind: 'none' }
-  | { readonly kind: 'likely'; readonly why: 'same-device' | 'same-name' };
+  | { readonly kind: 'likely'; readonly why: 'same-device' | 'same-name' }
+  | { readonly kind: 'unknown' };
 
 /**
  * The words a browser's device names use for a device's role, which two halves
@@ -46,12 +53,14 @@ const WORN = /\b(?:headphones?|headsets?|earphones?|earbuds?|airpods)\b/u;
  * heuristic over what the browser gives: one group means one physical device,
  * and two names that differ only by their role words name one. A device worn
  * on the head is taken at its name, since its sound does not reach a
- * microphone; a false warning costs a confirmation, a missed one a howl.
+ * microphone; a false warning costs a confirmation, a missed one a howl. An
+ * output the browser cannot name is judged neither way.
  */
-export function feedbackRisk(input: DeviceIdentity, output: DeviceIdentity): FeedbackRisk {
-  const outputName = output.label?.toLowerCase() ?? '';
+export function feedbackRisk(input: DeviceIdentity, output: OutputIdentity): FeedbackRisk {
+  if (output.kind === 'unknown') return { kind: 'unknown' };
+  const outputName = output.device.label?.toLowerCase() ?? '';
   if (WORN.test(outputName)) return { kind: 'none' };
-  if (input.group !== undefined && input.group !== '' && input.group === output.group) {
+  if (input.group !== undefined && input.group !== '' && input.group === output.device.group) {
     return { kind: 'likely', why: 'same-device' };
   }
   const inputDevice = deviceName(input.label?.toLowerCase() ?? '');
@@ -106,7 +115,7 @@ export interface MonitoringContext {
  * - `off`: an input is open and monitoring is off; `refusal` says why where it
  *   was turned off, or kept off, by a chain that cannot run live.
  * - `confirming`: the person turned it on, and is asked to confirm a feedback
- *   risk before it starts.
+ *   risk, likely or unknown, before it starts.
  * - `on`: the input is heard, this late.
  */
 export type Monitoring =
@@ -218,12 +227,12 @@ function contextChanged(
     case 'confirming':
       return succeed({ kind: 'confirming', context });
     case 'on': {
-      // A risk that appears while monitoring stops it until the person confirms
-      // again, and a chain that can no longer run live stops it with its
-      // reason.
+      // A risk graver than the one confirmed stops monitoring until the person
+      // confirms again, and a chain that can no longer run live stops it with
+      // its reason.
       const refusal = chainRefusal(context.path);
       if (refusal !== undefined) return succeed({ kind: 'off', context, refusal });
-      if (mustConfirm(context) && !mustConfirm(monitoring.context)) {
+      if (mustConfirm(context) && !confirmedIn(monitoring.context, context.risk)) {
         return succeed({ kind: 'confirming', context });
       }
       return succeed({ kind: 'on', context, latency: monitoringLatency(context.path) });
@@ -233,7 +242,29 @@ function contextChanged(
 
 /** Whether turning monitoring on in `context` asks the person to confirm a feedback risk first. */
 function mustConfirm(context: MonitoringContext): boolean {
-  return context.risk.kind === 'likely' && !context.headphones;
+  return context.risk.kind !== 'none' && !context.headphones;
+}
+
+/**
+ * Whether monitoring on in `context` stands confirmed for `risk`: its own risk
+ * had to be confirmed, and was at least as grave. A likely risk is graver than
+ * one the app cannot judge, so confirming an unknown output does not cover the
+ * speakers it turns out to be.
+ */
+function confirmedIn(context: MonitoringContext, risk: FeedbackRisk): boolean {
+  return mustConfirm(context) && gravity(context.risk) >= gravity(risk);
+}
+
+/** How grave a risk is, for `confirmedIn`. */
+function gravity(risk: FeedbackRisk): number {
+  switch (risk.kind) {
+    case 'none':
+      return 0;
+    case 'unknown':
+      return 1;
+    case 'likely':
+      return 2;
+  }
 }
 
 /** Monitoring on in `context`, or the chain's reason it cannot be. */

@@ -12,6 +12,7 @@ import {
   type CalibrationPath,
   type LatencyCalibration,
 } from './latency-calibration.js';
+import { UNKNOWN_OUTPUT, type OutputIdentity } from './device-identity.js';
 
 function valueOf<T>(result: DomainResult<T>): T {
   if (!result.ok) throw new Error(result.failures[0].summary);
@@ -21,7 +22,10 @@ function valueOf<T>(result: DomainResult<T>): T {
 const RATE = valueOf(sampleRate(48_000));
 const OTHER_RATE = valueOf(sampleRate(44_100));
 const INPUT = { id: 'input-1', group: 'group-1', label: 'Interface In' };
-const OUTPUT = { id: 'output-1', group: 'group-1', label: 'Interface Out' };
+const OUTPUT: OutputIdentity = {
+  kind: 'known',
+  device: { id: 'output-1', group: 'group-1', label: 'Interface Out' },
+};
 const PATH: CalibrationPath = { input: INPUT, output: OUTPUT, rate: RATE };
 const MEASURED = { roundTrip: derivedSampleCount(480), peakRatio: 40 };
 
@@ -62,10 +66,40 @@ describe('a latency calibration (REQ-REC-095)', () => {
         input: { id: 'renewed', group: 'group-1', label: 'Interface In' },
       }),
     ).toEqual([]);
-    expect(pathChanges(PATH, { ...PATH, output: { id: 'output-2' } })).toEqual(['output']);
     expect(
-      pathChanges(PATH, { input: { id: 'x' }, output: { id: 'y' }, rate: OTHER_RATE }),
+      pathChanges(PATH, { ...PATH, output: { kind: 'known', device: { id: 'output-2' } } }),
+    ).toEqual(['output']);
+    expect(
+      pathChanges(PATH, {
+        input: { id: 'x' },
+        output: { kind: 'known', device: { id: 'y' } },
+        rate: OTHER_RATE,
+      }),
     ).toEqual(['input', 'output', 'rate']);
+  });
+
+  it('is kept for the unknown output where the browser cannot name it, and asked again when it can', () => {
+    const unknown: CalibrationPath = { ...PATH, output: UNKNOWN_OUTPUT };
+    expect(pathChanges(unknown, { ...PATH, output: UNKNOWN_OUTPUT })).toEqual([]);
+    expect(pathChanges(unknown, PATH)).toEqual(['output']);
+    expect(pathChanges(PATH, unknown)).toEqual(['output']);
+    const kept = valueOf(manualCalibration(unknown, 10));
+    expect(calibrationOf([kept], unknown)).toBe(kept);
+    expect(calibrationOf([kept], PATH)).toBeUndefined();
+  });
+
+  it('asks again when the system moves its default output to another device', () => {
+    // The default's entry has no identifier of its own, so the device is told by its group and name.
+    const speakers: CalibrationPath = {
+      ...PATH,
+      output: { kind: 'known', device: { id: '', group: 'speakers', label: 'Speakers' } },
+    };
+    const headset: CalibrationPath = {
+      ...PATH,
+      output: { kind: 'known', device: { id: '', group: 'headset', label: 'Headset' } },
+    };
+    expect(pathChanges(speakers, headset)).toEqual(['output']);
+    expect(pathChanges(speakers, speakers)).toEqual([]);
   });
 
   it('is found among those kept for the current path only', () => {
@@ -112,7 +146,7 @@ describe("a take's compensation (REQ-REC-095, ADR-0072)", () => {
 
   it('ignores a calibration of another path', () => {
     const elsewhere = valueOf(
-      measuredCalibration({ ...PATH, output: { id: 'other' } }, MEASURED, 0, 1),
+      measuredCalibration({ ...PATH, output: UNKNOWN_OUTPUT }, MEASURED, 0, 1),
     );
     expect(takeCompensation([elsewhere], PATH, reported).basis).toBe('reported');
   });

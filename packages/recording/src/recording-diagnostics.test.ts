@@ -4,6 +4,7 @@ import { sampleRate, type DomainResult } from '@audiogubbins/domain';
 
 import { compareCapture } from './capture-comparison.js';
 import { RAW_STUDIO_PROFILE, capturePlan } from './capture-profile.js';
+import { UNKNOWN_OUTPUT } from './device-identity.js';
 import { DiagnosticSeverity, type RecordingFacts } from './diagnostic-facts.js';
 import { HIGH_LATENCY_SECONDS } from './latency-diagnostics.js';
 import { recordingBlocked, recordingDiagnostics } from './recording-diagnostics.js';
@@ -24,7 +25,10 @@ const HEALTHY: RecordingFacts = {
   inputRate: 48_000,
   latency: { output: 0.005, input: 0.004 },
   inputLabel: 'Studio Interface In',
-  outputLabel: 'Studio Interface Out',
+  output: {
+    kind: 'known',
+    device: { id: 'out', group: 'interface', label: 'Studio Interface Out' },
+  },
   calibration: { kind: 'current' },
   storage: { kind: 'enough', seconds: 10_000 },
   suspensionRisk: false,
@@ -101,13 +105,21 @@ describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
     const entries = recordingDiagnostics({
       ...HEALTHY,
       inputLabel: "Headset (Sam's AirPods Hands-Free)",
-      outputLabel: 'Speakers (Bluetooth Audio)',
+      output: { kind: 'known', device: { id: 'out', label: 'Speakers (Bluetooth Audio)' } },
     });
     expect(entries.map((entry) => entry.kind)).toEqual(['bluetooth-input', 'bluetooth-output']);
     for (const entry of entries) {
       expect(JSON.stringify(entry)).not.toMatch(/Sam|AirPods Hands|Bluetooth Audio/u);
       expect(entry.impact).toMatch(/Recording stays available/u);
     }
+  });
+
+  it('say where the browser does not name the output, so a change of it goes unnoticed', () => {
+    const entries = recordingDiagnostics({ ...HEALTHY, output: UNKNOWN_OUTPUT });
+    expect(entries.map((entry) => [entry.kind, entry.severity])).toEqual([
+      ['output-unnamed', 'information'],
+    ]);
+    expect(entries[0]?.impact).toMatch(/changing the output does not ask for a new one/u);
   });
 
   it('turn each processing difference and each control that could not be set into an entry', () => {

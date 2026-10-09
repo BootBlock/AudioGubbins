@@ -7,6 +7,11 @@
  * and its label together, and otherwise is not the same device. A label alone
  * is never enough: two of one model of interface have one label.
  *
+ * The output is known only where the browser says which device the page plays
+ * through, and many do not. An output it cannot name is an explicit unknown
+ * output, never a device stood in for it: it is the same as another unknown
+ * output, since nothing tells the two apart, and never the same as a known one.
+ *
  * A label is personal data (`REQ-PRIV-165`): it is compared here and never
  * written into a sentence this package makes.
  */
@@ -32,6 +37,21 @@ export function isSameDevice(remembered: DeviceIdentity, current: DeviceIdentity
     remembered.group === current.group &&
     remembered.label === current.label
   );
+}
+
+/** The output the page plays through, where the browser says which it is. */
+export type OutputIdentity =
+  { readonly kind: 'known'; readonly device: DeviceIdentity } | { readonly kind: 'unknown' };
+
+/** The output of a page whose browser cannot say which device it plays through. */
+export const UNKNOWN_OUTPUT: OutputIdentity = { kind: 'unknown' };
+
+/** Whether `current` is the output `remembered` was: an unknown output is only ever another. */
+export function isSameOutput(remembered: OutputIdentity, current: OutputIdentity): boolean {
+  if (remembered.kind === 'unknown' || current.kind === 'unknown') {
+    return remembered.kind === current.kind;
+  }
+  return isSameDevice(remembered.device, current.device);
 }
 
 /** Whether a browser gave a value: it gives an empty string where it withholds one. */

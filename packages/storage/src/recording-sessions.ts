@@ -2,21 +2,21 @@
  * The recording sessions a project keeps that are not yet assets (ADR-0071,
  * REQ-REC-096, REQ-STOR-099, REQ-STOR-106).
  *
- * A session is interrupted where its manifest can be read and the project
- * does not hold the asset the manifest names as its end: a crash, a reload, a
+ * A session is interrupted where its manifest can be read and the project does
+ * not hold the asset the manifest names as its end: a crash, a reload, a
  * refused write or a lost device cut it short before, or while, it was made
- * into one. Recovering it says its capture ended unexpectedly: as the
- * manifest says where capture ended so, for want of storage or of the device,
- * and as interrupted otherwise, since even a recording stopped by the person
- * was cut short before it was whole. Every such session is listed when the
- * project opens, with the
- * frames its chunks hold, the device as it was recorded and its start, and
- * stays until the person recovers it or discards it: no cleanup step, cache
- * relief or purge reaches a project's recordings. A session whose asset the
- * project holds was finished and only its removal was cut short; the window
- * that opens the project to write removes it, and so it does a session that
- * holds no chunk, whose audio, if any arrived, never reached storage. A session holding chunks and no manifest that can be read is left
- * where it is, since nothing could say what it holds.
+ * into one. Recovering it says its capture ended unexpectedly: as the manifest
+ * says where capture ended so, for want of storage or of the device, and as
+ * interrupted otherwise, since even a recording stopped by the person was cut
+ * short before it was whole. Every such session is listed when the project
+ * opens, with the frames its chunks hold, the device as it was recorded and its
+ * start, and stays until the person recovers it or discards it: no cleanup
+ * step, cache relief or purge reaches a project's recordings. A session whose
+ * asset the project holds was finished and only its removal was cut short; the
+ * window that opens the project to write removes it, and so it does a session
+ * that holds no chunk, whose audio, if any arrived, never reached storage. A
+ * session holding chunks and no manifest that can be read is left where it is,
+ * since nothing could say what it holds.
  */
 
 import {

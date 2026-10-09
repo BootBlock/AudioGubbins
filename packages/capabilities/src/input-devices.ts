@@ -13,7 +13,8 @@
  * a take's provenance, and never written to a log (REQ-PRIV-165).
  */
 
-import { method } from './browser-reads.js';
+import { given, method } from './browser-reads.js';
+import { watchDeviceList } from './device-list-watch.js';
 
 /** The least and the most of a value an input reports it can give. */
 export interface ValueRange {
@@ -37,11 +38,6 @@ export interface InputDeviceDescriptor {
 
   /** The sample rates the input reports it can give, where it reports them. */
   readonly sampleRates: ValueRange | undefined;
-}
-
-/** A string the browser gave, or `undefined` where it gave none or an empty one. */
-function given(value: unknown): string | undefined {
-  return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
 /** A range in a capabilities answer, where it is two finite numbers in order. */
@@ -77,25 +73,11 @@ export async function listInputDevices(
 
 /**
  * Calls `changed` with the audio inputs whenever the browser says its devices
- * changed, and answers how to stop. Lists asked for one after another can
- * answer out of order, so only the latest is delivered.
+ * changed, and answers how to stop.
  */
 export function watchInputDevices(
   devices: MediaDevices,
   changed: (inputs: readonly InputDeviceDescriptor[]) => void,
 ): () => void {
-  let latest = 0;
-  let stopped = false;
-  const listener = (): void => {
-    latest += 1;
-    const asked = latest;
-    void listInputDevices(devices).then((inputs) => {
-      if (!stopped && asked === latest) changed(inputs);
-    });
-  };
-  devices.addEventListener('devicechange', listener);
-  return () => {
-    stopped = true;
-    devices.removeEventListener('devicechange', listener);
-  };
+  return watchDeviceList(devices, listInputDevices, changed);
 }

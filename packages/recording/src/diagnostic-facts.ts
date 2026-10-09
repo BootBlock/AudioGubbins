@@ -8,6 +8,7 @@
 import type { SampleRate } from '@audiogubbins/domain';
 
 import type { CaptureComparison } from './capture-comparison.js';
+import type { OutputIdentity } from './device-identity.js';
 import type { PathChange } from './latency-calibration.js';
 import type { StorageTimeLeft } from './storage-time.js';
 
@@ -64,9 +65,11 @@ export interface RecordingFacts {
     readonly measuredRoundTrip?: number;
   };
 
-  /** The devices' names, read only to recognise a Bluetooth device. */
+  /** The input's name, read only to recognise a Bluetooth device. */
   readonly inputLabel?: string;
-  readonly outputLabel?: string;
+
+  /** The output the page plays through, where the browser names it; its name is read as the input's is. */
+  readonly output: OutputIdentity;
 
   readonly calibration: CalibrationStanding;
   readonly storage: StorageTimeLeft;

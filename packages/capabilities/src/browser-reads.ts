@@ -34,3 +34,11 @@ export function method(
     return answer;
   };
 }
+
+/**
+ * A string the browser gave, or `undefined` where it gave none or an empty
+ * one: a browser gives an empty string where it withholds a value.
+ */
+export function given(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}

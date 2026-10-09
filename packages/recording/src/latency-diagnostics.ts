@@ -1,9 +1,10 @@
 /**
  * The recording diagnostics of the path's latency: a round trip too long for
  * monitoring, punching in and overdubbing, a device named as Bluetooth, an
- * input latency the browser does not report, and a calibration missing or
- * taken on another path (`REQ-REC-094`, `REQ-REC-095`). Latencies are
- * estimates and are worded so; none of these blocks recording.
+ * input latency the browser does not report, an output the browser does not
+ * name, and a calibration missing or taken on another path (`REQ-REC-094`,
+ * `REQ-REC-095`). Latencies are estimates and are worded so; none of these
+ * blocks recording.
  *
  * A device's name is read to recognise a Bluetooth device and never written
  * into an entry (`REQ-PRIV-165`).
@@ -57,7 +58,7 @@ export function latencyDiagnostics(facts: RecordingFacts): readonly RecordingDia
   }
   for (const [side, label] of [
     ['input', facts.inputLabel],
-    ['output', facts.outputLabel],
+    ['output', facts.output.kind === 'known' ? facts.output.device.label : undefined],
   ] as const) {
     if (label !== undefined && BLUETOOTH.test(label)) entries.push(bluetooth(side));
   }
@@ -71,8 +72,21 @@ export function latencyDiagnostics(facts: RecordingFacts): readonly RecordingDia
       improve: 'Calibrate the latency with a loopback to measure the whole round trip.',
     });
   }
+  if (facts.output.kind === 'unknown') entries.push(OUTPUT_UNNAMED);
   return entries;
 }
+
+/** The entry for an output the browser does not name (`REQ-EXEC-216`). */
+const OUTPUT_UNNAMED: RecordingDiagnostic = {
+  kind: 'output-unnamed',
+  severity: DiagnosticSeverity.Information,
+  affects: 'Latency calibration and the feedback warning',
+  why: 'This browser does not say which output the page plays through.',
+  impact:
+    'A calibration is kept for an unnamed output, so changing the output does not ask for a new one, and monitoring warns of feedback on every output unless the capture profile is marked as used with headphones.',
+  improve:
+    'Calibrate again after changing the output, or use a browser that lists its outputs, such as Chrome or Edge.',
+};
 
 function bluetooth(side: 'input' | 'output'): RecordingDiagnostic {
   return {

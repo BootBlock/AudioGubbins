@@ -4,12 +4,12 @@
  * the audio runtime's `CaptureReader`, its frames counted from the
  * recording's first.
  *
- * The channel opens with the frame, rate and channels the take is captured
- * at, which must be the recording's as it was set up: one that is not ends the
+ * The channel opens with the frame, rate and channels the take is captured at,
+ * which must be the recording's as it was set up: one that is not ends the
  * recording as failed before a frame is kept. The channel's end is mapped to
  * the recording's: stopped as stopped, an input let go of as the device lost,
- * and a failure as failed, with what the reader said. Cutting the input ends
- * it where it has reached, for an audio thread that will send nothing more.
+ * and a failure as failed, with what the reader said. Cutting the input ends it
+ * where it has reached, for an audio thread that will send nothing more.
  *
  * A channel stops or lets its input go only because the page told it to, so
  * the page knows better than the channel why such a capture ended, as a timed

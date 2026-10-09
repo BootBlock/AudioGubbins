@@ -5,9 +5,10 @@
  * The parts are what differ between the browser and a test: the tree, the
  * digest, the clock, identifiers and tokens, the window as others are told of
  * it, the leases, the turns, the loggers, where a catalogue's packs are
- * downloaded from and the storage estimate. Everything made from them is made here alone, for both, so
- * a test runs the worker's own composition over parts in memory. Every storage
- * path works through a tree that takes turns (`host-turns.ts`).
+ * downloaded from and the storage estimate. Everything made from them is made
+ * here alone, for both, so a test runs the worker's own composition over parts
+ * in memory. Every storage path works through a tree that takes turns
+ * (`host-turns.ts`).
  */
 
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';

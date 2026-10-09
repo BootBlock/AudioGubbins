@@ -14,7 +14,12 @@
  * work these values decide.
  */
 
-export { type DeviceIdentity, isSameDevice } from './device-identity.js';
+export {
+  type DeviceIdentity,
+  type OutputIdentity,
+  UNKNOWN_OUTPUT,
+  isSameDevice,
+} from './device-identity.js';
 
 export {
   type CaptureOffer,
