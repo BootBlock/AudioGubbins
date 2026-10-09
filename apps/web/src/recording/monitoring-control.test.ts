@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import { FromCaptureKind } from '@audiogubbins/audio-runtime';
 import { unsafeBrandId, type EffectChain } from '@audiogubbins/domain';
+import type { OutputDeviceDescriptor } from '@audiogubbins/capabilities';
 
 import { buildShellContext } from '../testing/shell-context.js';
 import { everythingQueued } from '../testing/waiting.js';
 import { markHeadphones } from '../state/recording-settings.js';
+import { monitoringText } from './recording-words.js';
 
 /** A shell with its input armed, and the capture under it. */
 async function armedShell() {
@@ -139,5 +141,59 @@ describe('monitoring', () => {
     const after = built.monitoring.view.get().monitoring;
     if (before.kind !== 'on' || after.kind !== 'on') throw new Error('Monitoring is not on.');
     expect(after.latency.seconds - before.latency.seconds).toBeCloseTo(0.01, 6);
+  });
+});
+
+describe("monitoring's feedback warning, by the output the page plays through", () => {
+  /** An armed shell whose device watch has read `output` as the output. */
+  async function playingThrough(output: OutputDeviceDescriptor | undefined) {
+    const built = buildShellContext();
+    built.recording.media.outputDevice = output;
+    built.context.recording.input.watchDevices();
+    await everythingQueued();
+    return await armedOn(built);
+  }
+
+  async function armedOn(built: ReturnType<typeof buildShellContext>) {
+    const { input, monitoring } = built.context.recording;
+    expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }));
+    await everythingQueued();
+    return { ...built, input, monitoring };
+  }
+
+  const HEADPHONES = { deviceId: 'phones', groupId: 'phones-group', label: 'Headphones (USB)' };
+
+  it('starts at once where the browser names the output as headphones', async () => {
+    const { monitoring, input } = await playingThrough(HEADPHONES);
+    expect(input.view.get().output).toEqual({
+      kind: 'known',
+      device: { id: 'phones', group: 'phones-group', label: 'Headphones (USB)' },
+    });
+    expectSuccess(monitoring.toggle());
+    expect(monitoring.view.get().monitoring.kind).toBe('on');
+  });
+
+  it('warns that the output is unknown, not that it is speakers, where the browser cannot say', async () => {
+    const { monitoring } = await playingThrough(undefined);
+    expectSuccess(monitoring.toggle());
+    const view = monitoring.view.get();
+    expect(view.monitoring).toMatchObject({
+      kind: 'confirming',
+      context: { risk: { kind: 'unknown' } },
+    });
+    expect(monitoringText(view)).toMatch(/cannot tell which output is playing/u);
+  });
+
+  it("asks again when the system's output moves to the input's own speakers while it is on", async () => {
+    const built = await playingThrough(HEADPHONES);
+    expectSuccess(built.monitoring.toggle());
+    built.recording.media.setOutput({
+      deviceId: undefined,
+      groupId: 'interface-group',
+      label: 'Default - Speakers (Studio interface)',
+    });
+    const view = built.monitoring.view.get();
+    expect(view.monitoring.kind).toBe('confirming');
+    expect(monitoringText(view)).toMatch(/speakers may feed the microphone/u);
   });
 });

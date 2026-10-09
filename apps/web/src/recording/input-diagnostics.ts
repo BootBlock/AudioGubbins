@@ -26,7 +26,6 @@ import {
 import type { RecordingSettings } from '../state/recording-settings.js';
 import { listedAs } from './capture-facts.js';
 import type { InputView } from './input-view.js';
-import { SYSTEM_OUTPUT } from './system-output.js';
 
 /** The storage estimate, once read: `undefined` where the browser gives none. */
 export type StorageReading =
@@ -82,7 +81,7 @@ export function diagnosticsOf(
   if (!rate.ok) return undefined;
   const device = currentInput(sources);
   const path =
-    device === undefined ? undefined : { input: device, output: SYSTEM_OUTPUT, rate: rate.value };
+    device === undefined ? undefined : { input: device, output: input.output, rate: rate.value };
   const measured =
     path === undefined ? undefined : calibrationOf(settings.calibrations, path)?.measured;
   // Before an input is open its channels are the ones it reports, or one,
@@ -109,6 +108,7 @@ export function diagnosticsOf(
       ...(measured === undefined ? {} : { measuredRoundTrip: measured.roundTrip / rate.value }),
     },
     ...(inputLabel === undefined ? {} : { inputLabel }),
+    output: input.output,
     calibration: calibrationStanding(settings, path),
     storage: storageTimeLeft(storage.estimate, rate.value, channels),
     suspensionRisk: sources.suspensionRisk,

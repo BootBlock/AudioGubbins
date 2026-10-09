@@ -57,6 +57,7 @@ export {
   duplicateTakeInvocation,
   keepTakeInvocation,
   rejectTakeInvocation,
+  removePunchInvocation,
   removeTakeInvocation,
   removeTakeStackInvocation,
   renameTakeInvocation,

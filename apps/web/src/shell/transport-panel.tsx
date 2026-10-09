@@ -42,6 +42,12 @@ import { useDisplayFrame } from './use-display-frame.js';
 /** What the panel reads, and how it runs a command. */
 export interface TransportPanelProps {
   readonly title: string;
+  /**
+   * The assets an editor view can open, whose opening makes Play available:
+   * an asset whose files are still being read opens later, and Play is
+   * offered once it has.
+   */
+  readonly assets: Observable<unknown>;
   readonly audio: Observable<AudioView>;
   /** The person's audio settings: the profile, and the render mode. */
   readonly audioSettings: Observable<AudioSettings>;
@@ -224,6 +230,7 @@ export function TransportPanel(props: TransportPanelProps): ReactNode {
   const { title, audio, capabilities, playhead, meters } = props;
   const view = useSyncExternalStore(audio.subscribe, audio.get);
   useSyncExternalStore(props.editorViews.subscribe, props.editorViews.get);
+  useSyncExternalStore(props.assets.subscribe, props.assets.get);
   const { chosen } = useSyncExternalStore(props.audioSettings.subscribe, props.audioSettings.get);
   const problems = [...view.problems, ...(view.playback?.problems ?? [])];
   return (

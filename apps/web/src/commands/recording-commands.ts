@@ -1,23 +1,21 @@
 /**
- * The input's commands (`ADR-0070`): arming and disarming it, monitoring it,
- * choosing the chain it is monitored through, and calibrating its latency.
+ * The input's commands (`ADR-0070`): disarming it, saying its levels, choosing
+ * it, monitoring it, choosing the chain it is monitored through, and
+ * calibrating its latency. Arming it for a take is
+ * `take-recording-commands.ts`'s.
  *
  * Each is a command, so the Recording panel, the menus, the palette and a
- * shortcut reach one route (REQ-EDIT-073). Arming needs the Recording feature
- * and a project to record into, held by this tab for writing (`REQ-STOR-098`);
- * where it is held by another, the recording session's own reason is given.
- * Monitoring has one command to turn it on or off, and arming never turns it
- * on (`REQ-REC-091`).
+ * shortcut reach one route (REQ-EDIT-073). Monitoring has one command to turn
+ * it on or off, and arming never turns it on (`REQ-REC-091`).
  */
 
 import { CommandCategory, unchanged, type Command } from '@audiogubbins/commands';
 import { RECORDING } from '@audiogubbins/capabilities';
-import type { ArmedPurpose } from '@audiogubbins/recording';
 
 import { calibrating } from '../recording/calibration-control.js';
 import { monitoringText } from '../recording/recording-words.js';
 import { needing } from './audio-commands.js';
-import { idArgument, readyProjects } from './project-access.js';
+import { idArgument } from './project-access.js';
 import { availableUnless, shellCommand, textArgument } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -30,55 +28,8 @@ export const MONITOR_THROUGH = 'recording.monitor-through';
 /** The command that chooses the input, named by its `device` argument. */
 export const CHOOSE_INPUT = 'recording.choose-input';
 
-/**
- * What an arming from the Recording panel is for: a new take stack. The
- * project's take views arm for a take of a stack or a punch, through the
- * input control, giving their own purpose.
- */
-const NEW_STACK: ArmedPurpose = { kind: 'new-stack' };
-
-/** Whether this tab holds the open project for writing, or why no project can be recorded into. */
-function leaseOf(context: ShellContext): boolean | string {
-  const stores = readyProjects(context);
-  if (typeof stores === 'string') return stores;
-  if (stores.project.get().kind !== 'open') {
-    return 'Open a project to record into: a recording becomes one of its assets.';
-  }
-  return stores.project.session() !== undefined;
-}
-
-/** Why the input cannot be armed now, or nothing where it can. */
-function armProblem(context: ShellContext): string | undefined {
-  const { input, calibration } = context.recording;
-  if (calibrating(calibration.stage.get())) return 'A latency calibration is running.';
-  const lease = leaseOf(context);
-  if (typeof lease === 'string') return lease;
-  return input.armRefusal({ purpose: NEW_STACK, holdsWriteLease: lease });
-}
-
 function inputCommands(): readonly Command<ShellContext>[] {
   return [
-    shellCommand(
-      'recording.arm',
-      'Arm the input',
-      CommandCategory.Transport,
-      (context) => {
-        const lease = leaseOf(context);
-        const armed = context.recording.input.arm({
-          purpose: NEW_STACK,
-          holdsWriteLease: lease === true,
-        });
-        // Said by the status bar once the input opens, or here, by the input,
-        // with its reason where it does not.
-        return armed.ok ? undefined : armed.failures[0].summary;
-      },
-      {
-        keywords: ['arm', 'record', 'input', 'microphone', 'mic', 'interface', 'open'],
-        description:
-          'Opens the chosen input for recording, asking for the microphone where it is not allowed yet. Monitoring stays off.',
-        availability: needing(RECORDING, armProblem),
-      },
-    ),
     shellCommand(
       'recording.disarm',
       'Disarm the input',

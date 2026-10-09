@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27239: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27305: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1173,7 +1173,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27239: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27305: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -1434,6 +1434,8 @@ Published paths
   readonly MediaInput.watchPermission: (changed: (state: MicrophonePermission) => void) => () => void
   readonly MediaInput.listDevices: () => Promise<DomainResult<readonly InputDeviceDescriptor[]>>
   readonly MediaInput.watchDevices: (changed: (inputs: readonly InputDeviceDescriptor[]) => void) => () => void
+  readonly MediaInput.output: () => Promise<OutputDeviceDescriptor | undefined>
+  readonly MediaInput.watchOutput: (changed: (output: OutputDeviceDescriptor | undefined) => void) => () => void
   readonly MediaInput.supportedConstraints: Readonly<Record<import("packages/capabilities/src/capture-constraints").CaptureConstraintName, boolean>> | undefined
   readonly MediaInput.open: (request: CaptureRequest, signal?: CancellationSignal) => Promise<DomainResult<OpenedInput>>
   interface MediaInputGlobals
@@ -1456,6 +1458,10 @@ Published paths
   readonly OpenedInput.stop: () => void
   const OperatingSystem: { readonly Windows: "Windows"; readonly MacOs: "macOS"; readonly Ios: "iOS"; readonly IpadOs: "iPadOS"; readonly Android: "Android"; readonly ChromeOs: "ChromeOS"; readonly Linux: "Linux"; readonly Unknown: "Unknown operating system"; }
   type OperatingSystem = "Android" | "ChromeOS" | "Linux" | "Unknown operating system" | "Windows" | "iOS" | "iPadOS" | "macOS"
+  interface OutputDeviceDescriptor
+  readonly OutputDeviceDescriptor.deviceId: string | undefined
+  readonly OutputDeviceDescriptor.groupId: string | undefined
+  readonly OutputDeviceDescriptor.label: string | undefined
   const PRESSURE_SENSITIVE_TOOLS: FeatureRequirement
   const PROJECT_STORAGE: FeatureRequirement
   type PageVisibility = "hidden" | "visible"
@@ -4089,6 +4095,7 @@ Published paths
   function rejectTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
+  function removePunchInvocation(asset: Pick<Asset, "id">, operation: Pick<EditOperation, "id">): CommandInvocation
   function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
   function removeSlotsInvocations(state: ProjectState, slots: readonly (import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId)[]): readonly CommandInvocation[]
   function removeTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
@@ -4687,7 +4694,7 @@ Published paths
   const CLOSED_SESSION: RecordingSession
   interface CalibrationPath
   readonly CalibrationPath.input: DeviceIdentity
-  readonly CalibrationPath.output: DeviceIdentity
+  readonly CalibrationPath.output: OutputIdentity
   readonly CalibrationPath.rate: SampleRate
   type CalibrationStanding = { readonly kind: "current"; } | { readonly kind: "missing"; } | { readonly kind: "stale"; readonly changes: readonly PathChange[]; }
   interface CaptureComparison
@@ -4721,7 +4728,7 @@ Published paths
   readonly DeviceIdentity.label?: string
   const DiagnosticSeverity: { readonly Information: "information"; readonly Warning: "warning"; readonly Blocking: "blocking"; }
   type DiagnosticSeverity = "blocking" | "information" | "warning"
-  type FeedbackRisk = { readonly kind: "likely"; readonly why: "same-device" | "same-name"; } | { readonly kind: "none"; }
+  type FeedbackRisk = { readonly kind: "likely"; readonly why: "same-device" | "same-name"; } | { readonly kind: "none"; } | { readonly kind: "unknown"; }
   interface GrantedCapture
   readonly GrantedCapture.processing: Partial<Record<ProcessingControl, boolean>>
   readonly GrantedCapture.channelCount?: number
@@ -4733,7 +4740,7 @@ Published paths
   readonly LatencyCalibration.measured?: MeasuredLatency
   readonly LatencyCalibration.manualOffset: number
   readonly LatencyCalibration.input: DeviceIdentity
-  readonly LatencyCalibration.output: DeviceIdentity
+  readonly LatencyCalibration.output: OutputIdentity
   readonly LatencyCalibration.rate: SampleRate
   interface LoopbackMeasurement
   readonly LoopbackMeasurement.roundTrip: SampleCount
@@ -4769,6 +4776,7 @@ Published paths
   readonly OpenInput.granted: GrantedCapture
   readonly OpenInput.rate: SampleRate
   readonly OpenInput.channels: number
+  type OutputIdentity = { readonly kind: "known"; readonly device: DeviceIdentity; } | { readonly kind: "unknown"; }
   const PROCESSING_CONTROLS: readonly ProcessingControl[]
   const PROFILE_NAME_CHARACTERS: 48
   type PathChange = "input" | "output" | "rate"
@@ -4796,7 +4804,7 @@ Published paths
   readonly RecordingFacts.inputRate?: number
   readonly RecordingFacts.latency: { readonly output: number; readonly input?: number; readonly measuredRoundTrip?: number; }
   readonly RecordingFacts.inputLabel?: string
-  readonly RecordingFacts.outputLabel?: string
+  readonly RecordingFacts.output: OutputIdentity
   readonly RecordingFacts.calibration: CalibrationStanding
   readonly RecordingFacts.storage: StorageTimeLeft
   readonly RecordingFacts.suspensionRisk: boolean
@@ -4836,6 +4844,7 @@ Published paths
   readonly TakeCompensation.frames: number
   readonly TakeCompensation.basis: CompensationBasis
   readonly TakeCompensation.manualOffset: number
+  const UNKNOWN_OUTPUT: OutputIdentity
   interface UncontrollableProcessing
   readonly UncontrollableProcessing.control: ProcessingControl
   readonly UncontrollableProcessing.wanted: boolean
@@ -4846,7 +4855,7 @@ Published paths
   function capturePlan(profile: CaptureProfile, offer: CaptureOffer): CapturePlan
   function compareCapture(plan: CapturePlan, granted: GrantedCapture): CaptureComparison
   function customProfile(name: unknown, processing: Readonly<Record<ProcessingControl, boolean>>, headphones: boolean): DomainResult<CaptureProfile>
-  function feedbackRisk(input: DeviceIdentity, output: DeviceIdentity): FeedbackRisk
+  function feedbackRisk(input: DeviceIdentity, output: OutputIdentity): FeedbackRisk
   function inputIndicator(session: RecordingSession): InputIndicator | undefined
   function inputIsOpen(session: RecordingSession): boolean
   function isSameDevice(remembered: DeviceIdentity, current: DeviceIdentity): boolean

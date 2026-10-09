@@ -1,8 +1,8 @@
 /**
- * The Recording panel's input: which input, whether the microphone is
- * allowed, the arm and disarm control, the profile and what the browser
- * granted against what it asked for (`REQ-REC-092`), the retrospective buffer,
- * and the input's levels with their spoken form.
+ * The Recording panel's input: which input, whether the microphone is allowed,
+ * the arm and disarm control, the profile and what the browser granted against
+ * what it asked for (`REQ-REC-092`), the retrospective buffer, and the input's
+ * levels with their spoken form.
  *
  * The grant is disclosed progressively: the profile and whether everything
  * asked for was granted first, and each difference and what it does to the

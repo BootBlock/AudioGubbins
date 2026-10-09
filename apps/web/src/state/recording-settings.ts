@@ -1,7 +1,7 @@
 /**
- * The person's recording settings, a part of their audio settings
- * (`ADR-0070`): the capture profiles, the profile in use, the input they chose,
- * the retrospective buffer, the count-in, where they had monitoring on, and the
+ * The person's recording settings, a part of their audio settings (`ADR-0070`):
+ * the capture profiles, the profile in use, the input they chose, the
+ * retrospective buffer, the count-in, where they had monitoring on, and the
  * latency calibrations they measured or set.
  *
  * Each change is a revision of the whole value that either answers the next
@@ -59,6 +59,13 @@ export interface RecordingSettings {
   /** Seconds counted in before a controlled recording begins; zero for none. */
   readonly countInSeconds: number;
 
+  /** Seconds a punch records, and plays, before its range and after it (`REQ-REC-093`). */
+  readonly punchPreRollSeconds: number;
+  readonly punchPostRollSeconds: number;
+
+  /** Seconds after which a recording stops by itself; zero for none. */
+  readonly stopAfterSeconds: number;
+
   /** Where the person had monitoring on or off, by input and profile. */
   readonly monitoring: readonly MonitoringPreference[];
 
@@ -68,6 +75,19 @@ export interface RecordingSettings {
 
 /** The longest count-in: long enough to walk to an instrument, short enough to be a count-in. */
 export const LONGEST_COUNT_IN_SECONDS = 10;
+
+/** The longest pre-roll or post-roll of a punch: a verse of context, not a second take. */
+export const LONGEST_PUNCH_ROLL_SECONDS = 30;
+
+/** The longest timed recording: a day, which no storage a browser gives would hold at full rate. */
+export const LONGEST_TIMED_SECONDS = 86_400;
+
+/**
+ * A punch's pre-roll and post-roll unless the person says otherwise: two
+ * seconds to find the performance before the range, one to land it after.
+ */
+export const DEFAULT_PUNCH_PRE_ROLL_SECONDS = 2;
+export const DEFAULT_PUNCH_POST_ROLL_SECONDS = 1;
 
 /**
  * How many monitoring preferences and calibrations are kept, the most recent
@@ -83,6 +103,9 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   input: undefined,
   retrospective: RETROSPECTIVE_OFF,
   countInSeconds: 0,
+  punchPreRollSeconds: DEFAULT_PUNCH_PRE_ROLL_SECONDS,
+  punchPostRollSeconds: DEFAULT_PUNCH_POST_ROLL_SECONDS,
+  stopAfterSeconds: 0,
   monitoring: [],
   calibrations: [],
 };
@@ -227,6 +250,44 @@ export function setCountIn(seconds: number): RecordingRevision {
     if (refusal !== undefined) return refused('count-in-out-of-range', refusal);
     return succeed(
       current.countInSeconds === seconds ? current : { ...current, countInSeconds: seconds },
+    );
+  };
+}
+
+/** Why `seconds` is no pre-roll or post-roll, or nothing where it is one. */
+export function punchRollRefusal(seconds: number): string | undefined {
+  return Number.isFinite(seconds) && seconds >= 0 && seconds <= LONGEST_PUNCH_ROLL_SECONDS
+    ? undefined
+    : `A punch's pre-roll and post-roll last from 0 to ${String(LONGEST_PUNCH_ROLL_SECONDS)} seconds.`;
+}
+
+/** Sets a punch's pre-roll and post-roll, in seconds. */
+export function setPunchRolls(preRoll: number, postRoll: number): RecordingRevision {
+  return (current) => {
+    const refusal = punchRollRefusal(preRoll) ?? punchRollRefusal(postRoll);
+    if (refusal !== undefined) return refused('punch-roll-out-of-range', refusal);
+    return succeed(
+      current.punchPreRollSeconds === preRoll && current.punchPostRollSeconds === postRoll
+        ? current
+        : { ...current, punchPreRollSeconds: preRoll, punchPostRollSeconds: postRoll },
+    );
+  };
+}
+
+/** Why `seconds` is no timed stop, or nothing where it is one; zero is none. */
+export function timedStopRefusal(seconds: number): string | undefined {
+  return Number.isFinite(seconds) && seconds >= 0 && seconds <= LONGEST_TIMED_SECONDS
+    ? undefined
+    : `A timed recording lasts from 0, for no timed stop, to ${String(LONGEST_TIMED_SECONDS)} seconds.`;
+}
+
+/** Sets the seconds after which a recording stops by itself, zero for none. */
+export function setTimedStop(seconds: number): RecordingRevision {
+  return (current) => {
+    const refusal = timedStopRefusal(seconds);
+    if (refusal !== undefined) return refused('timed-stop-out-of-range', refusal);
+    return succeed(
+      current.stopAfterSeconds === seconds ? current : { ...current, stopAfterSeconds: seconds },
     );
   };
 }

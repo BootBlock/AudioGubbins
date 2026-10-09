@@ -68,6 +68,9 @@ import { rackComparisonCommands } from './rack-comparison-commands.js';
 import { rackParameterCommands } from './rack-parameter-commands.js';
 import { rackSlotCommands } from './rack-slot-commands.js';
 import { recordingCommands } from './recording-commands.js';
+import { takeStackCommands } from './take-commands.js';
+import { takeAuditionCommands } from './take-audition-commands.js';
+import { interruptedRecordingCommands } from './interrupted-recording-commands.js';
 import { shellCommands } from './shell-commands.js';
 import { sourceCommands } from './source-commands.js';
 import { storageCommands } from './storage-commands.js';
@@ -671,6 +674,10 @@ describe('the default shortcut profile', () => {
       commandId('edit.copy'),
       commandId('edit.paste'),
       commandId('recording.toggle-monitoring'),
+      commandId('recording.arm'),
+      commandId('recording.arm-punch'),
+      commandId('recording.record'),
+      commandId('recording.stop'),
     ]);
   });
 
@@ -858,6 +865,20 @@ describe('finding the shell commands in the palette', () => {
    */
   const RECORDING_INPUT: ReadonlySet<string> = new Set([
     ...recordingCommands().map((command): string => command.id),
+    // Arming, recording and stopping need an input open and a project to
+    // record into, and settle in the storage worker; each is run twice, its
+    // take awaited, in `take-recording-commands.test.ts`.
+    'recording.arm',
+    'recording.arm-punch',
+    'recording.record',
+    'recording.record-at',
+    'recording.stop',
+    // The take stacks' commands and the offer of a recording cut short need
+    // takes of the project, which only a recording makes; each is run twice,
+    // its change awaited, in `take-commands.test.ts`.
+    ...takeStackCommands().map((command): string => command.id),
+    ...takeAuditionCommands().map((command): string => command.id),
+    ...interruptedRecordingCommands().map((command): string => command.id),
     'recording.set-manual-offset',
     'recording.forget-calibration',
   ]);
@@ -1046,6 +1067,8 @@ describe('finding the shell commands in the palette', () => {
       before: (run) => run('recording.set-retrospective', { seconds: 10 }),
     },
     'recording.set-count-in': { arguments: () => ({ seconds: 3 }) },
+    'recording.set-punch-rolls': { arguments: () => ({ preRoll: 3, postRoll: 2 }) },
+    'recording.set-timed-stop': { arguments: () => ({ seconds: 60 }) },
     'recording.monitor-automatically': {
       storage: () => {
         const raw = ephemeralStorage();

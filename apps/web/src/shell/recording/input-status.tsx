@@ -4,6 +4,10 @@
  * buffering and for how long, counting in, recording or calibrating, and
  * whether it is monitored, as distinct states; and nothing while no input is.
  *
+ * While a take is recorded, how much of it storage has kept, and the storage
+ * left where it runs low, are shown beside the state; the warning is said
+ * once by the recording flow, and the seconds kept are never said.
+ *
  * Each change of state is said once, politely, as it happens: the state and
  * monitoring, never the seconds of a buffer filling, which would make a live
  * region of a clock. This is the one place those changes are said, so a
@@ -19,6 +23,7 @@ import type { CalibrationStage } from '../../recording/calibration-control.js';
 import { inputStatus, type InputStatus as Status } from '../../recording/input-view.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { monitoringText, statusText } from '../../recording/recording-words.js';
+import { recordedText, timeLeftWarning } from '../../recording/take-words.js';
 import { useInputView } from './use-recording.js';
 
 /** The device a calibration has open, where one is running. */
@@ -41,6 +46,31 @@ function calibrationInput(
 /** What a status's state is, for saying it once per change: its kind, not its seconds. */
 function stateOf(status: Status | undefined, monitored: boolean): string {
   return status === undefined ? 'closed' : `${status.kind}:${String(monitored)}`;
+}
+
+/**
+ * How much of the take being recorded storage has kept, and the storage left
+ * where it runs low; nothing while no take is recorded.
+ */
+function TakeProgressItems({ recording }: { readonly recording: RecordingParts }): ReactNode {
+  const progress = useSyncExternalStore(
+    recording.takes.progress.subscribe,
+    recording.takes.progress.get,
+  );
+  if (progress.kind !== 'recording') return null;
+  const warning = timeLeftWarning(progress.timeLeft);
+  return (
+    <>
+      <span className="ag-status-item">
+        {`${progress.take}: ${recordedText(progress.committed / progress.rate)} kept`}
+      </span>
+      {warning !== undefined && (
+        <span className="ag-status-item" data-ag-status="unavailable">
+          {warning}
+        </span>
+      )}
+    </>
+  );
 }
 
 /** The input's state, in the status bar. */
@@ -84,6 +114,7 @@ export function InputStatus({
       >
         {statusText(status)}
       </span>
+      <TakeProgressItems recording={recording} />
       <span className="ag-status-item" data-ag-status={monitored ? 'reduced' : undefined}>
         {monitored ? 'Monitoring' : 'Not monitoring'}
       </span>

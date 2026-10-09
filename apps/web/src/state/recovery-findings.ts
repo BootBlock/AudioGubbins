@@ -13,6 +13,7 @@ import type { ProjectRecoveryReport } from '@audiogubbins/storage';
 
 /** One thing recovery found that the person should hear of. */
 export type RecoveryFinding =
+  | { readonly kind: 'interrupted-recordings'; readonly recordings: number }
   | { readonly kind: 'fallback' }
   | { readonly kind: 'rebuilt-cursor-state' }
   | { readonly kind: 'journal-break'; readonly discarded: number }
@@ -35,6 +36,12 @@ type Finders = Readonly<
 
 /** Each field's finding, in the order the person is told of them. */
 const FINDERS: Finders = {
+  // First: a recording cut short is offered to be recovered or discarded
+  // before anything else is said or done with the project (ADR-0071).
+  interruptedRecordings: ({ interruptedRecordings }) =>
+    interruptedRecordings.length > 0
+      ? { kind: 'interrupted-recordings', recordings: interruptedRecordings.length }
+      : undefined,
   fallbacks: ({ fallbacks }) => (fallbacks.length > 0 ? { kind: 'fallback' } : undefined),
   rebuiltCursorState: ({ rebuiltCursorState }) =>
     rebuiltCursorState === undefined ? undefined : { kind: 'rebuilt-cursor-state' },
@@ -46,10 +53,6 @@ const FINDERS: Finders = {
     fenced.length > 0 ? { kind: 'fenced', changes: fenced.length } : undefined,
   missingStates: ({ missingStates }) =>
     missingStates.length > 0 ? { kind: 'missing-states', states: missingStates.length } : undefined,
-  // An interrupted recording is offered to be recovered or discarded by the
-  // recording views, which ask the person; it is not a finding said of the
-  // project's recovery.
-  interruptedRecordings: () => undefined,
 };
 
 /** What recovery found that the person should hear of, in the order they hear it. */

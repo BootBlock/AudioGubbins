@@ -77,9 +77,9 @@ export function monitoringText(view: MonitoringView): string {
       return `Monitoring is on: you hear the input ${atLeast}${millisecondsText(monitoring.latency.seconds)} late.`;
     }
     case 'confirming':
-      return view.outputKnown
-        ? 'The speakers may feed the microphone and howl. Confirm to monitor anyway, or use headphones.'
-        : 'AudioGubbins cannot tell whether you listen on speakers, which would feed the microphone and howl. Confirm to monitor anyway, or mark the profile as used with headphones.';
+      return monitoring.context.risk.kind === 'unknown'
+        ? 'AudioGubbins cannot tell which output is playing, so cannot tell whether you listen on speakers, which would feed the microphone and howl. Confirm to monitor anyway, or mark the profile as used with headphones.'
+        : 'The speakers may feed the microphone and howl. Confirm to monitor anyway, or use headphones.';
     case 'off':
       return monitoring.refusal === undefined
         ? 'Monitoring is off.'

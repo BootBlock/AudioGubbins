@@ -1,19 +1,19 @@
 /**
  * The input side of recording (`ADR-0070`, `REQ-REC-090`): the recording
- * session's state machine driven by what the browser and the capture
- * processor do, and the input it opens and closes.
+ * session's state machine driven by what the browser and the capture processor
+ * do, and the input it opens and closes.
  *
- * Nothing is asked of the browser at start-up. An input is opened only when
- * the person arms it, and the permission is asked for then; it is closed when
- * they disarm it, and whenever the session no longer holds one, whatever ended
- * it: the device lost, the permission taken back, the context closed under it.
- * What it records for, and whether this tab may write into the project, are
- * given with each arming by whoever arms (`ArmRequest`), since a project's
- * takes and its write lease are the project's; Record and Stop are driven the
- * same way, and the capture channel Record answers is the caller's to hand to
- * the storage worker. Monitoring is the monitoring control's, which this tells
- * when an input opens and closes, and never because one was armed. The
- * status bar says each change of the input's state; this says why an input
+ * Nothing is asked of the browser at start-up. An input is opened only when the
+ * person arms it, and the permission is asked for then; it is closed when they
+ * disarm it, and whenever the session no longer holds one, whatever ended it:
+ * the device lost, the permission taken back, the context closed under it. What
+ * it records for, and whether this tab may write into the project, are given
+ * with each arming by whoever arms (`ArmRequest`), since a project's takes and
+ * its write lease are the project's. A take is made through its `takes`
+ * (`take-capture.ts`), and the capture channel Record answers is the caller's
+ * to hand to the storage worker. Monitoring is the monitoring control's, which
+ * this tells when an input opens and closes, and never because one was armed.
+ * The status bar says each change of the input's state; this says why an input
  * closed or would not open, and the levels after a passage.
  */
 
@@ -33,11 +33,11 @@ import type { MicrophonePermission } from '@audiogubbins/capabilities';
 import {
   inputIsOpen,
   nextSession,
+  type ArmedPurpose,
   type DeviceIdentity,
   type RecordingSession,
   type SessionEvent,
   type SessionSetup,
-  type StopReason,
 } from '@audiogubbins/recording';
 
 import type { AudioSettingsStore } from '../state/audio-settings-store.js';
@@ -60,6 +60,8 @@ import {
   type Followed,
 } from './session-setup.js';
 import { watchOpenInput, type PageWatch } from './open-input-watch.js';
+import { TakeCapture } from './take-capture.js';
+import { outputIdentityOf } from './system-output.js';
 
 /** What the input control is made with. */
 export interface InputControlOptions {
@@ -98,12 +100,31 @@ export class InputControl {
   /** Counts openings, so one overtaken by a disarm or another opening closes what it opened. */
   #attempt = 0;
   #followed: Followed;
+  /** The take a Record makes on the input open now. */
+  readonly takes: TakeCapture;
 
   constructor(options: InputControlOptions) {
     this.#options = options;
+    this.takes = new TakeCapture({
+      session: () => this.#view.get().session,
+      dispatch: (event) => this.#dispatch(event),
+      open: () => {
+        const open = this.#open;
+        return open === undefined
+          ? undefined
+          : { capture: open.opened.capture, rate: open.opened.facts.rate };
+      },
+      bufferedSeconds: () => this.#view.get().bufferedSeconds,
+      contextFrame: () => this.contextFrame(),
+    });
     this.#devices = new DeviceWatch(options.opening.media, {
       permission: this.#permissionChanged,
       devices: this.#devicesChanged,
+      output: (described) => {
+        const output = outputIdentityOf(described);
+        this.#update({ output });
+        options.monitoring.outputChanged(output);
+      },
       refused: (refusal) => {
         this.#update({ listing: { kind: 'refused', failure: refusal } });
       },
@@ -198,33 +219,9 @@ export class InputControl {
     return this.#dispatch({ kind: 'device-chosen', device });
   }
 
-  /**
-   * Records from context frame `at` onto a capture channel, whose far end is
-   * answered for the caller to transfer to the storage worker; or why not.
-   */
-  record(at: SampleCount, holdsWriteLease: boolean): DomainResult<MessagePort> {
-    const open = this.#open;
-    if (open === undefined) {
-      return fail(problemOf('recording.no-input', 'No input is open to record from.'));
-    }
-    const held = derivedSampleCount(
-      Math.round(this.#view.get().bufferedSeconds * open.opened.facts.rate),
-    );
-    const moved = this.#dispatch({ kind: 'record', at, held, holdsWriteLease });
-    if (!moved.ok) return moved;
-    const channel = open.opened.capture.record(at);
-    if (!channel.ok) this.#dispatch({ kind: 'failed', failure: channel.failures[0] });
-    return channel;
-  }
-
-  /** Stops the recording before context frame `at`, for `reason`. */
-  stop(
-    at: SampleCount,
-    reason: Extract<StopReason['kind'], 'person' | 'timed'>,
-  ): DomainResult<void> {
-    const moved = this.#dispatch({ kind: 'stop', reason });
-    if (!moved.ok) return moved;
-    return this.#open?.opened.capture.stop(at) ?? succeed(undefined);
+  /** Gives the armed input another purpose: what the next take is recorded for. */
+  retarget(purpose: ArmedPurpose): DomainResult<void> {
+    return this.#dispatch({ kind: 'retarget', purpose });
   }
 
   /** What was captured is finished: the caller's storage has ended the take. */
@@ -254,9 +251,9 @@ export class InputControl {
   }
 
   /**
-   * Opens the input the session or the setup names, for `request`: the
-   * context is joined before any input open now is closed, so a context
-   * nothing else holds is kept running for the input that replaces it.
+   * Opens the input the session or the setup names, for `request`: the context
+   * is joined before any input open now is closed, so a context nothing else
+   * holds is kept running for the input that replaces it.
    */
   #begin(request: ArmRequest): void {
     this.#attempt += 1;
@@ -345,6 +342,7 @@ export class InputControl {
       this.#options.suspensionRisk,
       {
         event: (event) => {
+          this.takes.heard(event);
           for (const listener of [...this.#listeners]) listener(event);
         },
         deviceLost: () => {
@@ -409,8 +407,8 @@ export class InputControl {
 
   /**
    * Keeps the input in step with the session: opened again where an armed
-   * session asks for another device or profile, and closed, with any opening
-   * on its way given up, where the session neither holds nor opens one.
+   * session asks for another device or profile, and closed, with any opening on
+   * its way given up, where the session neither holds nor opens one.
    */
   #settle(before: RecordingSession, after: RecordingSession): void {
     const opening = after.kind === 'armed' && after.input.kind === 'opening';
@@ -426,6 +424,7 @@ export class InputControl {
   #close(): void {
     const open = this.#open;
     this.#open = undefined;
+    this.takes.forget();
     if (open === undefined) return;
     this.#options.monitoring.inputClosed();
     open.stopWatching();
@@ -441,6 +440,9 @@ export class InputControl {
         ? this.#dispatch({ kind: 'disarm' })
         : this.#dispatch(event);
     if (!moved.ok) this.#close();
+    // A take the input was lost under ends where it reached, so its channel
+    // closes and storage keeps every frame that came.
+    else if (session.kind === 'recording') this.takes.stopNow();
     this.#update({ problem });
     this.#options.announce(problem);
   }
@@ -486,9 +488,7 @@ export class InputControl {
   #suspended(why: string): void {
     const { session } = this.#view.get();
     if (session.kind !== 'recording' && session.kind !== 'counting-in') return;
-    const at = this.contextFrame();
-    this.#dispatch({ kind: 'stop', reason: 'background-suspended' });
-    if (at !== undefined) this.#open?.opened.capture.stop(at);
+    this.takes.stop(this.contextFrame() ?? derivedSampleCount(0), 'background-suspended');
     this.#update({ problem: why });
     this.#options.announce(why);
   }

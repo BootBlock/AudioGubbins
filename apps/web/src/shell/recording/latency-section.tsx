@@ -10,15 +10,14 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { sampleRate } from '@audiogubbins/domain';
 import { calibrationOf, takeCompensation, type CalibrationPath } from '@audiogubbins/recording';
 
 import { calibrating, type CalibrationStage } from '../../recording/calibration-control.js';
+import { calibrationPathOf } from '../../recording/calibration-path.js';
 import { calibrationStanding } from '../../recording/input-diagnostics.js';
 import type { InputView } from '../../recording/input-view.js';
 import type { RecordingParts } from '../../recording/recording-part.js';
 import { deviceName, millisecondsText } from '../../recording/recording-words.js';
-import { SYSTEM_OUTPUT } from '../../recording/system-output.js';
 import type { RecordingSettings } from '../../state/recording-settings.js';
 import { CommandButton, useCommandReasons, type PanelCommands } from '../command-button.js';
 
@@ -47,15 +46,6 @@ function stageText(stage: CalibrationStage): string | undefined {
     case 'refused':
       return `The latency was not measured. ${stage.reason}`;
   }
-}
-
-/** The calibration path in use, where the input and the rate are known. */
-export function pathOf(view: InputView, settings: RecordingSettings): CalibrationPath | undefined {
-  const input = view.opened?.device ?? settings.input;
-  const rate = view.context === undefined ? undefined : sampleRate(view.context.sampleRate);
-  return input === undefined || rate?.ok !== true
-    ? undefined
-    : { input, output: SYSTEM_OUTPUT, rate: rate.value };
 }
 
 /** The latency figures, as far as each is known. */
@@ -137,7 +127,7 @@ export function LatencySection({
     recording.calibration.stage.get,
   );
   const shared = useCommandReasons(commands, ['recording.calibrate']);
-  const path = pathOf(view, settings);
+  const path = calibrationPathOf(view, settings);
   const standing = calibrationStanding(settings, path);
   const said = stageText(stage);
   return (

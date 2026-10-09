@@ -264,10 +264,10 @@ describe('recording from the input', () => {
     const built = shell();
     const { capture } = await armed(built);
     const at = derivedSampleCount(96_000);
-    expectSuccess(built.input.record(at, true));
+    expectSuccess(built.input.takes.record(at, true));
     expect(capture.records).toEqual([96_000]);
     expect(built.input.view.get().session.kind).toBe('recording');
-    expectSuccess(built.input.stop(derivedSampleCount(144_000), 'person'));
+    expectSuccess(built.input.takes.stop(derivedSampleCount(144_000), 'person'));
     expect(capture.stops).toEqual([144_000]);
     expect(built.input.view.get().session.kind).toBe('stopping');
     expectSuccess(built.input.stopped());
@@ -277,7 +277,7 @@ describe('recording from the input', () => {
   it('stops a recording the browser silenced, keeping what it has', async () => {
     const built = shell();
     const { capture, opened } = await armed(built);
-    expectSuccess(built.input.record(derivedSampleCount(96_000), true));
+    expectSuccess(built.input.takes.record(derivedSampleCount(96_000), true));
     opened.mute(true);
     const { session } = built.input.view.get();
     expect(session.kind === 'stopping' && session.reason.kind).toBe('background-suspended');
@@ -297,7 +297,7 @@ describe('recording from the input', () => {
     });
     expectSuccess(parts.input.arm(WITH_LEASE));
     await everythingQueued();
-    expectSuccess(parts.input.record(derivedSampleCount(96_000), true));
+    expectSuccess(parts.input.takes.record(derivedSampleCount(96_000), true));
     fakes.page.set('hidden');
     const { session } = parts.input.view.get();
     expect(session.kind === 'stopping' && session.reason.kind).toBe('background-suspended');
@@ -306,7 +306,7 @@ describe('recording from the input', () => {
   it('keeps recording in the background where the platform does not suspend capture', async () => {
     const built = shell();
     await armed(built);
-    expectSuccess(built.input.record(derivedSampleCount(96_000), true));
+    expectSuccess(built.input.takes.record(derivedSampleCount(96_000), true));
     built.fakes.page.set('hidden');
     expect(built.input.view.get().session.kind).toBe('recording');
   });
@@ -314,7 +314,7 @@ describe('recording from the input', () => {
   it('refuses to record into a project another tab holds', async () => {
     const built = shell();
     await armed(built);
-    const refused = built.input.record(derivedSampleCount(96_000), false);
+    const refused = built.input.takes.record(derivedSampleCount(96_000), false);
     expect(refused.ok ? undefined : refused.failures[0].code).toBe('recording.no-write-lease');
   });
 });

@@ -3,15 +3,16 @@
  * (`REQ-REC-091`, `ADR-0070`): what the person hears of the input, and the
  * capture processor kept in step with it.
  *
- * Monitoring is off whenever an input opens, and arming never turns it on:
- * the recording package's machine turns it on by itself only for a profile the
+ * Monitoring is off whenever an input opens, and arming never turns it on: the
+ * recording package's machine turns it on by itself only for a profile the
  * person marked as used with headphones, and only where they had it on before
- * with that input and profile. One toggle turns it on or off, and each time
- * the choice is remembered for the input and the profile. Turning it on where
- * the speakers may feed the microphone asks the person to confirm first. A
- * chain monitored through runs live in the capture processor, which answers
- * with its latency or the reason it cannot run live; monitoring goes off with
- * that reason, and the recording is never touched by it.
+ * with that input and profile. One toggle turns it on or off, and each time the
+ * choice is remembered for the input and the profile. Turning it on where the
+ * speakers may feed the microphone, or where the browser cannot say which
+ * output is playing, asks the person to confirm first. A chain monitored
+ * through runs live in the capture processor, which answers with its latency or
+ * the reason it cannot run live; monitoring goes off with that reason, and the
+ * recording is never touched by it.
  */
 
 import {
@@ -32,12 +33,12 @@ import {
   nextMonitoring,
   type CaptureProfile,
   type ChainVerdict,
-  type DeviceIdentity,
-  type FeedbackRisk,
   type Monitoring,
   type MonitoringContext,
   type MonitoringEvent,
   type MonitoringRoute,
+  type OutputIdentity,
+  UNKNOWN_OUTPUT,
 } from '@audiogubbins/recording';
 
 import type { CapturePort } from '../audio/capture-parts.js';
@@ -49,7 +50,6 @@ import {
   profileNamed,
 } from '../state/recording-settings.js';
 import type { OpenedFacts } from './input-view.js';
-import { SYSTEM_OUTPUT } from './system-output.js';
 
 /** A chain of the project the person chose to monitor through, by the asset whose rack it is. */
 export interface MonitoringChainChoice {
@@ -76,19 +76,6 @@ const NO_MONITORING: MonitoringView = {
   chain: undefined,
   outputKnown: false,
 };
-
-/**
- * Whether the speakers may feed the microphone: where the output is known, by
- * the recording package's judgement of the two names, and otherwise taken as
- * possible. The recording package's risk has no reason for an output it cannot
- * name, so the view words this case from the output being unknown, not from
- * the reason carried here.
- */
-function riskOf(input: DeviceIdentity, output: DeviceIdentity): FeedbackRisk {
-  return output.label === undefined && output.group === undefined
-    ? { kind: 'likely', why: 'same-device' }
-    : feedbackRisk(input, output);
-}
 
 /** What an open input is, for monitoring. */
 interface Opened {
@@ -120,6 +107,8 @@ export class MonitoringControl {
   readonly #stopFollowingSettings: () => void;
   #opened: Opened | undefined;
   #chain: MonitoringChainChoice | undefined;
+  /** The output the page plays through, as the input control's device watch last read it. */
+  #output: OutputIdentity = UNKNOWN_OUTPUT;
 
   constructor(options: MonitoringControlOptions) {
     this.#options = options;
@@ -149,6 +138,15 @@ export class MonitoringControl {
     );
     this.#apply({ kind: 'input-opened', context: this.#context(opened), remembered });
     if (this.#chain !== undefined) this.#ask(opened, this.#chain);
+  }
+
+  /** The output the page plays through is `output` now, which may change the feedback risk. */
+  outputChanged(output: OutputIdentity): void {
+    this.#output = output;
+    const opened = this.#opened;
+    if (opened !== undefined) {
+      this.#apply({ kind: 'context-changed', context: this.#context(opened) });
+    }
   }
 
   /** The input closed: nothing can be monitored. */
@@ -257,7 +255,7 @@ export class MonitoringControl {
     const latency = opened.capture.monitoringLatency();
     return {
       headphones: opened.profile.headphones,
-      risk: riskOf(opened.facts.device, SYSTEM_OUTPUT),
+      risk: feedbackRisk(opened.facts.device, this.#output),
       path: {
         route: opened.route,
         rate: opened.facts.rate,

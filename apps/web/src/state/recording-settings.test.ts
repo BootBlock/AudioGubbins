@@ -5,6 +5,8 @@ import { derivedSampleCount, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
   RAW_STUDIO_PROFILE,
+  UNKNOWN_OUTPUT,
+  calibrationOf,
   customProfile,
   measuredCalibration,
   retrospectiveOn,
@@ -35,7 +37,7 @@ const logger = createDiagnosticCentre(createLogStore(), { now: () => 0 }).logger
 const INTERFACE = { id: 'interface', group: 'interface-group', label: 'Studio interface' };
 const PATH: CalibrationPath = {
   input: INTERFACE,
-  output: { id: 'default' },
+  output: { kind: 'known', device: { id: 'speakers', group: 'laptop', label: 'Speakers' } },
   rate: expectSuccess(sampleRate(48_000)),
 };
 const CLOSE_MIC = expectSuccess(
@@ -100,6 +102,23 @@ describe('the recording settings', () => {
     expect(storeOver(raw).get().recording).toEqual(store.get().recording);
     expect(store.get().recording.chosenProfile).toBe('Close mic');
     expect(store.get().recording.calibrations[0]?.manualOffset).toBe(48);
+  });
+
+  it('keep a calibration of the unknown output apart from one of a named output, and drop an output of no kind', () => {
+    const unknown: CalibrationPath = { ...PATH, output: UNKNOWN_OUTPUT };
+    const read = readBack({
+      calibrations: [
+        { ...unknown, manualOffset: 12 },
+        { ...PATH, manualOffset: 24 },
+        { ...PATH, output: { id: 'default' }, manualOffset: 36 },
+      ],
+    });
+    expect(read.calibrations.map((one) => [one.output.kind, one.manualOffset])).toEqual([
+      ['unknown', 12],
+      ['known', 24],
+    ]);
+    expect(calibrationOf(read.calibrations, unknown)?.manualOffset).toBe(12);
+    expect(calibrationOf(read.calibrations, PATH)?.manualOffset).toBe(24);
   });
 
   it('refuse a revision with the reason and change nothing, writing nothing', () => {

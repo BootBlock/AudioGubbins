@@ -43,7 +43,6 @@ import { joinContext, openInput, type InputOpening, type OpenedCapture } from '.
 import type { InputView } from './input-view.js';
 import type { MeasureRoundTrip } from './loopback-measure.js';
 import { LoopbackCapture } from './loopback-capture.js';
-import { SYSTEM_OUTPUT } from './system-output.js';
 
 /** Where a calibration has reached. */
 export type CalibrationStage =
@@ -211,7 +210,7 @@ export class CalibrationControl {
     const report = opened.value.lifecycle.report;
     const output = (report?.baseLatencySeconds ?? 0) + (report?.outputLatencySeconds ?? 0);
     const calibration = measuredCalibration(
-      { input: facts.device, output: SYSTEM_OUTPUT, rate: facts.rate },
+      { input: facts.device, output: this.#options.input.get().output, rate: facts.rate },
       measurement.value,
       output,
       this.#options.now(),

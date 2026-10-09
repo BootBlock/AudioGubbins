@@ -364,6 +364,7 @@ export function createApplication() {
     suspensionRisk: suspendsCapture(operatingSystemOf(platform)),
     schedule: browserSchedule,
     now: () => Date.now(),
+    ids: editorPart.parts.ids,
     announce: (text) => {
       interaction.announce(text);
     },

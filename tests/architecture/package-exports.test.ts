@@ -223,8 +223,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'segmentsLength',
         'withRack',
       ],
-    "The punch's own rules (ADR-0072), built ahead of the application's take and punch views in this phase: the default boundary crossfade a punch-in is made with, and the reason a take cannot serve a punch, which a stack's view shows before the person chooses it.":
-      ['defaultPunchCrossfade', 'punchTakeProblem'],
     "How many frames of a take a punch reads, which the project commands' test support makes takes long enough with; that support may take no other package's test support, so it is offered here, as the identity generator is.":
       ['punchTakeFrames'],
   },
@@ -292,24 +290,7 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
     "The plan's one persisted form outside a project (ADR-0060), which the clipboard's chain payload takes as Phase 06 builds it.":
       ['readEditPlan'],
   },
-  '@audiogubbins/project-commands': {
-    "The take and punch commands' invocations (ADR-0072), built ahead of the storage worker's recording area in this phase, which commits a finished recording as a new stack, a take added to one or a punch, and of the application's take and punch views, which make every other change to takes and stacks.":
-      [
-        'branchTakeStackInvocation',
-        'chooseTakeInvocation',
-        'consolidateTakeStackInvocation',
-        'duplicateTakeInvocation',
-        'keepTakeInvocation',
-        'rejectTakeInvocation',
-        'removeTakeInvocation',
-        'removeTakeStackInvocation',
-        'renameTakeInvocation',
-        'renameTakeStackInvocation',
-        'restoreTakeInvocation',
-        'setTakeCompensationInvocation',
-        'setTakeNoteInvocation',
-      ],
-  },
+  '@audiogubbins/project-commands': {},
   '@audiogubbins/history': {
     'The difference of two states, which the comparison reaches inside the package (REQ-STOR-195). Offered for a view of the difference of any two states apart from a comparison.':
       ['diffStates'],
@@ -330,25 +311,17 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [
         'CALIBRATION_SIGNAL_LENGTH',
         'CALIBRATION_SIGNAL_PEAK',
-        'ControlledRecording',
         'HIGH_LATENCY_SECONDS',
         'InputIndicator',
         'MAXIMUM_ROUND_TRIP_SECONDS',
         'MINIMUM_PEAK_RATIO',
         'PROFILE_NAME_CHARACTERS',
         'PunchWindow',
-        'RecordingSchedule',
         'STORAGE_WARNING_SECONDS',
-        'SUSPENSION_CAUTION',
-        'ScheduleFacts',
-        'SchedulePhase',
-        'ScheduleStep',
         'inputIndicator',
         'punchWindow',
         'recordingBlocked',
         'retrospectiveMemory',
-        'scheduleRecording',
-        'scheduleStep',
         'stoppedUnexpectedly',
       ],
   },

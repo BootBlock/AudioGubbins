@@ -1,5 +1,6 @@
 /**
- * The Recording panel (`ADR-0070`, `REQ-UX-058`): the input and its levels,
+ * The Recording panel (`ADR-0070`, `ADR-0072`, `REQ-UX-058`): the input and
+ * its levels, the takes as they are made, the project's take stacks,
  * monitoring, the latency and its calibration, and the recording diagnostics,
  * each a control that runs a command and a reading of the recording part.
  *
@@ -17,6 +18,8 @@ import type { PanelCommands } from '../command-button.js';
 import { InputSection } from './input-section.js';
 import { LatencySection } from './latency-section.js';
 import { MonitoringSection } from './monitoring-section.js';
+import { RecordSection } from './record-section.js';
+import { TakeStacksSection } from './take-stacks-section.js';
 import { RecordingDiagnosticsList } from './recording-diagnostics-list.js';
 import { useInputView, useRecordingDiagnostics, useWatchedInputs } from './use-recording.js';
 
@@ -46,6 +49,14 @@ export function RecordingPanel({
     <section className="ag-panel ag-recording">
       <h2 className="ag-panel-title">{title}</h2>
       <InputSection recording={recording} view={view} settings={settings} commands={commands} />
+      <RecordSection
+        recording={recording}
+        view={view}
+        settings={settings}
+        projects={parts.projects}
+        commands={commands}
+      />
+      <TakeStacksSection projects={parts.projects} commands={commands} />
       <MonitoringSection recording={recording} projects={parts.projects} commands={commands} />
       <LatencySection recording={recording} view={view} settings={settings} commands={commands} />
       <details>

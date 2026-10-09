@@ -39,6 +39,7 @@ function banner(
       root={observable(root)}
       project={project}
       quickEdit={quickEdit}
+      interrupted={undefined}
       run={run}
       announce={announce}
     />,

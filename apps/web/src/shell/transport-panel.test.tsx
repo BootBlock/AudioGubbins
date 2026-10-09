@@ -63,6 +63,7 @@ function draw(
     readonly strategy?: RenderStrategyStore;
     readonly unavailableNow?: (id: string) => string | undefined;
     readonly editorViews?: Observable<unknown>;
+    readonly assets?: Observable<unknown>;
   } = {},
 ) {
   const run = vi.fn<(id: string) => void>();
@@ -83,6 +84,7 @@ function draw(
       run={run}
       unavailableReason={options.unavailableNow ?? ((id) => options.unavailable?.[id])}
       editorViews={options.editorViews ?? observable(undefined)}
+      assets={options.assets ?? observable(undefined)}
       hearing={createHearingStore()}
     />,
   );
@@ -171,6 +173,25 @@ describe('the Transport panel before anything plays', () => {
     reason = undefined;
     act(() => {
       views.set(1);
+    });
+
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');
+  });
+
+  it('offers Play once the asset the editor in use shows has opened, its files read', () => {
+    // A punch's sound opens only once the take it reads is read, which a change
+    // of the catalogue of assets says, and nothing else the panel reads.
+    const assets = observable(0);
+    let reason: string | undefined = '“Take 1” cannot be shown yet.';
+    draw(undefined, {
+      unavailableNow: (id) => (id === 'transport.play' ? reason : undefined),
+      assets,
+    });
+    expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'true');
+
+    reason = undefined;
+    act(() => {
+      assets.set(1);
     });
 
     expect(screen.getByRole('button', { name: 'Play' })).toHaveAttribute('aria-disabled', 'false');

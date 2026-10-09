@@ -1,8 +1,9 @@
 /**
  * What the recording views read of the input (`ADR-0070`, `REQ-REC-090`): the
- * permission, the inputs the browser lists, the recording session as its
- * state machine says, the input open now and what the browser granted it, how
- * much the retrospective buffer holds, and why the input last closed unasked.
+ * permission, the inputs the browser lists, the output the page plays through
+ * where the browser says which it is, the recording session as its state
+ * machine says, the input open now and what the browser granted it, how much
+ * the retrospective buffer holds, and why the input last closed unasked.
  *
  * Monitoring is not here: it is a second machine with a view of its own
  * (`monitoring-control.ts`), so arming can never be read as monitoring. The
@@ -19,7 +20,9 @@ import {
   type CapturePlan,
   type DeviceIdentity,
   type GrantedCapture,
+  type OutputIdentity,
   type RecordingSession,
+  UNKNOWN_OUTPUT,
 } from '@audiogubbins/recording';
 
 /** Whether the browser listed its inputs, and why not where it would not. */
@@ -47,6 +50,8 @@ export interface InputView {
   readonly permission: MicrophonePermission;
   readonly devices: readonly InputDeviceDescriptor[];
   readonly listing: InputListing;
+  /** The output the page plays through, which calibrations and the feedback risk are judged by. */
+  readonly output: OutputIdentity;
   readonly session: RecordingSession;
   /** The input open now for recording, where one is. */
   readonly opened: OpenedFacts | undefined;
@@ -63,6 +68,7 @@ export const NOTHING_ASKED: InputView = {
   permission: 'unknown',
   devices: [],
   listing: { kind: 'unlisted' },
+  output: UNKNOWN_OUTPUT,
   session: CLOSED_SESSION,
   opened: undefined,
   bufferedSeconds: 0,

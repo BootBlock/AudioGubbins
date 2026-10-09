@@ -17,7 +17,6 @@ import {
   type CommandInvocation,
   type UnchangedOutcome,
 } from '@audiogubbins/commands';
-import { sampleRate } from '@audiogubbins/domain';
 import {
   PROCESSING_CONTROLS,
   RAW_STUDIO_PROFILE,
@@ -41,8 +40,8 @@ import {
   setRetrospective,
   type RecordingRevision,
 } from '../state/recording-settings.js';
-import { SYSTEM_OUTPUT } from '../recording/system-output.js';
 import { availableUnless, namingCommand, shellCommand, textArgument } from './shell-command.js';
+import { calibrationPath } from '../recording/calibration-path.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The command that chooses a capture profile, named by its `profile` argument. */
@@ -85,7 +84,7 @@ function numberArgument(invocation: CommandInvocation, name: string): number | u
  * Applies `revise` to the settings, saying `success`; answers its refusal, or
  * that the settings were so already.
  */
-function revised(
+export function revised(
   context: ShellContext,
   revise: RecordingRevision,
   success: string,
@@ -117,19 +116,9 @@ function processingArgument(invocation: CommandInvocation): ProcessingChoice | s
   return choice;
 }
 
-/**
- * The calibration path in use: the open input, or the one chosen, to the
- * system's output at the context's rate; or why there is none yet.
- */
+/** The calibration path in use, or why there is none yet. */
 function currentPath(context: ShellContext): CalibrationPath | string {
-  const view = context.recording.input.view.get();
-  const input = view.opened?.device ?? context.audioSettings.get().recording.input;
-  if (input === undefined) return 'Choose an input first.';
-  const rate = view.context === undefined ? undefined : sampleRate(view.context.sampleRate);
-  if (rate?.ok !== true) {
-    return 'Arm the input or play something first, so the rate the path runs at is known.';
-  }
-  return { input, output: SYSTEM_OUTPUT, rate: rate.value };
+  return calibrationPath(context.recording.input.view.get(), context.audioSettings.get().recording);
 }
 
 function profileCommands(): readonly Command<ShellContext>[] {

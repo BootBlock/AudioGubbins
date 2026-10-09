@@ -80,6 +80,8 @@ export function recoverySentences(report: ProjectRecoveryReport): readonly strin
 /** One thing recovery found, in a sentence. */
 function findingSentence(finding: RecoveryFinding): string {
   switch (finding.kind) {
+    case 'interrupted-recordings':
+      return `${counted(finding.recordings, 'recording was', 'recordings were')} cut short before ${finding.recordings === 1 ? 'it was' : 'they were'} finished, and ${finding.recordings === 1 ? 'is' : 'are'} offered below to recover or discard.`;
     case 'fallback':
       return 'The newest save could not be read, so the project was opened from the one before it.';
     case 'rebuilt-cursor-state':

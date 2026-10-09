@@ -176,6 +176,7 @@ function AudioGubbins({ application }: { readonly application: Application }) {
               root={context.storageRoot}
               project={context.projects?.project}
               quickEdit={context.projects?.quickEdit}
+              interrupted={context.projects?.interrupted}
               run={runNamed}
               announce={announce}
             />

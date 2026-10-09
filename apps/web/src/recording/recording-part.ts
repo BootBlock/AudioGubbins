@@ -11,6 +11,7 @@
  */
 
 import type { Logger } from '@audiogubbins/diagnostics';
+import type { IdGenerator } from '@audiogubbins/domain';
 import type { MediaInput, SupportedCaptureConstraints } from '@audiogubbins/capabilities';
 
 import type { OpenCapture } from '../audio/capture-parts.js';
@@ -27,15 +28,25 @@ import type { StorageReading } from './input-diagnostics.js';
 import type { InputOpening } from './input-opener.js';
 import type { MeasureRoundTrip } from './loopback-measure.js';
 import { MonitoringControl } from './monitoring-control.js';
-import { followRecordingFocus } from './recording-focus.js';
+import { followRecordingFocus, type TakeSubject } from './recording-focus.js';
+import { RecordFlow } from './record-flow.js';
+import { TakeArming } from './take-arming.js';
 
 /** What the recording commands and views reach. */
 export interface RecordingParts {
   readonly input: InputControl;
   readonly monitoring: MonitoringControl;
   readonly calibration: CalibrationControl;
+  /** Arming the input for what the next take is for, and the storage time it would fill. */
+  readonly arming: TakeArming;
+  /** Record and Stop, and each take carried to the storage worker. */
+  readonly takes: RecordFlow;
   /** Whether recording is the Inspector's subject. */
   readonly focus: Observable<boolean>;
+  /** The take or stack the Inspector shows while recording is its subject, if any. */
+  readonly inspected: Observable<TakeSubject | undefined>;
+  /** Makes recording the Inspector's subject, showing a take or stack, or the configuration. */
+  readonly inspect: (subject: TakeSubject | undefined) => void;
   /** The storage estimate, as last read. */
   readonly storage: Observable<StorageReading>;
   /** Whether this platform may suspend capture in the background or under a screen lock. */
@@ -67,6 +78,8 @@ export interface RecordingPartOptions {
   /** Calls a callback after a delay, and answers how to cancel it. */
   readonly schedule: (callback: () => void, milliseconds: number) => () => void;
   readonly now: () => number;
+  /** New identities, of the recording sessions the page mints. */
+  readonly ids: IdGenerator;
   readonly announce: (text: string) => void;
   readonly logger: Logger;
 }
@@ -108,6 +121,19 @@ export function startRecording(options: RecordingPartOptions): {
     now: options.now,
     announce,
   });
+  const takes = new RecordFlow({
+    input,
+    playback: options.playback,
+    audio: options.audio,
+    settings,
+    page: options.page,
+    suspensionRisk: options.suspensionRisk,
+    schedule: options.schedule,
+    now: options.now,
+    mint: () => options.ids.next<'RecordingSessionId'>(),
+    announce,
+    logger,
+  });
   const focus = followRecordingFocus(options.workspace, input.view);
   const storage = observable<StorageReading>({ kind: 'unread' });
   const readStorage = async (): Promise<void> => {
@@ -135,7 +161,11 @@ export function startRecording(options: RecordingPartOptions): {
       input,
       monitoring,
       calibration,
+      arming: new TakeArming(input, options.playback, announce, logger),
+      takes,
       focus: focus.focus,
+      inspected: focus.subject,
+      inspect: focus.inspect,
       storage,
       suspensionRisk: options.suspensionRisk,
       supported: options.media.supportedConstraints,
@@ -146,6 +176,7 @@ export function startRecording(options: RecordingPartOptions): {
     },
     dispose: () => {
       focus.stop();
+      takes.dispose();
       input.dispose();
       monitoring.dispose();
       if (calibrating(calibration.stage.get())) calibration.cancel();

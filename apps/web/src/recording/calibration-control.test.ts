@@ -4,6 +4,7 @@ import { expectSuccess } from '@audiogubbins/domain/testing';
 import { derivedSampleCount, sampleRate, succeed } from '@audiogubbins/domain';
 import { TransportMode } from '@audiogubbins/audio-engine';
 import { loopbackCaptureLength } from '@audiogubbins/recording';
+import type { OutputDeviceDescriptor } from '@audiogubbins/capabilities';
 
 import { TEST_SIGNAL_PROGRAMME } from '../audio/test-signal.js';
 import { playbackSettled } from '../testing/audio-fakes.js';
@@ -12,10 +13,18 @@ import { buildShellContext } from '../testing/shell-context.js';
 
 const RATE = 48_000;
 
-/** A shell whose calibration runs over fakes, its signal started and its capture open. */
-async function calibrating() {
+/**
+ * A shell whose calibration runs over fakes, its signal started and its
+ * capture open, playing through `output` where a test names one.
+ */
+async function calibrating(output?: OutputDeviceDescriptor) {
   const built = buildShellContext();
   const { calibration } = built.context.recording;
+  if (output !== undefined) {
+    built.recording.media.outputDevice = output;
+    built.context.recording.input.watchDevices();
+    await everythingQueued();
+  }
   expectSuccess(calibration.calibrate());
   await everythingQueued();
   await playbackSettled(built.context.audio);
@@ -61,6 +70,29 @@ describe('the latency calibration', () => {
     expect(kept?.rate).toBe(RATE);
     expect(built.recording.media.opened[0]?.stopped).toBe(true);
     expect(built.context.audio.get().playback?.transport.mode).toBe(TransportMode.Stopped);
+  });
+
+  it('keeps the measurement for the output the browser names', async () => {
+    const built = await calibrating({
+      deviceId: undefined,
+      groupId: 'monitors',
+      label: 'Monitors',
+    });
+    built.recording.measure.answer = succeed({
+      roundTrip: derivedSampleCount(2400),
+      peakRatio: 40,
+    });
+    const length = loopbackCaptureLength(expectSuccess(sampleRate(RATE)));
+    capture(built.port, [new Float32Array(length).fill(0.5)]);
+
+    await vi.waitFor(() => {
+      expect(built.calibration.stage.get().kind).toBe('measured');
+    }, PROMPTLY);
+    const [kept] = built.context.audioSettings.get().recording.calibrations;
+    expect(kept?.output).toEqual({
+      kind: 'known',
+      device: { id: '', group: 'monitors', label: 'Monitors' },
+    });
   });
 
   it('keeps nothing, and says why, when the signal is not heard back clearly', async () => {

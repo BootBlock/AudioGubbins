@@ -21,7 +21,7 @@ import type { Observable } from '../../state/observable.js';
 import { chosenProfileOf, monitoringRemembered } from '../../state/recording-settings.js';
 import { CommandButton, type PanelCommands } from '../command-button.js';
 import { GrantDisclosure } from './input-section.js';
-import { pathOf } from './latency-section.js';
+import { calibrationPathOf } from '../../recording/calibration-path.js';
 import { useInputView } from './use-recording.js';
 
 /** What a profile's kind is called. */
@@ -59,7 +59,7 @@ export function RecordingConfiguration({
   const profile = chosenProfileOf(settings);
   const processing = processingOf(profile);
   const device = view.opened?.device ?? settings.input;
-  const standing = calibrationStanding(settings, pathOf(view, settings));
+  const standing = calibrationStanding(settings, calibrationPathOf(view, settings));
   return (
     <>
       <p className="ag-editor-asset-name">Recording</p>

@@ -1,8 +1,8 @@
 /**
  * Audio: the performance profile and the Custom profile's settings
  * (REQ-ARCH-083), how background work shares the machine (REQ-ARCH-084), the
- * mode renders use (REQ-ARCH-079), the quality a render and playback run
- * at (REQ-AUDIO-080, REQ-AUDIO-086), and the recording input
+ * mode renders use (REQ-ARCH-079), the quality a render and playback run at
+ * (REQ-AUDIO-080, REQ-AUDIO-086), and the recording input
  * (`recording-input.tsx`).
  *
  * The Custom settings are a form, because they are checked together: a person

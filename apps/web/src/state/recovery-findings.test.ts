@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { FailureKind, failure } from '@audiogubbins/domain';
+import { FailureKind, derivedSampleCount, failure, unsafeBrandId } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { stateFingerprintFrom } from '@audiogubbins/project-format';
-import type { ProjectRecoveryReport } from '@audiogubbins/storage';
+import { RecordingEnding, stateFingerprintFrom } from '@audiogubbins/project-format';
+import type { InterruptedRecording, ProjectRecoveryReport } from '@audiogubbins/storage';
 
 import { recoverySentences } from '../shell/project-words.js';
 import { recoveryFindings, type RecoveryFinding } from './recovery-findings.js';
@@ -31,7 +31,25 @@ function fingerprint(digit: string) {
   return expectSuccess(stateFingerprintFrom(`s1-${digit.repeat(64)}`));
 }
 
+/** A recording a reload cut short, as the opening lists it. */
+const INTERRUPTED: InterruptedRecording = {
+  session: unsafeBrandId<'RecordingSessionId'>('5e5510a0-0000-4000-8000-000000000001'),
+  frames: derivedSampleCount(96_000),
+  recordedAt: 1_790_000_000_000,
+  sampleRate: 48_000,
+  channels: 2,
+  device: { channelCount: 2 },
+  purpose: { kind: 'stack' },
+  ending: RecordingEnding.Interrupted,
+  missing: 0,
+};
+
 const CASES: readonly (readonly [string, Partial<ProjectRecoveryReport>, RecoveryFinding])[] = [
+  [
+    'a recording cut short, first, so it is offered before anything else',
+    { interruptedRecordings: [INTERRUPTED] },
+    { kind: 'interrupted-recordings', recordings: 1 },
+  ],
   [
     'a head it fell back from',
     { fallbacks: [{ path: 'heads/x.json', reason: { kind: 'head-fenced' } }] },

@@ -171,6 +171,9 @@ const EDITOR_GROUPS: readonly {
     label: 'Recording',
     ids: [
       'recording.arm',
+      'recording.arm-punch',
+      'recording.record',
+      'recording.stop',
       'recording.disarm',
       'recording.say-levels',
       'recording.toggle-monitoring',
@@ -178,6 +181,8 @@ const EDITOR_GROUPS: readonly {
       'recording.monitor-dry',
       'recording.calibrate',
       'recording.cancel-calibration',
+      'recording.confirm-discard-interrupted',
+      'recording.keep-interrupted',
     ],
   },
   {

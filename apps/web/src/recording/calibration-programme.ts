@@ -6,8 +6,8 @@
  * every channel of a stereo output, through a graph of an input and an output
  * alone, so nothing between them changes a sample. It plays through playback,
  * in the context the capture runs in, so the transport's clock anchor names the
- * context frame its first frame left the engine at: the frame the round trip
- * is measured from.
+ * context frame its first frame left the engine at: the frame the round trip is
+ * measured from.
  */
 
 import {

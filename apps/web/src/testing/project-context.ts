@@ -53,6 +53,7 @@ import type { LocalDetectionWorker } from '@audiogubbins/detection-runtime/testi
 import { PINNED_RUNTIME_SHA256 } from '@audiogubbins/processors';
 
 import type { FakePlayback } from './audio-fakes.js';
+import type { RecordingFakes } from './recording-fakes.js';
 import { libraryChannel } from '../io/library-channel.js';
 import type { PackManager } from '../ml/pack-manager.js';
 import { packManagerOver } from './pack-managers.js';
@@ -148,6 +149,9 @@ export interface ProjectWindow {
 
   /** The audio engine the window plays through, which a test reads what it was given from. */
   readonly audio: { readonly playback: FakePlayback };
+
+  /** The browser's input and the capture behind the window's recording part. */
+  readonly recording: RecordingFakes;
 
   /** The detection workers the window made, in order, which a test reads what it asked of. */
   readonly detectionWorkers: readonly LocalDetectionWorker[];
@@ -319,6 +323,7 @@ export function projectWorld(
           files,
           takeDown,
           audio: built.audio,
+          recording: built.recording,
           detectionWorkers: built.detectionWorkers,
         },
         lifetime.signal,
@@ -355,6 +360,7 @@ async function windowOver(
     | 'files'
     | 'takeDown'
     | 'audio'
+    | 'recording'
     | 'detectionWorkers'
   >,
   lifetime: AbortSignal,

@@ -105,11 +105,11 @@ describe("the status bar's input state", () => {
     const { context, said } = statusOver();
     await arm(context);
     act(() => {
-      expectSuccess(context.recording.input.record(derivedSampleCount(48_000), true));
+      expectSuccess(context.recording.input.takes.record(derivedSampleCount(48_000), true));
     });
     expect(screen.getByText('Studio interface: recording')).toBeInTheDocument();
     act(() => {
-      expectSuccess(context.recording.input.stop(derivedSampleCount(96_000), 'person'));
+      expectSuccess(context.recording.input.takes.stop(derivedSampleCount(96_000), 'person'));
       expectSuccess(context.recording.input.stopped());
       expectSuccess(context.recording.input.disarm());
     });

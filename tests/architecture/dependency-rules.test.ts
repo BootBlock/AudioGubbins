@@ -2821,8 +2821,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_IN_BAND: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     'apps/web/src/recording/input-control.ts': [
-      393,
-      "The recording session's one driver: arming, disarming, Record and Stop as the session machine allows, and the opening and closing of the input that keeps it in step with the session. What it reads of the settings and the list of inputs is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
+      399,
+      "The recording session's one driver: arming, disarming and retargeting as the session machine allows, and the opening and closing of the input that keeps it in step with the session. A take's capture, Record, a count-in and Stop, is `take-capture.ts`, which moves the session through the dispatch this hands it; what it reads of the settings and the list of inputs is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
+    ],
+    'apps/web/src/recording/record-flow.ts': [
+      389,
+      "Recording into a project: Record and Stop, a punch, a controlled recording, and each take carried to the storage worker, all deciding against the one take in hand, which every path begins, follows and settles. Each piece of the work is a module of its own, where a take goes (`take-target.ts`), what it begins with (`take-set-up.ts`), its life in the worker (`take-recording.ts`), a punch's pre-roll on the clock (`punch-start.ts`), a schedule kept (`controlled-run.ts`) and what is said of its outcome (`take-outcome.ts`); what is left is the one running take and the session it follows, and split, each half would need that take to know whether the other may begin one.",
+    ],
+    'apps/web/src/audio/playback-control.ts': [
+      320,
+      "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes.",
     ],
     'apps/web/src/app.tsx': [
       302,
@@ -3013,9 +3021,21 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       52,
       "The audio part's composition: the view, the previews, the engine loader, the one context host that playback and the inputs share, the settings, and the playback and render controls, each made once with what it needs; what remains are the lines that hand each its collaborators and the dispose that ends them in order.",
     ],
+    'apps/web/src/commands/interrupted-recording-commands.ts: interruptedRecordingCommands': [
+      92,
+      'A list of four independent commands of the offer of a recording cut short, recover, ask to discard, confirm and keep, each self-contained, sharing only the command builder and the reading of the offered recording.',
+    ],
+    'apps/web/src/commands/take-commands.ts: takeCommands': [
+      96,
+      'A table of independent take commands, rename, note, place, choose, reject, keep, remove, restore, duplicate and branch, each an identifier, a label, the invocation it runs and the sentence it says, sharing one builder.',
+    ],
+    'apps/web/src/commands/take-recording-commands.ts: recordCommands': [
+      62,
+      'A list of three independent commands, Record, Record at a set time and Stop, each self-contained, sharing only the command builder, the plan the settings set and the availability helpers.',
+    ],
     'apps/web/src/commands/recording-commands.ts: inputCommands': [
-      109,
-      'A list of independent input commands, arm, disarm, say the levels and choose the input, each self-contained, sharing only the command builder and the availability helpers.',
+      90,
+      'A list of independent input commands, disarm, say the levels and choose the input, each self-contained, sharing only the command builder and the availability helpers; arming for a take is `take-recording-commands.ts`.',
     ],
     'apps/web/src/commands/recording-commands.ts: monitoringCommands': [
       99,
@@ -3042,8 +3062,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One sequence of steps that each make something, the plan, the opened input, the layout, the capture session, its start, and each step that refuses lets go of everything made before it, in reverse; split, the letting go would be spread across functions that each hold part of what was made.',
     ],
     'apps/web/src/recording/recording-part.ts: startRecording': [
-      75,
-      "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
+      93,
+      "The recording part's composition: the opening shared by arming and calibrating, the monitoring, input and calibration controls, the arming for a take and the recording flow, the Inspector's focus and the storage estimate, each made once with what it needs, and the dispose that ends them; the controls are classes of their own, so what remains is wiring.",
     ],
     'apps/web/src/shell/panels.tsx: editingPanel': [
       52,
@@ -3083,7 +3103,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'One arm for each kind of intent a tool makes, each the command or two it runs with the view it was made in; the switch is exhaustive over the intents, so a new one cannot be left without its command.',
     ],
     'apps/web/src/state/default-shortcuts.ts: editorBindings': [
-      53,
+      62,
       "A table of the editor's default bindings, one line each, beside the few helpers that write a key the same way on every layout; split, the table would be read in two places to find a free key.",
     ],
     'apps/web/src/commands/view-commands.ts: appearanceCommands': [

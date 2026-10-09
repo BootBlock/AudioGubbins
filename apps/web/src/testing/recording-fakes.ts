@@ -1,14 +1,15 @@
 /**
- * The recording part over fakes: a media input whose permission, devices and
- * refusals a test states, an opened input whose track a test ends or mutes, a
- * capture session that records what it was asked and says what a test tells
- * it to, and the page's context over a fake context port. jsdom has no media
- * devices, audio context, worklet or worker, and a real one would answer to the
- * machine's microphone rather than to the test.
+ * The recording part over fakes: a media input whose permission, devices,
+ * output and refusals a test states, an opened input whose track a test ends or
+ * mutes, a capture session that records what it was asked and says what a test
+ * tells it to, and the page's context over a fake context port. jsdom has no
+ * media devices, audio context, worklet or worker, and a real one would answer
+ * to the machine's microphone rather than to the test.
  */
 
 import {
   FailureKind,
+  createDeterministicIdGenerator,
   failure,
   fail,
   succeed,
@@ -34,6 +35,7 @@ import type {
   MediaInput,
   MicrophonePermission,
   OpenedInput,
+  OutputDeviceDescriptor,
   PageVisibility,
   SupportedCaptureConstraints,
 } from '@audiogubbins/capabilities';
@@ -276,6 +278,9 @@ export class FakeMediaInput implements MediaInput {
   holdOpenings = false;
   readonly #permissionListeners = new Set<(state: MicrophonePermission) => void>();
   readonly #deviceListeners = new Set<(inputs: readonly InputDeviceDescriptor[]) => void>();
+  /** The output the page plays through; none, as a browser that cannot say which, unless a test names one. */
+  outputDevice: OutputDeviceDescriptor | undefined;
+  readonly #outputListeners = new Set<(output: OutputDeviceDescriptor | undefined) => void>();
 
   readonly permission = (): Promise<MicrophonePermission> => Promise.resolve(this.permissionState);
 
@@ -303,6 +308,18 @@ export class FakeMediaInput implements MediaInput {
     };
   };
 
+  readonly output = (): Promise<OutputDeviceDescriptor | undefined> =>
+    Promise.resolve(this.outputDevice);
+
+  readonly watchOutput = (
+    changed: (output: OutputDeviceDescriptor | undefined) => void,
+  ): (() => void) => {
+    this.#outputListeners.add(changed);
+    return () => {
+      this.#outputListeners.delete(changed);
+    };
+  };
+
   readonly open = async (request: CaptureRequest): Promise<DomainResult<OpenedInput>> => {
     this.requests.push(request);
     if (this.holdOpenings) {
@@ -322,9 +339,13 @@ export class FakeMediaInput implements MediaInput {
     for (const resolve of this.#waiting.splice(0)) resolve();
   }
 
-  /** Whether anything watches the permission or the devices now. */
+  /** Whether anything watches the permission, the inputs or the output now. */
   watched(): boolean {
-    return this.#permissionListeners.size > 0 || this.#deviceListeners.size > 0;
+    return (
+      this.#permissionListeners.size > 0 ||
+      this.#deviceListeners.size > 0 ||
+      this.#outputListeners.size > 0
+    );
   }
 
   /** The permission changed, as a person changing the site's settings changes it. */
@@ -337,6 +358,12 @@ export class FakeMediaInput implements MediaInput {
   setDevices(devices: readonly InputDeviceDescriptor[]): void {
     this.devices = devices;
     for (const listener of [...this.#deviceListeners]) listener(devices);
+  }
+
+  /** The output changed, as the system moving its default output to another device changes it. */
+  setOutput(output: OutputDeviceDescriptor | undefined): void {
+    this.outputDevice = output;
+    for (const listener of [...this.#outputListeners]) listener(output);
   }
 }
 
@@ -542,6 +569,7 @@ export function fakeRecording(options: FakeRecordingOptions): {
       };
     },
     now: () => 1_700_000_000_000,
+    ids: createDeterministicIdGenerator(11),
     announce: options.announce,
     logger: options.logger,
   });

@@ -9,9 +9,9 @@
  * Analysis panel (`analysis/analysis-panel.tsx`), the saved chains and presets
  * in the Library (`library/library-panel.tsx`), the rack of what the editor
  * acts on in the Effects rack (`rack/rack-panel.tsx`), the model packs in the
- * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring
- * and latency in the Recording panel (`recording/recording-panel.tsx`), and
- * the project system's History and Storage panels (`project-panels.tsx`).
+ * Model packs panel (`packs/pack-manager-panel.tsx`), the input, monitoring and
+ * latency in the Recording panel (`recording/recording-panel.tsx`), and the
+ * project system's History and Storage panels (`project-panels.tsx`).
  */
 
 import { useSyncExternalStore, type ReactNode } from 'react';
@@ -325,6 +325,7 @@ export function renderPanel(panel: OpenPanel, title: string, context: PanelConte
       return (
         <TransportPanel
           title={title}
+          assets={context.editor.assets}
           audio={context.audio}
           audioSettings={context.audioSettings}
           renderStrategy={context.renderStrategy}

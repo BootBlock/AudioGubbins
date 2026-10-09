@@ -42,6 +42,7 @@ import type { RecordingParts } from '../../recording/recording-part.js';
 import type { AudioSettings } from '../../state/audio-settings-store.js';
 import type { Observable } from '../../state/observable.js';
 import { RecordingConfiguration } from '../recording/recording-configuration.js';
+import { TakeInspector } from '../recording/take-inspector.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
@@ -292,15 +293,23 @@ export function InspectorPanel({
     parts.recording.focus.subscribe,
     parts.recording.focus.get,
   );
+  const takeSubject = useSyncExternalStore(
+    parts.recording.inspected.subscribe,
+    parts.recording.inspected.get,
+  );
   if (recordingInFocus) {
     return (
       <section className="ag-panel ag-inspector">
         <h2 className="ag-panel-title">{title}</h2>
-        <RecordingConfiguration
-          recording={parts.recording}
-          audioSettings={parts.audioSettings}
-          commands={commands}
-        />
+        {takeSubject === undefined ? (
+          <RecordingConfiguration
+            recording={parts.recording}
+            audioSettings={parts.audioSettings}
+            commands={commands}
+          />
+        ) : (
+          <TakeInspector subject={takeSubject} projects={projects} commands={commands} />
+        )}
       </section>
     );
   }

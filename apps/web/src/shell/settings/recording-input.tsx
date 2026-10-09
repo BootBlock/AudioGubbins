@@ -52,7 +52,7 @@ export interface RecordingInputProps {
 }
 
 /** A field's text as a command takes it: the number it reads as, or the text itself. */
-function typed(text: string): number | string {
+export function typed(text: string): number | string {
   const trimmed = text.trim();
   const value = Number(trimmed);
   return trimmed !== '' && Number.isFinite(value) ? value : text;

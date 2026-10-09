@@ -7,10 +7,11 @@
  * and to take it over once a request goes unanswered, saying what taking over
  * costs before it is done; the tab changing a project is shown each request for
  * it, to hand it over or keep it; a tab that lost a project says who took it
- * and what was lost. Where no project can be opened, it says why. Each action
- * runs a command. A change of how this tab may use the project is said aloud as
- * well as shown, and focus never falls to the page when the button that had it
- * goes.
+ * and what was lost. A recording the project holds cut short is offered first,
+ * to recover or discard. Where no project can be opened, it says why. Each
+ * action runs a command. A change of how this tab may use the project is said
+ * aloud as well as shown, and focus never falls to the page when the button
+ * that had it goes.
  */
 
 import { useRef, useSyncExternalStore, type ReactNode } from 'react';
@@ -23,10 +24,12 @@ import { showPanelCommandId } from '../commands/panel-commands.js';
 import type { Announce } from '../commands/voiced-execution.js';
 import type { Observable } from '../state/observable.js';
 import type { OpenProjectState } from '../state/open-project-store.js';
+import type { InterruptedRecordings } from '../state/interrupted-recordings.js';
 import type { QuickEditSession } from '../state/quick-edit-store.js';
 import type { StorageRootState } from '../state/storage-root-store.js';
 import { OwnershipActions } from './ownership-actions.js';
 import { accessSentence } from './project-words.js';
+import { InterruptedRecordingsOffer } from './interrupted-recordings-offer.js';
 import { RecoveryReportNotice } from './recovery-report-notice.js';
 import type { RunCommand } from './settings/section.js';
 import { useFocusKeptInside } from './use-focus-kept-inside.js';
@@ -42,6 +45,9 @@ export interface ProjectBannerProps {
 
   /** The Quick Edit in progress, absent where this browser keeps no projects. */
   readonly quickEdit: Observable<QuickEditSession | undefined> | undefined;
+
+  /** The open project's recordings cut short, absent where this browser keeps no projects. */
+  readonly interrupted: InterruptedRecordings | undefined;
   readonly run: RunCommand;
   readonly announce: Announce;
 }
@@ -112,10 +118,12 @@ function NoProject({ run }: { readonly run: RunCommand }): ReactNode {
 function OpenProject({
   open,
   quickEdit,
+  interrupted,
   run,
 }: {
   readonly open: Extract<OpenProjectState, { kind: 'open' }>;
   readonly quickEdit: QuickEditSession | undefined;
+  readonly interrupted: InterruptedRecordings | undefined;
   readonly run: RunCommand;
 }): ReactNode {
   const { snapshot } = open;
@@ -133,6 +141,7 @@ function OpenProject({
           {said}
         </p>
       )}
+      {interrupted !== undefined && <InterruptedRecordingsOffer offers={interrupted} run={run} />}
       <OwnershipActions snapshot={snapshot} name={name} request={open.request} run={run} />
       {open.report !== undefined && (
         <RecoveryReportNotice report={open.report} name={name} run={run} />
@@ -156,6 +165,7 @@ export function ProjectBanner({
   root,
   project,
   quickEdit,
+  interrupted,
   run,
   announce,
 }: ProjectBannerProps): ReactNode {
@@ -180,7 +190,7 @@ export function ProjectBanner({
     ) : open.kind === 'opening' ? (
       <p className="ag-project-banner-text">Opening the project…</p>
     ) : (
-      <OpenProject open={open} quickEdit={quick} run={run} />
+      <OpenProject open={open} quickEdit={quick} interrupted={interrupted} run={run} />
     );
 
   return (

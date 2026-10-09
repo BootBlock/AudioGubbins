@@ -15,6 +15,7 @@ import {
   CaptureProfileKind,
   RAW_STUDIO_PROFILE,
   RETROSPECTIVE_OFF,
+  UNKNOWN_OUTPUT,
   VOICE_PROFILE,
   customProfile,
   manualCalibration,
@@ -24,6 +25,7 @@ import {
   type DeviceIdentity,
   type LatencyCalibration,
   type MeasuredLatency,
+  type OutputIdentity,
   type ProcessingChoice,
   type RetrospectiveSetting,
 } from '@audiogubbins/recording';
@@ -32,6 +34,10 @@ import {
   DEFAULT_RECORDING_SETTINGS,
   KEPT_PER_LIST,
   countInRefusal,
+  DEFAULT_PUNCH_POST_ROLL_SECONDS,
+  DEFAULT_PUNCH_PRE_ROLL_SECONDS,
+  punchRollRefusal,
+  timedStopRefusal,
   type MonitoringPreference,
   type RecordingSettings,
 } from './recording-settings.js';
@@ -58,6 +64,15 @@ function deviceOf(value: unknown): DeviceIdentity | undefined {
     ...(group === undefined ? {} : { group }),
     ...(label === undefined ? {} : { label }),
   };
+}
+
+/** A stored output: a device where the browser named it, or the unknown output. */
+function outputOf(value: unknown): OutputIdentity | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value['kind'] === 'unknown') return UNKNOWN_OUTPUT;
+  if (value['kind'] !== 'known') return undefined;
+  const device = deviceOf(value['device']);
+  return device === undefined ? undefined : { kind: 'known', device };
 }
 
 /** Whether a built-in profile is marked for headphones, as stored. */
@@ -148,7 +163,7 @@ function measuredOf(value: unknown): MeasuredLatency | undefined {
 function calibrationOf(value: unknown): LatencyCalibration | undefined {
   if (!isRecord(value)) return undefined;
   const input = deviceOf(value['input']);
-  const output = deviceOf(value['output']);
+  const output = outputOf(value['output']);
   const storedRate = value['rate'];
   const offset = value['manualOffset'];
   if (input === undefined || output === undefined || typeof storedRate !== 'number')
@@ -169,6 +184,9 @@ export function readRecordingSettings(value: unknown): RecordingSettings {
   const profiles = profilesOf(value['profiles']);
   const chosen = value['chosenProfile'];
   const countIn = value['countInSeconds'];
+  const preRoll = value['punchPreRollSeconds'];
+  const postRoll = value['punchPostRollSeconds'];
+  const stopAfter = value['stopAfterSeconds'];
   const input = deviceOf(value['input']);
   return {
     profiles,
@@ -180,6 +198,16 @@ export function readRecordingSettings(value: unknown): RecordingSettings {
     retrospective: retrospectiveOf(value['retrospective']),
     countInSeconds:
       typeof countIn === 'number' && countInRefusal(countIn) === undefined ? countIn : 0,
+    punchPreRollSeconds:
+      typeof preRoll === 'number' && punchRollRefusal(preRoll) === undefined
+        ? preRoll
+        : DEFAULT_PUNCH_PRE_ROLL_SECONDS,
+    punchPostRollSeconds:
+      typeof postRoll === 'number' && punchRollRefusal(postRoll) === undefined
+        ? postRoll
+        : DEFAULT_PUNCH_POST_ROLL_SECONDS,
+    stopAfterSeconds:
+      typeof stopAfter === 'number' && timedStopRefusal(stopAfter) === undefined ? stopAfter : 0,
     monitoring: monitoringOf(value['monitoring'], profiles),
     calibrations: listOf(value['calibrations'], KEPT_PER_LIST).flatMap((entry) => {
       const calibration = calibrationOf(entry);
@@ -205,6 +233,9 @@ export function storedRecordingSettings(
     ...(settings.input === undefined ? {} : { input: settings.input }),
     retrospective: settings.retrospective,
     countInSeconds: settings.countInSeconds,
+    punchPreRollSeconds: settings.punchPreRollSeconds,
+    punchPostRollSeconds: settings.punchPostRollSeconds,
+    stopAfterSeconds: settings.stopAfterSeconds,
     monitoring: settings.monitoring,
     calibrations: settings.calibrations,
   };
