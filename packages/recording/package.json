@@ -1,0 +1,32 @@
+{
+  "name": "@audiogubbins/recording",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Recording as values: the session and monitoring state machines, capture profiles, latency calibration, diagnostics and controlled recording.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "src"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "typecheck": "tsc --build",
+    "test": "vitest run --root ../../ --project recording"
+  },
+  "dependencies": {
+    "@audiogubbins/domain": "workspace:*",
+    "@audiogubbins/text": "workspace:*"
+  },
+  "devDependencies": {
+    "@audiogubbins/test-fixtures": "workspace:*",
+    "vitest": "5.0.1"
+  }
+}
