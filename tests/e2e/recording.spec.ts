@@ -40,7 +40,7 @@ const PUNCHED = { start: 57_600, end: 96_000 } as const;
 
 /** The Recording panel. */
 function recordingPanel(page: Page): Locator {
-  return panelTitled(page, 'Recording');
+  return panelTitled(page, 'Recorder');
 }
 
 /** The take stack whose name is `name`, in the Recording panel. */
@@ -105,7 +105,7 @@ test.describe('recording', () => {
     await page.addInitScript(tapTheOutput, TAP_PROCESSOR);
     await openFresh(page);
     await makeProject(page, 'Harbour');
-    await showPanel(page, 'Recording');
+    await showPanel(page, 'Recorder');
 
     await test.step('A take is recorded with the fake input into a new stack', async () => {
       await arm(page);
@@ -151,7 +151,7 @@ test.describe('recording', () => {
     await expect(banner(page).getByText('“Harbour”', { exact: true })).toBeVisible();
 
     await test.step('After the reload the punched take is heard again, the same samples', async () => {
-      await showPanel(page, 'Recording');
+      await showPanel(page, 'Recorder');
       await expect(takeIn(punch, 'Take 2')).toContainText('(chosen)');
       await openFirst(page, 'Take 1');
       const after = await hear(page);
@@ -167,7 +167,7 @@ test.describe('recording', () => {
     test.setTimeout(180_000);
     await openFresh(page);
     await makeProject(page, 'Breakwater');
-    await showPanel(page, 'Recording');
+    await showPanel(page, 'Recorder');
     await arm(page);
     await recordFor(page, 2);
 
@@ -183,7 +183,7 @@ test.describe('recording', () => {
     await offer.getByRole('button', { name: 'Recover', exact: true }).click();
     await expect(offer).toBeHidden();
 
-    await showPanel(page, 'Recording');
+    await showPanel(page, 'Recorder');
     const stack = stackNamed(page, 'Recording 1');
     await expect(takeIn(stack, 'Take 1')).toContainText('(chosen)');
     await showPanel(page, 'Assets');

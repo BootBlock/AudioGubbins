@@ -117,7 +117,7 @@ export const DESCRIPTORS = new Map<PanelKind, PanelDescriptor>(
       [PanelKinds.Diagnostics, 'Diagnostics', DockRegion.Bottom],
       [PanelKinds.Capabilities, 'Capabilities', DockRegion.Bottom],
       [PanelKinds.Picture, 'Picture', DockRegion.Right],
-      [PanelKinds.Recording, 'Recording', DockRegion.Bottom],
+      [PanelKinds.Recording, 'Recorder', DockRegion.Bottom],
     ] as const
   ).map(([kind, title, defaultRegion]) => [
     kind,
