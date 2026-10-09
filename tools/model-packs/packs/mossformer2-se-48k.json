@@ -1,6 +1,6 @@
 {
   "id": "mossformer2-se-48k",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "MossFormer2 SE 48K",
   "purpose": "Enhances speech and dialogue at 48 kHz, removing background noise, at the highest quality and the highest cost.",
   "licence": {
@@ -90,8 +90,8 @@
   "files": [
     {
       "path": "model.onnx",
-      "bytes": 228573563,
-      "sha256": "9f83b49bb27c08ab6d6a2ba83d7aeca08f90945b7b1dce5e157003f733918989",
+      "bytes": 228573564,
+      "sha256": "23a6bed254565a206047876607c226657fad5f1a7e2d463a62bd04facfc74f59",
       "make": {
         "export": {
           "script": "mossformer2_se_48k.py",

@@ -43,7 +43,7 @@ export interface SpleeterStem {
 }
 
 /**
- * The two-stem model: version 1.0.0 of the pack `spleeter-2-stems`, named by
+ * The two-stem model: version 1.0.1 of the pack `spleeter-2-stems`, named by
  * the listing of every file of `tools/model-packs/packs/spleeter-2-stems.json`,
  * its licence and notice with its graph, which is the file it runs (a test
  * holds both to the definition).
@@ -52,14 +52,14 @@ export const SPLEETER_2_STEMS_MODEL: SpleeterModel = {
   definition: {
     identity: {
       pack: 'spleeter-2-stems',
-      version: '1.0.0',
-      modelHash: '5e1f0820ddaf9326331f3caf8ced5d7db11aa0727d7e5819f10b6268b1f23fc3',
+      version: '1.0.1',
+      modelHash: '3e11bc388306ca1271daf8f26c70f89a7659cc281d96a9dafb2dcb6d275901bf',
       runtimeHash: PINNED_RUNTIME_SHA256,
     },
     files: [
       {
         path: SPLEETER_GRAPH,
-        sha256: 'abdcd3b1074399e55b48f88bab2ba01c17d9a31049abf9a1cc062ca94914507d',
+        sha256: '6059919bb51cf53e12ebe732aeca45de99190f90bd2ec46b1e9e6328a3b051df',
       },
     ],
     // The only rate the models were trained at (`sample_rate`).
@@ -73,21 +73,21 @@ export const SPLEETER_2_STEMS_MODEL: SpleeterModel = {
 };
 
 /**
- * The four-stem model: version 1.0.0 of the pack `spleeter-4-stems`, named
+ * The four-stem model: version 1.0.1 of the pack `spleeter-4-stems`, named
  * likewise by the listing of every file of its definition.
  */
 export const SPLEETER_4_STEMS_MODEL: SpleeterModel = {
   definition: {
     identity: {
       pack: 'spleeter-4-stems',
-      version: '1.0.0',
-      modelHash: 'ef718894ba16912a420949b0f15fc91260128eaa917b08a2ad1ab674b60b2ef7',
+      version: '1.0.1',
+      modelHash: 'ef22eebf76a5895bc86a458c1a6994122476abf4a2e3a9652959be6a8164df94',
       runtimeHash: PINNED_RUNTIME_SHA256,
     },
     files: [
       {
         path: SPLEETER_GRAPH,
-        sha256: '55a61b1f9cd20cad644c789a3d82bec1ab3f760fc04aff785ee9f6a81292adad',
+        sha256: '0a67e86b287b682fd71f8f1f2cceaa09d099ed1276c826e53c9c3183f54f0b68',
       },
     ],
     // The only rate the models were trained at (`sample_rate`).
