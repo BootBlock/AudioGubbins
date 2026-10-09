@@ -412,7 +412,15 @@ preview server serves.
   a sibling of the splitter test Phase 06 recorded, failed once and passed 3
   of 3 alone. The recording crash sweep, which had no time limit and timed out
   once under the suite, now has the 120 s its sibling sweeps have
-  (`07192629`).
+  (`07192629`). After `main` was merged in, while the machine's memory was
+  more than three-quarters used, one run of the whole suite failed four tests
+  that this phase does not touch: `packages/project-format`
+  `canonical-json.test.ts`'s "stop at the bound rather than build a text too
+  long for the runtime to hold" and `packages/model-packs` `integrity.test.ts`'s
+  "hands over the bytes read for use only once every one matched", each at the
+  5 s limit, and the dereverberation allocation tests Phase 06 recorded, on
+  one and two channels. Each file passed alone, and the next run of
+  `pnpm run verify:commit` passed 11,007 of 11,007.
 - The review lenses the packet names are deferred to the review after the
   whole specification is implemented (`reviews/phase-07-review.md`).
 
