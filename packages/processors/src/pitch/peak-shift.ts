@@ -46,7 +46,7 @@
 
 import { cosineOfTurns, findPeaks, regionEnd, sineOfTurns } from '@audiogubbins/audio-engine';
 
-/** Slots of {@link PeakShift.#parts}, each a double carried between a method and its caller. */
+/** Slots of `PeakShift.#parts`, each a double carried between a method and its caller. */
 const FREQUENCY = 0;
 const ROTATION = 1;
 const OFFSET = 2;

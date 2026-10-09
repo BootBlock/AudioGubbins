@@ -255,9 +255,9 @@ function fitWith(kind: Zero): void {
 }
 
 /**
- * Writes the coefficients of `shape` at `rate`, from the frequency, gain and
- * Q in `settings`, its frequency above {@link HIGHEST_DESIGN_FRACTION} of the
- * rate, into `into` from `at`: b0, b1, b2, a1 and a2, a0 being 1.
+ * Writes the coefficients of `shape` at `rate`, from the frequency, gain and Q
+ * in `settings`, its frequency above `HIGHEST_DESIGN_FRACTION` of the rate,
+ * into `into` from `at`: b0, b1, b2, a1 and a2, a0 being 1.
  */
 export function designFitted(
   shape: BiquadShape,

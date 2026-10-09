@@ -3,7 +3,7 @@
  *
  * A declared entry point, so a test elsewhere reaches it by a path the manifest
  * offers rather than past the package into its source. The helpers here read a
- * {@link DomainResult}, which this package owns, so this is where they belong:
+ * `DomainResult`, which this package owns, so this is where they belong:
  * written out again in each package that needs them, the copies would drift
  * apart, one more with each package that needed one.
  *

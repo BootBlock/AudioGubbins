@@ -27,7 +27,7 @@
  * cache against the one the tree's index of caches lists for it, which must
  * list every cache the tree holds at its length. What is read round-trips: the
  * files written from it are the files it was read from, where those were
- * written by {@link projectTree}.
+ * written by `projectTree`.
  */
 
 import { fail, succeed, type DomainResult } from '@audiogubbins/domain';

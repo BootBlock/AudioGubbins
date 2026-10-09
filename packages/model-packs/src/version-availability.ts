@@ -20,10 +20,10 @@ export type VersionAvailability =
 
 /**
  * Whether the files of the pack version `ref` can be read for a model to run,
- * and if not, which condition holds, by the rules {@link availabilityOf}
- * decides a need by: this device runs none of it; it is not kept, or kept but
- * not installed (arriving, paused, damaged); or installed but needs another
- * runtime than the one in use. Nothing is fetched to decide it.
+ * and if not, which condition holds, by the rules `availabilityOf` decides a
+ * need by: this device runs none of it; it is not kept, or kept but not
+ * installed (arriving, paused, damaged); or installed but needs another runtime
+ * than the one in use. Nothing is fetched to decide it.
  */
 export function versionAvailability(
   ref: PackRef,

@@ -164,6 +164,17 @@ export function sourceOf(module: string): string | undefined {
   );
 }
 
+/**
+ * The projects the build's solution file runs, by directory from the
+ * repository's root, in the order it lists them.
+ */
+export function solutionProjects(): readonly string[] {
+  const solution = JSON.parse(read('tsconfig.build.json')) as {
+    readonly references: readonly { readonly path: string }[];
+  };
+  return solution.references.map(({ path }) => path.replace(/^\.\//u, ''));
+}
+
 /** Prints a declaration without its comments, which name what the code does not. */
 const PRINTER = ts.createPrinter({ removeComments: true });
 

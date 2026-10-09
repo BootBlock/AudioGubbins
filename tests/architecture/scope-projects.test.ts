@@ -17,7 +17,7 @@ import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 import { forwardSlashes, inRepository } from '../repository.js';
-import { productionSources, read, sourcesMatching } from './source-reading.js';
+import { productionSources, solutionProjects, sourcesMatching } from './source-reading.js';
 
 /** The packages that run in any scope: the engine, and what it is built on. */
 const PORTABLE = [
@@ -93,14 +93,6 @@ function project(directory: string): {
     options: parsed.options,
     files: parsed.fileNames.map((path) => forwardSlashes(path).replace(prefix, '')).sort(),
   };
-}
-
-/** The projects the build's solution file runs, by directory. */
-function solutionProjects(): readonly string[] {
-  const solution = JSON.parse(read('tsconfig.build.json')) as {
-    readonly references: readonly { readonly path: string }[];
-  };
-  return solution.references.map(({ path }) => path.replace(/^\.\//u, ''));
 }
 
 /** The library files a project's options name, by file name alone. */

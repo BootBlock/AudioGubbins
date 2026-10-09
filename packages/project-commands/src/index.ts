@@ -11,9 +11,9 @@
  * an inverse invocation and deterministic under replay, so the history can keep
  * a journal of invocations rather than of states (REQ-EDIT-073, REQ-STOR-101),
  * and each declares which of its arguments hold provenance, which
- * {@link commandProvenance} makes the port a whole history is stripped through
+ * `commandProvenance` makes the port a whole history is stripped through
  * (REQ-STOR-166). The commands run through `createCommandBus` from
- * `@audiogubbins/commands`, over a registry holding {@link projectCommands}.
+ * `@audiogubbins/commands`, over a registry holding `projectCommands`.
  *
  * Everything absent from this list is internal and may change without being a
  * contract change (REQ-REPO-186).

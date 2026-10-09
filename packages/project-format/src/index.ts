@@ -2,17 +2,16 @@
  * The public contract of the AudioGubbins project format.
  *
  * The authoritative, versioned project (ADR-0020): the aggregate
- * {@link ProjectState}, the identity of content and of states, the documents a
+ * `ProjectState`, the identity of content and of states, the documents a
  * project is written as, and the one rule of schema compatibility. What is
  * persisted is converted field by field and validated when read
  * (REQ-EXEC-136.12), so a change to a domain value is never silently a change
  * to users' stored projects (ADR-0015, REQ-STOR-052).
  *
  * The package is pure. It reaches no browser or Node global: bytes arrive
- * through {@link ByteSource} and leave through {@link ByteSink}, the digest is
- * injected as {@link Digest}, and UTF-8 and JSON are its own, so the storage
- * packages above it decide where everything is kept and the tests here run
- * without a browser.
+ * through `ByteSource` and leave through `ByteSink`, the digest is injected as
+ * `Digest`, and UTF-8 and JSON are its own, so the storage packages above it
+ * decide where everything is kept and the tests here run without a browser.
  *
  * The helpers for reading and writing a document are offered with the
  * documents, so every document of the format is read and refused the same way.

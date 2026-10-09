@@ -7,8 +7,8 @@
  * would be exactly the catch-all REQ-EXEC-136.2 prohibits.
  *
  * Like the domain, this package is compiled without the DOM type definitions. A
- * keyboard event becomes a {@link KeyPress} at the edge, so chord matching,
- * conflict detection and palette ranking are all testable without a browser.
+ * keyboard event becomes a `KeyPress` at the edge, so chord matching, conflict
+ * detection and palette ranking are all testable without a browser.
  */
 
 export {

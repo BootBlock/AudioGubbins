@@ -13,9 +13,9 @@
  * A store rather than a plain `Map` a component makes with `useState` and
  * mutates in an event handler, which is what ADR-0011 rules out. A closed
  * panel's identifier is handed back to the next panel of its kind, so without
- * {@link forgetClosed}, which ends an entry's life with its panel's, a
- * Diagnostics panel closed and opened again would come back showing what the
- * panel the user closed had been filtered to.
+ * {@link LogViewStore.forgetClosed}, which ends an entry's life with its
+ * panel's, a Diagnostics panel closed and opened again would come back showing
+ * what the panel the user closed had been filtered to.
  */
 
 import { LogSeverity } from '@audiogubbins/diagnostics';

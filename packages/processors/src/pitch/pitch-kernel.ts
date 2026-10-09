@@ -52,9 +52,9 @@ export class PitchKernel implements NodeKernel {
   readonly #size: number;
   readonly #hop: number;
   readonly #shift: PeakShift;
-  /** Each channel's last `N` samples, a ring whose oldest is at {@link #position}. */
+  /** Each channel's last `N` samples, a ring whose oldest is at `#position`. */
   readonly #history: readonly Float64Array[];
-  /** Each channel's sum of the frames made so far, read and cleared at {@link #position}. */
+  /** Each channel's sum of the frames made so far, read and cleared at `#position`. */
   readonly #pending: readonly Float64Array[];
   readonly #frame: Float64Array;
   /** The window after the inverse, times `2/O`. */

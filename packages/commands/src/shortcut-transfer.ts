@@ -146,7 +146,7 @@ function parsePress(
 }
 
 /**
- * Reads a shortcut written the way {@link shortcutKey} writes one, for example
+ * Reads a shortcut written the way `shortcutKey` writes one, for example
  * `C+KeyK CS+KeyP`.
  *
  * The press format is the export format, and this reads it with the same

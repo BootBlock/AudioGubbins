@@ -6,7 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { declaresTheTextSize } from '../../tools/check-build-output.mjs';
 import { inRepository } from '../repository.js';
 import { refusedUses, usesAboveTheFloor, usesAboveTheFloorIn } from './floor-reading.js';
-import { browserCompilerOptions, productionSources, read } from './source-reading.js';
+import {
+  browserCompilerOptions,
+  productionSources,
+  read,
+  solutionProjects,
+} from './source-reading.js';
 
 /**
  * The browser floor: the first version of each engine the application runs
@@ -189,13 +194,10 @@ describe('one fact, held the same in every place it is written', () => {
     // target implies unless what it extends names one. A later library fails
     // here until what it adds is weighed against the floor. The generated
     // projects are held to their generator elsewhere.
-    const solution = JSON.parse(read('tsconfig.build.json')) as {
-      readonly references: readonly { readonly path: string }[];
-    };
     const projects = [
       'tsconfig.base.json',
       'tsconfig.json',
-      ...solution.references.map((one) => `${one.path.replace(/^\.\//u, '')}/tsconfig.json`),
+      ...solutionProjects().map((directory) => `${directory}/tsconfig.json`),
     ];
     const libraries = projects.map((project) => {
       const parsed = ts.getParsedCommandLineOfConfigFile(inRepository(project), undefined, {

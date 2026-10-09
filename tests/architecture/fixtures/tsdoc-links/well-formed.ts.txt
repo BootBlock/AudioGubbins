@@ -1,0 +1,19 @@
+/**
+ * Every form of link the rule accepts: {@link ChainRequest}, a member
+ * {@link ChainRequest.length}, a link with text {@link Kernel | the kernel},
+ * {@linkcode Kernel.advance}, a type of the library {@link AbortSignal}, and an
+ * address {@link https://example.com} with its text
+ * {@link https://example.com | the example}.
+ */
+export interface ChainRequest {
+  readonly length: number;
+}
+
+export class Kernel {
+  /** Read again by {@link advance}, which the class's own members resolve. */
+  readonly start = 0;
+
+  advance(): number {
+    return this.start;
+  }
+}

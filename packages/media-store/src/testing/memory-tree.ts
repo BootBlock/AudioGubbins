@@ -12,13 +12,14 @@
  * Two failures can be injected. A crash at the operation numbered `crashAt`
  * (counted from 1 over every call, each sink write and each range read
  * included) tears that operation, so a write keeps half its bytes, and every
- * operation after it throws {@link SimulatedCrash}; {@link restarted} is the
- * tree as the storage would be found on the next start. A whole-file write
- * tears as `tornWrite` says: cut short, or at its full length with zeros after
- * the half written, as the browser's tree leaves one it sizes before writing. A
- * sink's write always tears short, since a sink's file only grows. A quota
- * refuses, with the tree's `quota` failure and before writing anything, any
- * write that would take what the tree holds past it.
+ * operation after it throws {@link SimulatedCrash};
+ * {@link MemoryStorageTree.restarted} is the tree as the storage would be found
+ * on the next start. A whole-file write tears as `tornWrite` says: cut short,
+ * or at its full length with zeros after the half written, as the browser's
+ * tree leaves one it sizes before writing. A sink's write always tears short,
+ * since a sink's file only grows. A quota refuses, with the tree's `quota`
+ * failure and before writing anything, any write that would take what the tree
+ * holds past it.
  */
 
 import {
