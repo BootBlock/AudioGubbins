@@ -1,6 +1,6 @@
-> **Status:** In progress. 2026-10-09: the build has started on branch
-> `phase-07-recording`; the contracts below are settled and the first slices
-> are being built.
+> **Status:** In progress. 2026-10-09: every slice is built and committed on
+> `phase-07-recording`; the phase's verification, evidence and landing are
+> left, as "Left to do" lists.
 
 # Phase 07 — Recording
 
@@ -117,4 +117,24 @@ These settle what the ADRs leave to the implementation.
 
 ## Left to do
 
-Everything in the packet's In Scope list; the slices above tick it off.
+Every slice (A, B1, B2, C, D, E1, F, E2) is built and committed, ending at
+`0f0d9b21`, where `pnpm run verify:commit` passes (10,952 tests) and the
+`chromium-recording` browser project passes. Slice F identified the playing
+output (`ADR-0070` amended). In order:
+
+1. Keep a take's intended name and compensation in the recovery manifest, so
+   a recovered take keeps its placement instead of 0 (`recovery-manifest.ts`,
+   `packages/storage/src/recording-*.ts`, the recovery offer).
+2. Run the packet's commands: the four-package filter test,
+   `test:recovery`, `test:storage-quota`, `test:project-roundtrip`,
+   `test:editing-property`, `test:audio-latency`, `test:architecture`,
+   `test:recording-recovery`, and `pnpm run build` then
+   `test:e2e:recording`; also `test:e2e:effect-rack` and the smoke project.
+3. Check every In Scope box and acceptance criterion against the code,
+   and file what is missing.
+4. Write `docs/spec/reviews/phase-07-evidence.md` and a review record that
+   defers every lens to the post-specification review, the ledger entry
+   (`PASS`, evidence, commits), `traceability/handoffs/phase-07.md`, the
+   README's readiness line and the ledger's markdown; run `spec:verify`.
+5. Move this note to `docs/todo/done/`, merge `main` in, run
+   `verify:commit`, merge into `main` with `--no-ff` and push.
