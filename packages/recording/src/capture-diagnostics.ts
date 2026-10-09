@@ -3,9 +3,11 @@
  * applied against the profile's wish, the controls it offers none of, a
  * channel count short of the input's, and an input resampled to the engine's
  * rate (`REQ-REC-092`, `REQ-REC-094`). Each is a warning or information:
- * recording stays available.
+ * recording stays available. A resampled input is offered the engine made
+ * again at its own rate, as an action the person takes or leaves (`ADR-0070`).
  */
 
+import { sampleRate, type SampleRate } from '@audiogubbins/domain';
 import { counted } from '@audiogubbins/text';
 
 import {
@@ -62,7 +64,10 @@ function channelLimit(requested: number, granted: number, meaning: string): Reco
   };
 }
 
-function rateMismatch(inputRate: number, contextRate: number): RecordingDiagnostic {
+function rateMismatch(inputRate: number, contextRate: SampleRate): RecordingDiagnostic {
+  // An input may report a rate no audio engine runs at; the engine is then
+  // not offered it, and the device's own setting is the remedy left.
+  const offered = sampleRate(inputRate);
   return {
     kind: 'rate-mismatch',
     severity: DiagnosticSeverity.Information,
@@ -70,6 +75,9 @@ function rateMismatch(inputRate: number, contextRate: number): RecordingDiagnost
     why: `The input runs at ${HERTZ.format(inputRate)} Hz and the audio engine at ${HERTZ.format(contextRate)} Hz, so the browser resamples the input.`,
     impact:
       "Resampling adds a little latency and may soften the highest frequencies; the recording keeps the engine's rate.",
-    improve: `Restart the audio engine at ${HERTZ.format(inputRate)} Hz, or set the device to ${HERTZ.format(contextRate)} Hz.`,
+    improve: offered.ok
+      ? `Restart the audio engine at ${HERTZ.format(inputRate)} Hz, or set the device to ${HERTZ.format(contextRate)} Hz.`
+      : `Set the device to ${HERTZ.format(contextRate)} Hz.`,
+    ...(offered.ok ? { action: { kind: 'restart-at-input-rate', rate: offered.value } } : {}),
   };
 }

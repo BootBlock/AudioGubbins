@@ -4,16 +4,21 @@ import { describe, expect, it } from 'vitest';
 
 import { commandId, type CommandInvocation } from '@audiogubbins/commands';
 import { FromCaptureKind } from '@audiogubbins/audio-runtime';
-import { derivedSampleCount } from '@audiogubbins/domain';
+import { derivedSampleCount, sampleRate } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
-import { retrospectiveOn } from '@audiogubbins/recording';
+import { UNKNOWN_OUTPUT, manualCalibration, retrospectiveOn } from '@audiogubbins/recording';
 
 import type { ShellContext } from '../../commands/shell-context.js';
 import { busOfShellCommands, reasonsIn } from '../../testing/command-availability.js';
 import { grantedSettings } from '../../testing/recording-fakes.js';
 import { buildShellContext } from '../../testing/shell-context.js';
 import { everythingQueued } from '../../testing/waiting.js';
-import { markHeadphones, setRetrospective } from '../../state/recording-settings.js';
+import {
+  keepCalibration,
+  markHeadphones,
+  rememberInput,
+  setRetrospective,
+} from '../../state/recording-settings.js';
 import { InspectorPanel } from '../inspector/inspector-panel.js';
 import { InputStatus } from './input-status.js';
 import { RecordingPanel } from './recording-panel.js';
@@ -21,7 +26,7 @@ import { RecordingPanel } from './recording-panel.js';
 /** Arms the input of `context` and waits for it to open. */
 async function arm(context: ShellContext): Promise<void> {
   expectSuccess(
-    context.recording.input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }),
+    context.recording.input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: () => true }),
   );
   await act(async () => {
     await everythingQueued();
@@ -183,6 +188,74 @@ describe('the Recording panel', () => {
     expect(screen.getByRole('button', { name: 'Monitor anyway' })).toBeInTheDocument();
   });
 
+  it("offers the input's own rate where the browser resamples it, and restarts only when asked", async () => {
+    const { context, recording } = buildShellContext();
+    recording.media.granted = grantedSettings({ sampleRate: 44_100 });
+    const commands = panelOver(context);
+    await arm(context);
+    const restart = screen.getByRole('button', {
+      name: 'Restart the audio engine at 44,100 Hz',
+    });
+    // Offered, never taken unasked.
+    expect(recording.contexts).toHaveLength(1);
+    expect(recording.contexts[0]?.closes).toBe(0);
+
+    await userEvent.click(restart);
+    await act(async () => {
+      await everythingQueued();
+    });
+    expect(commands.ran).toEqual(['recording.restart-at-input-rate']);
+    const { session, problem } = context.recording.input.view.get();
+    expect(session.kind).toBe('ready');
+    expect(problem).toBe(
+      'The audio engine was restarted at 44,100 Hz, so the input closed. Arm it again to record at that rate.',
+    );
+    expect(recording.contexts[0]?.closes).toBe(1);
+
+    await arm(context);
+    expect(recording.contexts[1]?.sampleRate).toBe(44_100);
+    expect(screen.queryByRole('button', { name: /^Restart the audio engine/u })).toBeNull();
+  });
+
+  it('names a changed sample rate as such where a calibration no longer applies', async () => {
+    const { context } = buildShellContext();
+    const elsewhere = expectSuccess(
+      manualCalibration(
+        {
+          input: { id: 'interface', group: 'interface-group', label: 'Studio interface' },
+          output: UNKNOWN_OUTPUT,
+          rate: expectSuccess(sampleRate(44_100)),
+        },
+        12,
+      ),
+    );
+    context.audioSettings.reviseRecording(keepCalibration(elsewhere));
+    panelOver(context);
+    await arm(context);
+    expect(
+      screen.getByText(
+        'The calibration was taken with another sample rate. Calibrate again for this path.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says at once when the chosen input is no longer connected (REQ-REC-094)', async () => {
+    const { context, recording } = buildShellContext();
+    recording.media.permissionState = 'granted';
+    context.audioSettings.reviseRecording(rememberInput({ id: 'desk', label: 'Desk microphone' }));
+    panelOver(context);
+    await act(async () => {
+      await everythingQueued();
+    });
+    expect(
+      screen.getByText('The input chosen for recording is no longer connected.'),
+    ).toBeInTheDocument();
+    // No context has reported yet, so the rest is still to come.
+    expect(
+      screen.getByText(/checked once an input is armed or something plays/u),
+    ).toBeInTheDocument();
+  });
+
   it('lists the recording diagnostics once the context has reported its latency', async () => {
     const { context } = buildShellContext();
     panelOver(context);
@@ -191,7 +264,7 @@ describe('the Recording panel', () => {
     ).toBeInTheDocument();
     await arm(context);
     expect(
-      screen.getByText('This input, output and rate have not been calibrated.'),
+      screen.getByText('This input, output and sample rate have not been calibrated.'),
     ).toBeInTheDocument();
   });
 });

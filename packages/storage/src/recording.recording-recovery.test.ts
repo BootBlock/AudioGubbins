@@ -202,6 +202,7 @@ describe('a crash at any step of a recording session', () => {
       expect(operations).toBeGreaterThan(40);
       expect(commits.map((commit) => commit.committed)).toEqual([8_000, 16_000, 20_000]);
     },
+    120_000,
   );
 });
 

@@ -15,11 +15,11 @@ import {
   listedInput,
 } from '../testing/recording-fakes.js';
 import { everythingQueued } from '../testing/waiting.js';
-import { setRetrospective } from '../state/recording-settings.js';
+import { chooseProfile, setRetrospective } from '../state/recording-settings.js';
 import { inputStatus } from './input-view.js';
 
 const NEW_STACK: ArmedPurpose = { kind: 'new-stack' };
-const WITH_LEASE = { purpose: NEW_STACK, holdsWriteLease: true } as const;
+const WITH_LEASE = { purpose: NEW_STACK, holdsWriteLease: () => true } as const;
 
 /** A shell whose recording part runs over fakes, with what was said. */
 function shell() {
@@ -123,7 +123,7 @@ describe('arming the input', () => {
 
   it('tells a tab without the write lease why, before the browser is asked anything', () => {
     const built = shell();
-    const refused = built.input.arm({ purpose: NEW_STACK, holdsWriteLease: false });
+    const refused = built.input.arm({ purpose: NEW_STACK, holdsWriteLease: () => false });
     expect(refused.ok ? undefined : refused.failures[0].code).toBe('recording.no-write-lease');
     expect(built.fakes.media.requests).toEqual([]);
     expect(built.input.view.get().session.kind).toBe('closed');
@@ -309,6 +309,30 @@ describe('recording from the input', () => {
     expectSuccess(built.input.takes.record(derivedSampleCount(96_000), true));
     built.fakes.page.set('hidden');
     expect(built.input.view.get().session.kind).toBe('recording');
+  });
+
+  it('opens an armed input again for another profile only while this tab holds the lease', async () => {
+    const built = shell();
+    let lease = true;
+    expectSuccess(built.input.arm({ purpose: NEW_STACK, holdsWriteLease: () => lease }));
+    await everythingQueued();
+    built.context.audioSettings.reviseRecording(chooseProfile('Voice'));
+    await everythingQueued();
+    expect(built.fakes.media.opened).toHaveLength(2);
+    expect(built.input.view.get().session.kind).toBe('armed');
+
+    // Another tab takes the project over; the next change of profile is an
+    // arming the session refuses, so the input closes rather than opening
+    // again.
+    lease = false;
+    built.context.audioSettings.reviseRecording(chooseProfile('Raw/Studio'));
+    await everythingQueued();
+    expect(built.fakes.media.opened).toHaveLength(2);
+    expect(built.fakes.media.opened[1]?.stopped).toBe(true);
+    expect(built.input.view.get().session.kind).toBe('ready');
+    expect(built.said.at(-1)).toBe(
+      'Another tab holds this project for writing, so this tab cannot arm or record into it.',
+    );
   });
 
   it('refuses to record into a project another tab holds', async () => {

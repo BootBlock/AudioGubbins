@@ -11,6 +11,15 @@
  * has one made at the device's rate, and is told, before its context is closed
  * to make another, so it closes the input and says why. A context closes once
  * neither playback nor any input holds it.
+ *
+ * The person may choose the rate instead of the device, as the recording
+ * diagnostics offer where an input runs at another rate than the context
+ * (`ADR-0070`). The rate chosen is the one a context is made at wherever
+ * nothing asks for a rate of its own: an input joining, or playback of what has
+ * no rate, such as the test signal. Playback of an asset still asks for the
+ * asset's own rate (`REQ-ARCH-085`), which wins, so playing an asset at another
+ * rate makes the context again at that rate and closes an open input, as
+ * before. The choice lasts while the page is open.
  */
 
 import type { LatencyHint } from '@audiogubbins/audio-engine';
@@ -23,13 +32,20 @@ export type MakeLifecycle = (
   sampleRate: number | undefined,
 ) => ContextLifecycle;
 
+/** Why the context a guest joined is closed for another. */
+export type ContextReplacement =
+  /** Playback needs a context of another latency hint or rate. */
+  | { readonly kind: 'playback' }
+  /** The person chose to run the context at `rate`. */
+  | { readonly kind: 'rate-chosen'; readonly rate: number };
+
 /** What joins the context without owning it: an open input. */
 export interface ContextGuest {
   /**
-   * Told once, before the context it joined is closed for playback's sake,
+   * Told once, before the context it joined is closed for another, and why,
    * so it lets go of what it made there; it has left the context by then.
    */
-  readonly replaced: () => void;
+  readonly replaced: (why: ContextReplacement) => void;
 }
 
 /** A hold on the context, and how to let go of it. */
@@ -53,6 +69,8 @@ export class AudioContextHost {
   readonly #make: MakeLifecycle;
   readonly #logger: Logger;
   #held: Held | undefined;
+  /** The rate the person chose, which a context is made at where nothing asks for one. */
+  #chosenRate: number | undefined;
 
   constructor(make: MakeLifecycle, logger: Logger) {
     this.#make = make;
@@ -76,7 +94,7 @@ export class AudioContextHost {
       throw new Error('The audio context is owned already; release it first.');
     }
     if (held !== undefined && !suits(held, latencyHint, rate)) {
-      this.#replace(held);
+      this.#replace(held, { kind: 'playback' });
       held = undefined;
     }
     held ??= this.#made(latencyHint, rate);
@@ -92,7 +110,27 @@ export class AudioContextHost {
     };
   }
 
-  /** Joins the context there is, or has one made of `latencyHint` at the device's rate. */
+  /**
+   * Makes the context at `rate` wherever nothing asks for a rate of its own,
+   * from now on: the context held now, unless it runs at `rate`, is closed,
+   * its guests told why first, and the next one asked for is made at `rate`.
+   * Playback lets go of the context before this is asked.
+   */
+  chooseRate(rate: number): void {
+    this.#chosenRate = rate;
+    const held = this.#held;
+    if (held === undefined || runsAt(held, rate)) return;
+    if (held.owned) {
+      // A wiring mistake: closing playback's context under it would leave its
+      // session playing into a closed context.
+      throw new Error(
+        'The audio context is owned; playback lets go of it before a rate is chosen.',
+      );
+    }
+    this.#replace(held, { kind: 'rate-chosen', rate });
+  }
+
+  /** Joins the context there is, or has one made of `latencyHint` at the chosen rate or the device's. */
   join(guest: ContextGuest, latencyHint: LatencyHint): ContextHold {
     const held = this.#held ?? this.#made(latencyHint, undefined);
     held.guests.add(guest);
@@ -112,7 +150,8 @@ export class AudioContextHost {
     await held?.lifecycle.close();
   }
 
-  #made(latencyHint: LatencyHint, rate: number | undefined): Held {
+  #made(latencyHint: LatencyHint, asked: number | undefined): Held {
+    const rate = asked ?? this.#chosenRate;
     const held: Held = {
       lifecycle: this.#make(latencyHint, rate),
       latencyHint,
@@ -124,11 +163,11 @@ export class AudioContextHost {
     return held;
   }
 
-  /** Tells the guests of `held` it is going, and closes it. */
-  #replace(held: Held): void {
+  /** Tells the guests of `held` it is going, and why, and closes it. */
+  #replace(held: Held, why: ContextReplacement): void {
     const guests = [...held.guests];
     held.guests.clear();
-    for (const guest of guests) guest.replaced();
+    for (const guest of guests) guest.replaced(why);
     this.#closeIfFree(held);
   }
 
@@ -151,5 +190,10 @@ export class AudioContextHost {
  */
 function suits(held: Held, latencyHint: LatencyHint, rate: number | undefined): boolean {
   if (held.latencyHint !== latencyHint) return false;
-  return rate === undefined || held.rate === rate || held.lifecycle.report?.sampleRate === rate;
+  return rate === undefined || runsAt(held, rate);
+}
+
+/** Whether `held` runs at `rate`: made at it, or found to run at it once it reported. */
+function runsAt(held: Held, rate: number): boolean {
+  return held.rate === rate || held.lifecycle.report?.sampleRate === rate;
 }

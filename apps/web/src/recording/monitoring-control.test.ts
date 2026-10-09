@@ -14,7 +14,7 @@ import { monitoringText } from './recording-words.js';
 async function armedShell() {
   const built = buildShellContext();
   const { input, monitoring } = built.context.recording;
-  expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }));
+  expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: () => true }));
   await everythingQueued();
   const capture = built.recording.captures.at(-1);
   if (capture === undefined) throw new Error('No input opened.');
@@ -24,7 +24,7 @@ async function armedShell() {
 /** Disarms and arms the input again, as the person does, and answers the new capture. */
 async function armAgain(built: Awaited<ReturnType<typeof armedShell>>) {
   expectSuccess(built.input.disarm());
-  expectSuccess(built.input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }));
+  expectSuccess(built.input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: () => true }));
   await everythingQueued();
   const capture = built.recording.captures.at(-1);
   if (capture === undefined) throw new Error('No input opened.');
@@ -156,7 +156,7 @@ describe("monitoring's feedback warning, by the output the page plays through", 
 
   async function armedOn(built: ReturnType<typeof buildShellContext>) {
     const { input, monitoring } = built.context.recording;
-    expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }));
+    expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: () => true }));
     await everythingQueued();
     return { ...built, input, monitoring };
   }

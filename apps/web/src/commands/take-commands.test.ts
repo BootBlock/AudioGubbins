@@ -4,6 +4,7 @@ import { TakeState, punchStackOf, type TakeStack } from '@audiogubbins/domain';
 
 import { CaptureWriter } from '../testing/capture-writer.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
+import { inputOpened } from '../testing/recording-fakes.js';
 import { everythingQueued } from '../testing/waiting.js';
 
 holdPlatformFiles();
@@ -68,11 +69,42 @@ async function punched(): Promise<AudioWindow> {
   window.context.editorViews.focus('editor');
   window.run('editor.select-time', RANGE);
   expect(window.run('recording.arm-punch').kind).toBe('applied');
-  await everythingQueued();
+  await inputOpened(window.recording);
   await punchTake(audio, 'Take 1');
   await punchTake(audio, 'Take 2');
   return audio;
 }
+
+describe('a punch and the write lease', () => {
+  it('records nothing where the project was taken over while the pre-roll played (REQ-STOR-098)', async () => {
+    const audio = await windowWithAudio();
+    const { window } = audio;
+    window.context.editorViews.open('editor', audio.asset());
+    window.context.editorViews.measured('editor', 1000, audio.asset().length);
+    window.context.editorViews.focus('editor');
+    window.run('editor.select-time', RANGE);
+    expect(window.run('recording.arm-punch').kind).toBe('applied');
+    const capture = await inputOpened(window.recording);
+    await vi.waitFor(() => {
+      expect(window.context.assets.find(audio.entry)).toBeDefined();
+    });
+    expect(window.run('recording.record').kind).toBe('applied');
+
+    // Another tab takes the project over before the pre-roll reaches the take.
+    const held = audio.session.getSnapshot;
+    vi.spyOn(audio.session, 'getSnapshot').mockImplementation(() => ({
+      ...held(),
+      access: {
+        kind: 'read-only',
+        reason: { kind: 'busy', owner: { instance: 'window-2', label: 'another tab' } },
+      },
+    }));
+
+    await heard(audio, 'Another tab holds this project for writing');
+    expect(capture.records).toEqual([]);
+    expect(window.context.recording.input.view.get().session.kind).toBe('armed');
+  });
+});
 
 describe('a punch and its takes', () => {
   it('records each take through the pre-roll and post-roll, into one punch stack', async () => {

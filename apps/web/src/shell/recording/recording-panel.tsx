@@ -61,11 +61,11 @@ export function RecordingPanel({
       <LatencySection recording={recording} view={view} settings={settings} commands={commands} />
       <details>
         <summary>
-          {diagnostics === undefined || diagnostics.length === 0
+          {diagnostics.entries.length === 0
             ? 'Recording diagnostics'
-            : `Recording diagnostics: ${String(diagnostics.length)}`}
+            : `Recording diagnostics: ${String(diagnostics.entries.length)}`}
         </summary>
-        <RecordingDiagnosticsList entries={diagnostics} />
+        <RecordingDiagnosticsList reading={diagnostics} commands={commands} />
       </details>
     </section>
   );

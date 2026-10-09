@@ -31,7 +31,7 @@ export function calibrationPath(
   if (input === undefined) return 'Choose an input first.';
   const rate = view.context === undefined ? undefined : sampleRate(view.context.sampleRate);
   if (rate?.ok !== true) {
-    return 'Arm the input or play something first, so the rate the path runs at is known.';
+    return 'Arm the input or play something first, so the sample rate the path runs at is known.';
   }
   return { input, output: view.output, rate: rate.value };
 }

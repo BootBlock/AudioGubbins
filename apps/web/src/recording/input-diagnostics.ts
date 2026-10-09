@@ -5,18 +5,22 @@
  *
  * Nothing is assumed: until the browser has listed its inputs, a context has
  * reported its rate and latency and the storage estimate has been read, the
- * diagnostics are not yet known, and the views say so rather than show an
- * entry resting on a guess. The entries themselves are the recording
+ * entries resting on them are not yet known, and the views say so rather than
+ * show an entry resting on a guess. The entries resting on the browser and the
+ * platform alone, such as a page that is not a secure context or a refused
+ * permission, are given at once. The entries themselves are the recording
  * package's, which never names a device in them.
  */
 
 import { sampleRate } from '@audiogubbins/domain';
 import { OperatingSystem } from '@audiogubbins/capabilities';
 import {
+  browserDiagnostics,
   calibrationOf,
   pathChanges,
   recordingDiagnostics,
   storageTimeLeft,
+  type BrowserFacts,
   type CalibrationPath,
   type CalibrationStanding,
   type RecordingDiagnostic,
@@ -26,6 +30,7 @@ import {
 import type { RecordingSettings } from '../state/recording-settings.js';
 import { listedAs } from './capture-facts.js';
 import type { InputView } from './input-view.js';
+import { deviceGone } from './session-setup.js';
 
 /** The storage estimate, once read: `undefined` where the browser gives none. */
 export type StorageReading =
@@ -60,25 +65,59 @@ export interface DiagnosticSources {
   readonly suspensionRisk: boolean;
 }
 
+/** The recording diagnostics as far as they are known. */
+export interface DiagnosticsReading {
+  /** Blocking first, then the warnings, then the rest. */
+  readonly entries: readonly RecordingDiagnostic[];
+
+  /**
+   * Whether the entries resting on an audio context and the storage estimate
+   * are among them: until both have reported, only those resting on the
+   * browser and the platform are.
+   */
+  readonly complete: boolean;
+}
+
 /** The input a calibration or a recording would use now: the open one, or the one chosen. */
 function currentInput(sources: DiagnosticSources) {
   return sources.input.opened?.device ?? sources.settings.input;
 }
 
+/** What is known of the browser and the platform, which needs no context and no storage estimate. */
+function browserFactsOf(sources: DiagnosticSources): BrowserFacts {
+  const { input } = sources;
+  return {
+    secureContext: !(
+      input.listing.kind === 'refused' &&
+      input.listing.failure.code === 'media-input.insecure-context'
+    ),
+    permission: input.permission,
+    // A listing the browser refused lists nothing, which is said as such.
+    inputs: input.listing.kind === 'unlisted' ? undefined : input.devices.length,
+    chosenInputGone:
+      input.listing.kind === 'listed' && deviceGone(input.devices, currentInput(sources)),
+    suspensionRisk: sources.suspensionRisk,
+  };
+}
+
 /**
- * The recording diagnostics, blocking first, or `undefined` while what they
- * rest on is not yet known.
+ * The recording diagnostics: every entry once the inputs are listed, a context
+ * has reported and the storage estimate is read, and until then those resting
+ * on the browser and the platform alone.
  */
-export function diagnosticsOf(
-  sources: DiagnosticSources,
-): readonly RecordingDiagnostic[] | undefined {
+export function diagnosticsOf(sources: DiagnosticSources): DiagnosticsReading {
   const { input, settings, storage } = sources;
+  const browser = browserFactsOf(sources);
   const report = input.context;
-  if (input.listing.kind === 'unlisted' || report === undefined || storage.kind === 'unread') {
-    return undefined;
+  const rate = report === undefined ? undefined : sampleRate(report.sampleRate);
+  if (
+    browser.inputs === undefined ||
+    report === undefined ||
+    rate?.ok !== true ||
+    storage.kind === 'unread'
+  ) {
+    return { entries: browserDiagnostics(browser), complete: false };
   }
-  const rate = sampleRate(report.sampleRate);
-  if (!rate.ok) return undefined;
   const device = currentInput(sources);
   const path =
     device === undefined ? undefined : { input: device, output: input.output, rate: rate.value };
@@ -92,13 +131,9 @@ export function diagnosticsOf(
   const inputLatency = input.opened?.granted.latency;
   const inputRate = input.opened?.granted.sampleRate;
   const inputLabel = device?.label;
-  return recordingDiagnostics({
-    secureContext: !(
-      input.listing.kind === 'refused' &&
-      input.listing.failure.code === 'media-input.insecure-context'
-    ),
-    permission: input.permission,
-    inputs: input.devices.length,
+  const entries = recordingDiagnostics({
+    ...browser,
+    inputs: browser.inputs,
     ...(input.opened === undefined ? {} : { comparison: input.opened.comparison }),
     contextRate: rate.value,
     ...(inputRate === undefined ? {} : { inputRate }),
@@ -111,6 +146,6 @@ export function diagnosticsOf(
     output: input.output,
     calibration: calibrationStanding(settings, path),
     storage: storageTimeLeft(storage.estimate, rate.value, channels),
-    suspensionRisk: sources.suspensionRisk,
   });
+  return { entries, complete: true };
 }

@@ -6,9 +6,11 @@
  * no second context is made; the profile is planned against what the browser
  * supports and the input reports, at the context's rate; the browser opens the
  * input through the capabilities adapter, which asks the person where the
- * permission is not held; and the stream is handed to a capture session in
- * that context. Whatever was made before a step refused is let go, so a
- * refusal leaves no input open and no context held.
+ * permission is not held; and the stream is handed to a capture session in that
+ * context. Whoever arms may ask first whether the opening may go on at the
+ * context's rate, as the storage left is asked, before the browser is. Whatever
+ * was made before a step refused is let go, so a refusal leaves no input open
+ * and no context held.
  */
 
 import {
@@ -17,7 +19,9 @@ import {
   failure,
   sampleRate,
   succeed,
+  type DomainFailure,
   type DomainResult,
+  type SampleRate,
 } from '@audiogubbins/domain';
 import type { LatencyHint } from '@audiogubbins/audio-engine';
 import type { ContextLifecycle } from '@audiogubbins/audio-runtime';
@@ -25,6 +29,7 @@ import type { InputDeviceDescriptor, MediaInput, OpenedInput } from '@audiogubbi
 import {
   capturePlan,
   compareCapture,
+  type CapturePlan,
   type CaptureProfile,
   type DeviceIdentity,
 } from '@audiogubbins/recording';
@@ -50,12 +55,25 @@ export interface InputOpening {
   readonly latencyHint: () => LatencyHint;
 }
 
+/** What an opening is asked about before the browser is: the capture's rate, and the input. */
+export interface OpeningCheck {
+  /** The rate of the context joined, which the capture runs at. */
+  readonly rate: SampleRate;
+  /** The input to be opened, or `undefined` for the browser's own choice. */
+  readonly device: DeviceIdentity | undefined;
+}
+
+/** Why an opening cannot go on, asked before the browser is, or nothing where it can. */
+export type OpeningAdmission = (check: OpeningCheck) => Promise<DomainFailure | undefined>;
+
 /** What is asked for: an input, where one is chosen, and the profile it is opened with. */
 export interface InputRequest {
   readonly device: DeviceIdentity | undefined;
   readonly profile: CaptureProfile;
   /** The inputs the browser lists, for the channel count the chosen one reports. */
   readonly devices: readonly InputDeviceDescriptor[];
+  /** Asked before the browser is, where given; a failure it answers ends the opening. */
+  readonly admit?: OpeningAdmission;
 }
 
 /** An input open in the page's context, with a capture session over it. */
@@ -107,6 +125,18 @@ async function captureIn(
   }
 }
 
+/** The profile of `request` planned against what the browser and the input offer at `rate`. */
+function planOf(opening: InputOpening, request: InputRequest, rate: SampleRate): CapturePlan {
+  return capturePlan(
+    request.profile,
+    captureOffer(
+      opening.media.supportedConstraints,
+      listedAs(request.devices, request.device),
+      rate,
+    ),
+  );
+}
+
 /**
  * Opens the input `request` asks for in the context `hold` holds, or says why
  * it could not be opened, having let go of the hold.
@@ -122,14 +152,16 @@ export async function openInput(
     hold.release();
     return rate;
   }
-  const plan = capturePlan(
-    request.profile,
-    captureOffer(
-      opening.media.supportedConstraints,
-      listedAs(request.devices, request.device),
-      rate.value,
-    ),
-  );
+  // Awaited only where asked, so an opening nothing checks asks the browser
+  // at once, within the person's gesture.
+  if (request.admit !== undefined) {
+    const refusal = await request.admit({ rate: rate.value, device: request.device });
+    if (refusal !== undefined) {
+      hold.release();
+      return fail(refusal);
+    }
+  }
+  const plan = planOf(opening, request, rate.value);
   const opened = await opening.media.open(browserRequest(plan, request.device));
   if (!opened.ok) {
     hold.release();

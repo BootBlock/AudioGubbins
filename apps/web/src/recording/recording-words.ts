@@ -10,6 +10,7 @@
 import type { MicrophonePermission } from '@audiogubbins/capabilities';
 import type { DeviceIdentity, ProcessingControl } from '@audiogubbins/recording';
 
+import type { ContextReplacement } from '../audio/context-host.js';
 import type { InputStatus } from './input-view.js';
 import type { MonitoringView } from './monitoring-control.js';
 
@@ -87,4 +88,14 @@ export function monitoringText(view: MonitoringView): string {
     case 'unavailable':
       return 'Monitoring is off: no input is open.';
   }
+}
+
+/** Hertz, in a sentence. */
+const HERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 });
+
+/** Why the input closed with the context it joined, as the person is told it. */
+export function contextReplacedText(why: ContextReplacement): string {
+  return why.kind === 'playback'
+    ? 'The input closed because playback needed the audio context made again, for another sample rate or performance profile. Arm it again to go on.'
+    : `The audio engine was restarted at ${HERTZ.format(why.rate)} Hz, so the input closed. Arm it again to record at that rate.`;
 }

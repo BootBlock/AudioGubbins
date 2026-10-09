@@ -20,6 +20,9 @@
  */
 
 import {
+  FailureKind,
+  fail,
+  failure,
   flatMapResult,
   succeed,
   type DomainResult,
@@ -227,24 +230,65 @@ export class PlaybackControl {
   useProfile(profile: ChosenProfile): void {
     const current = this.#opened;
     if (current === undefined || current.profile === profile) return;
-    const mode = current.session?.status.transport.mode;
-    const playing =
-      this.#view.get().starting ||
-      mode === TransportMode.Playing ||
-      mode === TransportMode.Suspended;
-    const position = current.session?.position();
-    const from = position?.ok === true ? position.value : undefined;
+    const playing = this.#playing(current);
     const programme = current.loaded;
-    this.#close(current);
+    const from = this.#closeKeepingPause(current);
     // Chosen from a gesture, as every command is, so a context made now
     // starts as the first one did. A Play still on its way goes on too, since
     // the one it was waiting for has been closed under it. Paused, the new
     // context waits for Play, which goes on from where the old one paused.
-    if (programme === undefined) return;
-    if (playing) this.#start(this.#openFor(profile, current.rate), programme, from);
-    else if (mode === TransportMode.Paused && from !== undefined) {
+    if (programme !== undefined && playing) {
+      this.#start(this.#openFor(profile, current.rate), programme, from);
+    }
+  }
+
+  /**
+   * Lets go of the context, so it can be made again at another rate, or says
+   * why not: what plays, or is starting, would be cut off. A paused programme
+   * goes on from where it paused at the next Play, which makes a context at
+   * the programme's own rate where it has one.
+   */
+  releaseContext(): DomainResult<void> {
+    const current = this.#opened;
+    if (current === undefined) return succeed(undefined);
+    if (this.#playing(current)) {
+      return fail(
+        failure(
+          'playback.playing',
+          FailureKind.Rejected,
+          'Stop playback first: making the audio engine again would cut it off.',
+        ),
+      );
+    }
+    this.#closeKeepingPause(current);
+    return succeed(undefined);
+  }
+
+  /** Whether `current` plays, or is starting to. */
+  #playing(current: Opened): boolean {
+    const mode = current.session?.status.transport.mode;
+    return (
+      this.#view.get().starting ||
+      mode === TransportMode.Playing ||
+      mode === TransportMode.Suspended
+    );
+  }
+
+  /**
+   * Closes `current`, remembering where a paused programme paused for its next
+   * Play, and answers where the programme was.
+   */
+  #closeKeepingPause(current: Opened): SampleCount | undefined {
+    const paused =
+      !this.#playing(current) && current.session?.status.transport.mode === TransportMode.Paused;
+    const position = current.session?.position();
+    const from = position?.ok === true ? position.value : undefined;
+    const programme = current.loaded;
+    this.#close(current);
+    if (programme !== undefined && paused && from !== undefined) {
       this.#resumeFrom = { key: programme.key, at: from };
     }
+    return from;
   }
 
   /**

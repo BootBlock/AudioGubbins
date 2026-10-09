@@ -7,6 +7,8 @@
  * to the machine's microphone rather than to the test.
  */
 
+import { expect, vi } from 'vitest';
+
 import {
   FailureKind,
   createDeterministicIdGenerator,
@@ -51,6 +53,7 @@ import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import type { AudioView } from '../state/audio-view-store.js';
 import type { Observable } from '../state/observable.js';
 import type { WorkspaceStore } from '../state/workspace-store.js';
+import { PROMPTLY } from './waiting.js';
 
 /** The rate the fake context runs at. */
 const FAKE_CAPTURE_RATE = 48_000;
@@ -574,4 +577,19 @@ export function fakeRecording(options: FakeRecordingOptions): {
     logger: options.logger,
   });
   return { parts, fakes, dispose };
+}
+
+/**
+ * Waits until an arming has opened its input and answers its capture, the
+ * `count`th made: an arming reads the time the storage worker leaves before it
+ * asks the browser for the input, which takes more than a turn of the task
+ * queue.
+ */
+export async function inputOpened(fakes: RecordingFakes, count = 1): Promise<FakeCapture> {
+  await vi.waitFor(() => {
+    expect(fakes.captures.length).toBeGreaterThanOrEqual(count);
+  }, PROMPTLY);
+  const capture = fakes.captures[count - 1];
+  if (capture === undefined) throw new Error('No input opened.');
+  return capture;
 }

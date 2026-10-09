@@ -25,6 +25,19 @@ export const DiagnosticSeverity = {
 /** How much an entry matters. */
 export type DiagnosticSeverity = (typeof DiagnosticSeverity)[keyof typeof DiagnosticSeverity];
 
+/**
+ * What the application offers to do about an entry, where it can act on the
+ * person's word, as a value a view gives a control to rather than a sentence it
+ * would have to read.
+ *
+ * - `restart-at-input-rate`: make the audio engine again at `rate`, the
+ *   input's own, so the browser stops resampling the input (`ADR-0070`).
+ */
+export interface DiagnosticAction {
+  readonly kind: 'restart-at-input-rate';
+  readonly rate: SampleRate;
+}
+
 /** One entry of the recording diagnostics. */
 export interface RecordingDiagnostic {
   /** A stable name for the condition, for a test or a view to key it by. */
@@ -34,6 +47,9 @@ export interface RecordingDiagnostic {
   readonly why: string;
   readonly impact: string;
   readonly improve: string;
+
+  /** What the application offers to do about it, where it offers anything; the person decides. */
+  readonly action?: DiagnosticAction;
 }
 
 /** Whether the latest calibration applies to the current path. */
@@ -42,11 +58,27 @@ export type CalibrationStanding =
   | { readonly kind: 'missing' }
   | { readonly kind: 'stale'; readonly changes: readonly PathChange[] };
 
-/** What is known of the browser, the hardware and the session. */
-export interface RecordingFacts {
+/**
+ * What is known of the browser and the platform before an audio context or
+ * the storage estimate has reported: enough for the entries that rest on
+ * neither, which are shown at once.
+ */
+export interface BrowserFacts {
   readonly secureContext: boolean;
   readonly permission: 'granted' | 'prompt' | 'denied' | 'unknown';
 
+  /** How many inputs the browser lists, or `undefined` before it has listed them. */
+  readonly inputs: number | undefined;
+
+  /** Whether the browser lists its inputs and the one chosen for recording is not among them. */
+  readonly chosenInputGone: boolean;
+
+  /** Whether this platform may suspend capture in the background or under a screen lock. */
+  readonly suspensionRisk: boolean;
+}
+
+/** What is known of the browser, the hardware and the session. */
+export interface RecordingFacts extends BrowserFacts {
   /** How many inputs the browser lists. */
   readonly inputs: number;
 
@@ -73,7 +105,4 @@ export interface RecordingFacts {
 
   readonly calibration: CalibrationStanding;
   readonly storage: StorageTimeLeft;
-
-  /** Whether this platform may suspend capture in the background or under a screen lock. */
-  readonly suspensionRisk: boolean;
 }

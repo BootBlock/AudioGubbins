@@ -144,12 +144,18 @@ export {
 } from './controlled-recording.js';
 
 export {
+  type BrowserFacts,
   type CalibrationStanding,
+  type DiagnosticAction,
   DiagnosticSeverity,
   type RecordingDiagnostic,
   type RecordingFacts,
 } from './diagnostic-facts.js';
 
-export { HIGH_LATENCY_SECONDS } from './latency-diagnostics.js';
+export { HIGH_LATENCY_SECONDS, pathChangesText } from './latency-diagnostics.js';
 
-export { recordingBlocked, recordingDiagnostics } from './recording-diagnostics.js';
+export {
+  browserDiagnostics,
+  recordingBlocked,
+  recordingDiagnostics,
+} from './recording-diagnostics.js';

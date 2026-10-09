@@ -300,7 +300,7 @@ export class RecordFlow {
     const start = recordingStartOf(facts, this.#options.now());
     if (!start.ok) return start;
     const latency = compensationNow(view, settings.get().recording)?.frames ?? 0;
-    const port = this.#asked(at);
+    const port = this.#asked(where, at);
     if (!port.ok) return port;
     const take = new TakeRecording({
       client: where.client,
@@ -336,14 +336,23 @@ export class RecordFlow {
     return succeed(undefined);
   }
 
-  /** Asks the capture for a take as `at` says, with its timed stop where it has one. */
-  #asked(at: {
-    readonly recordAt: SampleCount;
-    readonly countIn: boolean;
-    readonly stopAt?: SampleCount;
-  }): DomainResult<MessagePort> {
+  /**
+   * Asks the capture for a take into `where` as `at` says, with its timed stop
+   * where it has one. The session refuses a tab that no longer holds the
+   * project's write lease, which a recording scheduled or punched may have lost
+   * since it was asked for (`REQ-STOR-098`).
+   */
+  #asked(
+    where: RecordingWhere,
+    at: {
+      readonly recordAt: SampleCount;
+      readonly countIn: boolean;
+      readonly stopAt?: SampleCount;
+    },
+  ): DomainResult<MessagePort> {
     const { takes } = this.#options.input;
-    const port = at.countIn ? takes.countIn(at.recordAt, true) : takes.record(at.recordAt, true);
+    const lease = where.project.getSnapshot().access.kind === 'writable';
+    const port = at.countIn ? takes.countIn(at.recordAt, lease) : takes.record(at.recordAt, lease);
     if (port.ok && at.stopAt !== undefined) {
       const told = takes.stopBefore(at.stopAt);
       if (!told.ok) {

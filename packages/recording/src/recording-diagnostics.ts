@@ -9,6 +9,11 @@
  * refused, or no input. Everything else informs and warns, and the person
  * decides whether to go on.
  *
+ * The entries that rest only on the browser and the platform (the access to an
+ * input, the chosen input's presence, and background suspension) are given
+ * apart too, so a view shows them before any audio context or storage estimate
+ * has reported.
+ *
  * A device's name is personal data (`REQ-PRIV-165`): it is read only to
  * recognise a Bluetooth device (`latency-diagnostics.ts`) and never written
  * into an entry, so an entry may be shown, logged or put in a diagnostic bundle
@@ -20,6 +25,7 @@ import { counted } from '@audiogubbins/text';
 import { captureDiagnostics } from './capture-diagnostics.js';
 import {
   DiagnosticSeverity,
+  type BrowserFacts,
   type RecordingDiagnostic,
   type RecordingFacts,
 } from './diagnostic-facts.js';
@@ -34,17 +40,35 @@ const SEVERITY_ORDER: readonly DiagnosticSeverity[] = [
 
 /** Every entry `facts` give, the blocking first, then the warnings, then the rest. */
 export function recordingDiagnostics(facts: RecordingFacts): readonly RecordingDiagnostic[] {
-  const entries = [
-    ...access(facts),
+  return ordered([
+    ...browserEntries(facts),
     ...captureDiagnostics(facts),
     ...latencyDiagnostics(facts),
     ...calibrationDiagnostics(facts.calibration),
     ...storage(facts.storage),
-    ...(facts.suspensionRisk ? [SUSPENSION] : []),
-  ];
+  ]);
+}
+
+/**
+ * The entries that rest on the browser and the platform alone, in the same
+ * order: what can be said before a context or the storage estimate reports.
+ */
+export function browserDiagnostics(facts: BrowserFacts): readonly RecordingDiagnostic[] {
+  return ordered(browserEntries(facts));
+}
+
+function ordered(entries: readonly RecordingDiagnostic[]): readonly RecordingDiagnostic[] {
   return SEVERITY_ORDER.flatMap((severity) =>
     entries.filter((entry) => entry.severity === severity),
   );
+}
+
+function browserEntries(facts: BrowserFacts): readonly RecordingDiagnostic[] {
+  return [
+    ...access(facts),
+    ...(facts.chosenInputGone ? [INPUT_GONE] : []),
+    ...(facts.suspensionRisk ? [SUSPENSION] : []),
+  ];
 }
 
 /** Whether `diagnostics` hold an entry that stops recording. */
@@ -52,7 +76,7 @@ export function recordingBlocked(diagnostics: readonly RecordingDiagnostic[]): b
   return diagnostics.some((entry) => entry.severity === DiagnosticSeverity.Blocking);
 }
 
-function access(facts: RecordingFacts): readonly RecordingDiagnostic[] {
+function access(facts: BrowserFacts): readonly RecordingDiagnostic[] {
   if (!facts.secureContext) {
     return [
       {
@@ -139,6 +163,21 @@ function minutesOrSeconds(seconds: number): string {
     ? counted(Math.floor(seconds / 60), 'minute', 'minutes')
     : counted(seconds, 'second', 'seconds');
 }
+
+/**
+ * The entry for a chosen input the browser no longer lists (`REQ-REC-094`): the
+ * session lets go of it, so an arming opens the browser's own choice, which is
+ * then remembered as the input.
+ */
+const INPUT_GONE: RecordingDiagnostic = {
+  kind: 'input-gone',
+  severity: DiagnosticSeverity.Warning,
+  affects: 'The chosen input',
+  why: 'The input chosen for recording is no longer connected.',
+  impact:
+    "Arming the input now opens the browser's default input in its place, and that one is remembered as the input.",
+  improve: 'Connect the input again, or choose another.',
+};
 
 const SUSPENSION: RecordingDiagnostic = {
   kind: 'background-suspension',

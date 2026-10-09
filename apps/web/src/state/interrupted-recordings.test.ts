@@ -4,6 +4,7 @@ import { RecordingEnding } from '@audiogubbins/project-format';
 
 import { CaptureWriter } from '../testing/capture-writer.js';
 import { firstRecorded } from '../testing/recorded-takes.js';
+import { inputOpened } from '../testing/recording-fakes.js';
 import { projectWorld, type ProjectWindow } from '../testing/project-context.js';
 import { everythingQueued } from '../testing/waiting.js';
 
@@ -34,9 +35,7 @@ async function cutShort(): Promise<ProjectWindow> {
   if (open.kind !== 'open') throw new Error('No project is open.');
   const { project } = open.snapshot;
   window.run('recording.arm');
-  await everythingQueued();
-  const capture = window.recording.captures.at(-1);
-  if (capture === undefined) throw new Error('No input opened.');
+  const capture = await inputOpened(window.recording);
   window.run('recording.record');
   const take = new CaptureWriter(capture, 0);
   take.begin();

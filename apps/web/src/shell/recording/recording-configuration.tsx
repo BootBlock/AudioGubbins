@@ -91,7 +91,7 @@ export function RecordingConfiguration({
         </Reading>
         <Reading term="Latency calibration">
           {standing.kind === 'current'
-            ? 'Calibrated for this input, output and rate'
+            ? 'Calibrated for this input, output and sample rate'
             : standing.kind === 'missing'
               ? 'Not calibrated'
               : 'Taken with another path; calibrate again'}

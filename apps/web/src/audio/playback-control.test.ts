@@ -339,6 +339,50 @@ describe('changing the performance profile', () => {
   });
 });
 
+describe('letting the context go for another rate', () => {
+  it('refuses while a programme plays, which it would cut off, and closes nothing', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+
+    const released = control.releaseContext();
+
+    expect(released.ok ? undefined : released.failures[0].summary).toBe(
+      'Stop playback first: making the audio engine again would cut it off.',
+    );
+    expect(parts.opened[0]?.closed).toBe(false);
+  });
+
+  it('closes a stopped context, and the next Play makes one again', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    control.stop();
+
+    expectSuccess(control.releaseContext());
+    expect(parts.opened[0]?.closed).toBe(true);
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    expect(parts.opened).toHaveLength(2);
+  });
+
+  it('keeps where a paused transport was for the next Play', async () => {
+    const { control, parts, settled } = rig();
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    parts.latest().contextFrame = 4_800;
+    control.pause();
+
+    expectSuccess(control.releaseContext());
+    expect(parts.opened[0]?.closed).toBe(true);
+
+    control.play(TEST_SIGNAL_PROGRAMME);
+    await settled();
+    expect(parts.latest().seeks).toEqual([4_800]);
+  });
+});
+
 describe('changing the preview quality', () => {
   const HIGH = namedQualityMode(QualityLevel.High);
 

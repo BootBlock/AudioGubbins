@@ -42,6 +42,7 @@ import type { RenderStrategyView } from '../state/render-strategy-store.js';
 import type { LogViewStore } from '../state/log-view-store.js';
 import { AnalysisPanel, type AnalysisParts } from './analysis/analysis-panel.js';
 import { AssetBrowserPanel } from './asset-browser.js';
+import type { PanelCommands } from './command-button.js';
 import { DiagnosticsPanel } from './diagnostics-panel.js';
 import type { EditorPanelParts } from '../editor/panel-parts.js';
 import { EditorPanel } from './editor-panel.js';
@@ -67,16 +68,18 @@ import { TransportPanel } from './transport-panel.js';
 function RecordingCapability({
   recording,
   audioSettings,
+  commands,
 }: {
   readonly recording: RecordingParts;
   readonly audioSettings: Observable<AudioSettings>;
+  readonly commands: PanelCommands;
 }): ReactNode {
   useWatchedInputs(recording);
-  const entries = useRecordingDiagnostics(recording, audioSettings);
+  const reading = useRecordingDiagnostics(recording, audioSettings);
   return (
     <div>
       <h3>Recording with this browser and hardware</h3>
-      <RecordingDiagnosticsList entries={entries} />
+      <RecordingDiagnosticsList reading={reading} commands={commands} />
     </div>
   );
 }
@@ -89,6 +92,7 @@ export function CapabilitiesPanel({
   storageAbsences,
   recording,
   audioSettings,
+  commands,
 }: {
   readonly title: string;
   readonly capabilities: CapabilityRegistry;
@@ -99,6 +103,8 @@ export function CapabilitiesPanel({
   /** The input, for what recording can do here. */
   readonly recording: RecordingParts;
   readonly audioSettings: Observable<AudioSettings>;
+  /** How a recording diagnostic's action runs its command. */
+  readonly commands: PanelCommands;
 }): ReactNode {
   // Subscribed, so an answer the browser gives late redraws the panel.
   useSyncExternalStore(capabilities.subscribe, capabilities.all);
@@ -135,7 +141,11 @@ export function CapabilitiesPanel({
         </ul>
       )}
       <StorageAbsences absences={storageAbsences} />
-      <RecordingCapability recording={recording} audioSettings={audioSettings} />
+      <RecordingCapability
+        recording={recording}
+        audioSettings={audioSettings}
+        commands={commands}
+      />
       <RendererReportList reports={renderers} />
     </section>
   );
@@ -270,6 +280,7 @@ function editingPanel(panel: OpenPanel, title: string, context: PanelContext): R
           storageAbsences={context.storageAbsences}
           recording={context.recording}
           audioSettings={context.audioSettings}
+          commands={context}
         />
       );
     case ProjectPanelKinds.History:

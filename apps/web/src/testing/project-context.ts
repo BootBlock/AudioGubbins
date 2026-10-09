@@ -30,6 +30,7 @@ import { MemoryStorageTree, memorySource } from '@audiogubbins/media-store/testi
 import type { DirectoryReader, DirectoryWriter } from '@audiogubbins/storage';
 import { MemoryLeaseCoordinator, memorySink, type MemorySink } from '@audiogubbins/storage/testing';
 import { connectStorage, type PageFile } from '@audiogubbins/storage-runtime';
+import type { StorageEstimate } from '@audiogubbins/recording';
 import {
   memoryHostServices,
   portPair,
@@ -206,6 +207,8 @@ export interface ProjectWorld {
     readonly canWriteFolders?: boolean;
     readonly backupFolder?: BackupFolderPort;
     readonly linkedFiles?: ScriptedLinkedFiles;
+    /** The storage estimate the window's storage worker reads: none where not given. */
+    readonly estimate?: () => Promise<StorageEstimate | undefined>;
   }): Promise<ProjectWindow>;
 }
 
@@ -238,10 +241,12 @@ function pageOf(
   context: ShellContext,
   number: number,
   packSource: CatalogueSource | undefined,
+  estimate?: () => Promise<StorageEstimate | undefined>,
 ): ProjectServices {
   const pair = portPair();
   serveMemoryStorage(pair.worker, {
     ...(packSource === undefined ? {} : { packSource }),
+    ...(estimate === undefined ? {} : { estimate }),
     tree: world.tree,
     coordinator: world.coordinator,
     clock,
@@ -278,9 +283,12 @@ export function projectWorld(
     tab: { name: 'the test', seed: 7 },
   });
   let windows = 0;
-  const page = (context: ShellContext): ProjectServices => {
+  const page = (
+    context: ShellContext,
+    estimate?: () => Promise<StorageEstimate | undefined>,
+  ): ProjectServices => {
     windows += 1;
-    return pageOf(world, clock, context, windows, packSource);
+    return pageOf(world, clock, context, windows, packSource, estimate);
   };
   const world: ProjectWorld = {
     tree,
@@ -290,7 +298,7 @@ export function projectWorld(
     page,
     window: async (options = {}) => {
       const built = buildShellContext();
-      const services = page(built.context);
+      const services = page(built.context, options.estimate);
       const files = scriptedFiles(options.canWriteFolders);
       const lifetime = new AbortController();
       const root = new StorageRoot(services.client.root, lifetime.signal);

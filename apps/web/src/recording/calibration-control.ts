@@ -140,10 +140,12 @@ export class CalibrationControl {
     this.#run += 1;
     const run = this.#run;
     const hold = joinContext(this.#options.opening, {
-      replaced: () => {
+      replaced: (why) => {
         this.#end(
           run,
-          'The audio context was made again for playback, so the calibration stopped.',
+          why.kind === 'playback'
+            ? 'The audio context was made again for playback, so the calibration stopped.'
+            : 'The audio engine was made again at another sample rate, so the calibration stopped.',
         );
       },
     });

@@ -7,7 +7,11 @@ import { RAW_STUDIO_PROFILE, capturePlan } from './capture-profile.js';
 import { UNKNOWN_OUTPUT } from './device-identity.js';
 import { DiagnosticSeverity, type RecordingFacts } from './diagnostic-facts.js';
 import { HIGH_LATENCY_SECONDS } from './latency-diagnostics.js';
-import { recordingBlocked, recordingDiagnostics } from './recording-diagnostics.js';
+import {
+  browserDiagnostics,
+  recordingBlocked,
+  recordingDiagnostics,
+} from './recording-diagnostics.js';
 
 function valueOf<T>(result: DomainResult<T>): T {
   if (!result.ok) throw new Error(result.failures[0].summary);
@@ -21,6 +25,7 @@ const HEALTHY: RecordingFacts = {
   secureContext: true,
   permission: 'granted',
   inputs: 1,
+  chosenInputGone: false,
   contextRate: RATE,
   inputRate: 48_000,
   latency: { output: 0.005, input: 0.004 },
@@ -142,13 +147,61 @@ describe('the recording diagnostics (REQ-REC-094, REQ-REC-097)', () => {
     expect(entries[1]?.impact).toBe('Each take has 1 channel.');
   });
 
-  it("explain a rate mismatch and offer the input's rate", () => {
+  it("explain a rate mismatch and offer the input's rate as an action", () => {
     const [entry] = recordingDiagnostics({ ...HEALTHY, inputRate: 44_100 });
     expect(entry).toMatchObject({
       kind: 'rate-mismatch',
       severity: 'information',
       improve: 'Restart the audio engine at 44,100 Hz, or set the device to 48,000 Hz.',
+      action: { kind: 'restart-at-input-rate', rate: 44_100 },
     });
+  });
+
+  it('offer no restart at a rate no audio engine runs at', () => {
+    const [entry] = recordingDiagnostics({ ...HEALTHY, inputRate: 1_000 });
+    expect(entry?.kind).toBe('rate-mismatch');
+    expect(entry?.action).toBeUndefined();
+    expect(entry?.improve).toBe('Set the device to 48,000 Hz.');
+  });
+
+  it('say when the chosen input is no longer connected, as a warning (REQ-REC-094)', () => {
+    const entries = recordingDiagnostics({ ...HEALTHY, chosenInputGone: true });
+    expect(entries.map((entry) => [entry.kind, entry.severity])).toEqual([
+      ['input-gone', 'warning'],
+    ]);
+    expect(recordingBlocked(entries)).toBe(false);
+  });
+
+  it('give what rests on the browser alone before a context or the storage reports', () => {
+    const early = { secureContext: true, permission: 'unknown', inputs: undefined } as const;
+    expect(browserDiagnostics({ ...early, chosenInputGone: false, suspensionRisk: false })).toEqual(
+      [],
+    );
+    expect(
+      browserDiagnostics({
+        ...early,
+        secureContext: false,
+        chosenInputGone: false,
+        suspensionRisk: true,
+      }).map((entry) => entry.kind),
+    ).toEqual(['insecure-context', 'background-suspension']);
+    expect(
+      browserDiagnostics({
+        ...early,
+        permission: 'denied',
+        chosenInputGone: true,
+        suspensionRisk: false,
+      }).map((entry) => entry.kind),
+    ).toEqual(['permission-denied', 'input-gone']);
+    // Inputs not yet listed are not taken for none.
+    expect(
+      browserDiagnostics({
+        ...early,
+        permission: 'granted',
+        chosenInputGone: false,
+        suspensionRisk: false,
+      }),
+    ).toEqual([]);
   });
 
   it('ask for a calibration where none applies, naming what changed', () => {

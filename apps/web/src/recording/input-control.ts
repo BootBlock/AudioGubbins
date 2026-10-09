@@ -7,9 +7,10 @@
  * person arms it, and the permission is asked for then; it is closed when they
  * disarm it, and whenever the session no longer holds one, whatever ended it:
  * the device lost, the permission taken back, the context closed under it. What
- * it records for, and whether this tab may write into the project, are given
- * with each arming by whoever arms (`ArmRequest`), since a project's takes and
- * its write lease are the project's. A take is made through its `takes`
+ * it records for, and how to read whether this tab may write into the project,
+ * are given with each arming by whoever arms (`ArmRequest`), since a project's
+ * takes and its write lease are the project's; the lease is read again when an
+ * armed input opens again. A take is made through its `takes`
  * (`take-capture.ts`), and the capture channel Record answers is the caller's
  * to hand to the storage worker. Monitoring is the monitoring control's, which
  * this tells when an input opens and closes, and never because one was armed.
@@ -44,20 +45,32 @@ import type { AudioSettingsStore } from '../state/audio-settings-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import { chosenProfileOf, rememberInput } from '../state/recording-settings.js';
 import { DeviceWatch } from './device-watch.js';
-import { joinContext, openInput, type InputOpening, type OpenedCapture } from './input-opener.js';
+import {
+  joinContext,
+  openInput,
+  type InputOpening,
+  type OpenedCapture,
+  type OpeningAdmission,
+} from './input-opener.js';
+import { contextReplacedText } from './recording-words.js';
 import type { ContextHold } from '../audio/context-host.js';
 import { NOTHING_ASKED, type InputView } from './input-view.js';
 import type { LevelSummary } from './level-summary.js';
 import type { MonitoringControl } from './monitoring-control.js';
 import {
   BROWSER_DEFAULT_INPUT,
+  armEvent,
   armFailure,
-  deviceGone,
+  devicesFollowing,
+  openedSession,
+  permissionFollowing,
+  reopenFailure,
   followedOf,
   followingEvents,
   setupOf,
   type ArmRequest,
   type Followed,
+  type Following,
 } from './session-setup.js';
 import { watchOpenInput, type PageWatch } from './open-input-watch.js';
 import { TakeCapture } from './take-capture.js';
@@ -82,9 +95,6 @@ interface Open {
   readonly levels: LevelSummary;
 }
 
-const LOST_TO_PLAYBACK =
-  'The input closed because playback needed the audio context made again, for another rate or performance profile. Arm it again to go on.';
-
 function problemOf(code: string, summary: string): DomainFailure {
   return failure(code, FailureKind.Rejected, summary);
 }
@@ -100,6 +110,11 @@ export class InputControl {
   /** Counts openings, so one overtaken by a disarm or another opening closes what it opened. */
   #attempt = 0;
   #followed: Followed;
+  /**
+   * How the last arming reads the write lease, read again when the armed
+   * input opens again; before any arming, no lease is known to be held.
+   */
+  #lease: () => boolean = () => false;
   /** The take a Record makes on the input open now. */
   readonly takes: TakeCapture;
 
@@ -155,9 +170,11 @@ export class InputControl {
    * Arms the input for `request`, asking for the permission where it is not
    * held, or answers why it cannot. Run from the person's gesture: the context
    * is started before anything is awaited. The input opens after; its arming,
-   * or the reason it did not open, is said then.
+   * or the reason it did not open, is said then. `admit`, where given, is
+   * asked once the context is joined and before the browser is asked for the
+   * input; a reason it answers ends the arming, and no input is opened.
    */
-  arm(request: ArmRequest): DomainResult<void> {
+  arm(request: ArmRequest, admit?: OpeningAdmission): DomainResult<void> {
     const refusal = this.#armFailure(request);
     if (refusal !== undefined) return fail(refusal);
     const { session } = this.#view.get();
@@ -171,11 +188,12 @@ export class InputControl {
         const chosen = this.#dispatch({ kind: 'device-chosen', device: BROWSER_DEFAULT_INPUT });
         if (!chosen.ok) return chosen;
       }
-      const armed = this.#dispatch({ kind: 'arm', ...request });
+      const armed = this.#dispatch(armEvent(request));
       if (!armed.ok) return armed;
     }
+    this.#lease = request.holdsWriteLease;
     this.#update({ problem: undefined });
-    this.#begin(request);
+    this.#begin(request, admit);
     return succeed(undefined);
   }
 
@@ -255,24 +273,34 @@ export class InputControl {
    * is joined before any input open now is closed, so a context nothing else
    * holds is kept running for the input that replaces it.
    */
-  #begin(request: ArmRequest): void {
+  #begin(request: ArmRequest, admit?: OpeningAdmission): void {
     this.#attempt += 1;
     const attempt = this.#attempt;
     const hold = joinContext(this.#options.opening, {
-      replaced: () => {
-        this.#replaced(attempt);
+      // The context is being closed for another, and the input goes with it.
+      replaced: (why) => {
+        if (attempt !== this.#attempt) return;
+        const problem = contextReplacedText(why);
+        const failure = problemOf('recording.context-replaced', problem);
+        this.#lost({ kind: 'failed', failure }, problem);
       },
     });
     this.#close();
-    void this.#openWith(request, hold, attempt);
+    void this.#openWith(request, hold, attempt, admit);
   }
 
-  async #openWith(request: ArmRequest, hold: ContextHold, attempt: number): Promise<void> {
+  async #openWith(
+    request: ArmRequest,
+    hold: ContextHold,
+    attempt: number,
+    admit: OpeningAdmission | undefined,
+  ): Promise<void> {
     const { session, devices } = this.#view.get();
     const device = session.kind === 'armed' ? session.device : this.#setup().device;
+    const profile = chosenProfileOf(this.#options.settings.get().recording);
     const opened = await openInput(
       this.#options.opening,
-      { device, profile: chosenProfileOf(this.#options.settings.get().recording), devices },
+      { device, profile, devices, ...(admit === undefined ? {} : { admit }) },
       hold,
     );
     if (attempt !== this.#attempt) {
@@ -286,29 +314,17 @@ export class InputControl {
   /** Takes the session through to an open, armed input, or closes it again with the reason. */
   #opened(opened: OpenedCapture, request: ArmRequest): void {
     const { facts } = opened;
-    const steps: SessionEvent[] = [];
-    let session = this.#view.get().session;
-    if (session.kind === 'asking') {
-      steps.push(
-        { kind: 'permission-granted', setup: { ...this.#setup(), device: facts.device } },
-        { kind: 'arm', ...request },
-      );
-    }
-    steps.push({
-      kind: 'device-opened',
-      granted: facts.granted,
-      rate: facts.rate,
-      channels: facts.channels,
-    });
-    for (const step of steps) {
-      const moved = nextSession(session, step);
-      if (!moved.ok) {
-        opened.close();
-        this.#update({ session, problem: moved.failures[0].summary });
-        this.#options.announce(moved.failures[0].summary);
-        return;
-      }
-      session = moved.value;
+    const { session, refusal } = openedSession(
+      this.#view.get().session,
+      this.#setup(),
+      facts,
+      request,
+    );
+    if (refusal !== undefined) {
+      opened.close();
+      this.#update({ session });
+      this.#tell(refusal.summary);
+      return;
     }
     this.#options.settings.reviseRecording(rememberInput(facts.device));
     this.#devices.relist();
@@ -330,8 +346,7 @@ export class InputControl {
         ? { kind: 'permission-denied' }
         : { kind: 'failed', failure: reason };
     if (session.kind === 'asking' || session.kind === 'armed') this.#dispatch(event);
-    this.#update({ problem: reason.summary });
-    this.#options.announce(reason.summary);
+    this.#tell(reason.summary);
   }
 
   /** Holds `opened` as the input open now, watching its track, its capture and the page. */
@@ -413,12 +428,24 @@ export class InputControl {
   #settle(before: RecordingSession, after: RecordingSession): void {
     const opening = after.kind === 'armed' && after.input.kind === 'opening';
     if (opening && before.kind === 'armed' && before.input.kind === 'open') {
-      this.#begin({ purpose: after.purpose, holdsWriteLease: true });
+      this.#reopen(after, { purpose: after.purpose, holdsWriteLease: this.#lease });
       return;
     }
     if (inputIsOpen(after) || after.kind === 'armed' || after.kind === 'asking') return;
     this.#attempt += 1;
     this.#close();
+  }
+
+  /**
+   * Opens an armed input again, for another device or profile, where the
+   * session would still arm it now: an opening is an arming, so the session's
+   * own rules, the write lease among them, are asked again. Where it refuses,
+   * the input is disarmed instead, and the person told why.
+   */
+  #reopen(armed: Extract<RecordingSession, { kind: 'armed' }>, request: ArmRequest): void {
+    const refusal = reopenFailure(armed, request);
+    if (refusal === undefined) this.#begin(request);
+    else this.#lost({ kind: 'failed', failure: refusal }, refusal.summary);
   }
 
   #close(): void {
@@ -443,54 +470,38 @@ export class InputControl {
     // A take the input was lost under ends where it reached, so its channel
     // closes and storage keeps every frame that came.
     else if (session.kind === 'recording') this.takes.stopNow();
+    this.#tell(problem);
+  }
+
+  /** Says why the input closed or would not open, where the views show it too. */
+  #tell(problem: string): void {
     this.#update({ problem });
     this.#options.announce(problem);
   }
 
-  /** The context the input joined is being closed for playback: the input goes with it. */
-  #replaced(attempt: number): void {
-    if (attempt !== this.#attempt) return;
-    this.#lost(
-      { kind: 'failed', failure: problemOf('recording.context-replaced', LOST_TO_PLAYBACK) },
-      LOST_TO_PLAYBACK,
-    );
-  }
-
   readonly #permissionChanged = (permission: MicrophonePermission): void => {
     this.#update({ permission });
-    const { session } = this.#view.get();
-    if (permission === 'granted' && session.kind === 'closed') {
-      this.#dispatch({ kind: 'permission-granted', setup: this.#setup() });
-    } else if (permission === 'denied' && session.kind !== 'closed' && session.kind !== 'failed') {
-      this.#lost(
-        { kind: 'permission-revoked' },
-        'The microphone permission was taken back, so the input closed.',
-      );
-    }
+    this.#follow(permissionFollowing(this.#view.get().session, permission, this.#setup()));
   };
 
   readonly #devicesChanged = (devices: InputView['devices']): void => {
     this.#update({ devices, listing: { kind: 'listed' } });
     const { session, opened } = this.#view.get();
-    if (session.kind === 'ready' && session.device === undefined) {
-      const { device } = this.#setup();
-      if (device !== undefined) this.#dispatch({ kind: 'device-chosen', device });
-      return;
-    }
-    // The input open now, as the browser named it, or the one chosen.
-    const chosen = opened?.device ?? ('device' in session ? session.device : undefined);
-    if (deviceGone(devices, chosen)) {
-      this.#lost({ kind: 'device-lost' }, 'The chosen input is no longer connected.');
-    }
+    this.#follow(devicesFollowing(session, opened?.device, devices, this.#setup()));
   };
+
+  /** Takes the session along with what the browser reported, as `following` says. */
+  #follow(following: Following): void {
+    if (following?.kind === 'event') this.#dispatch(following.event);
+    else if (following?.kind === 'lost') this.#lost(following.event, following.problem);
+  }
 
   /** Stops a recording or a count-in the browser may have suspended, saying why. */
   #suspended(why: string): void {
     const { session } = this.#view.get();
     if (session.kind !== 'recording' && session.kind !== 'counting-in') return;
     this.takes.stop(this.contextFrame() ?? derivedSampleCount(0), 'background-suspended');
-    this.#update({ problem: why });
-    this.#options.announce(why);
+    this.#tell(why);
   }
 
   readonly #settingsChanged = (): void => {

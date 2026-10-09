@@ -10,7 +10,12 @@
 
 import { useSyncExternalStore, type ReactNode } from 'react';
 
-import { calibrationOf, takeCompensation, type CalibrationPath } from '@audiogubbins/recording';
+import {
+  calibrationOf,
+  pathChangesText,
+  takeCompensation,
+  type CalibrationPath,
+} from '@audiogubbins/recording';
 
 import { calibrating, type CalibrationStage } from '../../recording/calibration-control.js';
 import { calibrationPathOf } from '../../recording/calibration-path.js';
@@ -136,7 +141,7 @@ export function LatencySection({
       <Figures view={view} settings={settings} path={path} />
       {standing.kind === 'stale' && (
         <p data-ag-status="reduced">
-          {`The calibration was taken with another ${standing.changes.join(', ')}. Calibrate again for this path.`}
+          {`The calibration was taken with another ${pathChangesText(standing.changes)}. Calibrate again for this path.`}
         </p>
       )}
       <p className="ag-panel-note">

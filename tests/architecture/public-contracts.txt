@@ -878,7 +878,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27305: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27322: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
   class CaptureSession
@@ -1173,7 +1173,7 @@ Published paths
   CaptureReader.#failure: (summary: string) => CaptureEvent
   CaptureReader.#finish: () => void
   CaptureReader.#wake: () => void
-  CaptureReader.__@asyncIterator@27305: () => AsyncGenerator<CaptureEvent>
+  CaptureReader.__@asyncIterator@27322: () => AsyncGenerator<CaptureEvent>
   interface CaptureReaderOptions
   readonly CaptureReaderOptions.heldSeconds?: number
 
@@ -4402,6 +4402,7 @@ Published paths
   readonly RecoveryChunkManifest.start: RecordingStart
   readonly RecoveryChunkManifest.transportFrame: SampleCount
   readonly RecoveryChunkManifest.purpose: RecordingPurpose
+  readonly RecoveryChunkManifest.take: TakeRequest
   readonly RecoveryChunkManifest.end?: RecordingEnd
   type RetentionPolicy = { readonly kind: "budget"; readonly bytes: number; } | { readonly kind: "rules"; readonly rules: readonly [RetentionRule, ...RetentionRule[]]; } | { readonly kind: "unlimited"; }
   type RetentionRule = { readonly kind: "recent-changes"; readonly count: number; } | { readonly kind: "recent-days"; readonly days: number; }
@@ -4440,6 +4441,10 @@ Published paths
   StorageTree.createFile: (path: string) => Promise<ByteSink>
   StorageTree.remove: (path: string) => Promise<void>
   StorageTree.list: (directory: string) => Promise<readonly TreeEntry[]>
+  interface TakeRequest
+  readonly TakeRequest.name: string
+  readonly TakeRequest.stackName?: string
+  readonly TakeRequest.compensation: number
   interface TextRule
   readonly TextRule.maximumLength: number
   readonly TextRule.pattern?: RegExp
@@ -4689,6 +4694,12 @@ Published paths
   readonly Armed.retrospective: RetrospectiveSetting
   type ArmedInput = OpenInput | { readonly kind: "opening"; }
   type ArmedPurpose = { readonly kind: "new-stack"; } | { readonly kind: "punch"; readonly asset: AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; } | { readonly kind: "take"; readonly stack: TakeStackId; }
+  interface BrowserFacts
+  readonly BrowserFacts.secureContext: boolean
+  readonly BrowserFacts.permission: "denied" | "granted" | "prompt" | "unknown"
+  readonly BrowserFacts.inputs: number | undefined
+  readonly BrowserFacts.chosenInputGone: boolean
+  readonly BrowserFacts.suspensionRisk: boolean
   const CALIBRATION_SIGNAL_LENGTH: number
   const CALIBRATION_SIGNAL_PEAK: 0.25
   const CLOSED_SESSION: RecordingSession
@@ -4726,6 +4737,9 @@ Published paths
   readonly DeviceIdentity.id: string
   readonly DeviceIdentity.group?: string
   readonly DeviceIdentity.label?: string
+  interface DiagnosticAction
+  readonly DiagnosticAction.kind: "restart-at-input-rate"
+  readonly DiagnosticAction.rate: SampleRate
   const DiagnosticSeverity: { readonly Information: "information"; readonly Warning: "warning"; readonly Blocking: "blocking"; }
   type DiagnosticSeverity = "blocking" | "information" | "warning"
   type FeedbackRisk = { readonly kind: "likely"; readonly why: "same-device" | "same-name"; } | { readonly kind: "none"; } | { readonly kind: "unknown"; }
@@ -4795,9 +4809,8 @@ Published paths
   readonly RecordingDiagnostic.why: string
   readonly RecordingDiagnostic.impact: string
   readonly RecordingDiagnostic.improve: string
-  interface RecordingFacts
-  readonly RecordingFacts.secureContext: boolean
-  readonly RecordingFacts.permission: "denied" | "granted" | "prompt" | "unknown"
+  readonly RecordingDiagnostic.action?: DiagnosticAction
+  interface RecordingFacts extends BrowserFacts
   readonly RecordingFacts.inputs: number
   readonly RecordingFacts.comparison?: CaptureComparison
   readonly RecordingFacts.contextRate: SampleRate
@@ -4807,6 +4820,9 @@ Published paths
   readonly RecordingFacts.output: OutputIdentity
   readonly RecordingFacts.calibration: CalibrationStanding
   readonly RecordingFacts.storage: StorageTimeLeft
+  readonly RecordingFacts.secureContext: boolean
+  readonly RecordingFacts.permission: "denied" | "granted" | "prompt" | "unknown"
+  readonly RecordingFacts.chosenInputGone: boolean
   readonly RecordingFacts.suspensionRisk: boolean
   interface RecordingSchedule
   readonly RecordingSchedule.countInFrom: SampleCount
@@ -4850,6 +4866,7 @@ Published paths
   readonly UncontrollableProcessing.wanted: boolean
   readonly UncontrollableProcessing.meaning: string
   const VOICE_PROFILE: CaptureProfile
+  function browserDiagnostics(facts: BrowserFacts): readonly RecordingDiagnostic[]
   function calibrationOf(kept: readonly LatencyCalibration[], current: CalibrationPath): LatencyCalibration | undefined
   function calibrationSignal(): Float32Array<ArrayBufferLike>
   function capturePlan(profile: CaptureProfile, offer: CaptureOffer): CapturePlan
@@ -4867,6 +4884,7 @@ Published paths
   function nextMonitoring(monitoring: Monitoring, event: MonitoringEvent): DomainResult<Monitoring>
   function nextSession(session: RecordingSession, event: SessionEvent): DomainResult<RecordingSession>
   function pathChanges(calibration: CalibrationPath, current: CalibrationPath): readonly PathChange[]
+  function pathChangesText(changes: readonly PathChange[]): string
   function processingOf(profile: CaptureProfile): Readonly<Record<ProcessingControl, boolean>>
   function punchWindow(punch: { readonly kind: "punch"; readonly asset: import("packages/domain/src/index").AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; }): PunchWindow
   function recordingBlocked(diagnostics: readonly RecordingDiagnostic[]): boolean
@@ -5285,6 +5303,7 @@ Published paths
   readonly InterruptedRecording.channels: number
   readonly InterruptedRecording.device: RecordedDevice
   readonly InterruptedRecording.purpose: RecordingPurpose
+  readonly InterruptedRecording.take: TakeRequest
   readonly InterruptedRecording.ending: RecordingEnding
   readonly InterruptedRecording.gaps?: RecordedGaps
   readonly InterruptedRecording.missing: number
@@ -5542,6 +5561,7 @@ Published paths
   readonly RecordingSetUp.start: RecordingStart
   readonly RecordingSetUp.transportFrame: SampleCount
   readonly RecordingSetUp.purpose: RecordingPurpose
+  readonly RecordingSetUp.take: TakeRequest
   type RecoverabilityLoss = "backup-generations" | "download-progress" | "history" | "model-packs" | "nothing" | "set-aside-changes" | "unfinished-projects" | "unreferenced-media"
   interface RestoreServices extends OpeningServices
   readonly RestoreServices.clock: Clock
@@ -5601,10 +5621,6 @@ Published paths
   readonly StorageUsage.packs: PackUsage
   readonly StorageUsage.unreadable: readonly UnreadableRoot[]
   type StoredSchema = "projectDocument" | "projectStorage"
-  interface TakeRequest
-  readonly TakeRequest.name: string
-  readonly TakeRequest.stackName?: string
-  readonly TakeRequest.compensation: number
   type TransferAnswer = "declined" | "granted"
   type TransferOutcome = "unreachable" | TransferAnswer
   interface TransferRequest
@@ -5641,7 +5657,7 @@ Published paths
   function exportBundle(project: ProjectId, sink: ByteSink, options: CopyOptions & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<ExportedBundle>>>
   function exportRawStorage(tree: StorageTree, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function exportUnpacked(project: ProjectId, writer: DirectoryWriter, options: CopyOptions & DirectoryClaim & ExportFrom, services: ExportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ExportAttempt<readonly AssetId[]>>>
-  function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, request: TakeRequest, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
+  function finishRecording(session: ProjectSession, kept: RecordingFiles, ending: RecordingEnding, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function forkProject(request: ForkRequest, services: ForkServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectHeader>>
   function importAudio(session: ProjectSession, request: AudioImport, services: AudioImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedAudio>>
   function importBundle(source: ByteSource, identity: ImportIdentity, services: ImportServices, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedProject>>
@@ -5659,7 +5675,7 @@ Published paths
   function projectPackPins(tree: StorageTree, digest: Digest): PackPins
   function recordingInProgress(session: RecordingSessionId): DomainFailure
   function recoverMediaStore(store: MediaObjectStore, coordinator: LeaseCoordinator | undefined): Promise<Alone<DomainResult<RecoveryReport>>>
-  function recoverRecording(session: ProjectSession, id: RecordingSessionId, request: TakeRequest, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
+  function recoverRecording(session: ProjectSession, id: RecordingSessionId, services: FinishingServices, signal?: AbortSignal | undefined): Promise<DomainResult<FinishedRecording>>
   function relieveStoragePressure(caches: CacheStore, wanted?: number, signal?: AbortSignal | undefined): Promise<DomainResult<PressureRelief>>
   function restoreBackup(project: ProjectId, generation: number, options: { readonly as: RestoreTarget; }, services: RestoreServices, signal?: AbortSignal | undefined): Promise<DomainResult<RestoredBackup>>
   function retainedMedia(tree: StorageTree, digest: Digest, onUnreadable: (root: UnreadableRoot) => void, signal?: AbortSignal | undefined): ContentRoots
@@ -5752,14 +5768,13 @@ Published paths
   readonly RecordingBegin.session: RecordingSessionId
   readonly RecordingBegin.capture: MessagePort
   readonly RecordingBegin.setUp: RecordingSetUp
-  readonly RecordingBegin.take: TakeRequest
   interface RecordingClient
   RecordingClient.timeLeft: (sampleRate: SampleRate, channels: number, signal?: AbortSignal) => Promise<StorageTimeLeft>
   RecordingClient.begin: (project: RemoteProjectSession, request: RecordingBegin, signal?: AbortSignal) => Promise<DomainResult<void>>
   RecordingClient.status: (session: RecordingSessionId, listener: (status: RecordingStatus) => void) => () => void
   RecordingClient.stop: (session: RecordingSessionId, ending: RecordingEnding, signal?: AbortSignal) => Promise<DomainResult<FinishedRecording>>
   RecordingClient.interrupted: (project: RemoteProjectSession, signal?: AbortSignal) => Promise<DomainResult<readonly InterruptedRecording[]>>
-  RecordingClient.recover: (project: RemoteProjectSession, session: RecordingSessionId, take: TakeRequest, signal?: AbortSignal) => Promise<DomainResult<FinishedRecording>>
+  RecordingClient.recover: (project: RemoteProjectSession, session: RecordingSessionId, signal?: AbortSignal) => Promise<DomainResult<FinishedRecording>>
   RecordingClient.discard: (project: RemoteProjectSession, session: RecordingSessionId, signal?: AbortSignal) => Promise<DomainResult<void>>
   type RecordingStatus = { readonly kind: "ended"; readonly ending: RecordingEnding; readonly problem?: string; readonly committed: number; readonly lost: LostFrames; readonly named: boolean; } | { readonly kind: "finished"; readonly recording: FinishedRecording; } | { readonly kind: "kept"; readonly failure: DomainFailure; } | { readonly kind: "recording"; readonly committed: number; readonly lost: LostFrames; readonly timeLeft: StorageTimeLeft; }
   type RemoteOpenedProject = { readonly kind: "read-only"; readonly view: RemoteReadOnlyProject; readonly report: ProjectRecoveryReport; } | { readonly kind: "writable"; readonly session: RemoteProjectSession; readonly report: ProjectRecoveryReport; }
@@ -7534,7 +7549,7 @@ packages/storage-runtime/src/protocol/project-operations.ts
   type Written<TArgument = unknown> = Operation<{ readonly handle: ProjectHandle; } & TArgument, DomainResult<WriteOutcome>>
 
 packages/storage-runtime/src/protocol/recording-operations.ts
-  type RecordingOperations = { 'recording.timeLeft': Operation<{ readonly sampleRate: SampleRate; readonly channels: number; }, StorageTimeLeft>; 'recording.begin': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; readonly capture: MessagePort; readonly setUp: RecordingSetUp; readonly take: TakeRequest; }, DomainResult<void>>; 'recording.stop': Operation<{ readonly session: RecordingSessionId; readonly ending: RecordingEnding; }, DomainResult<FinishedRecording>>; 'recording.interrupted': Operation<{ readonly handle: ProjectHandle; }, DomainResult<readonly InterruptedRecording[]>>; 'recording.recover': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; readonly take: TakeRequest; }, DomainResult<FinishedRecording>>; 'recording.discard': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; }, DomainResult<void>>; }
+  type RecordingOperations = { 'recording.timeLeft': Operation<{ readonly sampleRate: SampleRate; readonly channels: number; }, StorageTimeLeft>; 'recording.begin': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; readonly capture: MessagePort; readonly setUp: RecordingSetUp; }, DomainResult<void>>; 'recording.stop': Operation<{ readonly session: RecordingSessionId; readonly ending: RecordingEnding; }, DomainResult<FinishedRecording>>; 'recording.interrupted': Operation<{ readonly handle: ProjectHandle; }, DomainResult<readonly InterruptedRecording[]>>; 'recording.recover': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; }, DomainResult<FinishedRecording>>; 'recording.discard': Operation<{ readonly handle: ProjectHandle; readonly session: RecordingSessionId; }, DomainResult<void>>; }
   type RecordingStream = `recording:${string}`
 
 packages/storage-runtime/src/protocol/storage-operations.ts

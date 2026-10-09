@@ -75,7 +75,7 @@ function armProblem(context: ShellContext, purpose: ArmedPurpose): string | unde
   if (calibrating(calibration.stage.get())) return 'A latency calibration is running.';
   const lease = leaseOf(context);
   if (typeof lease === 'string') return lease;
-  return arming.refusal(purpose, lease);
+  return arming.refusal(purpose, () => lease);
 }
 
 /** Arms the input for `purpose`, saying why not where it cannot be. */
@@ -90,7 +90,10 @@ function armFor(
   if (typeof stores === 'string') return stores;
   const armed = context.recording.arming.arm({
     purpose,
-    holdsWriteLease: lease,
+    // Read again whenever the session asks, as when the armed input opens
+    // again for another device, so a project another tab took over since is
+    // not armed into.
+    holdsWriteLease: () => leaseOf(context) === true,
     client: stores.recordings,
     ...(cue === undefined ? {} : { cue }),
   });

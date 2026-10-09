@@ -2821,16 +2821,16 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
    */
   const REVIEWED_IN_BAND: Readonly<Record<string, readonly [lines: number, review: string]>> = {
     'apps/web/src/recording/input-control.ts': [
-      399,
-      "The recording session's one driver: arming, disarming and retargeting as the session machine allows, and the opening and closing of the input that keeps it in step with the session. A take's capture, Record, a count-in and Stop, is `take-capture.ts`, which moves the session through the dispatch this hands it; what it reads of the settings and the list of inputs is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
+      395,
+      "The recording session's one driver: arming, disarming and retargeting as the session machine allows, and the opening and closing of the input that keeps it in step with the session. A take's capture, Record, a count-in and Stop, is `take-capture.ts`, which moves the session through the dispatch this hands it; what it reads of the settings and the list of inputs, and what the session does about a change of the permission or the list, an opening and a reopening, is `session-setup.ts`, what an open input says is `open-input-watch.ts`, opening one, with any check asked before the browser is, is `input-opener.ts`, and the permission and device watch is `device-watch.ts`; what remains is the one place each session event is dispatched and each input is closed, which split would let the session and the input drift apart.",
     ],
     'apps/web/src/recording/record-flow.ts': [
       389,
       "Recording into a project: Record and Stop, a punch, a controlled recording, and each take carried to the storage worker, all deciding against the one take in hand, which every path begins, follows and settles. Each piece of the work is a module of its own, where a take goes (`take-target.ts`), what it begins with (`take-set-up.ts`), its life in the worker (`take-recording.ts`), a punch's pre-roll on the clock (`punch-start.ts`), a schedule kept (`controlled-run.ts`) and what is said of its outcome (`take-outcome.ts`); what is left is the one running take and the session it follows, and split, each half would need that take to know whether the other may begin one.",
     ],
     'apps/web/src/audio/playback-control.ts': [
-      320,
-      "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes.",
+      350,
+      "The order of things between the person's Play and the playback session: play, cue, seek, pause, stop, follow, a change of profile or preview quality, letting the context go for another rate, and the transport frame a context frame plays, each a few lines over the one context and session held. The programme, the following of a change and the parts are modules of their own; split, each half would need the one context it opens and closes, and whether it plays.",
     ],
     'apps/web/src/app.tsx': [
       302,
@@ -2849,8 +2849,8 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The menu bar as tables: the editor's groups, the view and help groups, and the workspace and panel lists built from state, each entry a command id; what grows it is one line per command.",
     ],
     'apps/web/src/shell/panels.tsx': [
-      321,
-      'The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own; each panel lives in its own module, so what grows this is one arm per panel kind.',
+      332,
+      'The switch that draws every panel, the panel context that is the one view each panel is handed, and the capabilities panel, whose recording disclosure is a component of its own and runs its actions through the commands the panel is handed; each panel lives in its own module, so what grows this is one arm per panel kind.',
     ],
     'apps/web/src/commands/panel-commands.ts': [
       314,

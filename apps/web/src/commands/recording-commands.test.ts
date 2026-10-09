@@ -7,10 +7,13 @@ import {
   type CommandInvocation,
 } from '@audiogubbins/commands';
 import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostics';
+import { derivedSampleCount, unsafeBrandId } from '@audiogubbins/domain';
+import { expectSuccess } from '@audiogubbins/domain/testing';
 import { SCHEMA_VERSIONS } from '@audiogubbins/version';
 
 import { ephemeralStorage } from '../testing/ephemeral-storage.js';
 import { projectWorld } from '../testing/project-context.js';
+import { grantedSettings, inputOpened } from '../testing/recording-fakes.js';
 import { buildShellContext } from '../testing/shell-context.js';
 import { everythingQueued } from '../testing/waiting.js';
 import { DESCRIPTORS } from '../testing/shell-context.js';
@@ -56,7 +59,7 @@ describe('arming and disarming the input', () => {
   it('arms once, then says the input is armed already, and disarms once', async () => {
     const { window, run, refusal } = await inAProject();
     expect(run('recording.arm').kind).toBe('applied');
-    await everythingQueued();
+    await inputOpened(window.recording);
     const { session } = window.context.recording.input.view.get();
     expect(session.kind === 'armed' && session.input.kind).toBe('open');
     expect(refusal('recording.arm')).toBe('An input is armed already.');
@@ -72,7 +75,7 @@ describe('arming and disarming the input', () => {
       'No input is open, so there is nothing to monitor.',
     );
     run('recording.arm');
-    await everythingQueued();
+    await inputOpened(window.recording);
     const { monitoring } = window.context.recording;
     expect(monitoring.view.get().monitoring.kind).toBe('off');
     expect(refusal('recording.confirm-monitoring')).toBe(
@@ -97,7 +100,7 @@ describe('arming and disarming the input', () => {
       'No input is open, so there are no levels to say.',
     );
     run('recording.arm');
-    await everythingQueued();
+    await inputOpened(window.recording);
     expect(run('recording.say-levels').kind).toBe('applied');
     expect(window.said.at(-1)).toBe('No levels have arrived from the input yet.');
   });
@@ -136,7 +139,7 @@ describe('the latency commands', () => {
     const { window, run, refusal } = await inAProject();
     expect(refusal('recording.cancel-calibration')).toBe('No calibration is running.');
     run('recording.arm');
-    await everythingQueued();
+    await inputOpened(window.recording);
     expect(refusal('recording.calibrate')).toBe(
       'Disarm the input first: the calibration opens it on its own.',
     );
@@ -161,10 +164,61 @@ describe('the latency commands', () => {
     const { context } = buildShellContext(raw);
     const { refusal } = runnerOver(context);
     expect(refusal('recording.set-manual-offset', { milliseconds: 5 })).toBe(
-      'Arm the input or play something first, so the rate the path runs at is known.',
+      'Arm the input or play something first, so the sample rate the path runs at is known.',
     );
     expect(refusal('recording.set-manual-offset', { milliseconds: 'soon' })).toBe(
       'Say the offset in milliseconds.',
+    );
+  });
+});
+
+describe("restarting the audio engine at the input's own rate", () => {
+  const RESTART = 'recording.restart-at-input-rate';
+
+  it('is refused with the reason until an open input runs at another rate', async () => {
+    const { window, run, refusal } = await inAProject();
+    expect(refusal(RESTART)).toBe(
+      'No input is open, so there is no rate of its own to restart at.',
+    );
+    run('recording.arm');
+    await inputOpened(window.recording);
+    expect(refusal(RESTART)).toBe("The audio engine runs at the input's rate already.");
+    expect(window.recording.contexts[0]?.closes).toBe(0);
+  });
+
+  it('is refused while a recording runs, which it never cuts off', async () => {
+    const { window, run, refusal } = await inAProject();
+    window.recording.media.granted = grantedSettings({ sampleRate: 44_100 });
+    run('recording.arm');
+    await inputOpened(window.recording);
+    expect(run('recording.record').kind).toBe('applied');
+
+    expect(refusal(RESTART)).toBe(
+      'A recording is running. Stop it before restarting the audio engine.',
+    );
+    expect(window.context.recording.input.view.get().session.kind).toBe('recording');
+    expect(window.recording.contexts[0]?.closes).toBe(0);
+  });
+
+  it('is refused for a punch, which records at the rate of the audio it replaces', async () => {
+    const { window, refusal } = await inAProject();
+    window.recording.media.granted = grantedSettings({ sampleRate: 44_100 });
+    expectSuccess(
+      window.context.recording.input.arm({
+        purpose: {
+          kind: 'punch',
+          asset: unsafeBrandId<'AssetId'>('asset-1'),
+          start: derivedSampleCount(48_000),
+          length: derivedSampleCount(48_000),
+          preRoll: derivedSampleCount(0),
+          postRoll: derivedSampleCount(0),
+        },
+        holdsWriteLease: () => true,
+      }),
+    );
+    await everythingQueued();
+    expect(refusal(RESTART)).toBe(
+      'A punch records at the rate of the audio it replaces, so the audio engine keeps that rate.',
     );
   });
 });

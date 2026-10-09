@@ -383,7 +383,7 @@ export function forgetCalibration(path: CalibrationPath): RecordingRevision {
     if (calibrations.length === current.calibrations.length) {
       return refused(
         'calibration-missing',
-        'No calibration is kept for this input, output and rate.',
+        'No calibration is kept for this input, output and sample rate.',
       );
     }
     return succeed({ ...current, calibrations });

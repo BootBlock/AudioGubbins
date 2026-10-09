@@ -139,7 +139,7 @@ describe('the latency calibration', () => {
   it('is refused while an input is armed, which it would open beside', async () => {
     const built = buildShellContext();
     const { input, calibration } = built.context.recording;
-    expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: true }));
+    expectSuccess(input.arm({ purpose: { kind: 'new-stack' }, holdsWriteLease: () => true }));
     await everythingQueued();
     const refused = calibration.calibrate();
     expect(refused.ok ? undefined : refused.failures[0].summary).toBe(

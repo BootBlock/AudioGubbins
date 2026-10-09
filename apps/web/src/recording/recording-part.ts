@@ -22,6 +22,7 @@ import type { AudioView } from '../state/audio-view-store.js';
 import { observable, type Observable } from '../state/observable.js';
 import type { WorkspaceStore } from '../state/workspace-store.js';
 import { CalibrationControl, calibrating } from './calibration-control.js';
+import { EngineRate } from './engine-rate.js';
 import { InputControl } from './input-control.js';
 import type { PageWatch } from './open-input-watch.js';
 import type { StorageReading } from './input-diagnostics.js';
@@ -41,6 +42,8 @@ export interface RecordingParts {
   readonly arming: TakeArming;
   /** Record and Stop, and each take carried to the storage worker. */
   readonly takes: RecordFlow;
+  /** Restarting the audio engine at the open input's own rate, where the person asks. */
+  readonly engineRate: EngineRate;
   /** Whether recording is the Inspector's subject. */
   readonly focus: Observable<boolean>;
   /** The take or stack the Inspector shows while recording is its subject, if any. */
@@ -163,6 +166,11 @@ export function startRecording(options: RecordingPartOptions): {
       calibration,
       arming: new TakeArming(input, options.playback, announce, logger),
       takes,
+      engineRate: new EngineRate({
+        input: input.view,
+        host: options.host,
+        playback: options.playback,
+      }),
       focus: focus.focus,
       inspected: focus.subject,
       inspect: focus.inspect,

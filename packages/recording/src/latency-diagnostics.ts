@@ -115,7 +115,7 @@ export function calibrationDiagnostics(
           kind: 'calibration-missing',
           severity: DiagnosticSeverity.Information,
           affects: 'Latency compensation',
-          why: 'This input, output and rate have not been calibrated.',
+          why: 'This input, output and sample rate have not been calibrated.',
           impact: 'Takes are placed by the latencies the browser reports, which may be inexact.',
           improve: 'Run the loopback calibration, or enter a manual offset.',
         },
@@ -126,7 +126,7 @@ export function calibrationDiagnostics(
           kind: 'calibration-stale',
           severity: DiagnosticSeverity.Warning,
           affects: 'Latency compensation',
-          why: `The calibration was taken with another ${changed(standing.changes)}.`,
+          why: `The calibration was taken with another ${pathChangesText(standing.changes)}.`,
           impact:
             'Takes are placed by the latencies the browser reports until it is calibrated again.',
           improve: 'Calibrate again for this path.',
@@ -141,8 +141,12 @@ const CHANGE_NAMES: Readonly<Record<PathChange, string>> = {
   rate: 'sample rate',
 };
 
-/** "input", "input and output", "input, output and sample rate". */
-function changed(changes: readonly PathChange[]): string {
+/**
+ * What changed of a calibration's path, as a sentence names it: "input",
+ * "input and output", "input, output and sample rate". One wording, for the
+ * diagnostics and every view that says why a calibration no longer applies.
+ */
+export function pathChangesText(changes: readonly PathChange[]): string {
   const names = changes.map((change) => CHANGE_NAMES[change]);
   return names.length < 2
     ? names.join('')

@@ -1,7 +1,8 @@
 /**
  * The input's commands (`ADR-0070`): disarming it, saying its levels, choosing
- * it, monitoring it, choosing the chain it is monitored through, and
- * calibrating its latency. Arming it for a take is
+ * it, monitoring it, choosing the chain it is monitored through, calibrating
+ * its latency, and restarting the audio engine at its own rate, as the
+ * recording diagnostics offer. Arming it for a take is
  * `take-recording-commands.ts`'s.
  *
  * Each is a command, so the Recording panel, the menus, the palette and a
@@ -27,6 +28,9 @@ export const MONITOR_THROUGH = 'recording.monitor-through';
 
 /** The command that chooses the input, named by its `device` argument. */
 export const CHOOSE_INPUT = 'recording.choose-input';
+
+/** The command that restarts the audio engine at the open input's own rate. */
+export const RESTART_AT_INPUT_RATE = 'recording.restart-at-input-rate';
 
 function inputCommands(): readonly Command<ShellContext>[] {
   return [
@@ -268,7 +272,34 @@ function calibrationCommands(): readonly Command<ShellContext>[] {
   ];
 }
 
-/** Every command of the input, monitoring and the latency calibration. */
+function engineCommands(): readonly Command<ShellContext>[] {
+  return [
+    shellCommand(
+      RESTART_AT_INPUT_RATE,
+      "Restart the audio engine at the input's rate",
+      CommandCategory.Transport,
+      (context) => {
+        // Said by the input control, which tells the person the input closed
+        // with the engine, and why.
+        const restarted = context.recording.engineRate.restart();
+        return restarted.ok ? undefined : restarted.failures[0].summary;
+      },
+      {
+        keywords: ['sample rate', 'rate', 'resample', 'restart', 'engine', 'input', 'hertz'],
+        description:
+          "Makes the audio engine again at the open input's own sample rate, so the browser stops resampling the input. The input closes, to be armed again at that rate. Playing audio at another rate makes the engine again at that audio's rate.",
+        availability: needing(RECORDING, (context) => context.recording.engineRate.refusal()),
+      },
+    ),
+  ];
+}
+
+/** Every command of the input, monitoring, the latency calibration and the engine's rate. */
 export function recordingCommands(): readonly Command<ShellContext>[] {
-  return [...inputCommands(), ...monitoringCommands(), ...calibrationCommands()];
+  return [
+    ...inputCommands(),
+    ...monitoringCommands(),
+    ...calibrationCommands(),
+    ...engineCommands(),
+  ];
 }
