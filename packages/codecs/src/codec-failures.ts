@@ -76,3 +76,22 @@ export function readPastEnd(start: number, frames: number): DomainFailure {
 export function readInvalid(problem: string): DomainFailure {
   return failure('codecs.read-invalid', FailureKind.Rejected, problem);
 }
+
+/**
+ * The failure of a channel layout no WAV header can state so that reading the
+ * file back gives the same layout: a recording written with another would
+ * come back as audio whose channels mean something else.
+ */
+export function unwritableLayout(problem: string): DomainFailure {
+  return failure('codecs.layout-unwritable', FailureKind.Rejected, problem);
+}
+
+/** The failure of a file too long for its byte offsets to be exact numbers. */
+export function unwritableLength(frames: number, blockAlign: number): DomainFailure {
+  return failure(
+    'codecs.length-unwritable',
+    FailureKind.Rejected,
+    'The recording is too long for its file to be written with exact byte offsets.',
+    { details: { frames, blockAlign } },
+  );
+}
