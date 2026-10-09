@@ -32,14 +32,14 @@ Each slice owns its files. The shared lists (`version.json`,
 needs a line, and `tests/architecture/public-contracts.txt` is regenerated
 once the slices of a stage are in.
 
-| Slice | Packages                                                                          | Needs    |
-| ----- | --------------------------------------------------------------------------------- | -------- |
-| A     | domain, project-format, project-commands, history, audio-engine plan readers      | —        |
-| B1    | capabilities (media input adapter), codecs (recorded-media WAV writer)            | —        |
-| B2    | recording (new)                                                                   | —        |
-| C     | audio-runtime (input side, capture worklet, capture channel), effect-rack live    | —        |
-| D     | storage, storage-runtime (recording area, recovery, quota watch)                  | A, B1, C |
-| E     | apps/web, workspace (composition, views, commands, settings), the browser suite   | all      |
+| Slice | Packages                                                                        | Needs    |
+| ----- | ------------------------------------------------------------------------------- | -------- |
+| A     | domain, project-format, project-commands, history, audio-engine plan readers    | —        |
+| B1    | capabilities (media input adapter), codecs (recorded-media WAV writer)          | —        |
+| B2    | recording (new)                                                                 | —        |
+| C     | audio-runtime (input side, capture worklet, capture channel), effect-rack live  | —        |
+| D     | storage, storage-runtime (recording area, recovery, quota watch)                | A, B1, C |
+| E     | apps/web, workspace (composition, views, commands, settings), the browser suite | all      |
 
 ## Decisions taken in the build
 
@@ -90,15 +90,22 @@ These settle what the ADRs leave to the implementation.
    `projects/<id>/recordings/<session>/chunks/`.
 6. **The capture channel (`ADR-0070`).** Owned by `packages/audio-runtime`
    (`src/capture/`): a `MessagePort` the capture worklet writes and the storage
-   worker reads, carrying either posted blocks (`{ kind: 'block', frame,
-   channels }`, transferred) or, where shared memory is offered, the wake-ups
-   of a sample ring the worklet writes, and `{ kind: 'end', reason }`. The
-   runtime exports the reader the storage worker uses; `storage-runtime` may
-   depend on `audio-runtime` for that reader only. The storage package takes
-   its blocks through its own port, `CaptureStream`, and knows no channel.
+   worker reads, carrying either posted blocks of frames, transferred, or,
+   where shared memory is offered, the wake-ups of a sample ring the worklet
+   writes, then the end with its reason. The runtime exports the reader the
+   storage worker uses, as the `./capture-channel` entry, which compiles in a
+   worker's scope; `storage-runtime` may depend on `audio-runtime` for that
+   reader only. The reader reports lost frames as a gap with its frame count.
+   The storage package takes its blocks through its own port,
+   `CaptureStream`, and knows no channel.
 7. **The live chain (`ADR-0070`).** `ChainProcessing.prepareLive(request)`
    answers a `ChainRun` for an unbounded live input with no measuring pass,
-   and refuses a chain whose listening is not `live`, with the reason.
+   and refuses a chain whose listening is not `live`, with the reason. The
+   domain's listening rule (`ADR-0061`) is the one authority: a processor
+   that keeps state, such as noise reduction, is live and may monitor, and
+   is refused only when its state is missing. `ADR-0070`'s list of refused
+   processors is read through its own controlling clause, "only a chain whose
+   listening is live", and its amendment line records this.
 8. **Settings.** Capture profiles, monitoring preferences per device and
    profile, and calibrations per input device, output device and rate are
    fields of the person's audio settings, raising `audioSettings`. A device is
