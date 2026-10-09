@@ -368,6 +368,60 @@ async function setGain(rack: Locator, decibels: number): Promise<void> {
   await expect(field).toHaveValue(String(decibels));
 }
 
+/** A box on the page, as Playwright measures one. */
+interface Box {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+function overlaps(one: Box, other: Box): boolean {
+  return (
+    one.x < other.x + other.width &&
+    other.x < one.x + one.width &&
+    one.y < other.y + other.height &&
+    other.y < one.y + one.height
+  );
+}
+
+/** The smallest width a slider's track may have and still be set by a pointer. */
+const SETTABLE_TRACK = 64;
+
+/**
+ * Every slider in the panel keeps its label, its track and its value apart and
+ * inside the panel, however narrow the panel is docked, with a track wide
+ * enough to set: the rack's controls are long ("Mix of" and the processor's
+ * name), and a field that cannot shrink them must move the track under them.
+ */
+async function keepsItsSlidersApart(panel: Locator): Promise<void> {
+  const within = await panel.boundingBox();
+  if (within === null) throw new Error('The panel is not on screen.');
+  const fields = panel.locator('.ag-slider-field');
+  const count = await fields.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index += 1) {
+    const field = fields.nth(index);
+    const parts: Box[] = [];
+    for (const part of ['.ag-slider-label', '.ag-slider', '.ag-slider-value']) {
+      const box = await field.locator(part).boundingBox();
+      if (box === null) continue;
+      expect(
+        box.x,
+        `${part} of field ${String(index)} starts inside the panel`,
+      ).toBeGreaterThanOrEqual(within.x);
+      expect(
+        box.x + box.width,
+        `${part} of field ${String(index)} ends inside the panel`,
+      ).toBeLessThanOrEqual(within.x + within.width);
+      if (part === '.ag-slider') expect(box.width).toBeGreaterThanOrEqual(SETTABLE_TRACK);
+      for (const other of parts)
+        expect(overlaps(box, other), `${part} of field ${String(index)}`).toBe(false);
+      parts.push(box);
+    }
+  }
+}
+
 /** Opens the sound or the region named `name` from the Assets panel. */
 async function openFromAssets(page: Page, name: string): Promise<void> {
   await runCommand(page, 'Show the Assets panel');
@@ -418,6 +472,7 @@ test.describe('the effect rack', () => {
           })
           .click();
         await setGain(rack, SELECTION_GAIN);
+        await keepsItsSlidersApart(rack);
         return selected;
       });
 
