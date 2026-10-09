@@ -24,9 +24,14 @@
  * engine reads its render. A parameter changed while a chain runs reaches
  * its processor's kernel, which smooths it in, where the processor can take
  * it running.
+ *
+ * The rack's live form runs a chain over an input with no end, as monitoring
+ * hears a microphone through one (ADR-0070): made at once, with no pass, and
+ * only for a chain heard live, so the audio thread can make and run it.
  */
 
 import {
+  chainOutputLayout,
   fail,
   failure,
   FailureKind,
@@ -53,6 +58,7 @@ import {
   type ChainRun,
   type GraphExecutor,
   type ListeningRequest,
+  type LiveChainRequest,
   type NodeImplementations,
   type StreamReader,
 } from '@audiogubbins/audio-engine';
@@ -121,12 +127,15 @@ function implementationsOf(types: ReadonlyMap<string, ProcessorType>): NodeImple
   return all;
 }
 
+/** What a run is compiled and bound with, a bounded stream's or a live input's. */
+type RunRequest = Pick<ChainRequest, 'input' | 'sampleRate' | 'blockFrames' | 'dsp'>;
+
 /** Compiles and binds `built`, its output taken at `sink`. */
 function run(
   built: ChainGraph,
   sink: NodeId,
   implementations: NodeImplementations,
-  request: ChainRequest,
+  request: RunRequest,
 ): DomainResult<Running> {
   const compiled = compileGraph(built.graph, implementations, request.sampleRate);
   if (!compiled.ok) {
@@ -275,7 +284,35 @@ export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): Chai
       if (!running.ok) return running;
       return succeed(new RunningChain(running.value, descriptorsOf(request, types)));
     },
+    prepareLive: (request) => prepareLive(request, types, implementations, descriptors),
   };
+}
+
+/**
+ * A run of `request`'s chain over a live input, or why it cannot be one
+ * (ADR-0070). Only a chain heard live runs: it has no processor that measures
+ * its whole input, so no pass is needed, and none whose kernel cannot keep to
+ * the audio thread's schedule, which monitoring runs on. A live input was not
+ * the stream the chain was planned over, so the chain is checked against it
+ * as planning checks one, every state a processor needs included, rather than
+ * a processor lacking its state running as if it were not there. The graph is
+ * built as for a run from a stream's first frame, which is the input's first.
+ */
+function prepareLive(
+  request: LiveChainRequest,
+  types: ReadonlyMap<string, ProcessorType>,
+  implementations: NodeImplementations,
+  descriptors: ReadonlyMap<string, ProcessorDescriptor>,
+): DomainResult<ChainRun> {
+  const built = graphBeforePasses(request, types);
+  if (!built.ok) return built;
+  const heard = listening(request, descriptors);
+  if (heard.kind !== 'live') return refused('chain-not-live', heard.reason);
+  const checked = chainOutputLayout(request.chain, descriptors, request.input, request.sampleRate);
+  if (!checked.ok) return checked;
+  const running = run(built.value, built.value.output, implementations, request);
+  if (!running.ok) return running;
+  return succeed(new RunningChain(running.value, descriptorsOf(request, types)));
 }
 
 /** Frames read from the stream at a time during a measuring pass. */

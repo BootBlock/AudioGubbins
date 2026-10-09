@@ -1,13 +1,17 @@
 /**
  * A ring of planar samples in memory the feeder worker and the audio thread
- * share, so a feed crosses into the AudioWorklet without a message per block.
+ * share, so a feed crosses into the AudioWorklet without a message per block,
+ * and a capture crosses out of it to the storage worker the same way
+ * (ADR-0070).
  *
- * One writer, in the feeder worker, and one reader, on the audio thread. The
- * memory is an `Int32Array` header and then `channels × capacity` floats, one
- * run of `capacity` per channel. Each side owns the position it moves and only
- * reads the other's, through `Atomics`: a side writes its samples, then stores
- * its position, and the other loads the position before it touches the
- * samples, so every sample it reads was written before the position it read.
+ * One writer and one reader: the feeder worker writes and the audio thread
+ * reads a feed, and the capture processor writes and the storage worker reads a
+ * capture. The memory is an `Int32Array` header and then `channels × capacity`
+ * floats, one run of `capacity` per channel. Each side owns the position it
+ * moves and only reads the other's, through `Atomics`: a side writes its
+ * samples, then stores its position, and the other loads the position before it
+ * touches the samples, so every sample it reads was written before the position
+ * it read.
  *
  * A position runs from zero to twice the capacity and then back to zero.
  * Twice, so a full ring and an empty one differ (the write position is a
@@ -189,7 +193,7 @@ function assertChannels(block: AudioFrameBlock, channels: number): void {
   }
 }
 
-/** The feeder's side of a ring: it writes the audio. */
+/** The writer's side of a ring: the feeder's, or the capture processor's. */
 export class RingWriter {
   readonly #header: Int32Array;
   readonly #channels: readonly Float32Array[];
@@ -211,6 +215,10 @@ export class RingWriter {
     return this.#capacity;
   }
 
+  get channelCount(): number {
+    return this.#channels.length;
+  }
+
   /** The frames the ring has room for now; the reader only ever makes more. */
   get available(): number {
     return this.#capacity - this.#queued();
@@ -224,13 +232,22 @@ export class RingWriter {
   /** Writes as many of the block's frames as fit, and answers how many. */
   write(block: AudioFrameBlock): number {
     assertChannels(block, this.#channels.length);
+    return this.writeFrames(block.channels, block.frames);
+  }
+
+  /**
+   * Writes as many as fit of the first `frames` frames of `channels`, one
+   * array per channel of the ring, and answers how many: a block without its
+   * layout, as the capture processor hands on what its input gave it.
+   */
+  writeFrames(channels: readonly Float32Array[], frames: number): number {
     const write = Atomics.load(this.#header, Header.Write);
-    const frames = Math.min(block.frames, this.#capacity - this.#queued());
-    if (frames === 0) return 0;
-    copyFrames(this.#channels, block.channels, write, frames, true);
+    const written = Math.min(frames, this.#capacity - this.#queued());
+    if (written === 0) return 0;
+    copyFrames(this.#channels, channels, write, written, true);
     // Stored after the samples, so the reader that loads it finds them written.
-    Atomics.store(this.#header, Header.Write, advancePosition(write, frames, this.#capacity));
-    return frames;
+    Atomics.store(this.#header, Header.Write, advancePosition(write, written, this.#capacity));
+    return written;
   }
 
   /** Says the audio written so far is all there is. */
@@ -265,7 +282,8 @@ export class RingWriter {
 }
 
 /**
- * The audio thread's side of a ring: it reads the audio, allocating nothing.
+ * The reader's side of a ring, the audio thread's for a feed and the storage
+ * worker's for a capture: it reads the audio, allocating nothing.
  */
 export class RingReader {
   readonly #header: Int32Array;
@@ -317,13 +335,22 @@ export class RingReader {
   /** Reads up to `into.frames` frames into the start of `into`, and answers how many. */
   read(into: AudioFrameBlock): number {
     assertChannels(into, this.#channels.length);
+    return this.readFrames(into.channels, into.frames);
+  }
+
+  /**
+   * Reads up to `frames` frames into the start of `into`, one array per
+   * channel of the ring, and answers how many: a block without its layout, as
+   * the reader of a capture takes what the capture processor wrote.
+   */
+  readFrames(into: readonly Float32Array[], frames: number): number {
     this.#ended = Atomics.load(this.#header, Header.Ended) === 1;
     const read = Atomics.load(this.#header, Header.Read);
-    const frames = Math.min(into.frames, this.#readable(read));
-    if (frames === 0) return 0;
-    copyFrames(this.#channels, into.channels, read, frames, false);
-    Atomics.store(this.#header, Header.Read, advancePosition(read, frames, this.#capacity));
-    return frames;
+    const taken = Math.min(frames, this.#readable(read));
+    if (taken === 0) return 0;
+    copyFrames(this.#channels, into, read, taken, false);
+    Atomics.store(this.#header, Header.Read, advancePosition(read, taken, this.#capacity));
+    return taken;
   }
 
   /** The frames from the read position `read` the reader may read now. */

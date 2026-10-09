@@ -63,6 +63,14 @@ export interface ChainRequest {
   readonly start: number;
 }
 
+/**
+ * A chain to run over a live input as it arrives, as monitoring hears an
+ * input through one (ADR-0070): the request without the stream's length or a
+ * start, since a live input has neither an end to measure to nor a frame
+ * before its first.
+ */
+export type LiveChainRequest = Omit<ChainRequest, 'length' | 'start'>;
+
 /** What how a chain is heard depends on: the chain, and the stream as it runs it. */
 export type ListeningRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
 
@@ -112,4 +120,14 @@ export interface ChainProcessing {
     read: StreamReader,
     signal?: CancellationSignal,
   ): Promise<DomainResult<ChainRun>>;
+
+  /**
+   * The run of a chain over a live input with no end, made at once with no
+   * measuring pass, so the audio thread can make it, or why it cannot run.
+   * Only a chain whose {@link ChainProcessing.listening} is `live` can: one
+   * that a processor measuring its whole input, or one that cannot keep to
+   * the audio thread's schedule, keeps from running as it is heard is refused
+   * with the listening's reason (ADR-0070).
+   */
+  prepareLive(request: LiveChainRequest): DomainResult<ChainRun>;
 }

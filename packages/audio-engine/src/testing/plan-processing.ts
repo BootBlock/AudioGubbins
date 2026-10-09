@@ -20,6 +20,7 @@ export const NO_CHAIN_PROCESSING: ChainProcessing = {
   listening: () => fail(NO_CHAIN),
   measurementBytes: () => fail(NO_CHAIN),
   prepare: () => Promise.resolve(fail(NO_CHAIN)),
+  prepareLive: () => fail(NO_CHAIN),
 };
 
 /** A canonical reading at Maximum quality that runs no chain. */

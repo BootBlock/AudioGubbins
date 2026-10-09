@@ -1,14 +1,14 @@
 /**
- * What an AudioWorkletGlobalScope offers the modules the engine processor
- * loads into it, beyond the language: exactly the members they use, declared
- * as the scope has them.
+ * What an AudioWorkletGlobalScope offers the modules the engine and capture
+ * processors load into it, beyond the language: exactly the members they use,
+ * declared as the scope has them.
  *
  * No library of TypeScript's describes the scope. The DOM's describes a page,
  * so code checked against it may call `setTimeout`, `TextDecoder`,
  * `performance` or `self`, which the scope does not have, and fail only on the
  * audio thread. This project checks the processor against the language and
  * these declarations alone, so a name the scope lacks is a type error. The
- * names only the processor's own module reads, `registerProcessor`,
+ * names only a processor's own module reads, `registerProcessor`,
  * `AudioWorkletProcessor`, `sampleRate` and `currentFrame`, it declares
  * itself, since the package's own project compiles that module too.
  */
@@ -18,9 +18,13 @@ interface MessageEvent<T = unknown> {
   readonly data: T;
 }
 
-/** The port between a processor and its node on the main thread. */
+/**
+ * A port: the one between a processor and its node on the main thread, and
+ * a capture channel's, which carries a take's blocks with their buffers
+ * transferred.
+ */
 interface MessagePort {
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: ArrayBuffer[]): void;
   onmessage: ((event: MessageEvent) => void) | null;
   /** Called for a message that arrived and could not be received. */
   onmessageerror: ((event: MessageEvent) => void) | null;

@@ -32,6 +32,9 @@ const STARTS: number[] = [];
 const HOLDING: ChainProcessing = {
   listening: () => succeed({ kind: 'live', partWay: { leadIn: LEAD_IN, frameGrid: GRID } }),
   measurementBytes: () => succeed(0),
+  prepareLive: () => {
+    throw new Error('No live run is made while a stream is read.');
+  },
   prepare: (request) => {
     STARTS.push(request.start);
     let counted = 0;
@@ -100,6 +103,9 @@ const LONG = Float32Array.from({ length: 3 * DELAY }, (_, frame) => frame);
 const DELAYING: ChainProcessing = {
   listening: () => succeed({ kind: 'live', partWay: { leadIn: 0, frameGrid: 1 } }),
   measurementBytes: () => succeed(0),
+  prepareLive: () => {
+    throw new Error('No live run is made while a stream is read.');
+  },
   prepare: () => {
     const line = new Float32Array(DELAY);
     let at = 0;
