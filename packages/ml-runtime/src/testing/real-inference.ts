@@ -8,16 +8,14 @@
  * from wherever it keeps it, and the adapter checks it against the digest the
  * test states before the runtime has it, as it checks the file the
  * application serves, so a test that names a runtime build by its hash runs
- * on exactly that build or is refused. The device offers one thread and no
- * WebGPU: a pinned session's configuration, and nothing a preview could ask
- * for beyond it. Reading the file is the test's, so this support reaches no
- * Node module and compiles wherever the package's entry points do.
+ * on exactly that build or is refused. Reading the file is the test's, so
+ * this support reaches no Node module and compiles wherever the package's
+ * entry points do.
  */
 
 import { succeed } from '@audiogubbins/domain';
 
-import { ONNX_RUNTIME_BUILDS, OnnxRuntimeInference } from '../adapter/onnx-runtime.js';
-import { RuntimeBuild } from '../inference-options.js';
+import { OnnxRuntimeInference, loadOnnxRuntime } from '../adapter/onnx-runtime.js';
 import type { InferencePort } from '../inference-port.js';
 
 /**
@@ -32,14 +30,13 @@ export function realInference(
 ): InferencePort {
   return new OnnxRuntimeInference(
     {
-      // Never read: the files are handed over by the reader below.
+      // Never read: the file is handed over by the reader below.
       filesBase: 'file:///',
-      // The WebGPU build is never started: the device offers no WebGPU.
-      webAssemblySha256: { [RuntimeBuild.Cpu]: cpuSha256, [RuntimeBuild.WebGpu]: 'f'.repeat(64) },
-      capabilities: { fixedWidthSimd: true, threads: 1, webGpu: false },
+      webAssemblySha256: cpuSha256,
+      capabilities: { fixedWidthSimd: true },
     },
     {
-      load: ONNX_RUNTIME_BUILDS,
+      load: loadOnnxRuntime,
       files: { read: () => Promise.resolve(succeed(cpuWebAssembly.slice())) },
       reportFault: (error) => {
         throw error;

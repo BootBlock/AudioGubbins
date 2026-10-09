@@ -28,16 +28,25 @@ const SAMPLES = [
 ];
 const CHAIN: EffectChain = { id: unsafeBrandId<'EffectChainId'>('00000000-c4a1'), slots: [] };
 
-/** Chains that double their input, heard from a render, each prepared once `gate` lets it. */
-function doubling(gate?: Promise<void>): ScalingRuns {
-  return scalingChain({ factor: 2, rendered: true, ...(gate === undefined ? {} : { gate }) });
+/**
+ * Chains that double their input, heard from a render, each prepared once
+ * `gate` lets it, whose passes hold `passBytesPerFrame` for each frame.
+ */
+function doubling(gate?: Promise<void>, passBytesPerFrame = 0): ScalingRuns {
+  return scalingChain({
+    factor: 2,
+    rendered: true,
+    passBytesPerFrame,
+    ...(gate === undefined ? {} : { gate }),
+  });
 }
 
 function opened(
   bound = 64 * 2 ** 20,
   gate?: Promise<void>,
+  passBytesPerFrame = 0,
 ): ScalingRuns & { producer: PreviewProducer } {
-  const chain = doubling(gate);
+  const chain = doubling(gate, passBytesPerFrame);
   return {
     ...chain,
     producer: new PreviewProducer({
@@ -161,6 +170,38 @@ describe('the cached preview producer', () => {
     if (!declined.ok) expect(declined.failures[0].code).toBe('preview.render-too-long');
     expect(starts).toEqual([]);
     expect(producer.reports()).toEqual([]);
+  });
+
+  it('counts what the whole passes hold while a render is made against its bound', async () => {
+    // Room for the render's samples, 4 bytes a frame, not for them and its
+    // chain's passes, which hold as much again while it is made.
+    const { producer, starts } = opened(LENGTH * 4 * 1.5, undefined, 4);
+    const declined = await producer.streams(CachePurpose.Playback).open(request()).ready;
+    expect(declined.ok).toBe(false);
+    if (!declined.ok) expect(declined.failures[0].code).toBe('preview.render-too-long');
+    expect(starts).toEqual([]);
+  });
+
+  it('gives back what a render’s making held once it is made', async () => {
+    const { gate, open } = gated();
+    // Room for a made render beside one being made, whose passes hold as much
+    // as its samples, but not for two being made.
+    const { producer } = opened(LENGTH * 4 * 3.5, gate, 4);
+    const first = producer.streams(CachePurpose.Waveform).open(request('memory:first'));
+    const crowded = producer.streams(CachePurpose.Waveform).open(request('memory:second'));
+    const refused = await crowded.ready;
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.failures[0].code).toBe('preview.cache-full');
+
+    open();
+    await first.read(0, LENGTH, [new Float32Array(LENGTH)]);
+    // Its making lets go of its chain's run once the read it woke has its frames.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Made, the first holds its samples alone, so the second has room beside it.
+    const second = producer.streams(CachePurpose.Waveform).open(request('memory:second'));
+    expect(await second.ready).toEqual(succeed(undefined));
+    first.release();
+    second.release();
   });
 
   it('is read by an edited source through the render, the chain never run by the reader', async () => {

@@ -10,7 +10,7 @@
  * of libDF (`libDF/src/lib.rs`, `libDF/src/tract.rs`) at the same commit.
  */
 
-import { GraphOptimisation, InferenceMode } from '@audiogubbins/ml-runtime';
+import { GraphOptimisation } from '@audiogubbins/ml-runtime';
 
 import { PINNED_RUNTIME_SHA256, modelRate, type ModelDefinition } from '../model-definition.js';
 
@@ -55,7 +55,7 @@ export const DEEPFILTERNET_3_MODEL: ModelDefinition = {
   ],
   // The only rate the model was trained at.
   sampleRate: modelRate(48_000),
-  inference: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Extended },
+  inference: { graphOptimisation: GraphOptimisation.Extended },
 };
 
 /** The analysis: a 960-sample frame every 480 samples, 481 bins (`[df]` of `config.ini`). */

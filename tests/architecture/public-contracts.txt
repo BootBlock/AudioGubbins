@@ -48,6 +48,7 @@ Published paths
   @audiogubbins/version
   @audiogubbins/video-reference
   @audiogubbins/waveform
+  @audiogubbins/waveform/testing
   @audiogubbins/waveform/threads/*
   @audiogubbins/workspace
   @audiogubbins/workspace/styles/*.css
@@ -64,6 +65,7 @@ Published paths
   const BUILT_IN_NODES: NodeImplementations
   const BuiltInNodeType: { readonly GraphInput: "graph-input"; readonly Output: "output"; readonly Gain: "gain"; readonly Mix: "mix"; readonly ChannelMap: "channel-map"; readonly Matrix: "matrix"; readonly Delay: "delay"; readonly Tone: "tone"; readonly Meter: "meter"; }
   type BuiltInNodeType = "channel-map" | "delay" | "gain" | "graph-input" | "matrix" | "meter" | "mix" | "output" | "tone"
+  const CANONICAL_RESAMPLER_VERSION: 1
   const CachePurpose: { readonly Playback: "playback"; readonly Waveform: "waveform"; readonly Analysis: "analysis"; }
   type CachePurpose = "analysis" | "playback" | "waveform"
   interface CachedStream
@@ -137,6 +139,7 @@ Published paths
   CanonicalStft.release: () => void
   interface ChainProcessing
   ChainProcessing.listening: (request: ListeningRequest) => DomainResult<ChainListening>
+  ChainProcessing.measurementBytes: (request: MeasurementRequest) => DomainResult<number>
   ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
   interface ChainRequest
   readonly ChainRequest.chain: EffectChain
@@ -202,7 +205,8 @@ Published paths
   type DetectorSettings = ClickSettings | ClippingSettings | DcOffsetSettings | HumSettings | NoiseFloorSettings | TransientSettings
   const DspImplementation: { readonly WebAssembly: "webassembly"; readonly Reference: "reference"; }
   type DspImplementation = "reference" | "webassembly"
-  type FromPreview = { readonly kind: typeof FromPreviewKind.ReadFailed; readonly read: number; readonly failure: CrossedFailure; } | { readonly kind: typeof FromPreviewKind.Ready; readonly stream: number; readonly declined: CrossedFailure | undefined; } | { readonly kind: typeof FromPreviewKind.Samples; readonly read: number; readonly channels: readonly Float32Array[]; }
+  const ENGINE_VERSIONS: EngineVersions
+  type FromPreview = { readonly kind: typeof FromPreviewKind.ReadFailed; readonly read: number; readonly failure: FailureSummary; } | { readonly kind: typeof FromPreviewKind.Ready; readonly stream: number; readonly declined: FailureSummary | undefined; } | { readonly kind: typeof FromPreviewKind.Samples; readonly read: number; readonly channels: readonly Float32Array[]; }
   interface GraphExecutor
   readonly GraphExecutor.plan: ExecutionPlan
   readonly GraphExecutor.blockFrames: number
@@ -241,6 +245,7 @@ Published paths
   interface LoudnessReading
   readonly LoudnessReading.integrated: number
   readonly LoudnessReading.range: number
+  type MeasurementRequest = ListeningRequest & Pick<ChainRequest, "length">
   interface MediaClock
   readonly MediaClock.timelineRate: SampleRate
   readonly MediaClock.contextRate: SampleRate
@@ -385,7 +390,8 @@ Published paths
   PreviewProducer.reports: () => readonly RenderReport[]
   PreviewProducer.streams: (purpose: CachePurpose) => CachedStreams
   PreviewProducer.#open: (request: CachedStreamRequest, purpose: CachePurpose) => CachedStream
-  PreviewProducer.#admitted: (key: string, request: CachedStreamRequest) => import("packages/domain/src/result").DomainFailureResult | import("packages/domain/src/result").DomainSuccess<Render>
+  PreviewProducer.#admitted: (key: string, request: CachedStreamRequest) => DomainResult<Render>
+  PreviewProducer.#measurementBytes: (request: CachedStreamRequest) => DomainResult<number>
   PreviewProducer.#giveUpUnheard: () => void
   PreviewProducer.#next: () => void
   PreviewProducer.#render: (render: Render) => Promise<void>
@@ -398,9 +404,10 @@ Published paths
   readonly PreviewProducerOptions.concurrency: number
   readonly PreviewProducerOptions.changed?: () => void
   class PreviewService
-  new PreviewService(port: PreviewPort<FromPreview>, renders: CachedStreams): PreviewService
+  new PreviewService(port: PreviewPort<FromPreview>, renders: CachedStreams, reportFault: (error: unknown) => void): PreviewService
   readonly PreviewService.#port: PreviewPort<FromPreview>
   readonly PreviewService.#renders: CachedStreams
+  readonly PreviewService.#reportFault: (error: unknown) => void
   readonly PreviewService.#streams: Map<number, CachedStream>
   readonly PreviewService.#reads: Map<number, { readonly stream: number; readonly cancel: CancellationSource; }>
   PreviewService.#closed: boolean
@@ -550,7 +557,7 @@ Published paths
   type StreamReader = (start: number, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<void>
   const TRANSPORT_AT_START: TransportState
   const TRUE_PEAK_TAPS: 12
-  type ToPreview = { readonly kind: typeof ToPreviewKind.Cancel; readonly read: number; } | { readonly kind: typeof ToPreviewKind.Close; readonly stream: number; } | { readonly kind: typeof ToPreviewKind.Open; readonly stream: number; readonly plan: EditPlan; readonly place: number; readonly media: readonly MediaEntry[]; readonly quality: QualitySettings; readonly reason: string | undefined; } | { readonly kind: typeof ToPreviewKind.Read; readonly stream: number; readonly read: number; readonly start: number; readonly frames: number; readonly channels: number; }
+  type ToPreview = { readonly kind: typeof ToPreviewKind.Cancel; readonly read: number; } | { readonly kind: typeof ToPreviewKind.Close; readonly stream: number; } | { readonly kind: typeof ToPreviewKind.Open; readonly stream: number; readonly plan: EditPlan; readonly place: number; readonly media: readonly MediaEntry[]; readonly quality: QualityMode; readonly reason: string | undefined; } | { readonly kind: typeof ToPreviewKind.Read; readonly stream: number; readonly read: number; readonly start: number; readonly frames: number; readonly channels: number; }
   interface TransientSettings extends DetectorBasis
   readonly TransientSettings.kind: "transients"
   readonly TransientSettings.size: number
@@ -675,6 +682,7 @@ Published paths
   readonly ScalingRuns.signals: (CancellationSignal | undefined)[]
   function allocatedBy(run: Run): number
   function countingDsp(): CountingDsp
+  function crossingThreads(message: unknown, transfer: readonly unknown[]): unknown
   function distinctChannels(layout: ChannelLayout, frames: number): Float32Array<ArrayBufferLike>[]
   function dspModuleBytes(): Uint8Array<ArrayBuffer>
   function dspModuleExports(): Promise<unknown>
@@ -685,7 +693,7 @@ Published paths
   function nodeOf(name: string, type: string, layout: ChannelLayout, ports: { readonly inputs?: readonly string[]; readonly outputs?: readonly string[]; }, settings?: Readonly<Record<string, SettingValue>>): ProcessingNodeDescriptor
   function rackedMedia(samples: readonly Float32Array<ArrayBufferLike>[], sampleRate: SampleRate, identity?: string, fileOf?: (bytes: Uint8Array<ArrayBuffer>) => MediaFile): MediaEntry
   function rackedPlan(chain: EffectChain, length: number, sampleRate: SampleRate, layout?: ChannelLayout): EditPlan
-  function scalingChain(options?: { readonly factor?: number; readonly rendered?: boolean; readonly gate?: Promise<void>; }): ScalingRuns
+  function scalingChain(options?: { readonly factor?: number; readonly rendered?: boolean; readonly gate?: Promise<void>; readonly passBytesPerFrame?: number; }): ScalingRuns
   function wire(from: string, to: string): EdgeDescriptor
 
 @audiogubbins/audio-graph
@@ -1038,6 +1046,7 @@ Published paths
   function createRenderHost(options: RenderHostOptions): RenderHost
 
 @audiogubbins/audio-runtime/testing
+  const FromFeederKind: { readonly SourcesMade: "sources-made"; readonly SourcesRefused: "sources-refused"; readonly Primed: "primed"; readonly FeedFailed: "feed-failed"; readonly Fault: "fault"; readonly ParametersTaken: "parameters-taken"; }
   class LocalChainWorker
   new LocalChainWorker(make: (models: ModelChannel, post: PostToPage) => Core): LocalChainWorker
   LocalChainWorker.terminated: boolean
@@ -1049,8 +1058,10 @@ Published paths
   LocalChainWorker.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   LocalChainWorker.terminate: () => void
   LocalChainWorker.#toPage: (message: unknown, transfer: readonly unknown[]) => void
+  const ToFeederKind: { readonly Sources: "sources"; readonly Bind: "bind"; readonly Start: "start"; readonly Stop: "stop"; readonly Unbind: "unbind"; readonly Release: "release"; readonly Previews: "previews"; readonly Parameters: "parameters"; }
   type TypesWith = (services: ModelServices) => ReadonlyMap<string, ProcessorType>
   function fakeChannel(): { readonly port1: MessagePort; readonly port2: MessagePort; }
+  function localFeederWorker(types?: TypesWith): LocalChainWorker
   function localPreviewWorker(types?: TypesWith): LocalChainWorker
   function localRenderWorker(types?: TypesWith): LocalChainWorker
 
@@ -1257,8 +1268,6 @@ Published paths
   type LayoutMapPairs = readonly (readonly [string, string])[]
   interface LocalInferenceCapabilities
   readonly LocalInferenceCapabilities.fixedWidthSimd: boolean
-  readonly LocalInferenceCapabilities.threads: number
-  readonly LocalInferenceCapabilities.webGpu: boolean
   const MULTI_THREADED_DSP: FeatureRequirement
   const NAMING: FeatureRequirement
   const OFFLINE_RENDERING: FeatureRequirement
@@ -1272,8 +1281,6 @@ Published paths
   readonly PlatformSignals.userAgent: string
   readonly PlatformSignals.platformHint?: string
   readonly PlatformSignals.maxTouchPoints: number
-  interface ProcessorCount
-  readonly ProcessorCount.hardwareConcurrency?: number
   const RECORDING: FeatureRequirement
   interface ResourceFigures
   readonly ResourceFigures.availableMemoryBytes: number | undefined
@@ -1315,7 +1322,7 @@ Published paths
   function createCapabilityRegistry(environment: CapabilityEnvironment, logger: Logger, late?: Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>): CapabilityRegistry
   function describeEnvironment(signals: PlatformSignals): EnvironmentSummary
   function detectBrowserEnvironment(): CapabilityEnvironment
-  function localInferenceCapabilities(registry: CapabilityRegistry, navigatorLike: ProcessorCount): LocalInferenceCapabilities
+  function localInferenceCapabilities(registry: CapabilityRegistry): LocalInferenceCapabilities
   function missingStorageCapabilities(platform: StoragePlatform): readonly StorageCapabilityAbsence[]
   function operatingSystemOf(signals: PlatformSignals): OperatingSystem
   function present(key: CapabilityKey): CapabilityPresent
@@ -1794,6 +1801,8 @@ Published paths
   readonly AssistantReport.label: string
   readonly AssistantReport.recommendation: Recommendation
   readonly AssistantReport.learned: readonly LearnedState[]
+  readonly AssistantReport.found: readonly KindCount[]
+  readonly AssistantReport.treated: readonly (readonly KindCount[])[]
   class DetectionHost
   new DetectionHost(options: { readonly createWorker: () => DetectionWorkerPort; }): DetectionHost
   readonly DetectionHost.#createWorker: () => DetectionWorkerPort
@@ -1828,6 +1837,9 @@ Published paths
   DetectionWorkerPort.post: (message: ToDetectionWorker, transfer: readonly ArrayBuffer[]) => void
   DetectionWorkerPort.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
   DetectionWorkerPort.terminate: () => void
+  interface KindCount
+  readonly KindCount.kind: FindingKind
+  readonly KindCount.count: number
   type LearnedState = { readonly kind: "learned"; readonly state: ProcessorState; } | { readonly kind: "none"; } | { readonly kind: "refused"; readonly reason: string; }
   type ToDetectionWorker = DetectRequest | { readonly kind: typeof ToDetectionWorkerKind.Cancel; readonly job: string; } | { readonly kind: typeof ToDetectionWorkerKind.Previews; readonly port: MessagePortLike; }
   const ToDetectionWorkerKind: { readonly Detect: "detect"; readonly Cancel: "cancel"; readonly Previews: "previews"; }
@@ -2129,7 +2141,7 @@ Published paths
   interface DomainSuccess<TValue>
   readonly DomainSuccess.ok: true
   readonly DomainSuccess.value: TValue
-  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "convert-rate"; readonly sampleRate: SampleRate; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "stretch"; readonly range: EditRange; readonly length: SampleCount; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
+  type EditOperation = { readonly id: EditOperationId; readonly kind: "convert-layout"; readonly layout: ChannelLayout; readonly matrix: readonly (readonly number[])[]; } | { readonly id: EditOperationId; readonly kind: "convert-rate"; readonly sampleRate: SampleRate; readonly version: number; } | { readonly id: EditOperationId; readonly kind: "delete"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "insert"; readonly at: SampleCount; readonly payload: EditPlan; readonly convertRate: boolean; } | { readonly id: EditOperationId; readonly kind: "process"; readonly range: EditRange; readonly channels?: readonly number[]; readonly edit: RangeEdit; } | { readonly id: EditOperationId; readonly kind: "reverse"; readonly range: EditRange; } | { readonly id: EditOperationId; readonly kind: "stretch"; readonly range: EditRange; readonly length: SampleCount; readonly version: number; } | { readonly id: EditOperationId; readonly kind: "trim"; readonly range: EditRange; }
   type EditOperationId = string & { readonly [BrandTag]: "EditOperationId"; }
   interface EditPlan
   readonly EditPlan.streams: readonly [PlanStream, ...PlanStream[]]
@@ -2145,6 +2157,9 @@ Published paths
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.slots: readonly ChainSlot[]
   type EffectChainId = string & { readonly [BrandTag]: "EffectChainId"; }
+  interface EngineVersions
+  readonly EngineVersions.stretch: number
+  readonly EngineVersions.resampler: number
   type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorGroupId | ProcessorId | ProjectId | RegionId | TrackId
   const FIRST_ORDER_AMBIX: AmbisonicConvention
   interface FadeCurve
@@ -2160,6 +2175,9 @@ Published paths
   type FadeShape = "equal-power" | "linear" | "s-curve" | "square"
   const FailureKind: { readonly Rejected: "rejected"; readonly Conflict: "conflict"; readonly Retryable: "retryable"; readonly Unrecoverable: "unrecoverable"; readonly IntegrityViolation: "integrity-violation"; }
   type FailureKind = "conflict" | "integrity-violation" | "rejected" | "retryable" | "unrecoverable"
+  interface FailureSummary
+  readonly FailureSummary.code: string
+  readonly FailureSummary.summary: string
   const FindingKind: { readonly Click: "click"; readonly Hum: "hum"; readonly Noise: "noise"; readonly Clipping: "clipping"; readonly DcOffset: "dc-offset"; readonly Transient: "transient"; }
   type FindingKind = "click" | "clipping" | "dc-offset" | "hum" | "noise" | "transient"
   interface FindingMeasure
@@ -2199,6 +2217,9 @@ Published paths
   const MAXIMUM_QUALITY: QualityMode
   const MAXIMUM_STATE_VALUES: 262144
   const MAXIMUM_STRETCH_RATIO: 8
+  class Malformed extends Error
+  new Malformed(field: string, expected: string): Malformed
+  readonly Malformed.field: string
   interface Marker
   readonly Marker.id: MarkerId
   readonly Marker.assetId: AssetId
@@ -2210,6 +2231,7 @@ Published paths
   const MeasureUnit: { readonly Dbfs: "dbfs"; readonly Decibels: "decibels"; readonly Hertz: "hertz"; readonly Linear: "linear"; }
   type MeasureUnit = "dbfs" | "decibels" | "hertz" | "linear"
   type MediaShape = { readonly length: import("packages/domain/src/index").SampleCount; readonly sampleRate: import("packages/domain/src/index").SampleRate; readonly channelLayout: import("packages/domain/src/index").ChannelLayout; }
+  type MessageFields = { readonly [x: string]: unknown; }
   interface ModelIdentity
   readonly ModelIdentity.pack: string
   readonly ModelIdentity.version: string
@@ -2260,6 +2282,7 @@ Published paths
   interface PlanContext
   readonly PlanContext.chains: ProjectChains
   readonly PlanContext.catalogue: ProcessorCatalogue
+  readonly PlanContext.engine: EngineVersions
   interface PlanSegment
   readonly PlanSegment.source: PlanSource
   readonly PlanSegment.start: SampleCount
@@ -2437,8 +2460,9 @@ Published paths
   function assetRangeEnd(range: AssetRange): number
   function assetRangeFitsAsset(range: AssetRange, asset: Asset): boolean
   function assetUsers(project: Project, assetId: AssetId): AssetUsers
-  function bypassedAssetPlan(asset: Asset, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
-  function bypassedRegionPlan(asset: Asset, region: Region, resolver?: AnchorResolver): DomainResult<EditPlan>
+  function bypassedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
+  function bypassedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
+  function bytesAt(fields: Readonly<Record<string, unknown>>, field: string): Uint8Array<ArrayBuffer>
   function cancellationReason(signal: CancellationSignal): Error
   function chainIdsOf(named: TargetChains): readonly EffectChainId[]
   function chainLatency(chain: Pick<EffectChain, "slots">, descriptors: ReadonlyMap<string, ProcessorDescriptor>, settings: ChainSettings): DomainResult<ProcessorLatency>
@@ -2464,6 +2488,8 @@ Published paths
   function convertedFrameCount(length: number, from: number, to: number): number
   function copyChain(chain: EffectChain, ids: IdGenerator): EffectChain
   function copySlot(slot: ChainSlot, ids: IdGenerator): ChainSlot
+  function countAt(fields: Readonly<Record<string, unknown>>, field: string): number
+  function countsAt(fields: Readonly<Record<string, unknown>>, field: string): readonly number[]
   function crc32(bytes: Uint8Array<ArrayBufferLike>, previous?: number): number
   function createCancellationSource(): CancellationSource
   function createDeterministicIdGenerator(seed: number): IdGenerator
@@ -2472,13 +2498,21 @@ Published paths
   function defaultParameterValue(descriptor: ParameterDescriptor): ParameterValue
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
+  function domainFailuresAt(fields: Readonly<Record<string, unknown>>, field: string): readonly [DomainFailure, ...DomainFailure[]]
   function editPlanFrom(value: unknown): DomainResult<EditPlan>
   function effectChainFrom(value: unknown): DomainResult<EffectChain>
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
+  function failureSummaryAt(fields: Readonly<Record<string, unknown>>, field: string): FailureSummary
+  function failureSummaryOf(fields: Readonly<Record<string, unknown>>): FailureSummary
+  function fieldsAt(fields: Readonly<Record<string, unknown>>, field: string): Readonly<Record<string, unknown>>
+  function fieldsOf(value: unknown, field: string): Readonly<Record<string, unknown>>
   function finalRenderSettings(mode: QualityMode): QualitySettings
   function findSlot(chain: Pick<EffectChain, "slots">, id: string): FoundSlot | undefined
+  function flagAt(fields: Readonly<Record<string, unknown>>, field: string): boolean
   function flatMapResult<TIn, TOut>(result: DomainResult<TIn>, next: (value: TIn) => DomainResult<TOut>): DomainResult<TOut>
+  function floatsAt(fields: Readonly<Record<string, unknown>>, field: string): Float32Array<ArrayBuffer>
+  function frameRangeAt(fields: Readonly<Record<string, unknown>>, field: string): { readonly start: number; readonly end: number; }
   function instantiateProcessor(id: ProcessorId, descriptor: ProcessorDescriptor): ProcessorInstance
   function isAssetInUse(project: Project, assetId: AssetId): boolean
   function isFailure<TValue>(result: DomainResult<TValue>): boolean
@@ -2486,14 +2520,27 @@ Published paths
   function isModelIdentity(identity: ModelIdentity): boolean
   function isRetryable(result: DomainFailureResult): boolean
   function isSuccess<TValue>(result: DomainResult<TValue>): boolean
+  function isTagged(value: unknown, tag: string): boolean
   function isTrackAudible(track: Track, allTracks: readonly Track[]): boolean
   function isWellFormedId(candidate: string): boolean
+  function itemsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: unknown, name: string) => TItem): readonly TItem[]
+  function itemsOf<TItem>(value: unknown, field: string, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
   function modelHashOf(files: readonly ListedFile[], sha256: TextSha256): string
   function namedQualityMode(level: NamedQualityLevel): QualityMode
+  function nonEmptyObjectsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: MessageFields, name: string) => TItem): readonly [TItem, ...TItem[]]
+  function numberAt(fields: Readonly<Record<string, unknown>>, field: string): number
+  function numberOf(value: unknown, field: string): number
+  function numbersAt(fields: Readonly<Record<string, unknown>>, field: string): readonly number[]
+  function objectsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: MessageFields, name: string) => TItem): readonly TItem[]
+  function oneOf<TValue extends number | string>(fields: Readonly<Record<string, unknown>>, field: string, values: Readonly<Record<string, TValue>>): TValue
+  function optionalBytesAt(fields: Readonly<Record<string, unknown>>, field: string): Uint8Array<ArrayBuffer> | undefined
+  function optionalCountAt(fields: Readonly<Record<string, unknown>>, field: string): number | undefined
+  function optionalFailureSummaryAt(fields: Readonly<Record<string, unknown>>, field: string): FailureSummary | undefined
+  function optionalTextAt(fields: Readonly<Record<string, unknown>>, field: string): string | undefined
   function parameterAtPosition(parameter: NumericParameterDescriptor, position: number): number
   function parameterOf(descriptor: Pick<ProcessorDescriptor, "parameters">, key: string): ParameterDescriptor | undefined
   function placeMarkers(asset: Asset, markers: Iterable<Marker>, resolver?: AnchorResolver): readonly PlacedMarker[]
@@ -2504,14 +2551,20 @@ Published paths
   function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function projectChains(project: Project): Generator<EffectChain, void, undefined>
   function projectLength(project: Project): number
+  function qualityModeAt(fields: Readonly<Record<string, unknown>>, field: string): QualityMode
   function qualityModeFrom(value: unknown): DomainResult<QualityMode>
+  function qualityModeOf(settings: QualitySettings): QualityMode
+  function rateAt(fields: Readonly<Record<string, unknown>>, field: string): SampleRate
+  function readMessage<TMessage>(value: unknown, code: string, read: (fields: MessageFields) => TMessage): DomainResult<TMessage>
   function regionChains(region: Region): TargetChains
   function regionEnd(region: PlacedRegion): number
   function regionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function restateRegion(region: Region, asset: Asset, span: Span): Region
   function routeToBus(busId: BusId): RoutingTarget
   function routingPathToOutput(from: RoutingTarget, buses: ReadonlyMap<BusId, Bus>): readonly BusId[] | undefined
+  function sampleArraysAt(fields: Readonly<Record<string, unknown>>, field: string): readonly Float32Array<ArrayBufferLike>[]
   function sampleCount(value: number): DomainResult<SampleCount>
+  function sampleCountAt(fields: Readonly<Record<string, unknown>>, field: string): SampleCount
   function sampleRate(value: number): DomainResult<SampleRate>
   function samplesToSeconds(count: SampleCount, rate: SampleRate): number
   function secondsToSamples(seconds: number, rate: SampleRate): DomainResult<SampleCount>
@@ -2528,6 +2581,8 @@ Published paths
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
   function summingFactor(law: SummingLaw, count: number): number
+  function textAt(fields: Readonly<Record<string, unknown>>, field: string): string
+  function textsAt(fields: Readonly<Record<string, unknown>>, field: string): readonly string[]
   function throwIfCancelled(signal: CancellationSignal | undefined): void
   function tracksInOrder(project: Project): readonly Track[]
   function treatmentChain(steps: readonly TreatmentStep[], states: readonly (ProcessorState | undefined)[], catalogue: ProcessorCatalogue, ids: IdGenerator): DomainResult<EffectChain>
@@ -2564,6 +2619,7 @@ Published paths
   type Samples = readonly Float32Array<ArrayBufferLike>[]
   const TEST_CATALOGUE: ProcessorCatalogue
   const TEST_DENOISER: ProcessorDescriptor
+  const TEST_ENGINE: EngineVersions
   const TEST_FILTER: ProcessorDescriptor
   const TEST_LIMITER: ProcessorDescriptor
   const TEST_UPMIXER: ProcessorDescriptor
@@ -3213,34 +3269,32 @@ Published paths
   type GraphOptimisation = "all" | "basic" | "disabled" | "extended" | "layout"
   interface InferenceCapabilities
   readonly InferenceCapabilities.fixedWidthSimd: boolean
-  readonly InferenceCapabilities.threads: number
-  readonly InferenceCapabilities.webGpu: boolean
   interface InferenceClient
-  InferenceClient.connect: (configuration: RuntimeConfiguration, end: ChannelEnd) => void
+  InferenceClient.connect: (end: ChannelEnd) => void
   InferenceClient.disconnect: () => void
   interface InferenceExecution
   readonly InferenceExecution.options: InferenceOptions
   readonly InferenceExecution.runtime: RuntimeIdentity
-  type InferenceFailed = (configuration: RuntimeConfiguration, reason: string) => void
+  type InferenceFailed = (reason: string) => void
   class InferenceHost
   new InferenceHost(options: InferenceHostOptions): InferenceHost
   readonly InferenceHost.#options: InferenceHostOptions
-  readonly InferenceHost.#running: Map<string, Running>
   readonly InferenceHost.#clients: Map<number, Client>
+  InferenceHost.#worker: InferenceThreadPort | undefined
   InferenceHost.#clientsMade: number
   InferenceHost.setup: RuntimeSetup
-  InferenceHost.workers: number
+  InferenceHost.running: boolean
   InferenceHost.client: (failed: InferenceFailed) => InferenceClient
   InferenceHost.dispose: () => void
-  InferenceHost.#started: (configuration: RuntimeConfiguration) => Running
-  InferenceHost.#failed: (key: string, running: Running, reason: string) => void
+  InferenceHost.#started: () => InferenceThreadPort
+  InferenceHost.#failed: (worker: InferenceThreadPort, reason: string) => void
   interface InferenceHostOptions
   readonly InferenceHostOptions.createWorker: () => InferenceThreadPort
   readonly InferenceHostOptions.setup: RuntimeSetup
-  const InferenceMode: { readonly Pinned: "pinned"; readonly Preview: "preview"; }
-  type InferenceOptions = { readonly kind: typeof InferenceMode.Pinned; readonly graphOptimisation: GraphOptimisation; } | { readonly kind: typeof InferenceMode.Preview; readonly graphOptimisation: GraphOptimisation; readonly accelerator: PreviewAccelerator; }
+  interface InferenceOptions
+  readonly InferenceOptions.graphOptimisation: GraphOptimisation
   interface InferencePort
-  InferencePort.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  InferencePort.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
   interface InferenceSession
   readonly InferenceSession.inputs: readonly TensorInfo[]
   readonly InferenceSession.outputs: readonly TensorInfo[]
@@ -3265,7 +3319,7 @@ Published paths
   ModelChannel.#calls: number
   ModelChannel.#failure: DomainFailureResult | undefined
   ModelChannel.receive: (value: unknown) => boolean
-  ModelChannel.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  ModelChannel.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
   ModelChannel.file: (pack: string, version: string, path: string, signal?: CancellationSignal) => Promise<DomainResult<ModelFileRead>>
   ModelChannel.#receive: (value: unknown) => void
   ModelChannel.#post: (message: FromModelThread, transfer: readonly object[]) => void
@@ -3274,6 +3328,9 @@ Published paths
   readonly ModelFileRead.bytes: ModelBytes
   readonly ModelFileRead.sha256: string
   type ModelFileReader = (pack: string, version: string, path: string, signal: CancellationSignal) => Promise<DomainResult<ModelFileRead>>
+  interface ModelSource
+  readonly ModelSource.sha256: string
+  readonly ModelSource.read: (signal?: CancellationSignal) => Promise<DomainResult<ModelBytes>>
   interface ModelThread
   ModelThread.postMessage: (message: ToModelThread, transfer: readonly object[]) => void
   class ModelThreads
@@ -3286,21 +3343,14 @@ Published paths
   readonly ModelThreadsOptions.files: ModelFileReader
   readonly ModelThreadsOptions.createChannel: () => ChannelPair
   readonly ModelThreadsOptions.reportFault: (summary: string) => void
-  type PreviewAccelerator = { readonly kind: typeof PreviewAcceleratorKind.Threads; readonly threads: number; } | { readonly kind: typeof PreviewAcceleratorKind.WebGpu; }
-  const PreviewAcceleratorKind: { readonly Threads: "threads"; readonly WebGpu: "webgpu"; }
-  const RUNTIME_WEBASSEMBLY_FILES: Readonly<Record<RuntimeBuild, string>>
-  const RuntimeBuild: { readonly Cpu: "cpu"; readonly WebGpu: "webgpu"; }
-  type RuntimeBuild = "cpu" | "webgpu"
-  interface RuntimeConfiguration
-  readonly RuntimeConfiguration.build: RuntimeBuild
-  readonly RuntimeConfiguration.threads: number
+  const RUNTIME_WEBASSEMBLY_FILE: "ort-wasm-simd-threaded.wasm"
   interface RuntimeIdentity
   readonly RuntimeIdentity.name: string
   readonly RuntimeIdentity.version: string
   readonly RuntimeIdentity.webAssemblySha256: string
   interface RuntimeSetup
   readonly RuntimeSetup.filesBase: string
-  readonly RuntimeSetup.webAssemblySha256: Readonly<Record<RuntimeBuild, string>>
+  readonly RuntimeSetup.webAssemblySha256: string
   readonly RuntimeSetup.capabilities: InferenceCapabilities
   interface Tensor
   readonly Tensor.data: Float32Array<ArrayBuffer>
@@ -3310,12 +3360,12 @@ Published paths
   readonly TensorInfo.name: string
   readonly TensorInfo.dims: readonly TensorDimension[]
   class WorkerInference
-  new WorkerInference(options: { readonly connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort; readonly capabilities: InferenceCapabilities; }): WorkerInference
-  readonly WorkerInference.#connect: (configuration: RuntimeConfiguration) => InferenceWorkerPort
+  new WorkerInference(options: { readonly connect: () => InferenceWorkerPort; readonly capabilities: InferenceCapabilities; }): WorkerInference
+  readonly WorkerInference.#connect: () => InferenceWorkerPort
   readonly WorkerInference.#capabilities: InferenceCapabilities
-  readonly WorkerInference.#connections: Map<string, Connection>
-  WorkerInference.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
-  WorkerInference.failed: (configuration: RuntimeConfiguration, reason: string) => void
+  WorkerInference.#connection: Connection | undefined
+  WorkerInference.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  WorkerInference.failed: (reason: string) => void
   WorkerInference.dispose: () => void
   function tensor(data: Float32Array<ArrayBuffer>, dims: readonly number[]): DomainResult<Tensor>
 
@@ -3330,7 +3380,7 @@ Published paths
   readonly FakeInference.opened: InferenceOptions[]
   FakeInference.#open: number
   FakeInference.openSessions: number
-  FakeInference.open: (_model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  FakeInference.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
   interface FakeModel
   readonly FakeModel.inputs: readonly TensorInfo[]
   readonly FakeModel.outputs: readonly TensorInfo[]
@@ -3346,7 +3396,7 @@ Published paths
   InProcessThread.addEventListener: (_type: "error", listener: (event: { readonly message: string; }) => void) => void
   InProcessThread.terminate: () => void
   InProcessThread.fail: (reason: string) => void
-  InProcessThread.kinds: readonly ("cancel" | "open" | "release" | "run")[]
+  InProcessThread.kinds: readonly ("cancel" | "model" | "open" | "release" | "run")[]
   InProcessThread.holdAnswers: () => void
   InProcessThread.deliverHeld: () => void
   InProcessThread.answer: (value: unknown) => void
@@ -3357,7 +3407,6 @@ Published paths
   function testSetup(capabilities?: InferenceCapabilities, filesBase?: string): RuntimeSetup
 
 @audiogubbins/model-packs
-  type AutomaticDownload = "never" | "required"
   interface AvailabilityContext
   readonly AvailabilityContext.packs: readonly KnownPack[]
   readonly AvailabilityContext.catalogue: readonly ModelPackManifest[]
@@ -3514,7 +3563,6 @@ Published paths
   const nobleTextSha256: TextSha256
   function packKey(ref: PackRef): string
   function packVersionCondition(manifest: ModelPackManifest, context: Pick<AvailabilityContext, "catalogue" | "device" | "packs" | "runtime">): PackVersionCondition
-  function packsToFetch(needs: readonly PackNeed[], context: AvailabilityContext, policy: AutomaticDownload): readonly ModelPackManifest[]
   function readModelPackManifest(text: string): DomainResult<ModelPackManifest>
   function readPackCatalogue(text: string): DomainResult<readonly ModelPackManifest[]>
   function readPackFolder(folder: PackFolder, signal?: AbortSignal | undefined): Promise<DomainResult<ImportedPack>>
@@ -3605,6 +3653,7 @@ Published paths
   readonly ProcessorDefinition.sideChain?: (input: ChannelLayout, sideChain: ChannelLayout) => boolean
   ProcessorDefinition.kernel: (run: ProcessorRun) => DomainResult<NodeKernel>
   readonly ProcessorDefinition.measure?: (run: MeasuringRun) => Measurer
+  readonly ProcessorDefinition.measurementBytes?: (frames: number, output: ChannelLayout) => number
   readonly ProcessorDefinition.learn?: (settings: LearningSettings) => DomainResult<StateLearner>
   const ProcessorPort: { readonly Input: "input"; readonly SideChain: "side-chain"; readonly Output: "output"; }
   interface ProcessorRun
@@ -3623,6 +3672,7 @@ Published paths
   readonly ProcessorType.descriptor: ProcessorDescriptor
   ProcessorType.measurer?: (settings: Readonly<Record<string, SettingValue>>, input: ChannelLayout, context: { readonly sampleRate: SampleRate; readonly blockFrames: number; readonly dsp: CanonicalDsp; }) => DomainResult<Measurer>
   readonly ProcessorType.learner?: (settings: LearningSettings) => DomainResult<StateLearner>
+  readonly ProcessorType.measurementBytes?: (frames: number, output: ChannelLayout) => number
   readonly ProcessorType.accelerators?: readonly "gpu"[]
   ProcessorType.createKernel: (step: import("packages/audio-graph/src/plan").PlanStep, context: import("packages/audio-engine/src/index").KernelContext) => DomainResult<NodeKernel>
   readonly ProcessorType.type: string
@@ -3690,7 +3740,7 @@ Published paths
   readonly StandInInference.#runtimes: ReadonlyMap<string, FakeInference>
   StandInInference.openSessions: number
   StandInInference.opened: readonly InferenceOptions[]
-  StandInInference.open: (model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) => Promise<import("packages/domain/src/result").DomainResult<import("packages/ml-runtime/src/inference-port").InferenceSession>>
+  StandInInference.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<import("packages/domain/src/result").DomainResult<import("packages/ml-runtime/src/inference-port").InferenceSession>>
   const TEST_BLOCK_FRAMES: 4096
   const TEST_RATE: SampleRate
   function clipped(signal: Float32Array<ArrayBufferLike>, ceiling: number): Float32Array<ArrayBufferLike>
@@ -5440,7 +5490,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 3; readonly projectStorage: 7; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 4; readonly projectStorage: 8; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -5578,6 +5628,37 @@ Published paths
   function readSampleColumns(held: SampleWindow, channel: number, span: ColumnSpan, into: ColumnPeaks): void
   function windowFrames(held: SampleWindow): number
 
+@audiogubbins/waveform/testing
+  interface LocalPeakOptions
+  readonly LocalPeakOptions.types?: (services: ModelServices) => ReadonlyMap<string, ProcessorType>
+  readonly LocalPeakOptions.createChannel?: () => ChannelPair
+  class LocalPeakWorker
+  new LocalPeakWorker(options?: LocalPeakOptions): LocalPeakWorker
+  readonly LocalPeakWorker.sent: ToPeakWorker[]
+  readonly LocalPeakWorker.posted: string[]
+  LocalPeakWorker.terminated: boolean
+  LocalPeakWorker.#onMessage: ((value: unknown) => void) | undefined
+  LocalPeakWorker.#onFault: ((reason: string) => void) | undefined
+  readonly LocalPeakWorker.#models: ModelChannel
+  readonly LocalPeakWorker.#core: PeakWorkerCore
+  LocalPeakWorker.clock: number
+  LocalPeakWorker.post: (message: ToPeakWorker, transfer: readonly ArrayBuffer[]) => void
+  LocalPeakWorker.postMessage: (message: unknown, transfer: readonly unknown[]) => void
+  LocalPeakWorker.#deliver: (message: unknown, transfer: readonly unknown[]) => void
+  LocalPeakWorker.listen: (onMessage: (value: unknown) => void, onFault: (reason: string) => void) => void
+  LocalPeakWorker.answered: (kind: string) => number
+  LocalPeakWorker.fault: (reason: string) => void
+  LocalPeakWorker.terminate: () => void
+  class MemoryPeakCache
+  new MemoryPeakCache(): MemoryPeakCache
+  readonly MemoryPeakCache.kept: Map<string, Uint8Array<ArrayBuffer>>
+  MemoryPeakCache.reads: number
+  MemoryPeakCache.writes: number
+  MemoryPeakCache.read: (identity: string, revision: string) => Promise<Uint8Array<ArrayBuffer> | undefined>
+  MemoryPeakCache.write: (identity: string, revision: string, bytes: Uint8Array<ArrayBuffer>) => Promise<void>
+  function memorySubject(identity: string, channels: readonly Float32Array<ArrayBufferLike>[], revision?: string): PeakSubject
+  function turn(): Promise<void>
+
 @audiogubbins/workspace
   const BUILT_IN_IS_NOT_DELETABLE: "A built-in workspace cannot be deleted."
   const DEFAULT_PRESET_ID: "editing"
@@ -5708,14 +5789,9 @@ packages/audio-engine/src/preview/preview-client.ts
   readonly PendingRead.resolve: () => void
   readonly PendingRead.reject: (error: Error) => void
 
-packages/audio-engine/src/preview/preview-messages.ts
-  interface CrossedFailure
-  readonly CrossedFailure.code: string
-  readonly CrossedFailure.summary: string
-
 packages/audio-engine/src/preview/preview-producer.ts
   class Render
-  new Render(id: number, key: string, request: CachedStreamRequest, stream: RenderedStream): Render
+  new Render(id: number, key: string, request: CachedStreamRequest, stream: RenderedStream, making: number): Render
   readonly Render.id: number
   readonly Render.key: string
   readonly Render.request: CachedStreamRequest
@@ -5723,13 +5799,16 @@ packages/audio-engine/src/preview/preview-producer.ts
   readonly Render.purposes: Map<CachePurpose, number>
   readonly Render.lifetime: CancellationSource
   Render.reason: string | undefined
+  Render.#making: number
   Render.bytes: number
+  Render.made: () => void
   Render.discard: () => void
   Render.report: () => RenderReport
 
 packages/audio-engine/src/preview/render-cache.ts
   interface Entry<T extends Kept>
   readonly Entry.value: T
+  Entry.bytes: number
   Entry.holders: number
   interface Kept
   readonly Kept.bytes: number
@@ -5743,6 +5822,7 @@ packages/audio-engine/src/preview/render-cache.ts
   RenderCache.values: () => readonly T[]
   RenderCache.hold: (key: string) => T | undefined
   RenderCache.admit: (key: string, value: T) => DomainResult<void>
+  RenderCache.recount: (key: string, value: T) => void
   RenderCache.release: (key: string, value: T) => void
   RenderCache.evict: (key: string, value: T) => void
   RenderCache.#forget: (key: string, entry: Entry<T>) => void
@@ -6066,11 +6146,6 @@ packages/audio-runtime/src/protocol/feeder-messages.ts
   type FromFeeder = { readonly kind: typeof FromFeederKind.Fault; readonly message: string; } | { readonly kind: typeof FromFeederKind.FeedFailed; readonly run: number; readonly node: NodeId; readonly reason: string; } | { readonly kind: typeof FromFeederKind.ParametersTaken; readonly change: number; readonly refusals: readonly FailureSummary[]; } | { readonly kind: typeof FromFeederKind.Primed; readonly run: number; } | { readonly kind: typeof FromFeederKind.SourcesMade; readonly request: number; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; readonly dspInUse: boolean; } | { readonly kind: typeof FromFeederKind.SourcesRefused; readonly request: number; readonly failures: readonly [FailureSummary, ...FailureSummary[]]; }
   type ToFeeder = { readonly kind: typeof ToFeederKind.Bind; readonly request: number; readonly feeds: readonly FeederBinding[]; readonly feedAheadMilliseconds: number; readonly chunkFrames: number; readonly wakeMilliseconds: number; readonly processor: MessagePort; } | { readonly kind: typeof ToFeederKind.Parameters; readonly request: number; readonly change: number; readonly changes: readonly ParameterChange[]; } | { readonly kind: typeof ToFeederKind.Previews; readonly port: MessagePort; } | { readonly kind: typeof ToFeederKind.Release; readonly request: number; } | { readonly kind: typeof ToFeederKind.Sources; readonly request: number; readonly graph: GraphDescriptor; readonly sources: readonly SourceDescription[]; readonly quality: QualityMode; readonly dsp: DspDelivery<WebAssembly.Module>; } | { readonly kind: typeof ToFeederKind.Start; readonly run: number; readonly from: number; } | { readonly kind: typeof ToFeederKind.Stop; } | { readonly kind: typeof ToFeederKind.Unbind; }
 
-packages/audio-runtime/src/protocol/message-reading.ts
-  interface FailureSummary
-  readonly FailureSummary.code: string
-  readonly FailureSummary.summary: string
-
 packages/audio-runtime/src/protocol/preview-worker-messages.ts
   type ToPreviewWorker = { readonly kind: typeof ToPreviewWorkerKind.Connect; readonly connection: number; readonly purpose: CachePurpose; readonly port: MessagePort; } | { readonly kind: typeof ToPreviewWorkerKind.Disconnect; readonly connection: number; }
 
@@ -6357,27 +6432,26 @@ packages/ml-runtime/src/inference-conversation.ts
   readonly InferenceConversation.#host: ConversationHost
   readonly InferenceConversation.#sessions: Map<number, InferenceSession>
   readonly InferenceConversation.#calls: Map<number, CancellationSource>
+  readonly InferenceConversation.#wanted: Map<number, (result: DomainResult<ModelBytes>) => void>
   InferenceConversation.#closed: boolean
   InferenceConversation.receive: (value: unknown) => void
   InferenceConversation.messageFailed: () => void
   InferenceConversation.close: () => void
-  InferenceConversation.#open: ({ call, model, options }: Message<typeof ToInferenceWorkerKind.Open>) => Promise<void>
+  InferenceConversation.#open: ({ call, sha256, options, }: Message<typeof ToInferenceWorkerKind.Open>) => Promise<void>
+  InferenceConversation.#modelOf: (call: number, signal: CancellationSignal | undefined) => Promise<DomainResult<ModelBytes>>
   InferenceConversation.#run: ({ call, session, inputs }: Message<typeof ToInferenceWorkerKind.Run>) => Promise<void>
   InferenceConversation.#faulted: (call: number) => (error: unknown) => void
   InferenceConversation.#begin: (call: number) => CancellationSource
   InferenceConversation.#answer: (call: number, result: DomainFailureResult) => void
   InferenceConversation.#failed: (call: number, failures_0: DomainFailure, ...failures: DomainFailure[]) => void
   InferenceConversation.#post: (message: FromInferenceWorker, transfer: readonly ArrayBuffer[]) => void
-  type Message<TKind extends "cancel" | "open" | "release" | "run"> = Extract<{ readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: import("packages/ml-runtime/src/inference-port").ModelBytes; readonly options: import("packages/ml-runtime/src/inference-options").InferenceOptions; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }, { readonly kind: TKind; }>
+  type Message<TKind extends "cancel" | "model" | "open" | "release" | "run"> = Extract<{ readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Model; readonly call: number; readonly model: ModelBytes; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly sha256: string; readonly options: import("packages/ml-runtime/src/inference-options").InferenceOptions; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; }, { readonly kind: TKind; }> | Extract<{ readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }, { readonly kind: TKind; }>
   type WorkerRuntime = { readonly kind: "serving"; readonly port: InferencePort; } | { readonly kind: "unavailable"; readonly reason: DomainFailure; }
 
 packages/ml-runtime/src/inference-host.ts
   interface Client
   readonly Client.failed: InferenceFailed
-  readonly Client.connected: Set<string>
-  interface Running
-  readonly Running.worker: InferenceThreadPort
-  readonly Running.configuration: RuntimeConfiguration
+  Client.connected: InferenceThreadPort | undefined
 
 packages/ml-runtime/src/inference-worker-core.ts
   interface Connection
@@ -6388,6 +6462,7 @@ packages/ml-runtime/src/inference-worker-core.ts
   new InferenceWorkerCore(host: InferenceWorkerHost): InferenceWorkerCore
   readonly InferenceWorkerCore.#host: InferenceWorkerHost
   InferenceWorkerCore.#runtime: WorkerRuntime
+  InferenceWorkerCore.#sessions: SharedSessions | undefined
   readonly InferenceWorkerCore.#connections: Set<Connection>
   InferenceWorkerCore.connections: number
   InferenceWorkerCore.receive: (value: unknown) => void
@@ -6405,21 +6480,41 @@ packages/ml-runtime/src/model-channel.ts
   type Settle = (result: DomainResult<ModelFileRead>) => void
 
 packages/ml-runtime/src/protocol/inference-messages.ts
-  type FromInferenceWorker = { readonly kind: typeof FromInferenceWorkerKind.Failed; readonly call: number; readonly failures: InferenceFailures; } | { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly call: number; readonly inputs: readonly TensorInfo[]; readonly outputs: readonly TensorInfo[]; readonly execution: InferenceExecution; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly call: number; readonly outputs: readonly NamedTensor[]; } | { readonly kind: typeof FromInferenceWorkerKind.Refused; readonly failures: InferenceFailures; }
+  type FromInferenceWorker = { readonly kind: typeof FromInferenceWorkerKind.Failed; readonly call: number; readonly failures: InferenceFailures; } | { readonly kind: typeof FromInferenceWorkerKind.ModelWanted; readonly call: number; } | { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly call: number; readonly inputs: readonly TensorInfo[]; readonly outputs: readonly TensorInfo[]; readonly execution: InferenceExecution; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly call: number; readonly outputs: readonly NamedTensor[]; } | { readonly kind: typeof FromInferenceWorkerKind.Refused; readonly failures: InferenceFailures; }
   type InferenceFailures = readonly [DomainFailure, ...DomainFailure[]]
   interface NamedTensor extends Tensor
   readonly NamedTensor.name: string
   readonly NamedTensor.data: Float32Array<ArrayBuffer>
   readonly NamedTensor.dims: readonly number[]
   type ToInferenceThread = { readonly kind: typeof ToInferenceThreadKind.Connect; readonly client: number; readonly port: ChannelEnd; } | { readonly kind: typeof ToInferenceThreadKind.Disconnect; readonly client: number; } | { readonly kind: typeof ToInferenceThreadKind.Start; readonly setup: RuntimeSetup; }
-  type ToInferenceWorker = { readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; } | { readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly model: ModelBytes; readonly options: InferenceOptions; } | { readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; } | { readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }
+  type ToInferenceWorker = { readonly kind: typeof ToInferenceWorkerKind.Cancel; readonly call: number; } | { readonly kind: typeof ToInferenceWorkerKind.Model; readonly call: number; readonly model: ModelBytes; } | { readonly kind: typeof ToInferenceWorkerKind.Open; readonly call: number; readonly sha256: string; readonly options: InferenceOptions; } | { readonly kind: typeof ToInferenceWorkerKind.Release; readonly session: number; } | { readonly kind: typeof ToInferenceWorkerKind.Run; readonly call: number; readonly session: number; readonly inputs: readonly NamedTensor[]; }
 
 packages/ml-runtime/src/protocol/model-channel-messages.ts
-  type FromModelThread = { readonly kind: typeof FromModelThreadKind.Cancel; readonly call: number; } | { readonly kind: typeof FromModelThreadKind.File; readonly call: number; readonly pack: string; readonly version: string; readonly path: string; } | { readonly kind: typeof FromModelThreadKind.Inference; readonly configuration: RuntimeConfiguration; readonly port: ChannelEnd; }
+  type FromModelThread = { readonly kind: typeof FromModelThreadKind.Cancel; readonly call: number; } | { readonly kind: typeof FromModelThreadKind.File; readonly call: number; readonly pack: string; readonly version: string; readonly path: string; } | { readonly kind: typeof FromModelThreadKind.Inference; readonly port: ChannelEnd; }
   interface ToModelThread
   readonly ToModelThread.kind: "model-channel"
   readonly ToModelThread.port: ChannelEnd
   readonly ToModelThread.capabilities: InferenceCapabilities
+
+packages/ml-runtime/src/shared-sessions.ts
+  interface Entry
+  Entry.opening: Promise<DomainResult<void>>
+  Entry.opened: Opened | undefined
+  Entry.holders: number
+  interface Opened
+  readonly Opened.session: InferenceSession
+  readonly Opened.bytes: number
+  class SharedSessions
+  new SharedSessions(port: InferencePort, mostIdleBytes?: number): SharedSessions
+  readonly SharedSessions.#port: InferencePort
+  readonly SharedSessions.#mostIdleBytes: number
+  readonly SharedSessions.#entries: Map<string, Entry>
+  SharedSessions.open: (model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) => Promise<DomainResult<InferenceSession>>
+  SharedSessions.releaseIdle: () => void
+  SharedSessions.#begin: (key: string, model: ModelSource, options: InferenceOptions, signal: CancellationSignal | undefined) => Entry
+  SharedSessions.#letGo: (key: string, entry: Entry) => void
+  SharedSessions.#trim: () => void
+  SharedSessions.#forget: (key: string, entry: Entry) => void
 
 packages/ml-runtime/src/testing/in-process-worker.ts
   class InProcessEnd
@@ -6451,16 +6546,17 @@ packages/ml-runtime/src/worker-inference.ts
   readonly Connection.#pending: Map<number, Pending>
   Connection.#calls: number
   Connection.#failure: DomainFailureResult | undefined
-  Connection.open: (bytes: ModelBytes, options: InferenceOptions, signal: CancellationSignal | undefined) => Promise<DomainResult<InferenceSession>>
+  Connection.open: (model: ModelSource, options: InferenceOptions, signal: CancellationSignal | undefined) => Promise<DomainResult<InferenceSession>>
+  Connection.#supply: (call: number, pending: Extract<Pending, { kind: "opened"; }>) => Promise<void>
   Connection.run: (session: number, inputs: ReadonlyMap<string, Tensor>, signal: CancellationSignal | undefined) => Promise<DomainResult<ReadonlyMap<string, Tensor>>>
   Connection.release: (session: number) => void
   Connection.close: (reason: string) => void
   Connection.#nextCall: () => number
   Connection.#await: <TValue>(call: number, signal: CancellationSignal | undefined, pending: (settle: (result: DomainResult<TValue>) => void) => Pending) => Promise<DomainResult<TValue>>
   Connection.#receive: (value: unknown) => void
-  Connection.#settle: (pending: Pending, reply: Exclude<FromInferenceWorker, { kind: "refused"; }>) => void
+  Connection.#settle: (pending: Pending, reply: Exclude<FromInferenceWorker, { kind: "model-wanted" | "refused"; }>) => void
   Connection.#fail: (summary: string) => void
-  type Pending = { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly settle: (result: DomainResult<InferenceSession>) => void; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly session: number; readonly settle: (result: DomainResult<ReadonlyMap<string, Tensor>>) => void; }
+  type Pending = { readonly kind: typeof FromInferenceWorkerKind.Opened; readonly settle: (result: DomainResult<InferenceSession>) => void; readonly model: ModelSource; readonly signal: CancellationSignal | undefined; } | { readonly kind: typeof FromInferenceWorkerKind.Ran; readonly session: number; readonly settle: (result: DomainResult<ReadonlyMap<string, Tensor>>) => void; }
 
 packages/model-packs/src/download-slot.ts
   class DownloadSlot
@@ -6512,7 +6608,7 @@ packages/model-packs/src/pack-transfers.ts
   PackTransfers.leftQueue: (entry: Entry, stop: Stop | undefined) => Promise<DomainResult<InstallState>>
   PackTransfers.stoppable: <TValue>(entry: Entry, signal: AbortSignal | undefined, work: (stopping: AbortSignal) => Promise<TValue>) => Promise<{ readonly value: TValue; readonly stop: Stop | undefined; }>
   PackTransfers.transfer: (entry: Entry, manifest: ModelPackManifest, source: PackSource, signal: AbortSignal | undefined) => Promise<DomainResult<InstallState>>
-  PackTransfers.settled: (entry: Entry, manifest: ModelPackManifest, stop: Stop | undefined, arrival: Arrival) => Promise<DomainResult<InstallState>>
+  PackTransfers.settled: (entry: Entry, manifest: ModelPackManifest, stop: Stop | undefined, arrival: Arrival, signal: AbortSignal | undefined) => Promise<DomainResult<InstallState>>
   PackTransfers.rejected: (entry: Entry, reason: DomainFailure) => Promise<DomainResult<InstallState>>
   PackTransfers.deleted: (entry: Entry) => Promise<DomainResult<InstallState>>
   interface TransferServices
@@ -7123,6 +7219,22 @@ packages/storage/src/write-queue.ts
   WriteQueue.fail: (error: unknown) => void
   WriteQueue.pause: (cause: DomainFailure) => void
 
+packages/waveform/src/peak-builder.ts
+  interface Finished
+  readonly Finished.level: number
+  readonly Finished.first: number
+  readonly Finished.end: number
+  class PeakBuilder
+  new PeakBuilder(geometry: PeakGeometry): PeakBuilder
+  readonly PeakBuilder.geometry: PeakGeometry
+  readonly PeakBuilder.levels: readonly PeakLevel[]
+  readonly PeakBuilder.#meanSquares: readonly (readonly Float64Array<ArrayBufferLike>[])[]
+  PeakBuilder.addChunk: (chunk: number, block: AudioFrameBlock, frames: number) => readonly PeakRun[]
+  PeakBuilder.#fillBase: (block: AudioFrameBlock, first: number, end: number) => void
+  PeakBuilder.#fillAbove: (level: number, below: Finished) => Finished | undefined
+  PeakBuilder.#combine: (level: number, bucket: number, start: number, stop: number) => void
+  PeakBuilder.#runOf: (finished: Finished) => PeakRun
+
 packages/waveform/src/peak-host.ts
   interface Shared
   readonly Shared.job: PeakJob
@@ -7175,6 +7287,77 @@ packages/waveform/src/peak-job.ts
 
 packages/waveform/src/peak-messages.ts
   type FromPeakWorker = { readonly kind: typeof FromPeakWorkerKind.Adopted; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; } | { readonly kind: typeof FromPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly start: number; readonly frames: number; readonly bucketFrames: number; readonly channels: readonly PeakChannel[]; } | { readonly kind: typeof FromPeakWorkerKind.Complete; readonly job: string; readonly bytes: Uint8Array<ArrayBuffer>; readonly refusedCache: string | undefined; } | { readonly kind: typeof FromPeakWorkerKind.Failed; readonly job: string; readonly reason: string; } | { readonly kind: typeof FromPeakWorkerKind.Runs; readonly job: string; readonly runs: readonly PeakRun[]; } | { readonly kind: typeof FromPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly start: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof FromPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number | undefined; }
+
+packages/waveform/src/peak-requests.ts
+  type PeakRequest = { readonly kind: typeof ToPeakWorkerKind.Buckets; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.Samples; readonly job: string; readonly request: number; readonly range: FrameRange; } | { readonly kind: typeof ToPeakWorkerKind.ZeroCrossing; readonly job: string; readonly request: number; readonly position: number; readonly within: number; readonly channels: readonly number[]; }
+  class PeakRequests
+  new PeakRequests(host: RequestHost): PeakRequests
+  readonly PeakRequests.#host: RequestHost
+  PeakRequests.#waiting: PeakRequest[]
+  PeakRequests.#serving: undefined | { readonly request: PeakRequest; readonly cancel: CancellationSource; }
+  PeakRequests.add: (request: PeakRequest) => void
+  PeakRequests.cancel: (job: string, request: number) => void
+  PeakRequests.forget: (job: string) => void
+  PeakRequests.#serve: () => Promise<void>
+  PeakRequests.#answer: (request: PeakRequest, cancel: CancellationSource) => Promise<void>
+  PeakRequests.#read: (source: PcmSource, range: FrameRange, cancel: CancellationSource, place: (offset: number, frames: number) => AudioFrameBlock, each: (chunk: AudioFrameBlock, offset: number) => void) => Promise<void>
+  PeakRequests.#samples: (source: PcmSource, range: FrameRange, cancel: CancellationSource) => Promise<readonly Float32Array[]>
+  PeakRequests.#buckets: (source: PcmSource, range: FrameRange, cancel: CancellationSource) => Promise<readonly PeakChannel[]>
+  interface RequestHost
+  readonly RequestHost.source: (job: string) => PcmSource | undefined
+  readonly RequestHost.post: (message: FromPeakWorker) => void
+  readonly RequestHost.yieldToHost: () => Promise<void>
+  readonly RequestHost.fail: (job: string, reason: string) => void
+
+packages/waveform/src/peak-worker-core.ts
+  interface Job
+  readonly Job.name: string
+  readonly Job.identity: string
+  readonly Job.revision: string
+  readonly Job.source: PcmSource
+  readonly Job.geometry: PeakGeometry
+  Job.building: undefined | { readonly builder: PeakBuilder; readonly block: AudioFrameBlock; readonly done: Uint8Array; remaining: number; left: number; right: number; readonly refusedCache: string | undefined; }
+  class PeakWorkerCore
+  new PeakWorkerCore(host: PeakWorkerHost): PeakWorkerCore
+  readonly PeakWorkerCore.#host: PeakWorkerHost
+  readonly PeakWorkerCore.#jobs: Map<string, Job>
+  PeakWorkerCore.#order: string[]
+  PeakWorkerCore.#pumping: boolean
+  readonly PeakWorkerCore.#requests: PeakRequests
+  readonly PeakWorkerCore.#batches: RunBatches
+  PeakWorkerCore.#previews: PreviewClient | undefined
+  PeakWorkerCore.receive: (value: unknown) => void
+  PeakWorkerCore.messageFailed: () => void
+  PeakWorkerCore.#post: (message: FromPeakWorker) => void
+  PeakWorkerCore.#fail: (job: string, reason: string) => void
+  PeakWorkerCore.#open: (message: Extract<ToPeakWorker, { kind: typeof ToPeakWorkerKind.Open; }>) => void
+  PeakWorkerCore.#checked: (job: Job, bytes: Uint8Array<ArrayBuffer>) => DomainResult<unknown>
+  PeakWorkerCore.#build: (job: Job, refusedCache: string | undefined, focus: FrameRange | undefined) => void
+  PeakWorkerCore.#focus: (name: string, range: FrameRange) => void
+  PeakWorkerCore.#nextChunk: (job: Job) => number | undefined
+  PeakWorkerCore.#pump: () => Promise<void>
+  PeakWorkerCore.#summariseNext: (job: Job) => Promise<void>
+  PeakWorkerCore.#finish: (job: Job, builder: PeakBuilder, refusedCache: string | undefined) => void
+  PeakWorkerCore.#close: (name: string) => void
+  interface PeakWorkerHost
+  readonly PeakWorkerHost.post: (message: FromPeakWorker, transfer: readonly ArrayBuffer[]) => void
+  readonly PeakWorkerHost.yieldToHost: () => Promise<void>
+  readonly PeakWorkerHost.dsp: CanonicalDsp
+  readonly PeakWorkerHost.processing: ChainProcessing
+  readonly PeakWorkerHost.reportFault: (error: Error) => void
+  readonly PeakWorkerHost.now: () => number
+
+packages/waveform/src/run-batches.ts
+  class RunBatches
+  new RunBatches(send: (job: string, runs: readonly PeakRun[]) => void, now: () => number): RunBatches
+  readonly RunBatches.#send: (job: string, runs: readonly PeakRun[]) => void
+  readonly RunBatches.#now: () => number
+  readonly RunBatches.#held: Map<string, PeakRun[]>
+  RunBatches.#sentAt: number
+  RunBatches.add: (job: string, runs: readonly PeakRun[]) => void
+  RunBatches.flush: (job: string) => void
+  RunBatches.flushAll: () => void
+  RunBatches.drop: (job: string) => void
 
 packages/workspace/src/adapter/dock-memory.ts
   interface FocusPlace

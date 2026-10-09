@@ -163,11 +163,16 @@ export function qualityModeFrom(value: unknown): DomainResult<QualityMode> {
   ) {
     return settingUnknown();
   }
-  const settings: QualitySettings = { resampling, oversampling, spectralOverlap, inference };
+  return succeed(qualityModeOf({ resampling, oversampling, spectralOverlap, inference }));
+}
+
+/**
+ * The mode `settings` are: the named level they equal, so a Custom choice
+ * that happens to be a level says so, and Custom otherwise.
+ */
+export function qualityModeOf(settings: QualitySettings): QualityMode {
   const named = NAMED_QUALITY_LEVELS.find((level) => sameSettings(LEVELS[level], settings));
-  return succeed(
-    named === undefined ? { level: QualityLevel.Custom, settings } : namedQualityMode(named),
-  );
+  return named === undefined ? { level: QualityLevel.Custom, settings } : namedQualityMode(named);
 }
 
 function sameSettings(left: QualitySettings, right: QualitySettings): boolean {

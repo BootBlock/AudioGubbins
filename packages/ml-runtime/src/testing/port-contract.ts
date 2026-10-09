@@ -12,27 +12,22 @@ import { createCancellationSource, type DomainResult } from '@audiogubbins/domai
 
 import {
   GraphOptimisation,
-  InferenceMode,
-  PreviewAcceleratorKind,
   type InferenceCapabilities,
   type InferenceOptions,
 } from '../inference-options.js';
-import type { InferencePort, InferenceSession, ModelBytes } from '../inference-port.js';
+import type { InferencePort, InferenceSession, ModelSource } from '../inference-port.js';
 import type { Tensor } from '../tensor.js';
 import { EVERY_CAPABILITY } from './fake-inference.js';
 
-/** An implementation under test: a port on a device that offers `capabilities`, and the model's bytes. */
+/** An implementation under test: a port on a device that offers `capabilities`, and the model's file. */
 export interface ContractSubject {
   readonly port: (capabilities: InferenceCapabilities) => InferencePort;
-  readonly model: () => ModelBytes;
+  readonly model: () => ModelSource;
   /** The longest a test may take, where the implementation starts a real runtime. */
   readonly timeout?: number;
 }
 
-export const PINNED: InferenceOptions = {
-  kind: InferenceMode.Pinned,
-  graphOptimisation: GraphOptimisation.Extended,
-};
+export const PINNED: InferenceOptions = { graphOptimisation: GraphOptimisation.Extended };
 
 /** A failure's codes, or the value where there is none. */
 function codesOf<TValue>(result: DomainResult<TValue>): readonly string[] {
@@ -67,7 +62,7 @@ export function portContract(name: string, subject: ContractSubject): void {
 
   const budget = subject.timeout === undefined ? {} : { timeout: subject.timeout };
   describe(`${name} keeps the inference port's contract`, budget, () => {
-    it("opens a session that names the model's inputs and outputs and says it is pinned", async () => {
+    it("opens a session that names the model's inputs and outputs and the options it runs with", async () => {
       const session = await open();
       expect(session.inputs).toEqual([
         { name: 'a', dims: ['n'] },
@@ -87,40 +82,16 @@ export function portContract(name: string, subject: ContractSubject): void {
       session.release();
     });
 
-    it('says a preview is a preview, with the accelerator it runs on', async () => {
-      const preview: InferenceOptions = {
-        kind: InferenceMode.Preview,
-        graphOptimisation: GraphOptimisation.All,
-        accelerator: { kind: PreviewAcceleratorKind.Threads, threads: 1 },
-      };
-      const session = await open(preview);
-      expect(session.execution.options).toEqual(preview);
+    it('says the graph optimisation level it was opened at', async () => {
+      const all: InferenceOptions = { graphOptimisation: GraphOptimisation.All };
+      const session = await open(all);
+      expect(session.execution.options).toEqual(all);
       session.release();
     });
 
-    it('refuses a pinned session where fixed-width SIMD is missing, rather than run it another way', async () => {
+    it('refuses a session where fixed-width SIMD is missing, rather than run it another way', async () => {
       const port = subject.port({ ...EVERY_CAPABILITY, fixedWidthSimd: false });
       expect(codesOf(await port.open(subject.model(), PINNED))).toEqual([
-        'inference.capability-missing',
-      ]);
-    });
-
-    it('refuses a WebGPU preview where there is no WebGPU, and a preview on more threads than are offered', async () => {
-      const port = subject.port({ ...EVERY_CAPABILITY, webGpu: false, threads: 1 });
-      const webGpu: InferenceOptions = {
-        kind: InferenceMode.Preview,
-        graphOptimisation: GraphOptimisation.All,
-        accelerator: { kind: PreviewAcceleratorKind.WebGpu },
-      };
-      const threads: InferenceOptions = {
-        kind: InferenceMode.Preview,
-        graphOptimisation: GraphOptimisation.All,
-        accelerator: { kind: PreviewAcceleratorKind.Threads, threads: 2 },
-      };
-      expect(codesOf(await port.open(subject.model(), webGpu))).toEqual([
-        'inference.capability-missing',
-      ]);
-      expect(codesOf(await port.open(subject.model(), threads))).toEqual([
         'inference.capability-missing',
       ]);
     });

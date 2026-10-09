@@ -99,6 +99,7 @@ export {
   SMALLEST_FFT_SIZE,
 } from './dsp/canonical-dsp.js';
 export { resamplingQualityOf } from './dsp/resampling-grade.js';
+export { CANONICAL_RESAMPLER_VERSION, ENGINE_VERSIONS } from './dsp/algorithm-versions.js';
 export {
   type CanonicalDetectorFeatures,
   type CanonicalLoudnessMeter,
@@ -184,6 +185,7 @@ export {
   type ChainRequest,
   type ChainRun,
   type ListeningRequest,
+  type MeasurementRequest,
   type StreamReader,
 } from './pcm/chain-processing.js';
 

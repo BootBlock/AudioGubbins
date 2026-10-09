@@ -6,26 +6,25 @@ import { pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { RUNTIME_WEBASSEMBLY_FILES as PAGE_RUNTIME_FILES } from '@audiogubbins/ml-runtime';
+import { RUNTIME_WEBASSEMBLY_FILE as PAGE_RUNTIME_FILE } from '@audiogubbins/ml-runtime';
 
-import { RUNTIME_WEBASSEMBLY_FILES } from '../tools/check-build-output.mjs';
-import { RUNTIME_FILES } from '../tools/inference-runtime-files.mjs';
+import { RUNTIME_WEBASSEMBLY_FILE } from '../tools/check-build-output.mjs';
+import { RUNTIME_FILE } from '../tools/inference-runtime-files.mjs';
 import { inRepository } from './repository.js';
 
 /**
  * The build's statement of the inference runtime it serves (ADR-0062): the
- * digest of each WebAssembly file is taken from the bytes the build ships,
- * never written by hand, and the files are served at the path the statement
- * names, under the application's base, in a folder named by the runtime's
- * version. Run over a runtime folder made here, so what is stated is known
- * apart from the code under test. The module is loaded by a URL built at run
- * time, as the preview log's is, so the compiler leaves it to the root
- * project, which compiles it.
+ * digest of its WebAssembly file is taken from the bytes the build ships, never
+ * written by hand, and the file is served at the path the statement names,
+ * under the application's base, in a folder named by the runtime's version. No
+ * other file of the runtime's is shipped. Run over a runtime folder made here,
+ * so what is stated is known apart from the code under test. The module is
+ * loaded by a URL built at run time, as the preview log's is, so the compiler
+ * leaves it to the root project, which compiles it.
  */
 
-/** A file of the runtime as the build ships it. */
+/** The runtime's file as the build ships it. */
 interface ShippedFile {
-  readonly build: string;
   readonly name: string;
   readonly bytes: Uint8Array;
   readonly sha256: string;
@@ -35,7 +34,7 @@ interface ShippedFile {
 interface InferenceRuntimeModule {
   readonly shippedRuntime: (folder: string) => {
     readonly path: string;
-    readonly files: readonly ShippedFile[];
+    readonly file: ShippedFile;
   };
   readonly runtimeModule: (
     runtime: ReturnType<InferenceRuntimeModule['shippedRuntime']>,
@@ -67,11 +66,16 @@ const { inferenceRuntime, runtimeModule, shippedRuntime } = loaded;
 
 let folder: string;
 
-/** The bytes made for each file of the runtime, by name. */
+/**
+ * The bytes made for each file of the installed runtime, by name: the CPU
+ * build's, and the WebGPU build's, which the installed package also holds.
+ */
 const BYTES = new Map([
   ['ort-wasm-simd-threaded.wasm', new Uint8Array([0, 97, 115, 109, 1, 2, 3])],
   ['ort-wasm-simd-threaded.asyncify.wasm', new Uint8Array([0, 97, 115, 109, 4, 5])],
 ]);
+
+const CPU_BYTES = BYTES.get('ort-wasm-simd-threaded.wasm') ?? new Uint8Array();
 
 function sha256Of(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
@@ -89,39 +93,30 @@ afterEach(() => {
 });
 
 describe('the inference runtime a build serves', () => {
-  it('ships the file the page asks for, for every runtime build', () => {
-    expect(Object.fromEntries(RUNTIME_FILES.map(({ build, name }) => [build, name]))).toEqual(
-      PAGE_RUNTIME_FILES,
-    );
+  it('ships the file the page asks for, the one build a session runs', () => {
+    expect(RUNTIME_FILE).toBe(PAGE_RUNTIME_FILE);
   });
 
-  it("states each build's SHA-256 from the bytes it ships, and the path it serves them at", () => {
+  it("states the file's SHA-256 from the bytes it ships, and the path it serves them at", () => {
     const runtime = shippedRuntime(folder);
 
     expect(runtime.path).toBe('inference/onnxruntime-web-9.8.7/');
-    expect(runtime.files.map(({ build, name, sha256 }) => ({ build, name, sha256 }))).toEqual([
-      {
-        build: 'cpu',
-        name: 'ort-wasm-simd-threaded.wasm',
-        sha256: sha256Of(BYTES.get('ort-wasm-simd-threaded.wasm') ?? new Uint8Array()),
-      },
-      {
-        build: 'webgpu',
-        name: 'ort-wasm-simd-threaded.asyncify.wasm',
-        sha256: sha256Of(BYTES.get('ort-wasm-simd-threaded.asyncify.wasm') ?? new Uint8Array()),
-      },
-    ]);
-    // The files the build-output gate holds a build to are the ones it serves.
-    expect(runtime.files.map(({ name }) => name)).toEqual([...RUNTIME_WEBASSEMBLY_FILES]);
+    const { name, sha256 } = runtime.file;
+    expect({ name, sha256 }).toEqual({
+      name: 'ort-wasm-simd-threaded.wasm',
+      sha256: sha256Of(CPU_BYTES),
+    });
+    // The file the build-output gate holds a build to is the one it serves.
+    expect(name).toBe(RUNTIME_WEBASSEMBLY_FILE);
 
     const stated = runtimeModule(runtime, '/sub/');
     expect(stated).toContain(
       'export const INFERENCE_RUNTIME_PATH = "/sub/inference/onnxruntime-web-9.8.7/";',
     );
-    for (const { sha256 } of runtime.files) expect(stated).toContain(`"${sha256}"`);
+    expect(stated).toContain(`export const INFERENCE_RUNTIME_SHA256 = "${sha256}";`);
   });
 
-  it('writes each file into the output at the path it states', () => {
+  it('writes the CPU build’s file into the output at the path it states, and no other', () => {
     const plugin = inferenceRuntime(() => folder);
     const emitted: { fileName?: string; source?: unknown }[] = [];
     const resolved = { base: '/' };
@@ -140,11 +135,11 @@ describe('the inference runtime a build serves', () => {
       [{}, {}, false],
     );
 
+    // The WebGPU build's 26.8 MB file was shipped though no session ran it.
     expect(emitted.map(({ fileName }) => fileName)).toEqual([
       'inference/onnxruntime-web-9.8.7/ort-wasm-simd-threaded.wasm',
-      'inference/onnxruntime-web-9.8.7/ort-wasm-simd-threaded.asyncify.wasm',
     ]);
-    expect(emitted.map(({ source }) => source)).toEqual([...BYTES.values()]);
+    expect(emitted.map(({ source }) => source)).toEqual([CPU_BYTES]);
   });
 
   it('refuses a runtime that states no version, rather than serve it under a guessed path', () => {

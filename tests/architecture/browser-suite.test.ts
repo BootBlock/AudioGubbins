@@ -172,6 +172,7 @@ const SPECS_OF_EACH_PROJECT: Readonly<Record<string, readonly string[]>> = {
   'chromium-core-editing': ['core-editing'],
   'chromium-analysis': ['analysis'],
   'chromium-effect-rack': ['effect-rack'],
+  'chromium-worker-policy': ['worker-policy'],
   'chromium-renderer': ['renderer-loss'],
   'chromium-renderer-webgpu': ['renderer-webgpu'],
   'chromium-renderer-reduced': ['renderer-reduced'],
@@ -340,6 +341,7 @@ describe('the browser matrix', () => {
       'tests/e2e/touch.spec.ts',
       'tests/e2e/transport.spec.ts',
       'tests/e2e/video-reference.spec.ts',
+      'tests/e2e/worker-policy.spec.ts',
     ]);
     expect(SPECS.flatMap((path) => tagsOf(path))).toContain('@scale');
   });

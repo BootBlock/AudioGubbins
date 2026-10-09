@@ -11,12 +11,13 @@ import {
   type RegionOperation,
 } from '@audiogubbins/domain';
 import {
-  TEST_CATALOGUE,
-  TEST_FILTER,
-  TEST_UPMIXER,
   deepestChain,
   expectFailureCode,
   expectSuccess,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
+  TEST_FILTER,
+  TEST_UPMIXER,
 } from '@audiogubbins/domain/testing';
 import type { ProjectState } from '@audiogubbins/project-format';
 import { sampleProject } from '@audiogubbins/test-fixtures';
@@ -339,7 +340,11 @@ describe('a chain through the rack commands', () => {
     const asset = next.project.assets.get(footstep.id);
     if (asset === undefined) throw new Error('The footstep is in the project.');
     const plan = expectSuccess(
-      assetPlan(asset, { chains: next.project.effectChains, catalogue: TEST_CATALOGUE }),
+      assetPlan(asset, {
+        chains: next.project.effectChains,
+        catalogue: TEST_CATALOGUE,
+        engine: TEST_ENGINE,
+      }),
     );
     const ran = plan.streams.flatMap((stream) =>
       stream.processing?.kind === 'chain' ? [stream.processing.chain] : [],
@@ -358,7 +363,11 @@ describe('a chain through the rack commands', () => {
     ).next;
     const asset = upmixing.project.assets.get(footstep.id);
     if (asset === undefined) throw new Error('The asset is still in the project.');
-    const context = { chains: upmixing.project.effectChains, catalogue: TEST_CATALOGUE };
+    const context = {
+      chains: upmixing.project.effectChains,
+      catalogue: TEST_CATALOGUE,
+      engine: TEST_ENGINE,
+    };
     expect(expectFailureCode(assetPlan(asset, context))).toBe('editing.rack-changes-layout');
   });
 

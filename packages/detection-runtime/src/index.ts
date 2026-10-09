@@ -21,5 +21,6 @@ export { ToDetectionWorkerKind, type ToDetectionWorker } from './detection-messa
 export {
   type AssistantReport,
   type DetectionResult,
+  type KindCount,
   type LearnedState,
 } from './detection-result.js';

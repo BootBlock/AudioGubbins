@@ -12,25 +12,25 @@
  */
 
 import {
-  FailureKind,
+  Malformed,
+  countAt,
   editPlanFrom,
-  fail,
-  failure,
-  qualityModeFrom,
-  succeed,
+  oneOf,
+  optionalFailureSummaryAt,
+  failureSummaryAt,
+  optionalTextAt,
+  qualityModeAt,
+  readMessage,
+  sampleArraysAt,
   type DomainResult,
   type EditPlan,
-  type QualitySettings,
+  type FailureSummary,
+  type MessageFields,
+  type QualityMode,
 } from '@audiogubbins/domain';
 
 import { mediaEntryFrom } from '../pcm/pcm-description.js';
 import type { MediaEntry } from '../pcm/plan-content.js';
-
-/** A failure as it crosses a thread: its code and its summary, which a clone can carry. */
-export interface CrossedFailure {
-  readonly code: string;
-  readonly summary: string;
-}
 
 /** The kinds of message a reader sends the preview worker. */
 export const ToPreviewKind = {
@@ -49,7 +49,7 @@ export type ToPreview =
       readonly plan: EditPlan;
       readonly place: number;
       readonly media: readonly MediaEntry[];
-      readonly quality: QualitySettings;
+      readonly quality: QualityMode;
       readonly reason: string | undefined;
     }
   | {
@@ -85,7 +85,7 @@ export type FromPreview =
       /** Whether `stream`'s render is kept, or why the cache declined it. */
       readonly kind: typeof FromPreviewKind.Ready;
       readonly stream: number;
-      readonly declined: CrossedFailure | undefined;
+      readonly declined: FailureSummary | undefined;
     }
   | {
       /** The frames read `read` asked for, one array per channel, transferred. */
@@ -97,96 +97,26 @@ export type FromPreview =
       /** Why read `read` could not be answered. */
       readonly kind: typeof FromPreviewKind.ReadFailed;
       readonly read: number;
-      readonly failure: CrossedFailure;
+      readonly failure: FailureSummary;
     };
 
-type Fields = Readonly<Record<string, unknown>>;
-
-/** Why a message could not be read, thrown inside a reader and caught by {@link readWith}. */
-class Unreadable extends Error {}
-
-function isFields(value: unknown): value is Fields {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function fieldsOf(value: unknown): Fields {
-  if (!isFields(value)) throw new Unreadable('it is not an object with named fields');
-  return value;
-}
-
-function countAt(fields: Fields, name: string): number {
-  const value = fields[name];
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    throw new Unreadable(`its ${name} is not a whole number of at least zero`);
-  }
-  return value;
-}
-
-function textAt(fields: Fields, name: string): string {
-  const value = fields[name];
-  if (typeof value !== 'string') throw new Unreadable(`its ${name} is not text`);
-  return value;
-}
-
-function optionalTextAt(fields: Fields, name: string): string | undefined {
-  return fields[name] === undefined ? undefined : textAt(fields, name);
-}
-
-function failureAt(fields: Fields, name: string): CrossedFailure {
-  const crossed = fieldsOf(fields[name]);
-  return { code: textAt(crossed, 'code'), summary: textAt(crossed, 'summary') };
-}
-
-function optionalFailureAt(fields: Fields, name: string): CrossedFailure | undefined {
-  return fields[name] === undefined ? undefined : failureAt(fields, name);
-}
-
-/** Whether a value is a `Float32Array`, by its tag, as a clone is made in the receiving realm. */
-function isSamples(value: unknown): value is Float32Array {
-  return Object.prototype.toString.call(value) === '[object Float32Array]';
-}
-
-function samplesAt(fields: Fields, name: string): readonly Float32Array[] {
-  const value = fields[name];
-  if (!Array.isArray(value) || !value.every(isSamples)) {
-    throw new Unreadable(`its ${name} is not a list of sample arrays`);
-  }
-  return value;
-}
-
-function planAt(fields: Fields): EditPlan {
+function planAt(fields: MessageFields): EditPlan {
   const plan = editPlanFrom(fields['plan']);
-  if (!plan.ok) throw new Unreadable(`its plan is not an edit plan (${plan.failures[0].summary})`);
+  if (!plan.ok) throw new Malformed('plan', `an edit plan (${plan.failures[0].summary})`);
   return plan.value;
 }
 
-function mediaAt(fields: Fields): readonly MediaEntry[] {
+function mediaAt(fields: MessageFields): readonly MediaEntry[] {
   const listed = fields['media'];
   const media = Array.isArray(listed) ? listed.map(mediaEntryFrom) : [undefined];
   if (!media.every((entry) => entry !== undefined)) {
-    throw new Unreadable('its media is not a list of the files a plan reads');
+    throw new Malformed('media', 'a list of the files a plan reads');
   }
   return media;
 }
 
-function qualityAt(fields: Fields): QualitySettings {
-  const mode = qualityModeFrom(fields['quality']);
-  if (!mode.ok) throw new Unreadable('its quality is not one a level offers');
-  return mode.value.settings;
-}
-
-function kindAt<TKind extends string>(
-  fields: Fields,
-  kinds: Readonly<Record<string, TKind>>,
-): TKind {
-  const kind = Object.values(kinds).find((one) => one === fields['kind']);
-  if (kind === undefined) throw new Unreadable('its kind is not one this protocol has');
-  return kind;
-}
-
-function toPreviewFrom(value: unknown): ToPreview {
-  const fields = fieldsOf(value);
-  const kind = kindAt(fields, ToPreviewKind);
+function toPreviewFrom(fields: MessageFields): ToPreview {
+  const kind = oneOf(fields, 'kind', ToPreviewKind);
   switch (kind) {
     case ToPreviewKind.Open:
       return {
@@ -195,7 +125,7 @@ function toPreviewFrom(value: unknown): ToPreview {
         plan: planAt(fields),
         place: countAt(fields, 'place'),
         media: mediaAt(fields),
-        quality: qualityAt(fields),
+        quality: qualityModeAt(fields, 'quality'),
         reason: optionalTextAt(fields, 'reason'),
       };
     case ToPreviewKind.Read:
@@ -214,40 +144,28 @@ function toPreviewFrom(value: unknown): ToPreview {
   }
 }
 
-function fromPreviewFrom(value: unknown): FromPreview {
-  const fields = fieldsOf(value);
-  const kind = kindAt(fields, FromPreviewKind);
+function fromPreviewFrom(fields: MessageFields): FromPreview {
+  const kind = oneOf(fields, 'kind', FromPreviewKind);
   switch (kind) {
     case FromPreviewKind.Ready:
       return {
         kind,
         stream: countAt(fields, 'stream'),
-        declined: optionalFailureAt(fields, 'declined'),
+        declined: optionalFailureSummaryAt(fields, 'declined'),
       };
     case FromPreviewKind.Samples:
-      return { kind, read: countAt(fields, 'read'), channels: samplesAt(fields, 'channels') };
+      return { kind, read: countAt(fields, 'read'), channels: sampleArraysAt(fields, 'channels') };
     case FromPreviewKind.ReadFailed:
-      return { kind, read: countAt(fields, 'read'), failure: failureAt(fields, 'failure') };
-  }
-}
-
-function readWith<T>(value: unknown, code: string, read: (value: unknown) => T): DomainResult<T> {
-  try {
-    return succeed(read(value));
-  } catch (error) {
-    if (!(error instanceof Unreadable)) throw error;
-    return fail(
-      failure(code, FailureKind.Rejected, `A preview message could not be read: ${error.message}.`),
-    );
+      return { kind, read: countAt(fields, 'read'), failure: failureSummaryAt(fields, 'failure') };
   }
 }
 
 /** A message the preview worker received, read, or why it cannot be. */
 export function readToPreview(value: unknown): DomainResult<ToPreview> {
-  return readWith(value, 'preview.message-malformed', toPreviewFrom);
+  return readMessage(value, 'preview.message-malformed', toPreviewFrom);
 }
 
 /** A message a reader received from the preview worker, read, or why it cannot be. */
 export function readFromPreview(value: unknown): DomainResult<FromPreview> {
-  return readWith(value, 'preview.reply-malformed', fromPreviewFrom);
+  return readMessage(value, 'preview.reply-malformed', fromPreviewFrom);
 }

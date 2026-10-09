@@ -94,7 +94,69 @@ function renumbered(chain: EffectChain): EditPlan {
   };
 }
 
+/**
+ * A plan `depth` streams deep in which each stream reads the next twice, as a
+ * rack edit and a cut over it make: stream 0 is heard, the last reads the
+ * file through the chain.
+ */
+function doublyRead(depth: number, chain: EffectChain): EditPlan {
+  const half = derivedSampleCount(LENGTH / 2);
+  const layout = StandardLayouts.mono;
+  const streams: EditPlan['streams'][number][] = [];
+  for (let place = 0; place < depth; place += 1) {
+    const source = { kind: 'stream' as const, stream: place + 1 };
+    streams.push({
+      sampleRate: RATE,
+      layout,
+      segments: [0, LENGTH / 2].map((start) => ({
+        source,
+        start: derivedSampleCount(start),
+        length: half,
+        reversed: false,
+        stages: [],
+      })),
+    });
+  }
+  const [, last] = rackedPlan(chain, LENGTH, RATE).streams;
+  const [first] = streams;
+  if (last === undefined || first === undefined) throw new Error('The plan has two streams.');
+  return { streams: [first, ...streams.slice(1), last] };
+}
+
 describe('the key a cached render is kept under', () => {
+  it('grows with the plan, not with the ways through it', () => {
+    // Each stream written once per reader made the text double at every
+    // level: 30 levels threw "Invalid string length".
+    const chain = chainOf(processor(VALUES));
+    const shallow = cachedStreamKey(request(doublyRead(15, chain), 0)).length;
+    const deep = cachedStreamKey(request(doublyRead(30, chain), 0)).length;
+    expect(deep).toBeLessThan(shallow * 3);
+  });
+
+  it('tells a stream read twice from two streams that sound different', () => {
+    const plan = doublyRead(1, chainOf(processor(VALUES)));
+    const [heard, read] = plan.streams;
+    if (read === undefined) throw new Error('The plan has two streams.');
+    const louder = chainOf(processor(new Map(VALUES).set(LEVEL, -3)));
+    const other = {
+      ...read,
+      processing: { kind: 'chain' as const, chain: louder, input: read.layout },
+    };
+    const [first, second] = heard.segments;
+    if (first === undefined || second === undefined) throw new Error('Stream 0 has two segments.');
+    const apart: EditPlan = {
+      streams: [
+        { ...heard, segments: [first, { ...second, source: { kind: 'stream', stream: 2 } }] },
+        read,
+        other,
+      ],
+    };
+    expect(cachedStreamKey(request(apart, 0))).not.toBe(cachedStreamKey(request(plan, 0)));
+    // The same plan with its second stream a copy of the first sounds the same.
+    const copied: EditPlan = { streams: [apart.streams[0], read, read] };
+    expect(cachedStreamKey(request(copied, 0))).toBe(cachedStreamKey(request(plan, 0)));
+  });
+
   it('changes with a parameter value, the quality and a model version', () => {
     const louder = new Map(VALUES).set(LEVEL, -3);
     expect(cachedStreamKey(request(rackedPlan(chainOf(processor(louder)), LENGTH, RATE)))).not.toBe(

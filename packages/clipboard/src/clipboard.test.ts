@@ -17,12 +17,13 @@ import {
   type PlanSegment,
 } from '@audiogubbins/domain';
 import {
-  PLAN_WITHOUT_CHAINS,
-  TEST_CATALOGUE,
   deepestChain,
   expectFailureCode,
   expectSuccess,
+  PLAN_WITHOUT_CHAINS,
   renderPlan,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
 } from '@audiogubbins/domain/testing';
 import {
   NESTED_ARGUMENT_LIMITS,
@@ -422,7 +423,9 @@ describe('a copy of a chain whose groups nest as deep as the domain allows', () 
         effectChains: chains,
       },
     };
-    const plan = expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE }));
+    const plan = expectSuccess(
+      assetPlan(racked, { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE }),
+    );
     const copy = expectSuccess(copyAudio(into, plan, { start: at(1_000), end: at(3_000) }));
     expect(copy.plan.streams.some((stream) => stream.processing?.kind === 'chain')).toBe(true);
 

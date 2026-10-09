@@ -30,7 +30,7 @@ import {
   type PcmSource,
   type ToPreview,
 } from '@audiogubbins/audio-engine';
-import { sampleCount, type DomainFailure } from '@audiogubbins/domain';
+import { sampleCount, type DomainFailure, type FailureSummary } from '@audiogubbins/domain';
 
 import type { PostToProcessor } from '../feed/feed-pump.js';
 import {
@@ -41,7 +41,6 @@ import {
   type ToFeeder,
 } from '../protocol/feeder-messages.js';
 import { readFromProcessorFeed } from '../protocol/feed-messages.js';
-import type { FailureSummary } from '../protocol/message-reading.js';
 import type { Schedule } from '../schedule.js';
 import type { DspChooser } from '../dsp/dsp-instance.js';
 import { BoundFeeds } from './feeder-binding.js';

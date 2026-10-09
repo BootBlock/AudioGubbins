@@ -18,6 +18,7 @@ const NO_CHAIN = failure(
 /** A rack's processing that runs no chain. */
 export const NO_CHAIN_PROCESSING: ChainProcessing = {
   listening: () => fail(NO_CHAIN),
+  measurementBytes: () => fail(NO_CHAIN),
   prepare: () => Promise.resolve(fail(NO_CHAIN)),
 };
 

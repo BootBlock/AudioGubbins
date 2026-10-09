@@ -25,6 +25,7 @@ import { decodeUtf8 } from '@audiogubbins/project-format';
 
 import type { ModelPackManifest } from '../manifest.js';
 import { readPackCatalogue } from '../catalogue-reading.js';
+import { CATALOGUE_FILE } from '../pack-path.js';
 import {
   sourceOverran,
   transferStopped,
@@ -66,9 +67,6 @@ export interface PackResponse {
 export type PackFetch = (url: string, request: PackRequest) => Promise<PackResponse>;
 
 declare const fetch: PackFetch;
-
-/** The catalogue's file under the catalogue's URL. */
-const CATALOGUE_FILE = 'catalogue.json';
 
 /** The longest catalogue read, past which its text is refused unread. */
 const LONGEST_CATALOGUE_BYTES = 4 * 1024 * 1024;

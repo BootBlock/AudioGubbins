@@ -19,33 +19,35 @@
  * whose far end crosses here in the `load`.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
+import {
+  bytesAt,
+  countAt,
+  failureSummaryOf,
+  flagAt,
+  nonEmptyObjectsAt,
+  numberAt,
+  numbersAt,
+  objectsAt,
+  oneOf,
+  optionalCountAt,
+  optionalTextAt,
+  readMessage,
+  textAt,
+  textsAt,
+  type DomainResult,
+  type FailureSummary,
+  type MessageFields,
+} from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
 import { DspImplementation } from '@audiogubbins/audio-engine';
 
 import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
-  bytesAt,
-  countAt,
   dspDeliveryAt,
-  failureSummaryFrom,
-  flagAt,
   graphAt,
-  listAt,
   nodeAt,
-  nonEmptyListAt,
-  numberAt,
-  numbersAt,
-  oneOf,
-  optionalCountAt,
   optionalPortAt,
-  optionalTextAt,
-  readMessage,
   sharedMemoryAt,
-  textAt,
-  textsAt,
-  type FailureSummary,
-  type Fields,
 } from './message-reading.js';
 
 /** How a graph input's audio reaches the processor. */
@@ -230,7 +232,7 @@ export type FromProcessor =
       readonly message: string;
     };
 
-function feedFrom(fields: Fields): FeedBinding {
+function feedFrom(fields: MessageFields): FeedBinding {
   const node = nodeAt(fields, 'node');
   const channels = countAt(fields, 'channels');
   const transport = oneOf(fields, 'transport', FeedTransport);
@@ -238,7 +240,7 @@ function feedFrom(fields: Fields): FeedBinding {
   return { node, transport, channels, ring: sharedMemoryAt(fields, 'ring') };
 }
 
-function meterFrom(fields: Fields): MeterReport {
+function meterFrom(fields: MessageFields): MeterReport {
   return {
     node: nodeAt(fields, 'node'),
     peak: numbersAt(fields, 'peak'),
@@ -247,11 +249,11 @@ function meterFrom(fields: Fields): MeterReport {
   };
 }
 
-function countedAt(fields: Fields): CountedPosition {
+function countedAt(fields: MessageFields): CountedPosition {
   return { contextFrame: countAt(fields, 'contextFrame'), position: countAt(fields, 'position') };
 }
 
-function toProcessorFrom(fields: Fields): ToProcessor {
+function toProcessorFrom(fields: MessageFields): ToProcessor {
   const kind = oneOf(fields, 'kind', ToProcessorKind);
   switch (kind) {
     case ToProcessorKind.Load:
@@ -259,7 +261,7 @@ function toProcessorFrom(fields: Fields): ToProcessor {
         kind,
         graph: graphAt(fields, 'graph'),
         dsp: dspDeliveryAt(fields, 'dsp', bytesAt),
-        feeds: listAt(fields, 'feeds', feedFrom),
+        feeds: objectsAt(fields, 'feeds', feedFrom),
         reportEveryBlocks: countAt(fields, 'reportEveryBlocks'),
         feeder: optionalPortAt(fields, 'feeder'),
       };
@@ -282,7 +284,7 @@ function toProcessorFrom(fields: Fields): ToProcessor {
   }
 }
 
-function fromProcessorFrom(fields: Fields): FromProcessor {
+function fromProcessorFrom(fields: MessageFields): FromProcessor {
   const kind = oneOf(fields, 'kind', FromProcessorKind);
   switch (kind) {
     case FromProcessorKind.Loaded:
@@ -306,14 +308,14 @@ function fromProcessorFrom(fields: Fields): FromProcessor {
         ...countedAt(fields),
         underrunFrames: countAt(fields, 'underrunFrames'),
         underruns: countAt(fields, 'underruns'),
-        meters: listAt(fields, 'meters', meterFrom),
+        meters: objectsAt(fields, 'meters', meterFrom),
       };
     case FromProcessorKind.ParameterRefused:
       return {
         kind,
         node: nodeAt(fields, 'node'),
         name: textAt(fields, 'name'),
-        failures: nonEmptyListAt(fields, 'failures', failureSummaryFrom),
+        failures: nonEmptyObjectsAt(fields, 'failures', failureSummaryOf),
       };
     case FromProcessorKind.Fault:
       return { kind, message: textAt(fields, 'message') };

@@ -24,9 +24,23 @@
  */
 
 import {
+  Malformed,
+  countAt,
+  failureSummaryOf,
+  flagAt,
   isWellFormedId,
+  nonEmptyObjectsAt,
+  numberAt,
+  objectsAt,
+  oneOf,
+  optionalTextAt,
+  qualityModeAt,
+  readMessage,
+  textAt,
   unsafeBrandId,
   type DomainResult,
+  type FailureSummary,
+  type MessageFields,
   type QualityMode,
 } from '@audiogubbins/domain';
 import type { GraphDescriptor, NodeId } from '@audiogubbins/audio-graph';
@@ -34,26 +48,12 @@ import { DspImplementation, type ParameterChange } from '@audiogubbins/audio-eng
 
 import type { DspDelivery } from '../dsp/dsp-delivery.js';
 import {
-  MalformedMessage,
-  countAt,
   dspDeliveryAt,
-  failureSummaryFrom,
-  flagAt,
   graphAt,
-  listAt,
   moduleAt,
   nodeAt,
-  nonEmptyListAt,
-  numberAt,
-  oneOf,
-  qualityAt,
-  optionalTextAt,
   portAt,
-  readMessage,
   sharedMemoryAt,
-  textAt,
-  type FailureSummary,
-  type Fields,
 } from './message-reading.js';
 import { FeedTransport } from './processor-messages.js';
 import { sourceFrom, type SourceDescription } from './source-descriptions.js';
@@ -200,13 +200,13 @@ export type FromFeeder =
     };
 
 /** An identifier of the domain's form, or the field it was read from refused. */
-function identifierAt(fields: Fields, field: string): string {
+function identifierAt(fields: MessageFields, field: string): string {
   const value = textAt(fields, field);
-  if (!isWellFormedId(value)) throw new MalformedMessage(field, 'an identifier');
+  if (!isWellFormedId(value)) throw new Malformed(field, 'an identifier');
   return value;
 }
 
-function parameterChangeFrom(fields: Fields): ParameterChange {
+function parameterChangeFrom(fields: MessageFields): ParameterChange {
   const value = numberAt(fields, 'value');
   return {
     stream: countAt(fields, 'stream'),
@@ -216,14 +216,14 @@ function parameterChangeFrom(fields: Fields): ParameterChange {
   };
 }
 
-function bindingFrom(fields: Fields): FeederBinding {
+function bindingFrom(fields: MessageFields): FeederBinding {
   const node = nodeAt(fields, 'node');
   const transport = oneOf(fields, 'transport', FeedTransport);
   if (transport === FeedTransport.Posted) return { node, transport };
   return { node, transport, ring: sharedMemoryAt(fields, 'ring') };
 }
 
-function toFeederFrom(fields: Fields): ToFeeder {
+function toFeederFrom(fields: MessageFields): ToFeeder {
   const kind = oneOf(fields, 'kind', ToFeederKind);
   switch (kind) {
     case ToFeederKind.Sources:
@@ -231,15 +231,15 @@ function toFeederFrom(fields: Fields): ToFeeder {
         kind,
         request: countAt(fields, 'request'),
         graph: graphAt(fields, 'graph'),
-        sources: listAt(fields, 'sources', sourceFrom),
-        quality: qualityAt(fields, 'quality'),
+        sources: objectsAt(fields, 'sources', sourceFrom),
+        quality: qualityModeAt(fields, 'quality'),
         dsp: dspDeliveryAt(fields, 'dsp', moduleAt),
       };
     case ToFeederKind.Bind:
       return {
         kind,
         request: countAt(fields, 'request'),
-        feeds: listAt(fields, 'feeds', bindingFrom),
+        feeds: objectsAt(fields, 'feeds', bindingFrom),
         feedAheadMilliseconds: numberAt(fields, 'feedAheadMilliseconds'),
         chunkFrames: countAt(fields, 'chunkFrames'),
         wakeMilliseconds: numberAt(fields, 'wakeMilliseconds'),
@@ -259,12 +259,12 @@ function toFeederFrom(fields: Fields): ToFeeder {
         kind,
         request: countAt(fields, 'request'),
         change: countAt(fields, 'change'),
-        changes: listAt(fields, 'changes', parameterChangeFrom),
+        changes: objectsAt(fields, 'changes', parameterChangeFrom),
       };
   }
 }
 
-function fromFeederFrom(fields: Fields): FromFeeder {
+function fromFeederFrom(fields: MessageFields): FromFeeder {
   const kind = oneOf(fields, 'kind', FromFeederKind);
   switch (kind) {
     case FromFeederKind.SourcesMade:
@@ -279,7 +279,7 @@ function fromFeederFrom(fields: Fields): FromFeeder {
       return {
         kind,
         request: countAt(fields, 'request'),
-        failures: nonEmptyListAt(fields, 'failures', failureSummaryFrom),
+        failures: nonEmptyObjectsAt(fields, 'failures', failureSummaryOf),
       };
     case FromFeederKind.Primed:
       return { kind, run: countAt(fields, 'run') };
@@ -296,7 +296,7 @@ function fromFeederFrom(fields: Fields): FromFeeder {
       return {
         kind,
         change: countAt(fields, 'change'),
-        refusals: listAt(fields, 'refusals', failureSummaryFrom),
+        refusals: objectsAt(fields, 'refusals', failureSummaryOf),
       };
   }
 }

@@ -3,11 +3,18 @@
  * list for each kind, open at first while it is short, each finding with the
  * control that selects its range on the timeline, its channels and its size
  * in words. The control runs the selection command; nothing here writes.
+ *
+ * A report holds the first findings of each kind and says how many there
+ * were (`MOST_FINDINGS_SHOWN`), and the list says how many it leaves out. A
+ * list's rows are made only once it is opened, so a closed list of hundreds
+ * costs the page nothing.
  */
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
+import type { KindCount } from '@audiogubbins/detection-runtime';
 import type { DetectorFinding, FindingKind } from '@audiogubbins/domain';
+import { counted } from '@audiogubbins/text';
 import type { EditorViewState } from '@audiogubbins/editor-view';
 import { formatPosition } from '@audiogubbins/timeline';
 
@@ -75,28 +82,33 @@ function FindingRow({
   );
 }
 
-/** The findings of a report, a list of each kind. */
-export function Findings({
-  findings,
+/** The findings of one kind: `count` of them, of which `ofKind` are held. */
+function KindList({
+  kind,
+  count,
+  ofKind,
   shown,
   commands,
 }: {
-  readonly findings: readonly DetectorFinding[];
+  readonly kind: FindingKind;
+  readonly count: number;
+  readonly ofKind: readonly DetectorFinding[];
   readonly shown: Shown;
   readonly commands: PanelCommands;
 }): ReactNode {
-  if (findings.length === 0) return <p>It found nothing.</p>;
-  const byKind = new Map<FindingKind, DetectorFinding[]>();
-  for (const finding of findings) {
-    const ofKind = byKind.get(finding.kind);
-    if (ofKind === undefined) byKind.set(finding.kind, [finding]);
-    else ofKind.push(finding);
-  }
+  const [open, setOpen] = useState(count <= OPEN_UP_TO);
+  const left = count - ofKind.length;
   return (
-    <>
-      {[...byKind].map(([kind, ofKind]) => (
-        <details key={kind} className="ag-analysis-kind" open={ofKind.length <= OPEN_UP_TO}>
-          <summary>{`${kindHeading(kind)}: ${String(ofKind.length)}`}</summary>
+    <details
+      className="ag-analysis-kind"
+      open={open}
+      onToggle={(event) => {
+        setOpen(event.currentTarget.open);
+      }}
+    >
+      <summary>{`${kindHeading(kind)}: ${String(count)}`}</summary>
+      {open ? (
+        <>
           <ul className="ag-analysis-findings">
             {ofKind.map((finding) => (
               <FindingRow
@@ -107,7 +119,41 @@ export function Findings({
               />
             ))}
           </ul>
-        </details>
+          {left > 0 ? (
+            <p className="ag-panel-note">
+              {`The first ${String(ofKind.length)} are listed, and ${counted(left, 'more is', 'more are')} left out. Analyse a shorter range to list them.`}
+            </p>
+          ) : null}
+        </>
+      ) : null}
+    </details>
+  );
+}
+
+/** The findings of a report, a list of each kind, `found` saying how many of each there are. */
+export function Findings({
+  findings,
+  found,
+  shown,
+  commands,
+}: {
+  readonly findings: readonly DetectorFinding[];
+  readonly found: readonly KindCount[];
+  readonly shown: Shown;
+  readonly commands: PanelCommands;
+}): ReactNode {
+  if (found.length === 0) return <p>It found nothing.</p>;
+  return (
+    <>
+      {found.map(({ kind, count }) => (
+        <KindList
+          key={kind}
+          kind={kind}
+          count={count}
+          ofKind={findings.filter((finding) => finding.kind === kind)}
+          shown={shown}
+          commands={commands}
+        />
       ))}
     </>
   );

@@ -13,7 +13,12 @@ import {
   type EditOperation,
   type EditPlan,
 } from '@audiogubbins/domain';
-import { TEST_CATALOGUE, deepestChain, expectSuccess } from '@audiogubbins/domain/testing';
+import {
+  deepestChain,
+  expectSuccess,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
+} from '@audiogubbins/domain/testing';
 import { sampleProject } from '@audiogubbins/test-fixtures';
 
 import { readAssetRecord, writeAssetRecord, type AssetRecord } from './asset-record-json.js';
@@ -180,7 +185,11 @@ function deepestAsset(): Asset {
   };
   const base = assetOf([conversion]);
   const rack = deepestChain(IDS);
-  const context = { chains: new Map([[rack.id, rack]]), catalogue: TEST_CATALOGUE };
+  const context = {
+    chains: new Map([[rack.id, rack]]),
+    catalogue: TEST_CATALOGUE,
+    engine: TEST_ENGINE,
+  };
   const payload: EditPlan = expectSuccess(
     slicePlan(expectSuccess(assetPlan({ ...base, rack: rack.id }, context)), 0, 1_000),
   );
@@ -246,6 +255,20 @@ describe('an edit-model value read alone refuses', () => {
       { id: '0000aaaa', kind: 'delete', range, at: 4 },
       'schema.unknown-member',
       'value',
+    ],
+    [
+      'a stretch that names no version of the stretch it was made by',
+      readEditOperation,
+      { id: '0000aaaa', kind: 'stretch', range, length: 20 },
+      'schema.missing-member',
+      'value.version',
+    ],
+    [
+      'a conversion of rate made by version 0 of the resampler, which no build has',
+      readEditOperation,
+      { id: '0000aaaa', kind: 'convert-rate', sampleRate: 44_100, version: 0 },
+      'schema.number-out-of-range',
+      'value.version',
     ],
     [
       'a kind the domain does not name',

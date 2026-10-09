@@ -16,7 +16,7 @@
 
 export { expectFailureCode, expectSuccess } from './unwrap.js';
 export { type OracleWorld, type Samples, applyEdit } from './edit-oracle.js';
-export { PLAN_WITHOUT_CHAINS } from './plan-context.js';
+export { PLAN_WITHOUT_CHAINS, TEST_ENGINE } from './plan-context.js';
 export { deepestChain, nestedGroups } from './deep-chains.js';
 export {
   CUTOFF,

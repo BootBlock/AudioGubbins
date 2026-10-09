@@ -46,33 +46,14 @@ function registryOf(environment: Partial<CapabilityEnvironment> = {}): Capabilit
 }
 
 describe('localInferenceCapabilities', () => {
-  it('offers SIMD, WebGPU and a thread for each processor on a device that has them all', () => {
-    expect(localInferenceCapabilities(registryOf(), { hardwareConcurrency: 8 })).toEqual({
-      fixedWidthSimd: true,
-      threads: 8,
-      webGpu: true,
-    });
-  });
-
-  it('offers one thread where memory cannot be shared, however many processors there are', () => {
-    const answer = localInferenceCapabilities(registryOf({ isCrossOriginIsolated: false }), {
-      hardwareConcurrency: 8,
-    });
-    expect(answer.threads).toBe(1);
-  });
-
-  it('offers one thread where the browser does not say how many processors it has', () => {
-    expect(localInferenceCapabilities(registryOf(), {}).threads).toBe(1);
+  it('offers SIMD on a device that has it', () => {
+    expect(localInferenceCapabilities(registryOf())).toEqual({ fixedWidthSimd: true });
   });
 
   it('offers no SIMD where the page may not compile WebAssembly, though its engine knows the instructions', () => {
     const forbidden = registryOf({ compilesWebAssembly: false, validatesWebAssemblySimd: true });
     const unknown = registryOf({ validatesWebAssemblySimd: false });
-    expect(localInferenceCapabilities(forbidden, { hardwareConcurrency: 4 }).fixedWidthSimd).toBe(
-      false,
-    );
-    expect(localInferenceCapabilities(unknown, { hardwareConcurrency: 4 }).fixedWidthSimd).toBe(
-      false,
-    );
+    expect(localInferenceCapabilities(forbidden).fixedWidthSimd).toBe(false);
+    expect(localInferenceCapabilities(unknown).fixedWidthSimd).toBe(false);
   });
 });

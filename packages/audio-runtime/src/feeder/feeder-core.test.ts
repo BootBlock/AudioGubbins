@@ -328,7 +328,7 @@ describe('the feeder', () => {
       'A message to the feeder could not be received, so what it feeds is in doubt.',
       'A message from the audio processor could not be received by the feeder, so how much audio it holds is in doubt.',
       'The feeder was bound to request 9, whose sources it does not have.',
-      "A message from the audio processor could not be read: The message's epoch is not a finite number.",
+      "A message from the audio processor could not be read: The message's epoch is not a whole number, zero or more.",
     ]);
   });
 });

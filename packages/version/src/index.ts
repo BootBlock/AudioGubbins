@@ -23,8 +23,8 @@ export const SCHEMA_VERSIONS = {
   audioSettings: 2,
   editorViews: 1,
   diagnosticBundle: 1,
-  projectDocument: 3,
-  projectStorage: 7,
+  projectDocument: 4,
+  projectStorage: 8,
   processingLibrary: 1,
   portableBundle: 2,
 } as const satisfies Record<string, number>;

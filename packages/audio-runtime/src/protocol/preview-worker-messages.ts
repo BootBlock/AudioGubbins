@@ -11,20 +11,20 @@
  * read field by field on arrival.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
-import { CachePurpose, RenderPhase, type RenderReport } from '@audiogubbins/audio-engine';
-
 import {
-  MalformedMessage,
+  Malformed,
   countAt,
   itemsAt,
-  listAt,
+  objectsAt,
   oneOf,
   optionalTextAt,
-  portAt,
   readMessage,
-  type Fields,
-} from './message-reading.js';
+  type DomainResult,
+  type MessageFields,
+} from '@audiogubbins/domain';
+import { CachePurpose, RenderPhase, type RenderReport } from '@audiogubbins/audio-engine';
+
+import { portAt } from './message-reading.js';
 
 /** The kinds of message the page sends the preview worker. */
 export const ToPreviewWorkerKind = {
@@ -62,12 +62,12 @@ export interface FromPreviewWorker {
 function purposeFrom(item: unknown, name: string): CachePurpose {
   const purpose = Object.values(CachePurpose).find((one) => one === item);
   if (purpose === undefined) {
-    throw new MalformedMessage(name, `one of ${Object.values(CachePurpose).join(', ')}`);
+    throw new Malformed(name, `one of ${Object.values(CachePurpose).join(', ')}`);
   }
   return purpose;
 }
 
-function reportFrom(fields: Fields): RenderReport {
+function reportFrom(fields: MessageFields): RenderReport {
   return {
     id: countAt(fields, 'id'),
     phase: oneOf(fields, 'phase', RenderPhase),
@@ -79,7 +79,7 @@ function reportFrom(fields: Fields): RenderReport {
   };
 }
 
-function toPreviewWorkerFrom(fields: Fields): ToPreviewWorker {
+function toPreviewWorkerFrom(fields: MessageFields): ToPreviewWorker {
   const kind = oneOf(fields, 'kind', ToPreviewWorkerKind);
   switch (kind) {
     case ToPreviewWorkerKind.Connect:
@@ -94,10 +94,10 @@ function toPreviewWorkerFrom(fields: Fields): ToPreviewWorker {
   }
 }
 
-function fromPreviewWorkerFrom(fields: Fields): FromPreviewWorker {
+function fromPreviewWorkerFrom(fields: MessageFields): FromPreviewWorker {
   return {
     kind: oneOf(fields, 'kind', FromPreviewWorkerKind),
-    renders: listAt(fields, 'renders', reportFrom),
+    renders: objectsAt(fields, 'renders', reportFrom),
     begun: countAt(fields, 'begun'),
   };
 }

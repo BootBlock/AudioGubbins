@@ -26,7 +26,7 @@ import {
   released,
   type InferencePort,
   type InferenceSession,
-  type ModelBytes,
+  type ModelSource,
 } from '../inference-port.js';
 import type { Tensor, TensorInfo } from '../tensor.js';
 
@@ -39,11 +39,7 @@ export interface FakeModel {
 }
 
 /** A device that offers the runtime everything. */
-export const EVERY_CAPABILITY: InferenceCapabilities = {
-  fixedWidthSimd: true,
-  threads: 8,
-  webGpu: true,
-};
+export const EVERY_CAPABILITY: InferenceCapabilities = { fixedWidthSimd: true };
 
 /** The identity the fake says it is, a runtime no render could have run on. */
 export const FAKE_RUNTIME: RuntimeIdentity = {
@@ -115,19 +111,23 @@ export class FakeInference implements InferencePort {
     return this.#open;
   }
 
-  open(
-    _model: ModelBytes,
+  async open(
+    model: ModelSource,
     options: InferenceOptions,
     signal?: CancellationSignal,
   ): Promise<DomainResult<InferenceSession>> {
-    if (signal?.aborted === true) return Promise.resolve(cancelled());
-    const refusal = capabilityRefusal(options, this.#capabilities);
-    if (refusal !== undefined) return Promise.resolve(fail(refusal));
+    if (signal?.aborted === true) return cancelled();
+    const refusal = capabilityRefusal(this.#capabilities);
+    if (refusal !== undefined) return fail(refusal);
+    // Read, as a runtime reads them to load the model, though the fake runs
+    // its arithmetic rather than the bytes.
+    const read = await model.read(signal);
+    if (!read.ok) return read;
     this.opened.push(options);
     this.#open += 1;
     const session = new FakeSession(this.#model, { options, runtime: this.#runtime }, () => {
       this.#open -= 1;
     });
-    return Promise.resolve(succeed(session));
+    return succeed(session);
   }
 }

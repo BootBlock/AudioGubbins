@@ -163,9 +163,10 @@ export function unrackedRegionPlan(
 export function bypassedRegionPlan(
   asset: Asset,
   region: Region,
+  context: PlanContext,
   resolver = anchorResolver(asset),
 ): DomainResult<EditPlan> {
-  return mapResult(bypassedAssetPlan(asset, region.operations), (whole) =>
+  return mapResult(bypassedAssetPlan(asset, context, region.operations), (whole) =>
     pruneStreams(regionSlice(whole, resolver, region)),
   );
 }

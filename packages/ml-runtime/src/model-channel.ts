@@ -7,11 +7,11 @@
  * are made once with it, and the page connects it with the first message it
  * sends the thread's scope (`MODEL_CHANNEL`), which the thread hands here
  * before its own protocol reads anything. Inference runs through a
- * `WorkerInference` whose connections to each configuration's worker are
- * channels this thread makes and the page hands on, so tensors go straight to
- * the worker; a file is asked of the page, which reads it from the storage and
- * answers with its bytes and their SHA-256, transferred. Until the page
- * connects it, and after the channel fails, every call is answered with why.
+ * `WorkerInference` whose connection to the worker is a channel this thread
+ * makes and the page hands on, so tensors go straight to the worker; a file is
+ * asked of the page, which reads it from the storage and answers with its bytes
+ * and their SHA-256, transferred. Until the page connects it, and after the
+ * channel fails, every call is answered with why.
  */
 
 import {
@@ -32,6 +32,7 @@ import {
   type InferencePort,
   type InferenceSession,
   type ModelBytes,
+  type ModelSource,
 } from './inference-port.js';
 import {
   FromModelThreadKind,
@@ -111,9 +112,9 @@ export class ModelChannel implements InferencePort {
     port.start();
     this.#inference = new WorkerInference({
       capabilities,
-      connect: (configuration) => {
+      connect: () => {
         const { port1, port2 } = this.#createChannel();
-        this.#post({ kind: FromModelThreadKind.Inference, configuration, port: port2 }, [port2]);
+        this.#post({ kind: FromModelThreadKind.Inference, port: port2 }, [port2]);
         return channelWorkerPort(port1);
       },
     });
@@ -121,7 +122,7 @@ export class ModelChannel implements InferencePort {
   }
 
   open(
-    model: ModelBytes,
+    model: ModelSource,
     options: InferenceOptions,
     signal?: CancellationSignal,
   ): Promise<DomainResult<InferenceSession>> {
@@ -170,7 +171,7 @@ export class ModelChannel implements InferencePort {
     }
     const message = read.value;
     if (message.kind === ToModelChannelKind.InferenceFailed) {
-      this.#inference?.failed(message.configuration, message.reason);
+      this.#inference?.failed(message.reason);
       return;
     }
     const settle = this.#pending.get(message.call);

@@ -19,6 +19,7 @@ import type {
   InferencePort,
   InferenceSession,
   ModelBytes,
+  ModelSource,
   Tensor,
 } from '@audiogubbins/ml-runtime';
 
@@ -320,7 +321,7 @@ function failingRun(inner: FakeModels, failAt: number, during: () => void = () =
   const port = {
     inner,
     ran: 0,
-    async open(model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) {
+    async open(model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) {
       const opened = await inner.open(model, options, signal);
       if (!opened.ok) return opened;
       const session = opened.value;

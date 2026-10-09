@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { DomainResult } from '@audiogubbins/domain';
 
-import { RuntimeBuild } from '../inference-options.js';
 import {
   OriginRuntimeFiles,
   type RuntimeFileFetch,
@@ -27,12 +26,11 @@ describe(
   'the runtime files read from the application’s own origin',
   { tags: ['ml-locality'] },
   () => {
-    it('asks for the build’s file under the files base, with no credential, header, referrer or redirect, and nowhere but the origin', async () => {
+    it('asks for the runtime’s file under the files base, with no credential, header, referrer or redirect, and nowhere but the origin', async () => {
       const request = answering(bodyOf([0, 97, 115, 109]));
       const files = new OriginRuntimeFiles(BASE, request);
 
-      const cpu = await files.read(RuntimeBuild.Cpu);
-      await files.read(RuntimeBuild.WebGpu);
+      const cpu = await files.read();
 
       expect(cpu).toEqual({ ok: true, value: new Uint8Array([0, 97, 115, 109]) });
       const init = {
@@ -42,10 +40,7 @@ describe(
         redirect: 'error',
         referrerPolicy: 'no-referrer',
       };
-      expect(request.mock.calls).toEqual([
-        [`${BASE}ort-wasm-simd-threaded.wasm`, init],
-        [`${BASE}ort-wasm-simd-threaded.asyncify.wasm`, init],
-      ]);
+      expect(request.mock.calls).toEqual([[`${BASE}ort-wasm-simd-threaded.wasm`, init]]);
     });
 
     it('calls the platform’s fetch as a function, which a browser refuses as a method of another object', async () => {
@@ -57,7 +52,7 @@ describe(
       }
       const files = new OriginRuntimeFiles(BASE, platformFetch);
 
-      expect(await files.read(RuntimeBuild.Cpu)).toEqual({
+      expect(await files.read()).toEqual({
         ok: true,
         value: new Uint8Array([0, 97, 115, 109]),
       });
@@ -65,7 +60,7 @@ describe(
 
     it('answers a status other than 200 as the file being unavailable, with the status', async () => {
       const files = new OriginRuntimeFiles(BASE, answering({ ...bodyOf([1]), status: 404 }));
-      const read = await files.read(RuntimeBuild.Cpu);
+      const read = await files.read();
       expect(codesOf(read)).toEqual(['inference.runtime-file-unavailable']);
       expect(read.ok ? undefined : read.failures[0].details).toEqual({
         file: 'ort-wasm-simd-threaded.wasm',
@@ -85,12 +80,10 @@ describe(
         }),
       );
 
-      const before = await refused.read(RuntimeBuild.Cpu);
+      const before = await refused.read();
       expect(codesOf(before)).toEqual(['inference.runtime-file-unavailable']);
       expect(before.ok ? '' : before.failures[0].summary).toMatch(/Failed to fetch/);
-      expect(codesOf(await broken.read(RuntimeBuild.Cpu))).toEqual([
-        'inference.runtime-file-unavailable',
-      ]);
+      expect(codesOf(await broken.read())).toEqual(['inference.runtime-file-unavailable']);
     });
   },
 );

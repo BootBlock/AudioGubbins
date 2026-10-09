@@ -32,6 +32,7 @@ import { memorySource } from './memory-source.js';
 import { PcmDescriptionKind, describedSource, pcmDescription } from './pcm-description.js';
 import type { PcmSource } from './pcm-source.js';
 import { resampledSource } from './resampled-source.js';
+import { ENGINE_VERSIONS } from '../dsp/algorithm-versions.js';
 
 const RATE = expectSuccess(sampleRate(48_000));
 const OTHER = expectSuccess(sampleRate(44_100));
@@ -215,6 +216,7 @@ describe('an edited source', () => {
           kind: 'stretch',
           range: { start: derivedSampleCount(2_000), end: derivedSampleCount(6_000) },
           length: derivedSampleCount(8_000),
+          version: ENGINE_VERSIONS.stretch,
         },
       ],
     };

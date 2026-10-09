@@ -15,10 +15,12 @@ import {
   cancellationReason,
   fail,
   failure,
+  qualityModeOf,
   succeed,
   type CancellationSignal,
   type DomainFailure,
   type DomainResult,
+  type FailureSummary,
 } from '@audiogubbins/domain';
 
 import type { CachedStream, CachedStreamRequest, CachedStreams } from '../pcm/cached-streams.js';
@@ -27,7 +29,6 @@ import {
   FromPreviewKind,
   ToPreviewKind,
   readFromPreview,
-  type CrossedFailure,
   type FromPreview,
   type ToPreview,
 } from './preview-messages.js';
@@ -40,7 +41,7 @@ interface PendingRead {
   readonly reject: (error: Error) => void;
 }
 
-function asFailure(crossed: CrossedFailure): DomainFailure {
+function asFailure(crossed: FailureSummary): DomainFailure {
   return failure(crossed.code, FailureKind.Rejected, crossed.summary);
 }
 
@@ -78,7 +79,7 @@ export class PreviewClient implements CachedStreams {
       plan: request.plan,
       place: request.place,
       media: request.media,
-      quality: request.quality,
+      quality: qualityModeOf(request.quality),
       reason: request.reason,
     });
     let released = false;
@@ -129,7 +130,9 @@ export class PreviewClient implements CachedStreams {
   #receive(data: unknown): void {
     const read = readFromPreview(data);
     if (!read.ok) {
-      this.#break(read.failures[0].summary);
+      this.#break(
+        `A message from the preview worker could not be read: ${read.failures[0].summary}`,
+      );
       return;
     }
     this.#act(read.value);

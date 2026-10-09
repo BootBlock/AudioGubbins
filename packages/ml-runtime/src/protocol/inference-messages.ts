@@ -5,13 +5,16 @@
  * thread that runs models, by a channel of the thread's own
  * (`ToInferenceThread`), and lets a thread's channels go once the thread has
  * gone. Over each channel the thread opens sessions and runs them by call
- * (`ToInferenceWorker`): a session is known by the call that opened it. The
- * worker answers every call but an open the thread cancelled, whose session it
- * lets go instead; the thread has answered a cancelled call itself, and passes
- * over a late answer to it, letting go a session that opened before the cancel
- * arrived. Tensors cross as their floats and dimensions, their buffers
- * transferred rather than copied. Every message is read field by field on
- * arrival (`inference-message-reading.ts`).
+ * (`ToInferenceWorker`): a session is known by the call that opened it. An open
+ * names the model's file by its SHA-256, and the worker asks for the file's
+ * bytes only where it has no session on that file to share; the thread then
+ * reads and sends them, transferred. The worker answers every call but an open
+ * the thread cancelled, whose session it lets go instead; the thread has
+ * answered a cancelled call itself, and passes over a late answer to it,
+ * letting go a session that opened before the cancel arrived. Tensors cross as
+ * their floats and dimensions, their buffers transferred rather than copied.
+ * Every message is read field by field on arrival
+ * (`inference-message-reading.ts`).
  */
 
 import type { DomainFailure } from '@audiogubbins/domain';
@@ -59,6 +62,7 @@ export type ToInferenceThread =
 /** The kinds of message the inference worker is sent over a thread's channel. */
 export const ToInferenceWorkerKind = {
   Open: 'open',
+  Model: 'model',
   Run: 'run',
   Cancel: 'cancel',
   Release: 'release',
@@ -69,8 +73,15 @@ export type ToInferenceWorker =
   | {
       readonly kind: typeof ToInferenceWorkerKind.Open;
       readonly call: number;
-      readonly model: ModelBytes;
+      /** The SHA-256 of the model's file, which the thread holds its bytes to. */
+      readonly sha256: string;
       readonly options: InferenceOptions;
+    }
+  | {
+      /** The bytes of the file an open's call names, which the worker asked for. */
+      readonly kind: typeof ToInferenceWorkerKind.Model;
+      readonly call: number;
+      readonly model: ModelBytes;
     }
   | {
       readonly kind: typeof ToInferenceWorkerKind.Run;
@@ -91,6 +102,7 @@ export type ToInferenceWorker =
 
 /** The kinds of message the inference worker sends over a thread's channel. */
 export const FromInferenceWorkerKind = {
+  ModelWanted: 'model-wanted',
   Opened: 'opened',
   Ran: 'ran',
   Failed: 'failed',
@@ -102,6 +114,11 @@ export type InferenceFailures = readonly [DomainFailure, ...DomainFailure[]];
 
 /** A message the inference worker sends over a thread's channel. */
 export type FromInferenceWorker =
+  | {
+      /** The open `call` needs the model's bytes: the worker has no session on its file to share. */
+      readonly kind: typeof FromInferenceWorkerKind.ModelWanted;
+      readonly call: number;
+    }
   | {
       /** A session is open, known from now on by the call that opened it. */
       readonly kind: typeof FromInferenceWorkerKind.Opened;

@@ -25,14 +25,28 @@ import type { Tensor, TensorInfo } from './tensor.js';
 /** A model's ONNX bytes, in memory of their own. */
 export type ModelBytes = Uint8Array<ArrayBuffer>;
 
+/**
+ * A model's file, known by the SHA-256 of its bytes. A port that already holds
+ * a session on the same file with the same options may share it, and then
+ * never reads the bytes, which are read from storage and hashed on the way.
+ */
+export interface ModelSource {
+  /** The SHA-256 of the file's bytes, in lowercase hexadecimal, which `read` holds them to. */
+  readonly sha256: string;
+  /**
+   * The file's bytes, checked against {@link sha256} as they were read, or why
+   * they cannot be had. Called at most once, and only by a port opening a
+   * session afresh, which then owns them: they may be transferred to another
+   * thread, leaving the caller's copy empty.
+   */
+  readonly read: (signal?: CancellationSignal) => Promise<DomainResult<ModelBytes>>;
+}
+
 /** Opens sessions on models. */
 export interface InferencePort {
-  /**
-   * A session on `model`, run as `options` say, or why there is none. The
-   * model's bytes are read, never kept or taken: the caller may open it again.
-   */
+  /** A session on `model`, run as `options` say, or why there is none. */
   open(
-    model: ModelBytes,
+    model: ModelSource,
     options: InferenceOptions,
     signal?: CancellationSignal,
   ): Promise<DomainResult<InferenceSession>>;

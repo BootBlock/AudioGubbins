@@ -11,13 +11,19 @@
  * the processor's is, since a worker that never started never answers.
  */
 
-import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
+import {
+  FailureKind,
+  fail,
+  failure,
+  succeed,
+  type DomainResult,
+  type FailureSummary,
+} from '@audiogubbins/domain';
 import type { Logger } from '@audiogubbins/diagnostics';
 import type { ParameterChange } from '@audiogubbins/audio-engine';
 
 import { deliveredAs, type CompiledDspModule, type DspDelivery } from '../dsp/dsp-delivery.js';
 import { FromFeederKind, ToFeederKind, type FromFeeder } from '../protocol/feeder-messages.js';
-import type { FailureSummary } from '../protocol/message-reading.js';
 import { sourceTransferables } from '../protocol/source-descriptions.js';
 import type { Schedule } from '../schedule.js';
 import type { FeederLink } from './feeder-link.js';

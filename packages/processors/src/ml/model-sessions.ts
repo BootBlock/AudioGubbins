@@ -18,7 +18,12 @@ import {
   type CancellationSignal,
   type DomainResult,
 } from '@audiogubbins/domain';
-import type { InferencePort, InferenceSession, Tensor } from '@audiogubbins/ml-runtime';
+import type {
+  InferencePort,
+  InferenceSession,
+  ModelSource,
+  Tensor,
+} from '@audiogubbins/ml-runtime';
 
 import { fileRefusal, runtimeRefusal, type ModelDefinition } from './model-definition.js';
 import type { ModelLibrary } from './model-library.js';
@@ -83,9 +88,11 @@ export class ModelSessions {
  * The model `definition` names, opened in a session for each of its files, or
  * why it cannot be: a file the library cannot give or that is not the one the
  * build runs, a session the runtime refuses, or a runtime that is not the build
- * the model is pinned to. Files are read and opened one at a time, so a pass
- * holds one file's bytes at once beside the sessions. A cancellation throws, as
- * every cancelled pass does.
+ * the model is pinned to. Each file is named to the port by the SHA-256 the
+ * definition pins, and read and checked only where the port has no session on
+ * it to share; files are opened one at a time, so a pass holds one file's bytes
+ * at once beside the sessions. A cancellation throws, as every cancelled pass
+ * does.
  */
 export async function openModel(
   definition: ModelDefinition,
@@ -96,13 +103,17 @@ export async function openModel(
   const opened = new Map<string, InferenceSession>();
   let kept = false;
   try {
-    for (const { path } of definition.files) {
-      const file = await services.models.file(pack, version, path, signal);
-      throwIfCancelled(signal);
-      if (!file.ok) return file;
-      const checked = fileRefusal(definition, path, file.value);
-      if (!checked.ok) return checked;
-      const session = await services.inference.open(file.value.bytes, definition.inference, signal);
+    for (const { path, sha256 } of definition.files) {
+      const model: ModelSource = {
+        sha256,
+        read: async (reading) => {
+          const file = await services.models.file(pack, version, path, reading);
+          if (!file.ok) return file;
+          const checked = fileRefusal(definition, path, file.value);
+          return checked.ok ? succeed(file.value.bytes) : checked;
+        },
+      };
+      const session = await services.inference.open(model, definition.inference, signal);
       if (session.ok) opened.set(path, session.value);
       throwIfCancelled(signal);
       if (!session.ok) return session;

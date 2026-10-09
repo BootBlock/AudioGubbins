@@ -7,21 +7,25 @@
  * reader holds is never given up under it, so the bound is met by giving up
  * renders nothing holds, the least recently used first, and a render that
  * cannot fit beside those held is declined rather than kept over the bound.
+ * What a value takes may fall while it is kept, as a render's does once it
+ * is made and lets go of the memory its making held, and never rise, so a
+ * value admitted within the bound stays within it.
  */
 
 import { FailureKind, fail, failure, succeed, type DomainResult } from '@audiogubbins/domain';
 
 /** What the cache needs of what it keeps. */
 export interface Kept {
-  /** Bytes it takes, fixed for its life. */
+  /** Bytes it takes: at most what it took when it was admitted. */
   readonly bytes: number;
   /** Lets go of it once given up: a render still being made stops. */
   discard(): void;
 }
 
-/** One kept value, and how many readers hold it. */
+/** One kept value, the bytes it is counted at, and how many readers hold it. */
 interface Entry<T extends Kept> {
   readonly value: T;
+  bytes: number;
   holders: number;
 }
 
@@ -71,12 +75,12 @@ export class RenderCache<T extends Kept> {
         failure(
           'preview.render-too-long',
           FailureKind.Rejected,
-          `Its render would take ${mebibytes(value.bytes)}, more than the ${mebibytes(this.bound)} kept for previews.`,
+          `Its render would take ${mebibytes(value.bytes)} while it is made, more than the ${mebibytes(this.bound)} kept for previews.`,
         ),
       );
     }
     const free = [...this.#entries].filter(([, entry]) => entry.holders === 0);
-    const freeable = free.reduce((total, [, entry]) => total + entry.value.bytes, 0);
+    const freeable = free.reduce((total, [, entry]) => total + entry.bytes, 0);
     if (this.#bytes - freeable + value.bytes > this.bound) {
       return fail(
         failure(
@@ -90,9 +94,22 @@ export class RenderCache<T extends Kept> {
       if (this.#bytes + value.bytes <= this.bound) break;
       this.#forget(unheld, entry);
     }
-    this.#entries.set(key, { value, holders: 1 });
+    this.#entries.set(key, { value, bytes: value.bytes, holders: 1 });
     this.#bytes += value.bytes;
     return succeed(undefined);
+  }
+
+  /**
+   * Counts the value under `key` at what it takes now, which has fallen. A
+   * value that says it takes more is a fault in it: it was admitted for less.
+   */
+  recount(key: string, value: T): void {
+    const entry = this.#entries.get(key);
+    if (entry?.value !== value) return;
+    if (value.bytes > entry.bytes)
+      throw new Error('A kept value never grows past what it was admitted at.');
+    this.#bytes -= entry.bytes - value.bytes;
+    entry.bytes = value.bytes;
   }
 
   /** Lets one reader of the value under `key` go; with none left, it stays until the bound needs it. */
@@ -109,7 +126,7 @@ export class RenderCache<T extends Kept> {
 
   #forget(key: string, entry: Entry<T>): void {
     this.#entries.delete(key);
-    this.#bytes -= entry.value.bytes;
+    this.#bytes -= entry.bytes;
     entry.value.discard();
   }
 }

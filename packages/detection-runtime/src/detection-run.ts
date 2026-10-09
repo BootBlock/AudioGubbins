@@ -41,6 +41,7 @@ import {
   type DetectorFinding,
   type DomainResult,
   type EditRange,
+  type FindingKind,
   type TreatmentStep,
 } from '@audiogubbins/domain';
 import {
@@ -51,7 +52,13 @@ import {
   type ProcessorType,
 } from '@audiogubbins/processors';
 
-import type { AssistantReport, DetectionResult, LearnedState } from './detection-result.js';
+import {
+  MOST_FINDINGS_SHOWN,
+  type AssistantReport,
+  type DetectionResult,
+  type KindCount,
+  type LearnedState,
+} from './detection-result.js';
 
 /** The frames read at a time: under a second, so a cancellation waits on no more. */
 const CHUNK_FRAMES = 32_768;
@@ -197,6 +204,34 @@ async function learned(
   }
 }
 
+/** How many of `findings` there are of each kind, in the order the kinds first come. */
+function countsOf(findings: readonly DetectorFinding[]): readonly KindCount[] {
+  const counts = new Map<FindingKind, number>();
+  for (const finding of findings) counts.set(finding.kind, (counts.get(finding.kind) ?? 0) + 1);
+  return [...counts].map(([kind, count]) => ({ kind, count }));
+}
+
+/** The first {@link MOST_FINDINGS_SHOWN} of `findings` of each kind, in their order. */
+function shownOf(findings: readonly DetectorFinding[]): readonly DetectorFinding[] {
+  const taken = new Map<FindingKind, number>();
+  const shown: DetectorFinding[] = [];
+  for (const finding of findings) {
+    const count = taken.get(finding.kind) ?? 0;
+    if (count >= MOST_FINDINGS_SHOWN) continue;
+    taken.set(finding.kind, count + 1);
+    shown.push(finding);
+  }
+  return shown;
+}
+
+/** Whether `finding` is treated by a step of `typeKey`. */
+function treatedBy(finding: DetectorFinding, typeKey: string): boolean {
+  return (
+    finding.treatment.kind === 'steps' &&
+    finding.treatment.steps.some((step) => step.typeKey === typeKey)
+  );
+}
+
 /** Each assistant's report over `findings`, every step's state learned from `source`. */
 async function reportsOf(
   source: PcmSource,
@@ -209,7 +244,16 @@ async function reportsOf(
     const recommended = recommendation(assistant, findings);
     const states: LearnedState[] = [];
     for (const step of recommended.steps) states.push(await learned(source, step, tools));
-    reports.push({ label: assistant.label, recommendation: recommended, learned: states });
+    const weighed = recommended.findings;
+    reports.push({
+      label: assistant.label,
+      recommendation: { ...recommended, findings: shownOf(weighed) },
+      learned: states,
+      found: countsOf(weighed),
+      treated: recommended.steps.map((step) =>
+        countsOf(weighed.filter((finding) => treatedBy(finding, step.typeKey))),
+      ),
+    });
   }
   return reports;
 }

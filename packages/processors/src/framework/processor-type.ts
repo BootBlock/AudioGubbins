@@ -140,6 +140,15 @@ export interface ProcessorDefinition {
   readonly measure?: (run: MeasuringRun) => Measurer;
 
   /**
+   * The most bytes its whole pass holds over a stream of `frames` frames, to
+   * which it gives `output`, from the pass's start to the end of the run that
+   * plays its measurement: for a pass whose measurement grows with the
+   * stream, as a model's output does. Absent for one that measures a few
+   * numbers, which costs nothing worth counting.
+   */
+  readonly measurementBytes?: (frames: number, output: ChannelLayout) => number;
+
+  /**
    * How a processor whose descriptor states the state it reads learns that
    * state, or why it cannot learn one for `settings`.
    */
@@ -161,6 +170,8 @@ export interface ProcessorType extends NodeImplementation {
   ): DomainResult<Measurer>;
   /** What learns the state an instance reads, for a type that reads one. */
   readonly learner?: (settings: LearningSettings) => DomainResult<StateLearner>;
+  /** Its definition's {@link ProcessorDefinition.measurementBytes}. */
+  readonly measurementBytes?: (frames: number, output: ChannelLayout) => number;
 }
 
 function parameterReader(
@@ -301,42 +312,51 @@ export function processorType(definition: ProcessorDefinition): ProcessorType {
         ? { kind: 'unknown', reason: 'the node does not hold a processor its type can run' }
         : descriptor.latency(settingsOf(read.node.reading, sampleRate));
     },
-    createKernel: (step, context) => {
-      const shape = plannedShape(step);
-      const read = readNode(definition, shape);
-      if (read.node === undefined) return kernelRefusal(shape, read.problems);
-      const { reading, input, output, sideChain } = read.node;
-      const arrival = step.inputArrival;
-      if (arrival.kind !== 'known') {
-        // Only a run whose latency is known reaches a kernel through the rack,
-        // so this is a graph built elsewhere that no stream position fits.
-        return fail(
-          failure(
-            'processor.start-unknown',
-            FailureKind.Rejected,
-            `A ${descriptor.label} node cannot tell which frame of its stream it hears, since the latency before it is not known.`,
-            { details: { node: shape.id } },
-          ),
-        );
-      }
-      return definition.kernel({
-        parameters: parameterReader(descriptor, reading.values),
-        input: input.layout,
-        output: output.layout,
-        ...(sideChain === undefined ? {} : { sideChain: sideChain.layout }),
-        sampleRate: context.sampleRate,
-        blockFrames: context.blockFrames,
-        quality: reading.quality,
-        ...(reading.state === undefined ? {} : { state: reading.state }),
-        ...(reading.measured === undefined ? {} : { measured: reading.measured }),
-        dsp: context.dsp,
-        start: reading.start - arrival.frames,
-      });
-    },
+    createKernel: kernelMaker(definition),
     ...(definition.measure === undefined
       ? {}
       : { measurer: measurerOf(definition, definition.measure) }),
     ...(definition.learn === undefined ? {} : { learner: definition.learn }),
+    ...(definition.measurementBytes === undefined
+      ? {}
+      : { measurementBytes: definition.measurementBytes }),
+  };
+}
+
+/** What makes the kernel of a node of `definition`, or says why it cannot run. */
+function kernelMaker(definition: ProcessorDefinition): ProcessorType['createKernel'] {
+  const { descriptor } = definition;
+  return (step, context) => {
+    const shape = plannedShape(step);
+    const read = readNode(definition, shape);
+    if (read.node === undefined) return kernelRefusal(shape, read.problems);
+    const { reading, input, output, sideChain } = read.node;
+    const arrival = step.inputArrival;
+    if (arrival.kind !== 'known') {
+      // Only a run whose latency is known reaches a kernel through the rack,
+      // so this is a graph built elsewhere that no stream position fits.
+      return fail(
+        failure(
+          'processor.start-unknown',
+          FailureKind.Rejected,
+          `A ${descriptor.label} node cannot tell which frame of its stream it hears, since the latency before it is not known.`,
+          { details: { node: shape.id } },
+        ),
+      );
+    }
+    return definition.kernel({
+      parameters: parameterReader(descriptor, reading.values),
+      input: input.layout,
+      output: output.layout,
+      ...(sideChain === undefined ? {} : { sideChain: sideChain.layout }),
+      sampleRate: context.sampleRate,
+      blockFrames: context.blockFrames,
+      quality: reading.quality,
+      ...(reading.state === undefined ? {} : { state: reading.state }),
+      ...(reading.measured === undefined ? {} : { measured: reading.measured }),
+      dsp: context.dsp,
+      start: reading.start - arrival.frames,
+    });
   };
 }
 

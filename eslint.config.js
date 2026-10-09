@@ -81,6 +81,23 @@ const NETWORK_DECLARATIONS = [
 ];
 
 /**
+ * A worker started from its script's own URL, which takes the policy of that
+ * script's response rather than the page's, and so runs with no `connect-src`
+ * on a static host. Every worker is started by `apps/web/src/module-worker.ts`,
+ * from a `blob:` module that inherits the page's policy.
+ */
+const WORKER_CONSTRUCTIONS = [
+  'NewExpression[callee.name=/^(Worker|SharedWorker)$/]',
+  'ClassDeclaration[superClass.name=/^(Worker|SharedWorker)$/]',
+  'ClassExpression[superClass.name=/^(Worker|SharedWorker)$/]',
+].map((selector) => ({
+  selector,
+  message:
+    "A worker started from its script's URL runs outside the page's security policy. Start it " +
+    'with moduleWorkerClass from apps/web/src/module-worker.ts.',
+}));
+
+/**
  * Browser globals that domain and command code must never reach for. Platform
  * access is the job of the capabilities package (REQ-EXEC-136.4, REQ-EXEC-216).
  */
@@ -261,6 +278,16 @@ export default tseslint.config(
       globals: globals.browser,
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
+  },
+
+  // Every worker under the page's security policy: one module starts them.
+  {
+    files: [
+      'apps/web/**/*.{ts,tsx}',
+      'packages/{audio-runtime,design-system,workspace,capabilities,browser-storage,storage-runtime}/**/*.{ts,tsx}',
+    ],
+    ignores: ['apps/web/src/module-worker.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...NETWORK_DECLARATIONS, ...WORKER_CONSTRUCTIONS] },
   },
 
   // The renderer draws on what it is handed, and reads nothing of the browser.

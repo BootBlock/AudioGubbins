@@ -32,10 +32,11 @@ import {
   type Track,
 } from '@audiogubbins/domain';
 import {
-  PLAN_WITHOUT_CHAINS,
-  TEST_CATALOGUE,
   deepestChain,
   expectSuccess,
+  PLAN_WITHOUT_CHAINS,
+  TEST_CATALOGUE,
+  TEST_ENGINE,
 } from '@audiogubbins/domain/testing';
 
 import { contentIdFrom, type ContentId } from '../content-identity.js';
@@ -323,7 +324,7 @@ export function deeplyRackedState(fixture: SampleProject): ProjectState {
   const racked: Asset = { ...footstep, rack: chain.id };
   const copied = expectSuccess(
     slicePlan(
-      expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE })),
+      expectSuccess(assetPlan(racked, { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE })),
       6_000,
       18_000,
     ),

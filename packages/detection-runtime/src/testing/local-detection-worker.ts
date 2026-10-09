@@ -14,7 +14,8 @@
  * model channel makes.
  */
 
-import { REFERENCE_DSP, isMessagePortLike } from '@audiogubbins/audio-engine';
+import { REFERENCE_DSP } from '@audiogubbins/audio-engine';
+import { crossingThreads } from '@audiogubbins/audio-engine/testing';
 import { chainProcessing } from '@audiogubbins/effect-rack';
 import { ModelChannel, type ChannelPair } from '@audiogubbins/ml-runtime';
 import { inProcessChannel } from '@audiogubbins/ml-runtime/testing';
@@ -41,25 +42,6 @@ export interface LocalDetectionOptions {
 function inProcessPair(): ChannelPair {
   const [port1, port2] = inProcessChannel();
   return { port1, port2 };
-}
-
-/**
- * `message` as it arrives in another thread: a structured clone, its buffers
- * transferred, and each channel's end among its fields carried as itself,
- * which a clone would copy into a lifeless object.
- */
-function crossing(message: unknown, transfer: readonly unknown[]): unknown {
-  const buffers = transfer.filter((one): one is ArrayBuffer => one instanceof ArrayBuffer);
-  if (typeof message !== 'object' || message === null) {
-    return structuredClone(message, { transfer: buffers });
-  }
-  const fields = Object.entries(message);
-  const ends = fields.filter(([, value]) => isMessagePortLike(value));
-  const rest = fields.filter(([, value]) => !isMessagePortLike(value));
-  return {
-    ...structuredClone(Object.fromEntries(rest), { transfer: buffers }),
-    ...Object.fromEntries(ends),
-  };
 }
 
 /** A turn of the event loop, as a worker's message takes. */
@@ -114,7 +96,7 @@ export class LocalDetectionWorker implements DetectionWorkerPort {
   }
 
   #deliver(message: unknown, transfer: readonly unknown[]): void {
-    const cloned = crossing(message, transfer);
+    const cloned = crossingThreads(message, transfer);
     setTimeout(() => {
       if (!this.#models.receive(cloned)) this.#core.receive(cloned);
     }, 0);

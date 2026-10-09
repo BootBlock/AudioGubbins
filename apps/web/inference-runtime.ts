@@ -3,25 +3,25 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
-import type { RuntimeBuild } from '@audiogubbins/ml-runtime';
 import type { Connect, Plugin, ResolvedConfig } from 'vite';
 
-import { RUNTIME_FILES } from '../../tools/inference-runtime-files.mjs';
+import { RUNTIME_FILE } from '../../tools/inference-runtime-files.mjs';
 
 /**
  * The inference runtime's WebAssembly, served by the application from its own
  * origin and identified by the bytes it ships (ADR-0062, REQ-AUDIO-139).
  *
- * The inference worker reads each build's file from the files base the page
- * starts it with and checks it against the digest the page states before the
- * runtime is given it, so a render records the runtime that really ran. That
- * digest is taken here, from the very bytes the build serves, never written by
- * hand: the application imports it from
- * `virtual:audiogubbins/inference-runtime` with the path the files are served
+ * The inference worker reads the runtime's CPU build's file from the files
+ * base the page starts it with and checks it against the digest the page
+ * states before the runtime is given it, so a render records the runtime that
+ * really ran. That digest is taken here, from the very bytes the build serves,
+ * never written by hand: the application imports it from
+ * `virtual:audiogubbins/inference-runtime` with the path the file is served
  * under, which names the runtime's version, so a new runtime is a new path
  * rather than a file a browser may hold stale. The development server serves
- * the files from the installed runtime; a build writes them into its output,
- * which the build-output check reads back.
+ * the file from the installed runtime; a build writes it into its output,
+ * which the build-output check reads back. No other file of the runtime's is
+ * served: no session runs another build.
  */
 
 /** What the application imports the runtime's identity as. */
@@ -30,9 +30,8 @@ export const INFERENCE_RUNTIME_ID = 'virtual:audiogubbins/inference-runtime';
 /** The same, marked as no file on disk. */
 const RESOLVED_INFERENCE_RUNTIME_ID = `\0${INFERENCE_RUNTIME_ID}`;
 
-/** A WebAssembly file of the runtime, as the build ships it. */
+/** The runtime's WebAssembly file, as the build ships it. */
 export interface ShippedRuntimeFile {
-  readonly build: RuntimeBuild;
   readonly name: string;
   readonly bytes: Uint8Array;
   /** Of `bytes`, in lowercase hexadecimal. */
@@ -42,9 +41,9 @@ export interface ShippedRuntimeFile {
 /** The runtime as the build ships it. */
 export interface ShippedRuntime {
   readonly version: string;
-  /** Where the files are served, under the application's base, ending in `/`. */
+  /** Where the file is served, under the application's base, ending in `/`. */
   readonly path: string;
-  readonly files: readonly ShippedRuntimeFile[];
+  readonly file: ShippedRuntimeFile;
 }
 
 /** The installed runtime's package folder, found from the package that depends on it. */
@@ -66,33 +65,34 @@ export function shippedRuntime(folder: string): ShippedRuntime {
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/u.test(version)) {
     throw new Error(`The inference runtime in ${folder} states no version.`);
   }
-  const files = RUNTIME_FILES.map(({ build, name }) => {
-    const bytes = new Uint8Array(readFileSync(join(folder, 'dist', name)));
-    return { build, name, bytes, sha256: createHash('sha256').update(bytes).digest('hex') };
-  });
-  return { version, path: `inference/onnxruntime-web-${version}/`, files };
+  const bytes = new Uint8Array(readFileSync(join(folder, 'dist', RUNTIME_FILE)));
+  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  return {
+    version,
+    path: `inference/onnxruntime-web-${version}/`,
+    file: { name: RUNTIME_FILE, bytes, sha256 },
+  };
 }
 
 /**
- * The module the application imports: the path from its origin's root the files
- * are served at, under the application's `base`, and each build's digest.
+ * The module the application imports: the path from its origin's root the file
+ * is served at, under the application's `base`, and its digest.
  */
 export function runtimeModule(runtime: ShippedRuntime, base: string): string {
-  const digests = Object.fromEntries(runtime.files.map((file) => [file.build, file.sha256]));
   return [
     `export const INFERENCE_RUNTIME_PATH = ${JSON.stringify(`${base}${runtime.path}`)};`,
     `export const INFERENCE_RUNTIME_VERSION = ${JSON.stringify(runtime.version)};`,
-    `export const INFERENCE_RUNTIME_SHA256 = ${JSON.stringify(digests)};`,
+    `export const INFERENCE_RUNTIME_SHA256 = ${JSON.stringify(runtime.file.sha256)};`,
   ].join('\n');
 }
 
-/** Serves each file at `<base><path><name>`, as the build's output would. */
+/** Serves the file at `<base><path><name>`, as the build's output would. */
 function runtimeMiddleware(runtime: ShippedRuntime, base: string): Connect.NextHandleFunction {
-  const byPath = new Map(runtime.files.map((file) => [`${base}${runtime.path}${file.name}`, file]));
+  const { file } = runtime;
+  const served = `${base}${runtime.path}${file.name}`;
   return (request, response, next) => {
     const path = (request.url ?? '').split('?')[0] ?? '';
-    const file = byPath.get(path);
-    if (file === undefined || (request.method !== 'GET' && request.method !== 'HEAD')) {
+    if (path !== served || (request.method !== 'GET' && request.method !== 'HEAD')) {
       next();
       return;
     }
@@ -122,10 +122,8 @@ export function inferenceRuntime(folder: () => string = installedRuntimeFolder):
       server.middlewares.use(runtimeMiddleware(shipped(), server.config.base));
     },
     generateBundle() {
-      const { path, files } = shipped();
-      for (const file of files) {
-        this.emitFile({ type: 'asset', fileName: `${path}${file.name}`, source: file.bytes });
-      }
+      const { path, file } = shipped();
+      this.emitFile({ type: 'asset', fileName: `${path}${file.name}`, source: file.bytes });
     },
   };
 }

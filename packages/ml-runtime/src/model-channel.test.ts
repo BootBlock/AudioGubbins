@@ -14,7 +14,7 @@ import { InferenceHost } from './inference-host.js';
 import { ModelChannel, type ModelFileRead } from './model-channel.js';
 import { ModelThreads, type ModelFileReader } from './model-threads.js';
 import type { ToModelThread } from './protocol/model-channel-messages.js';
-import { FAKE_ADD, addModelBytes } from './testing/add-model.js';
+import { FAKE_ADD, addModel } from './testing/add-model.js';
 import { FakeInference } from './testing/fake-inference.js';
 import {
   InProcessThread,
@@ -86,9 +86,7 @@ describe("a thread's model channel", () => {
     expect(codesOf(await channel.file('pack', '1.0.0', 'model.onnx'))).toEqual([
       'inference.channel-failed',
     ]);
-    expect(codesOf(await channel.open(addModelBytes(), PINNED))).toEqual([
-      'inference.channel-failed',
-    ]);
+    expect(codesOf(await channel.open(addModel(), PINNED))).toEqual(['inference.channel-failed']);
   });
 
   it("reads a pack's file through the page, its bytes and their hash as the page's reader gave them", async () => {
@@ -140,7 +138,7 @@ describe("a thread's model channel", () => {
   it('runs a model on the one worker the page starts, talking to it directly', async () => {
     const { channel, workers } = connectedThread();
 
-    const session = valueOf(await channel.open(addModelBytes(), PINNED));
+    const session = valueOf(await channel.open(addModel(), PINNED));
     const outputs = valueOf(
       await session.run(
         new Map([
@@ -152,12 +150,12 @@ describe("a thread's model channel", () => {
 
     expect([...(outputs.get('c')?.data ?? [])]).toEqual([11, 22]);
     expect(workers).toHaveLength(1);
-    expect(workers[0]?.kinds).toEqual(['open', 'run']);
+    expect(workers[0]?.kinds).toEqual(['open', 'model', 'run']);
   });
 
   it("fails the thread's calls with the reason when its worker fails, and connects again for the next session", async () => {
     const { channel, workers } = connectedThread();
-    const session = valueOf(await channel.open(addModelBytes(), PINNED));
+    const session = valueOf(await channel.open(addModel(), PINNED));
     workers[0]?.holdAnswers();
     const running = session.run(
       new Map([
@@ -176,7 +174,7 @@ describe("a thread's model channel", () => {
     if (failed === 'still waiting') expect.fail('The run was not answered once its worker failed.');
     expect(codesOf(failed)).toEqual(['inference.worker-failed']);
     expect(failed.ok ? '' : failed.failures[0].summary).toMatch(/ran out of memory/);
-    valueOf(await channel.open(addModelBytes(), PINNED));
+    valueOf(await channel.open(addModel(), PINNED));
     expect(workers).toHaveLength(2);
   });
 
@@ -186,7 +184,7 @@ describe("a thread's model channel", () => {
       heard = signal;
       return new Promise<DomainResult<ModelFileRead>>(() => undefined);
     });
-    valueOf(await channel.open(addModelBytes(), PINNED));
+    valueOf(await channel.open(addModel(), PINNED));
     void channel.file('pack', '1.0.0', 'model.onnx');
     await vi.waitFor(() => {
       expect(heard).toBeDefined();

@@ -3,21 +3,20 @@
  * (REQ-EXEC-136.12), or why it cannot be read.
  */
 
-import type { DomainResult } from '@audiogubbins/domain';
-
-import { isChannelEnd } from '../channel-end.js';
-import { RuntimeBuild, type RuntimeConfiguration } from '../inference-options.js';
 import {
   Malformed,
   bytesAt,
   countAt,
-  fieldsOf,
+  domainFailuresAt,
   oneOf,
   readMessage,
   textAt,
-  type Fields,
-} from './fields.js';
-import { capabilitiesFrom, digestAt, failuresAt, positiveAt } from './inference-message-reading.js';
+  type DomainResult,
+  type MessageFields,
+} from '@audiogubbins/domain';
+
+import { isChannelEnd } from '../channel-end.js';
+import { capabilitiesFrom, digestAt } from './inference-message-reading.js';
 import {
   FromModelThreadKind,
   MODEL_CHANNEL,
@@ -27,18 +26,13 @@ import {
   type ToModelThread,
 } from './model-channel-messages.js';
 
-function configurationFrom(value: unknown): RuntimeConfiguration {
-  const fields = fieldsOf(value, 'configuration');
-  return { build: oneOf(fields, 'build', RuntimeBuild), threads: positiveAt(fields, 'threads') };
-}
-
-function portAt(fields: Fields): ToModelThread['port'] {
+function portAt(fields: MessageFields): ToModelThread['port'] {
   const port = fields['port'];
   if (!isChannelEnd(port)) throw new Malformed('port', 'the end of a message channel');
   return port;
 }
 
-function toThreadFrom(fields: Fields): ToModelThread {
+function toThreadFrom(fields: MessageFields): ToModelThread {
   if (fields['kind'] !== MODEL_CHANNEL) throw new Malformed('kind', MODEL_CHANNEL);
   return {
     kind: MODEL_CHANNEL,
@@ -47,15 +41,11 @@ function toThreadFrom(fields: Fields): ToModelThread {
   };
 }
 
-function fromThreadFrom(fields: Fields): FromModelThread {
+function fromThreadFrom(fields: MessageFields): FromModelThread {
   const kind = oneOf(fields, 'kind', FromModelThreadKind);
   switch (kind) {
     case FromModelThreadKind.Inference:
-      return {
-        kind,
-        configuration: configurationFrom(fields['configuration']),
-        port: portAt(fields),
-      };
+      return { kind, port: portAt(fields) };
     case FromModelThreadKind.File:
       return {
         kind,
@@ -69,7 +59,7 @@ function fromThreadFrom(fields: Fields): FromModelThread {
   }
 }
 
-function toChannelFrom(fields: Fields): ToModelChannel {
+function toChannelFrom(fields: MessageFields): ToModelChannel {
   const kind = oneOf(fields, 'kind', ToModelChannelKind);
   switch (kind) {
     case ToModelChannelKind.File:
@@ -80,13 +70,13 @@ function toChannelFrom(fields: Fields): ToModelChannel {
         sha256: digestAt(fields, 'sha256'),
       };
     case ToModelChannelKind.FileFailed:
-      return { kind, call: countAt(fields, 'call'), failures: failuresAt(fields) };
-    case ToModelChannelKind.InferenceFailed:
       return {
         kind,
-        configuration: configurationFrom(fields['configuration']),
-        reason: textAt(fields, 'reason'),
+        call: countAt(fields, 'call'),
+        failures: domainFailuresAt(fields, 'failures'),
       };
+    case ToModelChannelKind.InferenceFailed:
+      return { kind, reason: textAt(fields, 'reason') };
   }
 }
 

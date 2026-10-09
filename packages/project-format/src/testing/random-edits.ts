@@ -240,7 +240,13 @@ function proposeOperation(
       if (range === undefined) return undefined;
       const before = range.end - range.start;
       const length = Math.max(1, Math.round(before * random.pick([0.25, 0.5, 1.5, 2, 4])));
-      return { id, kind: 'stretch', range, length: expectSuccess(sampleCount(length)) };
+      return {
+        id,
+        kind: 'stretch',
+        range,
+        length: expectSuccess(sampleCount(length)),
+        version: context.engine.stretch,
+      };
     }
     case 6: {
       const rates = RATES.filter((rate) => rate !== shape.sampleRate);
@@ -248,6 +254,7 @@ function proposeOperation(
         id,
         kind: 'convert-rate',
         sampleRate: expectSuccess(sampleRate(random.pick(rates))),
+        version: context.engine.resampler,
       };
     }
     default: {

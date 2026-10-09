@@ -14,11 +14,12 @@ import {
 } from '@audiogubbins/domain';
 import { expectSuccess } from '@audiogubbins/domain/testing';
 import {
+  allocateBlock,
+  describedSource,
+  ENGINE_VERSIONS,
   PcmDescriptionKind,
   ProcessedStart,
   REFERENCE_DSP,
-  allocateBlock,
-  describedSource,
   type MediaFile,
   type PcmSource,
 } from '@audiogubbins/audio-engine';
@@ -85,7 +86,11 @@ const ASSET: Asset = {
   rack: CHAIN.id,
 };
 const PLAN = expectSuccess(
-  assetPlan(ASSET, { chains: new Map([[CHAIN.id, CHAIN]]), catalogue: PROCESSOR_CATALOGUE }),
+  assetPlan(ASSET, {
+    chains: new Map([[CHAIN.id, CHAIN]]),
+    catalogue: PROCESSOR_CATALOGUE,
+    engine: ENGINE_VERSIONS,
+  }),
 );
 
 /** The asset heard through its de-click rack, as the peak worker reads it. */

@@ -16,7 +16,7 @@
  * in its place.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Blob as PlatformBlob } from 'node:buffer';
 
@@ -242,13 +242,15 @@ describe('a chain that runs a model, through the preview path', { timeout: 30_00
       deepFilterNetPack().map(({ path }) => `${MODEL.pack}/${MODEL.version}/${path}`),
     );
     expect(workers).toHaveLength(1);
-    expect(inference.opened.every((options) => options.kind === 'pinned')).toBe(true);
-    expect(inference.openSessions).toBe(0);
+    // The worker keeps the sessions for the next pass until the thread has gone.
     disconnect();
+    await vi.waitFor(() => {
+      expect(inference.openSessions).toBe(0);
+    });
   });
 
   it('is refused as a required model unavailable where its pack is not installed, and plays nothing', async () => {
-    const { reader, workers } = previewWorker(NOTHING_INSTALLED, PINNED_RUNTIME);
+    const { reader, inference } = previewWorker(NOTHING_INSTALLED, PINNED_RUNTIME);
 
     const refused = await rendered(reader);
 
@@ -256,13 +258,13 @@ describe('a chain that runs a model, through the preview path', { timeout: 30_00
       'model.unavailable',
     ]);
     expect(refused.ok ? '' : refused.failures[0].summary).toMatch(/^Required model unavailable: /);
-    // No file was had, so no session was asked for and no runtime started.
-    expect(workers).toHaveLength(0);
+    // No file was had, so no session was opened and no runtime started.
+    expect(inference.opened).toEqual([]);
   });
 
   it('is refused as incompatible with the runtime where the runtime is not the build the model is pinned to', async () => {
     const asked: string[] = [];
-    const { reader, inference } = previewWorker(installedPack(asked), FAKE_RUNTIME);
+    const { reader, inference, disconnect } = previewWorker(installedPack(asked), FAKE_RUNTIME);
 
     const refused = await rendered(reader);
 
@@ -272,6 +274,9 @@ describe('a chain that runs a model, through the preview path', { timeout: 30_00
     expect(refused.ok ? '' : refused.failures[0].summary).toMatch(
       /^Model incompatible with the current runtime: /,
     );
-    expect(inference.openSessions).toBe(0);
+    disconnect();
+    await vi.waitFor(() => {
+      expect(inference.openSessions).toBe(0);
+    });
   });
 });

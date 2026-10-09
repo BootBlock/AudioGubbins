@@ -8,12 +8,20 @@
  * ever on a message that was lost: a read of a stream it does not hold fails
  * with the reason, and an unreadable message closes the reader's port, which
  * fails everything the reader waits on there.
+ *
+ * A read the render could not make, a failed media read or a failed or given
+ * up render, is answered with its failure; a read the reader cancelled is
+ * answered by nobody, since the reader stopped waiting. Anything else a read
+ * throws is a fault in the engine: the read is still answered, so the reader
+ * does not wait for ever, but the fault is raised to the worker's scope
+ * rather than passed off as a failed read.
  */
 
 import {
   createCancellationSource,
   type CancellationSource,
   type DomainFailure,
+  type FailureSummary,
 } from '@audiogubbins/domain';
 
 import type { CachedStream, CachedStreams } from '../pcm/cached-streams.js';
@@ -22,14 +30,13 @@ import {
   FromPreviewKind,
   ToPreviewKind,
   readToPreview,
-  type CrossedFailure,
   type FromPreview,
   type ToPreview,
 } from './preview-messages.js';
 import type { PreviewPort } from './preview-port.js';
 
 /** The code and summary of a failure, which a structured clone can carry. */
-function crossed({ code, summary }: DomainFailure): CrossedFailure {
+function crossed({ code, summary }: DomainFailure): FailureSummary {
   return { code, summary };
 }
 
@@ -37,6 +44,7 @@ function crossed({ code, summary }: DomainFailure): CrossedFailure {
 export class PreviewService {
   readonly #port: PreviewPort<FromPreview>;
   readonly #renders: CachedStreams;
+  readonly #reportFault: (error: unknown) => void;
   readonly #streams = new Map<number, CachedStream>();
   readonly #reads = new Map<
     number,
@@ -44,9 +52,15 @@ export class PreviewService {
   >();
   #closed = false;
 
-  constructor(port: PreviewPort<FromPreview>, renders: CachedStreams) {
+  /** `reportFault` hears what a read threw that the engine does not throw on purpose. */
+  constructor(
+    port: PreviewPort<FromPreview>,
+    renders: CachedStreams,
+    reportFault: (error: unknown) => void,
+  ) {
     this.#port = port;
     this.#renders = renders;
+    this.#reportFault = reportFault;
     port.listen(
       (data) => {
         this.#receive(data);
@@ -105,7 +119,7 @@ export class PreviewService {
       plan: message.plan,
       place: message.place,
       media: message.media,
-      quality: message.quality,
+      quality: message.quality.settings,
       ...(message.reason === undefined ? {} : { reason: message.reason }),
     });
     this.#streams.set(message.stream, stream);
@@ -145,18 +159,26 @@ export class PreviewService {
         channels.map((channel) => channel.buffer),
       );
     } catch (error) {
+      // Cancelled by the reader, or by its closing the render or the port,
+      // each of which took the read out first.
       if (!this.#reads.delete(message.read)) return;
+      if (error instanceof MediaReadFailure) {
+        this.#post({
+          kind: FromPreviewKind.ReadFailed,
+          read: message.read,
+          failure: crossed(error.failure),
+        });
+        return;
+      }
       this.#post({
         kind: FromPreviewKind.ReadFailed,
         read: message.read,
-        failure:
-          error instanceof MediaReadFailure
-            ? crossed(error.failure)
-            : {
-                code: 'preview.read-fault',
-                summary: error instanceof Error ? error.message : String(error),
-              },
+        failure: {
+          code: 'preview.read-fault',
+          summary: 'The preview worker failed while reading this render.',
+        },
       });
+      this.#reportFault(error);
     }
   }
 

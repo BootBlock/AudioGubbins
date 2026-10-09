@@ -2,9 +2,10 @@
  * A rack's processing made for the tests of what reads processed streams
  * without the effect rack: every chain it runs scales its input by a factor,
  * which a running change of any parameter sets, and is heard live or from a
- * render as the test says. Each run it prepares is counted, with the frame
- * it starts at and the signal it was given, and its preparing waits for the
- * gate a test may give it.
+ * render as the test says, and whose whole passes hold what the test says for
+ * each frame of the stream. Each run it prepares is counted, with the frame it
+ * starts at and the signal it was given, and its preparing waits for the gate a
+ * test may give it.
  */
 
 import { StandardLayouts, succeed, type CancellationSignal } from '@audiogubbins/domain';
@@ -25,13 +26,15 @@ export const SCALING_REASON = 'It measures the whole of its input before it play
 
 /**
  * Mono chains that scale by `factor`, heard live, or from a render where
- * `rendered`, each prepared once `gate` settles.
+ * `rendered`, each prepared once `gate` settles, whose whole passes hold
+ * `passBytesPerFrame` bytes for each frame of the stream, none by default.
  */
 export function scalingChain(
   options: {
     readonly factor?: number;
     readonly rendered?: boolean;
     readonly gate?: Promise<void>;
+    readonly passBytesPerFrame?: number;
   } = {},
 ): ScalingRuns {
   const starts: number[] = [];
@@ -44,6 +47,7 @@ export function scalingChain(
           ? { kind: 'rendered', partWay, reason: SCALING_REASON }
           : { kind: 'live', partWay },
       ),
+    measurementBytes: (request) => succeed((options.passBytesPerFrame ?? 0) * request.length),
     prepare: async (request, _read, signal) => {
       starts.push(request.start);
       signals.push(signal);

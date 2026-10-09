@@ -39,6 +39,7 @@ import {
 import { distinctList } from './distinct-list.js';
 import { MANIFEST_FORMAT } from './manifest-writing.js';
 import { readFiles } from './pack-files.js';
+import { LONGEST_PACK_ID, PACK_ID } from './pack-path.js';
 import { LONGEST_VERSION, PACK_VERSION, compareVersions } from './pack-version.js';
 
 /** The most a pack may take installed: 16 GiB, a bound on what is believed. */
@@ -80,8 +81,8 @@ const RUNTIME_MEMBERS: ReadonlySet<string> = new Set(['name', 'minimum', 'below'
 const SERVES_MEMBERS: ReadonlySet<string> = new Set(['processors', 'detectors']);
 
 const asPackId = textConverter({
-  maximumLength: 64,
-  pattern: /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/u,
+  maximumLength: LONGEST_PACK_ID,
+  pattern: PACK_ID,
   shape: 'a name of lower-case letters, digits and inner hyphens',
 });
 const asName = textConverter({

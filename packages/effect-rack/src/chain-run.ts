@@ -30,7 +30,7 @@ import {
   fail,
   failure,
   FailureKind,
-  processorsOf,
+  mapResult,
   succeed,
   throwIfCancelled,
   unheardLive,
@@ -52,6 +52,7 @@ import {
   type ChainRequest,
   type ChainRun,
   type GraphExecutor,
+  type ListeningRequest,
   type NodeImplementations,
   type StreamReader,
 } from '@audiogubbins/audio-engine';
@@ -59,6 +60,7 @@ import type { Measurement, ProcessorType } from '@audiogubbins/processors';
 
 import { chainGraph, type ChainGraph } from './chain-graph.js';
 import { descriptorsByKey, descriptorsOf, listening } from './chain-listening.js';
+import { measuredProcessors, measurementBytesOf } from './whole-passes.js';
 
 /** Where a block in flight is read from and written to, rebound for each call. */
 class Endpoints {
@@ -172,19 +174,6 @@ function startRefusal(request: ChainRequest): DomainResult<never> | undefined {
   );
 }
 
-/** The chain's applied processors that measure their whole input, in signal order. */
-function measuredProcessors(
-  built: ChainGraph,
-  request: ChainRequest,
-  types: ReadonlyMap<string, ProcessorType>,
-) {
-  return [...processorsOf(request.chain.slots)].filter(
-    (processor) =>
-      built.processors.has(processor.id) &&
-      types.get(processor.typeKey)?.descriptor.wholePass === true,
-  );
-}
-
 /** The chain running over a stream, once every measurement is made. */
 class RunningChain implements ChainRun {
   readonly latency: number;
@@ -231,20 +220,30 @@ class RunningChain implements ChainRun {
   }
 }
 
+/** The graph of `request`'s chain before any pass, or why this build cannot run it. */
+function graphBeforePasses(
+  request: ListeningRequest,
+  types: ReadonlyMap<string, ProcessorType>,
+): DomainResult<ChainGraph> {
+  return chainGraph(request.chain, types, request.input, request.quality, {
+    start: 0,
+    measured: new Map(),
+  });
+}
+
 /** The effect rack's chain processing, for the processor types `types`. */
 export function chainProcessing(types: ReadonlyMap<string, ProcessorType>): ChainProcessing {
   const implementations = implementationsOf(types);
   const descriptors = descriptorsByKey(types);
   return {
-    listening: (request) => {
-      const built = chainGraph(request.chain, types, request.input, request.quality, {
-        start: 0,
-        measured: new Map(),
-      });
-      // Built first, so a chain this build cannot run is refused with its
-      // reason rather than said to be heard.
-      return built.ok ? succeed(listening(request, descriptors)) : built;
-    },
+    // Built first, so a chain this build cannot run is refused with its
+    // reason rather than said to be heard.
+    listening: (request) =>
+      mapResult(graphBeforePasses(request, types), () => listening(request, descriptors)),
+    measurementBytes: (request) =>
+      mapResult(graphBeforePasses(request, types), (built) =>
+        measurementBytesOf(built, request, types, request.length),
+      ),
     prepare: async (request, read, signal) => {
       const invalid = startRefusal(request);
       if (invalid !== undefined) return invalid;

@@ -247,19 +247,18 @@ const WAVEFORM_CACHE: FeatureRequirement = {
 /**
  * Running machine-learning models on this device (ADR-0062).
  *
- * The inference runtime runs in a background thread, and every build of it is
- * WebAssembly with fixed-width SIMD, which a final render's pinned path is
- * defined on, so those are required. Shared memory, for more threads, and
- * WebGPU only make a preview faster: a final render never uses them, so its
- * result is the same with or without them.
+ * The inference runtime runs in a background thread, as WebAssembly with
+ * fixed-width SIMD on one thread, which every session's pinned path is
+ * defined on, so those are required. Nothing else serves it: no session uses
+ * shared memory or WebGPU, so lacking them reduces nothing.
  */
 export const LOCAL_INFERENCE: FeatureRequirement = {
   featureKey: 'local-inference',
   label: 'Machine-learning processing',
   required: [CapabilityKey.WebWorkers, CapabilityKey.WebAssembly, CapabilityKey.WebAssemblySimd],
-  preferred: [CapabilityKey.SharedArrayBuffer, CapabilityKey.WebGpu],
+  preferred: [],
   fallback:
-    'Without what it requires, processors that need a model pack cannot run, and projects that use them keep their settings; without what it prefers, previews run on one thread, as final renders always do, and take longer.',
+    'Without what it requires, processors that need a model pack cannot run, and projects that use them keep their settings.',
 };
 
 /** Every declared feature, for the capability surface and diagnostic bundles. */

@@ -21,7 +21,7 @@ import {
   type ModelIdentity,
   type SampleRate,
 } from '@audiogubbins/domain';
-import type { InferenceExecution, InferenceMode, InferenceOptions } from '@audiogubbins/ml-runtime';
+import type { InferenceExecution, InferenceOptions } from '@audiogubbins/ml-runtime';
 
 import { ModelUnavailability, modelUnavailable, type ModelFile } from './model-library.js';
 
@@ -32,14 +32,6 @@ import { ModelUnavailability, modelUnavailable, type ModelFile } from './model-l
  */
 export const PINNED_RUNTIME_SHA256 =
   '3398c10d07d229bd91b364548e130e0e51a8e5704b88c7c083ebbeb78842dee2';
-
-/**
- * The version of the canonical resampler a processor that converts its
- * input to a model's rate and back states (REQ-AUDIO-145). The engine names
- * no version of its own for the resampler yet, so this is the first, and it
- * rises whenever `crates/resampling` changes the bits it writes.
- */
-export const CANONICAL_RESAMPLER_VERSION = 1;
 
 /**
  * The rate of `hertz`, the one a model was trained at: a constant of the
@@ -75,10 +67,10 @@ export interface ModelDefinition {
   /** The rate the model hears and speaks at. */
   readonly sampleRate: SampleRate;
   /**
-   * How every session is opened: pinned, at a graph optimisation level that
-   * is part of the implementation, since it may change the arithmetic.
+   * How every session is opened: at a graph optimisation level that is part
+   * of the implementation, since it may change the arithmetic.
    */
-  readonly inference: Extract<InferenceOptions, { readonly kind: typeof InferenceMode.Pinned }>;
+  readonly inference: InferenceOptions;
 }
 
 /** Why `file`, read as `path`, is not the file `definition` runs, or nothing where it is. */

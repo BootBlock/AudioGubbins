@@ -10,9 +10,8 @@
  * and never makes a project invalid, whose instances keep their settings and
  * render nothing in their place until the pack is present.
  *
- * Opening a project fetches nothing, unless a pack is required, the catalogue
- * offers one that runs here, and the caller's automatic-download policy, the
- * person's choice, allows it (`packsToFetch`).
+ * Opening a project fetches nothing: a pack is installed only when the person
+ * asks for it.
  */
 
 import {
@@ -23,13 +22,12 @@ import {
 } from '@audiogubbins/domain';
 
 import type {
-  AutomaticDownload,
   AvailabilityContext,
   KnownPack,
   PackAvailability,
   PackNeed,
 } from './availability-context.js';
-import { packKey, refOf, type ModelPackManifest } from './manifest.js';
+import type { ModelPackManifest } from './manifest.js';
 import {
   deviceRefusal,
   deviceRunsNothing,
@@ -246,31 +244,4 @@ function uninstalledAvailability(
     ),
     undefined,
   );
-}
-
-/**
- * The packs to fetch as a project opens: for each need that is required and
- * unavailable for want of an install alone, the version the catalogue offers
- * that runs here, and only where the person's policy fetches required packs.
- * Each version once.
- */
-export function packsToFetch(
-  needs: readonly PackNeed[],
-  context: AvailabilityContext,
-  policy: AutomaticDownload,
-): readonly ModelPackManifest[] {
-  if (policy === 'never') return [];
-  const fetching = new Map<string, ModelPackManifest>();
-  for (const need of needs) {
-    if (!need.required) continue;
-    const availability = availabilityOf(need, context);
-    if (
-      availability.condition === 'required-unavailable' &&
-      availability.reason.code === 'model-pack.not-installed' &&
-      availability.offered !== undefined
-    ) {
-      fetching.set(packKey(refOf(availability.offered)), availability.offered);
-    }
-  }
-  return [...fetching.values()];
 }

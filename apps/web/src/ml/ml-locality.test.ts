@@ -10,16 +10,17 @@
  * application composes it: a window over a storage worker in memory, its pack
  * downloads by the real HTTP adapter; the page's end of the model channels
  * reading the installed pack through the storage worker; and the preview,
- * render and detection workers' real cores, each running the chain with
- * DeepFilterNet 3 over its own model channel, its model on the fake runtime of
- * the inference workers the page starts.
+ * render, detection, feeder and peak workers' real cores, each running the
+ * chain with DeepFilterNet 3 over its own model channel, its model on the fake
+ * runtime of the inference worker the page starts.
  *
  * Opening a project, opening again one that names a pack, held or not with the
- * catalogue served, applying a chain that runs a model, previewing, rendering
- * and analysing it make no request at all. Installing the pack makes only the
- * requests the download is for: a bodiless `GET` of the catalogue and of each
- * of the pack's files, with no credentials, no referrer and no header, at a URL
- * that is the catalogue's and the pack's alone.
+ * catalogue served, the feeder making the sound's sources and the peak worker
+ * drawing it once it is open again, applying a chain that runs a model,
+ * previewing, rendering and analysing it make no request at all. Installing the
+ * pack makes only the requests the download is for: a bodiless `GET` of the
+ * catalogue and of each of the pack's files, with no credentials, no referrer
+ * and no header, at a URL that is the catalogue's and the pack's alone.
  *
  * What the stand-ins change. The pack's files are stand-ins whose manifest
  * states their own hashes, so the installer's integrity check passes them, and
@@ -51,10 +52,11 @@ import { createDiagnosticCentre, createLogStore } from '@audiogubbins/diagnostic
 import {
   BuiltInNodeType,
   CachePurpose,
+  createPriorityScheduler,
+  ENGINE_VERSIONS,
   JobPriority,
   PcmDescriptionKind,
   PreviewClient,
-  createPriorityScheduler,
   previewPort,
   type AudioFrameBlock,
   type MediaEntry,
@@ -68,7 +70,10 @@ import {
   type RenderHost,
 } from '@audiogubbins/audio-runtime';
 import {
+  FromFeederKind,
+  ToFeederKind,
   fakeChannel,
+  localFeederWorker,
   localPreviewWorker,
   localRenderWorker,
   type LocalChainWorker,
@@ -92,6 +97,8 @@ import {
   typesRunningDeepFilterNetFiles,
 } from '@audiogubbins/processors/testing';
 import { sine } from '@audiogubbins/test-fixtures';
+import { PeakHost, ToPeakWorkerKind } from '@audiogubbins/waveform';
+import { LocalPeakWorker, MemoryPeakCache } from '@audiogubbins/waveform/testing';
 
 import { TEST_CATALOGUE } from '../testing/pack-managers.js';
 import { holdPlatformFiles, windowWithAudio, type AudioWindow } from '../testing/project-audio.js';
@@ -346,7 +353,11 @@ function heard(audio: AudioWindow, media: readonly MediaEntry[]): PcmDescription
   const asset = state.project.assets.get(audio.assetId);
   if (asset === undefined) throw new Error('The sound is in the project.');
   const plan = expectSuccess(
-    assetPlan(asset, { chains: state.project.effectChains, catalogue: PROCESSOR_CATALOGUE }),
+    assetPlan(asset, {
+      chains: state.project.effectChains,
+      catalogue: PROCESSOR_CATALOGUE,
+      engine: ENGINE_VERSIONS,
+    }),
   );
   return { kind: PcmDescriptionKind.Edited, sampleRate: RATE, plan, media };
 }
@@ -427,7 +438,73 @@ function chainThreads(window: ProjectWindow) {
       return worker;
     },
   });
-  return { inference, previews, renders, detections };
+  // As `browser-engine.ts` starts the feeder and `peak-threads.ts` the peak
+  // worker: each connected to the model channels and to the preview worker,
+  // whose render each reads a racked sound from.
+  const feeder = (): LocalChainWorker => {
+    const worker = started(localFeederWorker(STAND_IN_TYPES));
+    const port = previews.connect(CachePurpose.Playback).port;
+    worker.postMessage({ kind: ToFeederKind.Previews, port }, [port]);
+    return worker;
+  };
+  const peaks = new PeakHost({
+    createWorker: () => {
+      const worker = new LocalPeakWorker({ types: STAND_IN_TYPES, createChannel: fakeChannel });
+      threads.connect(worker);
+      worker.post(
+        { kind: ToPeakWorkerKind.Previews, port: previews.connect(CachePurpose.Waveform).port },
+        [],
+      );
+      return worker;
+    },
+    cache: new MemoryPeakCache(),
+    report: (event) => {
+      throw new Error(`The peaks of ${event.identity} failed: ${event.reason}`);
+    },
+  });
+  return { inference, previews, renders, detections, feeder, peaks };
+}
+
+/** What the feeder answers when asked to make the sources of `described`, as playback asks. */
+async function madeSources(feeder: LocalChainWorker, described: PcmDescription): Promise<string> {
+  const answer = new Promise<string>((resolve) => {
+    feeder.addEventListener('message', (event) => {
+      const data: unknown = event.data;
+      resolve(typeof data === 'object' && data !== null ? String(Reflect.get(data, 'kind')) : '');
+    });
+  });
+  feeder.postMessage({
+    kind: ToFeederKind.Sources,
+    request: 1,
+    graph: graphOf(
+      [
+        nodeOf('sound', BuiltInNodeType.GraphInput, MONO, { outputs: ['out'] }),
+        nodeOf('out', BuiltInNodeType.Output, MONO, { inputs: ['in'] }),
+      ],
+      [wire('sound.out', 'out.in')],
+    ),
+    sources: [{ ...described, node: named('sound') }],
+    quality: MAXIMUM_QUALITY,
+    dsp: { kind: DspDeliveryKind.Unavailable, reason: 'The test feeds on the reference DSP.' },
+  });
+  return await answer;
+}
+
+/** Whether the peak worker drew the whole of `described`, as an editor asks it to. */
+async function drawn(peaks: PeakHost, described: PcmDescription): Promise<string> {
+  const handle = peaks.open({
+    identity: 'the racked sound',
+    revision: '1',
+    channels: 1,
+    frames: LENGTH,
+    sampleRate: 48_000,
+    describe: () => described,
+    quality: MAXIMUM_QUALITY,
+  });
+  await expect.poll(() => handle.status.kind, { timeout: 30_000 }).toMatch(/^(complete|failed)$/);
+  const { status } = handle;
+  handle.release();
+  return status.kind === 'failed' ? status.reason : status.kind;
 }
 
 /** What the preview worker's render of `described` gives a reader, as playback reads it. */
@@ -534,6 +611,27 @@ describe(
       );
     });
 
+    it('has the feeder and the peak worker open again a project that names a pack this device holds, making no request', async () => {
+      serveCatalogue();
+      const audio = await openedProject();
+      const media = mediaOf(audio);
+      await racked(audio);
+      await installed(audio.window);
+      const again = await reopened(audio, (window) =>
+        unopenedReason(audio)(window)?.includes('is not the model'),
+      );
+      const { inference, feeder, peaks } = chainThreads(again.window);
+      const from = recorded.length;
+
+      // Playback makes the sound's sources, and an editor draws its waveform,
+      // which reads the preview worker's render: the model runs.
+      expect(await madeSources(feeder(), heard(again, media))).toBe(FromFeederKind.SourcesMade);
+      expect(await drawn(peaks, heard(again, media))).toBe('complete');
+
+      expect(since(from)).toEqual([]);
+      expect(inference.opened.length).toBeGreaterThanOrEqual(STAND_INS.length);
+    });
+
     it('installs the pack by bodiless GETs of its catalogue and files alone, carrying nothing of the person or the project', async () => {
       serveCatalogue();
       const audio = await openedProject();
@@ -586,11 +684,11 @@ describe(
       });
 
       expect(since(from)).toEqual([]);
-      // The model ran, from the files the installer kept, on pinned sessions,
-      // and what was heard is its work, not the tone passed on. The preview
-      // worker's pass and the render worker's own each open every graph.
-      expect(inference.opened.length).toBeGreaterThanOrEqual(2 * STAND_INS.length);
-      expect(inference.opened.every((options) => options.kind === 'pinned')).toBe(true);
+      // The model ran, from the files the installer kept, and what was heard
+      // is its work, not the tone passed on. The preview worker's pass and the
+      // render worker's own share the inference worker's sessions, each graph
+      // opened once.
+      expect(inference.opened.length).toBeGreaterThanOrEqual(STAND_INS.length);
       const tone = TONE.channels[0] ?? new Float32Array();
       expect(differ(preview, tone)).toBe(true);
       expect(differ(render, tone)).toBe(true);

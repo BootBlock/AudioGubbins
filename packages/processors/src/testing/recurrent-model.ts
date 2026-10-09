@@ -18,7 +18,7 @@ import {
   type DomainResult,
   type SampleRate,
 } from '@audiogubbins/domain';
-import { GraphOptimisation, InferenceMode, tensor } from '@audiogubbins/ml-runtime';
+import { GraphOptimisation, tensor } from '@audiogubbins/ml-runtime';
 import { FAKE_RUNTIME, FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { ChunkSchedule, ScheduledRun } from '../ml/chunk-schedule.js';
@@ -86,7 +86,7 @@ export function recurrentDefinition(
     },
     files: [{ path: RECURRENT_MODEL_PATH, sha256: RECURRENT_MODEL_SHA256 }],
     sampleRate,
-    inference: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Extended },
+    inference: { graphOptimisation: GraphOptimisation.Extended },
   };
 }
 

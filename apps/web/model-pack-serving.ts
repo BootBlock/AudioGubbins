@@ -1,7 +1,11 @@
 import { cpSync, createReadStream, existsSync, statSync } from 'node:fs';
-import { extname, join, relative, resolve, sep } from 'node:path';
+import { extname, isAbsolute, join, resolve } from 'node:path';
 
 import type { Connect, Plugin, ResolvedConfig } from 'vite';
+
+// By its path, not the package's name: this module is bundled with the
+// configuration, and Node loads a package it names without a compiler.
+import { cataloguePathProblem } from '../../packages/model-packs/src/pack-path.js';
 
 /**
  * The model packs' catalogue, which the application's own origin serves by
@@ -73,7 +77,10 @@ export function catalogueModule(environment: PackServingEnvironment, base: strin
 
 /**
  * The file under `folder` a request's path names below `prefix`, or nothing
- * where it names none, or names a place outside the folder.
+ * where it names none. The path is held to the pack path grammar before it
+ * touches the file system, so another drive, `\\?\`, a share, an absolute
+ * path or `..` is refused, not resolved: a check of the joined path missed
+ * the first three on Windows, and a share opens a network connection.
  */
 export function servedFile(folder: string, prefix: string, url: string): string | undefined {
   const path = url.split('?')[0] ?? '';
@@ -86,9 +93,8 @@ export function servedFile(folder: string, prefix: string, url: string): string 
     if (!(error instanceof URIError)) throw error;
     return undefined;
   }
+  if (cataloguePathProblem(below) !== undefined || isAbsolute(below)) return undefined;
   const file = resolve(folder, below);
-  const inside = relative(folder, file);
-  if (inside === '' || inside.startsWith('..') || inside.includes(`..${sep}`)) return undefined;
   return existsSync(file) && statSync(file).isFile() ? file : undefined;
 }
 

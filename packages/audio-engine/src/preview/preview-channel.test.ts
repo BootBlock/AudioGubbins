@@ -15,9 +15,10 @@ import {
 import { expectSuccess } from '@audiogubbins/domain/testing';
 
 import type { CachedStream, CachedStreams } from '../pcm/cached-streams.js';
+import { MediaReadFailure } from '../pcm/plan-content.js';
 import { rackedMedia, rackedPlan } from '../testing/racked-plan.js';
 import { PreviewClient } from './preview-client.js';
-import type { FromPreview, ToPreview } from './preview-messages.js';
+import { readToPreview, type FromPreview, type ToPreview } from './preview-messages.js';
 import type { PreviewPort } from './preview-port.js';
 import { PreviewService } from './preview-service.js';
 
@@ -115,6 +116,22 @@ function heldRenders(ready: DomainResult<void> = succeed(undefined)) {
   return { renders, make, released };
 }
 
+/** A fault where a test expects none: thrown, so the test fails with it. */
+function raise(error: unknown): never {
+  throw error;
+}
+
+/** Renders whose every read throws `error`. */
+function throwingRenders(error: Error): CachedStreams {
+  return {
+    open: () => ({
+      ready: Promise.resolve(succeed(undefined)),
+      read: () => Promise.reject(error),
+      release: () => undefined,
+    }),
+  };
+}
+
 function request() {
   return {
     plan: rackedPlan(CHAIN, LENGTH, RATE),
@@ -128,7 +145,7 @@ describe('the renders read from another worker', () => {
   it('answers a read once the render has made its frames, and lets the render go when closed', async () => {
     const { reader, worker } = channel();
     const { renders, make, released } = heldRenders();
-    new PreviewService(worker, renders);
+    new PreviewService(worker, renders, raise);
     const client = new PreviewClient(reader);
     const stream = client.open(request());
     expect(await stream.ready).toEqual(succeed(undefined));
@@ -154,7 +171,7 @@ describe('the renders read from another worker', () => {
     const declined = fail(
       failure('preview.render-too-long', FailureKind.Rejected, 'Its render is too long.'),
     );
-    new PreviewService(worker, heldRenders(declined).renders);
+    new PreviewService(worker, heldRenders(declined).renders, raise);
     const ready = await new PreviewClient(reader).open(request()).ready;
     expect(ready.ok).toBe(false);
     if (!ready.ok) expect(ready.failures[0].code).toBe('preview.render-too-long');
@@ -162,7 +179,7 @@ describe('the renders read from another worker', () => {
 
   it('stops waiting for a cancelled read, and fails every read waiting on a reply it cannot read', async () => {
     const { reader, worker, inject } = channel();
-    new PreviewService(worker, heldRenders().renders);
+    new PreviewService(worker, heldRenders().renders, raise);
     const client = new PreviewClient(reader);
     const stream = client.open(request());
     const cancel = createCancellationSource();
@@ -176,10 +193,30 @@ describe('the renders read from another worker', () => {
     await expect(stream.read(0, 10, [new Float32Array(10)])).rejects.toThrow(/could not be read/u);
   });
 
+  it('opens a render by a quality mode, the one form a mode crosses a thread in', () => {
+    const sent: ToPreview[] = [];
+    const reader: PreviewPort<ToPreview> = {
+      post: (message) => sent.push(message),
+      listen: () => undefined,
+      close: () => undefined,
+    };
+    new PreviewClient(reader).open(request());
+    const [open] = sent;
+    expect(open?.kind === 'open' ? open.quality : undefined).toEqual(MAXIMUM_QUALITY);
+    if (open === undefined) throw new Error('Nothing was sent.');
+
+    // The settings alone, the shape the preview worker once took a mode in.
+    const bare = readToPreview({ ...open, quality: MAXIMUM_QUALITY.settings });
+    expect(bare.ok ? '' : bare.failures[0].summary).toBe(
+      "The message's quality is not a quality mode.",
+    );
+    expect(readToPreview(open).ok).toBe(true);
+  });
+
   it('lets go of everything a reader held when its port is closed', async () => {
     const { reader, worker, closed } = channel();
     const { renders, released } = heldRenders();
-    const service = new PreviewService(worker, renders);
+    const service = new PreviewService(worker, renders, raise);
     const client = new PreviewClient(reader);
     client.open(request());
     client.open(request());
@@ -187,5 +224,34 @@ describe('the renders read from another worker', () => {
     service.close();
     expect(released).toEqual([1, 2]);
     expect(closed()).toBe(true);
+  });
+
+  it('answers a failed read with its failure, and a fault as a fault the worker raises', async () => {
+    const { reader, worker } = channel();
+    const faults: unknown[] = [];
+    const unreadable = failure(
+      'media.read-failed',
+      FailureKind.Rejected,
+      'The file could not be read.',
+    );
+    new PreviewService(worker, throwingRenders(new MediaReadFailure(unreadable)), (error) => {
+      faults.push(error);
+    });
+    const failed = new PreviewClient(reader).open(request()).read(0, 10, [new Float32Array(10)]);
+    await expect(failed).rejects.toThrow('The file could not be read.');
+    expect(faults).toEqual([]);
+
+    const other = channel();
+    const bug = new TypeError('Cannot read properties of undefined');
+    new PreviewService(other.worker, throwingRenders(bug), (error) => {
+      faults.push(error);
+    });
+    const faulted = new PreviewClient(other.reader)
+      .open(request())
+      .read(0, 10, [new Float32Array(10)]);
+    // The reader is answered, so it does not wait for ever...
+    await expect(faulted).rejects.toThrow(MediaReadFailure);
+    // ...and the fault itself reaches the worker's scope.
+    expect(faults).toEqual([bug]);
   });
 });

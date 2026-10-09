@@ -2,12 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FailureKind, failure } from '@audiogubbins/domain';
 
-import {
-  GraphOptimisation,
-  InferenceMode,
-  PreviewAcceleratorKind,
-  RuntimeBuild,
-} from '../inference-options.js';
+import { GraphOptimisation } from '../inference-options.js';
 import { inProcessChannel } from '../testing/in-process-worker.js';
 import {
   readFromInferenceWorker,
@@ -18,27 +13,18 @@ import type { FromInferenceWorker, ToInferenceWorker } from './inference-message
 
 const SETUP = {
   filesBase: 'https://audiogubbins.test/runtime/',
-  webAssemblySha256: { [RuntimeBuild.Cpu]: 'a'.repeat(64), [RuntimeBuild.WebGpu]: 'b'.repeat(64) },
-  capabilities: { fixedWidthSimd: true, threads: 4, webGpu: false },
+  webAssemblySha256: 'a'.repeat(64),
+  capabilities: { fixedWidthSimd: true },
 };
 
 const TO_WORKER: readonly ToInferenceWorker[] = [
   {
     kind: 'open',
     call: 1,
-    model: new Uint8Array([8, 1]),
-    options: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Extended },
+    sha256: 'e'.repeat(64),
+    options: { graphOptimisation: GraphOptimisation.Extended },
   },
-  {
-    kind: 'open',
-    call: 2,
-    model: new Uint8Array([8, 1]),
-    options: {
-      kind: InferenceMode.Preview,
-      graphOptimisation: GraphOptimisation.All,
-      accelerator: { kind: PreviewAcceleratorKind.Threads, threads: 3 },
-    },
-  },
+  { kind: 'model', call: 1, model: new Uint8Array([8, 1]) },
   {
     kind: 'run',
     call: 3,
@@ -50,17 +36,14 @@ const TO_WORKER: readonly ToInferenceWorker[] = [
 ];
 
 const FROM_WORKER: readonly FromInferenceWorker[] = [
+  { kind: 'model-wanted', call: 1 },
   {
     kind: 'opened',
     call: 1,
     inputs: [{ name: 'a', dims: ['frames', 180] }],
     outputs: [{ name: 'mask', dims: ['', 961] }],
     execution: {
-      options: {
-        kind: InferenceMode.Preview,
-        graphOptimisation: GraphOptimisation.All,
-        accelerator: { kind: PreviewAcceleratorKind.WebGpu },
-      },
+      options: { graphOptimisation: GraphOptimisation.All },
       runtime: { name: 'onnxruntime-web', version: '1.30.0', webAssemblySha256: 'c'.repeat(64) },
     },
   },
@@ -134,37 +117,23 @@ describe('the inference protocol', () => {
     ['an unknown kind', { kind: 'reset' }, /kind is not one of/],
     ['a call that is no whole number', { kind: 'cancel', call: 1.5 }, /call is not a whole number/],
     [
-      'a preview on no threads',
-      {
-        kind: 'open',
-        call: 1,
-        model: new Uint8Array(1),
-        options: {
-          kind: 'preview',
-          graphOptimisation: 'all',
-          accelerator: { kind: 'threads', threads: 0 },
-        },
-      },
-      /threads is not a whole number, one or more/,
-    ],
-    [
       'an optimisation level the runtime does not have',
       {
         kind: 'open',
         call: 1,
-        model: new Uint8Array(1),
-        options: { kind: 'pinned', graphOptimisation: 'most' },
+        sha256: 'e'.repeat(64),
+        options: { graphOptimisation: 'most' },
       },
       /graphOptimisation is not one of/,
     ],
     [
+      'a model named by no SHA-256',
+      { kind: 'open', call: 1, sha256: 'model.onnx', options: { graphOptimisation: 'all' } },
+      /sha256 is not a SHA-256 digest/,
+    ],
+    [
       'a model in shared memory, which cannot be moved',
-      {
-        kind: 'open',
-        call: 1,
-        model: new Uint8Array(new SharedArrayBuffer(4)),
-        options: { kind: 'pinned', graphOptimisation: 'all' },
-      },
+      { kind: 'model', call: 1, model: new Uint8Array(new SharedArrayBuffer(4)) },
       /model is not bytes in memory of their own/,
     ],
     [
@@ -200,9 +169,9 @@ describe('the inference protocol', () => {
       'a digest that is not SHA-256 in lowercase hexadecimal',
       {
         kind: 'start',
-        setup: { ...SETUP, webAssemblySha256: { cpu: 'A'.repeat(64), webgpu: 'b'.repeat(64) } },
+        setup: { ...SETUP, webAssemblySha256: 'A'.repeat(64) },
       },
-      /cpu is not a SHA-256 digest/,
+      /webAssemblySha256 is not a SHA-256 digest/,
     ],
     [
       'a base URL that does not end in a slash',

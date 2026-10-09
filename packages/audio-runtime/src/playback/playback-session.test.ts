@@ -1300,7 +1300,7 @@ describe('PlaybackSession', () => {
       expect(records(rig, LogSeverity.Error).map((record) => record.fields)).toEqual([
         {
           code: 'protocol.processor-reply-malformed',
-          reason: "The message's contextFrame is not a finite number.",
+          reason: "The message's contextFrame is not a whole number, zero or more.",
         },
       ]);
     });

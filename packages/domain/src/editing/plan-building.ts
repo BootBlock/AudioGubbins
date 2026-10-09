@@ -31,7 +31,7 @@ import { FailureKind, fail, failure, mapResult, succeed, type DomainResult } fro
 import { derivedSampleCount } from '../time/sample-time.js';
 import { insertedLength } from './edit-shape.js';
 import type { ProjectChains } from './operation-validation.js';
-import type { EditOperation, RangeEdit, RegionOperation } from './operations.js';
+import type { EditOperation, EngineVersions, RangeEdit, RegionOperation } from './operations.js';
 import type { EditPlan, PlanSegment } from './plan.js';
 import {
   convertWhole,
@@ -47,12 +47,14 @@ import { pruneStreams, shiftStreams } from './stream-tables.js';
 
 /**
  * What a plan is built with besides its asset: the project's chains, which
- * rack edits and racks name, and the processor types this build has, which
- * say what layout a chain makes.
+ * rack edits and racks name, the processor types this build has, which say
+ * what layout a chain makes, and the versions of the engine's algorithms it
+ * has, which a stretch or a conversion of rate must have been made by.
  */
 export interface PlanContext {
   readonly chains: ProjectChains;
   readonly catalogue: ProcessorCatalogue;
+  readonly engine: EngineVersions;
 }
 
 /** A range edit on the first stream: the asset's own processing, or a region's. */
@@ -63,10 +65,31 @@ type Processing = Pick<RegionOperation, 'range' | 'channels' | 'edit'>;
  * project's chains, or bypassed, the range left as the edits before it made
  * it, which is the sound with its processing bypassed (REQ-AUDIO-019).
  */
-type RangeRacks =
-  { readonly kind: 'run'; readonly context: PlanContext } | { readonly kind: 'bypassed' };
+interface RangeRacks {
+  readonly kind: 'run' | 'bypassed';
+  readonly context: PlanContext;
+}
 
-const BYPASSED: RangeRacks = { kind: 'bypassed' };
+/**
+ * Nothing, where an edit made by version `found` of the engine's `algorithm`
+ * is made by the version this build has, `implemented`, or why it is not: an
+ * edit another version made would be heard otherwise (REQ-AUDIO-145).
+ */
+function versionKnown(
+  algorithm: 'stretch' | 'resampler',
+  found: number,
+  implemented: number,
+): DomainResult<void> {
+  if (found === implemented) return succeed(undefined);
+  return fail(
+    failure(
+      'edit.algorithm-version-unknown',
+      FailureKind.Unrecoverable,
+      `This build does not have version ${String(found)} of the ${algorithm} the edit was made with, but version ${String(implemented)}.`,
+      { details: { algorithm, found, implemented } },
+    ),
+  );
+}
 
 /** The chain an edit or a rack names, or why the project does not have it. */
 function namedChain(context: PlanContext, id: EffectChainId): DomainResult<EffectChain> {
@@ -167,11 +190,15 @@ function foldOperation(
     case 'process':
       return processRange(plan, operation, racks);
     case 'stretch':
-      return succeed(
-        stretchRange(plan, operation.range.start, operation.range.end, operation.length),
+      return mapResult(
+        versionKnown('stretch', operation.version, racks.context.engine.stretch),
+        () => stretchRange(plan, operation.range.start, operation.range.end, operation.length),
       );
     case 'convert-rate':
-      return succeed(convertWhole(plan, operation.sampleRate));
+      return mapResult(
+        versionKnown('resampler', operation.version, racks.context.engine.resampler),
+        () => convertWhole(plan, operation.sampleRate),
+      );
     case 'delete':
     case 'trim':
     case 'reverse':
@@ -319,9 +346,10 @@ export function unrackedAssetPlan(
  */
 export function bypassedAssetPlan(
   asset: Asset,
+  context: PlanContext,
   processing: readonly RegionOperation[] = [],
 ): DomainResult<EditPlan> {
-  return mapResult(editedPlan(asset, processing, BYPASSED), pruneStreams);
+  return mapResult(editedPlan(asset, processing, { kind: 'bypassed', context }), pruneStreams);
 }
 
 /**

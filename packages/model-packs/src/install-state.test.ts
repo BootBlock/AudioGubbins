@@ -57,6 +57,8 @@ const ALLOWED: ReadonlyMap<string, InstallState> = new Map([
   ['paused cancel', { kind: 'removing' }],
   ['verifying verified', { kind: 'installed' }],
   ['verifying fail', { kind: 'failed', reason: REASON, resumable: false, received: 0 }],
+  ['verifying pause', { kind: 'paused', received: 100, total: 100 }],
+  ['verifying cancel', { kind: 'removing' }],
   ['installed damaged', { kind: 'failed', reason: DAMAGE, resumable: false, received: 0 }],
   ['installed remove', { kind: 'removing' }],
   ['failed queue', { kind: 'queued', received: 40, total: 100 }],

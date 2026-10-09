@@ -29,6 +29,7 @@ import {
 } from './plan-building.js';
 import { slicePlan } from './plan-slicing.js';
 import { validatePlan } from './plan-validation.js';
+import { TEST_ENGINE } from '../testing/plan-context.js';
 
 /** A small, seeded generator, so each run is the same run. */
 function random(seed: number): () => number {
@@ -55,6 +56,7 @@ const CHAINS: readonly EffectChainId[] = ['a', 'b', 'c'].map((name) =>
 const CONTEXT: PlanContext = {
   chains: new Map(CHAINS.map((id): [EffectChainId, EffectChain] => [id, { id, slots: [] }])),
   catalogue: TEST_CATALOGUE,
+  engine: TEST_ENGINE,
 };
 
 /**
@@ -146,7 +148,13 @@ function step(
     const before = range.end - range.start;
     const made = Math.max(1, Math.round(before * (0.5 + next() * 1.5)));
     return {
-      operation: { id, kind: 'stretch', range: edges, length: derivedSampleCount(made) },
+      operation: {
+        id,
+        kind: 'stretch',
+        range: edges,
+        length: derivedSampleCount(made),
+        version: TEST_ENGINE.stretch,
+      },
       inserted: [],
     };
   }
@@ -155,7 +163,10 @@ function step(
     const others = RATES.filter((rate) => rate !== current);
     const to = others[Math.floor(next() * others.length)] ?? RATES[0];
     if (to !== undefined && length * 4 < 2_000) {
-      return { operation: { id, kind: 'convert-rate', sampleRate: to }, inserted: [] };
+      return {
+        operation: { id, kind: 'convert-rate', sampleRate: to, version: TEST_ENGINE.resampler },
+        inserted: [],
+      };
     }
   }
   if (pick < 0.7) {
@@ -352,7 +363,7 @@ describe('the edit plan with racks, stretches and conversions, against the same 
       const { source, asset, made, next } = randomChain(13_000 + run, 12);
       const rack = chainOf(next);
       const expected = replayedBypassed(source.samples, asset, made);
-      const plan = expectSuccess(bypassedAssetPlan({ ...asset, rack }));
+      const plan = expectSuccess(bypassedAssetPlan({ ...asset, rack }, CONTEXT));
       expect(
         sameBits(renderPlan(plan, new Map([[asset.id, source.samples]]), WORLD), expected),
         `run ${String(run)}`,
@@ -390,7 +401,9 @@ describe('the edit plan with racks, stretches and conversions, against the same 
         rack: chainOf(next),
       };
       const withRack = { ...asset, rack: chainOf(next) };
-      const plan = expectSuccess(bypassedRegionPlan(withRack, region, anchorResolver(withRack)));
+      const plan = expectSuccess(
+        bypassedRegionPlan(withRack, region, CONTEXT, anchorResolver(withRack)),
+      );
       expect(
         sameBits(
           renderPlan(plan, new Map([[asset.id, source.samples]]), WORLD),

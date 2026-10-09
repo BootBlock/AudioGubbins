@@ -30,6 +30,7 @@ import {
   throwIfCancelled,
   type CancellationSource,
   type DomainFailure,
+  type DomainResult,
 } from '@audiogubbins/domain';
 
 import type { CanonicalDsp } from '../dsp/canonical-dsp.js';
@@ -92,17 +93,32 @@ class Render implements Kept {
   readonly purposes = new Map<CachePurpose, number>();
   readonly lifetime: CancellationSource = createCancellationSource();
   reason: string | undefined;
+  /** What the whole passes of its chains hold while it is made, and nothing once it is. */
+  #making: number;
 
-  constructor(id: number, key: string, request: CachedStreamRequest, stream: RenderedStream) {
+  constructor(
+    id: number,
+    key: string,
+    request: CachedStreamRequest,
+    stream: RenderedStream,
+    making: number,
+  ) {
     this.id = id;
     this.key = key;
     this.request = request;
     this.stream = stream;
     this.reason = request.reason;
+    this.#making = making;
   }
 
+  /** Its samples, and while it is made what its making holds besides. */
   get bytes(): number {
-    return this.stream.bytes;
+    return this.stream.bytes + this.#making;
+  }
+
+  /** Its making has let go of what it held. */
+  made(): void {
+    this.#making = 0;
   }
 
   discard(): void {
@@ -203,7 +219,7 @@ export class PreviewProducer {
   }
 
   /** A render of `request` admitted to the cache, or why the cache declines it. */
-  #admitted(key: string, request: CachedStreamRequest) {
+  #admitted(key: string, request: CachedStreamRequest): DomainResult<Render> {
     const stream = request.plan.streams[request.place];
     if (stream === undefined) {
       return fail(
@@ -214,6 +230,8 @@ export class PreviewProducer {
         ),
       );
     }
+    const making = this.#measurementBytes(request);
+    if (!making.ok) return making;
     const frames = streamLength(stream);
     this.#ids += 1;
     const render = new Render(
@@ -221,9 +239,47 @@ export class PreviewProducer {
       key,
       request,
       new RenderedStream(stream.layout.roles.length, frames),
+      making.value,
     );
     const admitted = this.#cache.admit(key, render);
     return admitted.ok ? succeed(render) : admitted;
+  }
+
+  /**
+   * What the whole passes hold while `request`'s stream is rendered: those of
+   * its own chain and of every later stream's it reads, each run once by the
+   * render and each kept until it ends, so they add. A model's pass holds its
+   * output over the whole stream, so a render that fits as samples may not fit
+   * while it is made; counting this against the bound before it starts is what
+   * keeps the bound a bound on the worker's memory.
+   */
+  #measurementBytes(request: CachedStreamRequest): DomainResult<number> {
+    const { plan, quality } = request;
+    const seen = new Set<number>([request.place]);
+    const waiting = [request.place];
+    let bytes = 0;
+    for (let place = waiting.pop(); place !== undefined; place = waiting.pop()) {
+      const stream = plan.streams[place];
+      if (stream === undefined) continue;
+      const { processing } = stream;
+      if (processing?.kind === 'chain') {
+        const held = this.#options.processing.measurementBytes({
+          chain: processing.chain,
+          input: processing.input,
+          sampleRate: stream.sampleRate,
+          quality,
+          length: streamLength(stream),
+        });
+        if (!held.ok) return held;
+        bytes += held.value;
+      }
+      for (const segment of stream.segments) {
+        if (segment.source.kind !== 'stream' || seen.has(segment.source.stream)) continue;
+        seen.add(segment.source.stream);
+        waiting.push(segment.source.stream);
+      }
+    }
+    return succeed(bytes);
   }
 
   /**
@@ -300,6 +356,9 @@ export class PreviewProducer {
       this.#failed(render, error instanceof MediaReadFailure ? error.failure : faultOf(error));
     } finally {
       source.value.release();
+      // The chains' runs, and the measurements they held, are let go.
+      render.made();
+      this.#cache.recount(render.key, render);
     }
   }
 

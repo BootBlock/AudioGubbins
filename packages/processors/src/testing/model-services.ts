@@ -12,7 +12,12 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
 import { fail, failure, FailureKind, succeed, type CancellationSignal } from '@audiogubbins/domain';
-import type { InferenceOptions, InferencePort, ModelBytes } from '@audiogubbins/ml-runtime';
+import type {
+  InferenceOptions,
+  InferencePort,
+  ModelBytes,
+  ModelSource,
+} from '@audiogubbins/ml-runtime';
 import { FAKE_RUNTIME, FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
 
 import type { ModelDefinition } from '../ml/model-definition.js';
@@ -81,8 +86,8 @@ export class MemoryModelLibrary implements ModelLibrary {
 
 /**
  * An inference port that runs each model file as the model written in
- * TypeScript that `models` names for its SHA-256, each by a fake runtime of
- * its own, and counts the sessions open over them all.
+ * TypeScript that `models` names for the SHA-256 it is opened by, each by a
+ * fake runtime of its own, and counts the sessions open over them all.
  */
 export class FakeModels implements InferencePort {
   readonly #runtimes: ReadonlyMap<string, FakeInference>;
@@ -103,9 +108,9 @@ export class FakeModels implements InferencePort {
     return [...this.#runtimes.values()].flatMap((runtime) => runtime.opened);
   }
 
-  open(model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) {
-    const runtime = this.#runtimes.get(sha256Of(model));
-    if (runtime === undefined) throw new Error('The test gave no model for these bytes.');
+  open(model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) {
+    const runtime = this.#runtimes.get(model.sha256);
+    if (runtime === undefined) throw new Error('The test gave no model for this file.');
     return runtime.open(model, options, signal);
   }
 }

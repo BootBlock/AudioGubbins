@@ -170,6 +170,15 @@ export default defineConfig<SuiteOptions>({
       testMatch: /effect-rack\.spec\.ts/,
     },
     {
+      // Every worker under the page's security policy: the storage and
+      // inference workers each refused a fetch from another origin. The second
+      // test installs a model pack, so the build must carry the packs
+      // (AUDIOGUBBINS_PACK_CACHE and AUDIOGUBBINS_PACKS_IN_BUILD=1).
+      name: 'chromium-worker-policy',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /worker-policy\.spec\.ts/,
+    },
+    {
       // The editor's renderer losing its WebGL 2 context, where WebGPU gives
       // no adapter, as it does in the headless shell.
       name: 'chromium-renderer',

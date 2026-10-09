@@ -128,25 +128,41 @@ export type EditOperation =
     }
   /**
    * Stretches the range to `length` frames without changing its pitch, on
-   * every channel. A position inside the range moves by the ratio of the two
-   * lengths, and one after it by their difference (`anchors.ts`).
+   * every channel, by version `version` of the engine's stretch. A position
+   * inside the range moves by the ratio of the two lengths, and one after it
+   * by their difference (`anchors.ts`).
    */
   | {
       readonly id: EditOperationId;
       readonly kind: 'stretch';
       readonly range: EditRange;
       readonly length: SampleCount;
+      readonly version: number;
     }
   /**
-   * Converts the whole asset to `sampleRate` by the canonical resampler, the
-   * only way an asset's rate changes (REQ-ARCH-085). Every position moves by
-   * the ratio of the two rates.
+   * Converts the whole asset to `sampleRate` by version `version` of the
+   * canonical resampler, the only way an asset's rate changes (REQ-ARCH-085).
+   * Every position moves by the ratio of the two rates.
    */
   | {
       readonly id: EditOperationId;
       readonly kind: 'convert-rate';
       readonly sampleRate: SampleRate;
+      readonly version: number;
     };
+
+/**
+ * The versions of the engine's algorithms this build makes edits with, which
+ * the engine owns (REQ-AUDIO-145, ADR-0061): its stretch's, and its canonical
+ * resampler's. A stretch and a conversion of rate are made by, and persist,
+ * the version of theirs; one made by a version this build does not have is
+ * refused where its plan is built, rather than heard as another algorithm
+ * makes it.
+ */
+export interface EngineVersions {
+  readonly stretch: number;
+  readonly resampler: number;
+}
 
 /**
  * An operation on an asset's channels: a change between them over a range, or

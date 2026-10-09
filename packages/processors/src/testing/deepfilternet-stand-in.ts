@@ -15,7 +15,7 @@ import type { CancellationSignal } from '@audiogubbins/domain';
 import type {
   InferenceOptions,
   InferencePort,
-  ModelBytes,
+  ModelSource,
   RuntimeIdentity,
 } from '@audiogubbins/ml-runtime';
 import { FakeInference, type FakeModel } from '@audiogubbins/ml-runtime/testing';
@@ -169,12 +169,18 @@ export class StandInInference implements InferencePort {
     return [...this.#runtimes.values()].flatMap((one) => one.opened);
   }
 
-  open(model: ModelBytes, options: InferenceOptions, signal?: CancellationSignal) {
-    const named = new TextDecoder().decode(model);
+  async open(model: ModelSource, options: InferenceOptions, signal?: CancellationSignal) {
+    const read = await model.read(signal);
+    if (!read.ok) return read;
+    const named = new TextDecoder().decode(read.value);
     const runtime = named.startsWith(STAND_IN)
       ? this.#runtimes.get(named.slice(STAND_IN.length))
       : undefined;
     if (runtime === undefined) throw new Error('The test gave no graph for these bytes.');
-    return runtime.open(model, options, signal);
+    return await runtime.open(
+      { sha256: model.sha256, read: () => Promise.resolve(read) },
+      options,
+      signal,
+    );
   }
 }

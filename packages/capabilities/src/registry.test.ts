@@ -13,6 +13,7 @@ import { createCapabilityRegistry, type CapabilityEnvironment } from './registry
 import {
   ACCELERATED_RENDERING,
   ALL_FEATURES,
+  LOCAL_INFERENCE,
   MULTI_THREADED_DSP,
   NAMING,
   PROJECT_STORAGE,
@@ -329,16 +330,14 @@ describe('local machine-learning processing (ADR-0062)', () => {
     ).toBe(FeatureStatus.Unavailable);
   });
 
-  it('is only reduced without WebGPU or shared memory, which serve previews alone', () => {
+  it('is not reduced without WebGPU or shared memory, which no session uses', () => {
     for (const environment of [
       { ...CAPABLE, hasWebGpu: false },
       { ...CAPABLE, hasSharedArrayBuffer: false },
     ]) {
-      const local = registryFor(environment)
-        .degradedFeatures(ALL_FEATURES)
-        .find((feature) => feature.featureKey === 'local-inference');
-      expect(local?.status).toBe(FeatureStatus.Reduced);
-      expect(local?.explanation).toMatch(/previews run on one thread, as final renders always do/);
+      expect(registryFor(environment).featureAvailability(LOCAL_INFERENCE).status).toBe(
+        FeatureStatus.Full,
+      );
     }
   });
 });

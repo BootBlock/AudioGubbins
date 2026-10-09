@@ -2,25 +2,36 @@
  * One thread's conversation with the inference worker, over the channel the
  * page connected it by.
  *
- * It serves the worker's port, the adapter over the runtime, to that thread:
- * each message read field by field, each session kept by the call that opened
- * it, each call answered once with its outcome, its outputs' buffers
- * transferred. A call the thread cancels is cancelled here too, and a session
- * opened for a cancelled call is let go at once rather than kept. Sessions are
- * the conversation's own, so a thread can neither run nor release another's,
- * and closing the conversation, once its thread has gone, lets every one go.
+ * It serves the worker's port, the adapter over the runtime with its sessions
+ * shared (`shared-sessions.ts`), to that thread: each message read field by
+ * field, each session kept by the call that opened it, a model's bytes asked of
+ * the thread only where the port reads them, each call answered once with its
+ * outcome, its outputs' buffers transferred. A call the thread cancels is
+ * cancelled here too, and a session opened for a cancelled call is let go at
+ * once rather than kept. Sessions are the conversation's own, so a thread can
+ * neither run nor release another's, and closing the conversation, once its
+ * thread has gone, lets every one go.
  */
 
 import {
   FailureKind,
   createCancellationSource,
   failure,
+  succeed,
+  type CancellationSignal,
   type CancellationSource,
   type DomainFailure,
   type DomainFailureResult,
+  type DomainResult,
 } from '@audiogubbins/domain';
 
-import { released, type InferencePort, type InferenceSession } from './inference-port.js';
+import {
+  cancelled,
+  released,
+  type InferencePort,
+  type InferenceSession,
+  type ModelBytes,
+} from './inference-port.js';
 import { readToInferenceWorker } from './protocol/inference-message-reading.js';
 import {
   FromInferenceWorkerKind,
@@ -59,6 +70,8 @@ export class InferenceConversation {
   readonly #sessions = new Map<number, InferenceSession>();
   /** The calls not yet answered, each cancelled when the thread cancels it. */
   readonly #calls = new Map<number, CancellationSource>();
+  /** The opens waiting for the model's bytes the thread was asked for, by call. */
+  readonly #wanted = new Map<number, (result: DomainResult<ModelBytes>) => void>();
   #closed = false;
 
   constructor(host: ConversationHost) {
@@ -77,6 +90,9 @@ export class InferenceConversation {
     switch (message.kind) {
       case ToInferenceWorkerKind.Open:
         this.#open(message).catch(this.#faulted(message.call));
+        return;
+      case ToInferenceWorkerKind.Model:
+        this.#wanted.get(message.call)?.(succeed(message.model));
         return;
       case ToInferenceWorkerKind.Run:
         this.#run(message).catch(this.#faulted(message.call));
@@ -122,7 +138,11 @@ export class InferenceConversation {
     this.#sessions.clear();
   }
 
-  async #open({ call, model, options }: Message<typeof ToInferenceWorkerKind.Open>): Promise<void> {
+  async #open({
+    call,
+    sha256,
+    options,
+  }: Message<typeof ToInferenceWorkerKind.Open>): Promise<void> {
     const runtime = this.#host.runtime();
     if (runtime.kind === 'unavailable') {
       this.#failed(call, runtime.reason);
@@ -130,6 +150,7 @@ export class InferenceConversation {
     }
     const { port } = runtime;
     const source = this.#begin(call);
+    const model = { sha256, read: (signal?: CancellationSignal) => this.#modelOf(call, signal) };
     const opened = await port.open(model, options, source.signal);
     this.#calls.delete(call);
     if (!opened.ok) {
@@ -145,6 +166,31 @@ export class InferenceConversation {
     this.#sessions.set(call, session);
     const { inputs, outputs, execution } = session;
     this.#host.post({ kind: FromInferenceWorkerKind.Opened, call, inputs, outputs, execution }, []);
+  }
+
+  /**
+   * The model's bytes for the open `call`, asked of the thread, or the
+   * cancelled answer once `signal` is: the thread's cancelling the call, or
+   * its going.
+   */
+  #modelOf(
+    call: number,
+    signal: CancellationSignal | undefined,
+  ): Promise<DomainResult<ModelBytes>> {
+    if (signal?.aborted === true) return Promise.resolve(cancelled());
+    return new Promise((resolve) => {
+      const settle = (result: DomainResult<ModelBytes>): void => {
+        this.#wanted.delete(call);
+        signal?.removeEventListener('abort', abort);
+        resolve(result);
+      };
+      const abort = (): void => {
+        settle(cancelled());
+      };
+      this.#wanted.set(call, settle);
+      signal?.addEventListener('abort', abort, { once: true });
+      this.#post({ kind: FromInferenceWorkerKind.ModelWanted, call }, []);
+    });
   }
 
   async #run({ call, session, inputs }: Message<typeof ToInferenceWorkerKind.Run>): Promise<void> {

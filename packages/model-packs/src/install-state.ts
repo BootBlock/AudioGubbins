@@ -60,7 +60,8 @@ export type InstallState =
  * - `start`: a download begins, at once or when its turn comes, finding
  *   `received` of `total` bytes kept from before.
  * - `progress`: `received` bytes are now kept.
- * - `pause`: arrival stops, or a wait for a turn ends, keeping what came.
+ * - `pause`: arrival stops, a wait for a turn ends, or a check stops, keeping
+ *   what came: a check stopped part way starts again on a resume.
  * - `resume`: arrival starts again, finding `received` bytes kept.
  * - `downloaded`: every byte has arrived; checking begins.
  * - `verified`: every file matched its hash.
@@ -69,8 +70,8 @@ export type InstallState =
  * - `retry`: a failed installation starts again, of `total` bytes, finding
  *   `received` kept: none where its failure was not resumable.
  * - `damaged`: an installed version's files were found not to match.
- * - `cancel`: a download, queued, paused or neither, or a failure, is given
- *   up, and what was kept is to be deleted.
+ * - `cancel`: a download, queued, paused or neither, a check, or a failure,
+ *   is given up, and what was kept is to be deleted.
  * - `remove`: an installed or failed version is to be deleted.
  * - `removed`: the deletion is done.
  */
@@ -137,9 +138,12 @@ export function nextInstallState(
         : refused(state, event, 'what is kept only grows, and never past the whole download.');
 
     case 'pause':
+      if (state.kind === 'verifying') {
+        return succeed({ kind: 'paused', received: state.total, total: state.total });
+      }
       return state.kind === 'downloading' || state.kind === 'queued'
         ? succeed({ kind: 'paused', received: state.received, total: state.total })
-        : refused(state, event, 'only a download, or one waiting its turn, pauses.');
+        : refused(state, event, 'only a download, one waiting its turn, or a check pauses.');
 
     case 'resume':
       return state.kind === 'paused'
@@ -177,9 +181,14 @@ export function nextInstallState(
       return state.kind === 'downloading' ||
         state.kind === 'queued' ||
         state.kind === 'paused' ||
+        state.kind === 'verifying' ||
         state.kind === 'failed'
         ? succeed({ kind: 'removing' })
-        : refused(state, event, 'only a download, queued or not, or a failure is cancelled.');
+        : refused(
+            state,
+            event,
+            'only a download, queued or not, a check or a failure is cancelled.',
+          );
 
     case 'remove':
       return state.kind === 'installed' || state.kind === 'failed'

@@ -5,6 +5,7 @@ import type { DomainResult } from '@audiogubbins/domain';
 import { nobleSha256 } from './adapter/noble-sha256.js';
 import { ImportedPackSource } from './imported-pack-source.js';
 import type { InstallState } from './install-state.js';
+import type { Sha256 } from './integrity.js';
 import { refOf, type PackRef } from './manifest.js';
 import { PackInstaller } from './pack-installer.js';
 import { updatePack } from './pack-update.js';
@@ -24,11 +25,11 @@ function codes<TValue>(result: DomainResult<TValue>): readonly string[] {
 }
 
 /** An installer over a store in memory, and every state it entered, in order. */
-function installerOver(store = new MemoryPackStore()) {
+function installerOver(store = new MemoryPackStore(), sha256: Sha256 = nobleSha256) {
   const states: InstallState[] = [];
   const installer = new PackInstaller({
     store,
-    sha256: nobleSha256,
+    sha256,
     changed: (_ref, state) => states.push(state),
   });
   return { installer, store, states };
@@ -141,6 +142,70 @@ describe('installing a pack', () => {
     expect(kinds(states)).toEqual(['downloading', 'removing', 'available']);
     expect(valueOf(await store.kept())).toEqual([]);
     expect(store.heldBytes()).toBe(0);
+  });
+
+  describe('while every file is checked', () => {
+    /**
+     * An installer whose hashing calls `checking` with its own states before
+     * it takes each chunk, which only the check after a download hashes here.
+     */
+    function checkedWith(checking: (installer: PackInstaller) => void) {
+      // The installer is made with the hashing, which calls it back.
+      const made: { installer?: PackInstaller } = {};
+      const sha256: Sha256 = () => {
+        const run = nobleSha256();
+        return {
+          update: async (bytes) => {
+            if (made.installer !== undefined) checking(made.installer);
+            await run.update(bytes);
+          },
+          digest: () => run.digest(),
+        };
+      };
+      const over = installerOver(new MemoryPackStore(), sha256);
+      made.installer = over.installer;
+      return over;
+    }
+
+    it('cancels the check, keeping nothing', async () => {
+      const { installer, store, states } = checkedWith((one) => void one.cancel(REF));
+      expect(valueOf(await installer.download(PACK.manifest, new MemorySource([PACK])))).toEqual({
+        kind: 'available',
+      });
+      expect(kinds(states)).toEqual(['downloading', 'verifying', 'removing', 'available']);
+      expect(valueOf(await store.kept())).toEqual([]);
+      expect(store.heldBytes()).toBe(0);
+    });
+
+    it('pauses the check, keeping every byte, and checks again from the start on a resume', async () => {
+      let paused = false;
+      const { installer, store } = checkedWith((one) => {
+        if (paused) return;
+        paused = true;
+        valueOf(one.pause(REF));
+      });
+      expect(valueOf(await installer.download(PACK.manifest, new MemorySource([PACK])))).toEqual({
+        kind: 'paused',
+        received: 17,
+        total: 17,
+      });
+      const resuming = new MemorySource([PACK]);
+      expect(valueOf(await installer.resume(REF, resuming))).toEqual({ kind: 'installed' });
+      expect(resuming.reads).toEqual([]);
+      expect(await keptFiles(store, PACK)).toEqual(bytesOf(PACK));
+    });
+
+    it('pauses the check when the caller’s signal aborts', async () => {
+      const controller = new AbortController();
+      const { installer } = checkedWith(() => {
+        controller.abort();
+      });
+      expect(
+        valueOf(
+          await installer.download(PACK.manifest, new MemorySource([PACK]), controller.signal),
+        ),
+      ).toEqual({ kind: 'paused', received: 17, total: 17 });
+    });
   });
 
   it('cancels a paused download, keeping nothing', async () => {

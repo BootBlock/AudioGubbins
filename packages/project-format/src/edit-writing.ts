@@ -73,9 +73,15 @@ export function writeEditOperation(operation: EditOperation): JsonObject {
         kind: operation.kind,
         range: writeEditRange(operation.range),
         length: operation.length,
+        version: operation.version,
       };
     case 'convert-rate':
-      return { id: operation.id, kind: operation.kind, sampleRate: operation.sampleRate };
+      return {
+        id: operation.id,
+        kind: operation.kind,
+        sampleRate: operation.sampleRate,
+        version: operation.version,
+      };
   }
 }
 

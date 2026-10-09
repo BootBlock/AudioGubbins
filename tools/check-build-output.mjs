@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, extname, join, relative, resolve } from 'node:path';
 import { transform } from 'lightningcss';
 
-import { RUNTIME_FILES } from './inference-runtime-files.mjs';
+import { RUNTIME_FILE } from './inference-runtime-files.mjs';
 import { localRoots, localTracesIn } from './local-traces.mjs';
 import { CATALOGUE_FILE, loadPackDefinitions } from './model-packs/pack-definitions.mjs';
 import { outputProblems, packsPresent } from './model-packs/pack-output.mjs';
@@ -340,21 +340,23 @@ function escapeName(name) {
 const JEKYLL_WOULD_DROP = /^_/;
 
 /**
- * The inference runtime's WebAssembly as a build serves it: each build's file
+ * The inference runtime's WebAssembly as a build serves it: its one file
  * (`inference-runtime-files.mjs`), in one folder named by the runtime's
  * version.
  */
-export const RUNTIME_WEBASSEMBLY_FILES = Object.freeze(RUNTIME_FILES.map(({ name }) => name));
+export const RUNTIME_WEBASSEMBLY_FILE = RUNTIME_FILE;
 
 /** `inference/onnxruntime-web-<version>/<file>`, where a build serves the runtime. */
-const RUNTIME_FILE = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;
+const RUNTIME_PATH = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;
 
 /**
- * Whether the build serves the inference runtime's files whole and as it
- * states them: one version's folder holding each build's file, each of whose
- * SHA-256 a script of the build names, as the page states it to the inference
- * worker, which holds the file it reads to it. A file served that no script
- * names would be refused by every worker; a file missing, by every session.
+ * Whether the build serves the inference runtime's file whole and as it
+ * states it: one version's folder holding the file, whose SHA-256 a script of
+ * the build names, as the page states it to the inference worker, which holds
+ * the file it reads to it, and nothing else. A file served that no script
+ * names would be refused by every worker; a file missing, by every session;
+ * another file of the runtime's, such as a build no session runs, is only
+ * weight a deployment carries.
  *
  * @param {string} root
  * @param {readonly string[]} files
@@ -363,7 +365,7 @@ const RUNTIME_FILE = /^inference\/onnxruntime-web-(\d+\.\d+\.\d+)\/([^/]+)$/;
  */
 export function runtimeProblems(root, files, texts) {
   const served = files.flatMap((name) => {
-    const [, version, file] = RUNTIME_FILE.exec(name) ?? [];
+    const [, version, file] = RUNTIME_PATH.exec(name) ?? [];
     return version === undefined || file === undefined ? [] : [{ name, version, file }];
   });
   const versions = new Set(served.map(({ version }) => version));
@@ -382,12 +384,14 @@ export function runtimeProblems(root, files, texts) {
   const scripts = [...texts].filter(([name]) => extname(name) === '.js').map(([, text]) => text);
   /** @type {Problem[]} */
   const problems = [];
-  for (const wanted of RUNTIME_WEBASSEMBLY_FILES) {
-    const file = served.find((one) => one.file === wanted);
-    if (file === undefined) {
-      problems.push({ file: `inference/…/${wanted}`, field: 'name', reason: 'is missing' });
-      continue;
-    }
+  const file = served.find((one) => one.file === RUNTIME_WEBASSEMBLY_FILE);
+  if (file === undefined) {
+    problems.push({
+      file: `inference/…/${RUNTIME_WEBASSEMBLY_FILE}`,
+      field: 'name',
+      reason: 'is missing',
+    });
+  } else {
     const digest = createHash('sha256')
       .update(readFileSync(join(root, file.name)))
       .digest('hex');
@@ -399,9 +403,13 @@ export function runtimeProblems(root, files, texts) {
       });
     }
   }
-  for (const { name, file } of served) {
-    if (!RUNTIME_WEBASSEMBLY_FILES.includes(file)) {
-      problems.push({ file: name, field: 'name', reason: 'is no file of the inference runtime' });
+  for (const { name, file: other } of served) {
+    if (other !== RUNTIME_WEBASSEMBLY_FILE) {
+      problems.push({
+        file: name,
+        field: 'name',
+        reason: 'is no file of the inference runtime a session runs',
+      });
     }
   }
   return problems;

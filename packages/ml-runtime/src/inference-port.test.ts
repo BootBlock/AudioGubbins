@@ -4,14 +4,14 @@ import { createCancellationSource, succeed, type DomainResult } from '@audiogubb
 
 import { unlessCancelled } from './inference-port.js';
 import { tensor } from './tensor.js';
-import { FAKE_ADD, addModelBytes } from './testing/add-model.js';
+import { FAKE_ADD, addModel } from './testing/add-model.js';
 import { FakeInference } from './testing/fake-inference.js';
 import { inProcessInference, testSetup } from './testing/in-process-worker.js';
 import { portContract } from './testing/port-contract.js';
 
 portContract('the fake runtime', {
   port: (capabilities) => new FakeInference(FAKE_ADD, capabilities),
-  model: addModelBytes,
+  model: addModel,
 });
 
 portContract("a thread's client, over the page's workers serving the fake", {
@@ -20,7 +20,7 @@ portContract("a thread's client, over the page's workers serving the fake", {
       (setup) => new FakeInference(FAKE_ADD, setup.capabilities),
       testSetup(capabilities),
     ).inference,
-  model: addModelBytes,
+  model: addModel,
 });
 
 describe('a tensor', () => {

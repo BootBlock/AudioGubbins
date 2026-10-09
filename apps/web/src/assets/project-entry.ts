@@ -219,7 +219,7 @@ function regionPlansBeside(
       : unrackedRegionPlan(asset, region, context, resolver);
   if (unracked?.ok === false) return unracked.failures[0].summary;
   const original = runsChains(asset, region)
-    ? bypassedRegionPlan(asset, region, resolver)
+    ? bypassedRegionPlan(asset, region, context, resolver)
     : undefined;
   if (original?.ok === false) return original.failures[0].summary;
   return {

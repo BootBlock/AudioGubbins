@@ -24,7 +24,7 @@ import {
   ToDetectionWorkerKind,
   type FromDetectionWorker,
 } from './detection-messages.js';
-import type { DetectionResult } from './detection-result.js';
+import { MOST_FINDINGS_SHOWN, type DetectionResult } from './detection-result.js';
 import { DetectionWorkerCore } from './detection-worker-core.js';
 import {
   CLICKS,
@@ -205,6 +205,8 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
     ).toBeGreaterThan(0);
     expect(repair?.recommendation.steps.map((step) => step.typeKey)).toEqual(['de-click']);
     expect(repair?.learned).toEqual([{ kind: 'none' }]);
+    // What each step treats is counted over every finding, not those held.
+    expect(repair?.treated).toEqual([[{ kind: FindingKind.Click, count: clicks.length }]]);
 
     const [hum] = ofKind(restoration?.recommendation.findings ?? [], FindingKind.Hum);
     expect(hum?.range).toEqual({ start: 0, end: FAULTY_LENGTH });
@@ -454,14 +456,16 @@ describe('the detection worker core', { timeout: 30_000 }, () => {
     expect(await running).toEqual({ kind: FromDetectionWorkerKind.Failed, job: 'running', reason });
   });
 
-  it('answers a detector’s findings however many it finds', async () => {
-    // More than a call takes as arguments, which a spread of them would pass.
+  it('answers however many findings a detector makes, holding the first of each kind and their count', async () => {
+    // More than a call takes as arguments, which a spread of them would pass;
+    // every one of them was sent to the page and listed in its panel.
     const count = 1_000_000;
     const { core, answer } = rig(REFERENCE_DSP, [findingEverything(count)]);
     const done = answer('many');
     core.receive(detect('many', { end: TEST_RATE / 10, assistants: ['everything'] }));
 
     const [report] = resultOf(await done).reports;
-    expect(report?.recommendation.findings).toHaveLength(count);
+    expect(report?.recommendation.findings).toHaveLength(MOST_FINDINGS_SHOWN);
+    expect(report?.found).toEqual([{ kind: FindingKind.Click, count }]);
   });
 });

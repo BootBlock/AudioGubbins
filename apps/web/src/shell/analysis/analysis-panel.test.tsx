@@ -51,6 +51,8 @@ const RESULT: DetectionResult = {
         steps: [{ typeKey: 'de-click', values: { sensitivity: 8 } }],
       },
       learned: [{ kind: 'none' }],
+      found: [{ kind: FindingKind.Click, count: 2 }],
+      treated: [[{ kind: FindingKind.Click, count: 2 }]],
     },
     {
       label: 'Classification',
@@ -61,6 +63,8 @@ const RESULT: DetectionResult = {
         steps: [],
       },
       learned: [],
+      found: [],
+      treated: [],
     },
   ],
 };
@@ -112,6 +116,9 @@ function panelOver(
   return { ran };
 }
 
+/** The findings of a kind a report holds at most, of however many it found. */
+const HELD = 200;
+
 describe('the Analysis panel', () => {
   it('reads the detections and cannot write them, changing anything only by a command', () => {
     expectTypeOf<AnalysisParts['detection']>().toEqualTypeOf<Observable<Detections>>();
@@ -138,6 +145,41 @@ describe('the Analysis panel', () => {
     expect(
       within(classification).queryByRole('button', { name: /Apply/u }),
     ).not.toBeInTheDocument();
+  });
+
+  it('lists a long kind only once it is opened, saying how many of its findings the report leaves out', async () => {
+    const { context, asset } = session();
+    const held = Array.from({ length: HELD }, (_, index) => click(index * 100));
+    const [repair] = RESULT.reports;
+    if (repair === undefined) throw new Error('The result has a repair report.');
+    const many: DetectionResult = {
+      ...RESULT,
+      reports: [
+        {
+          ...repair,
+          recommendation: { ...repair.recommendation, findings: held },
+          found: [{ kind: FindingKind.Click, count: 5_000 }],
+          treated: [[{ kind: FindingKind.Click, count: 4_990 }]],
+        },
+      ],
+    };
+    const done: Detection = { ...detectionOf(context, asset), kind: 'done', result: many };
+    panelOver(context, observable<Detections>(new Map([[asset.id, done]])));
+
+    const region = screen.getByRole('region', { name: 'Repair' });
+    const summary = within(region).getByText('Clicks: 5000');
+    // Every row was drawn on the page's thread whether or not anyone looked.
+    expect(within(region).queryAllByRole('button', { name: /^Select / })).toHaveLength(0);
+    expect(within(region).getByText(/for the 4990 clicks found\./u)).toBeInTheDocument();
+
+    await userEvent.click(summary);
+
+    expect(within(region).getAllByRole('button', { name: /^Select / })).toHaveLength(HELD);
+    expect(
+      within(region).getByText(
+        `The first ${String(HELD)} are listed, and ${String(5_000 - HELD)} more are left out. Analyse a shorter range to list them.`,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('runs the commands its controls name, and writes nothing itself', async () => {

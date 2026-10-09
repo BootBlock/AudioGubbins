@@ -86,7 +86,8 @@ the package dependencies in ADR-0030 and ADR-0040).
 9. **Persisted form.** A chain is written by `chain-writing.ts` and read by
    `chain-reading.ts` (project-format), the one form for a project, a plan's
    processed stream, the library and the clipboard. Schema versions:
-   `projectDocument` 3, `projectStorage` 7.
+   `projectDocument` 4, `projectStorage` 8 (4 and 8 since stretch and rate
+   conversion carry the engine's algorithm version).
 10. **Processor node encoding.** A processor runs as node type
     `processor.<typeKey>` with ports `input`, optional `side-chain`, and
     `output`; settings `parameter.<key>`, `quality.<setting>`, `state.kind`,
@@ -141,10 +142,11 @@ the package dependencies in ADR-0030 and ADR-0040).
 17. **Local inference.** `packages/ml-runtime` holds the inference port
     (no browser global), `InferenceOptions` (pinned: WebAssembly, fixed
     SIMD, one thread, full precision, a stated optimisation level, never a
-    fallback; or preview, which says so), the adapter over
-    `onnxruntime-web` 1.30.0, imported only by `import()` and only in the
-    adapter (cruise rules), and the inference worker with its client, one
-    worker per runtime configuration. `packages/capabilities` probes
+    fallback; a preview runs the same path, and no faster path is built
+    until a processor can choose one through `QualityMode`), the adapter
+    over `onnxruntime-web` 1.30.0, imported only by `import()` and only in
+    the adapter (cruise rules), and the inference worker with its client.
+    `packages/capabilities` probes
     fixed-width WebAssembly SIMD and states `LOCAL_INFERENCE`.
 18. **Model packs.** `packages/model-packs` holds the manifest and its one
     validating reader, the pure install state machine (update available
@@ -235,20 +237,24 @@ the package dependencies in ADR-0030 and ADR-0040).
     `ChainRun.setParameter`); a rendered chain
     refuses it and playback reloads where it plays, remaking the render.
 
-27. **ML in the application** (2026-10-07). One inference worker per runtime
-    configuration for the whole page (`InferenceHost`), started on its first
-    connection. Every thread that runs chains (preview, render, feeder, peak,
+27. **ML in the application** (2026-10-07). One inference worker for the
+    whole page (`InferenceHost`), started on its first connection. Every thread that runs chains (preview, render, feeder, peak,
     detection) is started by `ModelServices.startChainWorker`, which gives it
-    a `ModelChannel`; per configuration the thread opens a `MessageChannel`
-    straight to the inference worker, so a tensor crosses once. A worker
+    a `ModelChannel`; the thread opens a `MessageChannel` straight to the
+    inference worker, so a tensor crosses once. Every worker starts from a
+    same-origin `blob:` module that imports its script
+    (`apps/web/src/module-worker.ts`, an ESLint rule refusing any other
+    start), so the page's Content-Security-Policy governs it. A worker
     serves at most 32 channels (`MOST_CONNECTIONS`); terminating a thread
     lets go of its channel. Model files are read thread to page to storage
-    worker by `installedModelFiles`, the hash taken while reading. The build
-    serves onnxruntime-web's two `.wasm` files under
+    worker by `installedModelFiles`, the hash taken while reading, only when
+    the inference worker asks for a model's bytes (`model-wanted`), which are
+    transferred; it shares one session per model (`SharedSessions`) and
+    keeps idle ones up to 256 MiB. The build serves onnxruntime-web's one
+    `.wasm` file under
     `inference/onnxruntime-web-<version>/` and states their SHA-256 from the
     shipped bytes (`apps/web/inference-runtime.ts`); the build-output check
-    hashes them again. COOP/COEP stay development-only: an unisolated page
-    offers one thread, and a threaded preview is refused with its reason.
+    hashes it again and refuses any other runtime file.
     Packs are served under `<base>packs/` in development from
     `AUDIOGUBBINS_PACK_CACHE`, and copied into a build only with
     `AUDIOGUBBINS_PACKS_IN_BUILD=1`; the output check refuses a file under
@@ -569,6 +575,20 @@ batches, each fix with a test seen to fail against the old code.
   finds no peak in silence; a rack-level latency test the latency gate
   selects. Goldens re-recorded with independent checks: reverb stereo, the
   limiter, the peak meter's two hashes.
+- Batch C (preview, ML runtime, packs, the build and workers): the preview
+  cache key writes each stream once (it grew exponentially); the preview
+  service answers expected failures and reports any other as a fault; one
+  pack path grammar (`model-packs/src/pack-path.ts`) for the manifest, the
+  download and the development server, which served another drive's
+  `\\?\` path before; pause and cancel while a pack's files are checked;
+  the ML preview tier, the WebGPU build and the second runtime file
+  removed; workers under the page's policy; model bytes read lazily and
+  sessions shared; the render cache counts a whole pass's memory; a
+  detection keeps 200 findings per kind and counts the rest, and the panel
+  draws a kind's rows only when opened; one structured-clone field reader
+  (`domain/src/messages/message-fields.ts`) and one `QualityMode` wire
+  form; algorithm versions on stretch and rate conversion; the feeder and
+  peak workers in the locality test; the unused `packsToFetch` removed.
 
 Open points from `ml-runtime`:
 
@@ -576,18 +596,14 @@ Open points from `ml-runtime`:
   a `RuntimeFiles` port, checks it against the setup's digest
   (`inference.runtime-file-mismatch`), and gives it as `wasmBinary`; a run
   in Node and in Chromium showed the runtime then requests nothing itself
-  (`onnxruntime-web/wasm` is the bundle with its glue; a threaded preview's
-  workers load that bundle again). Closed (decision 27): the build states
-  both files' digests and serves them; COOP/COEP stay development-only.
+  (`onnxruntime-web/wasm` is the bundle with its glue). Closed (decision
+  27): the build states the file's digest and serves it.
 - A refused setup or a malformed page message reaches the inference
   worker's `reportError`, which the host takes as the worker failing, so it
   ends the worker for every thread on it. Not checked: whether the PWA
-  precache takes the runtime's `.wasm` files and copied packs; a threaded
-  preview refused on a host without COOP/COEP has no test.
+  precache takes the runtime's `.wasm` file and copied packs.
 - The runtime sorts a failure into "runtime unavailable" or "model
   refused" by its message text, the only signal it gives.
-- A WebGPU preview may run some operators on the CPU and still report
-  WebGPU; it is a preview, so it is disclosed as one.
 - Closed: `THIRD-PARTY-NOTICES.md` is generated from the committed
   lockfiles (`tools/sync-third-party-notices.mjs`, the production closure
   of `apps/web` and the crates linked into the WebAssembly) and checked by
@@ -597,8 +613,10 @@ Open points from `model-packs`:
 
 - Closed (decision 27): the thread entries build the ML types
   (`processorTypesWith`) over a `ModelChannel` and the installed packs.
-- The resampler's version (`CANONICAL_RESAMPLER_VERSION = 1`) is stated in
-  processors; it belongs to the engine.
+- Closed: the resampler's and the stretch's versions are the engine's
+  (`audio-engine/src/dsp/algorithm-versions.ts`), persisted on each
+  stretch and rate conversion and refused when unknown
+  (`edit.algorithm-version-unknown`).
 - A parameter change of an ML processor while playing is refused: it needs
   a new pass.
 - Closed: ported source is credited from `tools/ported-code-notices.json`

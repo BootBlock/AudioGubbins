@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  RUNTIME_WEBASSEMBLY_FILES,
+  RUNTIME_WEBASSEMBLY_FILE,
   checkDirectory,
   packProblems,
 } from '../tools/check-build-output.mjs';
@@ -74,23 +74,23 @@ const TEXT_SIZE =
 /** Where a build serves the inference runtime's WebAssembly. */
 const RUNTIME_FOLDER = 'inference/onnxruntime-web-1.30.0';
 
-/** Stand-ins for each runtime build's WebAssembly, by file name. */
-const RUNTIME_BYTES: ReadonlyMap<string, Uint8Array> = new Map(
-  RUNTIME_WEBASSEMBLY_FILES.map((name, index) => [name, new Uint8Array([0, 97, 115, 109, index])]),
-);
+/** A stand-in for the runtime's WebAssembly, by file name. */
+const RUNTIME_BYTES: ReadonlyMap<string, Uint8Array> = new Map([
+  [RUNTIME_WEBASSEMBLY_FILE, new Uint8Array([0, 97, 115, 109, 0])],
+]);
 
 function sha256Of(bytes: Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-/** Serves the runtime's files in `root`, with a script stating each one's digest, as a build does. */
+/** Serves the runtime's file in `root`, with a script stating its digest, as a build does. */
 function servedRuntime(root: string): void {
   mkdirSync(join(root, RUNTIME_FOLDER), { recursive: true });
   for (const [name, bytes] of RUNTIME_BYTES) writeFileSync(join(root, RUNTIME_FOLDER, name), bytes);
-  const digests = [...RUNTIME_BYTES.values()].map(sha256Of);
+  const [digest = ''] = [...RUNTIME_BYTES.values()].map(sha256Of);
   writeFileSync(
     join(root, 'assets', 'runtime-abc.js'),
-    `const e={cpu:"${digests[0] ?? ''}",webgpu:"${digests[1] ?? ''}"};export{e as R};`,
+    `const e="${digest}";export{e as R};`,
     'utf8',
   );
 }
@@ -166,21 +166,38 @@ describe("the build-output gate's hold on the inference runtime (ADR-0062)", () 
   });
 
   it('fails a runtime file whose bytes are not the ones the build states', () => {
-    const [name] = RUNTIME_WEBASSEMBLY_FILES;
-    writeFileSync(join(output, RUNTIME_FOLDER, name ?? ''), new Uint8Array([9, 9, 9]));
+    writeFileSync(
+      join(output, RUNTIME_FOLDER, RUNTIME_WEBASSEMBLY_FILE),
+      new Uint8Array([9, 9, 9]),
+    );
 
     expect(problems()).toEqual([
       expect.objectContaining({
-        file: `${RUNTIME_FOLDER}/${name ?? ''}`,
+        file: `${RUNTIME_FOLDER}/${RUNTIME_WEBASSEMBLY_FILE}`,
         reason: expect.stringMatching(/no script names its SHA-256/),
       }),
     ]);
   });
 
-  it('fails a runtime missing a build, or none at all, and fails the build that made it', () => {
-    const [, second] = RUNTIME_WEBASSEMBLY_FILES;
-    rmSync(join(output, RUNTIME_FOLDER, second ?? ''));
-    expect(problems()).toEqual([expect.objectContaining({ reason: 'is missing' })]);
+  it('fails a runtime that also serves a build no session runs, as the WebGPU build was', () => {
+    const asyncify = 'ort-wasm-simd-threaded.asyncify.wasm';
+    writeFileSync(join(output, RUNTIME_FOLDER, asyncify), new Uint8Array([0, 97, 115, 109, 1]));
+
+    expect(problems()).toEqual([
+      expect.objectContaining({
+        file: `${RUNTIME_FOLDER}/${asyncify}`,
+        reason: 'is no file of the inference runtime a session runs',
+      }),
+    ]);
+  });
+
+  it('fails a runtime missing its file, or none at all, and fails the build that made it', () => {
+    rmSync(join(output, RUNTIME_FOLDER, RUNTIME_WEBASSEMBLY_FILE));
+    writeFileSync(join(output, RUNTIME_FOLDER, 'placeholder.txt'), '');
+    expect(problems()).toEqual([
+      expect.objectContaining({ reason: 'is missing' }),
+      expect.objectContaining({ reason: 'is no file of the inference runtime a session runs' }),
+    ]);
 
     rmSync(join(output, 'inference'), { recursive: true });
     expect(problems()).toEqual([
@@ -241,7 +258,7 @@ describe('the build-output gate', () => {
     const result = check(output);
 
     expect(result.status).toBe(0);
-    expect(result.output).toContain('free of local paths and analytics hosts: 6 files');
+    expect(result.output).toContain('free of local paths and analytics hosts: 5 files');
   });
 
   it('fails a source map whose source is a path on the building machine', () => {

@@ -59,13 +59,13 @@ declare module '@audiogubbins/ml-runtime/threads/inference-worker.ts?worker&url'
 
 /**
  * Where the application serves the inference runtime's WebAssembly, under its
- * base, and each build's SHA-256 taken from the bytes it serves, by
+ * base, and its SHA-256 taken from the bytes it serves, by
  * `inference-runtime.ts`.
  */
 declare module 'virtual:audiogubbins/inference-runtime' {
   export const INFERENCE_RUNTIME_PATH: string;
   export const INFERENCE_RUNTIME_VERSION: string;
-  export const INFERENCE_RUNTIME_SHA256: Readonly<Record<'cpu' | 'webgpu', string>>;
+  export const INFERENCE_RUNTIME_SHA256: string;
 }
 
 /** The model packs' catalogue as the build configures it, by `model-pack-serving.ts`. */

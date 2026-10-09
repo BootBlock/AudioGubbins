@@ -1,4 +1,4 @@
-import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
+import { PLAN_WITHOUT_CHAINS, TEST_ENGINE } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
@@ -40,11 +40,13 @@ const stretch: EditOperation = {
   kind: 'stretch',
   range: range(100, 200),
   length: frames(133),
+  version: TEST_ENGINE.stretch,
 };
 const conversion: EditOperation = {
   id: operationId('convert'),
   kind: 'convert-rate',
   sampleRate: OTHER_RATE,
+  version: TEST_ENGINE.resampler,
 };
 const gain: EditOperation = {
   id: operationId('gain'),

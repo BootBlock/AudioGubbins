@@ -136,6 +136,32 @@ describe("the model packs' catalogue on the application's own origin", () => {
     expect(servedFile(folder, '/packs/', '/packs/%E0%A4%A')).toBeUndefined();
     expect(servedFile(folder, '/packs/', '/packs/sample-pack')).toBeUndefined();
     expect(servedFile(folder, '/packs/', '/elsewhere/catalogue.json')).toBeUndefined();
+    expect(servedFile(folder, '/packs/', '/packs/sample-pack/1.0.0/model.onnx')).toBe(
+      join(folder, 'sample-pack', '1.0.0', 'model.onnx'),
+    );
+  });
+
+  it('refuses every path that escapes the folder, whatever form it takes', () => {
+    const folder = join(cache, 'catalogue');
+    const secret = join(cache, 'secret.txt');
+    const below = (path: string): string => `/packs/${encodeURIComponent(path)}`;
+    const escaping = [
+      // A path on another drive, or this one, by its letter.
+      'D:/secret.txt',
+      secret,
+      // The extended-length form, which a relative check took for another root
+      // and served, the file existing.
+      `\\\\?\\${secret}`,
+      // A share, which a resolve alone would open a connection to.
+      '\\\\example.test\\share\\secret.txt',
+      // An absolute path from the root.
+      '/secret.txt',
+      // Climbing out from inside a pack.
+      'sample-pack/1.0.0/../../../secret.txt',
+    ];
+    for (const path of escaping) {
+      expect(servedFile(folder, '/packs/', below(path)), path).toBeUndefined();
+    }
   });
 
   it('answers a whole file, and the rest of one from where a resumed download asks', async () => {

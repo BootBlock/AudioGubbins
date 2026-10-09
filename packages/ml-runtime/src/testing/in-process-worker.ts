@@ -3,14 +3,13 @@
  * page's host, a thread's client and the worker's core together without a
  * worker, which Node's test environment does not start.
  *
- * The topology is the application's: the host starts a worker for each
- * runtime configuration with the setup, a client asks for a channel to it,
- * and the worker serves a conversation over the channel. Every message on a
- * channel crosses as it would between threads: as a structured clone, its
- * listed buffers transferred, so a buffer the sender gave up is detached here
- * as it would be there, and delivered a turn of the event loop later. The
- * test can hold the worker's answers back to deliver them later, send an
- * answer of its own, or make a worker fail.
+ * The topology is the application's: the host starts a worker with the setup, a
+ * client asks for a channel to it, and the worker serves a conversation over
+ * the channel. Every message on a channel crosses as it would between threads:
+ * as a structured clone, its listed buffers transferred, so a buffer the sender
+ * gave up is detached here as it would be there, and delivered a turn of the
+ * event loop later. The test can hold the worker's answers back to deliver them
+ * later, send an answer of its own, or make a worker fail.
  */
 
 import type { ChannelEnd } from '../channel-end.js';
@@ -20,11 +19,7 @@ import {
   type InferenceClient,
   type InferenceThreadPort,
 } from '../inference-host.js';
-import {
-  RuntimeBuild,
-  type InferenceCapabilities,
-  type RuntimeSetup,
-} from '../inference-options.js';
+import type { InferenceCapabilities, RuntimeSetup } from '../inference-options.js';
 import type { InferencePort } from '../inference-port.js';
 import { InferenceWorkerCore } from '../inference-worker-core.js';
 import { readToInferenceWorker } from '../protocol/inference-message-reading.js';
@@ -42,10 +37,7 @@ export function testSetup(
 ): RuntimeSetup {
   return {
     filesBase,
-    webAssemblySha256: {
-      [RuntimeBuild.Cpu]: 'a'.repeat(64),
-      [RuntimeBuild.WebGpu]: 'b'.repeat(64),
-    },
+    webAssemblySha256: 'a'.repeat(64),
     capabilities,
   };
 }
@@ -241,14 +233,14 @@ export function inProcessInference(
     setup,
   });
   // Told of a failure only once a worker has started, by when the client is made.
-  const client = host.client((configuration, reason) => {
-    inference.failed(configuration, reason);
+  const client = host.client((reason) => {
+    inference.failed(reason);
   });
   const inference = new WorkerInference({
     capabilities: setup.capabilities,
-    connect: (configuration) => {
+    connect: () => {
       const [mine, theirs] = inProcessChannel();
-      client.connect(configuration, theirs);
+      client.connect(theirs);
       return channelWorkerPort(mine);
     },
   });

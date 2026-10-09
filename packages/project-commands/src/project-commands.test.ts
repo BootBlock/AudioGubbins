@@ -18,7 +18,7 @@ import {
   type IdGenerator,
   type SlotPlace,
 } from '@audiogubbins/domain';
-import { TEST_CATALOGUE } from '@audiogubbins/domain/testing';
+import { TEST_CATALOGUE, TEST_ENGINE } from '@audiogubbins/domain/testing';
 import {
   SourceChangePolicy,
   canonicalJson,
@@ -284,7 +284,11 @@ function randomEditingInvocation(
   const marker = markers.length > 0 ? random.pick(markers) : undefined;
   const region = regions.length > 0 ? random.pick(regions) : undefined;
   const last = asset.edits.at(-1);
-  const context = { chains: state.project.effectChains, catalogue: TEST_CATALOGUE };
+  const context = {
+    chains: state.project.effectChains,
+    catalogue: TEST_CATALOGUE,
+    engine: TEST_ENGINE,
+  };
   const fresh = randomRegion(random, ids, asset, context);
   switch (choice) {
     case 11: {

@@ -372,7 +372,7 @@ describe('managing model packs', { timeout: 30_000 }, () => {
       expect(await window.runAndHear(id, named(DENOISER))).toBe(
         id === 'packs.pause'
           ? 'Nothing of denoiser@1.0.0 is being transferred.'
-          : 'A pack that is installed cannot take cancel: only a download, queued or not, or a failure is cancelled.',
+          : 'A pack that is installed cannot take cancel: only a download, queued or not, a check or a failure is cancelled.',
       );
     }
     expect(await window.runAndHear('packs.remove', named(DENOISER))).toMatch(/^Removed /u);
@@ -392,7 +392,7 @@ describe('managing model packs', { timeout: 30_000 }, () => {
 
     expect(window.run('packs.pause')).toMatchObject({
       kind: 'refused',
-      failures: [{ summary: 'No model pack is downloading.' }],
+      failures: [{ summary: 'No model pack is downloading or being checked.' }],
     });
     expect(window.run('packs.install')).toMatchObject({
       kind: 'refused',

@@ -244,8 +244,8 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       ],
   },
   '@audiogubbins/ml-runtime': {
-    "The runtime's WebAssembly files by build (ADR-0062), which the application's build configuration serves under the files base and takes each file's digest of; the build configuration is no package, so no import of a package reads them.":
-      ['RUNTIME_WEBASSEMBLY_FILES'],
+    "The runtime's WebAssembly file (ADR-0062), which the application's build configuration serves under the files base and takes the digest of; the build configuration is no package, so no import of a package reads it.":
+      ['RUNTIME_WEBASSEMBLY_FILE'],
   },
   '@audiogubbins/effect-rack': {
     "A chain as the engine's graph and its run over a stream (ADR-0060), which the threads that render edited sound take as the engine's processed stream is built.":
@@ -266,11 +266,9 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
   '@audiogubbins/model-packs': {
     "The model packs' contract (ADR-0062, REQ-AUDIO-139), which Phase 06's pack manager, its ML processors and the opening of a project take as each is built: the manifest's reader and the catalogue's, the install state machine, the SHA-256 port and the streaming SHA-256 the browser and Node share, with the SHA-256 of a text that availability takes a pack's model hash with, the source port with the download and the import, the installer and the update, and which condition holds for a processor or detector a project names.":
       [
-        'AutomaticDownload',
         'InstallEvent',
         'UpdateOutcome',
         'nextInstallState',
-        'packsToFetch',
         'readModelPackManifest',
         'readPackCatalogue',
         'updatePack',

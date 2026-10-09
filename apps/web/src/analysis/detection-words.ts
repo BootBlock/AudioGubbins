@@ -13,7 +13,7 @@ import {
   type ParameterValue,
   type TreatmentStep,
 } from '@audiogubbins/domain';
-import type { DetectionResult } from '@audiogubbins/detection-runtime';
+import type { DetectionResult, KindCount } from '@audiogubbins/detection-runtime';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import { counted } from '@audiogubbins/text';
 
@@ -104,12 +104,12 @@ export function stepName(step: TreatmentStep): string {
 
 /**
  * What `step` would add, in a sentence: its processor with the values the
- * treatment sets, the stretch it learns from in `position`'s words, and the
- * findings of `findings` it treats.
+ * treatment sets, the stretch it learns from in `position`'s words, and how
+ * many findings of each kind it treats, `treated`.
  */
 export function stepWords(
   step: TreatmentStep,
-  findings: readonly DetectorFinding[],
+  treated: readonly KindCount[],
   position: (frames: number) => string,
 ): string {
   const descriptor = PROCESSOR_CATALOGUE.get(step.typeKey);
@@ -119,12 +119,6 @@ export function stepWords(
       ? []
       : [`${parameter.label.toLowerCase()} ${valueWords(parameter, value)}`];
   });
-  const treated = new Map<FindingKind, number>();
-  for (const finding of findings) {
-    if (finding.treatment.kind !== 'steps') continue;
-    if (!finding.treatment.steps.some((one) => one.typeKey === step.typeKey)) continue;
-    treated.set(finding.kind, (treated.get(finding.kind) ?? 0) + 1);
-  }
   const parts = [
     `A ${stepName(step).toLowerCase()}`,
     settings.length === 0 ? 'at its defaults' : `at ${LIST.format(settings)}`,
@@ -133,34 +127,21 @@ export function stepWords(
     step.learnFrom === undefined
       ? ''
       : `, learning from the audio between ${position(step.learnFrom.start)} and ${position(step.learnFrom.end)}`;
-  const counts = [...treated].map(([kind, count]) => kindCount(kind, count));
+  const counts = treated.map(({ kind, count }) => kindCount(kind, count));
   const purpose = counts.length === 0 ? '' : `, for the ${LIST.format(counts)} found`;
   return `${parts.join(' ')}${learns}${purpose}.`;
 }
 
-/**
- * The findings of every report of `result`, each once: two assistants may run
- * one detector, as the noise floor is run for restoration and classification.
- */
-function distinctFindings(result: DetectionResult): readonly DetectorFinding[] {
-  const seen = new Set<string>();
-  const found: DetectorFinding[] = [];
-  for (const report of result.reports) {
-    for (const finding of report.recommendation.findings) {
-      const key = `${finding.kind}:${String(finding.range.start)}:${String(finding.range.end)}:${finding.channels.join(',')}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      found.push(finding);
-    }
-  }
-  return found;
-}
-
 /** What is said once `result` is in, of the audio called `name`. */
 export function detectionSummary(result: DetectionResult, name: string): string {
+  // A kind is found by one detector, which two assistants may run, as the
+  // noise floor is run for restoration and classification, so each report
+  // that weighs a kind counts the same findings of it: counted once.
   const counts = new Map<FindingKind, number>();
-  for (const finding of distinctFindings(result)) {
-    counts.set(finding.kind, (counts.get(finding.kind) ?? 0) + 1);
+  for (const report of result.reports) {
+    for (const { kind, count } of report.found) {
+      counts.set(kind, Math.max(counts.get(kind) ?? 0, count));
+    }
   }
   const steps = result.reports.reduce(
     (total, report) => total + report.recommendation.steps.length,

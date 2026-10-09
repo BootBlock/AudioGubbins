@@ -86,22 +86,23 @@ function Report({
 }): ReactNode {
   const heading = useId();
   const { findings, steps } = report.recommendation;
+  const { found, treated } = report;
   return (
     <section className="ag-analysis-report" aria-labelledby={heading}>
       <h3 className="ag-analysis-heading" id={heading}>
         {report.label}
       </h3>
-      <Findings findings={findings} shown={shown} commands={commands} />
+      <Findings findings={findings} found={found} shown={shown} commands={commands} />
       {steps.length === 0 ? (
         <p className="ag-panel-note">It recommends nothing.</p>
       ) : (
         <>
           <h4 className="ag-analysis-heading">It recommends, in this order</h4>
           <ol className="ag-analysis-steps">
-            {steps.map((step) => (
+            {steps.map((step, index) => (
               <li key={step.typeKey}>
                 <span className="ag-analysis-step-name">{stepName(step)}</span>
-                {` ${stepWords(step, findings, positionOf(shown))}`}
+                {` ${stepWords(step, treated[index] ?? [], positionOf(shown))}`}
               </li>
             ))}
           </ol>

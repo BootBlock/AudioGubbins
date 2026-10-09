@@ -11,7 +11,7 @@
  * project's main line at c8854001.
  */
 
-import { GraphOptimisation, InferenceMode } from '@audiogubbins/ml-runtime';
+import { GraphOptimisation } from '@audiogubbins/ml-runtime';
 
 import { PINNED_RUNTIME_SHA256, modelRate, type ModelDefinition } from '../model-definition.js';
 
@@ -25,7 +25,6 @@ export const SPLEETER_GRAPH = 'model.onnx';
  * the same time, within a few per cent, so no fusion earns its place.
  */
 const PINNED = {
-  kind: InferenceMode.Pinned,
   graphOptimisation: GraphOptimisation.Disabled,
 } as const;
 

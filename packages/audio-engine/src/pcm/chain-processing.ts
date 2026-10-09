@@ -56,14 +56,18 @@ export interface ChainRequest {
 
   /**
    * The frame of the stream the run's first {@link ChainRun.process} call is
-   * given, from 0 to {@link length}: 0 for a run from the stream's start, and
-   * a frame {@link ChainProcessing.listening} allows for a preview.
+   * given, from 0 to {@link ChainRequest.length}: 0 for a run from the
+   * stream's start, and a frame {@link ChainProcessing.listening} allows for
+   * a preview.
    */
   readonly start: number;
 }
 
 /** What how a chain is heard depends on: the chain, and the stream as it runs it. */
 export type ListeningRequest = Pick<ChainRequest, 'chain' | 'input' | 'sampleRate' | 'quality'>;
+
+/** What the memory a chain's whole passes hold depends on: how it is heard, and the stream's length. */
+export type MeasurementRequest = ListeningRequest & Pick<ChainRequest, 'length'>;
 
 /** A chain running over a stream from its request's start. */
 export interface ChainRun {
@@ -89,6 +93,15 @@ export interface ChainRun {
 export interface ChainProcessing {
   /** How playback hears the chain and may start it part way, or why the chain cannot run. */
   listening(request: ListeningRequest): DomainResult<ChainListening>;
+
+  /**
+   * The most bytes the whole passes of the request's chain hold at once over a
+   * stream of its `length` frames, from the first pass to the end of the run
+   * that reads them, or why the chain cannot run: a model's output over the
+   * whole stream counts in full, a pass that measures a few numbers nothing. A
+   * cache of renders counts it against its bound before it starts one.
+   */
+  measurementBytes(request: MeasurementRequest): DomainResult<number>;
 
   /**
    * The run of a chain over the stream `read` reads, after any pass over it

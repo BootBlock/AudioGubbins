@@ -325,6 +325,16 @@ const FOR_TESTS: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
+ * Each export only the build's configuration takes, under the reason it
+ * does: the configuration's files are no production module, so the rule
+ * cannot see them take a name.
+ */
+const FOR_THE_BUILD: Readonly<Record<string, readonly string[]>> = {
+  "The model packs' reading of a path under the catalogue, which the development server's pack serving (`apps/web/model-pack-serving.ts`) holds every request to, by the module's path, before it touches the file system.":
+    ['packages/model-packs/src/pack-path.ts: cataloguePathProblem'],
+};
+
+/**
  * Each export of a test-support module that no test takes by name, under the
  * reason it is offered anyway.
  *
@@ -363,7 +373,7 @@ describe('module exports (REQ-EXEC-184)', () => {
   });
 
   const files = new Map(PRODUCTION_FILES.map((path) => [path, parse(path)] as const));
-  const listed = new Set(Object.values(FOR_TESTS).flat());
+  const listed = new Set([...Object.values(FOR_TESTS), ...Object.values(FOR_THE_BUILD)].flat());
 
   it('takes every export of a production module in another, or lists it with its reason', () => {
     expect(untakenExports(files, resolveOnDisk, listed)).toEqual([]);

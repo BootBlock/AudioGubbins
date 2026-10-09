@@ -5,23 +5,20 @@
  *
  * The runtime is imported on the first session that needs it, by a dynamic
  * `import()`, so the base bundle carries none of it (REQ-AUDIO-139), and only
- * the worker that hosts this adapter ever loads it. Each build is started once
- * in its global scope, and before it is imported its WebAssembly file is read
- * through the port the adapter is given and its SHA-256 checked against the
- * digest the application's setup states: a file that differs is refused, and
- * the runtime is never imported. The runtime is given the bytes that matched
- * (`wasmBinary`) and no path, so it requests nothing of its own, and the
- * digest a session reports is that of the code that runs it. Each build's
+ * the worker that hosts this adapter ever loads it. Its CPU build is started
+ * once in its global scope, and before it is imported its WebAssembly file is
+ * read through the port the adapter is given and its SHA-256 checked against
+ * the digest the application's setup states: a file that differs is refused,
+ * and the runtime is never imported. The runtime is given the bytes that
+ * matched (`wasmBinary`) and no path, so it requests nothing of its own, and
+ * the digest a session reports is that of the code that runs it. The build's
  * script, the glue that instantiates its WebAssembly, is bundled into the
- * build's module, and a preview on more threads starts its workers from that
- * module, which the bundler emitted with the application. Threads, SIMD and
- * proxying are set before the first session, after which the runtime keeps
- * them.
+ * build's module. Threads, SIMD and proxying are set before the first
+ * session, after which the runtime keeps them.
  *
- * Pinned sessions run on the CPU build's WebAssembly backend alone, on one
- * thread, with fixed-width SIMD and in sequence; were that backend to fail,
- * the session is refused with the runtime's reason and no other backend is
- * tried.
+ * Sessions run on the WebAssembly backend alone, on one thread, with
+ * fixed-width SIMD and in sequence; were that backend to fail, the session is
+ * refused with the runtime's reason and no other backend is tried.
  */
 
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -37,13 +34,9 @@ import {
 } from '@audiogubbins/domain';
 
 import {
-  InferenceMode,
-  RuntimeBuild,
   capabilityRefusal,
-  runtimeConfigurationOf,
   type GraphOptimisation,
   type InferenceOptions,
-  type RuntimeConfiguration,
   type RuntimeIdentity,
   type RuntimeSetup,
 } from '../inference-options.js';
@@ -52,14 +45,14 @@ import {
   unlessCancelled,
   type InferencePort,
   type InferenceSession,
-  type ModelBytes,
+  type ModelSource,
 } from '../inference-port.js';
-import { RUNTIME_WEBASSEMBLY_FILES, type RuntimeFiles } from '../runtime-files.js';
+import { RUNTIME_WEBASSEMBLY_FILE, type RuntimeFiles } from '../runtime-files.js';
 import { sessionOver, type OnnxSession, type OnnxTensorConstructor } from './onnx-session.js';
 
 /** The session options the adapter sets, named as the runtime names them. */
 export interface OnnxSessionOptions {
-  readonly executionProviders: readonly ('wasm' | 'webgpu')[];
+  readonly executionProviders: readonly 'wasm'[];
   readonly graphOptimizationLevel: GraphOptimisation;
   readonly intraOpNumThreads: number;
   readonly interOpNumThreads: number;
@@ -89,19 +82,16 @@ export interface OnnxRuntimeModule {
 
 /** What the adapter is given beside the application's setup. */
 export interface OnnxRuntimeHost {
-  /** Imports each build of the runtime, called on the first session that needs it. */
-  readonly load: Readonly<Record<RuntimeBuild, () => Promise<OnnxRuntimeModule>>>;
-  /** Reads each build's WebAssembly file, which the adapter checks before the runtime has it. */
+  /** Imports the runtime, called on the first session. */
+  readonly load: () => Promise<OnnxRuntimeModule>;
+  /** Reads the runtime's WebAssembly file, which the adapter checks before the runtime has it. */
   readonly files: RuntimeFiles;
   /** Reports the runtime failing to free a session, which no caller can act on. */
   readonly reportFault: (error: unknown) => void;
 }
 
-/** The runtime's builds, each imported only when first asked for. */
-export const ONNX_RUNTIME_BUILDS: OnnxRuntimeHost['load'] = {
-  [RuntimeBuild.Cpu]: () => import('onnxruntime-web/wasm'),
-  [RuntimeBuild.WebGpu]: () => import('onnxruntime-web/webgpu'),
-};
+/** The runtime's CPU build, imported only when first asked for. */
+export const loadOnnxRuntime: OnnxRuntimeHost['load'] = () => import('onnxruntime-web/wasm');
 
 /** The runtime's own report that it could start no backend it was asked for. */
 const NO_BACKEND = /no available backend found/i;
@@ -112,12 +102,6 @@ interface Runtime {
   readonly identity: RuntimeIdentity;
 }
 
-/** A build started in this scope: the threads it was started with, and the runtime. */
-interface Started {
-  readonly threads: number;
-  readonly runtime: Promise<DomainResult<Runtime>>;
-}
-
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -126,13 +110,12 @@ function unavailable(summary: string): DomainResult<never> {
   return fail(failure('inference.runtime-unavailable', FailureKind.Unrecoverable, summary));
 }
 
-/** `bytes`, read as `build`'s WebAssembly file, with their SHA-256, where it is `expected`. */
+/** `bytes`, read as the runtime's WebAssembly file, with their SHA-256, where it is `expected`. */
 function verified(
-  build: RuntimeBuild,
   bytes: Uint8Array<ArrayBuffer>,
   expected: string,
 ): DomainResult<{ readonly bytes: Uint8Array<ArrayBuffer>; readonly sha256: string }> {
-  const file = RUNTIME_WEBASSEMBLY_FILES[build];
+  const file = RUNTIME_WEBASSEMBLY_FILE;
   const found = bytesToHex(sha256(bytes));
   if (found === expected) return succeed({ bytes, sha256: found });
   return fail(
@@ -146,21 +129,18 @@ function verified(
 }
 
 /** The options a session of `options` is created with. */
-function sessionOptions(
-  options: InferenceOptions,
-  configuration: RuntimeConfiguration,
-): OnnxSessionOptions {
+function sessionOptions(options: InferenceOptions): OnnxSessionOptions {
   return {
-    executionProviders: [configuration.build === RuntimeBuild.WebGpu ? 'webgpu' : 'wasm'],
+    executionProviders: ['wasm'],
     graphOptimizationLevel: options.graphOptimisation,
-    intraOpNumThreads: configuration.threads,
+    intraOpNumThreads: 1,
     interOpNumThreads: 1,
     executionMode: 'sequential',
   };
 }
 
 /** Why the runtime would not create a session: it could not start, or it refused the model. */
-function creationRefused(error: unknown, options: InferenceOptions): DomainResult<never> {
+function creationRefused(error: unknown): DomainResult<never> {
   const reason = messageOf(error);
   if (!NO_BACKEND.test(reason)) {
     return fail(
@@ -172,9 +152,7 @@ function creationRefused(error: unknown, options: InferenceOptions): DomainResul
     );
   }
   return unavailable(
-    options.kind === InferenceMode.Pinned
-      ? `A pinned session runs on the runtime's WebAssembly backend alone, which could not start, so it is refused rather than run on another: ${reason}`
-      : `The runtime could not start the backend the preview asked for: ${reason}`,
+    `A session runs on the runtime's WebAssembly backend alone, which could not start, so it is refused rather than run on another: ${reason}`,
   );
 }
 
@@ -182,7 +160,8 @@ function creationRefused(error: unknown, options: InferenceOptions): DomainResul
 export class OnnxRuntimeInference implements InferencePort {
   readonly #setup: RuntimeSetup;
   readonly #host: OnnxRuntimeHost;
-  readonly #started = new Map<RuntimeBuild, Started>();
+  /** The runtime, once a session has asked for it, until it is found not to start. */
+  #started: Promise<DomainResult<Runtime>> | undefined;
 
   constructor(setup: RuntimeSetup, host: OnnxRuntimeHost) {
     this.#setup = setup;
@@ -190,24 +169,24 @@ export class OnnxRuntimeInference implements InferencePort {
   }
 
   async open(
-    model: ModelBytes,
+    model: ModelSource,
     options: InferenceOptions,
     signal?: CancellationSignal,
   ): Promise<DomainResult<InferenceSession>> {
     if (signal?.aborted === true) return cancelled();
-    const refusal = capabilityRefusal(options, this.#setup.capabilities);
+    const refusal = capabilityRefusal(this.#setup.capabilities);
     if (refusal !== undefined) return fail(refusal);
-    const configuration = runtimeConfigurationOf(options);
-    const runtime = await unlessCancelled(this.#start(configuration), signal);
+    // Read first, so a model that cannot be had starts no runtime.
+    const bytes = await model.read(signal);
+    if (!bytes.ok) return bytes;
+    this.#started ??= this.#launched();
+    const runtime = await unlessCancelled(this.#started, signal);
     if (!runtime.ok) return runtime;
     const { module, identity } = runtime.value;
-    const creating = module.InferenceSession.create(
-      model,
-      sessionOptions(options, configuration),
-    ).then(
+    const creating = module.InferenceSession.create(bytes.value, sessionOptions(options)).then(
       (session) =>
         sessionOver(session, module.Tensor, { options, runtime: identity }, this.#host.reportFault),
-      (error: unknown) => creationRefused(error, options),
+      (error: unknown) => creationRefused(error),
     );
     return await unlessCancelled(creating, signal, {
       discard: (session) => {
@@ -216,63 +195,38 @@ export class OnnxRuntimeInference implements InferencePort {
     });
   }
 
-  /** The build `configuration` names, started once with its threads, or why it cannot be. */
-  #start(configuration: RuntimeConfiguration): Started['runtime'] {
-    const { build, threads } = configuration;
-    const started = this.#started.get(build);
-    if (started !== undefined) {
-      return started.threads === threads
-        ? started.runtime
-        : Promise.resolve(
-            fail(
-              failure(
-                'inference.runtime-configured',
-                FailureKind.Conflict,
-                `The runtime's ${build} build was started here on ${String(started.threads)} threads and keeps them, so a session on ${String(threads)} runs in another worker.`,
-              ),
-            ),
-          );
-    }
-    const runtime = this.#launched(configuration);
-    this.#started.set(build, { threads, runtime });
-    return runtime;
-  }
-
   /**
-   * The build `configuration` names, imported and configured once its
-   * WebAssembly file has been read and has matched the setup's digest.
+   * The runtime, imported and configured once its WebAssembly file has been
+   * read and has matched the setup's digest.
    */
-  async #launched(configuration: RuntimeConfiguration): Started['runtime'] {
-    const { build } = configuration;
-    const read = await this.#host.files.read(build);
+  async #launched(): Promise<DomainResult<Runtime>> {
+    const read = await this.#host.files.read();
     if (!read.ok) {
       // Nothing was started, and the server may answer the next time, so the
       // next session reads the file again rather than meeting this failure
-      // for the worker's life. The entry is this call's own: it was set as
-      // the call began, and nothing replaces an entry while it stands.
-      this.#started.delete(build);
+      // for the worker's life.
+      this.#started = undefined;
       return read;
     }
-    const file = verified(build, read.value, this.#setup.webAssemblySha256[build]);
+    const file = verified(read.value, this.#setup.webAssemblySha256);
     if (!file.ok) return file;
-    return await this.#host.load[build]().then(
-      (module) => this.#configured(module, configuration, file.value),
-      (error: unknown) =>
-        unavailable(`The runtime's ${build} build could not be loaded: ${messageOf(error)}`),
+    return await this.#host.load().then(
+      (module) => this.#configured(module, file.value),
+      (error: unknown) => unavailable(`The runtime could not be loaded: ${messageOf(error)}`),
     );
   }
 
   /** Sets what the runtime reads as it starts, before its first session, and names it. */
   #configured(
     module: OnnxRuntimeModule,
-    { threads }: RuntimeConfiguration,
     file: { readonly bytes: Uint8Array<ArrayBuffer>; readonly sha256: string },
   ): DomainResult<Runtime> {
     const version = module.env.versions.web;
     if (version === undefined) {
       return unavailable('The runtime does not say its version, which a pinned render records.');
     }
-    module.env.wasm.numThreads = threads;
+    // One thread: thread scheduling is not the same on every machine.
+    module.env.wasm.numThreads = 1;
     // Fixed-width only: relaxed SIMD may round differently on different machines.
     module.env.wasm.simd = 'fixed';
     // This adapter already runs in a worker of its own; a proxy would start another.

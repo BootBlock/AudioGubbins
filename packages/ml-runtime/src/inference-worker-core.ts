@@ -8,7 +8,9 @@
  * it to each thread that runs models by a channel of the thread's own, and
  * the worker holds a conversation over each (`inference-conversation.ts`),
  * every one served by the one runtime, since a runtime is started once in its
- * global scope and a session cannot cross into another.
+ * global scope and a session cannot cross into another, and every one sharing
+ * the sessions it holds (`shared-sessions.ts`), which the worker lets go once
+ * no thread is connected.
  *
  * Connections are bounded: a thread connects at most once per runtime
  * configuration, the page lets a thread's connections go once the thread has
@@ -24,6 +26,7 @@ import { InferenceConversation, type WorkerRuntime } from './inference-conversat
 import type { RuntimeSetup } from './inference-options.js';
 import type { InferencePort } from './inference-port.js';
 import { readToInferenceThread } from './protocol/inference-message-reading.js';
+import { SharedSessions } from './shared-sessions.js';
 import {
   FromInferenceWorkerKind,
   ToInferenceThreadKind,
@@ -72,6 +75,8 @@ interface Connection {
 export class InferenceWorkerCore {
   readonly #host: InferenceWorkerHost;
   #runtime: WorkerRuntime = NOT_STARTED;
+  /** The sessions every conversation shares, once the runtime is started. */
+  #sessions: SharedSessions | undefined;
   readonly #connections = new Set<Connection>();
 
   constructor(host: InferenceWorkerHost) {
@@ -95,7 +100,9 @@ export class InferenceWorkerCore {
       case ToInferenceThreadKind.Start: {
         const refusal = this.#setupRefusal(message.setup);
         if (refusal === undefined) {
-          this.#runtime = { kind: 'serving', port: this.#host.serve(message.setup) };
+          const sessions = new SharedSessions(this.#host.serve(message.setup));
+          this.#sessions = sessions;
+          this.#runtime = { kind: 'serving', port: sessions };
         } else {
           this.#report(refusal);
           // Its sessions are answered with the reason; a runtime already
@@ -164,6 +171,7 @@ export class InferenceWorkerCore {
     this.#connections.delete(connection);
     connection.conversation.close();
     connection.end.close();
+    if (this.#connections.size === 0) this.#sessions?.releaseIdle();
   }
 
   /** Why a worker cannot be started with `setup`: it was started already, or the files are elsewhere. */

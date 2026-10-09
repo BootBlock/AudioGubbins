@@ -153,18 +153,24 @@ function fileMissing(file: PackFile): DomainFailureResult {
   );
 }
 
-/** Whether the store keeps every file of `manifest`, each its length and SHA-256. */
+/**
+ * Whether the store keeps every file of `manifest`, each its length and
+ * SHA-256. Rejects with the signal's reason when `signal` aborts.
+ */
 export async function verifyKept(
   store: PackStore,
   manifest: ModelPackManifest,
   sha256: Sha256,
+  signal?: AbortSignal,
 ): Promise<DomainResult<void>> {
   const ref = refOf(manifest);
   for (const [index, file] of manifest.files.entries()) {
     const opened = await store.open(ref, index);
     if (!opened.ok) return opened;
     const checked =
-      opened.value === undefined ? fileMissing(file) : await verifyFile(opened.value, file, sha256);
+      opened.value === undefined
+        ? fileMissing(file)
+        : await verifyFile(opened.value, file, sha256, signal);
     if (!checked.ok) return checked;
   }
   return succeed(undefined);

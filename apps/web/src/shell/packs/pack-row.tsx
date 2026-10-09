@@ -105,6 +105,7 @@ function stepsOf(state: InstallState, offered: boolean): readonly string[] {
       return offered ? ['packs.install'] : [];
     case 'queued':
     case 'downloading':
+    case 'verifying':
       return ['packs.pause', 'packs.cancel'];
     case 'paused':
       return ['packs.resume', 'packs.cancel'];
@@ -112,7 +113,6 @@ function stepsOf(state: InstallState, offered: boolean): readonly string[] {
       return ['packs.retry', 'packs.remove'];
     case 'installed':
       return ['packs.remove'];
-    case 'verifying':
     case 'removing':
       return [];
   }

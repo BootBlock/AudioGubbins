@@ -42,9 +42,38 @@ function settled(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+/** The modules made for workers, by the URL each was given, and the URLs let go. */
+const modules = new Map<string, Blob>();
+const revoked: string[] = [];
+
+/**
+ * Stands in for the URLs of objects, which jsdom does not make, as the page
+ * makes one for the module each worker is started from.
+ */
+function recordObjectUrls(): void {
+  Object.defineProperty(URL, 'createObjectURL', {
+    configurable: true,
+    value: (blob: Blob) => {
+      const url = `blob:test/${String(modules.size + 1)}`;
+      modules.set(url, blob);
+      return url;
+    },
+  });
+  Object.defineProperty(URL, 'revokeObjectURL', {
+    configurable: true,
+    value: (url: string) => {
+      revoked.push(url);
+    },
+  });
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   RecordingWorker.started = [];
+  modules.clear();
+  revoked.length = 0;
+  Reflect.deleteProperty(URL, 'createObjectURL');
+  Reflect.deleteProperty(URL, 'revokeObjectURL');
 });
 
 function services() {
@@ -69,8 +98,9 @@ function channelEnd(worker: RecordingWorker): MessagePort {
 }
 
 describe('the workers that run chains', () => {
-  it('start as module workers, each sent its model channel as it starts', () => {
+  it('start as module workers under the page’s policy, each sent its model channel as it starts', async () => {
     vi.stubGlobal('Worker', RecordingWorker);
+    recordObjectUrls();
     const models = services();
 
     const worker = models.startChainWorker('chain-worker.js');
@@ -78,14 +108,23 @@ describe('the workers that run chains', () => {
     const [started] = RecordingWorker.started;
     if (started === undefined) throw new Error('No worker was started.');
     expect(started).toBe(worker);
-    expect(started.url).toBe('chain-worker.js');
     expect(started.options).toEqual({ type: 'module' });
+    // Started from a module of the page's, which inherits the page's policy
+    // and imports the script, rather than from the script's own URL, whose
+    // response would set the worker's policy.
+    const module = modules.get(started.url);
+    if (module === undefined) throw new Error('The worker was started from its script’s URL.');
+    expect(await module.text()).toBe(
+      `import ${JSON.stringify(new URL('chain-worker.js', document.baseURI).href)};\n`,
+    );
+    expect(revoked).toEqual([started.url]);
     expect(channelEnd(started)).toBeInstanceOf(MessagePort);
     models.dispose();
   });
 
   it('let go of their model channel as they are terminated, and only then', async () => {
     vi.stubGlobal('Worker', RecordingWorker);
+    recordObjectUrls();
     const models = services();
     const worker = models.startChainWorker('chain-worker.js');
     const [recorded] = RecordingWorker.started;

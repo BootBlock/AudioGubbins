@@ -36,7 +36,7 @@ import {
   type Track,
   type TrackId,
 } from '@audiogubbins/domain';
-import { TEST_CATALOGUE, expectSuccess } from '@audiogubbins/domain/testing';
+import { expectSuccess, TEST_CATALOGUE, TEST_ENGINE } from '@audiogubbins/domain/testing';
 
 import type { AssetSource, ProjectState } from '../project-state.js';
 import { randomMarker, randomRegion, withRandomEdits } from './random-edits.js';
@@ -84,7 +84,7 @@ class StateBuilder {
     const buses = this.buses(chainIds);
     const busIds = [...buses.keys()];
     const tracks = this.entities(5, () => this.track(busIds, chainIds));
-    const context = { chains, catalogue: TEST_CATALOGUE };
+    const context = { chains, catalogue: TEST_CATALOGUE, engine: TEST_ENGINE };
     const { assets, sources } = this.assets(projectId, context);
     const placedOn = [...assets.values()];
     const trackIds = [...tracks.keys()];

@@ -13,13 +13,15 @@ import {
   DeterminismClass,
   ZERO_SAMPLES,
   succeed,
+  type ChannelLayout,
   type ParameterDescriptor,
   type ProcessorCategory,
   type ProcessorDescriptor,
 } from '@audiogubbins/domain';
+import { CANONICAL_RESAMPLER_VERSION } from '@audiogubbins/audio-engine';
 
 import { processorType, type ProcessorType } from '../framework/processor-type.js';
-import { CANONICAL_RESAMPLER_VERSION, type ModelDefinition } from './model-definition.js';
+import type { ModelDefinition } from './model-definition.js';
 import { ModelPass, type ModelStreamOf } from './model-pass.js';
 import { playbackKernel } from './model-playback.js';
 import type { ModelServices } from './model-sessions.js';
@@ -41,11 +43,11 @@ export interface ModelDescription {
 /**
  * The descriptor of the machine-learning type `description` describes, whatever
  * every such type states alike: a whole pass that is its inference, never
- * real-time, pinned on every quality level since no processor chooses a
- * preview's accelerator yet, the resampling grade the one quality setting it
- * reads, the canonical resampler's and the model's identities in its version,
- * and a kernel that plays the pass back aligned to the input, so its latency is
- * known zero, its lead-in 0 and its frame grid 1.
+ * real-time, pinned on every quality level since no processor offers a preview
+ * path, the resampling grade the one quality setting it reads, the canonical
+ * resampler's and the model's identities in its version, and a kernel that
+ * plays the pass back aligned to the input, so its latency is known zero, its
+ * lead-in 0 and its frame grid 1.
  */
 export function modelDescriptor(description: ModelDescription): ProcessorDescriptor {
   const { typeKey, label, category, model, parameters } = description;
@@ -71,6 +73,15 @@ export function modelDescriptor(description: ModelDescription): ProcessorDescrip
   };
 }
 
+/**
+ * The most a model's pass holds over `frames` frames: its output over the
+ * whole stream, frame for frame, twice at the moment it is made planar
+ * (`PlanarOutput`), after which the planar copy alone is kept for the run.
+ */
+function modelPassBytes(frames: number, output: ChannelLayout): number {
+  return 2 * frames * output.roles.length * Float32Array.BYTES_PER_ELEMENT;
+}
+
 /** What a machine-learning processor is defined by. */
 export interface ModelProcessor {
   /** Its {@link modelDescriptor}. */
@@ -90,5 +101,6 @@ export function modelProcessorType(
     descriptor,
     kernel: (run) => playbackKernel(run, label),
     measure: (run) => new ModelPass(run, model, services, stream),
+    measurementBytes: modelPassBytes,
   });
 }

@@ -165,9 +165,12 @@ function pauseCommand(): Command<ShellContext> {
   return downloadStep(
     'packs.pause',
     'Pause a model pack download',
-    { states: new Set(['downloading', 'queued']), none: 'No model pack is downloading.' },
+    {
+      states: new Set(['downloading', 'queued', 'verifying']),
+      none: 'No model pack is downloading or being checked.',
+    },
     ['model', 'pack', 'pause', 'download', 'stop'],
-    'Stops a download where it is, keeping what has arrived, so it can be resumed.',
+    'Stops a download or its check where it is, keeping what has arrived, so it can be resumed.',
     (context, ref) => {
       // What the pause comes to is what the download it stops says.
       sayWhenSettled(context, context.packs.pause(ref), () => undefined);
@@ -208,11 +211,11 @@ function cancelCommand(): Command<ShellContext> {
     'packs.cancel',
     'Cancel a model pack download',
     {
-      states: new Set(['downloading', 'queued', 'paused']),
-      none: 'No model pack download is under way or paused.',
+      states: new Set(['downloading', 'queued', 'paused', 'verifying']),
+      none: 'No model pack download is under way, paused or being checked.',
     },
     ['model', 'pack', 'cancel', 'download', 'abandon'],
-    'Gives up a download, waiting, paused or failed, and deletes what was kept of it.',
+    'Gives up a download, waiting, paused, being checked or failed, and deletes what was kept of it.',
     (context, ref) => {
       // A download in flight says it was cancelled as it stops; one that was
       // not in flight is said here.

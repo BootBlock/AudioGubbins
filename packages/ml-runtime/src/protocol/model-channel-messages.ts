@@ -5,17 +5,16 @@
  *
  * The page connects a thread by sending its scope one end of the channel with
  * what the device offers the runtime (`ToModelThread`). Over the channel the
- * thread asks for a connection to the inference worker of a runtime
- * configuration, handing over the end of a channel of its own, which the page
- * hands on; asks for a file of a pack by call; and cancels a call
- * (`FromModelThread`). The page answers each call with the file or why it
- * cannot be had, its bytes transferred, and says when a worker the thread is
- * connected to has failed (`ToModelChannel`). Every message is read field by
- * field on arrival (`model-channel-reading.ts`).
+ * thread asks for a connection to the inference worker, handing over the end of
+ * a channel of its own, which the page hands on; asks for a file of a pack by
+ * call; and cancels a call (`FromModelThread`). The page answers each call with
+ * the file or why it cannot be had, its bytes transferred, and says when the
+ * worker the thread is connected to has failed (`ToModelChannel`). Every
+ * message is read field by field on arrival (`model-channel-reading.ts`).
  */
 
 import type { ChannelEnd } from '../channel-end.js';
-import type { InferenceCapabilities, RuntimeConfiguration } from '../inference-options.js';
+import type { InferenceCapabilities } from '../inference-options.js';
 import type { ModelBytes } from '../inference-port.js';
 import type { InferenceFailures } from './inference-messages.js';
 
@@ -40,9 +39,8 @@ export const FromModelThreadKind = {
 /** A message a thread sends over its model channel. */
 export type FromModelThread =
   | {
-      /** A channel to the inference worker that runs `configuration`, to hand on. */
+      /** A channel to the inference worker, to hand on. */
       readonly kind: typeof FromModelThreadKind.Inference;
-      readonly configuration: RuntimeConfiguration;
       readonly port: ChannelEnd;
     }
   | {
@@ -80,8 +78,7 @@ export type ToModelChannel =
       readonly failures: InferenceFailures;
     }
   | {
-      /** The inference worker that runs `configuration` failed for `reason`. */
+      /** The inference worker failed for `reason`. */
       readonly kind: typeof ToModelChannelKind.InferenceFailed;
-      readonly configuration: RuntimeConfiguration;
       readonly reason: string;
     };

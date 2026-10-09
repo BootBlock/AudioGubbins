@@ -1,4 +1,4 @@
-import { PLAN_WITHOUT_CHAINS } from '../testing/plan-context.js';
+import { PLAN_WITHOUT_CHAINS, TEST_ENGINE } from '../testing/plan-context.js';
 import { describe, expect, it } from 'vitest';
 
 import { StandardLayouts } from '../audio/channel-layout.js';
@@ -140,6 +140,7 @@ describe('validating an edit operation where it stands', () => {
       kind: 'stretch',
       range: range(100, 200),
       length: frames(length),
+      version: TEST_ENGINE.stretch,
     });
     expect(MAXIMUM_STRETCH_RATIO).toBe(8);
     for (const length of [13, 100, 800]) {
@@ -152,25 +153,41 @@ describe('validating an edit operation where it stands', () => {
     expect(refusedFor(stretchTo(0))).toMatch(/whole number of frames/);
     expect(refusedFor(stretchTo(50.5))).toMatch(/whole number of frames/);
     expect(
-      refusedFor({ id, kind: 'stretch', range: range(900, 1_001), length: frames(100) }),
+      refusedFor({
+        id,
+        kind: 'stretch',
+        range: range(900, 1_001),
+        length: frames(100),
+        version: TEST_ENGINE.stretch,
+      }),
     ).toMatch(/past the audio/);
   });
 
   it('refuses a conversion to the rate the audio already has, or to no rate audio can have', () => {
     expectSuccess(
       validateOperation(
-        { id, kind: 'convert-rate', sampleRate: OTHER_RATE },
+        { id, kind: 'convert-rate', sampleRate: OTHER_RATE, version: TEST_ENGINE.resampler },
         SHAPE,
         ASSETS,
         PLAN_WITHOUT_CHAINS.chains,
       ),
     );
-    expect(refusedFor({ id, kind: 'convert-rate', sampleRate: SHAPE.sampleRate })).toMatch(
-      /already at that rate/,
-    );
+    expect(
+      refusedFor({
+        id,
+        kind: 'convert-rate',
+        sampleRate: SHAPE.sampleRate,
+        version: TEST_ENGINE.resampler,
+      }),
+    ).toMatch(/already at that rate/);
     for (const rate of [0, 44_100.5, -48_000]) {
       expect(
-        refusedFor({ id, kind: 'convert-rate', sampleRate: rate as typeof OTHER_RATE }),
+        refusedFor({
+          id,
+          kind: 'convert-rate',
+          sampleRate: rate as typeof OTHER_RATE,
+          version: TEST_ENGINE.resampler,
+        }),
       ).toMatch(/not a sample rate/);
     }
   });

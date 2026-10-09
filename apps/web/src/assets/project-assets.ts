@@ -46,6 +46,7 @@ import {
   type Project,
   type Region,
 } from '@audiogubbins/domain';
+import { ENGINE_VERSIONS } from '@audiogubbins/audio-engine';
 import { PROCESSOR_CATALOGUE } from '@audiogubbins/processors';
 import type { ProjectState } from '@audiogubbins/project-format';
 
@@ -182,7 +183,7 @@ function placing(own: Owned, context: PlanContext): () => Placed {
       resolver,
       plan: assetPlan(own.asset, context),
       unracked: own.asset.rack === undefined ? undefined : unrackedAssetPlan(own.asset, context),
-      original: runsChains(own.asset) ? bypassedAssetPlan(own.asset) : undefined,
+      original: runsChains(own.asset) ? bypassedAssetPlan(own.asset, context) : undefined,
       markers,
     };
     return placed;
@@ -219,6 +220,7 @@ function madeAsset(
   const context: PlanContext = {
     chains: state.project.effectChains,
     catalogue: PROCESSOR_CATALOGUE,
+    engine: ENGINE_VERSIONS,
   };
   const place = placing(own, context);
   const chains = chainsNamed(own, context.chains);

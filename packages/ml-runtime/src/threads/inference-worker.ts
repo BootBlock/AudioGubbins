@@ -13,7 +13,7 @@
  * imports, by `scopes/dedicated-worker`, against a worker's definitions.
  */
 
-import { ONNX_RUNTIME_BUILDS, OnnxRuntimeInference } from '../adapter/onnx-runtime.js';
+import { OnnxRuntimeInference, loadOnnxRuntime } from '../adapter/onnx-runtime.js';
 import { OriginRuntimeFiles } from '../adapter/origin-runtime-files.js';
 import { InferenceWorkerCore } from '../inference-worker-core.js';
 
@@ -32,7 +32,7 @@ declare const self: InferenceWorkerScope;
 const core = new InferenceWorkerCore({
   serve: (setup) =>
     new OnnxRuntimeInference(setup, {
-      load: ONNX_RUNTIME_BUILDS,
+      load: loadOnnxRuntime,
       files: new OriginRuntimeFiles(setup.filesBase),
       reportFault: (error) => {
         self.reportError(error);

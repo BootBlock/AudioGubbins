@@ -11,7 +11,9 @@
  * that many bytes.
  */
 
-import type { ModelBytes } from '../inference-port.js';
+import { succeed } from '@audiogubbins/domain';
+
+import type { ModelBytes, ModelSource } from '../inference-port.js';
 import type { Tensor, TensorInfo } from '../tensor.js';
 import type { FakeModel } from './fake-inference.js';
 
@@ -75,6 +77,14 @@ export function addModelBytes(): ModelBytes {
     ...bytesField(7, graph),
     ...bytesField(8, operatorSet),
   ]);
+}
+
+/** The SHA-256 of {@link addModelBytes}, which the package's tests hold to the bytes. */
+export const ADD_MODEL_SHA256 = '66658651a1438f79433a7f0fd023e42592342fb9a103d62ac73bbf644f36a3fb';
+
+/** The `Add` model's file, whose bytes are made afresh at each read. */
+export function addModel(): ModelSource {
+  return { sha256: ADD_MODEL_SHA256, read: () => Promise.resolve(succeed(addModelBytes())) };
 }
 
 const VECTOR: TensorInfo['dims'] = ['n'];

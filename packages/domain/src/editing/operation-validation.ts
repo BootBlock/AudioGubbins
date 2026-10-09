@@ -130,6 +130,11 @@ function insertionProblem(
   return succeed(undefined);
 }
 
+/** Whether `version` is a version an algorithm may have: a whole number from 1. */
+function isVersion(version: number): boolean {
+  return Number.isSafeInteger(version) && version >= 1;
+}
+
 /** Why a stretch does not fit a timeline of `length`, or `undefined`. */
 function stretchProblem(
   operation: Extract<EditOperation, { readonly kind: 'stretch' }>,
@@ -140,6 +145,8 @@ function stretchProblem(
   if (!Number.isSafeInteger(operation.length) || operation.length <= 0) {
     return 'A stretch makes a whole number of frames.';
   }
+  if (!isVersion(operation.version))
+    return 'A stretch names the version of the stretch it is made by.';
   const before = operation.range.end - operation.range.start;
   return operation.length * MAXIMUM_STRETCH_RATIO >= before &&
     operation.length <= before * MAXIMUM_STRETCH_RATIO
@@ -154,6 +161,9 @@ function rateProblem(
 ): string | undefined {
   if (!sampleRate(operation.sampleRate).ok) {
     return 'The new rate is not a sample rate audio can have.';
+  }
+  if (!isVersion(operation.version)) {
+    return 'A conversion of rate names the version of the resampler it is made by.';
   }
   return operation.sampleRate === shape.sampleRate
     ? 'The audio is already at that rate, so there is nothing to convert.'

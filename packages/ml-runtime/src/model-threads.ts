@@ -1,16 +1,16 @@
 /**
  * The page's end of every model channel (ADR-0062): it connects each thread
- * that runs chains to the inference workers and to the installed packs'
+ * that runs chains to the inference worker and to the installed packs'
  * files, and serves what the thread asks over its channel.
  *
- * A thread's request for a connection to a configuration's inference worker is
- * handed to the inference host with the end the thread made, so the thread then
- * talks to the worker directly. A request for a file is read through the page's
- * model library, which reads it from the storage and takes its SHA-256 as it
- * reads, and answered with the bytes transferred; a call the thread cancels is
- * cancelled. When a worker the thread is connected to fails, the thread is told
- * why. Once the thread has gone, its connection is let go: its calls are
- * cancelled and the inference workers let its sessions go, since a terminated
+ * A thread's request for a connection to the inference worker is handed to the
+ * inference host with the end the thread made, so the thread then talks to the
+ * worker directly. A request for a file is read through the page's model
+ * library, which reads it from the storage and takes its SHA-256 as it reads,
+ * and answered with the bytes transferred; a call the thread cancels is
+ * cancelled. When the worker the thread is connected to fails, the thread is
+ * told why. Once the thread has gone, its connection is let go: its calls are
+ * cancelled and the inference worker lets its sessions go, since a terminated
  * thread closes no channel.
  */
 
@@ -25,7 +25,7 @@ import {
 
 import type { ChannelEnd } from './channel-end.js';
 import type { InferenceClient, InferenceHost } from './inference-host.js';
-import type { InferenceCapabilities, RuntimeConfiguration } from './inference-options.js';
+import type { InferenceCapabilities } from './inference-options.js';
 import type { ChannelPair, ModelFileRead } from './model-channel.js';
 import {
   FromModelThreadKind,
@@ -48,7 +48,7 @@ export type ModelFileReader = (
 /** What the page's end is made with. */
 export interface ModelThreadsOptions {
   /**
-   * The inference workers' host, made when a thread first asks for a
+   * The inference worker's host, made when a thread first asks for a
    * connection, so a page that runs no model loads nothing of the runtime's.
    */
   readonly inference: () => Promise<InferenceHost>;
@@ -125,7 +125,7 @@ class ThreadConnection {
     const message = read.value;
     switch (message.kind) {
       case FromModelThreadKind.Inference:
-        this.#connectInference(message.configuration, message.port);
+        this.#connectInference(message.port);
         return;
       case FromModelThreadKind.Cancel:
         this.#calls.get(message.call)?.cancel();
@@ -140,18 +140,18 @@ class ThreadConnection {
   /** The thread's client of the inference host, made with the host on the first request. */
   #clientOf(): Promise<InferenceClient> {
     this.#client ??= this.#options.inference().then((host) =>
-      host.client((configuration, reason) => {
-        this.#post({ kind: ToModelChannelKind.InferenceFailed, configuration, reason }, []);
+      host.client((reason) => {
+        this.#post({ kind: ToModelChannelKind.InferenceFailed, reason }, []);
       }),
     );
     return this.#client;
   }
 
-  /** Hands `port` on to the worker that runs `configuration`, in the order asked. */
-  #connectInference(configuration: RuntimeConfiguration, port: ChannelEnd): void {
+  /** Hands `port` on to the inference worker, in the order asked. */
+  #connectInference(port: ChannelEnd): void {
     this.#clientOf().then(
       (client) => {
-        if (this.#connected) client.connect(configuration, port);
+        if (this.#connected) client.connect(port);
         else port.close();
       },
       (error: unknown) => {
@@ -159,7 +159,6 @@ class ThreadConnection {
         this.#post(
           {
             kind: ToModelChannelKind.InferenceFailed,
-            configuration,
             reason: `The inference runtime could not be set up: ${messageOf(error)}`,
           },
           [],

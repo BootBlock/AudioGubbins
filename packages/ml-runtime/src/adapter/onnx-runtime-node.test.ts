@@ -17,16 +17,12 @@ import { dirname, join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  RuntimeBuild,
-  type InferenceCapabilities,
-  type RuntimeSetup,
-} from '../inference-options.js';
-import { addModelBytes } from '../testing/add-model.js';
+import type { InferenceCapabilities, RuntimeSetup } from '../inference-options.js';
+import { addModel } from '../testing/add-model.js';
 import { TEST_ORIGIN, inProcessInference } from '../testing/in-process-worker.js';
 import { PINNED, portContract, valueOf } from '../testing/port-contract.js';
 import type { RuntimeFiles } from '../runtime-files.js';
-import { ONNX_RUNTIME_BUILDS, OnnxRuntimeInference } from './onnx-runtime.js';
+import { OnnxRuntimeInference, loadOnnxRuntime } from './onnx-runtime.js';
 import { OriginRuntimeFiles } from './origin-runtime-files.js';
 
 /** The runtime's installed files. */
@@ -39,8 +35,8 @@ const CPU_DIGEST = createHash('sha256')
   .update(readFileSync(join(RUNTIME_FILES, CPU_FILE)))
   .digest('hex');
 
-/** What Node offers the runtime: SIMD, and one thread, since nothing here is isolated. */
-const NODE: InferenceCapabilities = { fixedWidthSimd: true, threads: 1, webGpu: false };
+/** What Node offers the runtime: SIMD. */
+const NODE: InferenceCapabilities = { fixedWidthSimd: true };
 
 /** Every path requested of the server. */
 const requested: string[] = [];
@@ -81,8 +77,7 @@ function setupFor(
 ): RuntimeSetup {
   return {
     filesBase,
-    // The WebGPU build is never started in Node, which has no WebGPU.
-    webAssemblySha256: { [RuntimeBuild.Cpu]: cpuDigest, [RuntimeBuild.WebGpu]: 'f'.repeat(64) },
+    webAssemblySha256: cpuDigest,
     capabilities,
   };
 }
@@ -91,16 +86,16 @@ function setupFor(
 function countedFiles(filesBase: string): RuntimeFiles {
   const files = new OriginRuntimeFiles(filesBase);
   return {
-    read: (build) => {
+    read: () => {
       reads += 1;
-      return files.read(build);
+      return files.read();
     },
   };
 }
 
 function adapter(setup: RuntimeSetup): OnnxRuntimeInference {
   return new OnnxRuntimeInference(setup, {
-    load: ONNX_RUNTIME_BUILDS,
+    load: loadOnnxRuntime,
     files: countedFiles(setup.filesBase),
     reportFault: (error) => {
       throw error;
@@ -113,7 +108,7 @@ function adapter(setup: RuntimeSetup): OnnxRuntimeInference {
 // test of whichever suite runs first waits for.
 portContract('the adapter over the real runtime', {
   port: (capabilities) => adapter(setupFor(capabilities)),
-  model: addModelBytes,
+  model: addModel,
   timeout: 30_000,
 });
 
@@ -122,14 +117,14 @@ portContract(
   {
     port: (capabilities) =>
       inProcessInference((setup) => adapter(setup), setupFor(capabilities), origin).inference,
-    model: addModelBytes,
+    model: addModel,
     timeout: 30_000,
   },
 );
 
 describe('the real runtime', { timeout: 30_000 }, () => {
   it('names itself by its version and the digest of the WebAssembly file it runs', async () => {
-    const session = valueOf(await adapter(setupFor(NODE)).open(addModelBytes(), PINNED));
+    const session = valueOf(await adapter(setupFor(NODE)).open(addModel(), PINNED));
     expect(session.execution.runtime).toEqual({
       name: 'onnxruntime-web',
       version: '1.30.0',
@@ -148,7 +143,7 @@ describe('the real runtime', { timeout: 30_000 }, () => {
 
   it('refuses a WebAssembly file whose digest is not the setup’s, before the runtime has it', async () => {
     const opened = await adapter(setupFor(NODE, `${origin}/`, '0'.repeat(64))).open(
-      addModelBytes(),
+      addModel(),
       PINNED,
     );
     expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
@@ -158,10 +153,7 @@ describe('the real runtime', { timeout: 30_000 }, () => {
   });
 
   it('answers a WebAssembly file the server does not have as unavailable', async () => {
-    const opened = await adapter(setupFor(NODE, `${origin}/elsewhere/`)).open(
-      addModelBytes(),
-      PINNED,
-    );
+    const opened = await adapter(setupFor(NODE, `${origin}/elsewhere/`)).open(addModel(), PINNED);
     expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
       'inference.runtime-file-unavailable',
     ]);
@@ -173,7 +165,7 @@ describe('the real runtime', { timeout: 30_000 }, () => {
       setupFor(NODE, 'https://cdn.example.com/onnxruntime/'),
       TEST_ORIGIN,
     ).inference;
-    const opened = await port.open(addModelBytes(), PINNED);
+    const opened = await port.open(addModel(), PINNED);
     expect(opened.ok ? [] : opened.failures.map((one) => one.code)).toEqual([
       'inference.worker-failed',
     ]);

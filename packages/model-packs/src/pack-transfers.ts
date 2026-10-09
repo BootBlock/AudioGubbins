@@ -149,19 +149,22 @@ export class PackTransfers {
           stopping,
         ),
     );
-    return await this.settled(entry, manifest, arrived.stop, arrived.value);
+    return await this.settled(entry, manifest, arrived.stop, arrived.value, signal);
   }
 
   /**
    * Ends a transfer as it was stopped or as it ended: cancelled, deleting what
    * is kept; paused; failed, resumable unless the source's file was another; or
-   * arrived whole, to be checked and sealed.
+   * arrived whole, to be checked and sealed. The check, hundreds of megabytes
+   * read and hashed, is stopped by a pause, a cancel or the caller's signal as
+   * the transfer was.
    */
   private async settled(
     entry: Entry,
     manifest: ModelPackManifest,
     stop: Stop | undefined,
     arrival: Arrival,
+    signal: AbortSignal | undefined,
   ): Promise<DomainResult<InstallState>> {
     if (stop === 'cancel') {
       this.versions.apply(entry, { kind: 'cancel' });
@@ -177,7 +180,26 @@ export class PackTransfers {
     }
     this.versions.apply(entry, { kind: 'downloaded' });
     const { store, sha256 } = this.services;
-    const checked = await verifyKept(store, manifest, sha256);
+    const checking = await this.stoppable(entry, signal, async (stopping) => {
+      try {
+        return await verifyKept(store, manifest, sha256, stopping);
+      } catch (error) {
+        // The check rejects with the stopping signal's reason; anything else
+        // is not a stop, and is not this code's to answer.
+        if (stopping.aborted) return undefined;
+        throw error;
+      }
+    });
+    if (checking.stop === 'cancel') {
+      this.versions.apply(entry, { kind: 'cancel' });
+      return await this.deleted(entry);
+    }
+    if (checking.stop === 'pause') {
+      this.versions.apply(entry, { kind: 'pause' });
+      return succeed(entry.state);
+    }
+    const checked = checking.value;
+    if (checked === undefined) throw new Error('Only a stopped check answers nothing.');
     if (!checked.ok) return await this.rejected(entry, checked.failures[0]);
     const sealed = await store.seal(refOf(manifest));
     if (!sealed.ok) return await this.rejected(entry, sealed.failures[0]);

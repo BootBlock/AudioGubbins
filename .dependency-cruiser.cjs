@@ -279,9 +279,24 @@ module.exports = {
         "Vite bundles its configuration's own files but loads a package it imports through Node, " +
         'with no compiler, and a workspace package is TypeScript source: a value imported from ' +
         'one stops `vite`, `vite build` and every browser test before they start. A type is ' +
-        'erased, so it may be imported.',
+        "erased, so it may be imported. The model packs' path grammar is imported by its path, " +
+        'which Vite bundles, so the development server holds requests to the one grammar.',
       from: { path: '^apps/web/[^/]+[.][cm]?ts$' },
-      to: { path: '^packages/', dependencyTypesNot: ['type-only'] },
+      to: {
+        path: '^packages/',
+        pathNot: '^packages/model-packs/src/pack-path[.]ts$',
+        dependencyTypesNot: ['type-only'],
+      },
+    },
+    {
+      name: 'vite-bundled-grammar-imports-nothing-else',
+      severity: 'error',
+      comment:
+        "The model packs' path grammar is bundled into Vite's configuration by its path, so it " +
+        'imports only the version grammar, and that nothing: a package it named would be loaded ' +
+        'through Node with no compiler.',
+      from: { path: '^packages/model-packs/src/pack-(path|version)[.]ts$' },
+      to: { pathNot: '^packages/model-packs/src/pack-(path|version)[.]ts$' },
     },
     {
       name: 'rack-made-only-in-thread-entries',
@@ -599,6 +614,10 @@ module.exports = {
           // A module a package declares as a thread entry point, which the
           // browser loads by URL in its own global scope (ADR-0030).
           '^packages/[^/]+/src/threads/[^/]+\\.ts$',
+
+          // The model packs' path grammar, which the build's configuration
+          // bundles by its path (rule vite-configuration-loads-in-node).
+          '^packages/model-packs/src/pack-path\\.ts$',
         ],
       },
     },

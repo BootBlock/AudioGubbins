@@ -2844,7 +2844,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
     'packages/domain/src/index.ts': [
-      305,
+      343,
       "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
     ],
   };
@@ -3132,7 +3132,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       'The crate’s `ln_parts` in its operation order, one straight line of exact arithmetic with no branch past the reduction; split, it would no longer read against the Rust step for step. Its products’ errors go through a slot, so V8 boxes no double between its steps.',
     ],
     'packages/model-packs/src/install-state.ts: nextInstallState': [
-      67,
+      75,
       "The install state machine's whole table, one arm for each event, each the states that take it and where they go; the switch is exhaustive over the events, so an event cannot be left without its rule. The checks of a download's numbers (`arriving`) and the states a failure leaves (`failedFrom`) are functions of their own, shared by the arms that need them; split by event, the table would be read in thirteen places to see what a state can take.",
     ],
     'packages/diagnostics/src/bundle.ts: assembleBundle': [

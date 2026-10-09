@@ -184,15 +184,19 @@ export class PackInstaller {
     });
   }
 
-  /** Pauses a version's transfer in flight, or its wait for a turn, keeping what it has. */
+  /**
+   * Pauses a version's transfer in flight, its wait for a turn, or its check,
+   * keeping what it has.
+   */
   pause(ref: PackRef): DomainResult<void> {
     return this.stop(ref, 'pause');
   }
 
   /**
-   * Gives up a version being downloaded, queued, paused or failed, and deletes
-   * what is kept of it. A transfer in flight, or a wait for a turn, stops, and
-   * its download answers the version's state once the deletion is done.
+   * Gives up a version being downloaded, queued, paused, checked or failed,
+   * and deletes what is kept of it. A transfer in flight, a wait for a turn or
+   * a check stops, and its download answers the version's state once the
+   * deletion is done.
    */
   async cancel(ref: PackRef): Promise<DomainResult<InstallState>> {
     const entry = this.versions.get(ref);

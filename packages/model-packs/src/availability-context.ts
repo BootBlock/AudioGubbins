@@ -79,6 +79,3 @@ export type PackAvailability =
       readonly offered?: ModelPackManifest;
     }
   | { readonly condition: 'device-unavailable'; readonly reason: DomainFailure };
-
-/** Whether a person has chosen to fetch the packs a project requires when it opens. */
-export type AutomaticDownload = 'never' | 'required';

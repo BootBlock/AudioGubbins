@@ -12,7 +12,7 @@
  * commit 6b3774dc.
  */
 
-import { GraphOptimisation, InferenceMode } from '@audiogubbins/ml-runtime';
+import { GraphOptimisation } from '@audiogubbins/ml-runtime';
 
 import { PINNED_RUNTIME_SHA256, modelRate, type ModelDefinition } from '../model-definition.js';
 
@@ -50,7 +50,7 @@ export const MOSSFORMER2_SE_48K_MODEL: ModelDefinition = {
   ],
   // The only rate the model was trained at (`sampling_rate`).
   sampleRate: modelRate(48_000),
-  inference: { kind: InferenceMode.Pinned, graphOptimisation: GraphOptimisation.Basic },
+  inference: { graphOptimisation: GraphOptimisation.Basic },
 };
 
 /**

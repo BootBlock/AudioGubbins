@@ -12,7 +12,7 @@ import type {
   PackAvailability,
   PackNeed,
 } from './availability-context.js';
-import { availabilityOf, packsToFetch } from './availability.js';
+import { availabilityOf } from './availability.js';
 import { versionAvailability } from './version-availability.js';
 import type { InstallState } from './install-state.js';
 import type { ModelPackManifest } from './manifest.js';
@@ -307,26 +307,6 @@ describe('which condition holds for a processor or detector a project names (REQ
     expect(
       summary(availabilityOf({ ...REQUIRED, role: 'detector' }, context([[V1, INSTALLED]]))),
     ).toEqual(['required-unavailable', 'model-pack.none-serves', undefined]);
-  });
-});
-
-describe('what opening a project fetches', () => {
-  const needs: readonly PackNeed[] = [
-    REQUIRED,
-    OPTIONAL,
-    { ...REQUIRED, typeKey: 'sample-denoise' },
-  ];
-  const optionalPack = sampleManifest({ id: 'clicks-pack', processors: [], detectors: ['clicks'] });
-
-  it('fetches nothing unless the person’s policy fetches required packs', () => {
-    expect(packsToFetch(needs, context([], [V1, optionalPack]), 'never')).toEqual([]);
-  });
-
-  it('fetches only what is required, not installed and offered to run here, once each', () => {
-    expect(packsToFetch(needs, context([], [V1, optionalPack]), 'required')).toEqual([V1]);
-    expect(packsToFetch(needs, context([[V1, INSTALLED]], [V1, V2]), 'required')).toEqual([]);
-    expect(packsToFetch(needs, context([], [NEEDS_RUNTIME_2]), 'required')).toEqual([]);
-    expect(packsToFetch(needs, context([], [V1], NO_SIMD), 'required')).toEqual([]);
   });
 });
 

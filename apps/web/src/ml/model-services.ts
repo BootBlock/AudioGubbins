@@ -1,19 +1,19 @@
 /**
  * Local inference as the browser runs it (ADR-0062): the page's end of the
- * inference workers, one per runtime configuration for the whole application,
- * the model library on the installed packs, and what each model's
- * availability is, made once by the composition root.
+ * inference worker, one for the whole application, the model library on the
+ * installed packs, and what each model's availability is, made once by the
+ * composition root.
  *
  * Every thread that runs chains (the preview, render, feeder, peak and
  * detection workers) is started here (`startChainWorker`), connected to them as
  * it starts, through a model channel of its own, and let go of them as it is
  * terminated, so the inference workers drop the sessions a terminated thread
  * held. The runtime's identity, and the inference host with it, are loaded when
- * first needed, and an inference worker is started only when a thread first
- * opens a session on its runtime configuration, so a page that runs no model
- * loads none of the runtime. The worker reads the runtime's WebAssembly from
- * the application's own origin, under the path the build serves it at, and
- * checks it against the digest the build took of the bytes it serves.
+ * first needed, and the inference worker is started only when a thread first
+ * opens a session, so a page that runs no model loads none of the runtime. The
+ * worker reads the runtime's WebAssembly from the application's own origin,
+ * under the path the build serves it at, and checks it against the digest the
+ * build took of the bytes it serves.
  */
 
 import {
@@ -33,6 +33,7 @@ import {
 import inferenceWorkerUrl from '@audiogubbins/ml-runtime/threads/inference-worker.ts?worker&url';
 import type { StorageClient } from '@audiogubbins/storage-runtime';
 
+import { moduleWorkerClass } from '../module-worker.js';
 import { installedModelFiles } from './installed-model-files.js';
 import { createModelAvailabilityStore, type ModelAvailabilityStore } from './model-availability.js';
 
@@ -60,7 +61,7 @@ export interface ModelServices {
 
 /** An inference worker, its errors handled here rather than reported again by the page. */
 function inferenceWorker(): InferenceThreadPort {
-  const worker = new Worker(inferenceWorkerUrl, { type: 'module', name: 'AudioGubbins inference' });
+  const worker = new (moduleWorkerClass())(inferenceWorkerUrl, 'AudioGubbins inference');
   return {
     postMessage: (message, transfer) => {
       // What the host gives up is the end of a thread's channel, and nothing else.
@@ -138,11 +139,11 @@ function chainWorkers(threads: ModelThreads): (url: string) => Worker {
 
 /** The kind of worker `chainWorkers` starts, connected by `threads`. */
 function chainWorkerClass(threads: ModelThreads): new (url: string) => Worker {
-  return class ChainWorker extends Worker {
+  return class ChainWorker extends moduleWorkerClass() {
     readonly #disconnect: () => void;
 
     constructor(url: string) {
-      super(url, { type: 'module' });
+      super(url);
       this.#disconnect = threads.connect(this);
     }
 
@@ -163,7 +164,7 @@ export function startModels(
   storage: StorageClient | undefined,
   logger: Logger,
 ): ModelServices {
-  const inferenceCapabilities = localInferenceCapabilities(capabilities, navigator);
+  const inferenceCapabilities = localInferenceCapabilities(capabilities);
   const availability = availabilityOn(capabilities, storage, logger);
   const inference = inferenceHostOnce(inferenceCapabilities);
   const threads = new ModelThreads({

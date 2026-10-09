@@ -57,13 +57,12 @@ export { type Installation, VERSION_BUSY } from './installations.js';
 export { type UpdateOutcome, updatePack } from './pack-update.js';
 
 export {
-  type AutomaticDownload,
   type AvailabilityContext,
   type KnownPack,
   type LocalInferenceSupport,
   type PackAvailability,
   type PackNeed,
 } from './availability-context.js';
-export { availabilityOf, packsToFetch } from './availability.js';
+export { availabilityOf } from './availability.js';
 export { type VersionAvailability, versionAvailability } from './version-availability.js';
 export { type PackVersionCondition, packVersionCondition } from './pack-conditions.js';

@@ -1,17 +1,17 @@
 /**
- * The preview and render workers played in the test's own thread, for the
- * tests of the page that starts them: Node's test environment starts no
+ * The preview, render and feeder workers played in the test's own thread, for
+ * the tests of the page that starts them: Node's test environment starts no
  * worker.
  *
  * Each is composed as its module composes it (`threads/preview-worker.ts`,
- * `threads/render-worker.ts`): the real core, running chains on the effect
- * rack over the processor types made with the thread's own model channel,
- * which its scope hands on before the core reads anything. A test may give
- * the types another way of being made, as a pack of stand-ins needs. Every
- * message crosses as it does between threads: a structured clone, its buffers
- * transferred and each channel's end carried as itself
- * (`fake-message-channel.ts`), delivered a turn of the event loop later. A
- * fault the core raises is thrown where it happens, so it fails the test
+ * `threads/render-worker.ts`, `threads/feeder-worker.ts`): the real core,
+ * running chains on the effect rack over the processor types made with the
+ * thread's own model channel, which its scope hands on before the core reads
+ * anything. A test may give the types another way of being made, as a pack of
+ * stand-ins needs. Every message crosses as it does between threads: a
+ * structured clone, its buffers transferred and each channel's end carried as
+ * itself (`fake-message-channel.ts`), delivered a turn of the event loop later.
+ * A fault the core raises is thrown where it happens, so it fails the test
  * rather than reaching the page as the worker's error event.
  */
 
@@ -24,6 +24,8 @@ import {
   type ProcessorType,
 } from '@audiogubbins/processors';
 
+import { scopeDsp } from '../dsp/dsp-instance.js';
+import { FeederCore } from '../feeder/feeder-core.js';
 import { PreviewWorkerCore } from '../preview/preview-worker-core.js';
 import { RenderWorkerCore } from '../render/render-worker-core.js';
 import type { RenderWorkerEvents } from '../render/worker-render.js';
@@ -139,4 +141,43 @@ export function localRenderWorker(types: TypesWith = processorTypesWith): LocalC
         processing: chainProcessing(types({ inference: models, models })),
       }),
   );
+}
+
+/**
+ * The feeder worker, as `threads/feeder-worker.ts` composes it, its types made
+ * by `types`: the end of the channel to the processor a binding brings is
+ * listened to as the module listens to it.
+ */
+export function localFeederWorker(types: TypesWith = processorTypesWith): LocalChainWorker {
+  return new LocalChainWorker((models, post) => {
+    let processor: MessagePort | undefined;
+    const core: FeederCore = new FeederCore({
+      post: (message) => {
+        post(message, []);
+      },
+      connectProcessor: (port) => {
+        if (processor !== undefined) {
+          processor.onmessage = null;
+          processor.close();
+        }
+        processor = port;
+        if (port === undefined) return;
+        port.onmessage = (event: MessageEvent<unknown>) => {
+          core.receiveFromProcessor(event.data);
+        };
+      },
+      postToProcessor: (message, transfer) => {
+        processor?.postMessage(message, transfer);
+      },
+      schedule: (callback, milliseconds) => {
+        const timer = setTimeout(callback, milliseconds);
+        return () => {
+          clearTimeout(timer);
+        };
+      },
+      chooseDsp: scopeDsp,
+      processing: chainProcessing(types({ inference: models, models })),
+    });
+    return core;
+  });
 }

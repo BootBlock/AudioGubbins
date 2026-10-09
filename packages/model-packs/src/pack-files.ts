@@ -3,10 +3,9 @@
  * stays inside its pack, a length and a SHA-256, and no two that one file
  * system would keep as one (ADR-0062).
  *
- * A path is fetched from the catalogue under the pack's own directory and
- * matched against the files a person imports, so one that climbed out with
- * `..`, began at a root or a drive, or used a backslash could name a file the
- * pack does not own. Each is refused with the reason, never with the path.
+ * A path is held to the grammar of `pack-path.ts`, which the development
+ * server serves files by too; one outside it is refused with the reason,
+ * never with the path.
  */
 
 import {
@@ -20,6 +19,7 @@ import {
 } from '@audiogubbins/project-format';
 
 import type { PackFile } from './manifest.js';
+import { packFilePathProblem } from './pack-path.js';
 
 /** The most files a pack may name. */
 const MOST_FILES = 64;
@@ -30,46 +30,18 @@ const MOST_FILES = 64;
  */
 const LONGEST_FILE_BYTES = 2 ** 31;
 
-const LONGEST_PATH = 255;
-const MOST_SEGMENTS = 8;
-
-/** A path segment: letters, digits, `.`, `_` and `-`, not starting with a dot. */
-const PATH_SEGMENT = /^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$/u;
-const ABSOLUTE_PATH = /^(?:\/|[A-Za-z]:)/u;
 const SHA256_HEX = /^[0-9a-f]{64}$/u;
 
 const FILE_MEMBERS: ReadonlySet<string> = new Set(['path', 'bytes', 'sha256']);
 
 const asFileBytes = integerConverter(1, LONGEST_FILE_BYTES);
 
-/** Why a path is not one a file of a pack may have, or `undefined` where it may. */
-function pathProblem(path: string): string | undefined {
-  if (path.includes('\\')) return 'A file path uses `/` between segments, never a backslash.';
-  if (ABSOLUTE_PATH.test(path)) return 'A file path is relative to its pack, never absolute.';
-  if (path.length > LONGEST_PATH) {
-    return `A file path is at most ${String(LONGEST_PATH)} characters.`;
-  }
-  const segments = path.split('/');
-  if (segments.length > MOST_SEGMENTS) {
-    return `A file path has at most ${String(MOST_SEGMENTS)} segments.`;
-  }
-  if (segments.some((segment) => segment === '..')) {
-    return 'A file path never climbs out of its pack with `..`.';
-  }
-  if (segments.some((segment) => segment === '' || segment === '.')) {
-    return 'A file path has no empty or `.` segment.';
-  }
-  return segments.every((segment) => PATH_SEGMENT.test(segment))
-    ? undefined
-    : 'A file path segment is letters, digits, `.`, `_` and `-`, not starting with a dot.';
-}
-
 const asPath: Converter<string> = (reading, value, parent, key) => {
   if (typeof value !== 'string') {
     reading.refuse('schema.not-a-string', 'Text is expected here.', pathOf(parent, key));
     return undefined;
   }
-  const problem = pathProblem(value);
+  const problem = packFilePathProblem(value);
   if (problem === undefined) return value;
   reading.refuse('model-pack.path-unsafe', problem, pathOf(parent, key));
   return undefined;

@@ -31,6 +31,7 @@ const STARTS: number[] = [];
  */
 const HOLDING: ChainProcessing = {
   listening: () => succeed({ kind: 'live', partWay: { leadIn: LEAD_IN, frameGrid: GRID } }),
+  measurementBytes: () => succeed(0),
   prepare: (request) => {
     STARTS.push(request.start);
     let counted = 0;
@@ -98,6 +99,7 @@ const LONG = Float32Array.from({ length: 3 * DELAY }, (_, frame) => frame);
 /** A chain whose output is its input {@link DELAY} frames late, which its reader runs off and cuts. */
 const DELAYING: ChainProcessing = {
   listening: () => succeed({ kind: 'live', partWay: { leadIn: 0, frameGrid: 1 } }),
+  measurementBytes: () => succeed(0),
   prepare: () => {
     const line = new Float32Array(DELAY);
     let at = 0;

@@ -44,8 +44,11 @@ export interface PreviewWorkerHost {
   readonly bound: number;
   /** The most renders made at once. */
   readonly concurrency: number;
-  /** Hears a message from the page that could not be read, which is a fault in the page. */
-  readonly reportFault: (error: Error) => void;
+  /**
+   * Hears a fault: a message from the page that could not be read, a fault in
+   * the page, or what a read threw that the engine does not throw on purpose.
+   */
+  readonly reportFault: (error: unknown) => void;
 }
 
 /** The preview worker's behaviour, given its host. */
@@ -84,6 +87,7 @@ export class PreviewWorkerCore {
           new PreviewService(
             previewPort<FromPreview>(message.port),
             this.#producer.streams(message.purpose),
+            this.#host.reportFault,
           ),
         );
         return;
