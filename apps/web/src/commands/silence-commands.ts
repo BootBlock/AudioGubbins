@@ -73,7 +73,7 @@ function removeFrom(
   );
   if (!edits.ok) return edits.failures[0].summary;
   const [first, ...rest] = edits.value.map((edit) =>
-    chainInvocation(context, { kind: 'asset', asset: owner.asset.id, range: edit.range }, edit),
+    chainInvocation(context, { asset: owner.asset.id }, edit),
   );
   if (first === undefined) return 'Nothing was found to take out.';
   changeProject(context, project.session, {

@@ -1,12 +1,12 @@
 /**
  * The Inspector panel (WU-05.D): the properties of what the editor last in use
- * acts on. That is what a command would act on in words, the asset's source
- * and audio shape with its edits, and the region's name, tags, loop and own
- * processing, each changed through the command of the same name, so the
- * Inspector, the palette and a shortcut make one change (REQ-EDIT-008). With
- * processors selected it shows their settings, by the controls the Effects
- * rack shows them with; otherwise what the rack of the asset or region runs,
- * and the command that shows the rack (REQ-EDIT-072).
+ * acts on. That is what a command would act on in words, the asset's source and
+ * audio shape with its edits, its level, time and rate controls, and the
+ * region's name, tags, loop and own processing, each changed through the
+ * command of the same name, so the Inspector, the palette and a shortcut make
+ * one change (REQ-EDIT-008). With processors selected it shows their settings,
+ * by the controls the Effects rack shows them with; otherwise what the rack of
+ * the asset or region runs, and the command that shows the rack (REQ-EDIT-072).
  *
  * It reads the stores and runs commands; it writes nothing itself (`CLAUDE.md`
  * G2), and it follows every change to them, an undo included.
@@ -37,6 +37,7 @@ import { inspected, type Inspected } from './inspected.js';
 import { LevelControls } from './level-controls.js';
 import { RegionProperties } from './region-properties.js';
 import { sourceFacts } from './source-words.js';
+import { TimeControls } from './time-controls.js';
 
 /** A store that never changes, standing in for the project where this browser keeps none. */
 const NO_PROJECT = { get: () => undefined, subscribe: () => () => undefined };
@@ -244,6 +245,12 @@ function ProjectSubject({
           <RackSummary subject={subject} state={state} commands={commands} />
         ))}
       <LevelControls panel={panel} commands={commands} labelFor={parts.labelFor} />
+      <TimeControls
+        panel={panel}
+        commands={commands}
+        labelFor={parts.labelFor}
+        sampleRate={view.sampleRate}
+      />
       {subject.region !== undefined && (
         <RegionProperties
           panel={panel}

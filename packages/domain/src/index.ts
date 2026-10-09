@@ -203,9 +203,11 @@ export {
   type PlanStream,
   type StreamProcessing,
   convertedFrameCount,
+  planIsSilence,
   planReadsAsset,
   segmentsLayout,
   segmentsLength,
+  silencePlan,
   streamLength,
 } from './editing/plan.js';
 

@@ -1,8 +1,8 @@
 /**
  * Where an edited sound's content comes from, block by block: an asset's file
- * read through the read contract, one stream of a plan read segment by segment
- * through its stages, or a later stream heard converted to another rate
- * (ADR-0051, ADR-0052).
+ * read through the read contract, generated silence, one stream of a plan read
+ * segment by segment through its stages, or a later stream heard converted to
+ * another rate (ADR-0051, ADR-0052).
  *
  * A file opens on the first read that needs it, and is refused there if it no
  * longer has the rate, channels or length its asset recorded, since that is a
@@ -149,6 +149,27 @@ export class FileContent implements ContentReader {
   release(): void {
     this.#lifetime.cancel();
     this.#reader = undefined;
+  }
+}
+
+/** Generated silence: digital zero on every channel, at whatever frame is read. */
+export class SilentContent implements ReadableContent {
+  readonly channels: number;
+
+  constructor(channels: number) {
+    this.channels = channels;
+  }
+
+  read(
+    _start: number,
+    frames: number,
+    into: readonly Float32Array[],
+    signal?: CancellationSignal,
+  ): Promise<void> {
+    throwIfCancelled(signal);
+    // The arrays are a stream's scratch, which holds the last segment read.
+    for (const channel of into) channel.fill(0, 0, frames);
+    return Promise.resolve();
   }
 }
 

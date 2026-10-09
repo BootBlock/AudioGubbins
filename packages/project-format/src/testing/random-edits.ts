@@ -5,9 +5,10 @@
  * Every value is proposed at random and kept only where the domain's own
  * validation accepts it, so what is generated is exactly what a command could
  * have made, and the round trips exercise every kind of operation, every kind
- * of range edit, pastes whose plans carry fades, matrices, reversed segments,
- * converted, stretched and processed streams, rack edits naming the project's
- * chains, and positions stated at every basis of a chain.
+ * of range edit, inserted silence, pastes whose plans carry fades, matrices,
+ * reversed segments, generated silence, converted, stretched and processed
+ * streams, rack edits naming the project's chains, and positions stated at
+ * every basis of a chain.
  */
 
 import {
@@ -21,6 +22,7 @@ import {
   sampleRate,
   shapeAfter,
   shapesOf,
+  silencePlan,
   slicePlan,
   streamLength,
   validateMarker,
@@ -272,9 +274,10 @@ function proposeOperation(
 }
 
 /**
- * A paste at a random place of a slice of an asset's edited sound: this
- * asset's own, or another's, which may be at another rate and is then
- * converted.
+ * An insertion at a random place: of generated silence at the timeline's rate
+ * and layout, or a paste of a slice of an asset's edited sound, this asset's
+ * own or another's, which may be at another rate and is then converted, and
+ * may itself hold silence an earlier insertion made.
  */
 function proposePaste(
   random: Random,
@@ -284,6 +287,18 @@ function proposePaste(
   assets: ReadonlyMap<AssetId, Asset>,
   context: PlanContext,
 ): EditOperation | undefined {
+  if (random.chance(0.25)) {
+    return {
+      id,
+      kind: 'insert',
+      at: randomCount(random, shape.length),
+      payload: silencePlan(
+        shape.sampleRate,
+        shape.layout,
+        expectSuccess(sampleCount(1 + random.below(2_000))),
+      ),
+    };
+  }
   const from = random.chance(0.5) ? asset : random.pick([...assets.values()]);
   const made = assetPlan(from, context);
   if (!made.ok) return undefined;

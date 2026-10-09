@@ -2294,7 +2294,7 @@ Published paths
   readonly PlanSegment.length: SampleCount
   readonly PlanSegment.reversed: boolean
   readonly PlanSegment.stages: readonly PlanStage[]
-  type PlanSource = { readonly kind: "media"; readonly asset: AssetId; } | { readonly kind: "stream"; readonly stream: number; }
+  type PlanSource = { readonly kind: "media"; readonly asset: AssetId; } | { readonly kind: "silence"; readonly channels: number; } | { readonly kind: "stream"; readonly stream: number; }
   type PlanStage = { readonly kind: "gain"; readonly from: number; readonly to: number; readonly channels?: readonly number[]; readonly gain: GainCurve; } | { readonly kind: "matrix"; readonly range?: { readonly from: number; readonly to: number; }; readonly matrix: readonly (readonly number[])[]; }
   interface PlanStream
   readonly PlanStream.sampleRate: SampleRate
@@ -2559,6 +2559,7 @@ Published paths
   function placeOf(segment: PlanSegment): BlockPlace
   function placeRegion(resolver: AnchorResolver, region: Region): PlacedRegion | undefined
   function placeRegions(asset: Asset, regions: Iterable<Region>, resolver?: AnchorResolver): readonly PlacedRegion[]
+  function planIsSilence(plan: EditPlan): boolean
   function planReadsAsset(plan: EditPlan, asset: AssetId): boolean
   function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function projectChains(project: Project): Generator<EffectChain, void, undefined>
@@ -2589,6 +2590,7 @@ Published paths
   function segmentsLength(stream: Pick<PlanStream, "segments">): number
   function shapeAfter(shape: EditShape, operation: EditOperation): EditShape
   function shapesOf(asset: Asset): readonly EditShape[]
+  function silencePlan(sampleRate: SampleRate, layout: ChannelLayout, length: SampleCount): EditPlan
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
   function slotsAt(chain: Pick<EffectChain, "slots">, group: undefined | { readonly id: ProcessorGroupId; readonly branch: number; }): readonly ChainSlot[] | undefined
@@ -5521,7 +5523,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 5; readonly projectStorage: 9; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 6; readonly projectStorage: 10; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference

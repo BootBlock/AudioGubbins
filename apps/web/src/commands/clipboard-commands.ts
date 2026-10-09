@@ -36,31 +36,23 @@ import {
   RANGE_OR_WHOLE,
   editScope,
   editedView,
+  insertionPlace,
   partOfTheChannels,
   type EditScope,
 } from './edit-target.js';
-import type { ProjectOwner } from '../assets/editor-asset.js';
-import { playheadOf, selectedTarget, type EditorTarget } from './editor-target.js';
 import {
   chainInvocation,
   changeProject,
   needsProjectAsset,
-  onAsset,
   onWholeAsset,
 } from './project-edits.js';
+import { sampleRateWords } from '../wording.js';
 import { readyProjects, sayWhenSettled } from './project-access.js';
 import { shellCommand, type BodyAnswer } from './shell-command.js';
 import type { ShellContext } from './shell-context.js';
 
 /** The command that pastes audio converted to the asset's rate, as a refusal names it. */
 const PASTE_CONVERTING = 'Paste, converting the sample rate';
-
-const KILOHERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
-
-/** A rate as a person reads it. */
-function kilohertz(rate: number): string {
-  return `${KILOHERTZ.format(rate / 1000)} kHz`;
-}
 
 function clipboardCommand(
   id: string,
@@ -149,20 +141,6 @@ function cutCommand(): Command<ShellContext> {
   );
 }
 
-/** Where a paste goes: over the selected range, or in at the playhead anywhere else. */
-function pastedAt(
-  context: ShellContext,
-  view: EditorTarget,
-  owner: ProjectOwner,
-): PasteRequest['place'] {
-  const target = selectedTarget(context, view.asset, RANGE_ONLY);
-  if (typeof target !== 'string' && target.kind === 'time') {
-    const { start, end } = target.range;
-    return { kind: 'replace', range: { start: onAsset(owner, start), end: onAsset(owner, end) } };
-  }
-  return { kind: 'at', at: onAsset(owner, playheadOf(context, view.asset)) };
-}
-
 /** The audio the clipboard holds, and what it was called, or why it holds none. */
 function heldAudio(
   context: ShellContext,
@@ -196,8 +174,9 @@ function pasteCommand(
       const stores = readyProjects(context);
       if (typeof stores === 'string') return stores;
       const { owner, state, session } = found.project;
-      const place = pastedAt(context, found.view, owner);
-      const request = {
+      const place = insertionPlace(context, found.view, owner);
+      if (typeof place === 'string') return place;
+      const request: PasteRequest = {
         payload: held.audio,
         asset: owner.asset.id,
         place,
@@ -207,8 +186,8 @@ function pasteCommand(
       if (!planned.ok) {
         const [failure] = planned.failures;
         if (failure.code !== 'editing.payload-rate') return failure.summary;
-        const from = kilohertz(held.audio.plan.streams[0].sampleRate);
-        const to = kilohertz(owner.asset.sampleRate);
+        const from = sampleRateWords(held.audio.plan.streams[0].sampleRate);
+        const to = sampleRateWords(owner.asset.sampleRate);
         return `The copied audio is at ${from} and this audio is at ${to}. To convert it to ${to} as it is pasted, use ${PASTE_CONVERTING}.`;
       }
       const { records, operations } = planned.value;

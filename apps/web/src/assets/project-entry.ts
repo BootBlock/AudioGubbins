@@ -36,6 +36,7 @@ import {
 import { canonicalJson, writeEditPlan, type AssetSource } from '@audiogubbins/project-format';
 import { counted, quoted } from '@audiogubbins/text';
 
+import { sampleRateWords } from '../wording.js';
 import { revisionOf, type EditorAsset, type PlannedAudio } from './editor-asset.js';
 import { planModelRefusal, type ModelGate } from './model-gate.js';
 
@@ -112,7 +113,7 @@ function mediaOf(
  */
 export function assetSentence(asset: Asset, plan: EditPlan): string {
   const [stream] = plan.streams;
-  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${String(stream.sampleRate / 1000)} kHz`;
+  const shape = `${counted(channelCount(stream.layout), 'channel', 'channels')} at ${sampleRateWords(stream.sampleRate)}`;
   return asset.edits.length === 0
     ? `Audio of the project: ${shape}.`
     : `Audio of the project: ${shape}, with ${counted(asset.edits.length, 'edit', 'edits')}.`;

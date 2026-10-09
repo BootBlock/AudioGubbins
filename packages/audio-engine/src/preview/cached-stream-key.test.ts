@@ -212,3 +212,26 @@ describe('the key a cached render is kept under', () => {
     ).toBe(BASE);
   });
 });
+
+describe('the key of a processed stream that holds generated silence', () => {
+  /** The racked plan with `frames` frames of silence after the file, read from `start` in it. */
+  function withSilence(frames: number, start: number): EditPlan {
+    const [heard, racked] = rackedPlan(chainOf(processor(VALUES)), LENGTH, RATE).streams;
+    if (racked === undefined) throw new Error('A racked plan has two streams.');
+    const silence = {
+      source: { kind: 'silence' as const, channels: 1 },
+      start: derivedSampleCount(start),
+      length: derivedSampleCount(frames),
+      reversed: false,
+      stages: [],
+    };
+    return { streams: [heard, { ...racked, segments: [...racked.segments, silence] }] };
+  }
+
+  it('is made of its length, and not of where in the silence its segment starts', () => {
+    const key = cachedStreamKey(request(withSilence(300, 0)));
+    expect(key).not.toBe(BASE);
+    expect(cachedStreamKey(request(withSilence(300, 4_096)))).toBe(key);
+    expect(cachedStreamKey(request(withSilence(301, 0)))).not.toBe(key);
+  });
+});

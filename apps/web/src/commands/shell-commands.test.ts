@@ -54,6 +54,7 @@ import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
 import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
+import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { ownershipCommands } from './ownership-commands.js';
 import { packCommands } from './pack-commands.js';
@@ -811,6 +812,7 @@ describe('finding the shell commands in the palette', () => {
       ...markerCommands(),
       ...markerNudgeCommands(),
       ...editCommands(),
+      ...timeEditCommands(),
       ...channelCommands(),
       ...regionCommands(),
       ...regionBoundaryCommands(),

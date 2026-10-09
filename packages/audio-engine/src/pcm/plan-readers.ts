@@ -1,8 +1,8 @@
 /**
  * The readers one edited source makes of its plan (ADR-0051, ADR-0052): each
- * stream's content, an asset's file, a later stream converted to another
- * rate, and a stream's processing, each made once, on the first read that
- * needs it, and released with the source.
+ * stream's content, an asset's file, generated silence, a later stream
+ * converted to another rate, and a stream's processing, each made once, on
+ * the first read that needs it, and released with the source.
  *
  * A processed stream is read from its render where the reading has a cache
  * of renders and the stream is one it would otherwise run from its start, or
@@ -42,6 +42,7 @@ import {
   ConvertedContent,
   FileContent,
   MediaReadFailure,
+  SilentContent,
   StreamContent,
   type ContentReader,
   type MediaEntry,
@@ -113,6 +114,8 @@ export class PlanReaders implements ParameterTarget {
   /** The runs of the processed streams this reading runs itself, by place. */
   readonly #runs = new Map<number, ProcessedContent>();
   readonly #files = new Map<AssetId, FileContent>();
+  /** Generated silence, by its channel count; it holds nothing, so nothing releases it. */
+  readonly #silences = new Map<number, SilentContent>();
   readonly #converted = new Map<number, ConvertedContent>();
   readonly #made: ContentReader[] = [];
 
@@ -203,6 +206,7 @@ export class PlanReaders implements ParameterTarget {
 
   #reader(source: PlanSource, rate: SampleRate): ReadableContent {
     if (source.kind === 'media') return this.#file(source.asset);
+    if (source.kind === 'silence') return this.#silence(source.channels);
     return this.#streamAt(source.stream).sampleRate === rate
       ? this.output(source.stream)
       : this.#convert(source.stream, rate);
@@ -296,6 +300,14 @@ export class PlanReaders implements ParameterTarget {
     this.#files.set(asset, file);
     this.#made.push(file);
     return file;
+  }
+
+  #silence(channels: number): SilentContent {
+    const known = this.#silences.get(channels);
+    if (known !== undefined) return known;
+    const silence = new SilentContent(channels);
+    this.#silences.set(channels, silence);
+    return silence;
   }
 
   /** The stream's segments made `length` frames long (`stretched-content.ts`). */

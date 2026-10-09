@@ -109,6 +109,73 @@ function fileMenu(builders: MenuBuilders): ProjectMenu {
   };
 }
 
+/**
+ * The Edit menu's groups below Undo and Redo, each named: a table, as the
+ * Editor menu's groups are, so the menu is read as one list.
+ */
+const EDIT_GROUPS: readonly {
+  readonly key: string;
+  readonly label: string;
+  readonly ids: readonly string[];
+}[] = [
+  {
+    key: 'clipboard',
+    label: 'Clipboard',
+    ids: [
+      'edit.cut',
+      'edit.copy',
+      'edit.paste',
+      'edit.paste-converting-rate',
+      'edit.delete',
+      'edit.trim',
+      'edit.split',
+    ],
+  },
+  {
+    key: 'level',
+    label: 'Level',
+    ids: [
+      'edit.silence',
+      'edit.fade-in',
+      'edit.fade-out',
+      'edit.louder',
+      'edit.quieter',
+      'edit.invert',
+      'edit.reverse',
+    ],
+  },
+  {
+    key: 'time',
+    label: 'Time and rate',
+    ids: ['edit.insert-silence', 'edit.stretch', 'edit.convert-rate'],
+  },
+  {
+    key: 'channels',
+    label: 'Channels',
+    ids: ['edit.swap-channels', 'edit.to-mono', 'edit.to-stereo'],
+  },
+  {
+    key: 'regions',
+    label: 'Regions',
+    ids: [
+      'region.create',
+      'editor.select-next-region',
+      'editor.select-previous-region',
+      'region.open',
+      'region.move-start',
+      'region.move-end',
+      'region.loop',
+      'region.clear-loop',
+      'region.remove',
+    ],
+  },
+  {
+    key: 'comparison',
+    label: 'Comparison',
+    ids: ['history.switch-side', 'history.close-comparison'],
+  },
+];
+
 /** The Edit menu. */
 function editMenu(builders: MenuBuilders): ProjectMenu {
   return {
@@ -118,44 +185,7 @@ function editMenu(builders: MenuBuilders): ProjectMenu {
         key: 'steps',
         items: [stepEntry(builders, 'edit.undo'), stepEntry(builders, 'edit.redo')],
       },
-      builders.labelled('clipboard', 'Clipboard', [
-        'edit.cut',
-        'edit.copy',
-        'edit.paste',
-        'edit.paste-converting-rate',
-        'edit.delete',
-        'edit.trim',
-        'edit.split',
-      ]),
-      builders.labelled('level', 'Level', [
-        'edit.silence',
-        'edit.fade-in',
-        'edit.fade-out',
-        'edit.louder',
-        'edit.quieter',
-        'edit.invert',
-        'edit.reverse',
-      ]),
-      builders.labelled('channels', 'Channels', [
-        'edit.swap-channels',
-        'edit.to-mono',
-        'edit.to-stereo',
-      ]),
-      builders.labelled('regions', 'Regions', [
-        'region.create',
-        'editor.select-next-region',
-        'editor.select-previous-region',
-        'region.open',
-        'region.move-start',
-        'region.move-end',
-        'region.loop',
-        'region.clear-loop',
-        'region.remove',
-      ]),
-      builders.labelled('comparison', 'Comparison', [
-        'history.switch-side',
-        'history.close-comparison',
-      ]),
+      ...EDIT_GROUPS.map((group) => builders.labelled(group.key, group.label, group.ids)),
     ],
   };
 }

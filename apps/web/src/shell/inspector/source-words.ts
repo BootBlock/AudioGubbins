@@ -12,6 +12,7 @@ import type { AssetSource, SourceAudioShape, SourceContainer } from '@audiogubbi
 import { counted, quoted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
+import { sampleRateWords } from '../../wording.js';
 
 /** One fact of the source: what it is about, and what it is. */
 export interface SourceFact {
@@ -28,7 +29,6 @@ const CONTAINER_NAMES: Readonly<Record<SourceContainer, string>> = {
   aifc: 'AIFF-C',
 };
 
-const KILOHERTZ = new Intl.NumberFormat('en-GB', { maximumFractionDigits: 3 });
 const SECONDS = new Intl.NumberFormat('en-GB', {
   minimumFractionDigits: 3,
   maximumFractionDigits: 3,
@@ -46,7 +46,7 @@ function shapeFacts(shape: SourceAudioShape, asset: Asset): readonly SourceFact[
   const layout = shape.statedLayout ?? asset.channelLayout;
   const facts: SourceFact[] = [
     { term: 'Format', detail: CONTAINER_NAMES[shape.container] },
-    { term: 'Sample rate', detail: `${KILOHERTZ.format(shape.sampleRate / 1000)} kHz` },
+    { term: 'Sample rate', detail: sampleRateWords(shape.sampleRate) },
     {
       term: 'Samples',
       detail: `${String(shape.bitDepth)}-bit ${shape.encoding === 'float' ? 'floating point' : 'integer'}, ${shape.byteOrder === 'little' ? 'little-endian' : 'big-endian'}`,

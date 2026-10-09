@@ -5,6 +5,7 @@ import {
   StandardLayouts,
   assetPlan,
   sampleCount,
+  silencePlan,
   slicePlan,
   unsafeBrandId,
   type EditOperation,
@@ -120,6 +121,19 @@ describe('project.apply-edit', () => {
     expect(next.sources.get(footstep.id)).toEqual(state.sources.get(footstep.id));
     expect(entry.description).toBe('Delete part of “Gravel footstep”');
     expect(entry.inverse).toEqual([withdrawInvocation(footstep, operation)]);
+  });
+
+  it('inserts generated silence, called silence, which the project reads back, undone by withdrawing it', () => {
+    const operation: EditOperation = {
+      id: ids.next<'EditOperationId'>(),
+      kind: 'insert',
+      at: at(500),
+      payload: silencePlan(footstep.sampleRate, footstep.channelLayout, at(4_800)),
+    };
+    const { next, entry } = appliedAndUndone(state, applyInvocation(footstep, operation));
+
+    expect(next.project.assets.get(footstep.id)?.edits).toEqual([operation]);
+    expect(entry.description).toBe('Insert silence into “Gravel footstep”');
   });
 
   it('refuses an asset the project lacks', () => {

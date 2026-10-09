@@ -22,16 +22,26 @@
  * a fade stays on the audio it was put on.
  */
 
-import type { ChannelLayout } from '../audio/channel-layout.js';
+import { channelCount, type ChannelLayout } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { EffectChain } from '../processing/effect-chain.js';
-import type { SampleCount, SampleRate } from '../time/sample-time.js';
+import { ZERO_SAMPLES, type SampleCount, type SampleRate } from '../time/sample-time.js';
 import { FadeShape } from './fades.js';
 
-/** What a segment reads: an asset's unchanged source, or a later stream of the plan. */
+/**
+ * What a segment reads: an asset's unchanged source, a later stream of the
+ * plan, or generated silence of `channels` channels at its stream's rate.
+ *
+ * Silence is a source of its own, rather than a range of some asset with its
+ * gain at zero, so inserted silence reads no file, is as long as it is asked
+ * to be whatever the asset holds, and is digital zero whatever stages it
+ * meets. It is the same at every frame, so a segment's `start` on it moves
+ * nothing it makes.
+ */
 export type PlanSource =
   | { readonly kind: 'media'; readonly asset: AssetId }
-  | { readonly kind: 'stream'; readonly stream: number };
+  | { readonly kind: 'stream'; readonly stream: number }
+  | { readonly kind: 'silence'; readonly channels: number };
 
 /**
  * A fade's gain over its content: zero to one when `rising`, one to zero
@@ -125,6 +135,42 @@ export function planReadsAsset(plan: EditPlan, asset: AssetId): boolean {
     stream.segments.some(
       (segment) => segment.source.kind === 'media' && segment.source.asset === asset,
     ),
+  );
+}
+
+/**
+ * A plan of `length` frames of silence at `sampleRate` in `layout`: what an
+ * insertion of generated silence inserts (REQ-AUDIO-018), which takes the
+ * rate and layout of the asset it joins.
+ */
+export function silencePlan(
+  sampleRate: SampleRate,
+  layout: ChannelLayout,
+  length: SampleCount,
+): EditPlan {
+  return {
+    streams: [
+      {
+        sampleRate,
+        layout,
+        segments: [
+          {
+            source: { kind: 'silence', channels: channelCount(layout) },
+            start: ZERO_SAMPLES,
+            length,
+            reversed: false,
+            stages: [],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/** Whether every segment of the plan reads generated silence, so all it makes is silence. */
+export function planIsSilence(plan: EditPlan): boolean {
+  return plan.streams.every((stream) =>
+    stream.segments.every((segment) => segment.source.kind === 'silence'),
   );
 }
 

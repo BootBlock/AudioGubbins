@@ -35,7 +35,12 @@ function renderStream(
   let position = 0;
   for (const segment of stream.segments) {
     let content: Samples;
-    if (segment.source.kind === 'media') {
+    if (segment.source.kind === 'silence') {
+      content = Array.from(
+        { length: segment.source.channels },
+        () => new Float32Array(segment.start + segment.length),
+      );
+    } else if (segment.source.kind === 'media') {
       const source = sources.get(segment.source.asset);
       if (source === undefined) throw new Error(`No samples for ${segment.source.asset}.`);
       content = source;

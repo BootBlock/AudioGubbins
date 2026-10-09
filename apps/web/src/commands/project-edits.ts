@@ -101,7 +101,7 @@ export function changeProject(
  */
 export function chainInvocation(
   context: ShellContext,
-  target: EditTarget,
+  target: Pick<EditTarget, 'asset'>,
   operation: DistributiveOmit<EditOperation, 'id'>,
 ): CommandInvocation {
   return applyInvocation(

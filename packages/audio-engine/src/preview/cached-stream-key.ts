@@ -70,13 +70,7 @@ class StreamValues {
       sampleRate: stream.sampleRate,
       layout: stream.layout,
       processing: processingValue(stream.processing),
-      segments: stream.segments.map((segment: PlanSegment) => ({
-        ...segment,
-        source:
-          segment.source.kind === 'media'
-            ? fileValue(this.#media, segment.source.asset)
-            : { stream: this.indexOf(segment.source.stream) },
-      })),
+      segments: stream.segments.map((segment: PlanSegment) => this.#segmentValue(segment)),
     };
     // A stream's text holds only the indices of what it reads, so it is as
     // long as the stream itself and the whole key stays linear in the plan.
@@ -89,6 +83,23 @@ class StreamValues {
     }
     this.#indices.set(place, index);
     return index;
+  }
+
+  /**
+   * A segment as its sound is decided: a file by its content, a stream by its
+   * index, and silence by its channels alone, since where a segment starts in
+   * silence changes nothing it makes.
+   */
+  #segmentValue(segment: PlanSegment): unknown {
+    const { source } = segment;
+    switch (source.kind) {
+      case 'media':
+        return { ...segment, source: fileValue(this.#media, source.asset) };
+      case 'stream':
+        return { ...segment, source: { stream: this.indexOf(source.stream) } };
+      case 'silence':
+        return { ...segment, start: 0, source: { silence: source.channels } };
+    }
   }
 }
 

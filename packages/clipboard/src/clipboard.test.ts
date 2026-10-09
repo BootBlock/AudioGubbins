@@ -9,6 +9,7 @@ import {
   sampleRate,
   shapeAfter,
   shapesOf,
+  silencePlan,
   unsafeBrandId,
   type Asset,
   type AssetId,
@@ -312,6 +313,35 @@ describe('pasting (ADR-0053)', () => {
     expect(
       expectFailureCode(planPaste(clashing, request(copy, target, { kind: 'at', at: at(0) }), ids)),
     ).toBe('clipboard.source-differs');
+  });
+
+  it('copies inserted silence as silence, which needs no media where it is pasted', () => {
+    const silenced = {
+      ...footstep,
+      edits: [
+        {
+          id: ids.next<'EditOperationId'>(),
+          kind: 'insert',
+          at: at(1_000),
+          payload: silencePlan(footstep.sampleRate, footstep.channelLayout, at(300)),
+        } as const,
+      ],
+    };
+    const copy = copied(expectSuccess(assetPlan(silenced, PLAN_WITHOUT_CHAINS)), 1_100, 1_200);
+    expect(copy.records).toEqual([]);
+
+    const other = referenceState(sampleProject(77));
+    const target = [...other.project.assets.values()].find(
+      (asset) => asset.sampleRate === footstep.sampleRate,
+    );
+    if (target === undefined) throw new Error('The other project has an asset at the rate.');
+    const planned = expectSuccess(
+      planPaste(other, request(copy, target, { kind: 'at', at: at(0) }), ids),
+    );
+
+    expect(planned.records).toEqual([]);
+    const { sound } = pasted(other, target, planned.operations);
+    expect(framesOf(sound, 0, 100)).toEqual(sound.map(() => Array.from({ length: 100 }, () => 0)));
   });
 
   /** A copy of `count` one-frame segments of `asset`, alternately reversed. */

@@ -8,6 +8,7 @@ import {
   derivedSampleCount,
   readValue,
   sampleRate,
+  silencePlan,
   slicePlan,
   unsafeBrandId,
   type Asset,
@@ -34,6 +35,8 @@ import { PcmDescriptionKind, describedSource, pcmDescriptionOf } from './pcm-des
 import type { PcmSource } from './pcm-source.js';
 import { resampledSource } from './resampled-source.js';
 import { ENGINE_VERSIONS } from '../dsp/algorithm-versions.js';
+import { ProcessedStart } from './processed-content.js';
+import { StretchedContent } from './stretched-content.js';
 
 /** A description read as a message carrying it reads it. */
 function pcmDescription(value: unknown) {
@@ -459,5 +462,124 @@ describe('an edited description crossing a thread', () => {
         }),
       ),
     ).toBe('pcm.description-unreadable');
+  });
+});
+
+describe('an edited source of the edits that change time and rate (REQ-AUDIO-018)', () => {
+  const samples = samplesOf(5_000, 2, 11);
+  const source = assetOf('timed', 5_000, RATE, StandardLayouts.stereo);
+  const zeroBits = (frames: number) => bitsOf([new Float32Array(frames), new Float32Array(frames)]);
+
+  /** The asset with `edits`, heard through the real plan readers in blocks of `size`. */
+  async function heard(edits: readonly EditOperation[], size: number): Promise<Float32Array[]> {
+    const asset = { ...source, edits };
+    const plan = expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS));
+    return await readAll(
+      expectSuccess(
+        editedSource(
+          plan,
+          [entryOf(source, samples)],
+          StandardLayouts.stereo,
+          REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
+        ),
+      ),
+      size,
+    );
+  }
+
+  it('hears inserted silence as digital zero of its length, whatever the block size', async () => {
+    const insertion: EditOperation = {
+      id: id('silence'),
+      kind: 'insert',
+      at: derivedSampleCount(1_234),
+      payload: silencePlan(RATE, StandardLayouts.stereo, derivedSampleCount(777)),
+    };
+    for (const size of [1, 97, 1_024, 10_000]) {
+      const made = await heard([insertion], size);
+      expect(made[0]?.length, `blocks of ${String(size)}`).toBe(5_777);
+      expect(bitsOf(made.map((channel) => channel.subarray(1_234, 2_011)))).toEqual(zeroBits(777));
+      expect(bitsOf(made.map((channel) => channel.subarray(0, 1_234)))).toEqual(
+        bitsOf(samples.map((channel) => channel.subarray(0, 1_234))),
+      );
+      expect(bitsOf(made.map((channel) => channel.subarray(2_011)))).toEqual(
+        bitsOf(samples.map((channel) => channel.subarray(1_234))),
+      );
+    }
+  });
+
+  it('hears a stretched range exactly as the engine’s stretch makes it', async () => {
+    const stretch: EditOperation = {
+      id: id('stretch'),
+      kind: 'stretch',
+      range: { start: derivedSampleCount(1_000), end: derivedSampleCount(3_000) },
+      length: derivedSampleCount(3_100),
+      version: ENGINE_VERSIONS.stretch,
+    };
+    const made = await heard([stretch], 512);
+    const direct = new StretchedContent(
+      {
+        length: 2_000,
+        read: (start, frames, into) => {
+          into.forEach((channel, index) => {
+            channel.set(
+              (samples[index] ?? new Float32Array()).subarray(
+                1_000 + start,
+                1_000 + start + frames,
+              ),
+            );
+          });
+          return Promise.resolve();
+        },
+      },
+      { sampleRate: RATE, layout: StandardLayouts.stereo },
+      3_100,
+      {
+        quality: PLAIN_PLAN_PROCESSING.quality,
+        dsp: REFERENCE_DSP,
+        start: ProcessedStart.Canonical,
+      },
+    );
+    const expected = [new Float32Array(3_100), new Float32Array(3_100)];
+    await direct.read(0, 3_100, expected);
+
+    expect(made[0]?.length).toBe(6_100);
+    expect(bitsOf(made.map((channel) => channel.subarray(1_000, 4_100)))).toEqual(bitsOf(expected));
+    expect(expected[0]?.some((sample) => Math.abs(sample) > 0.1)).toBe(true);
+  });
+
+  it('hears an asset converted to another rate exactly as the canonical resampler makes it', async () => {
+    const conversion: EditOperation = {
+      id: id('convert'),
+      kind: 'convert-rate',
+      sampleRate: OTHER,
+      version: ENGINE_VERSIONS.resampler,
+    };
+    const asset = { ...source, edits: [conversion] };
+    const made = await readAll(
+      expectSuccess(
+        editedSource(
+          expectSuccess(assetPlan(asset, PLAN_WITHOUT_CHAINS)),
+          [entryOf(source, samples)],
+          StandardLayouts.stereo,
+          REFERENCE_DSP,
+          PLAIN_PLAN_PROCESSING,
+        ),
+      ),
+      700,
+    );
+    const converted = expectSuccess(
+      resampledSource(
+        REFERENCE_DSP,
+        expectSuccess(
+          memorySource(expectSuccess(frameBlock(StandardLayouts.stereo, RATE, samples))),
+        ),
+        OTHER,
+        ResamplingQuality.Maximum,
+      ),
+    );
+
+    expect(made[0]?.length).toBe(4_594);
+    expect(bitsOf(made)).toEqual(bitsOf(await readAll(converted, 1_000)));
   });
 });

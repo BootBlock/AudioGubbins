@@ -111,27 +111,27 @@ function insertionProblem(
   assets: ReadonlyMap<AssetId, Asset>,
 ): DomainResult<undefined> {
   if (!Number.isSafeInteger(operation.at) || operation.at < 0 || operation.at > shape.length) {
-    return refused('position-outside', 'The paste position lies outside the audio.');
+    return refused('position-outside', 'The insertion point lies outside the audio.');
   }
   const plan = validatePlan(operation.payload, assets);
   if (!plan.ok) return plan;
   const [stream] = operation.payload.streams;
   if (!layoutsMatch(stream.layout, shape.layout)) {
-    return refused('payload-layout', 'The pasted audio does not have this audio’s channels.');
+    return refused('payload-layout', 'The inserted audio does not have this audio’s channels.');
   }
   const converted = operation.resampler !== undefined;
   if ((stream.sampleRate !== shape.sampleRate) !== converted) {
     return refused(
       'payload-rate',
       converted
-        ? 'The pasted audio is already at this audio’s rate, so there is nothing to convert.'
-        : 'The pasted audio is at another sample rate, and is converted only when that is asked for.',
+        ? 'The inserted audio is already at this audio’s rate, so there is nothing to convert.'
+        : 'The inserted audio is at another sample rate, and is converted only when that is asked for.',
     );
   }
   if (operation.resampler !== undefined && !isVersion(operation.resampler)) {
     return refused(
       'conversion-version',
-      'A conversion of the pasted audio names the version of the resampler it is made by.',
+      'A conversion of the inserted audio names the version of the resampler it is made by.',
     );
   }
   return succeed(undefined);

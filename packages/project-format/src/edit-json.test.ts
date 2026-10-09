@@ -145,6 +145,7 @@ describe('every edit-model value survives being written and read alone', () => {
         'reverse',
         'silence',
         'source media',
+        'source silence',
         'source stream',
         'stretch',
         'swap-channels',
@@ -355,6 +356,27 @@ describe('an edit-model value read alone refuses', () => {
       'value.streams[0].segments[0].stages[0]',
     ],
     [
+      'silence of no channels',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 0 }),
+      'schema.number-out-of-range',
+      'value.streams[0].segments[0].source.channels',
+    ],
+    [
+      'silence of more channels than a layout has',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 257 }),
+      'schema.number-out-of-range',
+      'value.streams[0].segments[0].source.channels',
+    ],
+    [
+      'silence that names an asset, as only media does',
+      readEditPlan,
+      planReadingFrom({ kind: 'silence', channels: 1, asset: '0000bbbb' }),
+      'schema.unknown-member',
+      'value.streams[0].segments[0].source',
+    ],
+    [
       'a plan of no streams',
       readEditPlan,
       { streams: [] },
@@ -407,6 +429,19 @@ describe('an edit-model value read alone refuses', () => {
     ).toEqual([]);
   });
 });
+
+/** A one-segment mono plan whose segment reads `source`. */
+function planReadingFrom(source: JsonValue): JsonValue {
+  return {
+    streams: [
+      {
+        sampleRate: 48_000,
+        layout: { roles: ['mono'] },
+        segments: [{ source, start: 0, length: 10, reversed: false, stages: [] }],
+      },
+    ],
+  };
+}
 
 /** A one-segment plan whose segment passes through `stage`. */
 function planWithStage(stage: JsonValue): JsonValue {

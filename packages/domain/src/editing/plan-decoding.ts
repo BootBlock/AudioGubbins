@@ -150,7 +150,10 @@ function sourceOf(value: unknown, field: string): PlanSource {
   if (read['kind'] === 'media') {
     return { kind: 'media', asset: identifierOf<'AssetId'>(read['asset'], `${field}.asset`) };
   }
-  if (read['kind'] !== 'stream') throw new Malformed(`${field}.kind`, 'media or stream');
+  if (read['kind'] === 'silence') {
+    return { kind: 'silence', channels: integerOf(read['channels'], `${field}.channels`) };
+  }
+  if (read['kind'] !== 'stream') throw new Malformed(`${field}.kind`, 'media, stream or silence');
   return { kind: 'stream', stream: integerOf(read['stream'], `${field}.stream`) };
 }
 

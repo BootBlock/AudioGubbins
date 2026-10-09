@@ -162,6 +162,77 @@ describe('the Inspector panel (WU-05.D)', () => {
       .toMatch(/^Fade out, equal power, from /u);
   });
 
+  it('inserts the length of silence typed, through its command, and lists it as silence', async () => {
+    const audio = await loopInView();
+    const ran: (readonly [string, CommandInvocation['arguments']])[] = [];
+    inspectorOver(audio.window, ran);
+    const user = userEvent.setup();
+
+    const field = screen.getByRole('textbox', { name: 'Silence in seconds' });
+    await user.clear(field);
+    await user.type(field, '0.5');
+    await user.click(screen.getByRole('button', { name: 'Insert silence' }));
+
+    expect(ran).toEqual([['edit.insert-silence', { view: 'editor', seconds: 0.5 }]]);
+    await expect
+      .poll(() => editsUnder('Its edits').textContent)
+      .toMatch(/^Inserted 24000 frames of silence at /u);
+  });
+
+  it('refuses an empty length of silence, rather than inserting the default', async () => {
+    const audio = await loopInView();
+    const refusals = inspectorOver(audio.window);
+    const user = userEvent.setup();
+
+    await user.clear(screen.getByRole('textbox', { name: 'Silence in seconds' }));
+    await user.click(screen.getByRole('button', { name: 'Insert silence' }));
+
+    expect(refusals).toEqual(['A length of silence is a number above zero.']);
+  });
+
+  it('stretches by the ratio typed, or to the length typed once length is chosen', async () => {
+    const audio = await loopInView();
+    const ran: (readonly [string, CommandInvocation['arguments']])[] = [];
+    inspectorOver(audio.window, ran);
+    const user = userEvent.setup();
+
+    const ratio = screen.getByRole('textbox', { name: 'New length over old' });
+    await user.clear(ratio);
+    await user.type(ratio, '1.25');
+    await user.click(screen.getByRole('button', { name: 'Stretch to another length' }));
+    await expect
+      .poll(() => editsUnder('Its edits').textContent)
+      .toMatch(/^Stretched .* to 360000 frames$/u);
+
+    screen.getByRole('combobox', { name: 'Stretch by' }).focus();
+    await user.keyboard('{Enter}');
+    await user.click(screen.getByRole('option', { name: 'Length in seconds' }));
+    const length = screen.getByRole('textbox', { name: 'New length in seconds' });
+    await user.clear(length);
+    await user.type(length, '4');
+    await user.click(screen.getByRole('button', { name: 'Stretch to another length' }));
+
+    expect(ran).toEqual([
+      ['edit.stretch', { view: 'editor', ratio: 1.25 }],
+      ['edit.stretch', { view: 'editor', seconds: 4 }],
+    ]);
+  });
+
+  it('converts to the sample rate chosen, and lists the conversion', async () => {
+    const audio = await loopInView();
+    const ran: (readonly [string, CommandInvocation['arguments']])[] = [];
+    inspectorOver(audio.window, ran);
+    const user = userEvent.setup();
+
+    screen.getByRole('combobox', { name: 'Sample rate' }).focus();
+    await user.keyboard('{Enter}');
+    await user.click(screen.getByRole('option', { name: '96 kHz' }));
+    await user.click(screen.getByRole('button', { name: 'Convert the sample rate' }));
+
+    expect(ran).toEqual([['edit.convert-rate', { view: 'editor', rate: 96_000 }]]);
+    await expect.poll(() => editsUnder('Its edits').textContent).toBe('Converted to 96 kHz');
+  });
+
   it('shows the one region selected in a view of its asset, and asks for a view of its own to loop it', async () => {
     const audio = await loopInView();
     const region = regionOf(audio);

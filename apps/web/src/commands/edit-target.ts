@@ -3,7 +3,8 @@
  * ADR-0051): the range and channels the active selection resolves to, or the
  * whole asset or region shown where nothing is selected and the command says it
  * acts on the whole; stated on the asset's edited timeline, where every
- * operation is placed, at a basis of its chain as it stands.
+ * operation is placed, at a basis of its chain as it stands. Where an insertion
+ * goes, the selected range or the playhead, is decided here too.
  *
  * A view of a region shows the region's slice of its asset, so the view's
  * range is moved on by the region's start. Each command names what it does
@@ -12,11 +13,11 @@
  */
 
 import type { CommandInvocation } from '@audiogubbins/commands';
-import type { EditRange, EditTarget } from '@audiogubbins/domain';
+import type { EditRange, EditTarget, SampleCount } from '@audiogubbins/domain';
 import { SelectionFacet, type MadeFacet, type TargetRequest } from '@audiogubbins/timeline';
 
-import type { EditorAsset } from '../assets/editor-asset.js';
-import { editorTarget, selectedTarget, type EditorTarget } from './editor-target.js';
+import type { EditorAsset, ProjectOwner } from '../assets/editor-asset.js';
+import { editorTarget, playheadOf, selectedTarget, type EditorTarget } from './editor-target.js';
 import { currentBasis, onAsset, projectTarget, type ProjectTarget } from './project-edits.js';
 import type { ShellContext } from './shell-context.js';
 
@@ -44,15 +45,42 @@ export const RANGE_ONLY: TargetRequest = {
   whenNothing: 'refuse',
 };
 
+/** Why a change of time is refused on some channels alone. */
+const SOME_CHANNELS =
+  'A change of time acts on every channel, or the channels would fall out of step. Select every channel first.';
+
 /**
  * Why a change of time cannot be made on the scope's channels alone, or
  * `undefined` where it acts on every channel: time taken from some channels
  * would put the others out of step (ADR-0051).
  */
 export function partOfTheChannels(scope: EditScope): string | undefined {
-  return scope.target.channels === undefined
-    ? undefined
-    : 'A change of time acts on every channel, or the channels would fall out of step. Select every channel first.';
+  return scope.target.channels === undefined ? undefined : SOME_CHANNELS;
+}
+
+/** Where an insertion goes on the asset's edited timeline: at a position, or over a range. */
+export type InsertionPlace =
+  | { readonly kind: 'at'; readonly at: SampleCount }
+  | { readonly kind: 'replace'; readonly range: EditRange };
+
+/**
+ * Where an insertion into `view` goes, a paste or generated silence: over the
+ * selected range, or in at the playhead with no range selected; or why it
+ * cannot go there. Replacing a range takes it out of every channel, so a
+ * range selected on some channels alone is refused, as a deletion of it is.
+ */
+export function insertionPlace(
+  context: ShellContext,
+  view: EditorTarget,
+  owner: ProjectOwner,
+): InsertionPlace | string {
+  const target = selectedTarget(context, view.asset, RANGE_ONLY);
+  if (typeof target === 'string' || target.kind !== 'time') {
+    return { kind: 'at', at: onAsset(owner, playheadOf(context, view.asset)) };
+  }
+  if (target.channels.length !== channelCountOf(view.asset)) return SOME_CHANNELS;
+  const { start, end } = target.range;
+  return { kind: 'replace', range: { start: onAsset(owner, start), end: onAsset(owner, end) } };
 }
 
 /** The view and the project asset it shows, or why the view shows none. */

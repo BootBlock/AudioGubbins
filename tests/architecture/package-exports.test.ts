@@ -207,7 +207,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
         'isSuccess',
         'isTrackAudible',
         'projectLength',
-        'secondsToSamples',
         'tracksInOrder',
         'validateProcessorInstance',
       ],
@@ -215,7 +214,6 @@ const OFFERED: Readonly<Record<string, Readonly<Record<string, readonly string[]
       [
         'MAXIMUM_CHAIN_SLOTS',
         'MAXIMUM_GROUP_BRANCHES',
-        'MAXIMUM_STRETCH_RATIO',
         'chainOutputLayout',
         'checkStateVersion',
         'segmentsLayout',

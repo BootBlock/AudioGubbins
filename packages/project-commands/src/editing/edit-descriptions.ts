@@ -3,7 +3,7 @@
  * what was done and to which asset or region.
  */
 
-import type { EditOperation, RangeEdit } from '@audiogubbins/domain';
+import { planIsSilence, type EditOperation, type RangeEdit } from '@audiogubbins/domain';
 import { quoted } from '@audiogubbins/text';
 
 /** The verb phrase of a range edit. */
@@ -36,7 +36,9 @@ export function editDescription(operation: EditOperation, name: string): string 
     case 'trim':
       return `Trim ${quoted(name)}`;
     case 'insert':
-      return `Paste into ${quoted(name)}`;
+      return planIsSilence(operation.payload)
+        ? `Insert silence into ${quoted(name)}`
+        : `Paste into ${quoted(name)}`;
     case 'reverse':
       return `Reverse part of ${quoted(name)}`;
     case 'convert-layout':

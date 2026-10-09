@@ -12,6 +12,7 @@
 import {
   FadeShape,
   channelCount,
+  planIsSilence,
   streamLength,
   type EditOperation,
   type EditRange,
@@ -23,6 +24,7 @@ import {
 import { counted } from '@audiogubbins/text';
 
 import { channelNames } from '../../assets/channel-names.js';
+import { sampleRateWords } from '../../wording.js';
 
 /** What each fade shape is called, in the order a person is offered them. */
 export const FADE_SHAPE_NAMES: ReadonlyMap<FadeShape, string> = new Map([
@@ -118,7 +120,10 @@ export function operationWords(
       return `Reversed ${rangeWords(operation.range, words)}`;
     case 'insert': {
       const [stream] = operation.payload.streams;
-      return `Pasted ${counted(streamLength(stream), 'frame', 'frames')} at ${words.position(operation.at)}`;
+      const frames = counted(streamLength(stream), 'frame', 'frames');
+      return planIsSilence(operation.payload)
+        ? `Inserted ${frames} of silence at ${words.position(operation.at)}`
+        : `Pasted ${frames} at ${words.position(operation.at)}`;
     }
     case 'process':
       return `${rangeEditWords(operation.edit, operation.channels, words.channelsAt(basis), words)}, ${rangeWords(operation.range, words)}`;
@@ -129,7 +134,7 @@ export function operationWords(
     case 'stretch':
       return `Stretched ${rangeWords(operation.range, words)} to ${counted(operation.length, 'frame', 'frames')}`;
     case 'convert-rate':
-      return `Converted to ${String(operation.sampleRate / 1000)} kHz`;
+      return `Converted to ${sampleRateWords(operation.sampleRate)}`;
   }
 }
 

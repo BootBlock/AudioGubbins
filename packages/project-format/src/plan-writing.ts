@@ -54,9 +54,14 @@ function writeSegment(segment: PlanSegment): JsonObject {
 }
 
 function writeSource(source: PlanSource): JsonObject {
-  return source.kind === 'media'
-    ? { kind: 'media', asset: source.asset }
-    : { kind: 'stream', stream: source.stream };
+  switch (source.kind) {
+    case 'media':
+      return { kind: 'media', asset: source.asset };
+    case 'stream':
+      return { kind: 'stream', stream: source.stream };
+    case 'silence':
+      return { kind: 'silence', channels: source.channels };
+  }
 }
 
 function writeStage(stage: PlanStage): JsonObject {

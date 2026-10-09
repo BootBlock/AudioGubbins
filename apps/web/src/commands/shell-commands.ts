@@ -55,6 +55,7 @@ import { regionBoundaryCommands } from './region-boundary-commands.js';
 import { regionCommands } from './region-commands.js';
 import { regionPropertyCommands } from './region-property-commands.js';
 import { splitCommands } from './split-commands.js';
+import { timeEditCommands } from './time-edit-commands.js';
 import { markerNudgeCommands } from './marker-nudge-commands.js';
 import { pictureCommands } from './picture-commands.js';
 import { playheadCommands } from './playhead-commands.js';
@@ -199,6 +200,7 @@ export function shellCommands(
     ...markerNudgeCommands(),
     ...clipboardCommands(),
     ...editCommands(),
+    ...timeEditCommands(),
     ...channelCommands(),
     ...regionCommands(),
     ...regionBoundaryCommands(),

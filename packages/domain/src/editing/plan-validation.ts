@@ -9,7 +9,7 @@
  * is read (REQ-EXEC-136.12), before anything renders it.
  */
 
-import { channelCount } from '../audio/channel-layout.js';
+import { MAXIMUM_CHANNEL_COUNT, channelCount } from '../audio/channel-layout.js';
 import type { AssetId } from '../identity/branded-id.js';
 import type { Asset } from '../project/asset.js';
 import { FailureKind, fail, failure, succeed, type DomainResult } from '../result.js';
@@ -127,6 +127,14 @@ function segmentProblem(
     if (asset.sampleRate !== stream.sampleRate) return 'A segment reads an asset at another rate.';
     available = asset.length;
     channels = channelCount(asset.channelLayout);
+  } else if (segment.source.kind === 'silence') {
+    const { channels: count } = segment.source;
+    if (!Number.isInteger(count) || count < 1 || count > MAXIMUM_CHANNEL_COUNT) {
+      return 'A segment of silence has no channel count a layout may have.';
+    }
+    // Silence lasts as long as it is read, so only the arithmetic bounds it.
+    available = Number.MAX_SAFE_INTEGER;
+    channels = count;
   } else {
     const read = plan.streams[segment.source.stream];
     if (segment.source.stream <= place || read === undefined) {
