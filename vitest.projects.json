@@ -109,6 +109,14 @@
       ]
     },
     {
+      "name": "recording",
+      "root": "packages/recording",
+      "environment": "node",
+      "include": [
+        "src/**/*.test.ts"
+      ]
+    },
+    {
       "name": "waveform",
       "root": "packages/waveform",
       "environment": "node",

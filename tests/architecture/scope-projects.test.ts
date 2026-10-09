@@ -26,6 +26,7 @@ const PORTABLE = [
   'packages/audio-engine',
   'packages/codecs',
   'packages/timeline',
+  'packages/recording',
   'packages/video-reference',
   'packages/waveform',
   'packages/processors',
@@ -38,6 +39,10 @@ const PORTABLE = [
 const THREAD_SCOPES: Readonly<Record<string, { readonly scope: string; readonly lib: string[] }>> =
   {
     'packages/audio-runtime/src/threads/engine-processor.ts': {
+      scope: 'audio-worklet',
+      lib: ['lib.es2023.d.ts'],
+    },
+    'packages/audio-runtime/src/threads/capture-processor.ts': {
       scope: 'audio-worklet',
       lib: ['lib.es2023.d.ts'],
     },

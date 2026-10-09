@@ -30,7 +30,10 @@
  *   timeline        the time axis as values: viewport, formats, ruler, the
  *                   selection set and snapping; depends on domain alone, knows
  *                   no thread or browser (ADR-0040)
- *   waveform        the peak pyramid, its worker, cache format and column
+ *   recording       the session and monitoring states, capture profiles,
+ *                   calibration and diagnostics; depends on domain + text,
+ *                   knows no browser, storage or audio host (ADR-0070)
+ *   waveform       the peak pyramid, its worker, cache format and column
  *                   reads; depends on domain + audio-engine, knows no browser
  *                   (ADR-0043)
  *   renderer        frames as values and the WebGPU, WebGL2 and Canvas 2D
@@ -43,6 +46,7 @@
  *   commands        typed command contracts; depends on domain + diagnostics +
  *                   input + text + version
  *   capabilities    the only sanctioned browser-capability adapter; depends on
+ *                   domain, whose results the media input answers in, and
  *                   diagnostics + text, whose check of how names compare it
  *                   probes
  *   design-system   React/Radix presentation; depends on version, knows nothing
@@ -159,7 +163,7 @@ module.exports = {
         'REQ-ARCH-151 and REQ-EXEC-136.4: the domain model must stay independently testable ' +
         'without rendering a component. It must never import a UI framework or a DOM library.',
       from: {
-        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|renderer|storage|text|timeline|version|video-reference|waveform)/',
+        path: '^packages/(audio-engine|audio-graph|clipboard|codecs|commands|detection-runtime|domain|editor-view|effect-rack|history|input|media-store|ml-runtime|model-packs|processors|project-commands|project-format|recording|renderer|storage|text|timeline|version|video-reference|waveform)/',
       },
       to: {
         dependencyTypes: THIRD_PARTY,
@@ -355,6 +359,19 @@ module.exports = {
         'sample counts and identifiers it is written in, so it runs in any scope.',
       from: { path: '^packages/timeline/' },
       to: { path: '^packages/(?!(timeline|domain)/)' },
+    },
+    {
+      name: 'recording-owns-nothing-else',
+      severity: 'error',
+      comment:
+        'Recording as values: the session and monitoring states, capture profiles, the ' +
+        "calibration's analysis and the diagnostics (ADR-0070). It depends on the domain and text " +
+        'alone and knows no browser, storage or audio host; the application composes it with them.',
+      from: { path: '^packages/recording/' },
+      to: {
+        path: '^packages/(?!(recording|domain|text)/)',
+        pathNot: '^packages/test-fixtures/',
+      },
     },
     {
       name: 'waveform-owns-nothing-else',

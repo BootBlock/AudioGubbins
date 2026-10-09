@@ -219,6 +219,7 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/text',
   ],
   '@audiogubbins/timeline': ['@audiogubbins/domain'],
+  '@audiogubbins/recording': ['@audiogubbins/domain', '@audiogubbins/text'],
   '@audiogubbins/renderer': ['@audiogubbins/domain'],
   '@audiogubbins/editor-view': [
     '@audiogubbins/domain',
@@ -277,7 +278,11 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     '@audiogubbins/text',
     '@audiogubbins/version',
   ],
-  '@audiogubbins/capabilities': ['@audiogubbins/diagnostics', '@audiogubbins/text'],
+  '@audiogubbins/capabilities': [
+    '@audiogubbins/domain',
+    '@audiogubbins/diagnostics',
+    '@audiogubbins/text',
+  ],
   '@audiogubbins/design-system': ['@audiogubbins/version'],
   '@audiogubbins/workspace': [
     '@audiogubbins/diagnostics',
@@ -364,6 +369,7 @@ const TESTS_TAKE_THE_FIXTURES: ReadonlySet<string> = new Set([
   'media-store',
   'project-commands',
   'project-format',
+  'recording',
   'storage',
   'text',
 ]);
@@ -849,6 +855,7 @@ describe('the domain stays framework and platform agnostic (REQ-ARCH-151)', () =
     'processors',
     'project-commands',
     'project-format',
+    'recording',
     'renderer',
     'storage',
     'text',
@@ -2844,7 +2851,7 @@ describe('module cohesion (REQ-EXEC-136.7)', () => {
       "The one module that may name the docking engine, which the import rule and the dependency rule both hold to this file. What is left in it all reads or drives the engine: mounting a layout into it, with each panel's minimum and a main area split into groups side by side; reading back what it drew; watching it for a report, flushed when the page is hidden; and naming its tab lists and letting the keyboard into its groups on each report. The pairing with what it drew, which reads no engine type, is its own module (`baseline.ts`), tested without an engine. Split further, each part would be another module that names the engine.",
     ],
     'packages/domain/src/index.ts': [
-      354,
+      376,
       "The domain package's public contract and nothing else: one export a line, as Prettier writes a list of named exports, grouped by the module each comes from, with no logic of its own. Its size is the size of the domain's contract, which the contract record checks name by name. Split, the package would have two entry points to one contract, and every importer would have to know which half a name is in.",
     ],
   };

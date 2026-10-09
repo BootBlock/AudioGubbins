@@ -3,6 +3,7 @@ Published paths
   @audiogubbins/audio-engine/testing
   @audiogubbins/audio-graph
   @audiogubbins/audio-runtime
+  @audiogubbins/audio-runtime/capture-channel
   @audiogubbins/audio-runtime/testing
   @audiogubbins/audio-runtime/threads/*
   @audiogubbins/browser-storage
@@ -36,6 +37,7 @@ Published paths
   @audiogubbins/project-commands
   @audiogubbins/project-format
   @audiogubbins/project-format/testing
+  @audiogubbins/recording
   @audiogubbins/renderer
   @audiogubbins/storage
   @audiogubbins/storage-runtime
@@ -141,6 +143,7 @@ Published paths
   ChainProcessing.listening: (request: ListeningRequest) => DomainResult<ChainListening>
   ChainProcessing.measurementBytes: (request: MeasurementRequest) => DomainResult<number>
   ChainProcessing.prepare: (request: ChainRequest, read: StreamReader, signal?: CancellationSignal) => Promise<DomainResult<ChainRun>>
+  ChainProcessing.prepareLive: (request: LiveChainRequest) => DomainResult<ChainRun>
   interface ChainRequest
   readonly ChainRequest.chain: EffectChain
   readonly ChainRequest.input: ChannelLayout
@@ -239,6 +242,7 @@ Published paths
   type LatencyHint = "balanced" | "interactive" | "playback" | number
   type LimitingResource = "compute" | "memory" | "storage"
   type ListeningRequest = { readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly chain: EffectChain; readonly input: ChannelLayout; }
+  type LiveChainRequest = { readonly sampleRate: SampleRate; readonly quality: QualitySettings; readonly chain: EffectChain; readonly input: ChannelLayout; readonly blockFrames: number; readonly dsp: CanonicalDsp; }
   interface LoudnessMeterSettings
   readonly LoudnessMeterSettings.sampleRate: SampleRate
   readonly LoudnessMeterSettings.layout: ChannelLayout
@@ -842,9 +846,83 @@ Published paths
   AudioContextPort.removeEventListener: (type: "statechange", listener: () => void) => void
   readonly AudioContextPort.audioWorklet: { addModule(url: string): Promise<void>; }
   AudioContextPort.createWorkletNode: (processorName: string, shape: WorkletNodeShape) => WorkletNodePort
+  AudioContextPort.createMediaStreamSource: (stream: MediaStream) => MediaStreamSourcePort
   readonly AudioContextPort.setSinkId?: (deviceId: string) => Promise<void>
   const AudioContextState: { readonly Suspended: "suspended"; readonly Running: "running"; readonly Closed: "closed"; readonly Interrupted: "interrupted"; }
   type AudioContextState = "closed" | "interrupted" | "running" | "suspended"
+  type CaptureEvent = ({ readonly kind: "end"; } & CaptureEnd) | { readonly kind: "begin"; readonly frame: number; readonly sampleRate: SampleRate; readonly channels: number; readonly transport: CaptureTransport; } | { readonly kind: "block"; readonly frame: number; readonly channels: readonly Float32Array[]; } | { readonly kind: "gap"; readonly frame: number; readonly frames: number; }
+  type CaptureListener = (event: CaptureSessionEvent) => void
+  class CaptureReader
+  new CaptureReader(port: MessagePort, options?: CaptureReaderOptions): CaptureReader
+  readonly CaptureReader.#port: MessagePort
+  readonly CaptureReader.#heldSeconds: number
+  readonly CaptureReader.#events: CaptureEvent[]
+  CaptureReader.#begin: Begin | undefined
+  CaptureReader.#ring: RingTake | undefined
+  CaptureReader.#arrived: number
+  CaptureReader.#cursor: number
+  CaptureReader.#heldFrames: number
+  CaptureReader.#ended: boolean
+  CaptureReader.#done: boolean
+  CaptureReader.#waiting: (() => void) | undefined
+  CaptureReader.next: () => Promise<CaptureEvent | undefined>
+  CaptureReader.close: () => void
+  CaptureReader.#take: () => CaptureEvent | undefined
+  CaptureReader.#fromRing: (ring: RingTake) => CaptureEvent | undefined
+  CaptureReader.#receive: (data: unknown) => void
+  CaptureReader.#accept: (message: CaptureWire) => string | undefined
+  CaptureReader.#open: (begin: Begin) => string | undefined
+  CaptureReader.#acceptBlock: (frame: number, channels: readonly Float32Array[], begin: Begin) => string | undefined
+  CaptureReader.#queueGap: (frame: number, frames: number) => void
+  CaptureReader.#fail: (summary: string) => void
+  CaptureReader.#failure: (summary: string) => CaptureEvent
+  CaptureReader.#finish: () => void
+  CaptureReader.#wake: () => void
+  CaptureReader.__@asyncIterator@27234: () => AsyncGenerator<CaptureEvent>
+  interface CaptureReaderOptions
+  readonly CaptureReaderOptions.heldSeconds?: number
+  class CaptureSession
+  new CaptureSession(options: CaptureSessionOptions): CaptureSession
+  readonly CaptureSession.#options: CaptureSessionOptions
+  readonly CaptureSession.#module: WorkletModule
+  readonly CaptureSession.#listeners: Set<CaptureListener>
+  readonly CaptureSession.#stopListening: () => void
+  CaptureSession.#open: OpenInput | undefined
+  CaptureSession.#generation: number
+  CaptureSession.#disposed: boolean
+  CaptureSession.subscribe: (listener: CaptureListener) => () => void
+  CaptureSession.open: (source: CaptureSource) => Promise<DomainResult<void>>
+  CaptureSession.#opened: (open: OpenInput, reply: FromCapture | undefined) => DomainResult<void>
+  CaptureSession.arm: (retrospectiveSeconds: number) => DomainResult<void>
+  CaptureSession.disarm: () => DomainResult<void>
+  CaptureSession.record: (at: number) => DomainResult<MessagePort>
+  CaptureSession.stop: (at: number) => DomainResult<void>
+  CaptureSession.monitor: (on: boolean) => DomainResult<void>
+  CaptureSession.monitorThrough: (chain: EffectChain | undefined, quality: QualityMode) => DomainResult<void>
+  CaptureSession.setMonitoringParameter: (processor: ProcessorId, parameter: ParameterId, value: number) => DomainResult<void>
+  CaptureSession.meters: () => InputMeterReport | undefined
+  CaptureSession.monitoringLatency: () => MonitoringLatency | undefined
+  CaptureSession.close: () => void
+  CaptureSession.dispose: () => void
+  CaptureSession.#send: (message: Parameters<CaptureNode["send"]>[0]) => DomainResult<void>
+  CaptureSession.#current: () => DomainResult<OpenInput>
+  CaptureSession.#heard: (reply: FromCapture) => void
+  CaptureSession.#emit: (event: CaptureSessionEvent) => void
+  readonly CaptureSession.#lifecycleEvent: (event: LifecycleEvent) => void
+  CaptureSession.#assertLive: () => void
+  type CaptureSessionEvent = FromCapture | { readonly kind: "lost"; readonly problem: string; }
+  interface CaptureSessionOptions
+  readonly CaptureSessionOptions.lifecycle: ContextLifecycle
+  readonly CaptureSessionOptions.capabilities: AudioRuntimeCapabilities
+  readonly CaptureSessionOptions.dsp: DspDelivery<CompiledDspModule>
+  readonly CaptureSessionOptions.workletModuleUrl: string
+  readonly CaptureSessionOptions.createChannel: () => ChannelEnds
+  readonly CaptureSessionOptions.schedule: Schedule
+  readonly CaptureSessionOptions.logger: Logger
+  interface CaptureSource
+  readonly CaptureSource.stream: MediaStream
+  readonly CaptureSource.layout: ChannelLayout
+  readonly CaptureSource.inputLatency: number | undefined
   interface ChannelEnds
   readonly ChannelEnds.port1: MessagePort
   readonly ChannelEnds.port2: MessagePort
@@ -913,19 +991,33 @@ Published paths
   FeederWorkerPort.addEventListener: <TType extends keyof FeederWorkerEvents>(type: TType, listener: (event: FeederWorkerEvents[TType]) => void) => void
   FeederWorkerPort.removeEventListener: <TType extends keyof FeederWorkerEvents>(type: TType, listener: (event: FeederWorkerEvents[TType]) => void) => void
   FeederWorkerPort.terminate: () => void
+  type FromCapture = { readonly kind: typeof FromCaptureKind.Armed; readonly retrospectiveFrames: number; } | { readonly kind: typeof FromCaptureKind.ChainRefused; readonly failures: Failures; } | { readonly kind: typeof FromCaptureKind.Configured; readonly dsp: DspImplementation; readonly dspFallbackReason: string | undefined; } | { readonly kind: typeof FromCaptureKind.Disarmed; } | { readonly kind: typeof FromCaptureKind.Fault; readonly message: string; } | { readonly kind: typeof FromCaptureKind.Monitoring; readonly on: boolean; readonly chained: boolean; readonly chainLatencyFrames: number; } | { readonly kind: typeof FromCaptureKind.ParameterRefused; readonly processor: ProcessorId; readonly parameter: ParameterId; readonly failures: Failures; } | { readonly kind: typeof FromCaptureKind.Recording; readonly firstFrame: number; readonly startFrame: number; readonly retrospectiveFrames: number; } | { readonly kind: typeof FromCaptureKind.Refused; readonly command: ToCaptureKind; readonly reason: string; } | { readonly kind: typeof FromCaptureKind.Released; } | { readonly kind: typeof FromCaptureKind.Report; readonly contextFrame: number; readonly meter: InputMeterReport | undefined; readonly bufferedFrames: number; readonly lostFrames: number; readonly absentFrames: number; } | { readonly kind: typeof FromCaptureKind.Stopped; readonly endFrame: number; readonly reason: typeof CaptureEndReason.Released | typeof CaptureEndReason.Stopped; }
+  const FromCaptureKind: { readonly Configured: "configured"; readonly Armed: "armed"; readonly Disarmed: "disarmed"; readonly Recording: "recording"; readonly Stopped: "stopped"; readonly Monitoring: "monitoring"; readonly ChainRefused: "chain-refused"; readonly ParameterRefused: "parameter-refused"; readonly Refused: "refused"; readonly Report: "report"; readonly Released: "released"; readonly Fault: "fault"; }
   type GpuUse = { readonly kind: typeof GpuUseKind.Unavailable; } | { readonly kind: typeof GpuUseKind.Unused; } | { readonly kind: typeof GpuUseKind.Used; readonly nodes: readonly NodeId[]; }
   const GpuUseKind: { readonly Unavailable: "unavailable"; readonly Unused: "unused"; readonly Used: "used"; }
   type GpuUseKind = "unavailable" | "unused" | "used"
+  interface InputMeterReport
+  readonly InputMeterReport.peak: readonly number[]
+  readonly InputMeterReport.rms: readonly number[]
+  readonly InputMeterReport.correlation: readonly number[]
   type LifecycleEvent = { readonly kind: typeof LifecycleEventKind.DeviceChanged; readonly report: DeviceReport; } | { readonly kind: typeof LifecycleEventKind.Lost; } | { readonly kind: typeof LifecycleEventKind.Resumed; readonly contextFrame: number; } | { readonly kind: typeof LifecycleEventKind.StateChanged; readonly state: LifecycleState; } | { readonly kind: typeof LifecycleEventKind.SuspendedBySystem; readonly contextFrame: number; }
   const LifecycleEventKind: { readonly SuspendedBySystem: "suspended-by-system"; readonly Resumed: "resumed"; readonly Lost: "lost"; readonly DeviceChanged: "device-changed"; readonly StateChanged: "state-changed"; }
   type LifecycleEventKind = "device-changed" | "lost" | "resumed" | "state-changed" | "suspended-by-system"
   type LifecycleListener = (event: LifecycleEvent) => void
   const LifecycleState: { readonly Idle: "idle"; readonly Suspended: "suspended"; readonly AwaitingGesture: "awaiting-gesture"; readonly Running: "running"; readonly Interrupted: "interrupted"; readonly Closed: "closed"; }
   type LifecycleState = "awaiting-gesture" | "closed" | "idle" | "interrupted" | "running" | "suspended"
+  interface MediaStreamSourcePort
+  MediaStreamSourcePort.connect: (node: WorkletNodePort) => void
+  MediaStreamSourcePort.disconnect: () => void
   interface MeterLevels
   readonly MeterLevels.peak: readonly number[]
   readonly MeterLevels.rms: readonly number[]
   readonly MeterLevels.correlation: readonly number[]
+  interface MonitoringLatency
+  readonly MonitoringLatency.chainFrames: number
+  readonly MonitoringLatency.outputSeconds: number | undefined
+  readonly MonitoringLatency.inputSeconds: number | undefined
+  readonly MonitoringLatency.totalSeconds: number | undefined
   const PLAYBACK_SUPERSEDED: "playback.superseded"
   type PlaybackListener = (status: PlaybackStatus) => void
   const PlaybackPhase: { readonly Unloaded: "unloaded"; readonly Loading: "loading"; readonly Ready: "ready"; readonly Refused: "refused"; readonly Faulted: "faulted"; }
@@ -1014,6 +1106,7 @@ Published paths
   PreviewWorkerPort.postMessage: (message: ToPreviewWorker, transfer: Transferable[]) => void
   PreviewWorkerPort.addEventListener: { (type: "message", listener: (event: MessageEvent) => void): void; (type: "messageerror", listener: () => void): void; (type: "error", listener: (event: ErrorEvent) => void): void; }
   PreviewWorkerPort.terminate: () => void
+  const RETROSPECTIVE_SECONDS: { readonly least: 5; readonly most: 60; }
   interface RenderHost
   RenderHost.render: (request: RenderRequest, options: RenderRunOptions) => Promise<DomainResult<WorkerRenderSummary>>
   interface RenderHostOptions
@@ -1040,6 +1133,8 @@ Published paths
   RenderWorkerPort.removeEventListener: <TType extends keyof RenderWorkerEvents>(type: TType, listener: (event: RenderWorkerEvents[TType]) => void) => void
   RenderWorkerPort.terminate: () => void
   type SourceDescription = PcmDescription & { readonly node: NodeId; }
+  const ToCaptureKind: { readonly Configure: "configure"; readonly Arm: "arm"; readonly Disarm: "disarm"; readonly Record: "record"; readonly Stop: "stop"; readonly Monitor: "monitor"; readonly SetChain: "set-chain"; readonly SetParameter: "set-parameter"; readonly Release: "release"; }
+  type ToCaptureKind = "arm" | "configure" | "disarm" | "monitor" | "record" | "release" | "set-chain" | "set-parameter" | "stop"
   interface WorkerRenderSummary extends RenderSummary
   readonly WorkerRenderSummary.dsp: DspImplementation
   readonly WorkerRenderSummary.dspFallbackReason: string | undefined
@@ -1049,6 +1144,38 @@ Published paths
   function browserAudioContext(capabilities: AudioRuntimeCapabilities): CreateAudioContext
   function compileDspModule(bytes: Uint8Array<ArrayBuffer>, capabilities: AudioRuntimeCapabilities): Promise<DspDelivery<CompiledDspModule>>
   function createRenderHost(options: RenderHostOptions): RenderHost
+
+@audiogubbins/audio-runtime/capture-channel
+  type CaptureEvent = ({ readonly kind: "end"; } & CaptureEnd) | { readonly kind: "begin"; readonly frame: number; readonly sampleRate: SampleRate; readonly channels: number; readonly transport: CaptureTransport; } | { readonly kind: "block"; readonly frame: number; readonly channels: readonly Float32Array[]; } | { readonly kind: "gap"; readonly frame: number; readonly frames: number; }
+  class CaptureReader
+  new CaptureReader(port: MessagePort, options?: CaptureReaderOptions): CaptureReader
+  readonly CaptureReader.#port: MessagePort
+  readonly CaptureReader.#heldSeconds: number
+  readonly CaptureReader.#events: CaptureEvent[]
+  CaptureReader.#begin: Begin | undefined
+  CaptureReader.#ring: RingTake | undefined
+  CaptureReader.#arrived: number
+  CaptureReader.#cursor: number
+  CaptureReader.#heldFrames: number
+  CaptureReader.#ended: boolean
+  CaptureReader.#done: boolean
+  CaptureReader.#waiting: (() => void) | undefined
+  CaptureReader.next: () => Promise<CaptureEvent | undefined>
+  CaptureReader.close: () => void
+  CaptureReader.#take: () => CaptureEvent | undefined
+  CaptureReader.#fromRing: (ring: RingTake) => CaptureEvent | undefined
+  CaptureReader.#receive: (data: unknown) => void
+  CaptureReader.#accept: (message: CaptureWire) => string | undefined
+  CaptureReader.#open: (begin: Begin) => string | undefined
+  CaptureReader.#acceptBlock: (frame: number, channels: readonly Float32Array[], begin: Begin) => string | undefined
+  CaptureReader.#queueGap: (frame: number, frames: number) => void
+  CaptureReader.#fail: (summary: string) => void
+  CaptureReader.#failure: (summary: string) => CaptureEvent
+  CaptureReader.#finish: () => void
+  CaptureReader.#wake: () => void
+  CaptureReader.__@asyncIterator@27234: () => AsyncGenerator<CaptureEvent>
+  interface CaptureReaderOptions
+  readonly CaptureReaderOptions.heldSeconds?: number
 
 @audiogubbins/audio-runtime/testing
   const FromFeederKind: { readonly SourcesMade: "sources-made"; readonly SourcesRefused: "sources-refused"; readonly Primed: "primed"; readonly FeedFailed: "feed-failed"; readonly Fault: "fault"; readonly ParametersTaken: "parameters-taken"; }
@@ -1241,6 +1368,17 @@ Published paths
   readonly CapabilityRegistry.featureAvailability: (requirement: FeatureRequirement) => FeatureAvailability
   readonly CapabilityRegistry.degradedFeatures: (requirements: readonly FeatureRequirement[]) => readonly FeatureAvailability[]
   type CapabilityState = CapabilityAbsent | CapabilityPresent
+  type CaptureConstraintName = "autoGainControl" | "channelCount" | "deviceId" | "echoCancellation" | "latency" | "noiseSuppression" | "sampleRate" | "sampleSize" | "voiceIsolation"
+  interface CaptureRequest
+  readonly CaptureRequest.deviceId?: string
+  readonly CaptureRequest.echoCancellation?: boolean
+  readonly CaptureRequest.noiseSuppression?: boolean
+  readonly CaptureRequest.autoGainControl?: boolean
+  readonly CaptureRequest.voiceIsolation?: boolean
+  readonly CaptureRequest.channelCount?: number
+  readonly CaptureRequest.sampleRate?: number
+  readonly CaptureRequest.sampleSize?: number
+  readonly CaptureRequest.latency?: number
   const DIRECT_FILE_ACCESS: FeatureRequirement
   const FULL_SCREEN_PICTURE: FeatureRequirement
   interface FeatureAvailability
@@ -1262,26 +1400,65 @@ Published paths
   readonly FilePickers.openFiles: (options: object) => Promise<unknown>
   readonly FilePickers.openDirectory: (options: object) => Promise<unknown>
   readonly FilePickers.saveFile: (options: object) => Promise<unknown>
+  interface GrantedCaptureSettings
+  readonly GrantedCaptureSettings.deviceId: string | undefined
+  readonly GrantedCaptureSettings.groupId: string | undefined
+  readonly GrantedCaptureSettings.echoCancellation: boolean | undefined
+  readonly GrantedCaptureSettings.noiseSuppression: boolean | undefined
+  readonly GrantedCaptureSettings.autoGainControl: boolean | undefined
+  readonly GrantedCaptureSettings.voiceIsolation: boolean | undefined
+  readonly GrantedCaptureSettings.channelCount: number | undefined
+  readonly GrantedCaptureSettings.sampleRate: number | undefined
+  readonly GrantedCaptureSettings.sampleSize: number | undefined
+  readonly GrantedCaptureSettings.latency: number | undefined
   interface GraphicsPlatform
   readonly GraphicsPlatform.gpu: unknown
   readonly GraphicsPlatform.pixelRatio: () => number
   readonly GraphicsPlatform.watchPixelRatio: (changed: (ratio: number) => void) => () => void
   const HARDWARE_CODECS: FeatureRequirement
   type HostYielding = { readonly kind: "macrotask"; readonly createChannel: () => MessageChannel; } | { readonly kind: "none"; } | { readonly kind: "scheduler"; readonly yieldNow: () => Promise<void>; }
+  interface InputDeviceDescriptor
+  readonly InputDeviceDescriptor.deviceId: string | undefined
+  readonly InputDeviceDescriptor.groupId: string | undefined
+  readonly InputDeviceDescriptor.label: string | undefined
+  readonly InputDeviceDescriptor.channelCounts: ValueRange | undefined
+  readonly InputDeviceDescriptor.sampleRates: ValueRange | undefined
   const LOCAL_INFERENCE: FeatureRequirement
   type LateAnswers = { readonly webassembly?: Promise<boolean>; readonly "origin-private-file-system"?: Promise<boolean>; readonly "file-system-access"?: Promise<boolean>; readonly "shared-array-buffer"?: Promise<boolean>; readonly "cross-origin-isolation"?: Promise<boolean>; readonly "audio-worklet"?: Promise<boolean>; readonly "webassembly-simd"?: Promise<boolean>; readonly "audio-output-selection"?: Promise<boolean>; readonly "web-workers"?: Promise<boolean>; readonly webgpu?: Promise<boolean>; readonly webgl2?: Promise<boolean>; readonly "offscreen-canvas"?: Promise<boolean>; readonly "web-codecs"?: Promise<boolean>; readonly "media-devices"?: Promise<boolean>; readonly "service-worker"?: Promise<boolean>; readonly "storage-estimate"?: Promise<boolean>; readonly "persistent-storage"?: Promise<boolean>; readonly "pointer-events"?: Promise<boolean>; readonly "pointer-pressure"?: Promise<boolean>; readonly "local-storage"?: Promise<boolean>; readonly "media-queries"?: Promise<boolean>; readonly "keyboard-layout-map"?: Promise<boolean>; readonly "name-comparison"?: Promise<boolean>; readonly "video-frame-callback"?: Promise<boolean>; readonly fullscreen?: Promise<boolean>; }
   type LayoutMapPairs = readonly (readonly [string, string])[]
   interface LocalInferenceCapabilities
   readonly LocalInferenceCapabilities.fixedWidthSimd: boolean
   const MULTI_THREADED_DSP: FeatureRequirement
+  interface MediaInput
+  readonly MediaInput.permission: () => Promise<MicrophonePermission>
+  readonly MediaInput.watchPermission: (changed: (state: MicrophonePermission) => void) => () => void
+  readonly MediaInput.listDevices: () => Promise<DomainResult<readonly InputDeviceDescriptor[]>>
+  readonly MediaInput.watchDevices: (changed: (inputs: readonly InputDeviceDescriptor[]) => void) => () => void
+  readonly MediaInput.supportedConstraints: Readonly<Record<import("packages/capabilities/src/capture-constraints").CaptureConstraintName, boolean>> | undefined
+  readonly MediaInput.open: (request: CaptureRequest, signal?: CancellationSignal) => Promise<DomainResult<OpenedInput>>
+  interface MediaInputGlobals
+  readonly MediaInputGlobals.isSecureContext?: boolean | undefined
+  interface MediaInputNavigator
+  readonly MediaInputNavigator.mediaDevices?: MediaDevices | undefined
+  readonly MediaInputNavigator.permissions?: Permissions | undefined
+  type MicrophonePermission = "denied" | "granted" | "prompt" | "unknown"
   const NAMING: FeatureRequirement
   const OFFLINE_RENDERING: FeatureRequirement
   const OFFLINE_USE: FeatureRequirement
   const OUTPUT_DEVICE_CHOICE: FeatureRequirement
+  interface OpenedInput
+  readonly OpenedInput.stream: MediaStream
+  readonly OpenedInput.label: string | undefined
+  readonly OpenedInput.settings: GrantedCaptureSettings
+  readonly OpenedInput.isMuted: () => boolean
+  readonly OpenedInput.watchEnded: (ended: () => void) => () => void
+  readonly OpenedInput.watchMuted: (changed: (muted: boolean) => void) => () => void
+  readonly OpenedInput.stop: () => void
   const OperatingSystem: { readonly Windows: "Windows"; readonly MacOs: "macOS"; readonly Ios: "iOS"; readonly IpadOs: "iPadOS"; readonly Android: "Android"; readonly ChromeOs: "ChromeOS"; readonly Linux: "Linux"; readonly Unknown: "Unknown operating system"; }
   type OperatingSystem = "Android" | "ChromeOS" | "Linux" | "Unknown operating system" | "Windows" | "iOS" | "iPadOS" | "macOS"
   const PRESSURE_SENSITIVE_TOOLS: FeatureRequirement
   const PROJECT_STORAGE: FeatureRequirement
+  type PageVisibility = "hidden" | "visible"
   interface PlatformSignals
   readonly PlatformSignals.userAgent: string
   readonly PlatformSignals.platformHint?: string
@@ -1321,6 +1498,12 @@ Published paths
   readonly StoragePlatform.subtle: SubtleCrypto | undefined
   readonly StoragePlatform.randomBytes: ((length: number) => Uint8Array) | undefined
   readonly StoragePlatform.hostYielding: HostYielding
+  type SupportedCaptureConstraints = { readonly latency: boolean; readonly sampleRate: boolean; readonly channelCount: boolean; readonly deviceId: boolean; readonly echoCancellation: boolean; readonly noiseSuppression: boolean; readonly autoGainControl: boolean; readonly voiceIsolation: boolean; readonly sampleSize: boolean; }
+  interface ValueRange
+  readonly ValueRange.min: number
+  readonly ValueRange.max: number
+  interface VisibilityDocument extends EventTarget
+  readonly VisibilityDocument.visibilityState?: string | undefined
   function absent(key: CapabilityKey, reason: string, remedy?: string | undefined): CapabilityAbsent
   function askLateQuestions(layoutMap: Promise<LayoutMapPairs>): Readonly<Partial<Record<CapabilityKey, Promise<boolean>>>>
   function audioRuntimeCapabilities(registry: CapabilityRegistry): AudioRuntimeCapabilities
@@ -1333,7 +1516,9 @@ Published paths
   function present(key: CapabilityKey): CapabilityPresent
   function readGraphicsPlatform(): GraphicsPlatform
   function readLayoutMap(navigatorLike: object): Promise<LayoutMapPairs>
+  function readMediaInput(navigatorLike: MediaInputNavigator, globalLike: MediaInputGlobals): MediaInput
   function readOriginPrivateRoot(navigatorLike: StorageNavigator): (() => Promise<FileSystemDirectoryHandle>) | undefined
+  function readPageVisibility(documentLike: VisibilityDocument): PageVisibility | undefined
   function readPlatformSignals(): PlatformSignals
   function readResourceFigures(performanceLike: object): ResourceFigures
   function readStoragePlatform(navigatorLike: StorageNavigator, globalLike: StorageGlobals): StoragePlatform
@@ -1341,6 +1526,7 @@ Published paths
   function watchAppearanceSettings(): AppearanceSettingsWatch
   function watchAudioDevices(changed: () => void): () => void
   function watchMediaQuery(query: string, changed: (matches: boolean) => void): () => void
+  function watchPageVisibility(documentLike: VisibilityDocument, changed: (visibility: PageVisibility) => void): () => void
 
 @audiogubbins/clipboard
   interface AudioPayload
@@ -1386,8 +1572,19 @@ Published paths
   readonly AudioReader.format: AudioFormatDescriptor
   AudioReader.read: (start: SampleCount, frames: number, into: readonly Float32Array[], signal?: CancellationSignal) => Promise<DomainResult<number>>
   type ReadableContainer = "aifc" | "aiff" | "bw64" | "rf64" | "wav"
+  interface RecordedWavFormat
+  readonly RecordedWavFormat.sampleRate: SampleRate
+  readonly RecordedWavFormat.layout: ChannelLayout
+  interface RecordedWavHeader
+  readonly RecordedWavHeader.container: "rf64" | "wav"
+  readonly RecordedWavHeader.bytes: Uint8Array<ArrayBufferLike>
+  readonly RecordedWavHeader.dataOffset: number
+  readonly RecordedWavHeader.dataLength: number
+  readonly RecordedWavHeader.fileLength: number
   type SampleEncoding = FloatSampleEncoding | IntegerSampleEncoding
   function openAudio(bytes: AudioBytes, signal?: CancellationSignal | undefined): Promise<DomainResult<AudioReader>>
+  function recordedWavHeader(format: RecordedWavFormat, frames: SampleCount): DomainResult<RecordedWavHeader>
+  function recordedWavLength(format: RecordedWavFormat, frames: SampleCount): DomainResult<number>
 
 @audiogubbins/codecs/testing
   interface AiffOptions
@@ -2055,6 +2252,7 @@ Published paths
   readonly AssetUsers.regions: number
   readonly AssetUsers.markers: number
   readonly AssetUsers.pastes: number
+  readonly AssetUsers.takes: number
   interface BlockPlace
   readonly BlockPlace.first: number
   readonly BlockPlace.step: -1 | 1
@@ -2160,6 +2358,7 @@ Published paths
   readonly EditShape.layout: ChannelLayout
   readonly EditShape.length: number
   type EditTarget = { readonly kind: "asset"; readonly asset: AssetId; readonly range: EditRange; readonly channels?: readonly number[]; } | { readonly kind: "region"; readonly asset: AssetId; readonly region: RegionId; readonly basis: number; readonly range: EditRange; readonly channels?: readonly number[]; }
+  type EditingEntities = { readonly assets: ReadonlyMap<AssetId, Asset>; readonly takeStacks: ReadonlyMap<import("packages/domain/src/index").TakeStackId, import("packages/domain/src/index").TakeStack>; readonly effectChains: ReadonlyMap<EffectChainId, EffectChain>; }
   interface EffectChain
   readonly EffectChain.id: EffectChainId
   readonly EffectChain.slots: readonly ChainSlot[]
@@ -2167,7 +2366,7 @@ Published paths
   interface EngineVersions
   readonly EngineVersions.stretch: number
   readonly EngineVersions.resampler: number
-  type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorGroupId | ProcessorId | ProjectId | RegionId | TrackId
+  type EntityId = AssetId | BusId | ClipId | EditOperationId | EffectChainId | MarkerId | ParameterId | ProcessorGroupId | ProcessorId | ProjectId | RegionId | TakeId | TakeStackId | TrackId
   const FIRST_ORDER_AMBIX: AmbisonicConvention
   interface FadeCurve
   readonly FadeCurve.kind: "fade"
@@ -2286,6 +2485,8 @@ Published paths
   readonly PlacedRegion.tags: readonly string[]
   interface PlanContext
   readonly PlanContext.chains: ProjectChains
+  readonly PlanContext.takeStacks: ReadonlyMap<TakeStackId, TakeStack>
+  readonly PlanContext.assets: ReadonlyMap<AssetId, MediaShape>
   readonly PlanContext.catalogue: ProcessorCatalogue
   readonly PlanContext.engine: EngineVersions
   interface PlanSegment
@@ -2294,7 +2495,7 @@ Published paths
   readonly PlanSegment.length: SampleCount
   readonly PlanSegment.reversed: boolean
   readonly PlanSegment.stages: readonly PlanStage[]
-  type PlanSource = { readonly kind: "media"; readonly asset: AssetId; } | { readonly kind: "silence"; readonly channels: number; } | { readonly kind: "stream"; readonly stream: number; }
+  type PlanSource = { readonly kind: "media"; readonly asset: AssetId; } | { readonly kind: "mix"; readonly streams: readonly number[]; } | { readonly kind: "silence"; readonly channels: number; } | { readonly kind: "stream"; readonly stream: number; }
   type PlanStage = { readonly kind: "gain"; readonly from: number; readonly to: number; readonly channels?: readonly number[]; readonly gain: GainCurve; } | { readonly kind: "matrix"; readonly range?: { readonly from: number; readonly to: number; }; readonly matrix: readonly (readonly number[])[]; }
   interface PlanStream
   readonly PlanStream.sampleRate: SampleRate
@@ -2355,12 +2556,25 @@ Published paths
   readonly Project.regions: ReadonlyMap<RegionId, Region>
   readonly Project.markers: ReadonlyMap<MarkerId, Marker>
   readonly Project.effectChains: ReadonlyMap<EffectChainId, EffectChain>
+  readonly Project.takeStacks: ReadonlyMap<TakeStackId, TakeStack>
   readonly Project.trackOrder: readonly TrackId[]
   type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>
   type ProjectId = string & { readonly [BrandTag]: "ProjectId"; }
   interface ProjectSettings
   readonly ProjectSettings.sampleRate: SampleRate
   readonly ProjectSettings.channelLayout: ChannelLayout
+  interface PunchCrossfade
+  readonly PunchCrossfade.length: SampleCount
+  readonly PunchCrossfade.shape: FadeShape
+  interface PunchEdit
+  readonly PunchEdit.kind: "punch"
+  readonly PunchEdit.stack: TakeStackId
+  interface PunchRange
+  readonly PunchRange.length: SampleCount
+  readonly PunchRange.preRoll: SampleCount
+  readonly PunchRange.postRoll: SampleCount
+  readonly PunchRange.crossfade: PunchCrossfade
+  readonly PunchRange.resampler: number
   const QualityLevel: { readonly Draft: "draft"; readonly Standard: "standard"; readonly High: "high"; readonly Maximum: "maximum"; readonly Custom: "custom"; }
   type QualityLevel = "custom" | "draft" | "high" | "maximum" | "standard"
   interface QualityMode
@@ -2374,7 +2588,7 @@ Published paths
   interface RackEdit
   readonly RackEdit.kind: "rack"
   readonly RackEdit.chain: EffectChainId
-  type RangeEdit = ChannelEdit | LevelEdit | RackEdit
+  type RangeEdit = ChannelEdit | LevelEdit | PunchEdit | RackEdit
   interface RangeRack
   readonly RangeRack.operation: EditOperationId
   readonly RangeRack.range: EditRange
@@ -2419,6 +2633,10 @@ Published paths
   interface Span
   readonly Span.start: number
   readonly Span.end: number
+  interface StackUse
+  readonly StackUse.asset: AssetId
+  readonly StackUse.operation: EditOperationId
+  readonly StackUse.range: EditRange
   const StandardLayouts: { readonly mono: { readonly roles: readonly ["mono"]; }; readonly stereo: { readonly roles: readonly ["left", "right"]; }; readonly lcr: { readonly roles: readonly ["left", "right", "centre"]; }; readonly quadraphonic: { readonly roles: readonly ["left", "right", "rear-left", "rear-right"]; }; readonly surround5_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right"]; }; readonly surround7_1: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right"]; }; readonly surround7_1_4: { readonly roles: readonly ["left", "right", "centre", "low-frequency", "surround-left", "surround-right", "rear-left", "rear-right", "top-front-left", "top-front-right", "top-rear-left", "top-rear-right"]; }; }
   interface StateRequirement
   readonly StateRequirement.kind: string
@@ -2427,6 +2645,23 @@ Published paths
   type StreamProcessing = { readonly kind: "chain"; readonly chain: EffectChain; readonly input: ChannelLayout; } | { readonly kind: "stretch"; readonly length: SampleCount; }
   const SummingLaw: { readonly Sum: "sum"; readonly Mean: "mean"; readonly EqualPower: "equal-power"; }
   type SummingLaw = "equal-power" | "mean" | "sum"
+  interface Take
+  readonly Take.id: TakeId
+  readonly Take.asset: AssetId
+  readonly Take.name: string
+  readonly Take.note: string
+  readonly Take.state: TakeState
+  readonly Take.compensation: number
+  type TakeId = string & { readonly [BrandTag]: "TakeId"; }
+  interface TakeStack
+  readonly TakeStack.id: TakeStackId
+  readonly TakeStack.name: string
+  readonly TakeStack.takes: readonly Take[]
+  readonly TakeStack.chosen?: TakeId
+  readonly TakeStack.punch?: PunchRange
+  type TakeStackId = string & { readonly [BrandTag]: "TakeStackId"; }
+  const TakeState: { readonly Kept: "kept"; readonly Rejected: "rejected"; readonly Removed: "removed"; }
+  type TakeState = "kept" | "rejected" | "removed"
   interface TargetChains
   readonly TargetChains.rack: EffectChainId | undefined
   readonly TargetChains.ranges: readonly RangeRack[]
@@ -2485,6 +2720,7 @@ Published paths
   function channelLayout(roles: readonly ChannelRole[], labels?: readonly string[] | undefined): DomainResult<ChannelLayout>
   function checkProcessors(slots: readonly ChainSlot[], catalogue: ProcessorCatalogue): DomainResult<void>
   function checkStateVersion(typeKey: string, found: ProcessorStateVersion, implemented: ProcessorStateVersion): DomainResult<ProcessorStateVersion>
+  function chosenTake(stack: TakeStack): Take | undefined
   function clipAssetId(clip: Clip): AssetId
   function clipEnd(clip: Clip): number
   function clipsOnTrack(project: Project, trackId: TrackId): readonly Clip[]
@@ -2506,10 +2742,12 @@ Published paths
   function createIdGenerator(randomBytes: (length: number) => Uint8Array): IdGenerator
   function createProject(id: ProjectId, displayName: string, settings: ProjectSettings): Project
   function defaultParameterValue(descriptor: ParameterDescriptor): ParameterValue
+  function defaultPunchCrossfade(rate: SampleRate, length: number): PunchCrossfade
   function derivedSampleCount(value: number): SampleCount
   function discreteLayout(count: number): DomainResult<ChannelLayout>
   function domainFailuresAt(fields: Readonly<Record<string, unknown>>, field: string): readonly [DomainFailure, ...DomainFailure[]]
   function editPlanOf(value: unknown, field: string): EditPlan
+  function effectChainOf(value: unknown, field: string): DomainResult<EffectChain>
   function fail(first: DomainFailure, ...rest: readonly DomainFailure[]): DomainFailureResult
   function failure(code: string, kind: FailureKind, summary: string, extra?: undefined | { readonly details?: Readonly<Record<string, boolean | number | string>>; readonly cause?: DomainFailure; }): DomainFailure
   function failureSummaryAt(fields: Readonly<Record<string, unknown>>, field: string): FailureSummary
@@ -2537,6 +2775,7 @@ Published paths
   function itemsAt<TItem>(fields: Readonly<Record<string, unknown>>, field: string, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function itemsOf<TItem>(value: unknown, field: string, read: (item: unknown, name: string) => TItem): readonly TItem[]
   function labelledLayout(labels: readonly string[]): DomainResult<ChannelLayout>
+  function layoutOf(value: unknown, field: string): ChannelLayout
   function layoutsMatch(left: ChannelLayout, right: ChannelLayout): boolean
   function mapResult<TIn, TOut>(result: DomainResult<TIn>, transform: (value: TIn) => TOut): DomainResult<TOut>
   function markersInRegion(markers: readonly PlacedMarker[], region: PlacedRegion): readonly PlacedMarker[]
@@ -2564,6 +2803,9 @@ Published paths
   function processorsOf(slots: readonly ChainSlot[]): Generator<ProcessorInstance, any, any>
   function projectChains(project: Project): Generator<EffectChain, void, undefined>
   function projectLength(project: Project): number
+  function punchStackOf(operation: EditOperation): TakeStackId | undefined
+  function punchTakeFrames(length: number, targetRate: number, takeRate: number): number
+  function punchTakeProblem(take: Take, punch: PunchRange, target: Pick<EditShape, "layout" | "sampleRate">, assets: ReadonlyMap<AssetId, MediaShape>): string | undefined
   function qualityModeAt(fields: Readonly<Record<string, unknown>>, field: string): QualityMode
   function qualityModeFrom(value: unknown): DomainResult<QualityMode>
   function qualityModeOf(settings: QualitySettings): QualityMode
@@ -2594,12 +2836,16 @@ Published paths
   function slicePlan(plan: EditPlan, start: number, end: number, channels?: readonly number[] | undefined): DomainResult<EditPlan>
   function sliceSegment(segment: PlanSegment, offset: number, length: number): PlanSegment
   function slotsAt(chain: Pick<EffectChain, "slots">, group: undefined | { readonly id: ProcessorGroupId; readonly branch: number; }): readonly ChainSlot[] | undefined
+  function sourceStreams(source: PlanSource): readonly number[]
   function splitRegion(asset: Asset, region: Region, at: SampleCount, ids: IdGenerator, resolver?: AnchorResolver): readonly [Region, Region] | undefined
   function splitWholeAsset(asset: Asset, at: SampleCount, name: string, ids: IdGenerator): readonly [Region, Region] | undefined
+  function stackUsers(project: Project, stack: TakeStackId): readonly StackUse[]
   function streamLength(stream: PlanStream): number
   function subtractSamples(left: SampleCount, right: SampleCount): DomainResult<SampleCount>
   function succeed<TValue>(value: TValue): DomainSuccess<TValue>
+  function sumInto(sum: readonly Float32Array<ArrayBufferLike>[], addend: readonly Float32Array<ArrayBufferLike>[], frames: number): void
   function summingFactor(law: SummingLaw, count: number): number
+  function takeOf(stack: TakeStack, id: TakeId): Take | undefined
   function textAt(fields: Readonly<Record<string, unknown>>, field: string): string
   function textOf(value: unknown, field: string): string
   function textsAt(fields: Readonly<Record<string, unknown>>, field: string): readonly string[]
@@ -2611,14 +2857,16 @@ Published paths
   function unrackedAssetPlan(asset: Asset, context: PlanContext, processing?: readonly RegionOperation[]): DomainResult<EditPlan>
   function unrackedRegionPlan(asset: Asset, region: Region, context: PlanContext, resolver?: AnchorResolver): DomainResult<EditPlan>
   function unsafeBrandId<TBrand extends string>(value: string): Branded<TBrand>
-  function validateChain(asset: Asset, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<Asset>
+  function validateChain(asset: Asset, entities: EditingEntities): DomainResult<Asset>
   function validateChainShape(chain: EffectChain): DomainResult<EffectChain>
   function validateMarker(asset: Asset, marker: Marker): DomainResult<Marker>
-  function validateOperation(operation: EditOperation, shape: EditShape, assets: ReadonlyMap<AssetId, Asset>, chains: ProjectChains): DomainResult<EditOperation>
+  function validateOperation(operation: EditOperation, shape: EditShape, entities: EditingEntities): DomainResult<EditOperation>
   function validateParameterValue(descriptor: ParameterDescriptor, value: ParameterValue): DomainResult<ParameterValue>
   function validatePlan(plan: EditPlan, assets: ReadonlyMap<AssetId, MediaShape>): DomainResult<EditPlan>
   function validateProcessorInstance(processor: ProcessorInstance, descriptor: ProcessorDescriptor): DomainResult<readonly ParameterValue[]>
   function validateRegion(asset: Asset, region: Region, chains: ProjectChains): DomainResult<Region>
+  function validateTakeStack(stack: TakeStack, assets: ReadonlyMap<AssetId, Asset>): DomainResult<TakeStack>
+  function validateTakeStackInProject(stack: TakeStack, project: Project): DomainResult<TakeStack>
   function withPreset(instance: ProcessorInstance, preset: ProcessorInstance): DomainResult<ProcessorInstance>
   function withRack(plan: EditPlan, rack: EffectChainId | undefined, context: PlanContext): DomainResult<EditPlan>
   function withSlotAt<T extends Pick<EffectChain, "slots">>(chain: T, place: SlotPlace, slot: ChainSlot): T | undefined
@@ -2635,6 +2883,7 @@ Published paths
   readonly OracleWorld.chain?: (chain: EffectChainId, samples: Samples) => Samples
   readonly OracleWorld.stretch?: (samples: Samples, length: number) => Samples
   readonly OracleWorld.convert?: (samples: Samples, from: number, to: number, length: number) => Samples
+  readonly OracleWorld.takes?: { readonly stacks: ReadonlyMap<TakeStackId, TakeStack>; readonly recordings: ReadonlyMap<AssetId, { readonly samples: Samples; readonly rate: number; }>; }
   const PLAN_WITHOUT_CHAINS: PlanContext
   type Samples = readonly Float32Array<ArrayBufferLike>[]
   const TEST_CATALOGUE: ProcessorCatalogue
@@ -2876,7 +3125,7 @@ Published paths
   readonly EntityDifferences.added: readonly TId[]
   readonly EntityDifferences.removed: readonly TId[]
   readonly EntityDifferences.changed: readonly EntityChange<TId, TEntity>[]
-  type EntityKind = "asset" | "bus" | "clip" | "effect-chain" | "marker" | "region" | "track"
+  type EntityKind = "asset" | "bus" | "clip" | "effect-chain" | "marker" | "region" | "take-stack" | "track"
   interface EntityReference
   readonly EntityReference.kind: EntityKind
   readonly EntityReference.id: string
@@ -2985,6 +3234,7 @@ Published paths
   readonly StateDifference.regions: EntityDifferences<RegionId, Region>
   readonly StateDifference.markers: EntityDifferences<MarkerId, Marker>
   readonly StateDifference.effectChains: readonly ChainDifference[]
+  readonly StateDifference.takeStacks: EntityDifferences<TakeStackId, TakeStack>
   function activeLine(history: History): readonly HistoryNode[]
   function affectedBy(before: ProjectState, after: ProjectState): AffectedEntities
   function affectedEntities(node: HistoryNode): Generator<EntityReference, any, any>
@@ -3809,35 +4059,51 @@ Published paths
   readonly ProjectCommand.undoable: boolean
   ProjectCommand.availability: (context: ProjectState) => CommandAvailability
   ProjectCommand.run: (context: ProjectState, invocation: CommandInvocation) => CommandOutcome<ProjectState>
-  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; }
+  const ProjectCommandId: { readonly Rename: CommandId; readonly SetName: CommandId; readonly AddAsset: CommandId; readonly RemoveAsset: CommandId; readonly RenameAsset: CommandId; readonly SetAssetName: CommandId; readonly SetSourcePolicy: CommandId; readonly SetAssetMedia: CommandId; readonly RelinkSource: CommandId; readonly AdoptSourceVersion: CommandId; readonly FreezeSource: CommandId; readonly ApplyEdit: CommandId; readonly WithdrawEdit: CommandId; readonly AddMarker: CommandId; readonly RemoveMarker: CommandId; readonly SetMarker: CommandId; readonly AddRegion: CommandId; readonly RemoveRegion: CommandId; readonly SetRegion: CommandId; readonly ApplyRegionEdit: CommandId; readonly WithdrawRegionEdit: CommandId; readonly SetRack: CommandId; readonly SetEditChain: CommandId; readonly AddSlot: CommandId; readonly RemoveSlot: CommandId; readonly MoveSlot: CommandId; readonly SetSlotControl: CommandId; readonly SetProcessor: CommandId; readonly CreateTakeStack: CommandId; readonly RemoveTakeStack: CommandId; readonly RenameTakeStack: CommandId; readonly SetTakeStack: CommandId; readonly BranchTakeStack: CommandId; readonly ConsolidateTakeStack: CommandId; readonly AddTake: CommandId; readonly WithdrawTake: CommandId; readonly DuplicateTake: CommandId; readonly RenameTake: CommandId; readonly SetTakeNote: CommandId; readonly ChooseTake: CommandId; readonly RejectTake: CommandId; readonly KeepTake: CommandId; readonly RemoveTake: CommandId; readonly RestoreTake: CommandId; readonly SetTakeCompensation: CommandId; readonly AddPunch: CommandId; readonly RemovePunch: CommandId; }
   type RackTarget = { readonly kind: "asset"; readonly asset: Asset; } | { readonly kind: "region"; readonly region: Region; readonly asset: Asset; }
   type SlotControl = { readonly control: "enabled" | "soloed"; readonly value: boolean; } | { readonly control: "mix"; readonly value: number; } | { readonly control: "summing"; readonly value: SummingLaw; }
   function addAssetInvocation(asset: Asset, source: AssetSource, chain?: EffectChain | undefined): CommandInvocation
   function addMarkerInvocation(marker: Marker): CommandInvocation
+  function addPunchInvocation(asset: Pick<Asset, "id">, operation: EditOperation, stack: TakeStack): CommandInvocation
   function addRegionInvocation(region: Region, chain?: EffectChain | undefined): CommandInvocation
   function addRegionWithProcessing(region: Region, chains: ProjectChains): readonly [CommandInvocation, ...CommandInvocation[]]
   function addSlotInvocation(chain: EffectChainId, place: SlotPlace, slot: ChainSlot): CommandInvocation
+  function addTakeInvocation(stack: Named, take: Take, choose: boolean): CommandInvocation
   function adoptSourceVersionInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function applyInvocation(asset: Pick<Asset, "id">, operation: EditOperation, chain?: EffectChain | undefined): CommandInvocation
+  function branchTakeStackInvocation(stack: Named, take: NamedTake, branch: TakeStackId, copy: TakeId, name: string): CommandInvocation
   function changeRegionInvocations(old: Region, next: Region, chains: ProjectChains): readonly [CommandInvocation, ...CommandInvocation[]]
+  function chooseTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function commandProvenance(commands: readonly ProjectCommand[]): InvocationProvenance
+  function consolidateTakeStackInvocation(stack: Named): CommandInvocation
+  function createTakeStackInvocation(stack: TakeStack): CommandInvocation
+  function duplicateTakeInvocation(stack: Named, take: NamedTake, copy: TakeId, name: string): CommandInvocation
   function extendedRackInvocation(project: Project, target: RackTarget, chain: EffectChain, ids: IdGenerator): CommandInvocation
   function independentChainInvocations(target: RackTarget, chain: EffectChainId, copy: EffectChain): readonly CommandInvocation[]
+  function keepTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function moveSlotInvocation(slot: import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId, place: SlotPlace): CommandInvocation
   function processTargetInvocation(target: EditTarget, id: EditOperationId, edit: RangeEdit, chain?: EffectChain | undefined): CommandInvocation
   function projectCommands(catalogue: ProcessorCatalogue): readonly ProjectCommand[]
   function rackEachInvocations(targets: readonly RackTarget[], chain: EffectChain, share: boolean, ids: IdGenerator): readonly CommandInvocation[]
   function rackRangeInvocation(target: EditTarget, id: EditOperationId, chain: EffectChain): CommandInvocation
+  function rejectTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function relinkSourceInvocation(asset: AssetId, identity: ExternalSourceIdentity, retainedCopy?: ContentId | undefined): CommandInvocation
   function removeMarkerInvocation(marker: Pick<Marker, "id">): CommandInvocation
   function removeRegionInvocation(region: Pick<Region, "id">): CommandInvocation
   function removeSlotsInvocations(state: ProjectState, slots: readonly (import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId)[]): readonly CommandInvocation[]
+  function removeTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
+  function removeTakeStackInvocation(stack: Named): CommandInvocation
+  function renameTakeInvocation(stack: Named, take: NamedTake, name: string): CommandInvocation
+  function renameTakeStackInvocation(stack: Named, name: string): CommandInvocation
+  function restoreTakeInvocation(stack: Named, take: NamedTake): CommandInvocation
   function setAssetMediaInvocation(asset: AssetId, media: MediaSource): CommandInvocation
   function setMarkerInvocation(marker: Marker): CommandInvocation
   function setProcessorInvocation(processor: ProcessorInstance): CommandInvocation
   function setRackInvocation(target: RackTarget, chain: EffectChain | EffectChainId | undefined): CommandInvocation
   function setRegionInvocation(region: Region): CommandInvocation
   function setSlotControlInvocation(slot: import("packages/domain/src/index").ProcessorGroupId | import("packages/domain/src/index").ProcessorId, props: SlotControl): CommandInvocation
+  function setTakeCompensationInvocation(stack: Named, take: NamedTake, compensation: number): CommandInvocation
+  function setTakeNoteInvocation(stack: Named, take: NamedTake, note: string): CommandInvocation
   function targetChains(target: RackTarget): TargetChains
   function withdrawInvocation(asset: Pick<Asset, "id">, operation: EditOperation): CommandInvocation
   function withdrawRegionEditInvocation(region: Pick<Region, "id">, operation: Pick<RegionOperation, "id">): CommandInvocation
@@ -3851,6 +4117,7 @@ Published paths
   readonly AffectedEntities.regions: readonly RegionId[]
   readonly AffectedEntities.markers: readonly MarkerId[]
   readonly AffectedEntities.effectChains: readonly EffectChainId[]
+  readonly AffectedEntities.takeStacks: readonly TakeStackId[]
   readonly AffectedEntities.project: boolean
   interface AssetProvenance
   readonly AssetProvenance.originalFileName?: string
@@ -3861,6 +4128,7 @@ Published paths
   readonly AssetProvenance.mediaType: string
   readonly AssetProvenance.originProjectId: ProjectId
   readonly AssetProvenance.audio?: SourceAudioShape
+  readonly AssetProvenance.recording?: RecordedProvenance
   interface AssetRecord
   readonly AssetRecord.asset: Asset
   readonly AssetRecord.source: AssetSource
@@ -3885,8 +4153,20 @@ Published paths
   interface ByteSource
   readonly ByteSource.size: number
   ByteSource.read: (offset: number, length: number, signal?: AbortSignal) => Promise<Uint8Array<ArrayBuffer>>
+  const CHUNK_SAMPLE_FORMAT: "f32le"
   const CONTENT_CHUNK_BYTES: 1048576
   type CanonicalJson = string & { readonly [BrandTag]: "CanonicalJson"; }
+  const CaptureProfileKind: { readonly RawStudio: "raw-studio"; readonly Voice: "voice"; readonly Custom: "custom"; }
+  type CaptureProfileKind = "custom" | "raw-studio" | "voice"
+  interface CaptureSettings
+  readonly CaptureSettings.echoCancellation?: boolean
+  readonly CaptureSettings.noiseSuppression?: boolean
+  readonly CaptureSettings.autoGainControl?: boolean
+  readonly CaptureSettings.voiceIsolation?: boolean
+  readonly CaptureSettings.channelCount?: number
+  readonly CaptureSettings.sampleRate?: number
+  readonly CaptureSettings.sampleSize?: number
+  readonly CaptureSettings.latency?: number
   interface ChangeNodeRecord<TInvocation extends InvocationRecord = InvocationRecord>
   readonly ChangeNodeRecord.kind: "change"
   readonly ChangeNodeRecord.id: HistoryNodeId
@@ -4009,6 +4289,7 @@ Published paths
   const LONGEST_MANIFEST: number
   const LONGEST_NAME: 1024
   const LONGEST_SNAPSHOT_NOTES: 16384
+  const LONGEST_TAKE_NOTE: 4096
   interface ManagedMedia
   readonly ManagedMedia.kind: "managed"
   readonly ManagedMedia.contentId: ContentId
@@ -4071,6 +4352,42 @@ Published paths
   Reading.refuse: (code: string, summary: string, at: string, details?: ProblemDetails) => void
   Reading.refuseAll: (failures: readonly DomainFailure[], at: string) => void
   Reading.outcome: <TValue>(value: TValue | undefined) => DomainResult<TValue>
+  interface RecordedDevice
+  readonly RecordedDevice.label?: string
+  readonly RecordedDevice.group?: string
+  readonly RecordedDevice.channelCount?: number
+  interface RecordedProfile
+  readonly RecordedProfile.kind: CaptureProfileKind
+  readonly RecordedProfile.name: string
+  interface RecordedProvenance extends RecordingStart
+  readonly RecordedProvenance.length: SampleCount
+  readonly RecordedProvenance.ending: RecordingEnding
+  readonly RecordedProvenance.recordedAt: number
+  readonly RecordedProvenance.device: RecordedDevice
+  readonly RecordedProvenance.profile: RecordedProfile
+  readonly RecordedProvenance.requested: CaptureSettings
+  readonly RecordedProvenance.granted: CaptureSettings
+  readonly RecordedProvenance.sampleRate: SampleRate
+  readonly RecordedProvenance.layout: ChannelLayout
+  const RecordingEnding: { readonly Stopped: "stopped"; readonly Timed: "timed"; readonly DeviceLost: "device-lost"; readonly PermissionRevoked: "permission-revoked"; readonly StorageFull: "storage-full"; readonly Suspended: "suspended"; readonly Failed: "failed"; readonly Interrupted: "interrupted"; }
+  type RecordingEnding = "device-lost" | "failed" | "interrupted" | "permission-revoked" | "stopped" | "storage-full" | "suspended" | "timed"
+  type RecordingPurpose = { readonly kind: "punch"; readonly asset: AssetId; readonly basis: number; readonly range: EditRange; readonly punch: PunchRange; } | { readonly kind: "stack"; } | { readonly kind: "take"; readonly stack: TakeStackId; }
+  type RecordingSessionId = string & { readonly [BrandTag]: "RecordingSessionId"; }
+  interface RecordingStart
+  readonly RecordingStart.recordedAt: number
+  readonly RecordingStart.device: RecordedDevice
+  readonly RecordingStart.profile: RecordedProfile
+  readonly RecordingStart.requested: CaptureSettings
+  readonly RecordingStart.granted: CaptureSettings
+  readonly RecordingStart.sampleRate: SampleRate
+  readonly RecordingStart.layout: ChannelLayout
+  interface RecoveryChunkManifest
+  readonly RecoveryChunkManifest.session: RecordingSessionId
+  readonly RecoveryChunkManifest.project: ProjectId
+  readonly RecoveryChunkManifest.sampleFormat: "f32le"
+  readonly RecoveryChunkManifest.start: RecordingStart
+  readonly RecoveryChunkManifest.transportFrame: SampleCount
+  readonly RecoveryChunkManifest.purpose: RecordingPurpose
   type RetentionPolicy = { readonly kind: "budget"; readonly bytes: number; } | { readonly kind: "rules"; readonly rules: readonly [RetentionRule, ...RetentionRule[]]; } | { readonly kind: "unlimited"; }
   type RetentionRule = { readonly kind: "recent-changes"; readonly count: number; } | { readonly kind: "recent-days"; readonly days: number; }
   const SOURCE_CONTAINERS: readonly ["wav", "rf64", "bw64", "aiff", "aifc"]
@@ -4198,6 +4515,7 @@ Published paths
   function decodeUtf8(bytes: Uint8Array<ArrayBufferLike>): DomainResult<string>
   function emptyProjectState(project: Project): ProjectState
   function encodeUtf8(text: string): Uint8Array<ArrayBuffer>
+  function endedUnexpectedly(ending: RecordingEnding): boolean
   function entitiesOf<TEntity extends { readonly id: string; }>(reading: Reading, object: JsonObject, at: string, key: string, maximum: number, entity: Converter<TEntity>): ReadonlyMap<TEntity["id"], TEntity> | undefined
   function fingerprintOf(text: CanonicalJson, digest: Digest): Promise<StateFingerprint>
   function givenName(subject: NamedSubject, value: unknown): DomainResult<string>
@@ -4254,12 +4572,15 @@ Published paths
   function readProjectDocument(value: JsonValue): DomainResult<ProjectState>
   function readProjectTree(listing: ProjectTreeListing, services: TreeReadingServices, signal?: AbortSignal | undefined): Promise<DomainResult<ProjectTreeContent>>
   function readProjectTreeHeader(listing: ProjectTreeListing, signal?: AbortSignal | undefined): Promise<DomainResult<TreeHeader>>
+  function readRecoveryManifest(value: JsonValue): DomainResult<RecoveryChunkManifest>
   const readRegion: Converter<Region>
   const readRegionOperation: Converter<RegionOperation>
   const readRetentionPolicy: Converter<RetentionPolicy>
   const readSegmentedHistory: Converter<SegmentedHistoryRecord>
   const readSlotAlone: Converter<ChainSlot>
   const readSnapshotRecord: Converter<NamedSnapshot>
+  const readTake: Converter<Take>
+  const readTakeStack: Converter<TakeStack>
   function readVerified(entry: ZipEntry, consume: (chunk: Uint8Array<ArrayBuffer>) => Promise<void>, options: VerifiedReadingOptions): Promise<DomainResult<void>>
   function required<TValue>(reading: Reading, object: JsonObject, at: string, key: string, convert: Converter<TValue>): TValue | undefined
   function savedEntryName(value: unknown): DomainResult<string>
@@ -4290,12 +4611,16 @@ Published paths
   function writeMediaSource(media: MediaSource): JsonObject
   function writeProcessor(processor: ProcessorInstance): JsonObject
   function writeProjectDocument(state: ProjectState): JsonObject
+  function writePunchRange(punch: PunchRange): JsonObject
+  function writeRecoveryManifest(manifest: RecoveryChunkManifest): JsonObject
   function writeRegion(region: Region): JsonObject
   function writeRegionOperation(operation: RegionOperation): JsonObject
   function writeRetentionPolicy(policy: RetentionPolicy): JsonObject
   function writeSegmentedHistory(history: SegmentedHistoryRecord): JsonObject
   function writeSlot(slot: ChainSlot): JsonObject
   function writeSnapshotRecord(snapshot: NamedSnapshot): JsonObject
+  function writeTake(take: Take): JsonObject
+  function writeTakeStack(stack: TakeStack): JsonObject
   function writeZip(entries: AsyncIterable<ZipEntryInput> | Iterable<ZipEntryInput>, sink: ByteSink, options: ZipWritingOptions): Promise<DomainResult<ZipWritten>>
   function writtenName(subject: NamedSubject, value: unknown): DomainResult<string>
 
@@ -4321,6 +4646,8 @@ Published paths
   function everyChainShape(ids: IdGenerator): EffectChain
   function fullySetProcessor(ids: IdGenerator): ProcessorInstance
   const immediateTurns: YieldToHost
+  function pastedPunchState(fixture: SampleProject): ProjectState
+  function punchedState(fixture: SampleProject): ProjectState
   function randomAssetRecord(random: Random, ids: IdGenerator, projectId: ProjectId): AssetRecord
   function randomChain(random: Random, ids: IdGenerator): EffectChain
   function randomContentId(random: Random): ContentId
@@ -4329,12 +4656,215 @@ Published paths
   function randomMedia(random: Random): MediaSource
   function randomName(random: Random): string
   function randomOperation(random: Random, ids: IdGenerator, asset: Asset, assets: ReadonlyMap<AssetId, Asset>, context: PlanContext): EditOperation | undefined
+  function randomRecording(random: Random, asset: Asset): RecordedProvenance
+  function randomRecordingStart(random: Random, asset: Pick<Asset, "channelLayout" | "sampleRate">): RecordingStart
   function randomRegion(random: Random, ids: IdGenerator, asset: Asset, context: PlanContext): Region | undefined
   function randomRegionOperation(random: Random, ids: IdGenerator, asset: Asset, region: Region, context: PlanContext): RegionOperation | undefined
   function randomState(seed: number): ProjectState
+  function randomTakeStacks(random: Random, ids: IdGenerator, assets: ReadonlyMap<AssetId, Asset>): Map<TakeStackId, TakeStack>
   function referenceState(fixture: SampleProject): ProjectState
   function seededRandom(seed: number): Random
   function withSources(project: Project, sourceOf: (asset: Asset, index: number) => AssetSource): ProjectState
+
+@audiogubbins/recording
+  interface Armed extends SessionSetup
+  readonly Armed.device: DeviceIdentity
+  readonly Armed.purpose: ArmedPurpose
+  readonly Armed.profile: CaptureProfile
+  readonly Armed.retrospective: RetrospectiveSetting
+  type ArmedInput = OpenInput | { readonly kind: "opening"; }
+  type ArmedPurpose = { readonly kind: "new-stack"; } | { readonly kind: "punch"; readonly asset: AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; } | { readonly kind: "take"; readonly stack: TakeStackId; }
+  const CALIBRATION_SIGNAL_LENGTH: number
+  const CALIBRATION_SIGNAL_PEAK: 0.25
+  const CLOSED_SESSION: RecordingSession
+  interface CalibrationPath
+  readonly CalibrationPath.input: DeviceIdentity
+  readonly CalibrationPath.output: DeviceIdentity
+  readonly CalibrationPath.rate: SampleRate
+  type CalibrationStanding = { readonly kind: "current"; } | { readonly kind: "missing"; } | { readonly kind: "stale"; readonly changes: readonly PathChange[]; }
+  interface CaptureComparison
+  readonly CaptureComparison.differences: readonly CaptureDifference[]
+  readonly CaptureComparison.uncontrollable: readonly UncontrollableProcessing[]
+  type CaptureDifference = { readonly kind: "channel-count"; readonly requested: number; readonly granted?: number; readonly meaning: string; } | { readonly kind: "processing"; readonly control: ProcessingControl; readonly requested: boolean; readonly granted?: boolean; readonly meaning: string; } | { readonly kind: "sample-rate"; readonly requested: number; readonly granted?: number; readonly meaning: string; }
+  interface CaptureOffer
+  readonly CaptureOffer.supported: ReadonlySet<string>
+  readonly CaptureOffer.channelCount?: number
+  readonly CaptureOffer.contextRate: SampleRate
+  interface CapturePlan
+  readonly CapturePlan.profile: CaptureProfile
+  readonly CapturePlan.request: CaptureRequest
+  readonly CapturePlan.uncontrollable: readonly ProcessingControl[]
+  type CaptureProfile = { readonly kind: typeof CaptureProfileKind.Custom; readonly name: string; readonly headphones: boolean; readonly processing: ProcessingChoice; } | { readonly kind: typeof CaptureProfileKind.RawStudio | typeof CaptureProfileKind.Voice; readonly name: string; readonly headphones: boolean; }
+  const CaptureProfileKind: { readonly RawStudio: "raw-studio"; readonly Voice: "voice"; readonly Custom: "custom"; }
+  type CaptureProfileKind = "custom" | "raw-studio" | "voice"
+  interface CaptureRequest
+  readonly CaptureRequest.processing: Partial<Record<ProcessingControl, boolean>>
+  readonly CaptureRequest.channelCount?: number
+  readonly CaptureRequest.sampleRate?: SampleRate
+  type ChainVerdict = { readonly live: false; readonly reason: string; } | { readonly live: true; readonly latency: SampleCount; }
+  type CompensationBasis = "measured" | "output-only" | "reported"
+  interface ControlledRecording
+  readonly ControlledRecording.countIn: SampleCount
+  readonly ControlledRecording.stopAfter?: SampleCount
+  readonly ControlledRecording.startAt?: SampleCount
+  interface DeviceIdentity
+  readonly DeviceIdentity.id: string
+  readonly DeviceIdentity.group?: string
+  readonly DeviceIdentity.label?: string
+  const DiagnosticSeverity: { readonly Information: "information"; readonly Warning: "warning"; readonly Blocking: "blocking"; }
+  type DiagnosticSeverity = "blocking" | "information" | "warning"
+  type FeedbackRisk = { readonly kind: "likely"; readonly why: "same-device" | "same-name"; } | { readonly kind: "none"; }
+  interface GrantedCapture
+  readonly GrantedCapture.processing: Partial<Record<ProcessingControl, boolean>>
+  readonly GrantedCapture.channelCount?: number
+  readonly GrantedCapture.sampleRate?: number
+  readonly GrantedCapture.latency?: number
+  const HIGH_LATENCY_SECONDS: 0.03
+  type InputIndicator = { readonly kind: "armed"; readonly device: DeviceIdentity; readonly bufferingSeconds?: number; } | { readonly kind: "recording"; readonly device: DeviceIdentity; }
+  interface LatencyCalibration extends CalibrationPath
+  readonly LatencyCalibration.measured?: MeasuredLatency
+  readonly LatencyCalibration.manualOffset: number
+  readonly LatencyCalibration.input: DeviceIdentity
+  readonly LatencyCalibration.output: DeviceIdentity
+  readonly LatencyCalibration.rate: SampleRate
+  interface LoopbackMeasurement
+  readonly LoopbackMeasurement.roundTrip: SampleCount
+  readonly LoopbackMeasurement.peakRatio: number
+  const MAXIMUM_RETROSPECTIVE_SECONDS: 60
+  const MAXIMUM_ROUND_TRIP_SECONDS: 1
+  const MINIMUM_PEAK_RATIO: 9
+  const MINIMUM_RETROSPECTIVE_SECONDS: 5
+  const MONITORING_UNAVAILABLE: Monitoring
+  interface MeasuredLatency
+  readonly MeasuredLatency.roundTrip: SampleCount
+  readonly MeasuredLatency.output: SampleCount
+  readonly MeasuredLatency.input: SampleCount
+  readonly MeasuredLatency.peakRatio: number
+  readonly MeasuredLatency.at: number
+  type Monitoring = { readonly kind: "confirming"; readonly context: MonitoringContext; } | { readonly kind: "off"; readonly context: MonitoringContext; readonly refusal?: string; } | { readonly kind: "on"; readonly context: MonitoringContext; readonly latency: MonitoringLatency; } | { readonly kind: "unavailable"; }
+  interface MonitoringContext
+  readonly MonitoringContext.headphones: boolean
+  readonly MonitoringContext.risk: FeedbackRisk
+  readonly MonitoringContext.path: MonitoringPath
+  type MonitoringEvent = { readonly kind: "confirm"; } | { readonly kind: "context-changed"; readonly context: MonitoringContext; } | { readonly kind: "input-closed"; } | { readonly kind: "input-opened"; readonly context: MonitoringContext; readonly remembered: boolean; } | { readonly kind: "toggle"; }
+  interface MonitoringLatency
+  readonly MonitoringLatency.seconds: number
+  readonly MonitoringLatency.inputKnown: boolean
+  interface MonitoringPath
+  readonly MonitoringPath.route: MonitoringRoute
+  readonly MonitoringPath.rate: SampleRate
+  readonly MonitoringPath.output: number
+  readonly MonitoringPath.input?: number
+  type MonitoringRoute = { readonly kind: "chain"; readonly verdict: ChainVerdict; } | { readonly kind: "direct"; }
+  interface OpenInput
+  readonly OpenInput.kind: "open"
+  readonly OpenInput.granted: GrantedCapture
+  readonly OpenInput.rate: SampleRate
+  readonly OpenInput.channels: number
+  const PROCESSING_CONTROLS: readonly ProcessingControl[]
+  const PROFILE_NAME_CHARACTERS: 48
+  type PathChange = "input" | "output" | "rate"
+  type ProcessingChoice = { readonly echoCancellation: boolean; readonly noiseSuppression: boolean; readonly autoGainControl: boolean; readonly voiceIsolation: boolean; }
+  const ProcessingControl: { readonly EchoCancellation: "echoCancellation"; readonly NoiseSuppression: "noiseSuppression"; readonly AutoGainControl: "autoGainControl"; readonly VoiceIsolation: "voiceIsolation"; }
+  type ProcessingControl = "autoGainControl" | "echoCancellation" | "noiseSuppression" | "voiceIsolation"
+  interface PunchWindow
+  readonly PunchWindow.from: SampleCount
+  readonly PunchWindow.length: SampleCount
+  const RAW_STUDIO_PROFILE: CaptureProfile
+  const RETROSPECTIVE_OFF: RetrospectiveSetting
+  interface RecordingDiagnostic
+  readonly RecordingDiagnostic.kind: string
+  readonly RecordingDiagnostic.severity: DiagnosticSeverity
+  readonly RecordingDiagnostic.affects: string
+  readonly RecordingDiagnostic.why: string
+  readonly RecordingDiagnostic.impact: string
+  readonly RecordingDiagnostic.improve: string
+  interface RecordingFacts
+  readonly RecordingFacts.secureContext: boolean
+  readonly RecordingFacts.permission: "denied" | "granted" | "prompt" | "unknown"
+  readonly RecordingFacts.inputs: number
+  readonly RecordingFacts.comparison?: CaptureComparison
+  readonly RecordingFacts.contextRate: SampleRate
+  readonly RecordingFacts.inputRate?: number
+  readonly RecordingFacts.latency: { readonly output: number; readonly input?: number; readonly measuredRoundTrip?: number; }
+  readonly RecordingFacts.inputLabel?: string
+  readonly RecordingFacts.outputLabel?: string
+  readonly RecordingFacts.calibration: CalibrationStanding
+  readonly RecordingFacts.storage: StorageTimeLeft
+  readonly RecordingFacts.suspensionRisk: boolean
+  interface RecordingSchedule
+  readonly RecordingSchedule.countInFrom: SampleCount
+  readonly RecordingSchedule.recordAt: SampleCount
+  readonly RecordingSchedule.stopAt?: SampleCount
+  readonly RecordingSchedule.caution?: string
+  type RecordingSession = ({ readonly kind: "armed"; readonly input: ArmedInput; } & Armed) | ({ readonly kind: "counting-in"; readonly input: OpenInput; readonly recordAt: SampleCount; } & Armed) | ({ readonly kind: "ready"; } & SessionSetup) | ({ readonly kind: "recording"; readonly input: OpenInput; } & Armed & RecordingStart) | ({ readonly kind: "stopping"; readonly input: OpenInput; readonly reason: StopReason; readonly inputClosedBy?: "device-lost" | "permission-revoked"; } & Armed & RecordingStart) | { readonly kind: "asking"; } | { readonly kind: "closed"; } | { readonly kind: "failed"; readonly failure: DomainFailure; }
+  interface RecordingStart
+  readonly RecordingStart.firstFrame: SampleCount
+  readonly RecordingStart.retrospectiveFrames: SampleCount
+  interface ReportedLatency
+  readonly ReportedLatency.output: number
+  readonly ReportedLatency.input?: number
+  type RetrospectiveSetting = { readonly on: false; } | { readonly on: true; readonly seconds: number; }
+  const STORAGE_WARNING_SECONDS: 300
+  const SUSPENSION_CAUTION: "This browser may pause recording while the page is in the background or the screen is locked, so keep this page open and in view until the recording ends."
+  interface ScheduleFacts
+  readonly ScheduleFacts.now: SampleCount
+  readonly ScheduleFacts.armed: boolean
+  readonly ScheduleFacts.pageVisible: boolean
+  readonly ScheduleFacts.suspensionRisk: boolean
+  type SchedulePhase = "counting-in" | "recording" | "waiting"
+  type ScheduleStep = { readonly kind: "begin-count-in"; } | { readonly kind: "begin-recording"; } | { readonly kind: "cancel"; readonly reason: string; } | { readonly kind: "stop"; readonly reason: "background-suspended" | "timed"; } | { readonly kind: "wait"; readonly until?: SampleCount; }
+  type SessionEvent = { readonly kind: "arm"; readonly purpose: ArmedPurpose; readonly holdsWriteLease: boolean; } | { readonly kind: "close"; } | { readonly kind: "count-in-elapsed"; readonly held: SampleCount; } | { readonly kind: "count-in-started"; readonly recordAt: SampleCount; readonly holdsWriteLease: boolean; } | { readonly kind: "device-chosen"; readonly device: DeviceIdentity; } | { readonly kind: "device-lost"; } | { readonly kind: "device-opened"; readonly granted: GrantedCapture; readonly rate: SampleRate; readonly channels: number; } | { readonly kind: "disarm"; } | { readonly kind: "failed"; readonly failure: DomainFailure; } | { readonly kind: "permission-asked"; } | { readonly kind: "permission-denied"; } | { readonly kind: "permission-granted"; readonly setup: SessionSetup; } | { readonly kind: "permission-revoked"; } | { readonly kind: "profile-chosen"; readonly profile: CaptureProfile; } | { readonly kind: "record"; readonly at: SampleCount; readonly held: SampleCount; readonly holdsWriteLease: boolean; } | { readonly kind: "retarget"; readonly purpose: ArmedPurpose; } | { readonly kind: "retrospective-set"; readonly setting: RetrospectiveSetting; } | { readonly kind: "stop"; readonly reason: Extract<StopReason["kind"], "background-suspended" | "person" | "quota" | "timed">; } | { readonly kind: "stopped"; }
+  interface SessionSetup
+  readonly SessionSetup.device?: DeviceIdentity
+  readonly SessionSetup.profile: CaptureProfile
+  readonly SessionSetup.retrospective: RetrospectiveSetting
+  type StopReason = { readonly kind: "background-suspended"; } | { readonly kind: "device-lost"; } | { readonly kind: "failure"; readonly failure: DomainFailure; } | { readonly kind: "permission-revoked"; } | { readonly kind: "person"; } | { readonly kind: "quota"; } | { readonly kind: "timed"; }
+  interface StorageEstimate
+  readonly StorageEstimate.quota: number
+  readonly StorageEstimate.usage: number
+  type StorageTimeLeft = { readonly kind: "enough"; readonly seconds: number; } | { readonly kind: "exhausted"; } | { readonly kind: "low"; readonly seconds: number; } | { readonly kind: "unknown"; }
+  interface TakeCompensation
+  readonly TakeCompensation.frames: number
+  readonly TakeCompensation.basis: CompensationBasis
+  readonly TakeCompensation.manualOffset: number
+  interface UncontrollableProcessing
+  readonly UncontrollableProcessing.control: ProcessingControl
+  readonly UncontrollableProcessing.wanted: boolean
+  readonly UncontrollableProcessing.meaning: string
+  const VOICE_PROFILE: CaptureProfile
+  function calibrationOf(kept: readonly LatencyCalibration[], current: CalibrationPath): LatencyCalibration | undefined
+  function calibrationSignal(): Float32Array<ArrayBufferLike>
+  function capturePlan(profile: CaptureProfile, offer: CaptureOffer): CapturePlan
+  function compareCapture(plan: CapturePlan, granted: GrantedCapture): CaptureComparison
+  function customProfile(name: unknown, processing: Readonly<Record<ProcessingControl, boolean>>, headphones: boolean): DomainResult<CaptureProfile>
+  function feedbackRisk(input: DeviceIdentity, output: DeviceIdentity): FeedbackRisk
+  function inputIndicator(session: RecordingSession): InputIndicator | undefined
+  function inputIsOpen(session: RecordingSession): boolean
+  function isSameDevice(remembered: DeviceIdentity, current: DeviceIdentity): boolean
+  function loopbackCaptureLength(rate: SampleRate): SampleCount
+  function manualCalibration(path: CalibrationPath, frames: number): DomainResult<LatencyCalibration>
+  function measureRoundTrip(captured: Readonly<Float32Array<ArrayBufferLike>>, rate: SampleRate): DomainResult<LoopbackMeasurement>
+  function measuredCalibration(path: CalibrationPath, measurement: LoopbackMeasurement, outputLatency: number, at: number): DomainResult<LatencyCalibration>
+  function monitoringLatency(path: MonitoringPath): MonitoringLatency
+  function nextMonitoring(monitoring: Monitoring, event: MonitoringEvent): DomainResult<Monitoring>
+  function nextSession(session: RecordingSession, event: SessionEvent): DomainResult<RecordingSession>
+  function pathChanges(calibration: CalibrationPath, current: CalibrationPath): readonly PathChange[]
+  function processingOf(profile: CaptureProfile): Readonly<Record<ProcessingControl, boolean>>
+  function punchWindow(punch: { readonly kind: "punch"; readonly asset: import("packages/domain/src/index").AssetId; readonly start: SampleCount; readonly length: SampleCount; readonly preRoll: SampleCount; readonly postRoll: SampleCount; }): PunchWindow
+  function recordingBlocked(diagnostics: readonly RecordingDiagnostic[]): boolean
+  function recordingBytesPerSecond(rate: SampleRate, channels: number): number
+  function recordingDiagnostics(facts: RecordingFacts): readonly RecordingDiagnostic[]
+  function retrospectiveFrames(seconds: number, rate: SampleRate): SampleCount
+  function retrospectiveMemory(seconds: number, rate: SampleRate, channels: number): number
+  function retrospectiveOn(seconds: number): DomainResult<RetrospectiveSetting>
+  function scheduleRecording(plan: ControlledRecording, facts: ScheduleFacts): DomainResult<RecordingSchedule>
+  function scheduleStep(schedule: RecordingSchedule, phase: SchedulePhase, now: SampleCount, pageVisible: boolean): ScheduleStep
+  function stoppedUnexpectedly(reason: StopReason): boolean
+  function storageTimeLeft(estimate: StorageEstimate | undefined, rate: SampleRate, channels: number, recorded?: number): StorageTimeLeft
+  function takeCompensation(kept: readonly LatencyCalibration[], current: CalibrationPath, reported: ReportedLatency): TakeCompensation
+  function withHeadphones(profile: CaptureProfile, headphones: boolean): CaptureProfile
+  function withManualOffset(calibration: LatencyCalibration, frames: number): DomainResult<LatencyCalibration>
 
 @audiogubbins/renderer
   interface BackendEvents
@@ -5523,7 +6053,7 @@ Published paths
 
 @audiogubbins/version
   const PRODUCT_VERSION: "0.1.0"
-  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 6; readonly projectStorage: 10; readonly processingLibrary: 1; readonly portableBundle: 2; }
+  const SCHEMA_VERSIONS: { readonly userPreferences: 1; readonly workspaceLayout: 1; readonly shortcutProfile: 1; readonly logVerbosity: 1; readonly keyboardLayout: 1; readonly audioSettings: 2; readonly editorViews: 1; readonly diagnosticBundle: 1; readonly projectDocument: 7; readonly projectStorage: 11; readonly processingLibrary: 1; readonly portableBundle: 2; }
   type SchemaName = "audioSettings" | "diagnosticBundle" | "editorViews" | "keyboardLayout" | "logVerbosity" | "portableBundle" | "processingLibrary" | "projectDocument" | "projectStorage" | "shortcutProfile" | "userPreferences" | "workspaceLayout"
 
 @audiogubbins/video-reference
@@ -5885,6 +6415,51 @@ packages/audio-engine/src/preview/rendered-stream.ts
   readonly Waiting.resolve: () => void
   readonly Waiting.reject: (error: Error) => void
 
+packages/audio-runtime/src/capture-session/capture-node.ts
+  class CaptureNode
+  new CaptureNode(port: AudioContextPort, stream: MediaStream, layout: ChannelLayout, logger: Logger, heard: (reply: FromCapture) => void): CaptureNode
+  readonly CaptureNode.layout: ChannelLayout
+  readonly CaptureNode.monitorRefusal: string | undefined
+  readonly CaptureNode.#node: WorkletNodePort
+  readonly CaptureNode.#source: MediaStreamSourcePort
+  readonly CaptureNode.#logger: Logger
+  readonly CaptureNode.#heard: (reply: FromCapture) => void
+  CaptureNode.#closed: boolean
+  CaptureNode.send: (message: ToCapture, transfer?: Transferable[]) => void
+  CaptureNode.close: () => void
+  readonly CaptureNode.#received: (event: MessageEvent) => void
+  readonly CaptureNode.#undeliverable: () => void
+
+packages/audio-runtime/src/capture-session/capture-session.ts
+  interface OpenInput
+  readonly OpenInput.node: CaptureNode
+  readonly OpenInput.port: AudioContextPort
+  readonly OpenInput.source: CaptureSource
+  OpenInput.meter: InputMeterReport | undefined
+  OpenInput.chainFrames: number
+
+packages/audio-runtime/src/capture/capture-reader.ts
+  type Begin = (BeginFields & { readonly transport: typeof CaptureTransport.Posted; }) | (BeginFields & { readonly transport: typeof CaptureTransport.SharedRing; readonly ring: SharedArrayBuffer; })
+  interface RingTake
+  readonly RingTake.reader: RingReader
+  readonly RingTake.channels: number
+  RingTake.written: number
+  readonly RingTake.gaps: { readonly frame: number; readonly frames: number; }[]
+  RingTake.end: CaptureEnd | undefined
+
+packages/audio-runtime/src/capture/capture-wire.ts
+  interface BeginFields
+  readonly BeginFields.kind: "begin"
+  readonly BeginFields.frame: number
+  readonly BeginFields.sampleRate: SampleRate
+  readonly BeginFields.channels: number
+  type CaptureEnd = { readonly frame: number; readonly reason: typeof CaptureEndReason.Failed; readonly summary: string; } | { readonly frame: number; readonly reason: typeof CaptureEndReason.Released | typeof CaptureEndReason.Stopped; }
+  const CaptureEndReason: { readonly Stopped: "stopped"; readonly Released: "released"; readonly Failed: "failed"; }
+  type CaptureEndReason = "failed" | "released" | "stopped"
+  const CaptureTransport: { readonly Posted: "posted"; readonly SharedRing: "shared-ring"; }
+  type CaptureTransport = "posted" | "shared-ring"
+  type CaptureWire = (BeginFields & { readonly transport: typeof CaptureTransport.Posted; }) | (BeginFields & { readonly transport: typeof CaptureTransport.SharedRing; readonly ring: SharedArrayBuffer; }) | ({ readonly kind: typeof CaptureWireKind.End; } & CaptureEnd) | { readonly kind: typeof CaptureWireKind.Block; readonly frame: number; readonly channels: readonly Float32Array[]; } | { readonly kind: typeof CaptureWireKind.Gap; readonly frame: number; readonly frames: number; } | { readonly kind: typeof CaptureWireKind.Written; readonly frame: number; }
+
 packages/audio-runtime/src/context/audio-context-port.ts
   interface AudioContextOptions
   readonly AudioContextOptions.latencyHint: LatencyHint
@@ -5903,10 +6478,7 @@ packages/audio-runtime/src/context/audio-context-port.ts
   readonly WorkletNodePort.port: WorkletMessagePort
   WorkletNodePort.connect: (destination: AudioDestinationPort, outputChannelOf: readonly number[]) => void
   WorkletNodePort.disconnect: () => void
-  interface WorkletNodeShape
-  readonly WorkletNodeShape.outputChannelCount: readonly number[]
-  readonly WorkletNodeShape.numberOfInputs: 0
-  readonly WorkletNodeShape.numberOfOutputs: 1
+  type WorkletNodeShape = { readonly outputChannelCount: readonly number[]; readonly numberOfInputs: 0; readonly numberOfOutputs: 1; } | { readonly outputChannelCount: readonly number[]; readonly numberOfInputs: 1; readonly numberOfOutputs: 1; readonly inputChannelCount: number; }
   type WorkletPortEvent = "message" | "messageerror"
 
 packages/audio-runtime/src/context/context-lifecycle.ts
@@ -5919,6 +6491,26 @@ packages/audio-runtime/src/context/device-channels.ts
   interface DeviceChannels
   readonly DeviceChannels.count: number
   readonly DeviceChannels.outputChannelOf: readonly number[]
+
+packages/audio-runtime/src/feed/sample-ring.ts
+  class RingReader
+  new RingReader(shape: RingShape): RingReader
+  readonly RingReader.#header: Int32Array<ArrayBufferLike>
+  readonly RingReader.#channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly RingReader.#capacity: number
+  RingReader.#ended: boolean
+  RingReader.#skipped: number
+  RingReader.channelCount: number
+  RingReader.ended: boolean
+  RingReader.ready: (frames: number) => boolean
+  RingReader.read: (into: AudioFrameBlock) => number
+  RingReader.readFrames: (into: readonly Float32Array[], frames: number) => number
+  RingReader.#readable: (read: number) => number
+  RingReader.clear: () => void
+  interface RingShape
+  readonly RingShape.header: Int32Array<ArrayBufferLike>
+  readonly RingShape.channels: readonly Float32Array<ArrayBufferLike>[]
+  readonly RingShape.capacity: number
 
 packages/audio-runtime/src/playback/engine-link.ts
   class EngineLink
@@ -6173,6 +6765,10 @@ packages/audio-runtime/src/playback/worklet-module.ts
   WorkletModule.addTo: (port: AudioContextPort) => Promise<DomainResult<void>>
   WorkletModule.forget: () => void
   WorkletModule.#register: (port: AudioContextPort) => Promise<DomainResult<void>>
+
+packages/audio-runtime/src/protocol/capture-messages.ts
+  type Failures = readonly [FailureSummary, ...FailureSummary[]]
+  type ToCapture = { readonly kind: typeof ToCaptureKind.Arm; readonly retrospectiveSeconds: number; } | { readonly kind: typeof ToCaptureKind.Configure; readonly layout: ChannelLayout; readonly dsp: DspDelivery<Uint8Array<ArrayBuffer>>; readonly reportEveryBlocks: number; } | { readonly kind: typeof ToCaptureKind.Disarm; } | { readonly kind: typeof ToCaptureKind.Monitor; readonly on: boolean; } | { readonly kind: typeof ToCaptureKind.Record; readonly at: number; readonly channel: MessagePort; readonly ring: SharedArrayBuffer | undefined; } | { readonly kind: typeof ToCaptureKind.Release; } | { readonly kind: typeof ToCaptureKind.SetChain; readonly chain: EffectChain | undefined; readonly quality: QualityMode; } | { readonly kind: typeof ToCaptureKind.SetParameter; readonly processor: ProcessorId; readonly parameter: ParameterId; readonly value: number; } | { readonly kind: typeof ToCaptureKind.Stop; readonly at: number; }
 
 packages/audio-runtime/src/protocol/feeder-messages.ts
   type FeederBinding = { readonly node: NodeId; readonly transport: typeof FeedTransport.Posted; } | { readonly node: NodeId; readonly transport: typeof FeedTransport.SharedRing; readonly ring: SharedArrayBuffer; }
@@ -6668,8 +7264,12 @@ packages/processors/src/testing/repair-signals.ts
 packages/project-commands/src/editing/region-invocations.ts
   type ProjectChains = ReadonlyMap<EffectChainId, EffectChain>
 
+packages/project-commands/src/takes/take-invocations.ts
+  type Named = { readonly id: TakeStackId; }
+  type NamedTake = { readonly id: TakeId; }
+
 packages/project-format/src/given-names.ts
-  type NamedSubject = "asset" | "project"
+  type NamedSubject = "asset" | "project" | "take stack" | "take"
 
 packages/renderer/src/renderer-backend.ts
   type DrawOutcome = { readonly kind: "away"; } | { readonly kind: "drawn"; } | { readonly kind: "failed"; readonly reason: string; }
